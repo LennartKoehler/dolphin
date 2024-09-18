@@ -113,7 +113,7 @@ DeconvTool is open-source software licensed under the [MIT License](LICENSE).
 
 ## Contact
 
-For questions or feedback, please contact [your-email@example.com].
+For questions or feedback, please contact [christoph.manitz@uni-jena.de].
 
 ---
 
