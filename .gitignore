@@ -1,5 +1,10 @@
-/result/
-/build/
-/cmake-build-debug/
-/input/
+result/*
+build/*
+cmake-build-debug/*
+input/*
 
+# Stelle sicher, dass das Verzeichnis input nicht ignoriert wird
+!input/
+!result/
+!build/
+!cmake-build-debug/
