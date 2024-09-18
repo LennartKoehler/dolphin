@@ -1,0 +1,31 @@
+{
+  "image_path": "../input/convolved.tif",
+  "psf_path": "synthetic",
+  "dataFormatImage": "FILE",
+  "dataFormatPSF": "FILE",
+  "algorithm": "rl",
+  "sigmax": 15,
+  "sigmay": 15,
+  "sigmaz": 15,
+  "psfx": 20,
+  "psfy": 20,
+  "psfz": 30,
+  "iterations": 15,
+  "lambda": 0,
+  "epsilon": 1e-8,
+  "savePsf": true,
+  "sep": false,
+  "info": true,
+  "showExampleLayers": true,
+  "time": true,
+  "grid": true,
+  "borderType": 2,
+  "cubeSize": 10,
+  "psfSafetyBorder": 20
+}
+
+//  "algorithm": "rif",
+// "epsilon": 1e-20,
+
+//  "algorithm": "inverse",
+// "epsilon": 1e-8,
