@@ -8,3 +8,9 @@ input/*
 !result/
 !build/
 !cmake-build-debug/
+
+# Erlaube eine .gitignore-Datei im Verzeichnis input (optional, falls du .gitignore im Verzeichnis haben möchtest)
+!input/.gitkeep
+!result/.gitkeep
+!build/.gitkeep
+!cmake-build-debug/.gitkeep
