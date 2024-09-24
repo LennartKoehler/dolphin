@@ -3,6 +3,10 @@ build/*
 cmake-build-debug/*
 input/*
 
+uml.puml
+uml2.puml
+uml3.puml
+
 # Stelle sicher, dass das Verzeichnis input nicht ignoriert wird
 !input/
 !result/

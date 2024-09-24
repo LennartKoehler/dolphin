@@ -18,8 +18,7 @@ using json = nlohmann::json;
 
 int main(int argc, char** argv) {
     std::cout << "[Start DeconvTool]" << std::endl;
-    // Starttime
-    auto start = std::chrono::high_resolution_clock::now();
+
 
     // Arguments
     std::string image_path;
@@ -178,6 +177,9 @@ int main(int argc, char** argv) {
 
         Hyperstack deconvHyperstack;
 
+        // Starttime
+        auto start = std::chrono::high_resolution_clock::now();
+
         if (algorithm == "inverse") {
             DeconvolutionAlgorithm<InverseFilterDeconvolutionAlgorithm> inverseAlgorithm(deconvConfig);
             deconvHyperstack = inverseAlgorithm.deconvolve(hyperstack, psf);
@@ -194,6 +196,15 @@ int main(int argc, char** argv) {
                       << std::endl;
             return EXIT_FAILURE;
         }
+
+        if (time) {
+            // Endtime
+            auto end = std::chrono::high_resolution_clock::now();
+            // Calculation of the duration of the programm
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << "Duration: " << duration.count() << " ms" << std::endl;
+        }
+
         if (showExampleLayers) {
             deconvHyperstack.showChannel(0);
         }
@@ -206,13 +217,7 @@ int main(int argc, char** argv) {
 
         //###PROGRAMM END###//
 
-        if (time) {
-            // Endtime
-            auto end = std::chrono::high_resolution_clock::now();
-            // Calculation of the duration of the programm
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-            std::cout << "Duration: " << duration.count() << " ms" << std::endl;
-        }
+
 
         std::cout << "[End DeconvTool]" << std::endl;
         return EXIT_SUCCESS;
