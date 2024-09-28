@@ -1,4 +1,7 @@
-# DeconvTool
+<div style="display: flex; align-items: center;">
+    <img src="icon.png" alt="Whale Icon" width="50" height="50" style="margin-right: 10px;">
+    <h1>DeconvTool</h1>
+</div>
 
 ## Abstract
 
@@ -114,7 +117,7 @@ DeconvTool is open-source software licensed under the [MIT License](LICENSE).
 ## Contact
 
 For questions or feedback, please contact [christoph.manitz@uni-jena.de].
-
+Icon attribution <a href="https://www.flaticon.com/free-icons/whale" title="whale icons">Whale icons created by Freepik - Flaticon</a>
 ---
 
 **Note**: Replace placeholders like `<path_to_image>`, `<algorithm>`, etc., with actual values when running the tool.
