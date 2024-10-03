@@ -85,6 +85,8 @@ void UtlFFT::complexMultiplication(fftw_complex* a, fftw_complex* b, fftw_comple
         return;
     }
 
+    //omp_set_num_threads(10);
+    //#pragma omp parallel for
     // Perform complex multiplication
     for (int i = 0; i < size; ++i) {
         // Check for valid access within bounds
@@ -98,7 +100,6 @@ void UtlFFT::complexMultiplication(fftw_complex* a, fftw_complex* b, fftw_comple
         double real_b = b[i][0];
         double imag_b = b[i][1];
 
-#pragma omp critical
         {
             result[i][0] = real_a * real_b - imag_a * imag_b;
             result[i][1] = real_a * imag_b + imag_a * real_b;
@@ -124,7 +125,7 @@ void UtlFFT::complexDivision(fftw_complex* a, fftw_complex* b, fftw_complex* res
         if (denominator < epsilon) {
             denominator = epsilon;
         }
-#pragma omp critical
+
        {
            result[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
            result[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
@@ -139,54 +140,19 @@ void UtlFFT::quadrantShift(fftw_complex* data, int width, int height, int depth)
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
 
+    //#pragma omp parallel for collapse(3) // Parallelisieren der drei Schleifen
     for (int z = 0; z < halfDepth; ++z) {
-        for (int y = 0; y < halfHeight; ++y) {
-            for (int x = 0; x < halfWidth; ++x) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                // Calculate the indices for the swap
                 int idx1 = z * height * width + y * width + x;
-                int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x + halfWidth);
-#pragma omp critical
-                {
+                int idx2 = ((z + halfDepth) % depth) * height * width + ((y + halfHeight) % height) * width + ((x + halfWidth) % width);
+
+                // Perform the swap only if the indices are different
+                if (idx1 != idx2) {
                     std::swap(data[idx1][0], data[idx2][0]);
                     std::swap(data[idx1][1], data[idx2][1]);
                 }
-            }
-        }
-    }
-
-    for (int z = 0; z < halfDepth; ++z) {
-        for (int y = 0; y < halfHeight; ++y) {
-            for (int x = halfWidth; x < width; ++x) {
-                int idx1 = z * height * width + y * width + x;
-                int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x - halfWidth);
-#pragma omp critical
-                {
-                    std::swap(data[idx1][0], data[idx2][0]);
-                    std::swap(data[idx1][1], data[idx2][1]);
-                }
-            }
-        }
-    }
-
-    for (int z = 0; z < halfDepth; ++z) {
-        for (int y = halfHeight; y < height; ++y) {
-            for (int x = 0; x < halfWidth; ++x) {
-                int idx1 = z * height * width + y * width + x;
-                int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x + halfWidth);
-
-                std::swap(data[idx1][0], data[idx2][0]);
-                std::swap(data[idx1][1], data[idx2][1]);
-            }
-        }
-    }
-
-    for (int z = 0; z < halfDepth; ++z) {
-        for (int y = halfHeight; y < height; ++y) {
-            for (int x = halfWidth; x < width; ++x) {
-                int idx1 = z * height * width + y * width + x;
-                int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x - halfWidth);
-
-                std::swap(data[idx1][0], data[idx2][0]);
-                std::swap(data[idx1][1], data[idx2][1]);
             }
         }
     }

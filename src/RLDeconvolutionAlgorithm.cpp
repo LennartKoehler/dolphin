@@ -170,49 +170,78 @@ Hyperstack RLDeconvolutionAlgorithm::deconvolve(Hyperstack& data, PSF& psf) {
             int gridNum = 0;
             //fftw_make_planner_thread_safe();
             //#pragma omp parallel for
+            //#pragma omp parallel for schedule(dynamic)
+
+            /////////////////////////////////////////////////////////////////////
+            //TODO
+            // fftcomplex in mit volumen, originimage als platzhalter daten
+            fftw_complex *in = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeVolume);
+            fftw_complex *out = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeVolume);
+
+            // plan erstellen mit dimensionen, in als platzhalter daten und measure
+            fftw_plan inPlan = fftw_plan_dft_3d(cubeDepth, cubeHeigth, cubeWidth, in, out, FFTW_FORWARD, FFTW_MEASURE);
+            fftw_plan outPlan = fftw_plan_dft_3d(cubeDepth, cubeHeigth, cubeWidth, in, out, FFTW_BACKWARD, FFTW_MEASURE);
+            /////////////////////////////////////////////////////////////////////
+
+
             for(auto& gridImage : split){
 
                 //Convert image to fftcomplex
                 UtlFFT::convertCVMatVectorToFFTWComplex(gridImage, originImage, cubeWidth, cubeHeigth, cubeDepth);
                 std::memcpy(resultImage, originImage, sizeof(fftw_complex) * cubeVolume);
 
-                for (int i = 0; i < this->iterations; i++) {
-                    std::flush(std::cout);
+                for (int i = 0; i < this->iterations; ++i) {
+                    std::cout << "\rChannel: " << channel_z + 1 << "/" << data.channels.size() << " GridImage: "
+                              << gridNum + 1 << "/" << split.size() << " Iteration: " << i + 1 << "/"
+                              << this->iterations << " ";
 
-                        std::cout << "\rChannel: " << channel_z + 1 << "/" << data.channels.size() << " GridImage: "
-                                  << gridNum + 1 << "/" << split.size() << " Iteration: " << i + 1 << "/"
-                                  << this->iterations << " ";
+                    // Copy resultImage to in for processing
+                    std::memcpy(in, resultImage, sizeof(fftw_complex) * cubeVolume);
+                    fftw_execute_dft(inPlan, in, out);
 
-                    // Perform forward FFT
-                    UtlFFT::forwardFFT(resultImage, resultImage, cubeDepth, cubeHeigth, cubeWidth);
+                    // Quadrant shift and copy result to resultImage
+                    UtlFFT::quadrantShift(out, cubeWidth, cubeHeigth, cubeDepth);
+                    std::memcpy(resultImage, out, sizeof(fftw_complex) * cubeVolume);
 
                     // Convolve the result image with the PSF in frequency domain
                     UtlFFT::complexMultiplication(resultImage, padded_psfFFT, convolutedRatio, cubeVolume);
+                    std::memcpy(in, convolutedRatio, sizeof(fftw_complex) * cubeVolume);
 
-                    UtlFFT::backwardFFT(convolutedRatio, convolutedRatio, cubeDepth, cubeHeigth, cubeWidth);
+                    // Perform quadrant shift on convolutedRatio
+                    UtlFFT::quadrantShift(in, cubeWidth, cubeHeigth, cubeDepth);
+                    fftw_execute_dft(outPlan, in, out);
+                    std::memcpy(convolutedRatio, out, sizeof(fftw_complex) * cubeVolume);
+
+                    // Quadrant shift convolutedRatio
                     UtlFFT::quadrantShift(convolutedRatio, cubeWidth, cubeHeigth, cubeDepth);
-                    // Compute the ratio of the input image to the convoluted image
                     UtlFFT::complexDivision(originImage, convolutedRatio, convolutedRatio, cubeVolume, this->epsilon);
 
-                    // Perform forward FFT on the ratio
-                    UtlFFT::forwardFFT(convolutedRatio, convolutedRatio, cubeDepth, cubeHeigth, cubeWidth);
+                    std::memcpy(in, convolutedRatio, sizeof(fftw_complex) * cubeVolume);
+                    fftw_execute_dft(inPlan, in, out);
+                    UtlFFT::quadrantShift(out, cubeWidth, cubeHeigth, cubeDepth);
+                    std::memcpy(convolutedRatio, out, sizeof(fftw_complex) * cubeVolume);
 
-                    //Correlate the ratio with the flipped PSF in frequency domain
+                    // Correlate the ratio with the flipped PSF in frequency domain
                     UtlFFT::complexMultiplication(convolutedRatio, padded_flippedPsfFFT, interimImage, cubeVolume);
 
-                    // Perform inverse FFT on the interim image and result image
-                    UtlFFT::backwardFFT(resultImage, resultImage, cubeDepth, cubeHeigth, cubeWidth);
-                    UtlFFT::backwardFFT(interimImage, interimImage, cubeDepth, cubeHeigth, cubeWidth);
+                    // Inverse FFT on resultImage and interimImage
+                    std::memcpy(in, resultImage, sizeof(fftw_complex) * cubeVolume);
+                    UtlFFT::quadrantShift(in, cubeWidth, cubeHeigth, cubeDepth);
+                    fftw_execute_dft(outPlan, in, out);
+                    std::memcpy(resultImage, out, sizeof(fftw_complex) * cubeVolume);
+
+                    std::memcpy(in, interimImage, sizeof(fftw_complex) * cubeVolume);
+                    UtlFFT::quadrantShift(in, cubeWidth, cubeHeigth, cubeDepth);
+                    fftw_execute_dft(outPlan, in, out);
+                    std::memcpy(interimImage, out, sizeof(fftw_complex) * cubeVolume);
                     UtlFFT::quadrantShift(interimImage, cubeWidth, cubeHeigth, cubeDepth);
 
                     // Multiple temp result image with interim image to get result
                     UtlFFT::complexMultiplication(resultImage, interimImage, resultImage, cubeVolume);
 
-                    // Normalize to avoid very small values
-                    //UtlFFT::normalizeImage(resultImage, size, this->epsilon);
-
-                    // Save intermediate results for debugging
-                    //UtlFFT::saveInterimImages(resultImage, imageWidth, imageHeight, imageDepth, gridNum, channel_z, i);
+                    // Uncomment the following lines for debugging
+                    // UtlFFT::normalizeImage(resultImage, size, this->epsilon);
+                    // UtlFFT::saveInterimImages(resultImage, imageWidth, imageHeight, imageDepth, gridNum, channel_z, i);
 
                     std::flush(std::cout);
                 }
@@ -222,6 +251,12 @@ Hyperstack RLDeconvolutionAlgorithm::deconvolve(Hyperstack& data, PSF& psf) {
 
                 gridNum++;
             }
+
+            // Speicher freigeben
+            fftw_destroy_plan(inPlan);
+            fftw_destroy_plan(outPlan);
+            fftw_free(in);
+            fftw_free(out);
 
             std::vector<cv::Mat> mergedVolume;
             if(this->grid){
