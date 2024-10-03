@@ -10,7 +10,7 @@
   "psfx": 20,
   "psfy": 20,
   "psfz": 30,
-  "iterations": 1,
+  "iterations": 20,
   "lambda": 0,
   "epsilon": 1e-8,
   "savePsf": true,
@@ -20,7 +20,7 @@
   "time": true,
   "grid": true,
   "borderType": 2,
-  "cubeSize": 10,
+  "cubeSize": 0,
   "psfSafetyBorder": 20
 }
 
@@ -29,3 +29,5 @@
 
 //  "algorithm": "inverse",
 // "epsilon": 1e-8,
+
+// "cubeSize": 0, --> auto

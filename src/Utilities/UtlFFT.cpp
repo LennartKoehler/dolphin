@@ -113,6 +113,41 @@ void UtlFFT::complexMultiplication(fftw_complex* a, fftw_complex* b, fftw_comple
         }*/
     }
 }
+// Perform point-wise complex multiplication with conjugation
+void UtlFFT::complexMultiplicationWithConjugate(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) {
+    // Ensure that input pointers are not null
+    if (!a || !b || !result) {
+        std::cerr << "Error: Null pointer passed to complexMultiplicationWithConjugate." << std::endl;
+        return;
+    }
+
+    // omp_set_num_threads(10);
+    // #pragma omp parallel for
+    // Perform complex multiplication with conjugation
+    for (int i = 0; i < size; ++i) {
+        // Check for valid access within bounds
+        if (i >= size) {
+            std::cerr << "Error: Access out of bounds in complexMultiplicationWithConjugate." << std::endl;
+            break;
+        }
+
+        double real_a = a[i][0];
+        double imag_a = a[i][1];
+        double real_b = b[i][0];
+        double imag_b = -b[i][1];  // Conjugate the imaginary part
+
+        result[i][0] = real_a * real_b - imag_a * imag_b; // Real part
+        result[i][1] = real_a * imag_b + imag_a * real_b; // Imaginary part
+
+        // Optional: Thresholding
+        /*if (result[i][0] < 1e-8) {
+            result[i][0] = 0;
+        }
+        if (result[i][1] < 1e-8) {
+            result[i][1] = 0;
+        }*/
+    }
+}
 // Perform point-wise complex division (min->epsilon)
 void UtlFFT::complexDivision(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) {
    for (int i = 0; i < size; ++i) {

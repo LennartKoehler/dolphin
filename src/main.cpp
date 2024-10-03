@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
     bool showExampleLayers = false;
     bool printInfo = false;
     bool grid = true;
-    int cubeSize = 50;
+    int cubeSize = 0;
     int psfSafetyBorder = 20;
     int borderType = cv::BORDER_REFLECT;
 

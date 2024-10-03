@@ -33,8 +33,10 @@ namespace UtlFFT {
     void complexDivision(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon);
     void complexAddition(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size);
     void scalarMultiplication(fftw_complex* a, double scalar, fftw_complex* result, int size);
+    void complexMultiplicationWithConjugate(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size);
 
-    void calculateLaplacianOfPSF(fftw_complex* psf, fftw_complex* laplacian, int width, int height, int depth);
+
+        void calculateLaplacianOfPSF(fftw_complex* psf, fftw_complex* laplacian, int width, int height, int depth);
 
     void normalizeImage(fftw_complex* resultImage, int size, double epsilon);
 
