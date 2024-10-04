@@ -151,7 +151,7 @@ Hyperstack RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(Hyperstack
             // Inverse FFT
             //std::cout << "Performing inverse FFT..." << std::endl;
             UtlFFT::backwardFFT(image, image, cubeDepth, cubeHeigth, cubeWidth);
-            UtlFFT::quadrantShift(image, cubeWidth, cubeHeigth, cubeDepth);
+            UtlFFT::octantFourierShift(image, cubeWidth, cubeHeigth, cubeDepth);
             //UtlFFT::reorderLayers(image, cubeWidth, cubeHeigth, cubeDepth);
 
 

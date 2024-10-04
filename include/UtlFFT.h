@@ -25,7 +25,7 @@ namespace UtlFFT {
     void forwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth);
     void backwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth);
 
-    void quadrantShift(fftw_complex* data, int width, int height, int depth);
+    void octantFourierShift(fftw_complex* data, int width, int height, int depth);
     void inverseQuadrantShift(fftw_complex* data, int width, int height, int depth);
     void quadrantShiftMat(cv::Mat& magI);
 

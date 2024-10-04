@@ -104,7 +104,7 @@ Hyperstack Hyperstack::convolve(PSF psf) {
         UtlFFT::complexMultiplication(imageFFT, padded_psfFFT, imageFFT, volume);
 
         UtlFFT::backwardFFT(imageFFT, imageFFT, depth, heigth, width);
-        UtlFFT::quadrantShift(imageFFT, width, heigth, depth          );
+        UtlFFT::octantFourierShift(imageFFT, width, heigth, depth);
 
         UtlFFT::convertFFTWComplexToCVMatVector(imageFFT, channel.image.slices, width, heigth, depth);
     }

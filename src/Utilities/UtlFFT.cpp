@@ -64,12 +64,12 @@ void UtlFFT::forwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int 
     fftw_plan plan = fftw_plan_dft_3d(imageDepth, imageHeight, imageWidth, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
         fftw_execute(plan);
         fftw_destroy_plan(plan);
-        quadrantShift(out, imageWidth, imageHeight, imageDepth);
+    octantFourierShift(out, imageWidth, imageHeight, imageDepth);
     }
 // Backward Fourier Transformation with fftw
 void UtlFFT::backwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth){
 
-        quadrantShift(out, imageWidth, imageHeight, imageDepth);
+    octantFourierShift(out, imageWidth, imageHeight, imageDepth);
     //fftw_make_planner_thread_safe();
 
     fftw_plan plan = fftw_plan_dft_3d(imageDepth, imageHeight, imageWidth, in, out, FFTW_BACKWARD, FFTW_ESTIMATE);
@@ -170,7 +170,7 @@ void UtlFFT::complexDivision(fftw_complex* a, fftw_complex* b, fftw_complex* res
 }
 
 // Perform quadrant shift on FFTW complex array
-void UtlFFT::quadrantShift(fftw_complex* data, int width, int height, int depth) {
+void UtlFFT::octantFourierShift(fftw_complex* data, int width, int height, int depth) {
     int halfWidth = width / 2;
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
@@ -269,6 +269,7 @@ void UtlFFT::inverseQuadrantShift(fftw_complex* data, int width, int height, int
 // Convert OpenCV Mat vector to FFTW complex array
 void UtlFFT::convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, fftw_complex* output, int width, int height, int depth) {
     for (int z = 0; z < depth; ++z) {
+        CV_Assert(input[z].type() == CV_32F);  // Ensure input is of type float
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 output[z * height * width + y * width + x][0] = static_cast<double>(input[z].at<float>(y, x));
