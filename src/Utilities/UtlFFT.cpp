@@ -157,16 +157,33 @@ void UtlFFT::complexDivision(fftw_complex* a, fftw_complex* b, fftw_complex* res
         double imag_b = b[i][1];
 
         double denominator = real_b * real_b + imag_b * imag_b;
+        //TODO
         if (denominator < epsilon) {
-            denominator = epsilon;
+            //denominator = epsilon;
+            result[i][0] = 0.0f;
+            result[i][1] = 0.0f;
+        }else{
+            result[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
+            result[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
         }
-
-       {
-           result[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
-           result[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
-       }
     }
 
+}
+// Perform point-wise complex division with stabilization (min->epsilon)
+void UtlFFT::complexDivisionStabilized(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) {
+    for (int i = 0; i < size; ++i) {
+        double real_a = a[i][0];  // Realteil von a
+        double imag_a = a[i][1];  // Imaginärteil von a
+        double real_b = b[i][0];  // Realteil von b
+        double imag_b = b[i][1];  // Imaginärteil von b
+
+        // Berechnung des Betrags von b, mit Stabilisierung durch epsilon
+        double mag = std::max(epsilon, real_b * real_b + imag_b * imag_b);
+
+        // Durchführung der stabilisierten Division
+        result[i][0] = (real_a * real_b + imag_a * imag_b) / mag;  // Realteil des Ergebnisses
+        result[i][1] = (imag_a * real_b - real_a * imag_b) / mag;  // Imaginärteil des Ergebnisses
+    }
 }
 
 // Perform quadrant shift on FFTW complex array

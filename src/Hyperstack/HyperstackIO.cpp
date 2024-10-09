@@ -72,14 +72,14 @@ bool Hyperstack::readFromTifFile(const char *filename) {
     fileMetaData.yResolution = yResolution;
 
     this->metaData = fileMetaData;
-    std::cout << "TEST" <<std::endl;
+    std::cout << "[INFO] Read in metadata successful" <<std::endl;
 
     return true;
 }
 bool Hyperstack::readFromTifDir(const std::string& directoryPath) {
     fs::path dirPath(directoryPath);
     if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
-        std::cerr << "Specified path is not a directory or does not exist: " << directoryPath << std::endl;
+        std::cerr << "[ERROR] Specified path is not a directory or does not exist: " << directoryPath << std::endl;
         return false;
     }
 
@@ -123,7 +123,7 @@ bool Hyperstack::readFromTifDir(const std::string& directoryPath) {
         }
         first_image = false;
         if (img.empty()) {
-            std::cerr << "Failed to load image: " << filename << std::endl;
+            std::cerr << "[ERROR] Failed to load image: " << filename << std::endl;
             continue;
         }
 
@@ -133,7 +133,7 @@ bool Hyperstack::readFromTifDir(const std::string& directoryPath) {
     }
 
     if (layers.empty()) {
-        std::cerr << "No images were loaded." << std::endl;
+        std::cerr << "[ERROR] No images were loaded." << std::endl;
         return false;
     }
 
@@ -146,7 +146,7 @@ bool Hyperstack::readFromTifDir(const std::string& directoryPath) {
         slices = static_cast<int>(layers.size());
     }
     //TODO debug
-    std::cout<< "Read in " << size(layers) << " Slices"<< std::endl;
+    std::cout<< "[INFO] Read in " << size(layers) << " layers"<< std::endl;
 
     //Converting Layers to 32F
     UtlIO::convertImageTo32F(layers, dataType, bitsPerSample);
@@ -171,12 +171,12 @@ bool Hyperstack::readFromTifDir(const std::string& directoryPath) {
             }
             //c = (c > this->getChannelNum()-1) ? (c = 0, ++sigmaZ) : c;
             if(multichannel_z == z) {
-                std::cout << name << " converted to multichannel" << std::endl;
+                std::cout<<"[INFO] " << name << " converted to multichannel" << std::endl;
                 success = true;
             }
         }
         if(!success){
-            std::cout << name << "(Layers: " << std::to_string(size(layers)) << ") could not converted to multichannel, Layers: " << std::to_string(z) << std::endl;
+            std::cout << "[ERROR] "<< name << "(Layers: " << std::to_string(size(layers)) << ") could not converted to multichannel, Layers: " << std::to_string(z) << std::endl;
         }
 
         //create Image3D with channeldata
@@ -233,7 +233,7 @@ bool Hyperstack::saveAsTifFile(const std::string &directoryPath) {
 
     TIFF* out = TIFFOpen(directoryPath.c_str(), "w");
     if (!out) {
-        std::cerr << "Cannot open TIFF file for writing: " << directoryPath.c_str() << std::endl;
+        std::cerr << "[ERROR] Cannot open TIFF file for writing: " << directoryPath.c_str() << std::endl;
         return false;
     }
     int sampleFormat;
@@ -271,7 +271,7 @@ bool Hyperstack::saveAsTifFile(const std::string &directoryPath) {
 
             for (int row = 0; row < channel_vec[c][i].rows; ++row) {
                 if (TIFFWriteScanline(out, channel_vec[c][i].ptr(row), row, 0) < 0) { // '0' da jedes Plane ein Kanal ist
-                    std::cerr << "Failed to write scanline for channel " << c << " at slice " << i << std::endl;
+                    std::cerr << "[ERROR] Failed to write scanline for channel " << c << " at slice " << i << std::endl;
                     TIFFClose(out);
                     return false;
                 }

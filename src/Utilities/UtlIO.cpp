@@ -15,11 +15,11 @@ void UtlIO::convertImageTo32F(std::vector<cv::Mat> &layers, int &dataType, uint1
     for(auto& layer: layers){
         // Konvertiere in ein 32-Bit-Bild durch Normalisierung
         layer.convertTo(layer, CV_32F, 1/(globalMax-globalMin), -globalMin*(1/(globalMax-globalMin)));
-        std::cout << "\rLayer " << i << "/" << layers.size()-1 << " in 32F umgewandelt" << " ";
+        std::cout << "\r[STATUS] Layer " << i << "/" << layers.size()-1 << " in 32F converted" << " ";
         std::flush(std::cout);
         i++;
     }
-
+    std::cout << " " << std::endl;
     bitsPerSample = 32;
     dataType = CV_32F;
 }
@@ -32,8 +32,9 @@ bool UtlIO::readLayers(std::vector<cv::Mat> &layers, int &totalImages, int &data
     } else if (bitsPerSample == 32) {
         dataType = CV_32FC(samplesPerPixel);
     } else {
-        std::cerr << bitsPerSample << "Unsupported bit depth." << std::endl;
+        std::cerr << bitsPerSample << "[ERROR] Unsupported bit depth." << std::endl;
         dataType = 0;
+        return false;
     }
     do {
         totalImages++;
@@ -48,7 +49,7 @@ bool UtlIO::readLayers(std::vector<cv::Mat> &layers, int &totalImages, int &data
         uint32_t row;
         buf = (char *)_TIFFmalloc(scanlineSize);
         if (!buf) {
-            std::cerr << "Memory allocation failed for buffer." << std::endl;
+            std::cerr << "[ERROR] Memory allocation failed for buffer." << std::endl;
             TIFFClose(tifOriginalFile);
             return false;
         }
@@ -68,14 +69,14 @@ bool UtlIO::readLayers(std::vector<cv::Mat> &layers, int &totalImages, int &data
     } while (TIFFReadDirectory(tifOriginalFile));
 
     //TODO debug
-    std::cout<< "Read in " << layers.size() << " Slices"<< std::endl;
+    std::cout<< "[INFO] Read in " << layers.size() << " layers"<< std::endl;
 
     return true;
 }
 
 bool UtlIO::extractData(TIFF* &tifOriginalFile, std::string &name, std::string &description, const char* &filename, int &linChannels, int &slices, int &imageWidth, int &imageLength, uint16_t &resolutionUnit, float &xResolution, float &yResolution, uint16_t &samplesPerPixel, uint16_t &photometricInterpretation, uint16_t &bitsPerSample, int &frameCount, uint16_t &planarConfig, int &totalimages){
     if (!tifOriginalFile) {
-        std::cerr << "Cannot open TIFF file: " << filename << std::endl;
+        std::cerr << "[ERROR] Cannot open TIFF file: " << filename << std::endl;
         return false;
     }else{
         //Excract Data
@@ -95,7 +96,7 @@ bool UtlIO::extractData(TIFF* &tifOriginalFile, std::string &name, std::string &
             }
             description = desc;
         } else {
-            std::cout << "Keine ImageDescription vorhanden." << std::endl;
+            std::cout << "[INFO] No image description" << std::endl;
         }
 
         // Lese TIFF-Tags, wie im früheren Beispiel
@@ -143,12 +144,12 @@ void UtlIO::createImage3D(std::vector<Channel> &channels, Image3D &imageLayers, 
                 z++;
             }
             if(multichannel_z == z) {
-                std::cout << name << " converted to multichannel" << std::endl;
+                std::cout <<"[INFO] " << name << " converted to multichannel" << std::endl;
                 success = true;
             }
         }
         if(!success){
-            std::cout << name << "(Layers: " << std::to_string(size(layers)) << ") could not converted to multichannel, Layers: " << std::to_string(z) << std::endl;
+            std::cout << "[ERROR] "<< name << "(Layers: " << std::to_string(size(layers)) << ") could not converted to multichannel, Layers: " << std::to_string(z) << std::endl;
         }
 
         //create Image3D with channeldata

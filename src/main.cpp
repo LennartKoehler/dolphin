@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
 
     CLI::App app{"deconvtool - Deconvolution of Microscopy Images"};
     // Define a group for CLI arguments
-    CLI::Option_group *cli_group = app.add_option_group("CLI", "Kommandozeilenoptionen");
+    CLI::Option_group *cli_group = app.add_option_group("CLI", "Commandline options");
 
     cli_group->add_option("-i,--image", image_path, "Input Image Path")->required();
     cli_group->add_option("-p,--psf", psf_path, "Input PSF Path")->required();
@@ -80,9 +80,9 @@ int main(int argc, char** argv) {
 
 
     // Define a group for configuration file
-    CLI::Option_group *config_group = app.add_option_group("Config", "Konfigurationsdatei");
+    CLI::Option_group *config_group = app.add_option_group("Config", "Configuration file");
     std::string config_file_path;
-    config_group->add_option("-c,--config", config_file_path, "Pfad zur Konfigurationsdatei")->required();
+    config_group->add_option("-c,--config", config_file_path, "Path to configuration file")->required();
 
     // Exclude CLI arguments if configuration file is set
     cli_group->excludes(config_group);
@@ -94,10 +94,10 @@ int main(int argc, char** argv) {
     if (!config_file_path.empty()) {
         // Read configuration file
         std::ifstream config_file(config_file_path);
-        std::cout << config_file_path << " successfully read" << std::endl;
+        std::cout<< "[STATUS] " << config_file_path << " successfully read" << std::endl;
         if (!config_file.is_open()) {
-            std::cerr << "Error opening the configuration file:" << config_file_path << std::endl;
-            return 1;
+            std::cerr << "[ERROR] failed opening of configuration file:" << config_file_path << std::endl;
+            return EXIT_FAILURE;
         }
         config_file >> config;
         // Values from configuration file passed to arguments
@@ -141,7 +141,8 @@ int main(int argc, char** argv) {
             } else if (dataFormatPSF == "FILE") {
                 psf.readFromTifFile(psf_path.c_str());
             } else {
-                std::cerr << "No correct dataformat for PSF - choose DIR or FILE" << std::endl;
+                std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
+                return EXIT_FAILURE;
             }
         }
         //psf.image.show();
@@ -152,7 +153,8 @@ int main(int argc, char** argv) {
         }else if(dataFormatImage == "DIR"){
             hyperstack.readFromTifDir(image_path.c_str());
         } else {
-            std::cerr << "No correct dataformat for Image - choose DIR or FILE" << std::endl;
+            std::cerr << "[ERROR] No correct dataformat for Image - choose DIR or FILE" << std::endl;
+            return EXIT_FAILURE;
         }
         if (savePsf) {
             psf.saveAsTifFile("../result/psf.tif");
@@ -192,7 +194,7 @@ int main(int argc, char** argv) {
         } else if (algorithm == "convolve") {
                 deconvHyperstack = hyperstack.convolve(psf);
         } else {
-            std::cout << "Please choose a --algorithm: InverseFilter[inverse], Wiener[wiener], RichardsonLucy[rl]"
+            std::cerr << "[ERROR] Please choose a --algorithm: InverseFilter[inverse], Wiener[wiener], RichardsonLucy[rl]"
                       << std::endl;
             return EXIT_FAILURE;
         }
@@ -202,7 +204,7 @@ int main(int argc, char** argv) {
             auto end = std::chrono::high_resolution_clock::now();
             // Calculation of the duration of the programm
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-            std::cout << "Duration: " << duration.count() << " ms" << std::endl;
+            std::cout << "[INFO] Duration: " << duration.count() << " ms" << std::endl;
         }
 
         if (showExampleLayers) {

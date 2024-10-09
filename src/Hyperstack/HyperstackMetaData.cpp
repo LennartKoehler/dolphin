@@ -2,6 +2,7 @@
 #include <iostream>
 
 void Hyperstack::printMetadata() const {
+    std::cout << "[METADATA]" << std::endl;
     std::cout << "Image Type: " << metaData.imageType << std::endl;
     std::cout << "Name: " << metaData.name << std::endl;
     std::cout << "Image Width: " << metaData.imageWidth << std::endl;

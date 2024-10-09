@@ -66,6 +66,7 @@ add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
         include/UtlIO.h
         src/Utilities/UtlIO.cpp
         include/Channel.h
+        src/BaseDeconvolutionAlgorithm.cpp
 )
 # Link your executable with the required libraries
 target_link_libraries(deconvtool

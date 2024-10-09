@@ -34,6 +34,8 @@ namespace UtlFFT {
     void complexAddition(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size);
     void scalarMultiplication(fftw_complex* a, double scalar, fftw_complex* result, int size);
     void complexMultiplicationWithConjugate(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size);
+    void complexDivisionStabilized(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon);
+
 
 
         void calculateLaplacianOfPSF(fftw_complex* psf, fftw_complex* laplacian, int width, int height, int depth);
