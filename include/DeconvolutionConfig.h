@@ -12,6 +12,7 @@ public:
     int borderType = cv::BORDER_REFLECT;
     int psfSafetyBorder = 20;
     int cubeSize = 50;
+    std::vector<int> secondpsflayers = {};
 
     void loadFromJSON(const std::string &directoryPath);
 };

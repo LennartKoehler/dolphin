@@ -23,44 +23,57 @@ int main(int argc, char** argv) {
     // Arguments
     std::string image_path;
     std::string psf_path;
+    std::string psf_path_2;
     std::string algorithm;
     std::string image_type;
     std::string dataFormatImage;
     std::string dataFormatPSF;
     int iterations = 100; //RichardsonLucy
     double lambda = 1e-20; //Regularized Inverse Filter
-    double sigmax = 25.0; //RichardsonLucy synthetic PSF
-    double sigmay = 25.0; //RichardsonLucy synthetic PSF
-    double sigmaz = 25.0;
-    int psfx = 500;
-    int psfy = 500;
-    int psfz = 20;
-    double epsilon = 0; // Complex Divison
+    double sigmax = 25.0; //synthetic PSF
+    double sigmay = 25.0; //synthetic PSF
+    double sigmaz = 25.0; //synthetic PSF
+    int psfx = 20;
+    int psfy = 20;
+    int psfz = 30;
+    double epsilon = 1e-12; // Complex Divison
     bool time = false;
-    bool sep = false; //RichardsonLucy PNG
+    bool sep = false; //save layer separate (TIF dir)
     bool savePsf = false;
     bool showExampleLayers = false;
     bool printInfo = false;
     bool grid = true;
-    int cubeSize = 0;
+    int cubeSize = 20;
     int psfSafetyBorder = 20;
     int borderType = cv::BORDER_REFLECT;
+
+    //TODO
+    double sigmax_2 = 25.0; //synthetic PSF
+    double sigmay_2 = 25.0; //synthetic PSF
+    double sigmaz_2 = 25.0; //synthetic PSF
+    std::vector<int> secondpsflayers;
 
     CLI::App app{"deconvtool - Deconvolution of Microscopy Images"};
     // Define a group for CLI arguments
     CLI::Option_group *cli_group = app.add_option_group("CLI", "Commandline options");
 
     cli_group->add_option("-i,--image", image_path, "Input Image Path")->required();
-    cli_group->add_option("-p,--psf", psf_path, "Input PSF Path")->required();
+    cli_group->add_option("-p,--psf", psf_path, "Input PSF Path or 'synthetic'")->required();
+    cli_group->add_option("--psf2", psf_path_2, "Input second PSF Path or 'synthetic'");
     cli_group->add_option("-a,--algorithm", algorithm, "Algorithm Selection ('rl'/'rif'/'inverse')")->required();
     cli_group->add_option("--dataFormatImage", dataFormatImage, "Data Format for Image ('FILE'/'DIR')")->required();
     cli_group->add_option("--dataFormatPSF", dataFormatPSF, "Data Format for PSF ('FILE'/'DIR')")->required();
     cli_group->add_option("--sigmax", sigmax, "SigmaX for synthetic PSF [25] (for RL)")->check(CLI::PositiveNumber);
     cli_group->add_option("--sigmay", sigmay, "SigmaY for synthetic PSF  [25] (for RL)")->check(CLI::PositiveNumber);
     cli_group->add_option("--sigmaz", sigmaz, "SigmaZ for synthetic PSF  [25] (for RL)")->check(CLI::PositiveNumber);
-    cli_group->add_option("--psfx", psfx, "PSF width for synthetic PSF  [500] (for RL)")->check(CLI::PositiveNumber);
-    cli_group->add_option("--psfy", psfy, "PSF heigth for synthetic PSF  [500] (for RL)")->check(CLI::PositiveNumber);
-    cli_group->add_option("--psfz", psfz, "PSF depth for synthetic PSF  [20] (for RL)")->check(CLI::PositiveNumber);
+    cli_group->add_option("--psfx", psfx, "PSF width for synthetic PSF  [20] (for RL)")->check(CLI::PositiveNumber);
+    cli_group->add_option("--psfy", psfy, "PSF heigth for synthetic PSF  [20] (for RL)")->check(CLI::PositiveNumber);
+    cli_group->add_option("--psfz", psfz, "PSF depth for synthetic PSF  [30] (for RL)")->check(CLI::PositiveNumber);
+
+    //TODO
+    cli_group->add_option("--sigmax_2", sigmax_2, "SigmaX for second synthetic PSF [25] (for RL)")->check(CLI::PositiveNumber);
+    cli_group->add_option("--sigmay_2", sigmay_2, "SigmaY for second synthetic PSF  [25] (for RL)")->check(CLI::PositiveNumber);
+    cli_group->add_option("--sigmaz_2", sigmaz_2, "SigmaZ for second synthetic PSF  [25] (for RL)")->check(CLI::PositiveNumber);
 
     cli_group->add_option("--epsilon", epsilon, "Epsilon [0] (for Complex Division)")->check(CLI::PositiveNumber);
     cli_group->add_option("--borderType", borderType, "Border for extended image [2](0-constant, 1-replicate, 2-reflecting)")->check(CLI::PositiveNumber);
@@ -103,6 +116,26 @@ int main(int argc, char** argv) {
         // Values from configuration file passed to arguments
         image_path = config["image_path"].get<std::string>();
         psf_path = config["psf_path"].get<std::string>();
+        if (config.contains("psf_path_2")) {
+            psf_path_2 = config["psf_path_2"].get<std::string>();
+            if (!(config.contains("sigmax_2") || config.contains("sigmay_2") || config.contains("sigmaz_2") && psf_path_2 == "synthetic")) {
+                std::cerr << "[ERROR] Incomplete sigma values for second psf" << std::endl;
+                return EXIT_FAILURE;
+            } else{
+                sigmax_2 = config.value("sigmax_2", 0.0); // sigmax_2 ist vom Typ double
+                sigmay_2 = config.value("sigmay_2", 0.0); // sigmay_2 ist vom Typ double
+                sigmaz_2 = config.value("sigmaz_2", 0.0); // sigmaz_2 ist vom Typ double
+                if(sigmax_2 == 0.0){
+                    std::cout << "[WARNING] sigmaX value 0" << std::endl;
+                }
+                if(sigmay_2 == 0.0){
+                    std::cout << "[WARNING] sigmaY value 0" << std::endl;
+                }
+                if(sigmaz_2 == 0.0){
+                    std::cout << "[WARNING] sigmaZ value 0" << std::endl;
+                }
+            }
+        }
         algorithm = config["algorithm"].get<std::string>();
         dataFormatImage = config["dataFormatImage"].get<std::string>();
         dataFormatPSF = config["dataFormatPSF"].get<std::string>();
@@ -125,16 +158,32 @@ int main(int argc, char** argv) {
         printInfo = config["info"].get<bool>();
         grid = config["grid"].get<bool>();
 
+        // Überprüfen, ob "secondpsflayers" im JSON vorhanden ist
+        if (config.contains("secondpsflayers")) {
+            secondpsflayers = config["secondpsflayers"].get<std::vector<int>>();
 
+            // Überprüfe die Werte des Arrays (optional)
+            std::cout << "[STATUS] secondpsflayers: ";
+            for (const int& layer : secondpsflayers) {
+                std::cout << layer << " ";
+            }
+            std::cout << std::endl;
+        } else {
+            std::cout << "[WARNING] 'secondpsflayers' not found in the configuration file. Using default values." << std::endl;
+            // Hier kannst du Standardwerte für secondpsflayers festlegen
+            secondpsflayers = {}; // Beispiel für einen Standardwert
+        }
     }
 
     //###PROGRAMM START###//
-
         PSF psf;
+        PSF psf_2;
+        std::vector<PSF> psfs;
         if (psf_path == "synthetic") {
             PSFGenerator<SimpleGaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(
                     sigmax, sigmay, sigmaz, psfx, psfy, psfz);
             psf = gaussianGenerator.generate();
+            psfs.push_back(psf);
         } else {
             if (dataFormatPSF == "DIR") {
                 psf.readFromTifDir(psf_path.c_str());
@@ -144,7 +193,30 @@ int main(int argc, char** argv) {
                 std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
                 return EXIT_FAILURE;
             }
+            psfs.push_back(psf);
         }
+        if(psf_path_2 == "synthetic"){
+            std::cout << "[INFO] Generated second PSF" << std::endl;
+            PSFGenerator<SimpleGaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(
+                    sigmax_2, sigmay_2, sigmaz_2, psfx, psfy, psfz);
+            psf_2 = gaussianGenerator.generate();
+            psfs.push_back(psf_2);
+        }else {
+            if (dataFormatPSF == "DIR") {
+                psf_2.readFromTifDir(psf_path_2.c_str());
+            } else if (dataFormatPSF == "FILE") {
+                psf_2.readFromTifFile(psf_path_2.c_str());
+            } else {
+                std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
+                return EXIT_FAILURE;
+            }
+            if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
+                std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
+                return EXIT_FAILURE;
+            }
+            psfs.push_back(psf_2);
+        }
+        std::cout << "[INFO] " << psfs.size() << " PSF(s) loaded" << std::endl;
         //psf.image.show();
 
         Hyperstack hyperstack;
@@ -158,6 +230,10 @@ int main(int argc, char** argv) {
         }
         if (savePsf) {
             psf.saveAsTifFile("../result/psf.tif");
+            if(sigmax_2 > 0 && sigmay_2 > 0 && sigmaz_2 > 0) {
+                psf_2.saveAsTifFile("../result/psf_2.tif");
+            }
+
         }
         if (printInfo) {
             hyperstack.printMetadata();
@@ -176,6 +252,7 @@ int main(int argc, char** argv) {
         deconvConfig.borderType = borderType;
         deconvConfig.psfSafetyBorder = psfSafetyBorder;
         deconvConfig.cubeSize = cubeSize;
+        deconvConfig.secondpsflayers = secondpsflayers;
 
         Hyperstack deconvHyperstack;
 
@@ -184,13 +261,14 @@ int main(int argc, char** argv) {
 
         if (algorithm == "inverse") {
             DeconvolutionAlgorithm<InverseFilterDeconvolutionAlgorithm> inverseAlgorithm(deconvConfig);
-            deconvHyperstack = inverseAlgorithm.deconvolve(hyperstack, psf);
+            deconvHyperstack = inverseAlgorithm.deconvolve(hyperstack, psfs);
         } else if (algorithm == "rl") {
             DeconvolutionAlgorithm<RLDeconvolutionAlgorithm> rlAlgorithm(deconvConfig);
-            deconvHyperstack = rlAlgorithm.deconvolve(hyperstack, psf);
+            //deconvHyperstack = rlAlgorithm.deconvolve(hyperstack, psf);
+            deconvHyperstack = rlAlgorithm.deconvolve(hyperstack, psfs);
         } else if (algorithm == "rif") {
-            DeconvolutionAlgorithm<RegularizedInverseFilterDeconvolutionAlgorithm> wienerAlgorithm(deconvConfig);
-            deconvHyperstack = wienerAlgorithm.deconvolve(hyperstack, psf);
+            DeconvolutionAlgorithm<RegularizedInverseFilterDeconvolutionAlgorithm> rifAlgorithm(deconvConfig);
+            deconvHyperstack = rifAlgorithm.deconvolve(hyperstack, psfs);
         } else if (algorithm == "convolve") {
                 deconvHyperstack = hyperstack.convolve(psf);
         } else {

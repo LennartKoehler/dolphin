@@ -13,7 +13,7 @@
 
 
 
-Hyperstack RLDeconvolutionAlgorithm::deconvolve(Hyperstack& data, PSF& psf) {
+Hyperstack RLDeconvolutionAlgorithm::deconvolve(Hyperstack& data, std::vector<PSF>& psfs) {
 
     // Create a copy of the input data
     Hyperstack deconvHyperstack{data};
@@ -27,7 +27,7 @@ Hyperstack RLDeconvolutionAlgorithm::deconvolve(Hyperstack& data, PSF& psf) {
         // Deconvolve every channel
         int channel_z = 0;
         for (auto& channel : data.channels) {
-            if(preprocess(channel, psf)){
+            if(preprocess(channel, psfs)){
                 std::cout << "[STATUS] Preprocessing channel " << channel_z + 1 << " finished" << std::endl;
             }else{
                 std::cerr << "[ERROR] Preprocessing channel " << channel_z + 1 << " failed" << std::endl;
@@ -40,27 +40,44 @@ Hyperstack RLDeconvolutionAlgorithm::deconvolve(Hyperstack& data, PSF& psf) {
             //std::cout << cubeWidth << " " << cubeHeight << " " << cubeDepth << std::endl;
 
             std::cout << "[STATUS] Running Deconvolution..." << std::endl;
-            int gridNum = 0;
+            int totalGridNum = 1;
+            int cubesPerX = static_cast<int>(std::ceil(static_cast<double>(this->originalImageWidth) / this->cubeSize));
+            int cubesPerY = static_cast<int>(std::ceil(static_cast<double>(this->originalImageHeight) / this->cubeSize));
+            int cubesPerZ = static_cast<int>(std::ceil(static_cast<double>(this->originalImageDepth) / this->cubeSize));
+            int cubesPerLayer = cubesPerX * cubesPerY;
+            std::cout << "[INFO] Cubes per Layer(" << cubesPerZ<< "):" << cubesPerX << "x" << cubesPerY << " (" << cubesPerLayer << ")" << std::endl;
 
             // Parallelization of grid for
             // Using static scheduling because the execution time for each iteration is similar, which reduces overhead costs by minimizing task assignment.
             #pragma omp parallel for schedule(static)
-            for(auto& gridImage : this->gridImages){
+            for (size_t i = 0; i < this->gridImages.size(); ++i) {
+                int gridNum = static_cast<int>(i);
                 // Allocate memory for intermediate FFTW arrays
                 // INFO
                 // if allocations takes to much memory put outside the loop (dont forget the free lines at the end)
                 fftw_complex *g = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
                 fftw_complex *f = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
                 fftw_complex *c = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-
+                fftw_complex* H = nullptr;
+                int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / cubesPerLayer));
+                // Verwende std::find, um den Wert zu suchen
+                auto useSecondPsfForThisLayer = std::find(secondpsflayers.begin(), secondpsflayers.end(), currentCubeLayer);
+                // Überprüfen, ob der Wert gefunden wurde
+                if (useSecondPsfForThisLayer != secondpsflayers.end()) {
+                    //std::cout << "[DEBUG] first PSF" << std::endl;
+                    H = this->paddedH;
+                } else {
+                    //std::cout << "[DEBUG] second PSF" << std::endl;
+                    H = this->paddedH_2;
+                }
 
                 // Convert image to fftcomplex
-                UtlFFT::convertCVMatVectorToFFTWComplex(gridImage, g, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+                UtlFFT::convertCVMatVectorToFFTWComplex(this->gridImages[i], g, this->cubeWidth, this->cubeHeight, this->cubeDepth);
                 std::memcpy(f, g, sizeof(fftw_complex) * this->cubeVolume);
 
                 for (int n = 0; n < this->iterations; ++n) {
                     std::cout << "\r[STATUS] Channel: " << channel_z + 1 << "/" << data.channels.size() << " GridImage: "
-                              << gridNum + 1 << "/" << this->gridImages.size() << " Iteration: " << n + 1 << "/"
+                              << totalGridNum << "/" << this->gridImages.size() << " Iteration: " << n + 1 << "/"
                               << this->iterations << " ";
 
                     // a) First transformation:
@@ -69,7 +86,7 @@ Hyperstack RLDeconvolutionAlgorithm::deconvolve(Hyperstack& data, PSF& psf) {
                     UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
                     // Fn' = Fn * H
-                    UtlFFT::complexMultiplication(f, this->paddedH, c, this->cubeVolume);
+                    UtlFFT::complexMultiplication(f, H, c, this->cubeVolume);
 
                     // fn' = IFFT(Fn')
                     UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
@@ -87,7 +104,7 @@ Hyperstack RLDeconvolutionAlgorithm::deconvolve(Hyperstack& data, PSF& psf) {
                     UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
                     // C' = C * conj(H)
-                    UtlFFT::complexMultiplicationWithConjugate(c, this->paddedH, c, this->cubeVolume);
+                    UtlFFT::complexMultiplicationWithConjugate(c, H, c, this->cubeVolume);
 
                     // c' = IFFT(C')
                     UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
@@ -112,9 +129,10 @@ Hyperstack RLDeconvolutionAlgorithm::deconvolve(Hyperstack& data, PSF& psf) {
                     std::flush(std::cout);
                 }
                 // Convert the result FFTW complex array back to OpenCV Mat vector
-                UtlFFT::convertFFTWComplexToCVMatVector(f, gridImage, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+                UtlFFT::convertFFTWComplexToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
                 gridNum++;
+                totalGridNum++;
                 fftw_free(g);
                 fftw_free(c);
                 fftw_free(f);
@@ -146,6 +164,8 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     this->borderType = config.borderType;
     this->psfSafetyBorder = config.psfSafetyBorder;
     this->cubeSize = config.cubeSize;
+    this->secondpsflayers = config.secondpsflayers;
+
     std::cout << "[CONFIGURATION] Richardson-Lucy algorithm" << std::endl;
     std::cout << "[CONFIGURATION] iterations: " << this->iterations << std::endl;
     std::cout << "[CONFIGURATION] epsilon: " << this->epsilon << std::endl;
@@ -154,5 +174,12 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
         std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;
         std::cout << "[CONFIGURATION] psfSafetyBorder: " << this->psfSafetyBorder << std::endl;
         std::cout << "[CONFIGURATION] cubeSize: " << this->cubeSize << std::endl;
+        if(!this->secondpsflayers.empty()){
+            std::cout << "[CONFIGURATION] secondpsflayers: ";
+            for (const int& layer : secondpsflayers) {
+                std::cout << layer << ", ";
+            }
+            std::cout << std::endl;
+        }
     }
 }

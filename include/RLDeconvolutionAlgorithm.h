@@ -7,7 +7,7 @@
 
 class RLDeconvolutionAlgorithm : public BaseDeconvolutionAlgorithm {
 public:
-    Hyperstack deconvolve(Hyperstack& data, PSF& psf) override;
+    Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psfs) override;
     void configure(const DeconvolutionConfig& config) override;
 
 private:

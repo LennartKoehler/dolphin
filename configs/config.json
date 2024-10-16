@@ -1,6 +1,7 @@
 {
   "image_path": "../input/convolved.tif",
   "psf_path": "synthetic",
+  "psf_path_2": "synthetic",
   "dataFormatImage": "FILE",
   "dataFormatPSF": "FILE",
   "algorithm": "rl",
@@ -21,7 +22,12 @@
   "grid": true,
   "borderType": 2,
   "cubeSize": 0,
-  "psfSafetyBorder": 10
+  "psfSafetyBorder": 10,
+
+  "sigmax_2": 50,
+  "sigmay_2": 50,
+  "sigmaz_2": 50,
+  "secondpsflayers": [2, 3]
 }
 
 //  "algorithm": "rif",
@@ -31,3 +37,5 @@
 // "epsilon": 1e-8,
 
 // "cubeSize": 0, --> auto
+
+//hallo :), hi

@@ -7,7 +7,7 @@
 
 class RegularizedInverseFilterDeconvolutionAlgorithm : public BaseDeconvolutionAlgorithm {
 public:
-    Hyperstack deconvolve(Hyperstack& data, PSF& psf) override;
+    Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psf) override;
     void configure(const DeconvolutionConfig& config) override;
 
 private:

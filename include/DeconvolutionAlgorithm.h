@@ -13,8 +13,8 @@ public:
         algo->configure(config);
     }
 
-    Hyperstack deconvolve(Hyperstack& data, PSF& psf) const {
-        return algo->deconvolve(data, psf);
+    Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psfs) const {
+        return algo->deconvolve(data, psfs);
     }
 
 private:

@@ -7,31 +7,38 @@
 #include <iostream>
 #include <opencv2/imgproc.hpp>
 
-bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, PSF& psf) {
+bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& psfs) {
 
         // Find and display global min and max of the data
         double globalMin, globalMax;
         UtlImage::findGlobalMinMax(channel.image.slices, globalMin, globalMax);
         std::cout << "[INFO] Image values min/max: " << globalMin << "/" << globalMax << std::endl;
-        double globalMinPsf, globalMaxPsf;
-        UtlImage::normalize(psf.image.slices);
-        UtlImage::findGlobalMinMax(psf.image.slices, globalMinPsf, globalMaxPsf);
-        std::cout << "[INFO] PSF values min/max: " << globalMinPsf << "/" << globalMaxPsf << std::endl;
+        int psfcount = 1;
+        for (PSF psf : psfs) {
+            double globalMinPsf, globalMaxPsf;
+            UtlImage::normalize(psf.image.slices);
+            UtlImage::findGlobalMinMax(psf.image.slices, globalMinPsf, globalMaxPsf);
+            std::cout << "[INFO] PSF" << "_" << psfcount<<" values min/max: " << globalMinPsf << "/" << globalMaxPsf << std::endl;
+            psfcount++;
+        }
 
 
         int originImageWidth = channel.image.slices[0].cols;
+        this->originalImageWidth = originImageWidth;
         int originImageHeight = channel.image.slices[0].rows;
+        this->originalImageHeight = originImageHeight;
         int originImageDepth = channel.image.slices.size();
+        this->originalImageDepth = originImageDepth;
         int originImageVolume = originImageWidth * originImageHeight * originImageDepth;
-        int originPsfWidth = psf.image.slices[0].cols;
-        int originPsfHeight = psf.image.slices[0].rows;
-        int originPsfDepth = psf.image.slices.size();
+        int originPsfWidth = psfs[0].image.slices[0].cols;
+        int originPsfHeight = psfs[0].image.slices[0].rows;
+        int originPsfDepth = psfs[0].image.slices.size();
         int originPsfVolume = originPsfWidth * originPsfHeight * originPsfDepth;
 
         //int psfSafetyBorder = 20;//originPsfWidth/2;
-        int safetyBorderPsfWidth = psf.image.slices[0].cols+(2*this->psfSafetyBorder);
-        int safetyBorderPsfHeight = psf.image.slices[0].rows+(2*this->psfSafetyBorder);
-        int safetyBorderPsfDepth = psf.image.slices.size()+(2*this->psfSafetyBorder);
+        int safetyBorderPsfWidth = psfs[0].image.slices[0].cols+(2*this->psfSafetyBorder);
+        int safetyBorderPsfHeight = psfs[0].image.slices[0].rows+(2*this->psfSafetyBorder);
+        int safetyBorderPsfDepth = psfs[0].image.slices.size()+(2*this->psfSafetyBorder);
         int safetyBorderPsfVolume = safetyBorderPsfWidth * safetyBorderPsfHeight * safetyBorderPsfDepth;
         int imagePadding = originImageWidth / 2;
         this->cubePadding = this->psfSafetyBorder;
@@ -71,7 +78,8 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, PSF& psf) {
             UtlGrid::extendImage(channel.image.slices, imagePadding, this->borderType);
 
             this->gridImages = UtlGrid::splitWithCubePadding(channel.image.slices, this->cubeSize, imagePadding, this->cubePadding);
-            std::cout << "[INFO] Gridimage properties: [Depth: " << this->gridImages[0].size() << " Width:" << this->gridImages[0][0].cols << " Height:" << this->gridImages[0][0].rows << " Subimages: " << this->gridImages.size() << "]" << std::endl;
+            std::cout << "[INFO] Actual cubeSize: " << this->cubeSize << "px" << std::endl;
+            std::cout << "[INFO] GridImage(with extentsion) properties: [Depth: " << this->gridImages[0].size() << " Width:" << this->gridImages[0][0].cols << " Height:" << this->gridImages[0][0].rows << " Subimages: " << this->gridImages.size() << "]" << std::endl;
 
             if((this->cubeSize + 2*this->cubePadding) != this->gridImages[0][0].cols){
                 std::cerr << "[ERROR] CubeSize doesnt match with actual CubeSize: " << this->gridImages[0][0].cols << " (should be: " << (this->cubeSize + 2*this->cubePadding) << ")" << std::endl;
@@ -107,17 +115,31 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, PSF& psf) {
         // Fourier Transformation of PSF
         std::cout << "[STATUS] Performing Fourier Transform on PSF..." << std::endl;
         fftw_complex *h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
-        UtlFFT::convertCVMatVectorToFFTWComplex(psf.image.slices, h, originPsfWidth, originPsfHeight, originPsfDepth);
+        UtlFFT::convertCVMatVectorToFFTWComplex(psfs[0].image.slices, h, originPsfWidth, originPsfHeight, originPsfDepth);
         fftw_execute_dft(forwardPSFPlan, h, h);
         UtlFFT::octantFourierShift(h, originPsfWidth, originPsfHeight, originPsfDepth);
 
         std::cout << "[STATUS] Padding PSF..." << std::endl;
         // Pad the PSF to the size of the image
         this->paddedH = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * safetyBorderPsfVolume);
-        UtlFFT::padPSF(h, originPsfWidth, originPsfHeight, originPsfDepth, paddedH, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
-        // Free FFTW resources for PSF
+        UtlFFT::padPSF(h, originPsfWidth, originPsfHeight, originPsfDepth, this->paddedH, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
+
+        //second PSF
+        std::cout << "[STATUS] Performing Fourier Transform on PSF_2..." << std::endl;
+        fftw_complex *h_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
+        UtlFFT::convertCVMatVectorToFFTWComplex(psfs[1].image.slices, h_2, originPsfWidth, originPsfHeight, originPsfDepth);
+        fftw_execute_dft(forwardPSFPlan, h_2, h_2);
+        UtlFFT::octantFourierShift(h_2, originPsfWidth, originPsfHeight, originPsfDepth);
+        std::cout << "[STATUS] Padding PSF_2..." << std::endl;
+        // Pad the PSF to the size of the image
+        this->paddedH_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * safetyBorderPsfVolume);
+        UtlFFT::padPSF(h_2, originPsfWidth, originPsfHeight, originPsfDepth, this->paddedH_2, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
+
+    // Free FFTW resources for PSF
         fftw_free(h);
-        fftw_free(fftwPSFPlanMem);
+    fftw_free(h_2);
+
+    fftw_free(fftwPSFPlanMem);
         fftw_destroy_plan(forwardPSFPlan);
 
     return true;

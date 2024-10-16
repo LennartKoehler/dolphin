@@ -16,6 +16,10 @@ public:
         return algo->generatePSF();
     }
 
+    void setParameters(double d, double d1, double d2, int i, int i1, int i2) const {
+        algo->setParameters(d, d1, d2, i, i1, i2);
+    }
+
 private:
     std::unique_ptr<BasePSFGeneratorAlgorithm> algo;
 };

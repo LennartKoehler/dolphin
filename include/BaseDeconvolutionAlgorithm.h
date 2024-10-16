@@ -12,10 +12,10 @@
 class BaseDeconvolutionAlgorithm {
 public:
     virtual ~BaseDeconvolutionAlgorithm(){cleanup();}
-    virtual Hyperstack deconvolve(Hyperstack& data, PSF& psf) = 0;
+    virtual Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psfs) = 0;
     virtual void configure(const DeconvolutionConfig& config) = 0;
 
-    bool preprocess(Channel& channel, PSF& psf);
+    bool preprocess(Channel& channel, std::vector<PSF>& psfs);
     bool postprocess(Hyperstack& data, double epsilon);
     void cleanup();
 
@@ -24,6 +24,7 @@ protected:
     std::vector<std::vector<cv::Mat>> gridImages;
     std::vector<cv::Mat> mergedVolume;
     fftw_complex *paddedH = nullptr;
+    fftw_complex *paddedH_2 = nullptr;
     fftw_complex *fftwPlanMem = nullptr;
     fftw_plan forwardPlan = nullptr;
     fftw_plan backwardPlan = nullptr;
@@ -32,4 +33,9 @@ protected:
     int borderType;
     int psfSafetyBorder;
     int cubeSize;
+    std::vector<int> secondpsflayers;
+    int originalImageWidth;
+    int originalImageHeight;
+    int originalImageDepth;
+
 };

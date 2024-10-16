@@ -10,7 +10,7 @@
 
 
 // Perform deconvolution on the given data using the PSF
-Hyperstack InverseFilterDeconvolutionAlgorithm::deconvolve(Hyperstack& data, PSF& psf) {
+Hyperstack InverseFilterDeconvolutionAlgorithm::deconvolve(Hyperstack& data, std::vector<PSF>& psf) {
 
     // Create a copy of the input data
     Hyperstack deconvHyperstack{data};
