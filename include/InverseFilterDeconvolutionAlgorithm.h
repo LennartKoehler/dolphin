@@ -13,9 +13,5 @@ public:
 
 private:
     double epsilon;
-    bool grid;
-    int borderType;
-    int psfSafetyBorder;
-    int cubeSize;
 };
 

@@ -2,6 +2,7 @@
 
 #include <string>
 #include <opencv2/core/base.hpp>
+#include <vector>
 
 class DeconvolutionConfig {
 public:
@@ -13,6 +14,8 @@ public:
     int psfSafetyBorder = 20;
     int cubeSize = 50;
     std::vector<int> secondpsflayers = {};
+    std::vector<int> secondpsfcubes = {};
+
 
     void loadFromJSON(const std::string &directoryPath);
 };

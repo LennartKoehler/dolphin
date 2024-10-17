@@ -47,11 +47,12 @@ int main(int argc, char** argv) {
     int psfSafetyBorder = 20;
     int borderType = cv::BORDER_REFLECT;
 
-    //TODO
     double sigmax_2 = 25.0; //synthetic PSF
     double sigmay_2 = 25.0; //synthetic PSF
     double sigmaz_2 = 25.0; //synthetic PSF
     std::vector<int> secondpsflayers;
+    std::vector<int> secondpsfcubes;
+
 
     CLI::App app{"deconvtool - Deconvolution of Microscopy Images"};
     // Define a group for CLI arguments
@@ -173,6 +174,21 @@ int main(int argc, char** argv) {
             // Hier kannst du Standardwerte für secondpsflayers festlegen
             secondpsflayers = {}; // Beispiel für einen Standardwert
         }
+        // Überprüfen, ob "secondpsflayers" im JSON vorhanden ist
+        if (config.contains("secondpsfcubes")) {
+            secondpsfcubes = config["secondpsfcubes"].get<std::vector<int>>();
+
+            // Überprüfe die Werte des Arrays (optional)
+            std::cout << "[STATUS] secondpsfcubes: ";
+            for (const int& cube : secondpsfcubes) {
+                std::cout << cube << " ";
+            }
+            std::cout << std::endl;
+        } else {
+            std::cout << "[WARNING] 'secondpsfcubes' not found in the configuration file. Using default values." << std::endl;
+            // Hier kannst du Standardwerte für secondpsflayers festlegen
+            secondpsfcubes = {}; // Beispiel für einen Standardwert
+        }
     }
 
     //###PROGRAMM START###//
@@ -253,6 +269,8 @@ int main(int argc, char** argv) {
         deconvConfig.psfSafetyBorder = psfSafetyBorder;
         deconvConfig.cubeSize = cubeSize;
         deconvConfig.secondpsflayers = secondpsflayers;
+        deconvConfig.secondpsfcubes = secondpsfcubes;
+
 
         Hyperstack deconvHyperstack;
 
