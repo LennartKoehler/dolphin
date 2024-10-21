@@ -35,27 +35,27 @@ include_directories(${TIFF_INCLUDE_DIR})
 add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
         src/hyperstack/HyperstackImage.cpp
         include/HyperstackImage.h
-        src/Image3D.cpp
+        src/hyperstack/Image3D.cpp
         include/Image3D.h
-        src/ImageMetaData.cpp
+        src/hyperstack/ImageMetaData.cpp
         include/ImageMetaData.h
-        src/PSF.cpp
+        src/psf/PSF.cpp
         include/PSF.h
         include/BasePSFGeneratorAlgorithm.h
-        src/SimpleGaussianPSFGeneratorAlgorithm.cpp
+        src/psf/algorithms/SimpleGaussianPSFGeneratorAlgorithm.cpp
         include/SimpleGaussianPSFGeneratorAlgorithm.h
         include/PSFGenerator.h
         include/DeconvolutionAlgorithm.h
         include/RegularizedInverseFilterDeconvolutionAlgorithm.h
         include/RLDeconvolutionAlgorithm.h
-        src/DeconvolutionConfig.cpp
+        src/deconvolution/DeconvolutionConfig.cpp
         include/DeconvolutionConfig.h
         include/BaseDeconvolutionAlgorithm.h
-        src/RLDeconvolutionAlgorithm.cpp
-        src/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
+        src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
+        src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
         src/hyperstack/HyperstackIO.cpp
         src/hyperstack/HyperstackMetaData.cpp
-        src/InverseFilterDeconvolutionAlgorithm.cpp
+        src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
         include/InverseFilterDeconvolutionAlgorithm.h
         include/UtlFFT.h
         src/utilities/UtlFFT.cpp
@@ -68,7 +68,7 @@ add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
         include/Channel.h
         src/deconvolution/BaseDeconvolutionAlgorithm.cpp
         include/GaussianPSFGeneratorAlgorithm.h
-        src/GaussianPSFGeneratorAlgorithm.cpp
+        src/psf/algorithms/GaussianPSFGeneratorAlgorithm.cpp
 )
 # Link your executable with the required libraries
 target_link_libraries(deconvtool
