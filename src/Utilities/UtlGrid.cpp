@@ -299,6 +299,7 @@ std::vector<cv::Mat> UtlGrid::mergeCubes(const std::vector<std::vector<cv::Mat>>
     // Create an empty 3D image with the given dimensions
     // std::vector<cv::Mat> image3D(imageDepth, cv::Mat(imageHeight, imageWidth, cubes[0][0].type(), cv::Scalar(0)));
     // Create an empty 3D image with the given dimensions
+    // Cubes in this function already cropped and have no padding
     std::vector<cv::Mat> image3D;
     for (int i = 0; i < imageDepth; ++i) {
         image3D.push_back(cv::Mat(imageHeight, imageWidth, cubes[0][0].type(), cv::Scalar(0)));
@@ -358,5 +359,41 @@ std::vector<cv::Mat> UtlGrid::mergeCubes(const std::vector<std::vector<cv::Mat>>
      }*/
 
     return image3D;
+}
+
+void UtlGrid::adjustCubeOverlap(std::vector<std::vector<cv::Mat>>& cubes, int cubePadding) {
+    // Iterate through all cubes in the split set
+    for (size_t cubeIndex = 0; cubeIndex < cubes.size(); ++cubeIndex) {
+        std::vector<cv::Mat>& cube = cubes[cubeIndex];
+
+        // Check if there is padding to adjust
+        if (cubePadding <= 0) continue;
+
+        // Adjust overlap for each depth slice in the cube
+        for (int dz = 0; dz < cube.size(); ++dz) {
+            cv::Mat& slice = cube[dz];
+
+            // Define overlap regions in X and Y directions
+            int overlapStart = cubePadding;
+            int overlapEndX = slice.cols - cubePadding;
+            int overlapEndY = slice.rows - cubePadding;
+
+            // Iterate through the overlap region and adjust intensities
+            for (int x = overlapStart; x < overlapEndX; ++x) {
+                for (int y = overlapStart; y < overlapEndY; ++y) {
+                    // Calculate the blending factor based on the distance to the edge
+                    float alphaX = static_cast<float>(x - overlapStart) / cubePadding;
+                    float alphaY = static_cast<float>(y - overlapStart) / cubePadding;
+                    float alpha = std::min(alphaX, alphaY);
+
+                    // Get the current intensity value
+                    float currentValue = slice.at<float>(y, x);
+
+                    // Adjust the intensity using the blending factor
+                    slice.at<float>(y, x) = alpha * currentValue + (1 - alpha) * slice.at<float>(y, x);
+                }
+            }
+        }
+    }
 }
 

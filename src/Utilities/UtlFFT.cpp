@@ -85,34 +85,32 @@ void UtlFFT::complexMultiplication(fftw_complex* a, fftw_complex* b, fftw_comple
         return;
     }
 
-    //omp_set_num_threads(10);
-    //#pragma omp parallel for
-    // Perform complex multiplication
-    for (int i = 0; i < size; ++i) {
-        // Check for valid access within bounds
-        if (i >= size) {
-            std::cerr << "Error: Access out of bounds in complexMultiplication." << std::endl;
-            break;
-        }
+    // Parallelize the loop with OpenMP
+#pragma omp parallel
+    {
+        // Get the thread number and total number of threads
+        int thread_id = omp_get_thread_num();
+        int num_threads = omp_get_num_threads();
 
-        double real_a = a[i][0];
-        double imag_a = a[i][1];
-        double real_b = b[i][0];
-        double imag_b = b[i][1];
+        // Calculate the chunk size for each thread
+        int chunk_size = size / num_threads;
+        int start = thread_id * chunk_size;
+        int end = (thread_id == num_threads - 1) ? size : start + chunk_size;
 
-        {
+        // Perform complex multiplication for the assigned chunk
+        for (int i = start; i < end; ++i) {
+            double real_a = a[i][0];
+            double imag_a = a[i][1];
+            double real_b = b[i][0];
+            double imag_b = b[i][1];
+
+            // Perform the complex multiplication and store the result
             result[i][0] = real_a * real_b - imag_a * imag_b;
             result[i][1] = real_a * imag_b + imag_a * real_b;
         }
-
-        /*if (result[i][0] < 1e-8) {
-            result[i][0] = 0;
-        }
-        if (result[i][1] < 1e-8) {
-            result[i][1] = 0;
-        }*/
     }
 }
+
 // Perform point-wise complex multiplication with conjugation
 void UtlFFT::complexMultiplicationWithConjugate(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) {
     // Ensure that input pointers are not null
@@ -121,70 +119,108 @@ void UtlFFT::complexMultiplicationWithConjugate(fftw_complex* a, fftw_complex* b
         return;
     }
 
-    // omp_set_num_threads(10);
-    // #pragma omp parallel for
-    // Perform complex multiplication with conjugation
-    for (int i = 0; i < size; ++i) {
-        // Check for valid access within bounds
-        if (i >= size) {
-            std::cerr << "Error: Access out of bounds in complexMultiplicationWithConjugate." << std::endl;
-            break;
+    // Parallelize the loop with OpenMP
+#pragma omp parallel
+    {
+        // Get the thread number and total number of threads
+        int thread_id = omp_get_thread_num();
+        int num_threads = omp_get_num_threads();
+
+        // Calculate the chunk size for each thread
+        int chunk_size = size / num_threads;
+        int start = thread_id * chunk_size;
+        int end = (thread_id == num_threads - 1) ? size : start + chunk_size;
+
+        // Perform complex multiplication with conjugation for the assigned chunk
+        for (int i = start; i < end; ++i) {
+            double real_a = a[i][0];
+            double imag_a = a[i][1];
+            double real_b = b[i][0];
+            double imag_b = -b[i][1];  // Conjugate the imaginary part
+
+            // Perform the complex multiplication with conjugate and store the result
+            result[i][0] = real_a * real_b - imag_a * imag_b; // Real part
+            result[i][1] = real_a * imag_b + imag_a * real_b; // Imaginary part
         }
-
-        double real_a = a[i][0];
-        double imag_a = a[i][1];
-        double real_b = b[i][0];
-        double imag_b = -b[i][1];  // Conjugate the imaginary part
-
-        result[i][0] = real_a * real_b - imag_a * imag_b; // Real part
-        result[i][1] = real_a * imag_b + imag_a * real_b; // Imaginary part
-
-        // Optional: Thresholding
-        /*if (result[i][0] < 1e-8) {
-            result[i][0] = 0;
-        }
-        if (result[i][1] < 1e-8) {
-            result[i][1] = 0;
-        }*/
     }
 }
 // Perform point-wise complex division (min->epsilon)
 void UtlFFT::complexDivision(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) {
-   for (int i = 0; i < size; ++i) {
-        double real_a = a[i][0];
-        double imag_a = a[i][1];
-        double real_b = b[i][0];
-        double imag_b = b[i][1];
+    // Ensure that input pointers are not null
+    if (!a || !b || !result) {
+        std::cerr << "Error: Null pointer passed to complexDivision." << std::endl;
+        return;
+    }
 
-        double denominator = real_b * real_b + imag_b * imag_b;
-        //TODO
-        if (denominator < epsilon) {
-            //denominator = epsilon;
-            result[i][0] = 0.0f;
-            result[i][1] = 0.0f;
-        }else{
-            result[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
-            result[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
+    // Parallelize the loop with OpenMP
+#pragma omp parallel
+    {
+        // Get the thread number and total number of threads
+        int thread_id = omp_get_thread_num();
+        int num_threads = omp_get_num_threads();
+
+        // Calculate the chunk size for each thread
+        int chunk_size = size / num_threads;
+        int start = thread_id * chunk_size;
+        int end = (thread_id == num_threads - 1) ? size : start + chunk_size;
+
+        // Perform complex division for the assigned chunk
+        for (int i = start; i < end; ++i) {
+            double real_a = a[i][0];
+            double imag_a = a[i][1];
+            double real_b = b[i][0];
+            double imag_b = b[i][1];
+
+            double denominator = real_b * real_b + imag_b * imag_b;
+
+            if (denominator < epsilon) {
+                result[i][0] = 0.0;
+                result[i][1] = 0.0;
+            } else {
+                result[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
+                result[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
+            }
         }
     }
-
 }
+
 // Perform point-wise complex division with stabilization (min->epsilon)
 void UtlFFT::complexDivisionStabilized(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) {
-    for (int i = 0; i < size; ++i) {
-        double real_a = a[i][0];  // Realteil von a
-        double imag_a = a[i][1];  // Imaginärteil von a
-        double real_b = b[i][0];  // Realteil von b
-        double imag_b = b[i][1];  // Imaginärteil von b
+    // Ensure that input pointers are not null
+    if (!a || !b || !result) {
+        std::cerr << "Error: Null pointer passed to complexDivisionStabilized." << std::endl;
+        return;
+    }
 
-        // Berechnung des Betrags von b, mit Stabilisierung durch epsilon
-        double mag = std::max(epsilon, real_b * real_b + imag_b * imag_b);
+    // Parallelize the loop with OpenMP
+#pragma omp parallel
+    {
+        // Get the thread number and total number of threads
+        int thread_id = omp_get_thread_num();
+        int num_threads = omp_get_num_threads();
 
-        // Durchführung der stabilisierten Division
-        result[i][0] = (real_a * real_b + imag_a * imag_b) / mag;  // Realteil des Ergebnisses
-        result[i][1] = (imag_a * real_b - real_a * imag_b) / mag;  // Imaginärteil des Ergebnisses
+        // Calculate the chunk size for each thread
+        int chunk_size = size / num_threads;
+        int start = thread_id * chunk_size;
+        int end = (thread_id == num_threads - 1) ? size : start + chunk_size;
+
+        // Perform stabilized complex division for the assigned chunk
+        for (int i = start; i < end; ++i) {
+            double real_a = a[i][0];  // Realteil von a
+            double imag_a = a[i][1];  // Imaginärteil von a
+            double real_b = b[i][0];  // Realteil von b
+            double imag_b = b[i][1];  // Imaginärteil von b
+
+            // Berechnung des Betrags von b, mit Stabilisierung durch epsilon
+            double mag = std::max(epsilon, real_b * real_b + imag_b * imag_b);
+
+            // Durchführung der stabilisierten Division
+            result[i][0] = (real_a * real_b + imag_a * imag_b) / mag;  // Realteil des Ergebnisses
+            result[i][1] = (imag_a * real_b - real_a * imag_b) / mag;  // Imaginärteil des Ergebnisses
+        }
     }
 }
+
 
 // Perform quadrant shift on FFTW complex array
 void UtlFFT::octantFourierShift(fftw_complex* data, int width, int height, int depth) {
@@ -192,7 +228,8 @@ void UtlFFT::octantFourierShift(fftw_complex* data, int width, int height, int d
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
 
-    //#pragma omp parallel for collapse(3) // Parallelisieren der drei Schleifen
+    // Parallelize the nested loops using OpenMP with collapsing to reduce overhead
+#pragma omp parallel for collapse(3)
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
@@ -202,13 +239,21 @@ void UtlFFT::octantFourierShift(fftw_complex* data, int width, int height, int d
 
                 // Perform the swap only if the indices are different
                 if (idx1 != idx2) {
-                    std::swap(data[idx1][0], data[idx2][0]);
-                    std::swap(data[idx1][1], data[idx2][1]);
+                    // Swap real parts
+                    double temp_real = data[idx1][0];
+                    data[idx1][0] = data[idx2][0];
+                    data[idx2][0] = temp_real;
+
+                    // Swap imaginary parts
+                    double temp_imag = data[idx1][1];
+                    data[idx1][1] = data[idx2][1];
+                    data[idx2][1] = temp_imag;
                 }
             }
         }
     }
 }
+
 // Shift the quadrants of the image to reposition the zero-frequency component to the center
 void UtlFFT::quadrantShiftMat(cv::Mat& magI) {
     int cx = magI.cols / 2;

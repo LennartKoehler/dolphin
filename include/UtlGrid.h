@@ -30,5 +30,8 @@ namespace UtlGrid {
     //INFO cubes have to be cropped from cubePadding before merge
     std::vector<cv::Mat> mergeCubes(const std::vector<std::vector<cv::Mat>>& cubes, int imageWidth, int imageHeight, int imageDepth, int cubeSize);
 
+    void adjustCubeOverlap(std::vector<std::vector<cv::Mat>>& cubes, int cubePadding);
+
+
 
     }

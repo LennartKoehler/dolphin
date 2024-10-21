@@ -1,5 +1,5 @@
 {
-  "image_path": "../input/convolved.tif",
+  "image_path": "../input/bacteria.tif",
   "psf_path": "synthetic",
   "psf_path_2": "synthetic",
   "dataFormatImage": "FILE",
@@ -22,7 +22,7 @@
   "grid": true,
   "borderType": 2,
   "cubeSize": 0,
-  "psfSafetyBorder": 10,
+  "psfSafetyBorder": 1,
 
   "sigmax_2": 50,
   "sigmay_2": 50,

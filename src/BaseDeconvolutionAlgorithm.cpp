@@ -45,7 +45,7 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         if(this->cubeSize < 1){
             // Auto function for cubeSize, sets cubeSize to fit PSF
             std::cout << "[INFO] CubeSize fitted to PSF size" << std::endl;
-            this->cubeSize = std::min({originPsfWidth, originPsfHeight, originPsfDepth});
+            this->cubeSize = std::max({originPsfWidth, originPsfHeight, originPsfDepth});
         }
         if(safetyBorderPsfWidth < this->cubeSize){
             this->cubePadding = 10;
@@ -105,6 +105,7 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
             std::cout << "[WARNING] PSF is larger than image/cube" << std::endl;
         }
 
+        std::cout << "[STATUS] Creating fftw plans..." << std::endl;
         // In-line fftplan for fast ft calculation and inverse
         this->fftwPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
         this->forwardPlan = fftw_plan_dft_3d(this->cubeDepth, this->cubeHeight, this->cubeWidth, fftwPlanMem, fftwPlanMem, FFTW_FORWARD, FFTW_MEASURE);
@@ -146,6 +147,8 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 }
 bool BaseDeconvolutionAlgorithm::postprocess(Hyperstack& data, double epsilon){
     if(this->grid){
+        //TODO
+        //UtlGrid::adjustCubeOverlap(this->gridImages,this->cubePadding);
         UtlGrid::cropCubePadding(this->gridImages, this->cubePadding);
         this->cubeWidth = this->cubeSize;
         this->cubeHeight = this->cubeSize;
