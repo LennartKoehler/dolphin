@@ -21,7 +21,7 @@ Hyperstack RLDeconvolutionAlgorithm::deconvolve(Hyperstack& data, std::vector<PS
         std::cout << "[STATUS] FFTW init threads" << std::endl;
         fftw_plan_with_nthreads(omp_get_max_threads());
         std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
-        //fftw_make_planner_thread_safe();
+        fftw_make_planner_thread_safe();
     }
 
         // Deconvolve every channel

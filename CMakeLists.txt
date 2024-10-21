@@ -33,7 +33,7 @@ include_directories(${TIFF_INCLUDE_DIR})
 
 # Definiere die Quelldatei(en) für das ausführbare Programm
 add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
-        src/Hyperstack/HyperstackImage.cpp
+        src/hyperstack/HyperstackImage.cpp
         include/HyperstackImage.h
         src/Image3D.cpp
         include/Image3D.h
@@ -53,20 +53,22 @@ add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
         include/BaseDeconvolutionAlgorithm.h
         src/RLDeconvolutionAlgorithm.cpp
         src/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
-        src/Hyperstack/HyperstackIO.cpp
-        src/Hyperstack/HyperstackMetaData.cpp
+        src/hyperstack/HyperstackIO.cpp
+        src/hyperstack/HyperstackMetaData.cpp
         src/InverseFilterDeconvolutionAlgorithm.cpp
         include/InverseFilterDeconvolutionAlgorithm.h
         include/UtlFFT.h
-        src/Utilities/UtlFFT.cpp
+        src/utilities/UtlFFT.cpp
         include/UtlGrid.h
-        src/Utilities/UtlGrid.cpp
+        src/utilities/UtlGrid.cpp
         include/UtlImage.h
-        src/Utilities/UtlImage.cpp
+        src/utilities/UtlImage.cpp
         include/UtlIO.h
-        src/Utilities/UtlIO.cpp
+        src/utilities/UtlIO.cpp
         include/Channel.h
-        src/BaseDeconvolutionAlgorithm.cpp
+        src/deconvolution/BaseDeconvolutionAlgorithm.cpp
+        include/GaussianPSFGeneratorAlgorithm.h
+        src/GaussianPSFGeneratorAlgorithm.cpp
 )
 # Link your executable with the required libraries
 target_link_libraries(deconvtool
