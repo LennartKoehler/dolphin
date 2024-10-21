@@ -62,8 +62,10 @@ Hyperstack RLDeconvolutionAlgorithm::deconvolve(Hyperstack& data, std::vector<PS
                 int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / cubesPerLayer));
                 // Verwende std::find, um den Wert zu suchen
                 auto useSecondPsfForThisLayer = std::find(secondpsflayers.begin(), secondpsflayers.end(), currentCubeLayer);
+                auto useSecondPsfForThisCube = std::find(secondpsfcubes.begin(), secondpsfcubes.end(), gridNum+1);
+
                 // Überprüfen, ob der Wert gefunden wurde
-                if (useSecondPsfForThisLayer != secondpsflayers.end()) {
+                if (useSecondPsfForThisLayer != secondpsflayers.end() ||  useSecondPsfForThisCube != secondpsfcubes.end()) {
                     //std::cout << "[DEBUG] first PSF" << std::endl;
                     H = this->paddedH;
                 } else {
@@ -165,6 +167,8 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     this->psfSafetyBorder = config.psfSafetyBorder;
     this->cubeSize = config.cubeSize;
     this->secondpsflayers = config.secondpsflayers;
+    this->secondpsfcubes = config.secondpsfcubes;
+
 
     std::cout << "[CONFIGURATION] Richardson-Lucy algorithm" << std::endl;
     std::cout << "[CONFIGURATION] iterations: " << this->iterations << std::endl;
@@ -178,6 +182,14 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
             std::cout << "[CONFIGURATION] secondpsflayers: ";
             for (const int& layer : secondpsflayers) {
                 std::cout << layer << ", ";
+            }
+            std::cout << std::endl;
+        }
+        std::cout << "[CONFIGURATION] secondpsfcubes: ";
+        if(!this->secondpsfcubes.empty()){
+            std::cout << "[CONFIGURATION] secondpsfcubes: ";
+            for (const int& cube : secondpsfcubes) {
+                std::cout << cube << ", ";
             }
             std::cout << std::endl;
         }

@@ -34,6 +34,7 @@ protected:
     int psfSafetyBorder;
     int cubeSize;
     std::vector<int> secondpsflayers;
+    std::vector<int> secondpsfcubes;
     int originalImageWidth;
     int originalImageHeight;
     int originalImageDepth;

@@ -11,7 +11,7 @@
   "psfx": 20,
   "psfy": 20,
   "psfz": 30,
-  "iterations": 25,
+  "iterations": 10,
   "lambda": 0,
   "epsilon": 1e-6,
   "savePsf": true,
@@ -27,7 +27,9 @@
   "sigmax_2": 50,
   "sigmay_2": 50,
   "sigmaz_2": 50,
-  "secondpsflayers": [2, 3]
+  "secondpsflayers": [],
+  "secondpsfcubes": []
+
 }
 
 //  "algorithm": "rif",

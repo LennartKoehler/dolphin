@@ -22,7 +22,6 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
             psfcount++;
         }
 
-
         int originImageWidth = channel.image.slices[0].cols;
         this->originalImageWidth = originImageWidth;
         int originImageHeight = channel.image.slices[0].rows;
@@ -47,6 +46,7 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
             std::cout << "[INFO] CubeSize fitted to PSF size" << std::endl;
             this->cubeSize = std::max({originPsfWidth, originPsfHeight, originPsfDepth});
         }
+
         if(safetyBorderPsfWidth < this->cubeSize){
             this->cubePadding = 10;
             std::cout << "[INFO] PSF with safety border smaller than cubeSize" << std::endl;
@@ -55,8 +55,8 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
             this->cubePadding = (safetyBorderPsfWidth-this->cubeSize)/2;
             //std::cout <<  "[INFO] cubeSize smaller than PSF with safety border" << std::endl;
         }
-
         if(!this->grid){
+            std::cout << "[INFO] Processing without grid" << std::endl;
             this->gridImages.push_back(channel.image.slices);
             this->cubeWidth = channel.image.slices[0].cols;
             this->cubeHeight = channel.image.slices[0].rows;

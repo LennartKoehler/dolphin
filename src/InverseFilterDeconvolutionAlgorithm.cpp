@@ -1,3 +1,4 @@
+
 #include "InverseFilterDeconvolutionAlgorithm.h"
 #include <opencv2/opencv.hpp>
 #include <iostream>
@@ -26,28 +27,48 @@ Hyperstack InverseFilterDeconvolutionAlgorithm::deconvolve(Hyperstack& data, std
         }
 
         std::cout << "[STATUS] Running Deconvolution..." << std::endl;
-        int gridNum = 0;
+        int totalGridNum = 1;
+        int cubesPerX = static_cast<int>(std::ceil(static_cast<double>(this->originalImageWidth) / this->cubeSize));
+        int cubesPerY = static_cast<int>(std::ceil(static_cast<double>(this->originalImageHeight) / this->cubeSize));
+        int cubesPerZ = static_cast<int>(std::ceil(static_cast<double>(this->originalImageDepth) / this->cubeSize));
+        int cubesPerLayer = cubesPerX * cubesPerY;
+        std::cout << "[INFO] Cubes per Layer(" << cubesPerZ<< "):" << cubesPerX << "x" << cubesPerY << " (" << cubesPerLayer << ")" << std::endl;
 
         // Parallelization of grid for
         // Using static scheduling because the execution time for each iteration is similar, which reduces overhead costs by minimizing task assignment.
         #pragma omp parallel for schedule(static)
-        for(auto& gridImage : this->gridImages){
+        for (size_t i = 0; i < this->gridImages.size(); ++i) {
+            int gridNum = static_cast<int>(i);
             // Allocate memory for intermediate FFTW arrays
             fftw_complex *image = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeVolume);
+            fftw_complex* H = nullptr;
+            int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / cubesPerLayer));
+            // Verwende std::find, um den Wert zu suchen
+            auto useSecondPsfForThisLayer = std::find(secondpsflayers.begin(), secondpsflayers.end(), currentCubeLayer);
+            auto useSecondPsfForThisCube = std::find(secondpsfcubes.begin(), secondpsfcubes.end(), gridNum+1);
+
+            // Überprüfen, ob der Wert gefunden wurde
+            if (useSecondPsfForThisLayer != secondpsflayers.end() ||  useSecondPsfForThisCube != secondpsfcubes.end()) {
+                //std::cout << "[DEBUG] first PSF" << std::endl;
+                H = this->paddedH;
+            } else {
+                //std::cout << "[DEBUG] second PSF" << std::endl;
+                H = this->paddedH_2;
+            }
 
             std::flush(std::cout);
 
             std::cout << "\r[STATUS] Channel: " << channel_z + 1 << "/" << data.channels.size() << " GridImage: "
-                      << gridNum + 1 << "/" << this->gridImages.size() << " ";
+                      << totalGridNum << "/" << this->gridImages.size() << " ";
             //Convert image to fftcomplex
-            UtlFFT::convertCVMatVectorToFFTWComplex(gridImage, image, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+            UtlFFT::convertCVMatVectorToFFTWComplex(this->gridImages[i], image, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
             // Forward FFT on image
             fftw_execute_dft(forwardPlan, image, image);
             UtlFFT::octantFourierShift(image, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
             // Division in frequency domain
-            UtlFFT::complexDivisionStabilized(image, this->paddedH, image, this->cubeVolume, this->epsilon);
+            UtlFFT::complexDivisionStabilized(image, H, image, this->cubeVolume, this->epsilon);
 
             // Inverse FFT
             UtlFFT::octantFourierShift(image, this->cubeWidth, this->cubeHeight, this->cubeDepth);
@@ -55,7 +76,7 @@ Hyperstack InverseFilterDeconvolutionAlgorithm::deconvolve(Hyperstack& data, std
             UtlFFT::octantFourierShift(image, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
             // Convert the result FFTW complex array back to OpenCV Mat vector
-            UtlFFT::convertFFTWComplexToCVMatVector(image, gridImage, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+            UtlFFT::convertFFTWComplexToCVMatVector(image, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
             gridNum++;
             std::flush(std::cout);
