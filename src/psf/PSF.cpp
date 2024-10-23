@@ -7,6 +7,10 @@
 #include "PSF.h"
 #include "UtlIO.h"
 namespace fs = std::filesystem;
+#include "UtlImage.h"
+
+
+
 
 bool PSF::readFromTifFile(const char *filename) {
     //METADATA
@@ -36,6 +40,8 @@ bool PSF::readFromTifFile(const char *filename) {
 
     //Converting Layers to 32F
     UtlIO::convertImageTo32F(layers, dataType, bitsPerSample);
+    UtlImage::normalizeToSumOne(layers);
+
 
     //Creating Channel Images
     Image3D imageLayers;

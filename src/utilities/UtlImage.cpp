@@ -15,7 +15,7 @@ void UtlImage::findGlobalMinMax(const std::vector<cv::Mat>& images, double& glob
     }
 }
 
-void UtlImage::normalize(std::vector<cv::Mat>& psf) {
+void UtlImage::normalizeToSumOne(std::vector<cv::Mat>& psf) {
     // Berechne die Summe aller Werte in der PSF
     double totalSum = 0.0;
     for (const auto& slice : psf) {

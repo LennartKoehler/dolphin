@@ -4,7 +4,7 @@ project(Deconvtool)  # Name des Projekts
 # Setze den C++-Standard, den das Projekt verwendet
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -fopenmp -march=native")
 
 # Bibliotheksverzeichnis für FFTW3, falls nicht standard
 link_directories(/usr/lib/x86_64-linux-gnu)
@@ -69,6 +69,8 @@ add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
         src/deconvolution/BaseDeconvolutionAlgorithm.cpp
         include/GaussianPSFGeneratorAlgorithm.h
         src/psf/algorithms/GaussianPSFGeneratorAlgorithm.cpp
+        src/psf/algorithms/BornWolfModel.cpp
+        include/BornWolfModel.h
 )
 # Link your executable with the required libraries
 target_link_libraries(deconvtool

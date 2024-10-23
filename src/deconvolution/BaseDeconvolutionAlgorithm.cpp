@@ -16,7 +16,6 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         int psfcount = 1;
         for (PSF psf : psfs) {
             double globalMinPsf, globalMaxPsf;
-            UtlImage::normalize(psf.image.slices);
             UtlImage::findGlobalMinMax(psf.image.slices, globalMinPsf, globalMaxPsf);
             std::cout << "[INFO] PSF" << "_" << psfcount<<" values min/max: " << globalMinPsf << "/" << globalMaxPsf << std::endl;
             psfcount++;
@@ -128,7 +127,7 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         //second PSF
         std::cout << "[STATUS] Performing Fourier Transform on PSF_2..." << std::endl;
         fftw_complex *h_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
-        UtlFFT::convertCVMatVectorToFFTWComplex(psfs[1].image.slices, h_2, originPsfWidth, originPsfHeight, originPsfDepth);
+        UtlFFT::convertCVMatVectorToFFTWComplex(psfs[0].image.slices, h_2, originPsfWidth, originPsfHeight, originPsfDepth);
         fftw_execute_dft(forwardPSFPlan, h_2, h_2);
         UtlFFT::octantFourierShift(h_2, originPsfWidth, originPsfHeight, originPsfDepth);
         std::cout << "[STATUS] Padding PSF_2..." << std::endl;
@@ -147,8 +146,9 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 }
 bool BaseDeconvolutionAlgorithm::postprocess(Hyperstack& data, double epsilon){
     if(this->grid){
-        //TODO
+        //TODO no effect
         //UtlGrid::adjustCubeOverlap(this->gridImages,this->cubePadding);
+
         UtlGrid::cropCubePadding(this->gridImages, this->cubePadding);
         this->cubeWidth = this->cubeSize;
         this->cubeHeight = this->cubeSize;

@@ -7,6 +7,11 @@
 #include <vector>
 #include <opencv2/opencv.hpp>
 
+void UtlIO::customTifWarningHandler(const char* module, const char* fmt, va_list ap) {
+    // Ignoriere alle Warnungen oder filtere nach bestimmten Tags
+    // Beispiel: printf(fmt, ap); // Um die Warnungen anzuzeigen
+}
+
 void UtlIO::convertImageTo32F(std::vector<cv::Mat> &layers, int &dataType, uint16_t &bitsPerSample){
     double globalMin, globalMax;
     UtlImage::findGlobalMinMax(layers, globalMin, globalMax);
