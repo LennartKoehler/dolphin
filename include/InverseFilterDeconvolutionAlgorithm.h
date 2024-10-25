@@ -8,10 +8,9 @@
 
 class InverseFilterDeconvolutionAlgorithm : public BaseDeconvolutionAlgorithm{
 public:
-    Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psf) override;
+    void algorithm(Hyperstack& data, int channel_num) override;
     void configure(const DeconvolutionConfig& config) override;
 
 private:
-    double epsilon;
 };
 

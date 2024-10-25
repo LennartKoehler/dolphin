@@ -6,6 +6,7 @@
 #include <opencv2/core.hpp>
 #include <iostream>
 #include <opencv2/imgproc.hpp>
+#include <omp.h>
 
 bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& psfs) {
 
@@ -144,7 +145,11 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 
     return true;
 }
-bool BaseDeconvolutionAlgorithm::postprocess(Hyperstack& data, double epsilon){
+bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
+    if(this->gridImages.empty()){
+        std::cerr << "[ERROR] No grid images(cubes) processed" << std::endl;
+        return false;
+    }
     if(this->grid){
         //TODO no effect
         //UtlGrid::adjustCubeOverlap(this->gridImages,this->cubePadding);
@@ -156,7 +161,7 @@ bool BaseDeconvolutionAlgorithm::postprocess(Hyperstack& data, double epsilon){
         this->cubeVolume = this->cubeWidth * this->cubeHeight * this->cubeDepth;
         std::cout << " " << std::endl;
         std::cout << "[STATUS] Merging Grid back to Image..." << std::endl;
-        this->mergedVolume = UtlGrid::mergeCubes(this->gridImages, data.metaData.imageWidth, data.metaData.imageLength, data.metaData.slices, this->cubeSize);
+        this->mergedVolume = UtlGrid::mergeCubes(this->gridImages, this->originalImageWidth, this->originalImageHeight, this->originalImageDepth, this->cubeSize);
         std::cout << "[INFO] Image size: " << this->mergedVolume[0].rows << "x" << this->mergedVolume[0].cols << "x" << this->mergedVolume.size()<< std::endl;
     }else{
         this->mergedVolume = this->gridImages[0];
@@ -177,12 +182,11 @@ bool BaseDeconvolutionAlgorithm::postprocess(Hyperstack& data, double epsilon){
         cv::minMaxLoc(slice, &min_val, &max_val);
         global_max_val = std::max(global_max_val, max_val);
         global_min_val = std::min(global_min_val, min_val);
-
     }
 
     for (auto& slice : this->mergedVolume) {
         slice.convertTo(slice, CV_32F, 1.0 / (global_max_val - global_min_val), -global_min_val * (1 / (global_max_val - global_min_val)));  // Add epsilon to avoid division by zero
-        // cv::threshold(slice, slice, this->epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter 0 auf 0 setzen
+        // cv::threshold(slice, slice, this->epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
     }
 
     return true;
@@ -208,6 +212,78 @@ void BaseDeconvolutionAlgorithm::cleanup() {
     }
     // Clear the subimage vector
     this->gridImages.clear();
+}
+Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<PSF> &psfs) {
+    // Create a copy of the input data
+    Hyperstack deconvHyperstack{data};
+
+    // Init threads for FFTW
+    if(fftw_init_threads() > 0){
+        std::cout << "[STATUS] FFTW init threads" << std::endl;
+        fftw_plan_with_nthreads(omp_get_max_threads());
+        std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
+        fftw_make_planner_thread_safe();
+    }
+
+    // Deconvolve every channel
+    int channel_z = 0;
+    for (auto& channel : data.channels) {
+        if(preprocess(channel, psfs)){
+            std::cout << "[STATUS] Preprocessing channel " << channel_z + 1 << " finished" << std::endl;
+        }else{
+            std::cerr << "[ERROR] Preprocessing channel " << channel_z + 1 << " failed" << std::endl;
+            return deconvHyperstack;
+        }
+
+        // Debug
+        //std::cout << originPsfWidth << " " << originPsfHeight << " " << originPsfDepth << std::endl;
+        //std::cout << safetyBorderPsfWidth << " " << safetyBorderPsfHeight << " " << safetyBorderPsfDepth << std::endl;
+        //std::cout << cubeWidth << " " << cubeHeight << " " << cubeDepth << std::endl;
+
+        // Prepare info of cube arrangement
+        std::cout << "[STATUS] Running Deconvolution..." << std::endl;
+        this->cubesPerX = static_cast<int>(std::ceil(static_cast<double>(this->originalImageWidth) / this->cubeSize));
+        this->cubesPerY = static_cast<int>(std::ceil(static_cast<double>(this->originalImageHeight) / this->cubeSize));
+        this->cubesPerZ = static_cast<int>(std::ceil(static_cast<double>(this->originalImageDepth) / this->cubeSize));
+        this->cubesPerLayer = cubesPerX * cubesPerY;
+        std::cout << "[INFO] Cubes per Layer(" << cubesPerZ<< "):" << cubesPerX << "x" << cubesPerY << " (" << cubesPerLayer << ")" << std::endl;
+
+        // Methode overridden in specific algorithm class
+        algorithm(data, channel_z);
+
+        // Debug ouptut
+        // 1. size in metadata, 2. size of extendes channel image, 3.original read in image size
+        //std::cout << " " << std::endl;
+        //std::cout << data.metaData.imageWidth << std::endl;
+        //std::cout << channel.image.slices[0].cols << std::endl;
+        //std::cout << this->originalImageWidth << std::endl;
+        //std::cout << " " << std::endl;
+        //std::cout << data.metaData.imageLength << std::endl;
+        //std::cout << channel.image.slices[0].rows << std::endl;
+        //std::cout << this->originalImageHeight << std::endl;
+        //std::cout << " " << std::endl;
+        //std::cout << data.metaData.slices << std::endl;
+        //std::cout << channel.image.slices.size() << std::endl;
+        //std::cout << this->originalImageDepth << std::endl;
+
+        if(postprocess(this->epsilon)){
+            std::cout << "[STATUS] Postprocessing channel " << channel_z + 1 << " finished" << std::endl;
+        }else{
+            std::cerr << "[ERROR] Postprocessing channel " << channel_z + 1 << " failed" << std::endl;
+            return deconvHyperstack;
+        }
+
+        // Save the result
+        std::cout << "[STATUS] Saving result of channel " << channel_z + 1 << std::endl;
+        Image3D deconvolutedImage;
+        deconvolutedImage.slices = this->mergedVolume;
+        deconvHyperstack.channels[channel.id].image = deconvolutedImage;
+        channel_z++;
+        this->mergedVolume.clear();
+    }
+
+    std::cout << "[STATUS] Deconvolution complete" << std::endl;
+    return deconvHyperstack;
 }
 
 

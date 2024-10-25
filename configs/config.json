@@ -10,7 +10,7 @@
   "psfx": 20,
   "psfy": 20,
   "psfz": 46,
-  "iterations": 22,
+  "iterations": 10,
   "lambda": 0,
   "epsilon": 1e-6,
   "savePsf": true,
