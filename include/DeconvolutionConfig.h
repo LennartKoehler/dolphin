@@ -15,7 +15,7 @@ public:
     int cubeSize = 50;
     std::vector<int> secondpsflayers = {};
     std::vector<int> secondpsfcubes = {};
-
+    bool secondPSF = false;
 
     void loadFromJSON(const std::string &directoryPath);
 };

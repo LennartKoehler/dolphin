@@ -22,12 +22,15 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     this->cubeSize = config.cubeSize;
     this->secondpsflayers = config.secondpsflayers;
     this->secondpsfcubes = config.secondpsfcubes;
+    this->secondPSF = config.secondPSF;
 
     // Output
     std::cout << "[CONFIGURATION] Richardson-Lucy algorithm" << std::endl;
     std::cout << "[CONFIGURATION] iterations: " << this->iterations << std::endl;
     std::cout << "[CONFIGURATION] epsilon: " << this->epsilon << std::endl;
     std::cout << "[CONFIGURATION] grid: " << std::to_string(this->grid) << std::endl;
+    std::cout << "[CONFIGURATION] secondPSF: " << std::to_string(this->secondPSF) << std::endl;
+
     if(this->grid){
         std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;
         std::cout << "[CONFIGURATION] psfSafetyBorder: " << this->psfSafetyBorder << std::endl;
@@ -39,7 +42,6 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
             }
             std::cout << std::endl;
         }
-        std::cout << "[CONFIGURATION] secondpsfcubes: ";
         if(!this->secondpsfcubes.empty()){
             std::cout << "[CONFIGURATION] secondpsfcubes: ";
             for (const int& cube : secondpsfcubes) {
@@ -50,35 +52,10 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     }
 }
 
-void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num) {
-// Parallelization of grid for
-// Using static scheduling because the execution time for each iteration is similar, which reduces overhead costs by minimizing task assignment.
-#pragma omp parallel for schedule(static)
-    for (size_t i = 0; i < this->gridImages.size(); ++i) {
-        int gridNum = static_cast<int>(i);
+void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+
         // Allocate memory for intermediate FFTW arrays
-        // INFO
-        // if allocations takes to much memory put outside the loop (dont forget the free lines at the end)
-        fftw_complex *g = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-        fftw_complex *f = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
         fftw_complex *c = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-        fftw_complex* H = nullptr;
-
-        // Check if second PSF has to be applied
-        int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / this->cubesPerLayer));
-        auto useSecondPsfForThisLayer = std::find(secondpsflayers.begin(), secondpsflayers.end(), currentCubeLayer);
-        auto useSecondPsfForThisCube = std::find(secondpsfcubes.begin(), secondpsfcubes.end(), gridNum+1);
-        // Load the correct PSF
-        if (useSecondPsfForThisLayer != secondpsflayers.end() ||  useSecondPsfForThisCube != secondpsfcubes.end()) {
-            //std::cout << "[DEBUG] first PSF" << std::endl;
-            H = this->paddedH;
-        } else {
-            //std::cout << "[DEBUG] second PSF" << std::endl;
-            H = this->paddedH_2;
-        }
-
-        // Convert image to fftcomplex
-        UtlFFT::convertCVMatVectorToFFTWComplex(this->gridImages[i], g, this->cubeWidth, this->cubeHeight, this->cubeDepth);
         std::memcpy(f, g, sizeof(fftw_complex) * this->cubeVolume);
 
         for (int n = 0; n < this->iterations; ++n) {
@@ -134,14 +111,6 @@ void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num) {
             }
             std::flush(std::cout);
         }
-        // Convert the result FFTW complex array back to OpenCV Mat vector
-        UtlFFT::convertFFTWComplexToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
+    fftw_free(c);
 
-        gridNum++;
-        this->totalGridNum++;
-        fftw_free(g);
-        fftw_free(c);
-        fftw_free(f);
-    }
-    // this->girdImages of BaseDeconvolutionAlgorithm deconvolution complete
 }

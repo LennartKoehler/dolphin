@@ -44,6 +44,12 @@ namespace UtlFFT {
 
     void saveInterimImages(fftw_complex* resultImage, int imageWidth, int imageHeight, int imageDepth, int gridNum, int channel_z, int i);
 
+    void gradientX(fftw_complex* image, fftw_complex* gradX, int width, int height, int depth);
+    void gradientY(fftw_complex* image, fftw_complex* gradY, int width, int height, int depth);
+    void gradientZ(fftw_complex* image, fftw_complex* gradZ, int width, int height, int depth);
+    void computeTV(double lambda, fftw_complex* gx, fftw_complex* gy, fftw_complex* gz, fftw_complex* tv, int width, int height, int depth);
+    void normalizeTV(fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, int width, int height, int depth, double epsilon);
 
 
-}
+
+    }

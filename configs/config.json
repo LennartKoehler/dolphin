@@ -1,9 +1,10 @@
 {
   "image_path": "../input/bacteria.tif",
   "psf_path": "synthetic",
+  "psf_path_2": "synthetic",
   "dataFormatImage": "FILE",
   "dataFormatPSF": "FILE",
-  "algorithm": "rl",
+  "algorithm": "rltv",
   "sigmax": 5,
   "sigmay": 5,
   "sigmaz": 5,
@@ -11,7 +12,7 @@
   "psfy": 20,
   "psfz": 46,
   "iterations": 10,
-  "lambda": 0,
+  "lambda": 0.015,
   "epsilon": 1e-6,
   "savePsf": true,
   "sep": false,
@@ -23,9 +24,9 @@
   "cubeSize": 0,
   "psfSafetyBorder": 1,
 
-  "sigmax_2": 50,
-  "sigmay_2": 50,
-  "sigmaz_2": 50,
+  "sigmax_2": 100,
+  "sigmay_2": 100,
+  "sigmaz_2": 100,
   "secondpsflayers": [],
   "secondpsfcubes": []
 

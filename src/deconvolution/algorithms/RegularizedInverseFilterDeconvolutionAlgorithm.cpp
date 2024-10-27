@@ -22,12 +22,16 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const Deconvoluti
     this->cubeSize = config.cubeSize;
     this->secondpsflayers = config.secondpsflayers;
     this->secondpsfcubes = config.secondpsfcubes;
+    this->secondPSF = config.secondPSF;
+
 
     // Output
     std::cout << "[CONFIGURATION] Regularized Inverse Filter" << std::endl;
     std::cout << "[CONFIGURATION] lambda: " << this->lambda << std::endl;
     std::cout << "[CONFIGURATION] epsilon: " << epsilon << std::endl;
     std::cout << "[CONFIGURATION] grid: " << this->grid << std::endl;
+    std::cout << "[CONFIGURATION] secondPSF: " << std::to_string(this->secondPSF) << std::endl;
+
     if(this->grid){
         std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;
         std::cout << "[CONFIGURATION] psfSafetyBorder: " << this->psfSafetyBorder << std::endl;
@@ -49,46 +53,18 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const Deconvoluti
     }
 }
 
-void RegularizedInverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num) {
-// Parallelization of grid for
-// Using static scheduling because the execution time for each iteration is similar, which reduces overhead costs by minimizing task assignment.
-#pragma omp parallel for schedule(static)
-    for (size_t i = 0; i < this->gridImages.size(); ++i) {
-        int gridNum = static_cast<int>(i);
-
+void RegularizedInverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
         // Allocate memory for intermediate FFTW arrays
-        fftw_complex *image = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
         fftw_complex* H2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
         fftw_complex* L = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
         fftw_complex* L2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
         fftw_complex* FA = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
         fftw_complex* FP = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
 
-        fftw_complex* H = nullptr;
-
-        // Check if second PSF has to be applied
-        int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / cubesPerLayer));
-        auto useSecondPsfForThisLayer = std::find(secondpsflayers.begin(), secondpsflayers.end(), currentCubeLayer);
-        auto useSecondPsfForThisCube = std::find(secondpsfcubes.begin(), secondpsfcubes.end(), gridNum+1);
-        // Load the correct PSF
-        if (useSecondPsfForThisLayer != secondpsflayers.end() ||  useSecondPsfForThisCube != secondpsfcubes.end()) {
-            //std::cout << "[DEBUG] first PSF" << std::endl;
-            H = this->paddedH;
-        } else {
-            //std::cout << "[DEBUG] second PSF" << std::endl;
-            H = this->paddedH_2;
-        }
-
-        std::flush(std::cout);
-
-        std::cout << "\rChannel: " << channel_num + 1 << "/" << data.channels.size() << " GridImage: "
-                  << totalGridNum << "/" << this->gridImages.size() << " ";
-        //Convert image to fftcomplex
-        UtlFFT::convertCVMatVectorToFFTWComplex(this->gridImages[i], image, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
         // Forward FFT on image
-        fftw_execute_dft(forwardPlan, image, image);
-        UtlFFT::octantFourierShift(image, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+        fftw_execute_dft(forwardPlan, g, g);
+        UtlFFT::octantFourierShift(g, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
         // H*H
         UtlFFT::complexMultiplication(H, H, H2, this->cubeVolume);
@@ -99,20 +75,14 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data,
 
         UtlFFT::complexAddition(H2, L2, FA, this->cubeVolume);
         UtlFFT::complexDivisionStabilized(H, FA, FP, this->cubeVolume, this->epsilon);
-        UtlFFT::complexMultiplication(image, FP, image, this->cubeVolume);
+        UtlFFT::complexMultiplication(g, FP, f, this->cubeVolume);
 
         // Inverse FFT
-        UtlFFT::octantFourierShift(image, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-        fftw_execute_dft(backwardPlan, image, image);
-        UtlFFT::octantFourierShift(image, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+        UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+        fftw_execute_dft(backwardPlan, f, f);
+        UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
         //TODO
-        UtlFFT::reorderLayers(image, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+        //UtlFFT::reorderLayers(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
-        // Convert the result FFTW complex array back to OpenCV Mat vector
-        UtlFFT::convertFFTWComplexToCVMatVector(image, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
-        gridNum++;
-        std::flush(std::cout);
-
-    }
 }

@@ -19,6 +19,9 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
             double globalMinPsf, globalMaxPsf;
             UtlImage::findGlobalMinMax(psf.image.slices, globalMinPsf, globalMaxPsf);
             std::cout << "[INFO] PSF" << "_" << psfcount<<" values min/max: " << globalMinPsf << "/" << globalMaxPsf << std::endl;
+            if(!this->secondPSF){
+                break;
+            }
             psfcount++;
         }
 
@@ -125,20 +128,22 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         this->paddedH = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * safetyBorderPsfVolume);
         UtlFFT::padPSF(h, originPsfWidth, originPsfHeight, originPsfDepth, this->paddedH, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
 
-        //second PSF
-        std::cout << "[STATUS] Performing Fourier Transform on PSF_2..." << std::endl;
-        fftw_complex *h_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
-        UtlFFT::convertCVMatVectorToFFTWComplex(psfs[0].image.slices, h_2, originPsfWidth, originPsfHeight, originPsfDepth);
-        fftw_execute_dft(forwardPSFPlan, h_2, h_2);
-        UtlFFT::octantFourierShift(h_2, originPsfWidth, originPsfHeight, originPsfDepth);
-        std::cout << "[STATUS] Padding PSF_2..." << std::endl;
-        // Pad the PSF to the size of the image
-        this->paddedH_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * safetyBorderPsfVolume);
-        UtlFFT::padPSF(h_2, originPsfWidth, originPsfHeight, originPsfDepth, this->paddedH_2, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
+        if(this->secondPSF){
+            //second PSF
+            std::cout << "[STATUS] Performing Fourier Transform on PSF_2..." << std::endl;
+            fftw_complex *h_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
+            UtlFFT::convertCVMatVectorToFFTWComplex(psfs[1].image.slices, h_2, originPsfWidth, originPsfHeight, originPsfDepth);
+            fftw_execute_dft(forwardPSFPlan, h_2, h_2);
+            UtlFFT::octantFourierShift(h_2, originPsfWidth, originPsfHeight, originPsfDepth);
+            std::cout << "[STATUS] Padding PSF_2..." << std::endl;
+            // Pad the PSF to the size of the image
+            this->paddedH_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * safetyBorderPsfVolume);
+            UtlFFT::padPSF(h_2, originPsfWidth, originPsfHeight, originPsfDepth, this->paddedH_2, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
+            fftw_free(h_2);
 
+        }
     // Free FFTW resources for PSF
         fftw_free(h);
-    fftw_free(h_2);
 
     fftw_free(fftwPSFPlanMem);
         fftw_destroy_plan(forwardPSFPlan);
@@ -248,8 +253,55 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
         this->cubesPerLayer = cubesPerX * cubesPerY;
         std::cout << "[INFO] Cubes per Layer(" << cubesPerZ<< "):" << cubesPerX << "x" << cubesPerY << " (" << cubesPerLayer << ")" << std::endl;
 
-        // Methode overridden in specific algorithm class
-        algorithm(data, channel_z);
+        // Parallelization of grid for
+// Using static scheduling because the execution time for each iteration is similar, which reduces overhead costs by minimizing task assignment.
+#pragma omp parallel for schedule(static)
+        for (size_t i = 0; i < this->gridImages.size(); ++i) {
+            // PSF
+            // H points to an existing PSF (paddedH or paddedH_2) and should not be freed here as it is not allocated with fftw_malloc.
+            fftw_complex* H = nullptr;
+            // Observed image
+            fftw_complex* g = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
+            // Result image
+            fftw_complex* f = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
+
+
+            if(this->secondPSF){
+                // Check if second PSF has to be applied
+                int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / this->cubesPerLayer));
+                auto useSecondPsfForThisLayer = std::find(secondpsflayers.begin(), secondpsflayers.end(), currentCubeLayer);
+                auto useSecondPsfForThisCube = std::find(secondpsfcubes.begin(), secondpsfcubes.end(), i+1);
+                // Load the correct PSF
+                if (useSecondPsfForThisLayer != secondpsflayers.end() ||  useSecondPsfForThisCube != secondpsfcubes.end()) {
+                    //std::cout << "[DEBUG] second PSF at "<< i+1 << std::endl;
+                    H = this->paddedH_2;
+                } else {
+                    //std::cout << "[DEBUG] first PSF at "<< i+1 << std::endl;
+                    H = this->paddedH;
+                }
+            }else{
+                H = this->paddedH;
+            }
+
+
+            // Convert image to fftcomplex
+            UtlFFT::convertCVMatVectorToFFTWComplex(this->gridImages[i], g, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+
+            std::cout << "\r[STATUS] Channel: " << channel_z + 1 << "/" << data.channels.size() << " GridImage: "
+                      << this->totalGridNum << "/" << this->gridImages.size() << " ";
+            // Methode overridden in specific algorithm class
+            algorithm(data, channel_z, H, g, f);
+
+            // Convert the result FFTW complex array back to OpenCV Mat vector
+            UtlFFT::convertFFTWComplexToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
+
+            this->totalGridNum++;
+            fftw_free(g);
+            fftw_free(f);
+            std::flush(std::cout);
+
+        }
+        // this->girdImages of BaseDeconvolutionAlgorithm deconvolution complete
 
         // Debug ouptut
         // 1. size in metadata, 2. size of extendes channel image, 3.original read in image size

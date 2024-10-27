@@ -12,6 +12,8 @@
 
 #include "PSFGenerator.h"
 #include "RLDeconvolutionAlgorithm.h"
+#include "RLTVDeconvolutionAlgorithm.h"
+
 #include "DeconvolutionAlgorithm.h"
 #include "InverseFilterDeconvolutionAlgorithm.h"
 #include "RegularizedInverseFilterDeconvolutionAlgorithm.h"
@@ -64,7 +66,7 @@ int main(int argc, char** argv) {
     cli_group->add_option("-i,--image", image_path, "Input Image Path")->required();
     cli_group->add_option("-p,--psf", psf_path, "Input PSF Path or 'synthetic'")->required();
     cli_group->add_option("--psf2", psf_path_2, "Input second PSF Path or 'synthetic'");
-    cli_group->add_option("-a,--algorithm", algorithm, "Algorithm Selection ('rl'/'rif'/'inverse')")->required();
+    cli_group->add_option("-a,--algorithm", algorithm, "Algorithm Selection ('rl'/'rltv'/'rif'/'inverse')")->required();
     cli_group->add_option("--dataFormatImage", dataFormatImage, "Data Format for Image ('FILE'/'DIR')")->required();
     cli_group->add_option("--dataFormatPSF", dataFormatPSF, "Data Format for PSF ('FILE'/'DIR')")->required();
     cli_group->add_option("--sigmax", sigmax, "SigmaX for synthetic PSF [25] (for RL)")->check(CLI::PositiveNumber);
@@ -108,6 +110,8 @@ int main(int argc, char** argv) {
     CLI11_PARSE(app, argc, argv);
 
     json config;
+    bool secondPSF = false;
+
     if (!config_file_path.empty()) {
         // Read configuration file
         std::ifstream config_file(config_file_path);
@@ -139,6 +143,7 @@ int main(int argc, char** argv) {
                     std::cout << "[WARNING] sigmaZ value 0" << std::endl;
                 }
             }
+            secondPSF = true;
         }
         algorithm = config["algorithm"].get<std::string>();
         dataFormatImage = config["dataFormatImage"].get<std::string>();
@@ -151,7 +156,7 @@ int main(int argc, char** argv) {
         psfz = config["psfz"].get<int>();
         epsilon = config["epsilon"].get<double>();
         iterations = config["iterations"].get<int>();
-        lambda = config["lambda"].get<int>();
+        lambda = config["lambda"].get<double>();
         psfSafetyBorder = config["psfSafetyBorder"].get<int>();
         cubeSize = config["cubeSize"].get<int>();
         borderType = config["borderType"].get<int>();
@@ -192,6 +197,9 @@ int main(int argc, char** argv) {
             // Hier kannst du Standardwerte für secondpsflayers festlegen
             secondpsfcubes = {}; // Beispiel für einen Standardwert
         }
+    }
+    if(secondpsflayers.empty() && secondpsfcubes.empty()){
+        secondPSF = false;
     }
 
     //###PROGRAMM START###//
@@ -275,9 +283,9 @@ int main(int argc, char** argv) {
         deconvConfig.cubeSize = cubeSize;
         deconvConfig.secondpsflayers = secondpsflayers;
         deconvConfig.secondpsfcubes = secondpsfcubes;
+        deconvConfig.secondPSF = secondPSF;
 
-
-        Hyperstack deconvHyperstack;
+    Hyperstack deconvHyperstack;
 
         // Starttime
         auto start = std::chrono::high_resolution_clock::now();
@@ -289,6 +297,10 @@ int main(int argc, char** argv) {
             DeconvolutionAlgorithm<RLDeconvolutionAlgorithm> rlAlgorithm(deconvConfig);
             //deconvHyperstack = rlAlgorithm.deconvolve(hyperstack, psf);
             deconvHyperstack = rlAlgorithm.deconvolve(hyperstack, psfs);
+        }else if (algorithm == "rltv") {
+            DeconvolutionAlgorithm<RLTVDeconvolutionAlgorithm> rltvAlgorithm(deconvConfig);
+            //deconvHyperstack = rlAlgorithm.deconvolve(hyperstack, psf);
+            deconvHyperstack = rltvAlgorithm.deconvolve(hyperstack, psfs);
         } else if (algorithm == "rif") {
             DeconvolutionAlgorithm<RegularizedInverseFilterDeconvolutionAlgorithm> rifAlgorithm(deconvConfig);
             deconvHyperstack = rifAlgorithm.deconvolve(hyperstack, psfs);

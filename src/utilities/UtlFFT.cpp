@@ -458,4 +458,127 @@ void UtlFFT::saveInterimImages(fftw_complex* resultImage, int imageWidth, int im
     }
 }
 
+// Berechnet den Gradienten in x-Richtung eines 3D-Bildes.
+void UtlFFT::gradientX(fftw_complex* image, fftw_complex* gradX, int width, int height, int depth) {
+    // Parallelize the loops using OpenMP for better performance.
+//#pragma omp parallel for collapse(3)
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width - 1; ++x) {
+                // Calculate the linear index for the 3D array.
+                int index = z * height * width + y * width + x;
+                int nextIndex = index + 1;
 
+                // Derivative in x-direction: gradX = image - next value in x.
+                gradX[index][0] = image[index][0] - image[nextIndex][0]; // Real part
+                gradX[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+            }
+
+            // Handle the boundary condition at the last x position.
+            int lastIndex = z * height * width + y * width + (width - 1);
+            gradX[lastIndex][0] = 0.0; // Set the derivative to zero or another suitable boundary condition.
+            gradX[lastIndex][1] = 0.0;
+        }
+    }
+}
+
+// Berechnet den Gradienten in y-Richtung eines 3D-Bildes.
+void UtlFFT::gradientY(fftw_complex* image, fftw_complex* gradY, int width, int height, int depth) {
+    // Parallelize the loops using OpenMP for better performance.
+//#pragma omp parallel for collapse(3)
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height - 1; ++y) {
+            for (int x = 0; x < width; ++x) {
+                // Calculate the linear index for the 3D array.
+                int index = z * height * width + y * width + x;
+                int nextIndex = index + width;
+
+                // Derivative in y-direction: gradY = image - next value in y.
+                gradY[index][0] = image[index][0] - image[nextIndex][0]; // Real part
+                gradY[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+            }
+
+            // Handle the boundary condition at the last y position.
+            int lastIndex = z * height * width + (height - 1) * width + (width - 1);
+            gradY[lastIndex][0] = 0.0; // Set the derivative to zero or another suitable boundary condition.
+            gradY[lastIndex][1] = 0.0;
+        }
+    }
+}
+
+// Berechnet den Gradienten in z-Richtung eines 3D-Bildes.
+void UtlFFT::gradientZ(fftw_complex* image, fftw_complex* gradZ, int width, int height, int depth) {
+    // Parallelize the loops using OpenMP for better performance.
+//#pragma omp parallel for collapse(3)
+    for (int z = 0; z < depth - 1; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                // Calculate the linear index for the 3D array.
+                int index = z * height * width + y * width + x;
+                int nextIndex = index + height * width;
+
+                // Derivative in z-direction: gradZ = image - next value in z.
+                gradZ[index][0] = image[index][0] - image[nextIndex][0]; // Real part
+                gradZ[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+            }
+
+            // Handle the boundary condition at the last z position.
+            int lastIndex = (depth - 1) * height * width + y * width + (width - 1);
+            gradZ[lastIndex][0] = 0.0; // Set the derivative to zero or another suitable boundary condition.
+            gradZ[lastIndex][1] = 0.0;
+        }
+    }
+}
+// Berechnet die Total-Variation-Filterung basierend auf den Gradienten und einem Regularisierungsparameter lambda.
+void UtlFFT::computeTV(double lambda, fftw_complex* gx, fftw_complex* gy, fftw_complex* gz, fftw_complex* tv, int width, int height, int depth) {
+    int nxy = width * height;
+
+    // Parallelize the loops using OpenMP for better performance.
+//#pragma omp parallel for collapse(2)
+    for (int z = 0; z < depth; ++z) {
+        for (int i = 0; i < nxy; ++i) {
+            // Calculate the linear index for the 3D array.
+            int index = z * nxy + i;
+
+            // Retrieve the gradient components.
+            double dx = gx[index][0]; // Assume that the gradient data is stored in the real part.
+            double dy = gy[index][0];
+            double dz = gz[index][0];
+
+            // Compute the TV value using the provided formula.
+            tv[index][0] = static_cast<float>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+            tv[index][1] = 0.0; // Assuming the output is real-valued, set the imaginary part to zero.
+        }
+    }
+}
+
+// Normalisiert die Vektorkomponenten eines 3D-Feldes.
+void UtlFFT::normalizeTV(fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, int width, int height, int depth, double epsilon) {
+    int nxy = width * height;
+
+    // Parallelize the loops using OpenMP for better performance.
+//#pragma omp parallel for collapse(2)
+    for (int z = 0; z < depth; ++z) {
+        for (int i = 0; i < nxy; ++i) {
+            int index = z * nxy + i;
+
+            // Berechne die Norm (Länge) des Vektors.
+            double norm = std::sqrt(
+                    gradX[index][0] * gradX[index][0] + gradX[index][1] * gradX[index][1] +
+                    gradY[index][0] * gradY[index][0] + gradY[index][1] * gradY[index][1] +
+                    gradZ[index][0] * gradZ[index][0] + gradZ[index][1] * gradZ[index][1]
+            );
+
+            // Vermeide Division durch zu kleine Werte, indem die Norm durch max(epsilon, norm) ersetzt wird.
+            norm = std::max(norm, epsilon);
+
+            // Normalisiere die Komponenten.
+            gradX[index][0] /= norm;
+            gradX[index][1] /= norm;
+            gradY[index][0] /= norm;
+            gradY[index][1] /= norm;
+            gradZ[index][0] /= norm;
+            gradZ[index][1] /= norm;
+        }
+    }
+}

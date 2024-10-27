@@ -9,7 +9,7 @@ class BaseDeconvolutionAlgorithm {
 public:
     virtual ~BaseDeconvolutionAlgorithm(){cleanup();}
     virtual void configure(const DeconvolutionConfig& config) = 0;
-    virtual void algorithm(Hyperstack& data, int channel_num) = 0;
+    virtual void algorithm(Hyperstack& data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) = 0;
 
     Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psfs);
     bool preprocess(Channel& channel, std::vector<PSF>& psfs);
@@ -23,6 +23,7 @@ protected:
     int borderType;
     int psfSafetyBorder;
     int cubeSize;
+    bool secondPSF;
 
     // Image handling and fftw
     std::vector<cv::Mat> mergedVolume;

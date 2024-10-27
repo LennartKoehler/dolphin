@@ -71,6 +71,8 @@ add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
         src/psf/algorithms/GaussianPSFGeneratorAlgorithm.cpp
         src/psf/algorithms/BornWolfModel.cpp
         include/BornWolfModel.h
+        include/RLTVDeconvolutionAlgorithm.h
+        src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
 )
 # Link your executable with the required libraries
 target_link_libraries(deconvtool
