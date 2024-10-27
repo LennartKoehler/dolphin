@@ -1,5 +1,5 @@
 {
-  "image_path": "../input/bacteria.tif",
+  "image_path": "../input/your_image.tif",
   "dataFormatImage": "FILE",
   "info": true,
   "showExampleLayers": false,
@@ -21,9 +21,9 @@
   "sigmax": 5,
   "sigmay": 5,
   "sigmaz": 5,
-  "sigmax_2": 100,
-  "sigmay_2": 100,
-  "sigmaz_2": 100,
+  "sigmax_2": 10,
+  "sigmay_2": 10,
+  "sigmaz_2": 15,
   "secondpsflayers": [],
   "secondpsfcubes": [],
 
@@ -32,13 +32,3 @@
   "cubeSize": 0,
   "psfSafetyBorder": 10
 }
-
-//  "algorithm": "rif",
-// "epsilon": 1e-20,
-
-//  "algorithm": "inverse",
-// "epsilon": 1e-8,
-
-// "cubeSize": 0, --> auto
-
-//hallo :), hi

@@ -24,7 +24,6 @@ using json = nlohmann::json;
 int main(int argc, char** argv) {
     std::cout << "[Start DeconvTool]" << std::endl;
 
-
     // Arguments
     std::string image_path;
     std::string psf_path;
@@ -34,7 +33,7 @@ int main(int argc, char** argv) {
     std::string dataFormatImage;
     std::string dataFormatPSF;
     int iterations = 100; //RichardsonLucy
-    double lambda = 1e-20; //Regularized Inverse Filter
+    double lambda = 1e-20; //Regularized Inverse Filter and Richardson-Lucy with Total Variation
     double sigmax = 25.0; //synthetic PSF
     double sigmay = 25.0; //synthetic PSF
     double sigmaz = 25.0; //synthetic PSF

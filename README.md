@@ -1,124 +1,136 @@
 <div style="display: flex; align-items: center;">
     <img src="icon.png" alt="Whale Icon" width="60" height="60" style="margin-right: 10px;">
-    <h1>DeconvTool</h1>
+    <h1>DeconvTool v1.5.0</h1>
 </div>
 
-## Abstract
 
-DeconvTool is an open-source command-line-based microscopy image deconvolution tool designed for organ-on-chip applications. Written in C++, DeconvTool enables users to process image data and Point Spread Functions (PSFs) via command-line arguments or JSON-formatted configuration files. It supports both real and synthetic PSFs and offers various parameters for image grid processing, deconvolution algorithms, and custom image extensions.
+---
 
-The tool implements several deconvolution algorithms, including:
-- **Inverse Filter Deconvolution**
-- **Regularized Inverse Filter Deconvolution**
-- **Richardson-Lucy Algorithm**
-
-It allows for parameter tuning such as the number of iterations. Despite its flexibility, DeconvTool is slower compared to other tools like Huygens and DeconvLab2 and may introduce artifacts in some scenarios. Future enhancements aim to optimize performance through process parallelization and GPU acceleration. Improvements to PSF generation are also planned.
+DeconvTool is a C++ command-line tool designed for deconvolution of microscopy images. It supports multiple deconvolution algorithms and allows the generation and use of synthetic Point Spread Functions (PSF). The tool is intended for users familiar with image processing and deconvolution techniques.
 
 ## Features
 
-- **Command-Line Interface (CLI)**: Input parameters via command line or JSON configuration.
-- **Algorithm Support**: Inverse Filter, Regularized Inverse Filter, Richardson-Lucy, and convolution.
-- **Synthetic PSF Generation**: Support for synthetic PSFs with adjustable parameters.
-- **Image Grid Processing**: Option to split images into subimages (cubes) for processing.
-- **Custom Extensions**: Options for border types and image extension methods.
+- **Input Image Formats**: Supports both single image files and directories of image slices in TIF format.
+- **Point Spread Function (PSF) Input**: Allows users to provide a PSF as a file, a directory of slices, or generate a synthetic PSF.
+- **Multiple Deconvolution Algorithms**:
+    - Richardson-Lucy (RL)
+    - Richardson-Lucy with Total Variation (RLTV)
+    - Regularized Inverse Filter (RIF)
+    - Inverse Filter
+- **Support for a second PSF**: Users can provide or generate a secondary PSF for specific layers or cubes.
+- **Flexible Parameters**: Adjustable parameters such as sigma values for synthetic PSF generation, iteration counts, lambda for regularization, and more.
+- **Image Subdivision**: Processes images as grids of smaller cubes for memory efficiency and better performance.
+- **Time Measurement**: Option to display the duration of deconvolution processes.
+- **Configuration via CLI or JSON**: Users can specify parameters through command-line arguments or by providing a JSON configuration file.
 
-## Installation
+## Requirements
 
-To use DeconvTool, ensure you have a C++ compiler and necessary libraries installed. You can build DeconvTool by running:
-
-```bash
-mkdir build
-cd build
-cmake ..
-make
-```
+- C++17 or later
+- [OpenCV](https://opencv.org/) (for image processing)
+- [FFTW](http://www.fftw.org/) (for fast Fourier transforms)
+- [CLI11](https://github.com/CLIUtils/CLI11) (for command-line parsing)
+- [nlohmann/json](https://github.com/nlohmann/json) (for JSON handling)
 
 ## Usage
 
-You can run DeconvTool via the command line with various options. Below are some examples of how to use it.
+### Command-Line Options
 
-### Command-Line Arguments
+DeconvTool provides a variety of command-line options:
 
 ```
-deconvtool --image <path_to_image> --psf <path_to_psf> --algorithm <algorithm> --dataFormatImage <FILE|DIR> --dataFormatPSF <FILE|DIR> [options]
+-i, --image <path>               Input Image Path (required)
+-p, --psf <path>                 Input PSF Path or 'synthetic' (required)
+--psf2 <path>                    Input second PSF Path or 'synthetic'
+-a, --algorithm <algorithm>      Algorithm Selection ('rl'/'rltv'/'rif'/'inverse') (required)
+--dataFormatImage <format>       Data Format for Image ('FILE'/'DIR') (required)
+--dataFormatPSF <format>         Data Format for PSF ('FILE'/'DIR') (required)
+--sigmax <value>                 SigmaX for synthetic PSF [25] (for RL)
+--sigmay <value>                 SigmaY for synthetic PSF [25] (for RL)
+--sigmaz <value>                 SigmaZ for synthetic PSF [25] (for RL)
+--psfx <value>                   Width of synthetic PSF [20]
+--psfy <value>                   Height of synthetic PSF [20]
+--psfz <value>                   Depth of synthetic PSF [30]
+--iterations <value>             Number of iterations [100] (for RL)
+--lambda <value>                 Lambda for Regularized Inverse Filter [1e-20]
+--epsilon <value>                Epsilon for complex division [1e-12]
+--borderType <type>              Border type for image extension [2] (0=constant, 1=replicate, 2=reflect)
+--psfSafetyBorder <value>        Padding around the PSF [20]
+--cubeSize <value>               Edge length of grid cubes [50]
+--sigmax_2 <value>               SigmaX for the second synthetic PSF [25]
+--sigmay_2 <value>               SigmaY for the second synthetic PSF [25]
+--sigmaz_2 <value>               SigmaZ for the second synthetic PSF [25]
+--savepsf                        Save the PSF used in the process
+--time                           Show the processing time
+--grid                           Process image in sub-images (grid)
+--seperate                       Save image layers separately
+--info                           Print information about the input image
+--showExampleLayers              Display example layers of the image and PSF
+-c, --config <path>              Path to JSON configuration file (required if no CLI arguments are provided)
 ```
 
-### Required Arguments
+### Example
 
-- `-i, --image` : Path to the input image.
-- `-p, --psf` : Path to the PSF or keyword `synthetic` to generate a synthetic PSF.
-- `-a, --algorithm` : Algorithm to use for deconvolution (`inverse`, `rl`, `rif`).
-- `--dataFormatImage` : Data format for image (`FILE` or `DIR`).
-- `--dataFormatPSF` : Data format for PSF (`FILE` or `DIR`).
+```bash
+./deconvtool -i input_image.tif -p synthetic -a rl --dataFormatImage FILE --dataFormatPSF FILE --sigmax 20 --sigmay 20 --sigmaz 20 --iterations 200 --time
+```
 
-### Optional Arguments
+This command will run the Richardson-Lucy algorithm with a synthetic PSF and specified sigma values, using the input image file and displaying the time taken.
 
-- `--sigmax`, `--sigmay`, `--sigmaz`: Parameters for synthetic PSF (default: 25).
-- `--psfx`, `--psfy`, `--psfz`: Dimensions for synthetic PSF (default: 500x500x20).
-- `--epsilon`: Epsilon for complex division (default: 0).
-- `--borderType`: Type of border extension (0-constant, 1-replicate, 2-reflect) (default: 2).
-- `--psfSafetyBorder`: Safety border around the PSF in pixels (default: 20).
-- `--cubeSize`: Size of subimages (cubes) for grid processing (default: 50).
-- `--iterations`: Number of iterations for iterative algorithms (default: 100).
-- `--lambda`: Regularization parameter for Regularized Inverse Filter (default: 1e-20).
-- `--savepsf`: Save the PSF after deconvolution (default: false).
-- `--time`: Show duration of the deconvolution process.
-- `--grid`: Enable image splitting into subimages.
-- `--separate`: Save channels separately (for RL PNG).
-- `--info`: Print metadata of the input image.
-- `--showExampleLayers`: Show a layer of the loaded image and PSF.
+### Using a Configuration File
 
-### Configuration File
-
-You can also use a JSON configuration file to specify the parameters. The configuration file should include the following fields:
+You can specify your input, PSF, and other parameters using a JSON file. An example of the JSON configuration file is shown below:
 
 ```json
 {
-  "image_path": "path_to_image",
-  "psf_path": "path_to_psf",
-  "algorithm": "algorithm",
-  "dataFormatImage": "FILE|DIR",
-  "dataFormatPSF": "FILE|DIR",
-  "sigmax": 25.0,
-  "sigmay": 25.0,
-  "sigmaz": 25.0,
-  "psfx": 500,
-  "psfy": 500,
-  "psfz": 20,
-  "epsilon": 0,
-  "iterations": 100,
-  "lambda": 1e-20,
-  "psfSafetyBorder": 20,
-  "cubeSize": 50,
-  "borderType": 2,
-  "sep": false,
-  "time": false,
-  "savePsf": false,
-  "showExampleLayers": false,
-  "info": false,
-  "grid": true
+    "image_path": "input_image.tif",
+    "psf_path": "synthetic",
+    "algorithm": "rl",
+    "dataFormatImage": "FILE",
+    "dataFormatPSF": "FILE",
+    "sigmax": 25.0,
+    "sigmay": 25.0,
+    "sigmaz": 25.0,
+    "iterations": 100,
+    "lambda": 1e-20,
+    "epsilon": 1e-12,
+    "psfSafetyBorder": 20,
+    "cubeSize": 50,
+    "time": true,
+    "grid": true,
+    "info": true,
+    "secondpsflayers": [2, 4, 6],
+    "secondpsfcubes": [1, 3, 5]
 }
 ```
 
-Run DeconvTool with the configuration file using:
+You can run the tool using the configuration file like this:
 
 ```bash
-deconvtool --config <path_to_config_file>
+./deconvtool -c config.json
 ```
 
-## Performance and Limitations
+### Output
 
-DeconvTool may exhibit slower performance compared to other deconvolution tools and may introduce artifacts in certain scenarios. Future work includes optimizing performance with parallelization and GPU acceleration, as well as improving PSF generation.
+The processed images are saved in the specified format, and optional PSF files can be saved if the `--savepsf` flag is set. Additional information, such as the time taken for processing, will be displayed if the `--time` option is enabled.
 
 ## License
 
-DeconvTool is open-source software licensed under the [MIT License](LICENSE). 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- The project uses the CLI11 library for command-line argument parsing.
+- The `nlohmann/json` library is used for reading and handling JSON files.
+- The `OpenCV` library facilitates image processing tasks.
+- `FFTW` is used for fast Fourier transformations during the deconvolution process.
+- Icon attribution <a href="https://www.flaticon.com/free-icons/whale" title="whale icons">Whale icons created by Freepik - Flaticon</a>
+
+---
 
 ## Contact
 
 For questions or feedback, please contact [christoph.manitz@uni-jena.de].
 
-Icon attribution <a href="https://www.flaticon.com/free-icons/whale" title="whale icons">Whale icons created by Freepik - Flaticon</a>
 
 ---
 
