@@ -1,5 +1,12 @@
 # Configuration Parameters
 
+## Required Parameters
+- `-i, --image <path>`
+- `-p, --psf <path>`
+- `-a, --algorithm <algorithm>`
+- `--dataFormatImage <format>`
+- `--dataFormatPSF <format>`
+
 ## Input and Output
 
 - `-i, --image <path>`  
@@ -145,7 +152,7 @@
   **Required**: No.
 
 - `--secondpsflayers <list>`  
-  **Description**: A list of layers for the second PSF, which can be specified for processing.  
+  **Description**: A list of sub-image/cube layers for the second PSF, which can be specified for processing.  
   **Default**: `[]` (empty list)  
   **Required**: No.
 

@@ -44,24 +44,26 @@ DeconvTool provides a variety of command-line options:
 -a, --algorithm <algorithm>      Algorithm Selection ('rl'/'rltv'/'rif'/'inverse') (required)
 --dataFormatImage <format>       Data Format for Image ('FILE'/'DIR') (required)
 --dataFormatPSF <format>         Data Format for PSF ('FILE'/'DIR') (required)
---sigmax <value>                 SigmaX for synthetic PSF [25] (for RL)
---sigmay <value>                 SigmaY for synthetic PSF [25] (for RL)
---sigmaz <value>                 SigmaZ for synthetic PSF [25] (for RL)
+--sigmax <value>                 SigmaX for synthetic PSF [5]
+--sigmay <value>                 SigmaY for synthetic PSF [5] 
+--sigmaz <value>                 SigmaZ for synthetic PSF [5] 
 --psfx <value>                   Width of synthetic PSF [20]
 --psfy <value>                   Height of synthetic PSF [20]
 --psfz <value>                   Depth of synthetic PSF [30]
---iterations <value>             Number of iterations [100] (for RL)
---lambda <value>                 Lambda for Regularized Inverse Filter [1e-20]
---epsilon <value>                Epsilon for complex division [1e-12]
+--iterations <value>             Number of iterations [10] (for RL)
+--lambda <value>                 Lambda for Regularized Inverse Filter [1e-2]
+--epsilon <value>                Epsilon for complex division [1e-6]
 --borderType <type>              Border type for image extension [2] (0=constant, 1=replicate, 2=reflect)
---psfSafetyBorder <value>        Padding around the PSF [20]
---cubeSize <value>               Edge length of grid cubes [50]
---sigmax_2 <value>               SigmaX for the second synthetic PSF [25]
---sigmay_2 <value>               SigmaY for the second synthetic PSF [25]
---sigmaz_2 <value>               SigmaZ for the second synthetic PSF [25]
+--psfSafetyBorder <value>        Padding around the PSF [10]
+--cubeSize <value>               Edge length of grid cubes [0]
+--sigmax_2 <value>               SigmaX for the second synthetic PSF [10]
+--sigmay_2 <value>               SigmaY for the second synthetic PSF [10]
+--sigmaz_2 <value>               SigmaZ for the second synthetic PSF [15]
 --savepsf                        Save the PSF used in the process
 --time                           Show the processing time
---grid                           Process image in sub-images (grid)
+--grid                           Process image in sub-images/cubes (grid)
+--secondpsflayers <list>         list of cube layers for the second PSF
+--secondpsfcubes <list>          list of cubes for the second PSF
 --seperate                       Save image layers separately
 --info                           Print information about the input image
 --showExampleLayers              Display example layers of the image and PSF
