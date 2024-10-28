@@ -14,6 +14,7 @@
   "psf_path": "synthetic",
   "psf_path_2": "synthetic",
   "dataFormatPSF": "FILE",
+  "psfmodel": "gauss",
   "savePsf": false,
   "psfx": 20,
   "psfy": 20,

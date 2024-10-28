@@ -62,6 +62,14 @@
 
 ## Synthetic PSF Parameters
 
+- `--psfmodel <model>`  
+  **Description**: Select the PSF model to be used. Options are:
+    - `'gauss'`: Gaussian PSF.
+    - `'bornwolf'`: Born-Wolf PSF (coming soon).
+  
+  **Default**: 'gauss'.  
+  **Required**: No.
+
 - `--sigmax <value>`  
   **Description**: Sigma value in the X direction for the synthetic PSF.  
   **Default**: 5.  

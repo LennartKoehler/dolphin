@@ -44,6 +44,7 @@ DeconvTool provides a variety of command-line options:
 -a, --algorithm <algorithm>      Algorithm Selection ('rl'/'rltv'/'rif'/'inverse') (required)
 --dataFormatImage <format>       Data Format for Image ('FILE'/'DIR') (required)
 --dataFormatPSF <format>         Data Format for PSF ('FILE'/'DIR') (required)
+--psfmodel <model>               PSF Model Selection ('gauss', ...)
 --sigmax <value>                 SigmaX for synthetic PSF [5]
 --sigmay <value>                 SigmaY for synthetic PSF [5] 
 --sigmaz <value>                 SigmaZ for synthetic PSF [5] 
