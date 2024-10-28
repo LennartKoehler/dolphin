@@ -4,7 +4,7 @@
   "info": true,
   "showExampleLayers": false,
   "time": true,
-  "sep": false,
+  "seperate": false,
 
   "algorithm": "rltv",
   "epsilon": 1e-6,

@@ -32,15 +32,15 @@ int main(int argc, char** argv) {
     std::string image_type;
     std::string dataFormatImage;
     std::string dataFormatPSF;
-    int iterations = 100; //RichardsonLucy
-    double lambda = 1e-20; //Regularized Inverse Filter and Richardson-Lucy with Total Variation
-    double sigmax = 25.0; //synthetic PSF
-    double sigmay = 25.0; //synthetic PSF
-    double sigmaz = 25.0; //synthetic PSF
+    int iterations = 10; //RichardsonLucy /RLTV
+    double lambda = 0.01; //Regularized Inverse Filter and Richardson-Lucy with Total Variation
+    double sigmax = 5.0; //synthetic PSF
+    double sigmay = 5.0; //synthetic PSF
+    double sigmaz = 5.0; //synthetic PSF
     int psfx = 20;
     int psfy = 20;
     int psfz = 30;
-    double epsilon = 1e-12; // Complex Divison
+    double epsilon = 1e-6; // Complex Divison
     bool time = false;
     bool sep = false; //save layer separate (TIF dir)
     bool savePsf = false;
@@ -48,12 +48,12 @@ int main(int argc, char** argv) {
     bool printInfo = false;
     bool grid = true;
     int cubeSize = 20;
-    int psfSafetyBorder = 20;
+    int psfSafetyBorder = 10;
     int borderType = cv::BORDER_REFLECT;
 
-    double sigmax_2 = 25.0; //synthetic PSF
-    double sigmay_2 = 25.0; //synthetic PSF
-    double sigmaz_2 = 25.0; //synthetic PSF
+    double sigmax_2 = 10.0; //synthetic PSF
+    double sigmay_2 = 10.0; //synthetic PSF
+    double sigmaz_2 = 15.0; //synthetic PSF
     std::vector<int> secondpsflayers;
     std::vector<int> secondpsfcubes;
 
@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
         psfSafetyBorder = config["psfSafetyBorder"].get<int>();
         cubeSize = config["cubeSize"].get<int>();
         borderType = config["borderType"].get<int>();
-        sep = config["sep"].get<bool>();
+        sep = config["seperate"].get<bool>();
         time = config["time"].get<bool>();
         savePsf = config["savePsf"].get<bool>();
         showExampleLayers = config["showExampleLayers"].get<bool>();
