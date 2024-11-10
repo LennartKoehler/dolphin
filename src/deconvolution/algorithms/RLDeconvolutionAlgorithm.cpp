@@ -105,7 +105,7 @@ void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw
             // Uncomment the following lines for debugging
             // UtlFFT::normalizeImage(f, size, this->epsilon);
             // UtlFFT::saveInterimImages(f, imageWidth, imageHeight, imageDepth, gridNum, channel_z, i);
-            // Überprüfung
+            // Check size of number
             if (!(UtlImage::isValidForFloat(f, this->cubeVolume))) {
                 std::cout << "[WARNING] Value fftwPlanMem fftcomplex(double) is smaller than float" << std::endl;
             }

@@ -6,13 +6,13 @@
   "time": true,
   "seperate": false,
 
-  "algorithm": "rltv",
+  "algorithm": "rl",
   "epsilon": 1e-6,
   "lambda": 0.015,
   "iterations": 10,
 
   "psf_path": "synthetic",
-  "psf_path_2": "synthetic",
+  "psf_path_2": "none",
   "dataFormatPSF": "FILE",
   "psfmodel": "gauss",
   "savePsf": true,

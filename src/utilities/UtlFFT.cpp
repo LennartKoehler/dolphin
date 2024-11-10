@@ -86,7 +86,7 @@ void UtlFFT::complexMultiplication(fftw_complex* a, fftw_complex* b, fftw_comple
     }
 
     // Parallelize the loop with OpenMP
-#pragma omp parallel
+/*#pragma omp parallel
     {
         // Get the thread number and total number of threads
         int thread_id = omp_get_thread_num();
@@ -108,6 +108,18 @@ void UtlFFT::complexMultiplication(fftw_complex* a, fftw_complex* b, fftw_comple
             result[i][0] = real_a * real_b - imag_a * imag_b;
             result[i][1] = real_a * imag_b + imag_a * real_b;
         }
+    }*/
+// Perform complex multiplication for each element in a sequential manner
+#pragma omp parallel for simd
+    for (int i = 0; i < size; ++i) {
+        double real_a = a[i][0];
+        double imag_a = a[i][1];
+        double real_b = b[i][0];
+        double imag_b = b[i][1];
+
+        // Perform the complex multiplication and store the result
+        result[i][0] = real_a * real_b - imag_a * imag_b;
+        result[i][1] = real_a * imag_b + imag_a * real_b;
     }
 }
 
@@ -347,6 +359,10 @@ void UtlFFT::padPSF(fftw_complex* psf, int psf_width, int psf_height, int psf_de
         padded_psf[i][1] = 0.0;
     }
 
+    if(psf_depth > depth){
+        std::cerr << "[ERROR] PSF has more layers than image" << std::endl;
+    }
+
     int x_offset = (width - psf_width) / 2;
     int y_offset = (height - psf_height) / 2;
     int z_offset = (depth - psf_depth) / 2;
@@ -580,5 +596,16 @@ void UtlFFT::normalizeTV(fftw_complex* gradX, fftw_complex* gradY, fftw_complex*
             gradZ[index][0] /= norm;
             gradZ[index][1] /= norm;
         }
+    }
+}
+
+// Normalizing after the inverse FFT helps maintain correct scaling of the result,
+// especially in iterative algorithms where accumulated scaling errors could otherwise
+// lead to instability. However, in this case, the normalization/rescaling has no significant effect.
+// maybe TODO as optional configuration, rescaledInverse yes/no
+void UtlFFT::rescaledInverse(fftw_complex* data, double cubeVolume) {
+    for (int i = 0; i < cubeVolume; ++i) {
+        data[i][0] /= cubeVolume; // Realteil normalisieren
+        data[i][1] /= cubeVolume; // Imaginärteil normalisieren
     }
 }
