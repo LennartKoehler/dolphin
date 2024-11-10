@@ -31,6 +31,16 @@ DeconvTool is a C++ command-line tool designed for deconvolution of microscopy i
 - [CLI11](https://github.com/CLIUtils/CLI11) (for command-line parsing)
 - [nlohmann/json](https://github.com/nlohmann/json) (for JSON handling)
 
+## Build
+
+```bash
+mkdir build
+cd build
+
+cmake ..
+make
+```
+
 ## Usage
 
 ### Command-Line Options
