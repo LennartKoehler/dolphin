@@ -6,9 +6,9 @@
   "time": true,
   "seperate": false,
 
-  "algorithm": "rltv",
+  "algorithm": "rl",
   "epsilon": 1e-6,
-  "lambda": 0.015,
+  "lambda": 0.005,
   "iterations": 10,
 
   "psf_path": "synthetic",

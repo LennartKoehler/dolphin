@@ -4,6 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include "../lib/CLI/CLI11.hpp"
 #include "../lib/nlohmann/json.hpp"
+#include "../lib/cube/include/CUBE.h"
 
 #include "HyperstackImage.h"
 #include "PSF.h"
@@ -18,6 +19,7 @@
 #include "RegularizedInverseFilterDeconvolutionAlgorithm.h"
 #include "RLDeconvolutionAlgorithm.h"
 #include "RLTVDeconvolutionAlgorithm.h"
+#include "RLADDeconvolutionAlgorithm.h"
 
 using json = nlohmann::json;
 
@@ -347,6 +349,35 @@ int main(int argc, char** argv) {
     if(sep){
         deconvHyperstack.saveAsTifDir("../result/deconv");
     }
+
+    // CUBE TEST CODE //////////////////////////////////////////////
+#ifdef CUDA_AVAILABLE
+    // CUDA-spezifischer Code
+    printDeviceProperties();
+
+    // NxNxN matrix
+    const int N = 26;
+    // Memory size of matix
+    int matrixSize = N * N * N * sizeof(fftw_complex);
+
+    // Host-Arrays initialization
+    fftw_complex *h_a = (fftw_complex*) fftw_malloc(matrixSize);;
+    fftw_complex *h_b = (fftw_complex*) fftw_malloc(matrixSize);;
+    fftw_complex *h_c = (fftw_complex*) fftw_malloc(matrixSize);;
+    // Creates a matrix filled with 2+i0
+    createFftwRandomMat(N, h_a);
+    createFftwRandomMat(N, h_b);
+    createFftwUniformMat(N, h_c);
+
+    // Init values in matrix
+    checkUniformity(h_a, N);
+    checkUniformity(h_b, N);
+    checkUniformity(h_c, N);
+    /////////////////////////////////////////////////////////////////
+    #else
+    // Code für den Fall, dass CUDA nicht verfügbar ist
+    std::cout << "CUDA ist nicht verfügbar." << std::endl;
+#endif
 
     //###PROGRAMM END###//
     std::cout << "[End DeconvTool]" << std::endl;
