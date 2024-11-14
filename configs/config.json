@@ -12,7 +12,7 @@
   "iterations": 10,
 
   "psf_path": "synthetic",
-  "psf_path_2": "synthetic",
+  "psf_path_2": "none",
   "dataFormatPSF": "FILE",
   "psfmodel": "gauss",
   "savePsf": true,

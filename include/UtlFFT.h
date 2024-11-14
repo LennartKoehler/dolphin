@@ -41,8 +41,9 @@ namespace UtlFFT {
         void calculateLaplacianOfPSF(fftw_complex* psf, fftw_complex* laplacian, int width, int height, int depth);
 
     void normalizeImage(fftw_complex* resultImage, int size, double epsilon);
-
+    void rescaledInverse(fftw_complex* data, double cubeVolume);
     void saveInterimImages(fftw_complex* resultImage, int imageWidth, int imageHeight, int imageDepth, int gridNum, int channel_z, int i);
+
 
     void gradientX(fftw_complex* image, fftw_complex* gradX, int width, int height, int depth);
     void gradientY(fftw_complex* image, fftw_complex* gradY, int width, int height, int depth);

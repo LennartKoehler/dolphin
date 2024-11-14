@@ -240,36 +240,39 @@ int main(int argc, char** argv) {
         psfs.push_back(psf);
     }
     if (config.contains("psf_path_2")) {
-        if(psf_path_2 == "synthetic"){
-            if(psfModel == "gauss"){
-                std::cout << "[INFO] Generated second PSF" << std::endl;
-                PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(
-                        sigmax_2, sigmay_2, sigmaz_2, psfx, psfy, psfz);
-                psf_2 = gaussianGenerator.generate();
+        if(psf_path_2 != "none"){
+            if(psf_path_2 == "synthetic"){
+                if(psfModel == "gauss"){
+                    std::cout << "[INFO] Generated second PSF" << std::endl;
+                    PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(
+                            sigmax_2, sigmay_2, sigmaz_2, psfx, psfy, psfz);
+                    psf_2 = gaussianGenerator.generate();
+                    psfs.push_back(psf_2);
+                }else{
+                    std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
+                    return EXIT_FAILURE;
+                }
+                if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
+                    std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
+                    return EXIT_FAILURE;
+                }
+            }else {
+                if (dataFormatPSF == "DIR") {
+                    psf_2.readFromTifDir(psf_path_2.c_str());
+                } else if (dataFormatPSF == "FILE") {
+                    psf_2.readFromTifFile(psf_path_2.c_str());
+                } else {
+                    std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
+                    return EXIT_FAILURE;
+                }
+                if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
+                    std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
+                    return EXIT_FAILURE;
+                }
                 psfs.push_back(psf_2);
-            }else{
-                std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
-                return EXIT_FAILURE;
             }
-            if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
-                std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
-                return EXIT_FAILURE;
-            }
-        }else {
-            if (dataFormatPSF == "DIR") {
-                psf_2.readFromTifDir(psf_path_2.c_str());
-            } else if (dataFormatPSF == "FILE") {
-                psf_2.readFromTifFile(psf_path_2.c_str());
-            } else {
-                std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
-                return EXIT_FAILURE;
-            }
-            if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
-                std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
-                return EXIT_FAILURE;
-            }
-            psfs.push_back(psf_2);
         }
+
     }
     std::cout << "[INFO] " << psfs.size() << " PSF(s) loaded" << std::endl;
 
