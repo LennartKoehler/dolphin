@@ -4,7 +4,10 @@
 #include <opencv2/opencv.hpp>
 #include "../lib/CLI/CLI11.hpp"
 #include "../lib/nlohmann/json.hpp"
+
+#ifdef CUDA_AVAILABLE
 #include "../lib/cube/include/CUBE.h"
+#endif
 
 #include "HyperstackImage.h"
 #include "PSF.h"
@@ -61,6 +64,8 @@ int main(int argc, char** argv) {
     std::vector<int> secondpsflayers; //sub-image layers for secondPSF
     std::vector<int> secondpsfcubes; //sub-images for secondPSF
 
+    std::string gpu = "";
+
 
     CLI::App app{"deconvtool - Deconvolution of Microscopy Images"};
     // Define a group for CLI arguments
@@ -91,6 +96,8 @@ int main(int argc, char** argv) {
     cli_group->add_option("--borderType", borderType, "Border for extended image [2](0-constant, 1-replicate, 2-reflecting)")->check(CLI::PositiveNumber);
     cli_group->add_option("--psfSafetyBorder", psfSafetyBorder, "Padding around PSF [10]")->check(CLI::PositiveNumber);
     cli_group->add_option("--cubeSize", cubeSize, "CubeSize/EdgeLength for sub-images of grid [0] (0-auto fit to PSF)")->check(CLI::PositiveNumber);
+
+    cli_group->add_option("--gpu", gpu, "Type of GPU API ('cuda'/'none')");
 
     cli_group->add_flag("--savepsf", time, "Save used PSF");
     cli_group->add_flag("--time", time, "Show duration active");
@@ -214,6 +221,10 @@ int main(int argc, char** argv) {
     printInfo = config["info"].get<bool>();
     grid = config["grid"].get<bool>();
 
+    if (config.contains("gpu")) {
+        gpu = config["gpu"].get<std::string>();
+    }
+
     //###PROGRAMM START###//
     PSF psf;
     PSF psf_2;
@@ -311,6 +322,7 @@ int main(int argc, char** argv) {
     deconvConfig.secondpsflayers = secondpsflayers;
     deconvConfig.secondpsfcubes = secondpsfcubes;
     deconvConfig.secondPSF = secondPSF;
+    deconvConfig.gpu = gpu;
 
     Hyperstack deconvHyperstack;
 
@@ -355,31 +367,8 @@ int main(int argc, char** argv) {
 
     // CUBE TEST CODE //////////////////////////////////////////////
 #ifdef CUDA_AVAILABLE
-    // CUDA-spezifischer Code
+    // CUDA-specific code
     printDeviceProperties();
-
-    // NxNxN matrix
-    const int N = 26;
-    // Memory size of matix
-    int matrixSize = N * N * N * sizeof(fftw_complex);
-
-    // Host-Arrays initialization
-    fftw_complex *h_a = (fftw_complex*) fftw_malloc(matrixSize);;
-    fftw_complex *h_b = (fftw_complex*) fftw_malloc(matrixSize);;
-    fftw_complex *h_c = (fftw_complex*) fftw_malloc(matrixSize);;
-    // Creates a matrix filled with 2+i0
-    createFftwRandomMat(N, h_a);
-    createFftwRandomMat(N, h_b);
-    createFftwUniformMat(N, h_c);
-
-    // Init values in matrix
-    checkUniformity(h_a, N);
-    checkUniformity(h_b, N);
-    checkUniformity(h_c, N);
-    /////////////////////////////////////////////////////////////////
-    #else
-    // Code für den Fall, dass CUDA nicht verfügbar ist
-    std::cout << "CUDA ist nicht verfügbar." << std::endl;
 #endif
 
     //###PROGRAMM END###//

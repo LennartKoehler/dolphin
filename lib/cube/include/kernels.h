@@ -3,53 +3,56 @@
 #include <cufft.h>
 #include <fftw3.h>
 
+
 // Conversions
-__global__ void fftwToCuComplexKernelGlobal(cuComplex* cuArr, fftw_complex* fftwArr, int N);
-__global__ void cuToFftwComplexKernelGlobal(fftw_complex* fftwArr, cuComplex* cuArr, int N);
-__global__ void fftwToCufftComplexKernelGlobal(cufftComplex* cufftArr, fftw_complex* fftwArr, int N);
-__global__ void cufftToFftwComplexKernelGlobal(fftw_complex* fftwArr, cufftComplex* cufftArr, int N);
+__global__ void fftwToCuComplexKernelGlobal(int Nx, int Ny, int Nz,cuComplex* cuArr, fftw_complex* fftwArr);
+__global__ void cuToFftwComplexKernelGlobal(int Nx, int Ny, int Nz, fftw_complex* fftwArr, cuComplex* cuArr);
+__global__ void fftwToCufftComplexKernelGlobal(int Nx, int Ny, int Nz, cufftComplex* cufftArr, fftw_complex* fftwArr);
+__global__ void cufftToFftwComplexKernelGlobal(int Nx, int Ny, int Nz, fftw_complex* fftwArr, cufftComplex* cufftArr);
 
 // Mat operations
-__global__ void complexMatMulFftwComplexGlobal(int N, fftw_complex* A, fftw_complex* B, fftw_complex* C);
-__global__ void complexMatMulCuComplexGlobal(int N, cuComplex* A, cuComplex* B, cuComplex* C);
-__global__ void complexElementwiseMatMulCuComplexGlobal(int N, cuComplex* A, cuComplex* B, cuComplex* C);
-__global__ void complexElementwiseMatDivCuComplexGlobal(int N, cuComplex* A, cuComplex* B, cuComplex* C);
-__global__ void complexElementwiseMatMulCufftComplexGlobal(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C);
-__global__ void complexElementwiseMatMulConjugateCufftComplexGlobal(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C);
-__global__ void complexElementwiseMatDivCufftComplexGlobal(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon);
-__global__ void complexElementwiseMatDivNaiveCufftComplexGlobal(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C);
-__global__ void complexElementwiseMatDivStabilizedCufftComplexGlobal(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon);
+__global__ void complexMatMulFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C);
+__global__ void complexMatMulCuComplexGlobal(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C);
+__global__ void complexElementwiseMatMulCuComplexGlobal(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C);
+__global__ void complexElementwiseMatDivCuComplexGlobal(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C);
+__global__ void complexElementwiseMatMulCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C);
+__global__ void complexElementwiseMatMulConjugateCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C);
+__global__ void complexElementwiseMatDivCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon);
+__global__ void complexElementwiseMatDivNaiveCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C);
+__global__ void complexElementwiseMatDivStabilizedCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon);
 
 
 // Regularization
-__global__ void calculateLaplacianCufftComplexGlobal(int N, cufftComplex* Afft, cufftComplex* laplacianfft);
-__global__ void gradientXCufftComplexGlobal(int N, cufftComplex* image, cufftComplex* gradX);
-__global__ void gradientYCufftComplexGlobal(int N, cufftComplex* image, cufftComplex* gradX);
-__global__ void gradientZCufftComplexGlobal(int N, cufftComplex* image, cufftComplex* gradX);
-__global__ void computeTVCufftComplexGlobal(int N, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv);
-__global__ void normalizeTVCufftComplexGlobal(int N, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon);
+__global__ void calculateLaplacianCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft);
+__global__ void gradientXCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradX);
+__global__ void gradientYCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradX);
+__global__ void gradientZCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradX);
+__global__ void computeTVCufftComplexGlobal(int Nx, int Ny, int Nz, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv);
+__global__ void normalizeTVCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon);
 
 // Tiled
-__global__ void calculateLaplacianCufftComplexTiledGlobal(int N, cufftComplex* Afft, cufftComplex* laplacianfft);
+__global__ void calculateLaplacianCufftComplexTiledGlobal(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft);
 
 // Fourier Shift
-__global__ void normalizeComplexData(cufftComplex* d_data, int N);
-__global__ void octantFourierShiftCufftComplexGlobal(int N, cufftComplex* data);
+__global__ void normalizeComplexData(int Nx, int Ny, int Nz, cufftComplex* d_data);
+__global__ void octantFourierShiftCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* data);
+__global__ void padCufftMatGlobal(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, cufftComplex* oldMat, cufftComplex* newMat, int offsetX, int offsetY, int offsetZ);
 
 // Device Kernels
-__global__ void deviceTestKernelGlobal(int N, cuComplex* A, cuComplex* B, cuComplex* C);
-__device__ void complexMatMulCuComplexDevice(int N, cuComplex* A, cuComplex* B, cuComplex* C);
-__device__ void complexElementwiseMatMulCuComplexDevice(int N, cuComplex* A, cuComplex* B, cuComplex* C);
-__device__ void complexElementwiseMatDivCuComplexDevice(int N, cuComplex* A, cuComplex* B, cuComplex* C);
-__device__ void complexElementwiseMatMulCufftComplexDevice(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C);
-__device__ void complexElementwiseMatMulConjugateCufftComplexDevice(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C);
-__device__ void complexElementwiseMatDivCufftComplexDevice(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon);
-__device__ void complexElementwiseMatDivNaiveCufftComplexDevice(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C);
-__device__ void complexElementwiseMatDivStabilizedCufftComplexDevice(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon);
-__device__ void calculateLaplacianCufftComplexDevice(int N, cufftComplex* Afft, cufftComplex* laplacianfft);
-__device__ void gradientXCufftComplexDevice(int N, cufftComplex* image, cufftComplex* gradX);
-__device__ void gradientYCufftComplexDevice(int N, cufftComplex* image, cufftComplex* gradY);
-__device__ void gradientZCufftComplexDevice(int N, cufftComplex* image, cufftComplex* gradZ);
-__device__ void computeTVCufftComplexDevice(int N, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv);
-__device__ void normalizeTVCufftComplexDevice(int N, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon);
-__device__ void calculateLaplacianCufftComplexTiledDevice(int N, cufftComplex* Afft, cufftComplex* laplacianfft);
+__global__ void deviceTestKernelGlobal(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C);
+__device__ void complexMatMulCuComplexDevice(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C);
+__device__ void complexElementwiseMatMulCuComplexDevice(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C);
+__device__ void complexElementwiseMatDivCuComplexDevice(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C);
+__device__ void complexElementwiseMatMulCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C);
+__device__ void complexElementwiseMatMulConjugateCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C);
+__device__ void complexElementwiseMatDivCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon);
+__device__ void complexElementwiseMatDivNaiveCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C);
+__device__ void complexElementwiseMatDivStabilizedCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon);
+__device__ void calculateLaplacianCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft);
+__device__ void gradientXCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradX);
+__device__ void gradientYCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradY);
+__device__ void gradientZCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradZ);
+__device__ void computeTVCufftComplexDevice(int Nx, int Ny, int Nz, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv);
+__device__ void normalizeTVCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon);
+__global__ void padCufftMatDevice(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, cufftComplex* oldMat, cufftComplex* newMat, int offsetX, int offsetY, int offsetZ);
+__device__ void calculateLaplacianCufftComplexTiledDevice(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft);

@@ -9,7 +9,7 @@
   "algorithm": "rl",
   "epsilon": 1e-6,
   "lambda": 0.005,
-  "iterations": 10,
+  "iterations": 50,
 
   "psf_path": "synthetic",
   "psf_path_2": "none",
@@ -31,7 +31,9 @@
   "grid": true,
   "borderType": 2,
   "cubeSize": 0,
-  "psfSafetyBorder": 10
+  "psfSafetyBorder": 10,
+
+  "gpu": "none"
 }
 
 //  "algorithm": "rif",

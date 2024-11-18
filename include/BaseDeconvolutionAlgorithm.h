@@ -4,6 +4,10 @@
 #include "HyperstackImage.h"
 #include "PSF.h"
 #include <fftw3.h>
+#ifdef CUDA_AVAILABLE
+#include <cufft.h>
+#endif
+
 
 class BaseDeconvolutionAlgorithm {
 public:
@@ -28,8 +32,16 @@ protected:
     // Image handling and fftw
     std::vector<cv::Mat> mergedVolume;
     std::vector<std::vector<cv::Mat>> gridImages;
-    fftw_plan forwardPlan, backwardPlan = nullptr;
-    fftw_complex *paddedH, *paddedH_2, *fftwPlanMem = nullptr;
+    fftw_plan forwardPlan  = nullptr;
+    fftw_plan backwardPlan = nullptr;
+    fftw_complex *paddedH = nullptr;
+    fftw_complex *paddedH_2 = nullptr;
+    fftw_complex *fftwPlanMem = nullptr;
+#ifdef CUDA_AVAILABLE
+    cufftHandle cufftPlan;
+    cufftComplex *d_paddedH = nullptr;
+    cufftComplex *d_paddedH_2 = nullptr;
+#endif
 
     // Image info
     int originalImageWidth, originalImageHeight, originalImageDepth;
@@ -39,4 +51,6 @@ protected:
     int cubesPerX, cubesPerY, cubesPerZ, cubesPerLayer = 0;
     int cubeVolume, cubeWidth, cubeHeight, cubeDepth, cubePadding;
     std::vector<int> secondpsflayers, secondpsfcubes;
+
+    std::string gpu = "";
 };

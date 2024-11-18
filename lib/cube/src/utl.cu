@@ -6,6 +6,11 @@
 #include <ctime>
 #include <opencv2/opencv.hpp>
 
+#ifdef ENABLE_CUBEUTL_DEBUG
+#define DEBUG_LOG(msg) std::cout << msg << std::endl
+#else
+#define DEBUG_LOG(msg) // Nichts tun
+#endif
 
 // Print information
 void printDeviceProperties() {
@@ -30,25 +35,25 @@ void printDeviceProperties() {
 void printFirstElem(fftw_complex* mat) {
     std::cout <<"[CHECK]["<< mat[0][0] << "+" << mat[0][1] <<"]" << std::endl;
 }
-void printSpecificElem(fftw_complex* mat, int index) {
+void printSpecificElem(int index, fftw_complex* mat) {
     std::cout <<"[CHECK]["<< mat[index][0] << "+" << mat[index][1] <<"]" << std::endl;
 }
-void printRandomElem(fftw_complex* mat, int N) {
-    int size = N * N * N;
+void printRandomElem(int Nx, int Ny, int Nz, fftw_complex* mat) {
+    int size = Nx * Ny * Nz;
     int randomIndex = rand() % size;
     std::cout <<"[CHECK]["<< mat[randomIndex][0] << "+" << mat[randomIndex][1] <<"]" << std::endl;
 }
 
 
 // Check Mat
-void checkUniformity(fftw_complex* mat, int N) {
+void checkUniformity(int Nx, int Ny, int Nz,fftw_complex* mat) {
     // Take the first element as a reference
     double *reference = mat[0];
     int countEqual = 0;
     int countDifferent = 0;
     double maxDeviation = 0.0;
     double totalDeviation = 0.0;
-    int totalElements = N * N * N;
+    int totalElements = Nx * Ny * Nz;
 
     for (int i = 0; i < totalElements; i++) {
         double realDiff = std::fabs(mat[i][0] - reference[0]);
@@ -70,7 +75,7 @@ void checkUniformity(fftw_complex* mat, int N) {
     if (countDifferent == 0) {
         std::cout << "[CHECK] All elements are equal to the reference value: "
                   << reference[0] << " + " << reference[1] << "i" << std::endl;
-        std::cout << "[CHECK] Number of elements (" << N << "x" << N << "x" << N << "): "
+        std::cout << "[CHECK] Number of elements (" << Nx << "x" << Ny << "x" << Nz << "): "
                   << countEqual << std::endl;
     } else {
         std::cout << "[CHECK] Matrix is not uniform." << std::endl;
@@ -82,21 +87,21 @@ void checkUniformity(fftw_complex* mat, int N) {
         std::cout << "[CHECK] Average deviation: " << avgDeviation << std::endl;
     }
 }
-void displayHeatmap(const fftw_complex* data, int N) {
-    int currentSlice = 0;  // Beginne mit dem ersten Slice
+void displayHeatmap(int Nx, int Ny, int Nz, const fftw_complex* data) {
+    int currentSlice = 0;  // Begin with the first slice
 
     // Create an OpenCV window (this remains open throughout the entire process)
     cv::namedWindow("Heatmap Slice Viewer", cv::WINDOW_NORMAL);
 
     while (true) {
         // Create a 2D array for the current slice
-        cv::Mat heatmap(N, N, CV_32F);  // Heatmap with 32-bit float
+        cv::Mat heatmap(Ny, Nx, CV_32F);  // Correct heatmap size using Ny and Nx
 
         // Fill the heatmap with the values of the current slice
-        for (int y = 0; y < N; ++y) {
-            for (int x = 0; x < N; ++x) {
-                int idx = currentSlice * N * N + y * N + x;  // indexes for slices
-                heatmap.at<float>(y, x) = std::abs(data[idx][0]);  // real as example
+        for (int y = 0; y < Ny; ++y) {
+            for (int x = 0; x < Nx; ++x) {
+                int idx = currentSlice * Ny * Nx + y * Nx + x;  // Correct indexing for 3D array
+                heatmap.at<float>(y, x) = std::abs(data[idx][0]);  // Using the real part as an example
             }
         }
 
@@ -105,25 +110,25 @@ void displayHeatmap(const fftw_complex* data, int N) {
         heatmap.convertTo(heatmap, CV_8U);
 
         // Create the title for the window (displays the slice) and show
-        std::string title = "Slice " + std::to_string(currentSlice + 1) + " von " + std::to_string(N);
+        std::string title = "Slice " + std::to_string(currentSlice + 1) + " of " + std::to_string(Nz);
         cv::imshow("Heatmap Slice Viewer", heatmap);
 
         // Wait for a key press (waiting for 0ms means it waits for input immediately)
         int key = cv::waitKey(0);
 
-        // If 'ENTER' is pressed (Code 13), go to the next slice
+        // If 'ENTER' (Code 13) is pressed, go to the next slice
         if (key == 13) {
-            currentSlice = (currentSlice + 1) % N;  // Zykliere über alle Slices
+            currentSlice = (currentSlice + 1) % Nz;  // Cycle through all slices
         }
-        // If 'ESC' is pressed (Code 27), break the loop and exit the program
+        // If 'ESC' (Code 27) is pressed, break the loop and exit
         else if (key == 27) {
             break;
         }
     }
     cv::destroyWindow("Heatmap Slice Viewer");
 }
-bool checkOctantFourierShift(int N, fftw_complex* original, fftw_complex* shifted) {
-    int width = N, height = N, depth = N;
+bool checkOctantFourierShift(int Nx, int Ny, int Nz, fftw_complex* original, fftw_complex* shifted) {
+    int width = Nx, height = Ny, depth = Nz;
     int halfWidth = width / 2;
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
@@ -156,20 +161,20 @@ bool checkOctantFourierShift(int N, fftw_complex* original, fftw_complex* shifte
 
 
 // Mat initialization
-void createFftwUniformMat(int N, fftw_complex* mat){
+void createFftwUniformMat(int Nx, int Ny, int Nz, fftw_complex* mat){
 #pragma omp parallel for
-    for (int i = 0; i < N*N*N; i++) {
+    for (int i = 0; i < Nx*Ny*Nz; i++) {
         mat[i][0] = 2.0f;  // real
         mat[i][1] = 0.0f;  // img
     }
 }
-void createFftwRandomMat(int N, fftw_complex* mat) {
+void createFftwRandomMat(int Nx, int Ny, int Nz, fftw_complex* mat) {
     // Initialize the random number generator with the current time
     std::srand(static_cast<unsigned int>(std::time(0)));
 
     // Fill the matrix with random values in the range [0, 1] in steps of 0.001
 #pragma omp parallel for
-    for (int i = 0; i < N * N * N; i++) {
+    for (int i = 0; i < Nx * Ny * Nz; i++) {
         // Generate a random number in the range [0, 1000] and divide by 1000 to get the range [0, 1]
         double randReal = (std::rand() % 1001) / 1000.0;
         double randImag = (std::rand() % 1001) / 1000.0;
@@ -178,41 +183,47 @@ void createFftwRandomMat(int N, fftw_complex* mat) {
         mat[i][1] = randImag;  // img
     }
 }
-void createFftwSphereMat(int N, fftw_complex* mat) {
-    // Determine the center of the matrix
-    int center = N / 2;
-    int radius = N / 2;
+void createFftwSphereMat(int Nx, int Ny, int Nz, fftw_complex* mat) {
+    // Determine the center of the matrix for each dimension
+    int centerX = Nx / 2;
+    int centerY = Ny / 2;
+    int centerZ = Nz / 2;
+
+    // Find the smallest dimension to ensure the sphere fits
+    int radius = std::min({Nx, Ny, Nz}) / 2;
 
 #pragma omp parallel for
-    for (int i = 0; i < N * N * N; i++) {
-        // Calculate coordinates
-        int z = i / (N * N);
-        int y = (i % (N * N)) / N;
-        int x = i % N;
+    for (int i = 0; i < Nx * Ny * Nz; i++) {
+        // Calculate 3D coordinates (x, y, z) from the 1D index
+        int z = i / (Nx * Ny);
+        int y = (i % (Nx * Ny)) / Nx;
+        int x = i % Nx;
 
-        // Calculate the distance of the point (x, y, z) from the center of the matrix
-        int distSq = (x - center) * (x - center) + (y - center) * (y - center) + (z - center) * (z - center);
+        // Calculate the squared distance from the center
+        int distSq = (x - centerX) * (x - centerX) +
+                     (y - centerY) * (y - centerY) +
+                     (z - centerZ) * (z - centerZ);
 
         // If the distance is within the radius, set the value to 1, otherwise set it to 0
         if (distSq <= radius * radius) {
-            mat[i][0] = 1.0f;  // real
-            mat[i][1] = 0.0f;  // img
+            mat[i][0] = 1.0f;  // Real part
+            mat[i][1] = 0.0f;  // Imaginary part
         } else {
-            mat[i][0] = 0.0f;  // real
-            mat[i][1] = 0.0f;  // img
+            mat[i][0] = 0.0f;  // Real part
+            mat[i][1] = 0.0f;  // Imaginary part
         }
     }
 }
 
 
 // Copying fftw_complex datatype to GPU
-void copyDataFromHostToDevice(fftw_complex* dest, fftw_complex* src, int matrixSize) {
+void copyDataFromHostToDevice(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     cudaEventRecord(start);
 
-    cudaMemcpy(dest, src, matrixSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyHostToDevice);
 
     cudaDeviceSynchronize();
     cudaEventRecord(stop);
@@ -225,15 +236,16 @@ void copyDataFromHostToDevice(fftw_complex* dest, fftw_complex* src, int matrixS
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms]["<<matrixSize<<"B] Copy Data from Host to Device" <<  std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(fftw_complex)*Nx*Ny*Nz<<"B] Copy Data from Host to Device");
+
 }
-void copyDataFromDeviceToHost(fftw_complex* dest, fftw_complex* src, int matrixSize) {
+void copyDataFromDeviceToHost(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     cudaEventRecord(start);
 
-    cudaMemcpy(dest, src, matrixSize, cudaMemcpyDeviceToHost);
+    cudaMemcpy(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
@@ -245,27 +257,27 @@ void copyDataFromDeviceToHost(fftw_complex* dest, fftw_complex* src, int matrixS
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms]["<<matrixSize<<"B] Copy Data from Device to Host" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(fftw_complex)*Nx*Ny*Nz<<"B] Copy Data from Device to Host");
 }
 
 
 // Conversions
-void convertFftwToCuComplexOnDevice(fftw_complex* fftwArr, cuComplex* cuArr, int N) {
+void convertFftwToCuComplexOnDevice(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cuComplex* cuArr) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     cudaEventRecord(start);
     fftw_complex* fftwArrDevice;
-    cudaMalloc(&fftwArrDevice, N * N * N * sizeof(fftw_complex));
+    cudaMalloc(&fftwArrDevice, Nx * Ny * Nz * sizeof(fftw_complex));
 
-    copyDataFromHostToDevice(fftwArrDevice, fftwArr, N * N * N * sizeof(fftw_complex));
+    copyDataFromHostToDevice(Nx, Ny, Nz, fftwArrDevice, fftwArr);
 
-    // Kernel dimension 1D, because 3D matrix stored in 1D array, just copying values at [i]
-    int numElements = N * N * N;
-    int blockSize = 1024;
-    int numBlocks = (numElements + blockSize - 1) / blockSize;
+    dim3 blockSize(16, 8, 8);  // Blockgröße (optimal anpassen)
+    dim3 gridSize((Nx + blockSize.x - 1) / blockSize.x,
+                  (Ny + blockSize.y - 1) / blockSize.y,
+                  (Nz + blockSize.z - 1) / blockSize.z);  // Grid-Größe
 
-    fftwToCuComplexKernelGlobal<<<numBlocks, blockSize>>>(cuArr, fftwArrDevice, N);
+    fftwToCuComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, cuArr, fftwArrDevice);
     cudaDeviceSynchronize();
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
@@ -276,91 +288,107 @@ void convertFftwToCuComplexOnDevice(fftw_complex* fftwArr, cuComplex* cuArr, int
     cudaEventSynchronize(stop);
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms]["<<N * N * N * sizeof(fftw_complex)<<"B] Converting (inkl. copy) fftw_complex to cuComplex" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<Nx * Ny * Nz * sizeof(fftw_complex)<<"B] Converting (inkl. copy) fftw_complex to cuComplex");
 }
-void convertFftwToCufftComplexOnDevice(fftw_complex* fftwArr, cufftComplex* cuArr, int N) {
+void convertFftwToCufftComplexOnDevice(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cufftComplex* cuArr) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     cudaEventRecord(start);
     fftw_complex* fftwArrDevice;
-    cudaMalloc(&fftwArrDevice, N * N * N * sizeof(fftw_complex));
+    cudaMalloc(&fftwArrDevice, Nx * Ny * Nz * sizeof(fftw_complex));
+    copyDataFromHostToDevice(Nx, Ny, Nz, fftwArrDevice, fftwArr);
 
-    copyDataFromHostToDevice(fftwArrDevice, fftwArr, N * N * N * sizeof(fftw_complex));
+    dim3 blockSize(16, 8, 8);  // Blockgröße (optimal anpassen)
+    dim3 gridSize((Nx + blockSize.x - 1) / blockSize.x,
+                  (Ny + blockSize.y - 1) / blockSize.y,
+                  (Nz + blockSize.z - 1) / blockSize.z);  // Grid-Größe
 
-    // Kernel dimension 1D, because 3D matrix stored in 1D array, just copying values at [i]
-    int numElements = N * N * N;
-    int blockSize = 1024;
-    int numBlocks = (numElements + blockSize - 1) / blockSize;
+    fftwToCufftComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, cuArr, fftwArrDevice);
 
-    fftwToCuComplexKernelGlobal<<<numBlocks, blockSize>>>(cuArr, fftwArrDevice, N);
     cudaDeviceSynchronize();
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
         std::cerr << "CUDA error at convertFFTWToCuComplex: " << cudaGetErrorString(err) << std::endl;
     }
+
     cudaFree(fftwArrDevice);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms]["<<N * N * N * sizeof(fftw_complex)<<"B] Converting (inkl. copy) fftw_complex to cufftComplex" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<Nx * Ny * Nz * sizeof(fftw_complex)<<"B] Converting (inkl. copy) fftw_complex to cufftComplex");
 }
-void convertCuToFftwComplexOnHost(fftw_complex* fftwArr, cuComplex* cuArr, int N) {
+void convertCuToFftwComplexOnHost(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cuComplex* cuArr) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     cudaEventRecord(start);
     fftw_complex* fftwArrDevice;
-    cudaMalloc(&fftwArrDevice, N * N * N * sizeof(fftw_complex));
+    cudaMalloc(&fftwArrDevice, Nx * Ny * Nz * sizeof(fftw_complex));
 
-    int numElements = N * N * N;
-    // Kernel dimension 1D, because 3D matrix stored in 1D array, just copying values at [i]
-    int blockSize = 1024;
-    int numBlocks = (numElements + blockSize - 1) / blockSize;
+    dim3 blockSize(16, 8, 8);  // Blockgröße (optimal anpassen)
+    dim3 gridSize((Nx + blockSize.x - 1) / blockSize.x,
+                  (Ny + blockSize.y - 1) / blockSize.y,
+                  (Nz + blockSize.z - 1) / blockSize.z);  // Grid-Größe
 
-    cuToFftwComplexKernelGlobal<<<numBlocks, blockSize>>>(fftwArrDevice, cuArr, N);
+    cuToFftwComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, fftwArrDevice, cuArr);
     cudaDeviceSynchronize();
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
         std::cerr << "CUDA error at convertCuComplexToFFTW: " << cudaGetErrorString(err) << std::endl;
     }
-    cudaMemcpy(fftwArr, fftwArrDevice, numElements * sizeof(fftw_complex), cudaMemcpyDeviceToHost);
+    cudaMemcpy(fftwArr, fftwArrDevice, Nx*Ny*Nz * sizeof(fftw_complex), cudaMemcpyDeviceToHost);
     cudaFree(fftwArrDevice);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms]["<<N * N * N * sizeof(fftw_complex)<<"B] Converting (inkl. copy) cuComplex to fftw_complex" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<Nx * Ny* Nz * sizeof(fftw_complex)<<"B] Converting (inkl. copy) cuComplex to fftw_complex");
 }
-void convertCufftToFftwComplexOnHost(fftw_complex* fftwArr, cufftComplex* cuArr, int N) {
+void convertCufftToFftwComplexOnHost(int Nx, int Ny, int Nz, fftw_complex* fftwArr, cufftComplex* cuArr) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     cudaEventRecord(start);
     fftw_complex* fftwArrDevice;
-    cudaMalloc(&fftwArrDevice, N * N * N * sizeof(fftw_complex));
+    cudaMalloc(&fftwArrDevice, Nx * Ny * Nz * sizeof(fftw_complex));
 
-    int numElements = N * N * N;
-    // Kernel dimension 1D, because 3D matrix stored in 1D array, just copying values at [i]
-    int blockSize = 1024;
-    int numBlocks = (numElements + blockSize - 1) / blockSize;
+    dim3 blockSize(16, 8, 8);  // Blockgröße (optimal anpassen)
+    dim3 gridSize((Nx + blockSize.x - 1) / blockSize.x,
+                  (Ny + blockSize.y - 1) / blockSize.y,
+                  (Nz + blockSize.z - 1) / blockSize.z);  // Grid-Größe
 
-    cuToFftwComplexKernelGlobal<<<numBlocks, blockSize>>>(fftwArrDevice, cuArr, N);
+    cufftToFftwComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, fftwArrDevice, cuArr);
     cudaDeviceSynchronize();
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
         std::cerr << "CUDA error at convertCuComplexToFFTW: " << cudaGetErrorString(err) << std::endl;
     }
-    cudaMemcpy(fftwArr, fftwArrDevice, numElements * sizeof(fftw_complex), cudaMemcpyDeviceToHost);
+    copyDataFromDeviceToHost(Nx, Ny, Nz, fftwArr, fftwArrDevice);
     cudaFree(fftwArrDevice);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms]["<<N * N * N * sizeof(fftw_complex)<<"B] Converting (inkl. copy) cufftComplex to fftw_complex" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<Nx * Ny * Nz * sizeof(fftw_complex)<<"B] Converting (inkl. copy) cufftComplex to fftw_complex");
 }
 
+void printFftwComplexValueFromDevice(int idx, fftw_complex* fftwArr) {
+    fftw_complex temp_host;
+    cudaMemcpy(&temp_host, &fftwArr[idx], sizeof(fftw_complex), cudaMemcpyDeviceToHost);
+    std::cout << "[CHECK] Element at index " << idx << ": "
+              << "Real: " << temp_host[0] << ", "
+              << "Imag: " << temp_host[1] << std::endl;
+}
+
+void printCufftComplexValueFromDevice(int idx, cufftComplex* cuArr) {
+    cufftComplex temp_host;
+    cudaMemcpy(&temp_host, &cuArr[idx], sizeof(cufftComplex), cudaMemcpyDeviceToHost);
+    std::cout << "[CHECK] Element at index " << idx << ": "
+              << "Real: " << temp_host.x << ", "
+              << "Imag: " << temp_host.y << std::endl;
+}
 
 
 

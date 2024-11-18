@@ -4,38 +4,52 @@
 #include <fftw3.h>
 #include <iostream>
 
-// Conversion
+
+// Conversions
 __global__
-void fftwToCuComplexKernelGlobal(cuComplex* cuArr, fftw_complex* fftwArr, int N) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < N * N * N) {
+void fftwToCuComplexKernelGlobal(int Nx, int Ny, int Nz, cuComplex* cuArr, fftw_complex* fftwArr) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < Nx && y < Ny && z < Nz) {
+        int idx = z * (Nx * Ny) + y * Nx + x;
         cuArr[idx] = make_cuComplex(fftwArr[idx][0], fftwArr[idx][1]);
-        //printf("cuArr[%d]: %f\n", idx, cuCrealf(cuArr[idx]));
     }
 }
 __global__
-void fftwToCufftComplexKernelGlobal(cufftComplex* cufftArr, fftw_complex* fftwArr, int N) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < N * N * N) {
+void fftwToCufftComplexKernelGlobal(int Nx, int Ny, int Nz, cufftComplex* cufftArr, fftw_complex* fftwArr) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < Nx && y < Ny && z < Nz) {
+        int idx = z * (Nx * Ny) + y * Nx + x;
         cufftArr[idx].x = fftwArr[idx][0];  // Realteil
         cufftArr[idx].y = fftwArr[idx][1];  // Imaginärteil
     }
+
 }
 __global__
-void cuToFftwComplexKernelGlobal(fftw_complex* fftwArr, cuComplex* cuArr, int N) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+void cuToFftwComplexKernelGlobal(int Nx, int Ny, int Nz, fftw_complex* fftwArr, cuComplex* cuArr) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (idx < N * N * N) {
-        //printf("cuArr[%d]: %f\n", idx, cuCrealf(cuArr[idx]));
+    if (x < Nx && y < Ny && z < Nz) {
+        int idx = z * (Nx * Ny) + y * Nx + x;
         fftwArr[idx][0] = cuCrealf(cuArr[idx]);  // Realteil
         fftwArr[idx][1] = cuCimagf(cuArr[idx]);  // Imaginärteil
     }
 }
 __global__
-void cufftToFftwComplexKernelGlobal(fftw_complex* fftwArr, cufftComplex* cufftArr, int N) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+void cufftToFftwComplexKernelGlobal(int Nx, int Ny, int Nz, fftw_complex* fftwArr, cufftComplex* cufftArr) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (idx < N * N * N) {
+    if (x < Nx && y < Ny && z < Nz) {
+        int idx = z * (Nx * Ny) + y * Nx + x;
         fftwArr[idx][0] = cufftArr[idx].x;  // Realteil
         fftwArr[idx][1] = cufftArr[idx].y;  // Imaginärteil
     }
@@ -44,18 +58,18 @@ void cufftToFftwComplexKernelGlobal(fftw_complex* fftwArr, cufftComplex* cufftAr
 
 // Mat operations
 __global__
-void complexMatMulFftwComplexGlobal(int N, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+void complexMatMulFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
         fftw_complex sum = {0.0, 0.0};
 
-        for (int k = 0; k < N; ++k) {
-            int indexA = x * N * N + y * N + k;
-            int indexB = k * N * N + y * N + z;
+        for (int k = 0; k < Nz; ++k) {
+            int indexA = z * (Nx * Ny) + y * Nx + k;
+            int indexB = k * (Nx * Ny) + y * Nx + x;
 
             float realA = A[indexA][0];
             float imagA = A[indexA][1];
@@ -69,18 +83,18 @@ void complexMatMulFftwComplexGlobal(int N, fftw_complex* A, fftw_complex* B, fft
     }
 }
 __global__
-void complexMatMulCuComplexGlobal(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
+void complexMatMulCuComplexGlobal(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
         cuComplex sum = make_cuComplex(0.0f, 0.0f);
 
-        for (int k = 0; k < N; ++k) {
-            int indexA = x * N * N + y * N + k;
-            int indexB = k * N * N + y * N + z;
+        for (int k = 0; k < Nz; ++k) {
+            int indexA = z * (Nx * Ny) + y * Nx + k;
+            int indexB = k * (Nx * Ny) + y * Nx + x;
             sum = cuCaddf(sum, cuCmulf(A[indexA], B[indexB]));
         }
 
@@ -88,52 +102,54 @@ void complexMatMulCuComplexGlobal(int N, cuComplex* A, cuComplex* B, cuComplex* 
     }
 }
 __global__
-void complexElementwiseMatMulCuComplexGlobal(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
+void complexElementwiseMatMulCuComplexGlobal(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
-
-        // Element-wise multiplication of A and B
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
         C[index] = cuCmulf(A[index], B[index]);
     }
 }
 __global__
-void complexElementwiseMatDivCuComplexGlobal(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
+void complexElementwiseMatDivCuComplexGlobal(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
 
-        // Element-wise division of A and B
+        // Elementweise Division von A und B
         C[index] = cuCdivf(A[index], B[index]);
     }
 }
 __global__
-void complexElementwiseMatMulCufftComplexGlobal(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+void complexElementwiseMatMulCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    // Check if the thread is within the valid bounds of the 3D grid
+    if (x < Nx && y < Ny && z < Nz) {
+        // Compute the 1D index from the 3D coordinates
+        int index = z * (Nx * Ny) + y * Nx + x;
 
         // Element-wise multiplication of A and B
         C[index] = cuCmulf(A[index], B[index]);
     }
 }
 __global__
-void complexElementwiseMatMulConjugateCufftComplexGlobal(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+void complexElementwiseMatMulConjugateCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    // Check if the thread is within the valid bounds of the 3D grid
+    if (x < Nx && y < Ny && z < Nz) {
+        // Compute the 1D index from the 3D coordinates
+        int index = z * (Nx * Ny) + y * Nx + x;
 
         // Get real and imaginary components of A and conjugated B
         float real_a = cuCrealf(A[index]);
@@ -145,19 +161,21 @@ void complexElementwiseMatMulConjugateCufftComplexGlobal(int N, cufftComplex* A,
         float real_c = real_a * real_b - imag_a * imag_b;
         float imag_c = real_a * imag_b + imag_a * real_b;
 
-        // Store the result directly into the real and imaginary parts of C
+        // Store the result in the output array
         C[index].x = real_c;
         C[index].y = imag_c;
     }
 }
 __global__
-void complexElementwiseMatDivCufftComplexGlobal(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
+void complexElementwiseMatDivCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    // Check if the thread is within the valid bounds of the 3D grid
+    if (x < Nx && y < Ny && z < Nz) {
+        // Compute the 1D index from the 3D coordinates
+        int index = z * (Nx * Ny) + y * Nx + x;
 
         // Get real and imaginary components of A and B
         float real_a = cuCrealf(A[index]);
@@ -174,54 +192,60 @@ void complexElementwiseMatDivCufftComplexGlobal(int N, cufftComplex* A, cufftCom
             C[index].y = 0.0f;  // Imaginary part of C
         } else {
             // Perform the complex division
-            C[index].x = (real_a * real_b + imag_a * imag_b) / denominator;
-            C[index].y = (imag_a * real_b - real_a * imag_b) / denominator;
+            C[index].x = (real_a * real_b + imag_a * imag_b) / denominator; // Real part
+            C[index].y = (imag_a * real_b - real_a * imag_b) / denominator; // Imaginary part
         }
     }
 }
 __global__
-void complexElementwiseMatDivNaiveCufftComplexGlobal(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+void complexElementwiseMatDivNaiveCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    // Check if the thread is within the valid bounds of the 3D grid
+    if (x < Nx && y < Ny && z < Nz) {
+        // Compute the 1D index from the 3D coordinates
+        int index = z * (Nx * Ny) + y * Nx + x;
 
-        // Element-wise division of A and B
+        // Perform element-wise division of A and B
         C[index] = cuCdivf(A[index], B[index]);
     }
 }
 __global__
-void complexElementwiseMatDivStabilizedCufftComplexGlobal(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
+void complexElementwiseMatDivStabilizedCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
+    // Compute the 3D coordinates of the current thread
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    // Check if the thread's coordinates are within bounds of the 3D matrix
+    if (x < Nx && y < Ny && z < Nz) {
+        // Calculate the linear index for the current thread's position
+        int index = z * (Nx * Ny) + y * Nx + x;
 
-        // Retrieve real and imaginary parts of A and B
+        // Extract the real and imaginary components of A and B
         float real_a = A[index].x;
         float imag_a = A[index].y;
         float real_b = B[index].x;
         float imag_b = B[index].y;
 
-        // Compute magnitude of B with stabilization to avoid division by zero
+        // Compute the magnitude squared of B with stabilization to avoid division by zero
         float mag = fmaxf(epsilon, real_b * real_b + imag_b * imag_b);
 
-        // Perform stabilized complex division
-        C[index].x = (real_a * real_b + imag_a * imag_b) / mag; // Real part of result
-        C[index].y = (imag_a * real_b - real_a * imag_b) / mag; // Imaginary part of result
+        // Perform the stabilized element-wise complex division
+        C[index].x = (real_a * real_b + imag_a * imag_b) / mag; // Real part of the result
+        C[index].y = (imag_a * real_b - real_a * imag_b) / mag; // Imaginary part of the result
     }
 }
 
+
 // Regularization
 __global__
-void calculateLaplacianCufftComplexGlobal(int N, cufftComplex* Afft, cufftComplex* laplacianfft) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void calculateLaplacianCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -244,10 +268,10 @@ void calculateLaplacianCufftComplexGlobal(int N, cufftComplex* Afft, cufftComple
     }
 }
 __global__
-void gradientXCufftComplexGlobal(int N, cufftComplex* image, cufftComplex* gradX) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void gradientXCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradX) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -270,10 +294,10 @@ void gradientXCufftComplexGlobal(int N, cufftComplex* image, cufftComplex* gradX
     }
 }
 __global__
-void gradientYCufftComplexGlobal(int N, cufftComplex* image, cufftComplex* gradY) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void gradientYCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradY) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -296,10 +320,10 @@ void gradientYCufftComplexGlobal(int N, cufftComplex* image, cufftComplex* gradY
     }
 }
 __global__
-void gradientZCufftComplexGlobal(int N, cufftComplex* image, cufftComplex* gradZ) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void gradientZCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradZ) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -322,10 +346,10 @@ void gradientZCufftComplexGlobal(int N, cufftComplex* image, cufftComplex* gradZ
     }
 }
 __global__
-void computeTVCufftComplexGlobal(int N, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void computeTVCufftComplexGlobal(int Nx, int Ny, int Nz, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -344,11 +368,10 @@ void computeTVCufftComplexGlobal(int N, double lambda, cufftComplex* gx, cufftCo
     }
 }
 __global__
-void normalizeTVCufftComplexGlobal(int N, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon) {
-    int width = N;
-    int height = N;
-    int depth = N;
-
+void normalizeTVCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
@@ -375,12 +398,13 @@ void normalizeTVCufftComplexGlobal(int N, cufftComplex* gradX, cufftComplex* gra
     }
 }
 
+
 // Tiled
 __global__
-void calculateLaplacianCufftComplexTiledGlobal(int N, cufftComplex* Afft, cufftComplex* laplacianfft) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void calculateLaplacianCufftComplexTiledGlobal(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
 
     // Tile dimensions, including a halo
     const int TILE_DIM = 8;
@@ -427,8 +451,10 @@ void calculateLaplacianCufftComplexTiledGlobal(int N, cufftComplex* Afft, cufftC
 
 // Fourier Shift
 __global__
-void octantFourierShiftCufftComplexGlobal(int N, cufftComplex* data) {
-    int width = N, height = N, depth = N;
+void octantFourierShiftCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* data) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
     int halfWidth = width / 2;
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
@@ -456,38 +482,74 @@ void octantFourierShiftCufftComplexGlobal(int N, cufftComplex* data) {
     }
 }
 __global__
-void normalizeComplexData(cufftComplex* d_data, int N) {
+void normalizeComplexData(int Nx, int Ny, int Nz, cufftComplex* d_data) {
+    // Calculate the 1D index for the 3D data array
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < N) {
-        // Divide the real part by the number of elements
-        d_data[idx].x /= N;
 
-        // Set the imaginary part to 0
+    // Ensure that the thread is within bounds of the data
+    if (idx < Nx * Ny * Nz) {
+        // Normalize the real part by dividing by the total number of elements
+        d_data[idx].x /= (Nx * Ny * Nz);
+
+        // Set the imaginary part to 0 as specified
         d_data[idx].y = 0;
+    }
+}
+__global__
+void padCufftMatGlobal(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, cufftComplex* oldMat, cufftComplex* newMat, int offsetX, int offsetY, int offsetZ)
+{
+    // 3D-Index des Threads im Grid
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    // Neue Matrixgröße als Grenze
+    if (x >= newNx || y >= newNy || z >= newNz) return;
+
+    // Index in der neuen Matrix
+    int newIndex = z * newNy * newNx + y * newNx + x;
+
+    // Initialisiere die neue Matrix mit Null
+    newMat[newIndex].x = 0.0f; // Realteil
+    newMat[newIndex].y = 0.0f; // Imaginärteil
+
+    // Berechnung der Position der alten Matrix
+    if (x >= offsetX && x < offsetX + oldNx &&
+        y >= offsetY && y < offsetY + oldNy &&
+        z >= offsetZ && z < offsetZ + oldNz)
+    {
+        // Index in der alten Matrix
+        int oldX = x - offsetX;
+        int oldY = y - offsetY;
+        int oldZ = z - offsetZ;
+        int oldIndex = oldZ * oldNy * oldNx + oldY * oldNx + oldX;
+
+        // Kopiere den Wert von der alten in die neue Matrix
+        newMat[newIndex] = oldMat[oldIndex];
     }
 }
 
 
 // Device Kernels (TODO __device__ in decvice.cu)
 __global__
-void deviceTestKernelGlobal(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
+void deviceTestKernelGlobal(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     //complexMatMulCuComplexDevice( N, A, B, C);
-    complexElementwiseMatMulCuComplexDevice( N, A, B, C);
+    complexElementwiseMatMulCuComplexDevice( Nx,Ny, Nz, A, B, C);
     //complexElementwiseMatDivCuComplexDevice( N, A, B, C);
 }
 __device__
-void complexMatMulCuComplexDevice(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
+void complexMatMulCuComplexDevice(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
         cuComplex sum = make_cuComplex(0.0f, 0.0f);
 
-        for (int k = 0; k < N; ++k) {
-            int indexA = x * N * N + y * N + k;
-            int indexB = k * N * N + y * N + z;
+        for (int k = 0; k < Nz; ++k) {
+            int indexA = z * (Nx * Ny) + y * Nx + k;
+            int indexB = k * (Nx * Ny) + y * Nx + x;
             sum = cuCaddf(sum, cuCmulf(A[indexA], B[indexB]));
         }
 
@@ -495,52 +557,54 @@ void complexMatMulCuComplexDevice(int N, cuComplex* A, cuComplex* B, cuComplex* 
     }
 }
 __device__
-void complexElementwiseMatMulCuComplexDevice(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
+void complexElementwiseMatMulCuComplexDevice(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
-
-        // Element-wise multiplication of A and B
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
         C[index] = cuCmulf(A[index], B[index]);
     }
 }
 __device__
-void complexElementwiseMatDivCuComplexDevice(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
+void complexElementwiseMatDivCuComplexDevice(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
 
-        // Element-wise division of A and B
+        // Elementweise Division von A und B
         C[index] = cuCdivf(A[index], B[index]);
     }
 }
 __device__
-void complexElementwiseMatMulCufftComplexDevice(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+void complexElementwiseMatMulCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    // Check if the thread is within the valid bounds of the 3D grid
+    if (x < Nx && y < Ny && z < Nz) {
+        // Compute the 1D index from the 3D coordinates
+        int index = z * (Nx * Ny) + y * Nx + x;
 
         // Element-wise multiplication of A and B
         C[index] = cuCmulf(A[index], B[index]);
     }
 }
 __device__
-void complexElementwiseMatMulConjugateCufftComplexDevice(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+void complexElementwiseMatMulConjugateCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    // Check if the thread is within the valid bounds of the 3D grid
+    if (x < Nx && y < Ny && z < Nz) {
+        // Compute the 1D index from the 3D coordinates
+        int index = z * (Nx * Ny) + y * Nx + x;
 
         // Get real and imaginary components of A and conjugated B
         float real_a = cuCrealf(A[index]);
@@ -552,19 +616,21 @@ void complexElementwiseMatMulConjugateCufftComplexDevice(int N, cufftComplex* A,
         float real_c = real_a * real_b - imag_a * imag_b;
         float imag_c = real_a * imag_b + imag_a * real_b;
 
-        // Store the result directly into the real and imaginary parts of C
+        // Store the result in the output array
         C[index].x = real_c;
         C[index].y = imag_c;
     }
 }
 __device__
-void complexElementwiseMatDivCufftComplexDevice(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
+void complexElementwiseMatDivCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    // Check if the thread is within the valid bounds of the 3D grid
+    if (x < Nx && y < Ny && z < Nz) {
+        // Compute the 1D index from the 3D coordinates
+        int index = z * (Nx * Ny) + y * Nx + x;
 
         // Get real and imaginary components of A and B
         float real_a = cuCrealf(A[index]);
@@ -573,60 +639,65 @@ void complexElementwiseMatDivCufftComplexDevice(int N, cufftComplex* A, cufftCom
         float imag_b = cuCimagf(B[index]);
 
         // Calculate the denominator (magnitude squared of B)
-        float denominator = real_b * real_b + imag_b * imag_b;
+        double denominator = real_b * real_b + imag_b * imag_b;
 
         // Apply stabilization: if denominator is smaller than epsilon, set to zero
-        if ((double)denominator < epsilon) {
+        if (denominator < epsilon) {
             C[index].x = 0.0f;  // Real part of C
             C[index].y = 0.0f;  // Imaginary part of C
         } else {
             // Perform the complex division
-            C[index].x = (real_a * real_b + imag_a * imag_b) / denominator;
-            C[index].y = (imag_a * real_b - real_a * imag_b) / denominator;
+            C[index].x = (real_a * real_b + imag_a * imag_b) / denominator; // Real part
+            C[index].y = (imag_a * real_b - real_a * imag_b) / denominator; // Imaginary part
         }
     }
 }
 __device__
-void complexElementwiseMatDivNaiveCufftComplexDevice(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+void complexElementwiseMatDivNaiveCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    // Check if the thread is within the valid bounds of the 3D grid
+    if (x < Nx && y < Ny && z < Nz) {
+        // Compute the 1D index from the 3D coordinates
+        int index = z * (Nx * Ny) + y * Nx + x;
 
-        // Element-wise division of A and B
+        // Perform element-wise division of A and B
         C[index] = cuCdivf(A[index], B[index]);
     }
 }
 __device__
-void complexElementwiseMatDivStabilizedCufftComplexDevice(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
+void complexElementwiseMatDivStabilizedCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
+    // Compute the 3D coordinates of the current thread
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (x < N && y < N && z < N) {
-        int index = x * N * N + y * N + z;
+    // Check if the thread's coordinates are within bounds of the 3D matrix
+    if (x < Nx && y < Ny && z < Nz) {
+        // Calculate the linear index for the current thread's position
+        int index = z * (Nx * Ny) + y * Nx + x;
 
-        // Retrieve real and imaginary parts of A and B
+        // Extract the real and imaginary components of A and B
         float real_a = A[index].x;
         float imag_a = A[index].y;
         float real_b = B[index].x;
         float imag_b = B[index].y;
 
-        // Compute magnitude of B with stabilization to avoid division by zero
+        // Compute the magnitude squared of B with stabilization to avoid division by zero
         float mag = fmaxf(epsilon, real_b * real_b + imag_b * imag_b);
 
-        // Perform stabilized complex division
-        C[index].x = (real_a * real_b + imag_a * imag_b) / mag; // Real part of result
-        C[index].y = (imag_a * real_b - real_a * imag_b) / mag; // Imaginary part of result
+        // Perform the stabilized element-wise complex division
+        C[index].x = (real_a * real_b + imag_a * imag_b) / mag; // Real part of the result
+        C[index].y = (imag_a * real_b - real_a * imag_b) / mag; // Imaginary part of the result
     }
 }
 __device__
-void calculateLaplacianCufftComplexDevice(int N, cufftComplex* Afft, cufftComplex* laplacianfft) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void calculateLaplacianCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -649,11 +720,10 @@ void calculateLaplacianCufftComplexDevice(int N, cufftComplex* Afft, cufftComple
     }
 }
 __device__
-void gradientXCufftComplexDevice(int N, cufftComplex* image, cufftComplex* gradX) {
-    int width = N;
-    int height = N;
-    int depth = N;
-
+void gradientXCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradX) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
@@ -675,10 +745,10 @@ void gradientXCufftComplexDevice(int N, cufftComplex* image, cufftComplex* gradX
     }
 }
 __device__
-void gradientYCufftComplexDevice(int N, cufftComplex* image, cufftComplex* gradY) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void gradientYCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradY) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -701,11 +771,10 @@ void gradientYCufftComplexDevice(int N, cufftComplex* image, cufftComplex* gradY
     }
 }
 __device__
-void gradientZCufftComplexDevice(int N, cufftComplex* image, cufftComplex* gradZ) {
-    int width = N;
-    int height = N;
-    int depth = N;
-
+void gradientZCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradZ) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
@@ -727,10 +796,10 @@ void gradientZCufftComplexDevice(int N, cufftComplex* image, cufftComplex* gradZ
     }
 }
 __device__
-void computeTVCufftComplexDevice(int N, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void computeTVCufftComplexDevice(int Nx, int Ny, int Nz, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -749,10 +818,10 @@ void computeTVCufftComplexDevice(int N, double lambda, cufftComplex* gx, cufftCo
     }
 }
 __device__
-void normalizeTVCufftComplexDevice(int N, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void normalizeTVCufftComplexDevice(int Nx, int Ny, int Nz, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -779,11 +848,44 @@ void normalizeTVCufftComplexDevice(int N, cufftComplex* gradX, cufftComplex* gra
         gradZ[index].y /= norm;
     }
 }
+__global__
+void padCufftMatDevice(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, cufftComplex* oldMat, cufftComplex* newMat, int offsetX, int offsetY, int offsetZ)
+{
+    // 3D-Index des Threads im Grid
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    // Neue Matrixgröße als Grenze
+    if (x >= newNx || y >= newNy || z >= newNz) return;
+
+    // Index in der neuen Matrix
+    int newIndex = z * newNy * newNx + y * newNx + x;
+
+    // Initialisiere die neue Matrix mit Null
+    newMat[newIndex].x = 0.0f; // Realteil
+    newMat[newIndex].y = 0.0f; // Imaginärteil
+
+    // Berechnung der Position der alten Matrix
+    if (x >= offsetX && x < offsetX + oldNx &&
+        y >= offsetY && y < offsetY + oldNy &&
+        z >= offsetZ && z < offsetZ + oldNz)
+    {
+        // Index in der alten Matrix
+        int oldX = x - offsetX;
+        int oldY = y - offsetY;
+        int oldZ = z - offsetZ;
+        int oldIndex = oldZ * oldNy * oldNx + oldY * oldNx + oldX;
+
+        // Kopiere den Wert von der alten in die neue Matrix
+        newMat[newIndex] = oldMat[oldIndex];
+    }
+}
 __device__
-void calculateLaplacianCufftComplexTiledDevice(int N, cufftComplex* Afft, cufftComplex* laplacianfft) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void calculateLaplacianCufftComplexTiledDevice(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
 
     // Tile dimensions, including a halo
     const int TILE_DIM = 8;

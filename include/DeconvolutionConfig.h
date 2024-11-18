@@ -17,6 +17,8 @@ public:
     std::vector<int> secondpsfcubes = {};
     bool secondPSF = false;
 
+    std::string gpu = "";
+
     void loadFromJSON(const std::string &directoryPath);
 };
 

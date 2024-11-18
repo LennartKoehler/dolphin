@@ -5,7 +5,7 @@
 
 ## Overview
 
-CUBE (CUDA Boost Engine) is a high-performance framework designed for accelerating NxNxN matrix operations and Fourier Transform computations using CUDA and CPP(OpenMP). This framework supports CPU-based, multi-threaded, and GPU-accelerated operations, enabling efficient handling of large complex matrices with advanced matrix multiplication, element-wise operations, and Fourier transformations.
+CUBE (CUDA Boost Engine) is a high-performance framework designed for accelerating 3D matrix operations and Fourier Transform computations using CUDA and CPP(OpenMP). This framework supports CPU-based, multi-threaded, and GPU-accelerated operations, enabling efficient handling of large complex matrices with advanced matrix multiplication, element-wise operations, and Fourier transformations.
 
 ## Key Features
 

@@ -3,67 +3,89 @@
 #include <kernels.h>
 #include <thread>
 
+
+#ifdef ENABLE_CUBE_DEBUG
+#define DEBUG_LOG(msg) std::cout << msg << std::endl
+#else
+#define DEBUG_LOG(msg) // Nichts tun
+#endif
+
 // Runs on naive CPP (CPU), CPP with OMP (CPU) or CUDA (GPU)
-void complexMatMultCpp(int N, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+void complexMatMulCpp(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
     double start = omp_get_wtime();
-    for (int x = 0; x < N; ++x) {
-        for (int y = 0; y < N; ++y) {
-            for (int z = 0; z < N; ++z) {
-                int index = x * N * N + y * N + z;
+
+    // Iterate over the 3D matrix
+    for (int x = 0; x < Nx; ++x) {
+        for (int y = 0; y < Ny; ++y) {
+            for (int z = 0; z < Nz; ++z) {
+                int index = x * Ny * Nz + y * Nz + z; // Correct index for 3D matrix
+
                 fftw_complex sum = {0.0, 0.0};
 
-                for (int k = 0; k < N; ++k) {
-                    int indexA = x * N * N + y * N + k;
-                    int indexB = k * N * N + y * N + z;
+                // Perform matrix multiplication with summation over k
+                for (int k = 0; k < Nz; ++k) {  // Loop over k for multiplication
+                    int indexA = x * Ny * Nz + y * Nz + k;
+                    int indexB = k * Ny * Nz + y * Nz + z;
 
                     float realA = A[indexA][0];
                     float imagA = A[indexA][1];
                     float realB = B[indexB][0];
                     float imagB = B[indexB][1];
 
-                    sum[0] += realA * realB - imagA * imagB;  // Realteil
-                    sum[1] += realA * imagB + imagA * realB;  // Imaginärteil
+                    // Accumulate the real and imaginary parts
+                    sum[0] += realA * realB - imagA * imagB;
+                    sum[1] += realA * imagB + imagA * realB;
                 }
 
+                // Store the result
                 C[index][0] = sum[0];
                 C[index][1] = sum[1];
             }
         }
     }
+
     double end = omp_get_wtime();
-    std::cout << "[TIME]["<< (end - start)*1000 << " ms" <<"] MatMul in Cpp" << std::endl;
+    DEBUG_LOG("[TIME][" << (end - start) * 1000 << " ms] MatMul in Cpp");
 }
-void complexMatMulCppOmp(int N, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+void complexMatMulCppOmp(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
     double start = omp_get_wtime();
+
+    // Use OpenMP to parallelize the 3D matrix multiplication
 #pragma omp parallel for collapse(3) schedule(static)
-    for (int x = 0; x < N; ++x) {
-        for (int y = 0; y < N; ++y) {
-            for (int z = 0; z < N; ++z) {
-                int index = x * N * N + y * N + z;
+    for (int x = 0; x < Nx; ++x) {
+        for (int y = 0; y < Ny; ++y) {
+            for (int z = 0; z < Nz; ++z) {
+                int index = x * Ny * Nz + y * Nz + z; // Correct index for 3D matrix
+
                 fftw_complex sum = {0.0, 0.0};
 
-                for (int k = 0; k < N; ++k) {
-                    int indexA = x * N * N + y * N + k;
-                    int indexB = k * N * N + y * N + z;
+                // Perform matrix multiplication with summation over k
+                for (int k = 0; k < Nz; ++k) {  // Loop over k for multiplication
+                    int indexA = x * Ny * Nz + y * Nz + k;
+                    int indexB = k * Ny * Nz + y * Nz + z;
 
                     float realA = A[indexA][0];
                     float imagA = A[indexA][1];
                     float realB = B[indexB][0];
                     float imagB = B[indexB][1];
 
-                    sum[0] += realA * realB - imagA * imagB;  // real
-                    sum[1] += realA * imagB + imagA * realB;  // img
+                    // Accumulate the real and imaginary parts
+                    sum[0] += realA * realB - imagA * imagB;
+                    sum[1] += realA * imagB + imagA * realB;
                 }
 
+                // Store the result
                 C[index][0] = sum[0];
                 C[index][1] = sum[1];
             }
         }
     }
+
     double end = omp_get_wtime();
-    std::cout << "[TIME]["<< (end - start)*1000 << " ms" <<"] MatMul in Cpp with Omp ("<< omp_get_max_threads() <<" Threads)" << std::endl;
+    DEBUG_LOG("[TIME][" << (end - start) * 1000 << " ms] MatMul in Cpp with Omp ("
+              << omp_get_max_threads() << " Threads)");
 }
-void complexMatMulCudaFftwComplex(int N, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+void complexMatMulCudaFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -71,14 +93,14 @@ void complexMatMulCudaFftwComplex(int N, fftw_complex* A, fftw_complex* B, fftw_
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
 
     cudaEventRecord(start);
 
-    complexMatMulFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, A, B, C);
+    complexMatMulFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
 
     cudaDeviceSynchronize();
     cudaEventRecord(stop);
@@ -91,15 +113,15 @@ void complexMatMulCudaFftwComplex(int N, fftw_complex* A, fftw_complex* B, fftw_
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] MatMul in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] MatMul in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
-void complexMatMulFftwComplex(int N, fftw_complex* A, fftw_complex* B, fftw_complex* C, const char* type) {
+void complexMatMulFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, const char* type) {
     if (strcmp(type, "cpp") == 0) {
-        complexMatMultCpp(N, A, B, C);
+        complexMatMulCpp(Nx, Ny, Nz, A, B, C);
     }else if (strcmp(type, "omp") == 0) {
-        complexMatMulCppOmp(N, A, B, C);
+        complexMatMulCppOmp(Nx, Ny, Nz, A, B, C);
     }else if (strcmp(type, "cuda") == 0) {
-        complexMatMulCudaFftwComplex(N, A, B, C);
+        complexMatMulCudaFftwComplex(Nx, Ny, Nz, A, B, C);
     }
     else {
         fprintf(stderr, "Unknown operation type %s\n", type);
@@ -108,48 +130,56 @@ void complexMatMulFftwComplex(int N, fftw_complex* A, fftw_complex* B, fftw_comp
 
 
 // Runs always on CUDA (GPU)
-void complexMatMulCudaCuComplex(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
+void complexMatMulCudaCuComplex(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
-    // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-    dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    // Kernel dimension 3D for Nx * Ny * Nz matrix stored in a 1D array
+    dim3 threadsPerBlock(10, 10, 10); // Optimal for testing, adjust for your hardware
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
+    // Start the event for timing
     cudaEventRecord(start);
 
-    complexMatMulCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, A, B, C);
+    // Launch the kernel
+    complexMatMulCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+
+    // Synchronize the device and check for errors after kernel execution
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
 
+    // Check for any CUDA errors
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
         std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
     }
 
+    // Calculate and print the time elapsed
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] MatMul in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] MatMul in CUDA (cuComplex) ("
+              << threadsPerBlock.x * threadsPerBlock.y * threadsPerBlock.z << "x"
+              << blocksPerGrid.x * blocksPerGrid.y * blocksPerGrid.z << ")");
 }
-void complexElementwiseMatMulCuComplex(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
+void complexElementwiseMatMulCuComplex(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    complexElementwiseMatMulCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, A, B, C);
+    complexElementwiseMatMulCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -162,22 +192,22 @@ void complexElementwiseMatMulCuComplex(int N, cuComplex* A, cuComplex* B, cuComp
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
-void complexElementwiseMatDivCuComplex(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
+void complexElementwiseMatDivCuComplex(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    complexElementwiseMatDivCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, A, B, C);
+    complexElementwiseMatDivCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -190,22 +220,24 @@ void complexElementwiseMatDivCuComplex(int N, cuComplex* A, cuComplex* B, cuComp
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
-void complexElementwiseMatMulCufftComplex(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+void complexElementwiseMatMulCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    complexElementwiseMatMulCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, A, B, C);
+
+
+    complexElementwiseMatMulCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -218,22 +250,23 @@ void complexElementwiseMatMulCufftComplex(int N, cufftComplex* A, cufftComplex* 
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (cufftComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (cufftComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+
 }
-void complexElementwiseMatMulConjugateCufftComplex(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C)  {
+void complexElementwiseMatMulConjugateCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C)  {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    complexElementwiseMatMulConjugateCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, A, B, C);
+    complexElementwiseMatMulConjugateCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -246,22 +279,22 @@ void complexElementwiseMatMulConjugateCufftComplex(int N, cufftComplex* A, cufft
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] elementwise MatMul conjugated in CUDA (cufftComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul conjugated in CUDA (cufftComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
-void complexElementwiseMatDivCufftComplex(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
+void complexElementwiseMatDivCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    complexElementwiseMatDivCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, A, B, C, epsilon);
+    complexElementwiseMatDivCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C, epsilon);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -274,22 +307,22 @@ void complexElementwiseMatDivCufftComplex(int N, cufftComplex* A, cufftComplex* 
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
-void complexElementwiseMatDivNaiveCufftComplex(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+void complexElementwiseMatDivNaiveCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    complexElementwiseMatDivNaiveCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, A, B, C);
+    complexElementwiseMatDivNaiveCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -302,22 +335,22 @@ void complexElementwiseMatDivNaiveCufftComplex(int N, cufftComplex* A, cufftComp
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] elementwise naive MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise naive MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
-void complexElementwiseMatDivStabilizedCufftComplex(int N, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon){
+void complexElementwiseMatDivStabilizedCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon){
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    complexElementwiseMatDivStabilizedCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, A, B, C, epsilon);
+    complexElementwiseMatDivStabilizedCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C, epsilon);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -330,25 +363,25 @@ void complexElementwiseMatDivStabilizedCufftComplex(int N, cufftComplex* A, cuff
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] elementwise stabilized MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise stabilized MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
 
 
 // Regularization
-void calculateLaplacianCufftComplex(int N, cufftComplex* Afft, cufftComplex* laplacianfft) {
+void calculateLaplacianCufftComplex(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    calculateLaplacianCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, Afft, laplacianfft);
+    calculateLaplacianCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, Afft, laplacianfft);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -361,22 +394,22 @@ void calculateLaplacianCufftComplex(int N, cufftComplex* Afft, cufftComplex* lap
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
-void gradXCufftComplex(int N, cufftComplex* image, cufftComplex* gradX) {
+void gradXCufftComplex(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradX) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    gradientXCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, image, gradX);
+    gradientXCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradX);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -389,22 +422,22 @@ void gradXCufftComplex(int N, cufftComplex* image, cufftComplex* gradX) {
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] calculating GradientX in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientX in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
-void gradYCufftComplex(int N, cufftComplex* image, cufftComplex* gradY) {
+void gradYCufftComplex(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradY) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    gradientYCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, image, gradY);
+    gradientYCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradY);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -417,22 +450,22 @@ void gradYCufftComplex(int N, cufftComplex* image, cufftComplex* gradY) {
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] calculating GradientY in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientY in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
-void gradZCufftComplex(int N, cufftComplex* image, cufftComplex* gradZ) {
+void gradZCufftComplex(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradZ) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    gradientZCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, image, gradZ);
+    gradientZCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradZ);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -445,22 +478,22 @@ void gradZCufftComplex(int N, cufftComplex* image, cufftComplex* gradZ) {
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] calculating GradientZ in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientZ in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
-void computeTVCufftComplex(int N, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv) {
+void computeTVCufftComplex(int Nx, int Ny, int Nz, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    computeTVCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, lambda, gx, gy, gz, tv);
+    computeTVCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, lambda, gx, gy, gz, tv);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -473,22 +506,22 @@ void computeTVCufftComplex(int N, double lambda, cufftComplex* gx, cufftComplex*
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] calculating Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
-void normalizeTVCufftComplex(int N, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon) {
+void normalizeTVCufftComplex(int Nx, int Ny, int Nz, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    normalizeTVCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, gradX, gradY, gradZ, epsilon);
+    normalizeTVCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, gradX, gradY, gradZ, epsilon);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -501,25 +534,25 @@ void normalizeTVCufftComplex(int N, cufftComplex* gradX, cufftComplex* gradY, cu
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] normalizing Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] normalizing Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
 
 
 // Tiled
-void calculateLaplacianCufftComplexTiled(int N, cufftComplex* Afft, cufftComplex* laplacianfft) {
+void calculateLaplacianCufftComplexTiled(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    calculateLaplacianCufftComplexTiledGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, Afft, laplacianfft);
+    calculateLaplacianCufftComplexTiledGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, Afft, laplacianfft);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -532,7 +565,7 @@ void calculateLaplacianCufftComplexTiled(int N, cufftComplex* Afft, cufftComplex
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA tiled with shared mem (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA tiled with shared mem (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
 
 
@@ -562,9 +595,9 @@ void cufftForward(cufftComplex* input, cufftComplex* output, cufftHandle plan) {
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] Forward FFT in cuFFT"<< std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] Forward FFT in cuFFT");
 }
-void cufftInverse(cufftComplex* input, cufftComplex* output, cufftHandle plan, int N) {
+void cufftInverse(int Nx, int Ny, int Nz, cufftComplex* input, cufftComplex* output, cufftHandle plan) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -573,11 +606,11 @@ void cufftInverse(cufftComplex* input, cufftComplex* output, cufftHandle plan, i
     cudaEventRecord(start);
 
     result = cufftExecC2C(plan, input, output, CUFFT_INVERSE);
-    int num_elements = N * N * N;  // Beispiel: Gesamtzahl der Elemente
+    int num_elements = Nx * Ny * Nz;  // Beispiel: Gesamtzahl der Elemente
     int block_size = 256;  // Blockgröße (kann angepasst werden)
     int num_blocks = (num_elements + block_size - 1) / block_size;  // Berechne die Anzahl der Blöcke
 
-    normalizeComplexData<<<num_blocks, block_size>>>(output, num_elements);
+    normalizeComplexData<<<num_blocks, block_size>>>(Nx, Ny, Nz, output);
 
     cudaDeviceSynchronize();
     cudaEventRecord(stop);
@@ -595,15 +628,15 @@ void cufftInverse(cufftComplex* input, cufftComplex* output, cufftHandle plan, i
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] Inverse FFT in cuFFT"<< std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] Inverse FFT in cuFFT");
 }
 
 
 // Fourier Shift (fftw on CPU and cufft on GPU)
-void octantFourierShiftFftwComplex(int N, fftw_complex* data) {
-    int width = N;
-    int height = N;
-    int depth = N;
+void octantFourierShiftFftwComplex(int Nx, int Ny, int Nz, fftw_complex* data) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
     auto start = std::chrono::high_resolution_clock::now();
 
     int halfWidth = width / 2;
@@ -638,13 +671,12 @@ void octantFourierShiftFftwComplex(int N, fftw_complex* data) {
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
     float time = duration.count();
 
-    std::cout
- << "[TIME]["<<time/1000000<<" ms] Octant(Fourier)Shift in CPP"<< std::endl;
+    DEBUG_LOG("[TIME]["<<time/1000000<<" ms] Octant(Fourier)Shift in CPP");
 }
-void octantFourierShiftCufftComplex(int N, cufftComplex* data) {
-    size_t freeMem, totalMem;
-    cudaMemGetInfo(&freeMem, &totalMem);
-    std::cout << "Free memory: " << freeMem << " Total memory: " << totalMem << std::endl;
+void octantFourierShiftCufftComplex(int Nx, int Ny, int Nz, cufftComplex* data) {
+    //size_t freeMem, totalMem;
+    //cudaMemGetInfo(&freeMem, &totalMem);
+    //std::cout << "Free memory: " << freeMem << " Total memory: " << totalMem << std::endl;
 
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
@@ -653,14 +685,14 @@ void octantFourierShiftCufftComplex(int N, cufftComplex* data) {
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(2, 2, 2); //=6 //TODO with more threads artefacts visible
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
 
     cudaEventRecord(start);
 
-    octantFourierShiftCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, data);
+    octantFourierShiftCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, data);
     cudaError_t errp = cudaPeekAtLastError();
     if (errp != cudaSuccess) {
         std::cerr << "Fourier shift kernel launch error: " << cudaGetErrorString(errp) << std::endl;
@@ -676,25 +708,113 @@ void octantFourierShiftCufftComplex(int N, cufftComplex* data) {
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] Octant(Fouriere)Shift in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] Octant(Fouriere)Shift in CUDA (cufftComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+}
+void padFftwMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, fftw_complex* oldMat, fftw_complex* newMat)
+{
+    auto start = std::chrono::high_resolution_clock::now();
+    // Sicherheitsprüfung: Neue Dimensionen müssen größer oder gleich den alten sein
+    if (newNx < oldNx || newNy < oldNy || newNz < oldNz) {
+        throw std::invalid_argument("New dimensions have to be equal or bigger than old ones.");
+    }
+
+    // Offset für Padding (Startkoordinaten der alten Matrix in der neuen Matrix)
+    int offsetX = (newNx - oldNx) / 2;
+    int offsetY = (newNy - oldNy) / 2;
+    int offsetZ = (newNz - oldNz) / 2;
+
+    // Initialisiere die neue Matrix mit Nullen
+#pragma omp parallel for
+    for (int i = 0; i < newNx * newNy * newNz; ++i) {
+        newMat[i][0] = 0.0; // Realteil
+        newMat[i][1] = 0.0; // Imaginärteil
+    }
+
+    // Kopiere die Werte der alten Matrix in die Mitte der neuen Matrix
+#pragma omp parallel for
+    for (int z = 0; z < oldNz; ++z) {
+        for (int y = 0; y < oldNy; ++y) {
+            for (int x = 0; x < oldNx; ++x) {
+                // Index in der alten Matrix
+                int oldIndex = z * oldNy * oldNx + y * oldNx + x;
+
+                // Index in der neuen Matrix
+                int newIndex =
+                    (z + offsetZ) * newNy * newNx +
+                    (y + offsetY) * newNx +
+                    (x + offsetX);
+
+                // Kopiere den Wert
+                newMat[newIndex][0] = oldMat[oldIndex][0]; // Realteil
+                newMat[newIndex][1] = oldMat[oldIndex][1]; // Imaginärteil
+            }
+        }
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    float time = duration.count();
+
+    DEBUG_LOG("[TIME]["<<time/1000000<<" ms] padded FftwComplex Mat in CPP");
+}
+void padCufftMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, cufftComplex* d_oldMat, cufftComplex* d_newMat)
+{
+    // Sicherheitsprüfung: Neue Dimensionen müssen größer oder gleich den alten sein
+    if (newNx < oldNx || newNy < oldNy || newNz < oldNz) {
+        throw std::invalid_argument("New dimensions have to be equal or bigger than old ones.");
+    }
+
+    // Offset berechnen
+    int offsetX = (newNx - oldNx) / 2;
+    int offsetY = (newNy - oldNy) / 2;
+    int offsetZ = (newNz - oldNz) / 2;
+
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    // Block- und Grid-Dimensionen festlegen
+    dim3 blockDim(16, 8, 8); // Größe der Blöcke
+    dim3 gridDim(
+        (newNx + blockDim.x - 1) / blockDim.x,
+        (newNy + blockDim.y - 1) / blockDim.y,
+        (newNz + blockDim.z - 1) / blockDim.z);
+
+    cudaEventRecord(start);
+    padCufftMatGlobal<<<gridDim, blockDim>>>(
+        oldNx, oldNy, oldNz,
+        newNx, newNy, newNz,
+        d_oldMat, d_newMat,
+        offsetX, offsetY, offsetZ);
+
+    cudaDeviceSynchronize();
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        throw std::runtime_error(cudaGetErrorString(err));
+    }
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] padded CufftComplex Mat in CUDA ("<<blockDim.x*blockDim.y*blockDim.z<<"x"<<gridDim.x*gridDim.y*gridDim.z<<")");
 }
 
 
 // Testing __device__ kernels
-void deviceTestKernel(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
+void deviceTestKernel(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
     dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-    dim3 blocksPerGrid((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (N + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                       (N + threadsPerBlock.z - 1) / threadsPerBlock.z);
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
     cudaEventRecord(start);
 
-    deviceTestKernelGlobal<<<blocksPerGrid, threadsPerBlock>>>(N, A, B, C);
+    deviceTestKernelGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -707,8 +827,10 @@ void deviceTestKernel(int N, cuComplex* A, cuComplex* B, cuComplex* C) {
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "[TIME][" << milliseconds << " ms] Device kernel(s) finished ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")" << std::endl;
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] Device kernel(s) finished ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
+
+
 
 
 

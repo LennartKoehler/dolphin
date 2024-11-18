@@ -1,4 +1,7 @@
 #include "RLDeconvolutionAlgorithm.h"
+#ifdef CUDA_AVAILABLE
+#include <cuda_runtime.h>
+#endif
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <vector>
@@ -7,10 +10,13 @@
 #include "UtlGrid.h"
 #include "UtlImage.h"
 #include <omp.h>
+#include <operations.h>
+#include <utl.h>
 
 void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Algorithm specific
     this->iterations = config.iterations;
+    this->gpu = config.gpu;
 
     // General
     this->epsilon = config.epsilon;
@@ -50,10 +56,83 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
             std::cout << std::endl;
         }
     }
+    if(this->gpu != "") {
+        std::cout << "[CONFIGURATION] gpu: " << this->gpu << std::endl;
+    }
 }
 
 void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+    if(this->gpu == "cuda") {
+#ifdef CUDA_AVAILABLE
 
+        //TODO CUDA ERROR: invalid argument
+        //std::cout << "[ALGORITHM] Richardson-Lucy algorithm with CUDA" << std::endl;
+        cufftComplex *d_c, *d_f, *d_g, *d_H;
+        cudaMalloc((void**)&d_c, this->cubeVolume * sizeof(cufftComplex));
+        cudaMalloc((void**)&d_f, this->cubeVolume * sizeof(cufftComplex));
+        cudaMalloc((void**)&d_g, this->cubeVolume * sizeof(cufftComplex));
+        cudaMalloc((void**)&d_H, this->cubeVolume * sizeof(cufftComplex));
+        convertFftwToCufftComplexOnDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, g, d_g);
+        convertFftwToCufftComplexOnDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, g, d_f);
+        convertFftwToCufftComplexOnDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, H, d_H);
+
+        for (int n = 0; n < this->iterations; ++n) {
+            std::cout << "\r[STATUS] Channel: " << channel_num + 1 << "/" << data.channels.size() << " GridImage: "
+                      << this->totalGridNum << "/" << this->gridImages.size() << " Iteration: " << n + 1 << "/"
+                      << this->iterations << " ";
+
+            // a) First transformation:
+            // Fn = FFT(fn)
+            cufftForward(d_f, d_f, this->cufftPlan);
+            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f);
+
+            // Fn' = Fn * H
+            complexElementwiseMatMulCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_H, d_c);
+
+            // fn' = IFFT(Fn')
+            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_c, this->cufftPlan);
+            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+
+            // b) Calculation of the Correction Factor:
+            // c = g / fn'
+            // c = max(c, ε)
+            complexElementwiseMatDivCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, d_c, d_c, this->epsilon);
+
+            // c) Second transformation:
+            // C = FFT(c)
+            cufftForward(d_c, d_c, this->cufftPlan);
+            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+
+            // C' = C * conj(H)
+            complexElementwiseMatMulConjugateCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_H, d_c);
+
+            // c' = IFFT(C')
+            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_c, this->cufftPlan);
+            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+
+            // d) Update the estimated image:
+            // fn = IFFT(Fn)
+            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_f, this->cufftPlan);
+
+            // fn+1 = fn * c
+            complexElementwiseMatMulCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_c, d_f);
+
+            std::flush(std::cout);
+        }
+        cudaFree(d_c);
+        convertCufftToFftwComplexOnHost(this->cubeWidth, this->cubeHeight, this->cubeDepth, f, d_f);
+
+
+#else
+        std::cout << "[ERROR] Cuda is not available" << std::endl;
+#endif
+
+    }else if(this->gpu == "opencl") {
+        std::cout << "[ERROR] OpenCL is not implemented yet" << std::endl;
+    }else if(this->gpu == "" || this->gpu == "none") {
         // Allocate memory for intermediate FFTW arrays
         fftw_complex *c = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
         std::memcpy(f, g, sizeof(fftw_complex) * this->cubeVolume);
@@ -113,4 +192,10 @@ void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw
         }
     fftw_free(c);
 
+    }else {
+        std::cout << "[ERROR] Please give a specific GPU API" << std::endl;
+    }
+
+
 }
+

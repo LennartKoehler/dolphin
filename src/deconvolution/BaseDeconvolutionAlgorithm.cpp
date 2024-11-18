@@ -7,6 +7,8 @@
 #include <iostream>
 #include <opencv2/imgproc.hpp>
 #include <omp.h>
+#include <operations.h>
+#include <utl.h>
 
 bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& psfs) {
 
@@ -108,6 +110,66 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
             std::cout << "[WARNING] PSF is larger than image/cube" << std::endl;
         }
 
+    if(this->gpu == "cuda") {
+#ifdef CUDA_AVAILABLE
+        // In-line fftplan for fast ft calculation and inverse
+        // Create FFT-Plan for reuse
+          cufftResult result = cufftPlan3d(&this->cufftPlan, this->cubeWidth, this->cubeHeight, this->cubeDepth, CUFFT_C2C);
+            if (result != CUFFT_SUCCESS) {
+                std::cerr << "[ERROR] error while creating cuFFT-Plan: " << result << std::endl;
+          }
+
+        cufftHandle cufftPlanPSF;
+        cufftResult resultPSF = cufftPlan3d(&cufftPlanPSF, originPsfWidth, originPsfHeight, originPsfDepth, CUFFT_C2C);
+        if (resultPSF != CUFFT_SUCCESS) {
+            std::cerr << "[ERROR] error while creating cuFFT-Plan for PSF: " << result << std::endl;
+        }
+        // Fourier Transformation of PSF
+        std::cout << "[STATUS] Performing Fourier Transform on PSF..." << std::endl;
+        //TODO directly cufft
+        fftw_complex *h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
+        UtlFFT::convertCVMatVectorToFFTWComplex(psfs[0].image.slices, h, originPsfWidth, originPsfHeight, originPsfDepth);
+        cufftComplex *d_h;
+        cudaMalloc((void**)&d_h, originPsfVolume * sizeof(cufftComplex));
+        convertFftwToCufftComplexOnDevice(originPsfWidth, originPsfHeight,originPsfDepth, h, d_h);
+        cufftForward(d_h, d_h, cufftPlanPSF);
+        octantFourierShiftCufftComplex(originPsfWidth, originPsfHeight,originPsfDepth,d_h);
+
+        // Pad the PSF to the size of the image
+        std::cout << "[STATUS] Padding PSF..." << std::endl;
+        cudaMalloc((void**)&this->d_paddedH, safetyBorderPsfVolume * sizeof(cufftComplex));
+        padCufftMat(originPsfWidth, originPsfHeight, originPsfDepth,safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth, d_h, this->d_paddedH);
+
+        //SecondPSF
+        if(this->secondPSF){
+            //second PSF
+            std::cout << "[STATUS] Performing Fourier Transform on PSF_2..." << std::endl;
+            fftw_complex *h_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
+            UtlFFT::convertCVMatVectorToFFTWComplex(psfs[1].image.slices, h_2, originPsfWidth, originPsfHeight, originPsfDepth);
+            cufftComplex *d_h_2;
+            cudaMalloc((void**)&d_h_2, originPsfVolume * sizeof(cufftComplex));
+            convertFftwToCufftComplexOnDevice(originPsfWidth, originPsfHeight,originPsfDepth, h_2, d_h_2);
+            cufftForward(d_h_2, d_h_2, cufftPlanPSF);
+            octantFourierShiftCufftComplex(originPsfWidth, originPsfHeight,originPsfDepth,d_h_2);
+
+            // Pad the PSF to the size of the image
+            std::cout << "[STATUS] Padding PSF_2..." << std::endl;
+            cudaMalloc((void**)&this->d_paddedH_2, safetyBorderPsfVolume * sizeof(cufftComplex));
+            padCufftMat(originPsfWidth, originPsfHeight, originPsfDepth,safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth, d_h_2, this->d_paddedH_2);
+            fftw_free(h_2);
+            cudaFree(d_h_2);
+
+        }
+
+        // Free cuFFTW resources for PSF (remember to do that for other cufft stuff in clean())
+        fftw_free(h);
+        cudaFree(d_h);
+        cufftDestroy(cufftPlanPSF);
+#else
+        std::cerr << "[ERROR] CUDA is not available" << std::endl;
+        return false;
+#endif
+    }else {
         std::cout << "[STATUS] Creating fftw plans..." << std::endl;
         // In-line fftplan for fast ft calculation and inverse
         this->fftwPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
@@ -142,11 +204,12 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
             fftw_free(h_2);
 
         }
-    // Free FFTW resources for PSF
+        // Free FFTW resources for PSF
         fftw_free(h);
 
-    fftw_free(fftwPSFPlanMem);
+        fftw_free(fftwPSFPlanMem);
         fftw_destroy_plan(forwardPSFPlan);
+    }
 
     return true;
 }
@@ -222,12 +285,21 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
     // Create a copy of the input data
     Hyperstack deconvHyperstack{data};
 
-    // Init threads for FFTW
-    if(fftw_init_threads() > 0){
-        std::cout << "[STATUS] FFTW init threads" << std::endl;
-        fftw_plan_with_nthreads(omp_get_max_threads());
-        std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
-        fftw_make_planner_thread_safe();
+
+    if(this->gpu == "cuda") {
+#ifdef CUDA_AVAILABLE
+#else
+        std::cerr << "[ERROR] CUDA is not available" << std::endl;
+        return false;
+#endif
+    }else {
+        // Init threads for FFTW
+        if(fftw_init_threads() > 0){
+            std::cout << "[STATUS] FFTW init threads" << std::endl;
+            fftw_plan_with_nthreads(omp_get_max_threads());
+            std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
+            fftw_make_planner_thread_safe();
+        }
     }
 
     // Deconvolve every channel
@@ -285,6 +357,7 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
 
 
             // Convert image to fftcomplex
+            // TODO write a function to directly convert in cufftComplex
             UtlFFT::convertCVMatVectorToFFTWComplex(this->gridImages[i], g, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
             std::cout << "\r[STATUS] Channel: " << channel_z + 1 << "/" << data.channels.size() << " GridImage: "
