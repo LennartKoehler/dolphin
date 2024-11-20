@@ -1,8 +1,7 @@
 #pragma once
 #include <cuComplex.h>
 #include <cufft.h>
-#include <fftw3.h>
-
+#include <cufftw.h>
 
 // Conversions
 __global__ void fftwToCuComplexKernelGlobal(int Nx, int Ny, int Nz,cuComplex* cuArr, fftw_complex* fftwArr);
@@ -20,6 +19,16 @@ __global__ void complexElementwiseMatMulConjugateCufftComplexGlobal(int Nx, int 
 __global__ void complexElementwiseMatDivCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon);
 __global__ void complexElementwiseMatDivNaiveCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C);
 __global__ void complexElementwiseMatDivStabilizedCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon);
+
+// New FFTW kernels
+__global__
+void octantFourierShiftFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* data);
+__global__
+void complexElementwiseMatDivStabilizedFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon);
+__global__
+void complexElementwiseMatMulConjugateFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C);
+__global__
+void complexElementwiseMatMulFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C);
 
 
 // Regularization

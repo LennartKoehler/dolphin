@@ -2,14 +2,16 @@
 #include "UtlImage.h"
 #include "UtlGrid.h"
 #include "UtlFFT.h"
-#include <fftw3.h>
 #include <opencv2/core.hpp>
 #include <iostream>
 #include <opencv2/imgproc.hpp>
 #include <omp.h>
+#ifdef CUDA_AVAILABLE
 #include <operations.h>
 #include <utl.h>
-
+#else
+#include <fftw3.h>
+#endif
 bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& psfs) {
 
         // Find and display global min and max of the data
@@ -109,7 +111,15 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         if(this->cubeSize < originPsfWidth){
             std::cout << "[WARNING] PSF is larger than image/cube" << std::endl;
         }
-
+#ifdef CUDA_AVAILABLE
+    // In-line fftplan for fast ft calculation and inverse
+    // Create FFT-Plan for reuse
+    cufftResult result = cufftPlan3d(&this->cufftPlan, this->cubeWidth, this->cubeHeight, this->cubeDepth, CUFFT_C2C);
+    if (result != CUFFT_SUCCESS) {
+        std::cerr << "[ERROR] error while creating cuFFT-Plan: " << result << std::endl;
+    }
+#endif
+/*
     if(this->gpu == "cuda") {
 #ifdef CUDA_AVAILABLE
         // In-line fftplan for fast ft calculation and inverse
@@ -169,12 +179,12 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         std::cerr << "[ERROR] CUDA is not available" << std::endl;
         return false;
 #endif
-    }else {
+    }else {*/
         std::cout << "[STATUS] Creating fftw plans..." << std::endl;
         // In-line fftplan for fast ft calculation and inverse
         this->fftwPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-        this->forwardPlan = fftw_plan_dft_3d(this->cubeDepth, this->cubeHeight, this->cubeWidth, fftwPlanMem, fftwPlanMem, FFTW_FORWARD, FFTW_MEASURE);
-        this->backwardPlan = fftw_plan_dft_3d(this->cubeDepth, this->cubeHeight, this->cubeWidth, fftwPlanMem, fftwPlanMem, FFTW_BACKWARD, FFTW_MEASURE);
+        this->forwardPlan = fftw_plan_dft_3d(this->cubeDepth, this->cubeHeight, this->cubeWidth, this->fftwPlanMem, this->fftwPlanMem, FFTW_FORWARD, FFTW_MEASURE);
+        this->backwardPlan = fftw_plan_dft_3d(this->cubeDepth, this->cubeHeight, this->cubeWidth, this->fftwPlanMem, this->fftwPlanMem, FFTW_BACKWARD, FFTW_MEASURE);
         fftw_complex *fftwPSFPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
         fftw_plan forwardPSFPlan = fftw_plan_dft_3d(originPsfDepth, originPsfHeight, originPsfWidth, fftwPSFPlanMem, fftwPSFPlanMem, FFTW_FORWARD, FFTW_MEASURE);
 
@@ -209,7 +219,7 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 
         fftw_free(fftwPSFPlanMem);
         fftw_destroy_plan(forwardPSFPlan);
-    }
+ //   }
 
     return true;
 }
@@ -234,12 +244,13 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
     }else{
         this->mergedVolume = this->gridImages[0];
     }
-
-    for (auto& slice : this->mergedVolume) {
+ //TODO FUUUUUUUUCCCKKKKKK, cuts everything above epsilon not under, oder doch nichz lol, cuda macht machnal negative werte
+   // for (auto& slice : this->mergedVolume) {
         //TODOi
-        cv::threshold(slice, slice, epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter 0 auf 0 setzen
+    //    cv::threshold(slice, slice, epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter 0 auf 0 setzen
         //cv::normalize(slice, slice, 0, 1, cv::NORM_MINMAX);
-    }
+   // }
+
 
     // Global normalization of the merged volume
     double global_max_val= 0.0;
@@ -254,7 +265,7 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
 
     for (auto& slice : this->mergedVolume) {
         slice.convertTo(slice, CV_32F, 1.0 / (global_max_val - global_min_val), -global_min_val * (1 / (global_max_val - global_min_val)));  // Add epsilon to avoid division by zero
-        // cv::threshold(slice, slice, this->epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
+        //cv::threshold(slice, slice, this->epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
     }
 
     return true;
@@ -286,13 +297,14 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
     Hyperstack deconvHyperstack{data};
 
 
-    if(this->gpu == "cuda") {
+
 #ifdef CUDA_AVAILABLE
 #else
+    if(this->gpu == "cuda") {
         std::cerr << "[ERROR] CUDA is not available" << std::endl;
-        return false;
-#endif
-    }else {
+        return deconvHyperstack;
+    }
+
         // Init threads for FFTW
         if(fftw_init_threads() > 0){
             std::cout << "[STATUS] FFTW init threads" << std::endl;
@@ -300,7 +312,9 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
             std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
             fftw_make_planner_thread_safe();
         }
-    }
+
+#endif
+
 
     // Deconvolve every channel
     int channel_z = 0;
@@ -357,7 +371,6 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
 
 
             // Convert image to fftcomplex
-            // TODO write a function to directly convert in cufftComplex
             UtlFFT::convertCVMatVectorToFFTWComplex(this->gridImages[i], g, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
             std::cout << "\r[STATUS] Channel: " << channel_z + 1 << "/" << data.channels.size() << " GridImage: "

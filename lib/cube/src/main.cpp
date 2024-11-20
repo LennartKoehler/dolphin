@@ -2,7 +2,7 @@
 #include <cuda_runtime.h>
 #include <cuComplex.h>
 #include <utl.h>
-#include <fftw3.h>
+#include <cufftw.h>
 #include <operations.h>
 #include <cstring>
 #include <cufft.h>
@@ -19,7 +19,7 @@ int main() {
     //printDeviceProperties();
 
     // NxNxN matrix
-    const int N = 100;
+    const int N = 500;
     // Memory size of matix
 
 
@@ -38,7 +38,7 @@ int main() {
     checkUniformity(N,N,N,h_c);
     //printSpecificElem(55050, h_c);
 
-    padFftwMat(N,N,N, 200, 200, 200, h_c, h_d);
+   // padFftwMat(N,N,N, 200, 200, 200, h_c, h_d);
    // displayHeatmap(400, 200, 200, h_d);
     /*
     // Fourier Shift Test
@@ -73,26 +73,13 @@ int main() {
     // Comparison MatMul on CPU and GPU
         complexMatMultCpp(N, h_a, h_b, h_c);
         complexMatMulCppOmp(N, h_a, h_b, h_c);
-
-        // Device-Pointer
-        fftw_complex *d_a, *d_b, *d_c;
-        // Allocate memory on GPU
-        cudaMalloc((void**)&d_a, matrixSize);
-        cudaMalloc((void**)&d_b, matrixSize);
-        cudaMalloc((void**)&d_c, matrixSize);
-
-        // Copy Data from CPU to GPU
-        copyDataFromHostToDevice(d_a, h_a, matrixSize);
-        copyDataFromHostToDevice(d_b, h_b, matrixSize);
-
-        complexMatMulFftwComplex(N, d_a, d_b, d_c, "cuda");
-        // Copy Data back from GPU to CPU
-        copyDataFromDeviceToHost(h_c, d_c, matrixSize);
-
-        checkUniformity(h_c, N);
     */
 
 
+
+
+
+/*
     // This will be part of RL in DeconvTool in the interation loop
     printFirstElem(h_a);
     printFirstElem(h_b);
@@ -114,7 +101,7 @@ padCufftMat(N,N,N,2*N,2*N,2*N, d_cuc, d_cud);
         //deviceTestKernel(N, d_cua, d_cub, d_cuc);
 
         // Create FFT-Plan for reuse
-      //  cufftHandle plan;
+        //cufftHandle plan;
       //  cufftResult result = cufftPlan3d(&plan, N, N, N, CUFFT_C2C);
         //if (result != CUFFT_SUCCESS) {
 //std::cerr << "[ERROR] error while creating FFT-Plan: " << result << std::endl;
@@ -141,6 +128,87 @@ padCufftMat(N,N,N,2*N,2*N,2*N, d_cuc, d_cud);
         cudaFree(d_cuc);
         free(h_c);
 
+*/
+    const int Nx = 500, Ny = 500, Nz = 500;
 
+    // Host-Arrays
+    fftw_complex* h_input = (fftw_complex*)malloc(sizeof(fftw_complex) * Nx * Ny * Nz);
+    fftw_complex* h_output = (fftw_complex*)malloc(sizeof(fftw_complex) * Nx * Ny * Nz);
+
+    // GPU-Arrays
+    fftw_complex *d_input, *d_output;
+    cudaMalloc((void**)&d_input, sizeof(fftw_complex) * Nx * Ny * Nz);
+    cudaMalloc((void**)&d_output, sizeof(fftw_complex) * Nx * Ny * Nz);
+
+    // Beispielinitialisierung der Eingabedaten
+    for (int i = 0; i < Nx * Ny * Nz; i++) {
+        h_input[i][0] = static_cast<float>(i);  // Realteil
+        h_input[i][1] = 0.0f;                   // Imaginärteil
+    }
+
+    // Kopieren der Eingabedaten auf die GPU
+    cudaMemcpy(d_input, h_input, sizeof(fftw_complex) * Nx * Ny * Nz, cudaMemcpyHostToDevice);
+    double start = omp_get_wtime();
+
+    // FFTW-Plan erstellen
+    fftw_plan plan = fftw_plan_dft_3d(Nx, Ny, Nz, d_input, d_output, FFTW_FORWARD, FFTW_MEASURE);
+
+    // FFT ausführen
+    fftw_execute(plan);
+    double end = omp_get_wtime();
+    std::cout << "[TIME][" << (end - start) * 1000 << " Device ms]" << std::endl;;
+    // Ergebnisse zurück auf den Host kopieren
+    cudaMemcpy(h_output, d_output, sizeof(fftw_complex) * Nx * Ny * Nz, cudaMemcpyDeviceToHost);
+    double start2 = omp_get_wtime();
+
+    // FFTW-Plan erstellen
+    fftw_plan plan2 = fftw_plan_dft_3d(Nx, Ny, Nz, h_input, h_output, FFTW_FORWARD, FFTW_MEASURE);
+
+    // FFT ausführen
+    fftw_execute(plan2);
+    double end2 = omp_get_wtime();
+    std::cout << "[TIME][" << (end2 - start2) * 1000 << " Host ms]" << std::endl;;
+    // Ergebnisse anzeigen (z.B. für die ersten 10 Werte)
+    for (int i = 0; i < 10; i++) {
+        std::cout << "Output[" << i << "]: (" << h_output[i][0] << ", " << h_output[i][1] << ")\n";
+    }
+
+    // Ressourcen freigeben
+
+
+    // Create FFT-Plan for reuse
+    cufftComplex *d;
+     cudaMalloc((void**)&d, N * N * N * sizeof(cufftComplex));
+    convertFftwToCufftComplexOnDevice(N,N,N, h_input, d);
+    double start3 = omp_get_wtime();
+
+    cufftHandle plan3;
+      cufftResult result = cufftPlan3d(&plan3, N, N, N, CUFFT_C2C);
+    if (result != CUFFT_SUCCESS) {
+    std::cerr << "[ERROR] error while creating FFT-Plan: " << result << std::endl;
+      }
+
+    // Calculate FFT
+     cufftForward(d, d, plan3);
+    double end3 = omp_get_wtime();
+    std::cout << "[TIME][" << (end3 - start3) * 1000 << " cuFFT ms]" << std::endl;;
+    // Device-Pointer
+    fftw_complex *d_a, *d_b, *d_c;
+    // Allocate memory on GPU
+    cudaMalloc((void**)&d_a, sizeof(fftw_complex)*N*N*N);;
+    cudaMalloc((void**)&d_b, sizeof(fftw_complex)*N*N*N);
+    cudaMalloc((void**)&d_c, sizeof(fftw_complex)*N*N*N);
+
+    convertFftwToCufftComplexOnDevice(N,N,N, h_input, d);
+    // Copy Data from CPU to GPU
+    copyDataFromHostToDevice(N,N,N,d_a, h_a);
+    copyDataFromHostToDevice(N,N,N,d_b, h_b);
+
+    complexMatMulFftwComplex(N,N,N, d_a, d_b, d_a, "cuda");
+    // Copy Data back from GPU to CPU
+    copyDataFromDeviceToHost(N,N,N,h_c, d_c);
+    complexElementwiseMatMulCufftComplex(N,N,N, d, d, d);
+
+    cudaFree(d_output);
     return 0;
 }

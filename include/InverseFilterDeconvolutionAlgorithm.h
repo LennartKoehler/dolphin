@@ -4,7 +4,12 @@
 #include "PSF.h"
 #include <iostream>
 #include <vector>
+#ifdef CUDA_AVAILABLE
+#include <cufft.h>
+#include <cufftw.h>
+#else
 #include <fftw3.h>
+#endif
 
 class InverseFilterDeconvolutionAlgorithm : public BaseDeconvolutionAlgorithm{
 public:

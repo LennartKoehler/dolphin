@@ -3,7 +3,6 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <vector>
-#include <fftw3.h>
 #include <cstring>
 #include "UtlGrid.h"
 #include "UtlFFT.h"

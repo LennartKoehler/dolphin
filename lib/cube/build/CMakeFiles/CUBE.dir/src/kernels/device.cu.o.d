@@ -165,4 +165,4 @@ CMakeFiles/CUBE.dir/src/kernels/device.cu.o : /home/asb_user/CLionProjects/decon
     /home/asb_user/CLionProjects/deconvtool_pm_24/lib/cube/include/kernels.h \
     /usr/include/cuComplex.h \
     /usr/include/cufft.h \
-    /usr/include/fftw3.h
+    /usr/include/cufftw.h

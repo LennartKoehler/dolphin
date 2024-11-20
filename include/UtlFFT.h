@@ -4,7 +4,12 @@
 #include <vector>
 #include <complex>
 #include <opencv2/core/mat.hpp>
+#ifdef CUDA_AVAILABLE
+#include <cufft.h>
+#include <cufftw.h>
+#else
 #include <fftw3.h>
+#endif
 
 namespace UtlFFT {
 

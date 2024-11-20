@@ -39,12 +39,11 @@ target_link_directories(CUBE PUBLIC include)
 # Link your executable with the required libraries
 target_link_libraries(CUBE
         OpenMP::OpenMP_CXX
-        fftw3
-        fftw3_threads
         pthread
         gomp
         ${CUDA_CUDA_LIBRARY}
         cufft
+        cufftw
         ${OpenCV_LIBS}
 )
 

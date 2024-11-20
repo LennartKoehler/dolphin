@@ -80,11 +80,9 @@ add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
 )
 # Link your executable with the required libraries
 target_link_libraries(deconvtool
-        fftw3_threads
         -lpthread
         -lgomp
         ${OpenCV_LIBS}
-        fftw3
         stdc++fs
         ${TIFF_LIBRARIES}
         OpenMP::OpenMP_CXX
@@ -92,5 +90,7 @@ target_link_libraries(deconvtool
 # Verlinke die cuBe-Bibliothek, wenn CUDA verfügbar ist
 if(CUDA_FOUND)
     target_link_libraries(deconvtool ${CMAKE_SOURCE_DIR}/lib/cube/build/libCUBE.a cuda
-            cufft cudart)   # Füge die Bibliothek direkt hinzu)  # Verlinke die 'cube' Bibliothek
+            cufft cudart cufftw)   # Füge die Bibliothek direkt hinzu)  # Verlinke die 'cube' Bibliothek
+else ()
+    target_link_libraries(deconvtool fftw3 fftw3_threads)
 endif()

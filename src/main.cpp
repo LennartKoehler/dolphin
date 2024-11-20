@@ -366,11 +366,12 @@ int main(int argc, char** argv) {
     }
 
     // CUBE TEST CODE //////////////////////////////////////////////
+    /*
 #ifdef CUDA_AVAILABLE
     // CUDA-specific code
     printDeviceProperties();
 #endif
-
+*/
     //###PROGRAMM END###//
     std::cout << "[End DeconvTool]" << std::endl;
     return EXIT_SUCCESS;

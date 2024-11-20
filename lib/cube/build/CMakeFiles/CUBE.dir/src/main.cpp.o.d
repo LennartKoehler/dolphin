@@ -182,7 +182,8 @@ CMakeFiles/CUBE.dir/src/main.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h \
  /usr/include/x86_64-linux-gnu/bits/iscanonical.h \
  /home/asb_user/CLionProjects/deconvtool_pm_24/lib/cube/include/utl.h \
- /usr/include/cufft.h /usr/include/cuComplex.h /usr/include/fftw3.h \
+ /usr/include/cufft.h /usr/include/cuComplex.h /usr/include/cufftw.h \
+ /usr/include/cufft.h \
  /home/asb_user/CLionProjects/deconvtool_pm_24/lib/cube/include/operations.h \
  /usr/lib/gcc/x86_64-linux-gnu/14/include/omp.h \
  /usr/include/c++/14/cstring /usr/include/string.h /usr/include/strings.h \

@@ -1,4 +1,3 @@
-#include <fftw3.h>
 #include <opencv2/core.hpp>
 #include "RegularizedInverseFilterDeconvolutionAlgorithm.h"
 #include "UtlImage.h"

@@ -3,7 +3,7 @@
 #include "BaseDeconvolutionAlgorithm.h"
 #include "PSF.h"
 #include <iostream>
-#include <fftw3.h>
+
 
 class RLDeconvolutionAlgorithm : public BaseDeconvolutionAlgorithm {
 public:

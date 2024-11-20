@@ -165,7 +165,7 @@ CMakeFiles/CUBE.dir/src/utl.cu.o : /home/asb_user/CLionProjects/deconvtool_pm_24
     /home/asb_user/CLionProjects/deconvtool_pm_24/lib/cube/include/utl.h \
     /usr/include/cuComplex.h \
     /usr/include/cufft.h \
-    /usr/include/fftw3.h \
+    /usr/include/cufftw.h \
     /home/asb_user/CLionProjects/deconvtool_pm_24/lib/cube/include/kernels.h \
     /usr/include/c++/12/iostream \
     /usr/include/c++/12/ostream \

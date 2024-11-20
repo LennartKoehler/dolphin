@@ -2,7 +2,7 @@
 #include <cuComplex.h>
 #include <cuda_runtime.h>
 #include <cufft.h>
-#include <fftw3.h>
+#include <cufftw.h>
 
 // Print information
 void printDeviceProperties();

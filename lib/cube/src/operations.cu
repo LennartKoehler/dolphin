@@ -194,6 +194,34 @@ void complexElementwiseMatMulCuComplex(int Nx, int Ny, int Nz, cuComplex* A, cuC
     cudaEventElapsedTime(&milliseconds, start, stop);
     DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
+void complexElementwiseMatMulFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
+    dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+
+    cudaEventRecord(start);
+
+    complexElementwiseMatMulFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+    cudaDeviceSynchronize();
+
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+    }
+
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+}
 void complexElementwiseMatDivCuComplex(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
@@ -237,7 +265,7 @@ void complexElementwiseMatMulCufftComplex(int Nx, int Ny, int Nz, cufftComplex* 
 
 
 
-    complexElementwiseMatMulCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+    complexElementwiseMatMulCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
     cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
@@ -281,6 +309,36 @@ void complexElementwiseMatMulConjugateCufftComplex(int Nx, int Ny, int Nz, cufft
     cudaEventElapsedTime(&milliseconds, start, stop);
     DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul conjugated in CUDA (cufftComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
+
+void complexElementwiseMatMulConjugateFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C)  {
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
+    dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+
+    cudaEventRecord(start);
+
+    complexElementwiseMatMulConjugateFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+    cudaDeviceSynchronize();
+
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+    }
+
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul conjugated in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+}
+
 void complexElementwiseMatDivCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
@@ -364,6 +422,35 @@ void complexElementwiseMatDivStabilizedCufftComplex(int Nx, int Ny, int Nz, cuff
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
     DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise stabilized MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+}
+
+void complexElementwiseMatDivStabilizedFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon){
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
+    dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+
+    cudaEventRecord(start);
+
+    complexElementwiseMatDivStabilizedFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C, epsilon);
+    cudaDeviceSynchronize();
+
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+    }
+
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise stabilized MatDiv in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
 }
 
 
@@ -579,6 +666,7 @@ void cufftForward(cufftComplex* input, cufftComplex* output, cufftHandle plan) {
     cudaEventRecord(start);
 
     result = cufftExecC2C(plan, input, output, CUFFT_FORWARD);
+    cudaDeviceSynchronize();
 
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
@@ -633,7 +721,7 @@ void cufftInverse(int Nx, int Ny, int Nz, cufftComplex* input, cufftComplex* out
 
 
 // Fourier Shift (fftw on CPU and cufft on GPU)
-void octantFourierShiftFftwComplex(int Nx, int Ny, int Nz, fftw_complex* data) {
+void octantFourierShiftFftwComplexCPU(int Nx, int Ny, int Nz, fftw_complex* data) {
     int width = Nx;
     int height = Ny;
     int depth = Nz;
@@ -673,6 +761,44 @@ void octantFourierShiftFftwComplex(int Nx, int Ny, int Nz, fftw_complex* data) {
 
     DEBUG_LOG("[TIME]["<<time/1000000<<" ms] Octant(Fourier)Shift in CPP");
 }
+void octantFourierShiftFftwComplex(int Nx, int Ny, int Nz, fftw_complex* data) {
+    //size_t freeMem, totalMem;
+    //cudaMemGetInfo(&freeMem, &totalMem);
+    //std::cout << "Free memory: " << freeMem << " Total memory: " << totalMem << std::endl;
+
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+
+    // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
+    dim3 threadsPerBlock(2, 2, 2); //=6 //TODO with more threads artefacts visible
+    dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                       (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+
+
+    cudaEventRecord(start);
+
+    octantFourierShiftFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, data);
+    cudaError_t errp = cudaPeekAtLastError();
+    if (errp != cudaSuccess) {
+        std::cerr << "Fourier shift kernel launch error: " << cudaGetErrorString(errp) << std::endl;
+    }
+    cudaDeviceSynchronize();
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+    }
+
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] Octant(Fouriere)Shift in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+}
+
 void octantFourierShiftCufftComplex(int Nx, int Ny, int Nz, cufftComplex* data) {
     //size_t freeMem, totalMem;
     //cudaMemGetInfo(&freeMem, &totalMem);

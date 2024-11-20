@@ -1,18 +1,32 @@
 #include "RLDeconvolutionAlgorithm.h"
 #ifdef CUDA_AVAILABLE
-#include <cuda_runtime.h>
+#include <cufft.h>
+#include <cufftw.h>
+#include <operations.h>
+#include <utl.h>
+#else
+#include <fftw3.h>
 #endif
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <vector>
-#include <fftw3.h>
+
 #include "UtlFFT.h"
 #include "UtlGrid.h"
 #include "UtlImage.h"
 #include <omp.h>
-#include <operations.h>
-#include <utl.h>
 
+void normalizeFFTW(fftw_complex* data, std::size_t sizeX, std::size_t sizeY, std::size_t sizeZ) {
+    // Gesamtanzahl der Elemente
+    std::size_t totalSize = sizeX * sizeY * sizeZ;
+    double normalizationFactor = 1.0 / totalSize;
+
+    // Schleife über alle Elemente und Normalisierung
+    for (std::size_t i = 0; i < totalSize; ++i) {
+        data[i][0] *= normalizationFactor; // Realteil normalisieren
+        data[i][1] *= normalizationFactor; // Imaginärteil normalisieren
+    }
+}
 void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Algorithm specific
     this->iterations = config.iterations;
@@ -63,68 +77,89 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 
 void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
     if(this->gpu == "cuda") {
-#ifdef CUDA_AVAILABLE
+        UtlFFT::octantFourierShift(H, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+        fftw_execute_dft(this->backwardPlan, H, H);
 
-        //TODO CUDA ERROR: invalid argument
+#ifdef CUDA_AVAILABLE
         //std::cout << "[ALGORITHM] Richardson-Lucy algorithm with CUDA" << std::endl;
-        cufftComplex *d_c, *d_f, *d_g, *d_H;
-        cudaMalloc((void**)&d_c, this->cubeVolume * sizeof(cufftComplex));
-        cudaMalloc((void**)&d_f, this->cubeVolume * sizeof(cufftComplex));
-        cudaMalloc((void**)&d_g, this->cubeVolume * sizeof(cufftComplex));
-        cudaMalloc((void**)&d_H, this->cubeVolume * sizeof(cufftComplex));
-        convertFftwToCufftComplexOnDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, g, d_g);
-        convertFftwToCufftComplexOnDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, g, d_f);
-        convertFftwToCufftComplexOnDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, H, d_H);
+        fftw_complex *d_c, *d_f, *d_g, *d_H;
+        cudaMalloc((void**)&d_c, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
+        cudaMalloc((void**)&d_f, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
+        cudaMalloc((void**)&d_g, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
+        cudaMalloc((void**)&d_H, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
+        copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, g);
+        copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, g);
+        copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_H, H);
+
+
+        fftw_plan plan = fftw_plan_dft_3d(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_c, FFTW_FORWARD, FFTW_MEASURE);
+        fftw_plan planInv = fftw_plan_dft_3d(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_c, FFTW_INVERSE, FFTW_MEASURE);
+        fftw_execute_dft(plan, d_H, d_H);
+        octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_H);
 
         for (int n = 0; n < this->iterations; ++n) {
             std::cout << "\r[STATUS] Channel: " << channel_num + 1 << "/" << data.channels.size() << " GridImage: "
                       << this->totalGridNum << "/" << this->gridImages.size() << " Iteration: " << n + 1 << "/"
                       << this->iterations << " ";
 
+            //TODO problem is structure of datapoints in frequency space due to cuFFT
+            // not in corners -> linear (low to high to negative)
+
             // a) First transformation:
             // Fn = FFT(fn)
-            cufftForward(d_f, d_f, this->cufftPlan);
-            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f);
+           //cufftForward(d_f, d_f, this->cufftPlan);
+            fftw_execute_dft(plan, d_f, d_f);
+            octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f);
 
             // Fn' = Fn * H
-            complexElementwiseMatMulCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_H, d_c);
+            complexElementwiseMatMulFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_H, d_c);
 
             // fn' = IFFT(Fn')
-            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
-            cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_c, this->cufftPlan);
-            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+             //cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_c, this->cufftPlan);
+            fftw_execute_dft(planInv, d_c, d_c);
+            octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
 
             // b) Calculation of the Correction Factor:
             // c = g / fn'
             // c = max(c, ε)
-            complexElementwiseMatDivCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, d_c, d_c, this->epsilon);
+            complexElementwiseMatDivStabilizedFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, d_c, d_c, this->epsilon);
+           // printCufftComplexValueFromDevice(3600000, d_c);
 
             // c) Second transformation:
             // C = FFT(c)
-            cufftForward(d_c, d_c, this->cufftPlan);
-            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            //cufftForward(d_c, d_c, this->cufftPlan);
+            //cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_c, this->cufftPlan);
+            fftw_execute_dft(plan, d_c, d_c);
+            octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
 
             // C' = C * conj(H)
-            complexElementwiseMatMulConjugateCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_H, d_c);
+            complexElementwiseMatMulConjugateFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_H, d_c);
+           // printCufftComplexValueFromDevice(3600000, d_c);
 
             // c' = IFFT(C')
-            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
-            cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_c, this->cufftPlan);
-            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            //cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_c, this->cufftPlan);
+            //cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_c, this->cufftPlan);
+            fftw_execute_dft(planInv, d_c, d_c);
+            octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
 
             // d) Update the estimated image:
             // fn = IFFT(Fn)
-            octantFourierShiftCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
-            cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_f, this->cufftPlan);
-
+            octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f);
+            //cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_f, this->cufftPlan);
+            //cufftInverse(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, d_c, this->cufftPlan);
+            fftw_execute_dft(planInv, d_f, d_f);
             // fn+1 = fn * c
-            complexElementwiseMatMulCufftComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_c, d_f);
+            complexElementwiseMatMulFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_c, d_f);
 
             std::flush(std::cout);
         }
+        copyDataFromDeviceToHost(this->cubeWidth, this->cubeHeight, this->cubeDepth, f, d_f);
         cudaFree(d_c);
-        convertCufftToFftwComplexOnHost(this->cubeWidth, this->cubeHeight, this->cubeDepth, f, d_f);
-
+        cudaFree(d_f);
+        cudaFree(d_g);
+        cudaFree(d_H);
 
 #else
         std::cout << "[ERROR] Cuda is not available" << std::endl;
@@ -158,7 +193,7 @@ void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw
             // b) Calculation of the Correction Factor:
             // c = g / fn'
             // c = max(c, ε)
-            UtlFFT::complexDivision(g, c, c, this->cubeVolume, this->epsilon);
+            UtlFFT::complexDivisionStabilized(g, c, c, this->cubeVolume, this->epsilon);
 
             // c) Second transformation:
             // C = FFT(c)
@@ -186,10 +221,12 @@ void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw
             // UtlFFT::saveInterimImages(f, imageWidth, imageHeight, imageDepth, gridNum, channel_z, i);
             // Check size of number
             if (!(UtlImage::isValidForFloat(f, this->cubeVolume))) {
-                std::cout << "[WARNING] Value fftwPlanMem fftcomplex(double) is smaller than float" << std::endl;
+                std::cout << "[WARNING] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
             }
+
             std::flush(std::cout);
         }
+
     fftw_free(c);
 
     }else {

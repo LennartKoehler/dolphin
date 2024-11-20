@@ -164,7 +164,8 @@ CMakeFiles/CUBE.dir/src/operations.cu.o : /home/asb_user/CLionProjects/deconvtoo
     /usr/include/c++/12/initializer_list \
     /home/asb_user/CLionProjects/deconvtool_pm_24/lib/cube/include/operations.h \
     /usr/include/cuComplex.h \
-    /usr/include/fftw3.h \
+    /usr/include/cufftw.h \
+    /usr/include/cufft.h \
     /usr/include/c++/12/iostream \
     /usr/include/c++/12/ostream \
     /usr/include/c++/12/ios \
@@ -272,7 +273,6 @@ CMakeFiles/CUBE.dir/src/operations.cu.o : /home/asb_user/CLionProjects/deconvtoo
     /usr/include/c++/12/istream \
     /usr/include/c++/12/bits/istream.tcc \
     /usr/lib/gcc/x86_64-linux-gnu/12/include/omp.h \
-    /usr/include/cufft.h \
     /home/asb_user/CLionProjects/deconvtool_pm_24/lib/cube/include/kernels.h \
     /usr/include/c++/12/thread \
     /usr/include/c++/12/bits/std_thread.h \

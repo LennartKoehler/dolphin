@@ -1,6 +1,6 @@
 #pragma once
 #include <cuComplex.h>
-#include <fftw3.h>
+#include <cufftw.h>
 #include <iostream>
 #include <omp.h>
 #include <cufft.h>
@@ -21,6 +21,12 @@ void complexElementwiseMatDivCufftComplex(int Nx, int Ny, int Nz, cufftComplex* 
 void complexElementwiseMatDivNaiveCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C);
 void complexElementwiseMatDivStabilizedCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon);
 
+// New Fftw functions
+void complexElementwiseMatMulFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C);
+void complexElementwiseMatMulConjugateFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C);
+void complexElementwiseMatDivStabilizedFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon);
+void octantFourierShiftFftwComplex(int Nx, int Ny, int Nz, fftw_complex* data);
+
 // Regularization
 void calculateLaplacianCufftComplex(int Nx, int Ny, int Nz, cufftComplex* psf, cufftComplex* laplacian_fft);
 void gradXCufftComplex(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradX);
@@ -37,7 +43,7 @@ void cufftForward(cufftComplex* input, cufftComplex* output, cufftHandle plan);
 void cufftInverse(int Nx, int Ny, int Nz, cufftComplex* input, cufftComplex* output, cufftHandle plan);
 
 // Fourier Shift (fftw on CPU and cufft on GPU)
-void octantFourierShiftFftwComplex(int Nx, int Ny, int Nz, fftw_complex* data);
+void octantFourierShiftFftwComplexCPU(int Nx, int Ny, int Nz, fftw_complex* data);
 void octantFourierShiftCufftComplex(int Nx, int Ny, int Nz, cufftComplex* data);
 void padFftwMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, fftw_complex* oldMat, fftw_complex* newMat);
 void padCufftMat(int oldNx, int oldNy, int oldNz,int newNx, int newNy, int newNz, cufftComplex* d_oldMat, cufftComplex* d_newMat);

@@ -1,5 +1,4 @@
 #include <opencv2/core.hpp>
-#include <fftw3.h>
 #include "UtlImage.h"
 
 // find global min/max value of image pixel values

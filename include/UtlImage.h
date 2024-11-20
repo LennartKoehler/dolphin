@@ -1,9 +1,15 @@
 #pragma once
 
+#ifdef CUDA_AVAILABLE
+#include <cufft.h>
+#include <cufftw.h>
+#else
+#include <fftw3.h>
+#endif
 #include <string>
 #include <vector>
 #include <opencv2/core/mat.hpp>
-#include <fftw3.h>
+
 
 
 namespace UtlImage {

@@ -8,7 +8,12 @@
 #include "UtlFFT.h"
 #include "PSF.h"
 #include <filesystem>
+#ifdef CUDA_AVAILABLE
+#include <cufft.h>
+#include <cufftw.h>
+#else
 #include <fftw3.h>
+#endif
 
 namespace fs = std::filesystem;
 

@@ -1,7 +1,7 @@
 #include "kernels.h"
 #include <cuComplex.h>
 #include <cufft.h>
-#include <fftw3.h>
+#include <cufftw.h>
 #include <iostream>
 
 
@@ -65,21 +65,15 @@ void complexMatMulFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fft
 
     if (x < Nx && y < Ny && z < Nz) {
         int index = z * (Nx * Ny) + y * Nx + x;
-        fftw_complex sum = {0.0, 0.0};
 
-        for (int k = 0; k < Nz; ++k) {
-            int indexA = z * (Nx * Ny) + y * Nx + k;
-            int indexB = k * (Nx * Ny) + y * Nx + x;
+        float realA = A[index][0];
+        float imagA = A[index][1];
+        float realB = B[index][0];
+        float imagB = B[index][1];
 
-            float realA = A[indexA][0];
-            float imagA = A[indexA][1];
-            float realB = B[indexB][0];
-            float imagB = B[indexB][1];
-            sum[0] += realA * realB - imagA * imagB;  // Realteil
-            sum[1] += realA * imagB + imagA * realB;  // Imaginärteil
-        }
-        C[index][0] = sum[0];
-        C[index][1] = sum[1];
+        // Perform element-wise complex multiplication
+        C[index][0] = realA * realB - imagA * imagB; // Realteil
+        C[index][1] = realA * imagB + imagA * realB; // Imaginärteil
     }
 }
 __global__
@@ -140,6 +134,27 @@ void complexElementwiseMatMulCufftComplexGlobal(int Nx, int Ny, int Nz, cufftCom
         C[index] = cuCmulf(A[index], B[index]);
     }
 }
+
+__global__
+void complexElementwiseMatMulFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
+
+        float realA = A[index][0];
+        float imagA = A[index][1];
+        float realB = B[index][0];
+        float imagB = B[index][1];
+
+        // Perform element-wise complex multiplication
+        C[index][0] = realA * realB - imagA * imagB; // Realteil
+        C[index][1] = realA * imagB + imagA * realB; // Imaginärteil
+    }
+}
+
 __global__
 void complexElementwiseMatMulConjugateCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -164,6 +179,33 @@ void complexElementwiseMatMulConjugateCufftComplexGlobal(int Nx, int Ny, int Nz,
         // Store the result in the output array
         C[index].x = real_c;
         C[index].y = imag_c;
+    }
+}
+
+__global__
+void complexElementwiseMatMulConjugateFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    // Check if the thread is within the valid bounds of the 3D grid
+    if (x < Nx && y < Ny && z < Nz) {
+        // Compute the 1D index from the 3D coordinates
+        int index = z * (Nx * Ny) + y * Nx + x;
+
+        // Get real and imaginary components of A and conjugated B
+        float real_a = A[index][0];
+        float imag_a = A[index][1];
+        float real_b = B[index][0];
+        float imag_b = -B[index][1];
+
+        // Perform the complex multiplication with conjugation
+        float real_c = real_a * real_b - imag_a * imag_b;
+        float imag_c = real_a * imag_b + imag_a * real_b;
+
+        // Store the result in the output array
+        C[index][0]= real_c;
+        C[index][1] = imag_c;
     }
 }
 __global__
@@ -236,6 +278,34 @@ void complexElementwiseMatDivStabilizedCufftComplexGlobal(int Nx, int Ny, int Nz
         // Perform the stabilized element-wise complex division
         C[index].x = (real_a * real_b + imag_a * imag_b) / mag; // Real part of the result
         C[index].y = (imag_a * real_b - real_a * imag_b) / mag; // Imaginary part of the result
+    }
+}
+
+__global__
+void complexElementwiseMatDivStabilizedFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon) {
+    // Compute the 3D coordinates of the current thread
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    // Check if the thread's coordinates are within bounds of the 3D matrix
+    if (x < Nx && y < Ny && z < Nz) {
+        // Calculate the linear index for the current thread's position
+        int index = z * (Nx * Ny) + y * Nx + x;
+
+        // Extract the real and imaginary components of A and B
+        float real_a = A[index][0];
+        float imag_a = A[index][1];
+        float real_b = B[index][0];
+        float imag_b = -B[index][1];
+
+
+        // Compute the magnitude squared of B with stabilization to avoid division by zero
+        float mag = fmaxf(epsilon, real_b * real_b + imag_b * imag_b);
+
+        // Perform the stabilized element-wise complex division
+        C[index][0] = (real_a * real_b + imag_a * imag_b) / mag; // Real part of the result
+        C[index][1] = (imag_a * real_b - real_a * imag_b) / mag; // Imaginary part of the result
     }
 }
 
@@ -478,6 +548,47 @@ void octantFourierShiftCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* 
             cufftComplex temp = data[idx1];
             data[idx1] = data[idx2];
             data[idx2] = temp;
+        }
+    }
+}
+__global__
+void octantFourierShiftFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* data) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+    int halfWidth = width / 2;
+    int halfHeight = height / 2;
+    int halfDepth = depth / 2;
+
+    // Calculate the indices for the current thread
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    // Ensure that the thread is within bounds, just iterate over the first 4 octants
+    if (z < halfDepth) {
+        // Calculate the linear indices for the current element and its counterpart in the other octant
+        int idx1 = z * height * width + y * width + x;
+        int idx2 = ((z + halfDepth) % depth) * height * width +
+                   ((y + halfHeight) % height) * width +
+                   ((x + halfWidth) % width);
+
+        // Check if the indices are different to avoid duplicate swapping
+        if (idx1 != idx2) {
+            // Manually swap the real and imaginary parts of fftw_complex values
+            double real1 = data[idx1][0];
+            double imag1 = data[idx1][1];
+            double real2 = data[idx2][0];
+            double imag2 = data[idx2][1];
+
+            // Swap in global memory
+            data[idx1][0] = real2;
+            data[idx1][1] = imag2;
+            data[idx2][0] = real1;
+            data[idx2][1] = imag1;
+
+            //TODO
+            //atomicExch((unsigned long long*)(&data[idx1]), *(unsigned long long*)&data[idx2]);
         }
     }
 }
