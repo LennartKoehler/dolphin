@@ -3,13 +3,13 @@
 
 # compile CUDA with /usr/bin/nvcc
 # compile CXX with /usr/bin/c++
-CUDA_DEFINES = -DENABLE_CUBEUTL_DEBUG -DENABLE_CUBE_DEBUG
+CUDA_DEFINES = 
 
 CUDA_INCLUDES = --options-file CMakeFiles/CUBE.dir/includes_CUDA.rsp
 
 CUDA_FLAGS =  -O3 -O3 -DNDEBUG -std=c++14 "--generate-code=arch=compute_60,code=[compute_60,sm_60]" "--generate-code=arch=compute_70,code=[compute_70,sm_70]" "--generate-code=arch=compute_75,code=[compute_75,sm_75]" "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_90,code=[compute_90,sm_90]"
 
-CXX_DEFINES = -DENABLE_CUBEUTL_DEBUG -DENABLE_CUBE_DEBUG
+CXX_DEFINES = 
 
 CXX_INCLUDES = -I/home/asb_user/CLionProjects/deconvtool_pm_24/lib/cube/include -isystem /usr/include/opencv4
 

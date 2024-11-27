@@ -41,7 +41,7 @@ protected:
     fftw_complex *fftwPlanMem = nullptr;
 #ifdef CUDA_AVAILABLE
     cufftHandle cufftPlan;
-    cufftComplex *d_paddedH = nullptr;
+    fftw_complex *d_paddedH = nullptr;
     cufftComplex *d_paddedH_2 = nullptr;
 #endif
 

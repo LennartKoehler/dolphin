@@ -44,6 +44,7 @@ CMakeFiles/CUBE.dir/src/kernels/device.cu.o: /home/asb_user/CLionProjects/deconv
   /usr/include/cuda_runtime.h \
   /usr/include/cuda_runtime_api.h \
   /usr/include/cufft.h \
+  /usr/include/cufftw.h \
   /usr/include/device_atomic_functions.h \
   /usr/include/device_atomic_functions.hpp \
   /usr/include/device_launch_parameters.h \
@@ -53,7 +54,6 @@ CMakeFiles/CUBE.dir/src/kernels/device.cu.o: /home/asb_user/CLionProjects/deconv
   /usr/include/endian.h \
   /usr/include/features-time64.h \
   /usr/include/features.h \
-  /usr/include/fftw3.h \
   /usr/include/library_types.h \
   /usr/include/limits.h \
   /usr/include/linux/limits.h \
@@ -284,6 +284,7 @@ CMakeFiles/CUBE.dir/src/kernels/global.cu.o: /home/asb_user/CLionProjects/deconv
   /usr/include/cuda_runtime.h \
   /usr/include/cuda_runtime_api.h \
   /usr/include/cufft.h \
+  /usr/include/cufftw.h \
   /usr/include/device_atomic_functions.h \
   /usr/include/device_atomic_functions.hpp \
   /usr/include/device_launch_parameters.h \
@@ -294,7 +295,6 @@ CMakeFiles/CUBE.dir/src/kernels/global.cu.o: /home/asb_user/CLionProjects/deconv
   /usr/include/errno.h \
   /usr/include/features-time64.h \
   /usr/include/features.h \
-  /usr/include/fftw3.h \
   /usr/include/library_types.h \
   /usr/include/limits.h \
   /usr/include/linux/errno.h \
@@ -547,6 +547,7 @@ CMakeFiles/CUBE.dir/src/main.cpp.o: /home/asb_user/CLionProjects/deconvtool_pm_2
   /usr/include/cuda_runtime.h \
   /usr/include/cuda_runtime_api.h \
   /usr/include/cufft.h \
+  /usr/include/cufftw.h \
   /usr/include/device_types.h \
   /usr/include/driver_functions.h \
   /usr/include/driver_types.h \
@@ -554,7 +555,6 @@ CMakeFiles/CUBE.dir/src/main.cpp.o: /home/asb_user/CLionProjects/deconvtool_pm_2
   /usr/include/errno.h \
   /usr/include/features-time64.h \
   /usr/include/features.h \
-  /usr/include/fftw3.h \
   /usr/include/library_types.h \
   /usr/include/limits.h \
   /usr/include/linux/errno.h \
@@ -810,6 +810,7 @@ CMakeFiles/CUBE.dir/src/operations.cu.o: /home/asb_user/CLionProjects/deconvtool
   /usr/include/cuda_runtime.h \
   /usr/include/cuda_runtime_api.h \
   /usr/include/cufft.h \
+  /usr/include/cufftw.h \
   /usr/include/device_atomic_functions.h \
   /usr/include/device_atomic_functions.hpp \
   /usr/include/device_launch_parameters.h \
@@ -820,7 +821,6 @@ CMakeFiles/CUBE.dir/src/operations.cu.o: /home/asb_user/CLionProjects/deconvtool
   /usr/include/errno.h \
   /usr/include/features-time64.h \
   /usr/include/features.h \
-  /usr/include/fftw3.h \
   /usr/include/library_types.h \
   /usr/include/limits.h \
   /usr/include/linux/errno.h \
@@ -1162,6 +1162,7 @@ CMakeFiles/CUBE.dir/src/utl.cu.o: /home/asb_user/CLionProjects/deconvtool_pm_24/
   /usr/include/cuda_runtime.h \
   /usr/include/cuda_runtime_api.h \
   /usr/include/cufft.h \
+  /usr/include/cufftw.h \
   /usr/include/device_atomic_functions.h \
   /usr/include/device_atomic_functions.hpp \
   /usr/include/device_launch_parameters.h \
@@ -1172,7 +1173,6 @@ CMakeFiles/CUBE.dir/src/utl.cu.o: /home/asb_user/CLionProjects/deconvtool_pm_24/
   /usr/include/errno.h \
   /usr/include/features-time64.h \
   /usr/include/features.h \
-  /usr/include/fftw3.h \
   /usr/include/libintl.h \
   /usr/include/library_types.h \
   /usr/include/limits.h \
@@ -1615,6 +1615,8 @@ CMakeFiles/CUBE.dir/src/utl.cu.o: /home/asb_user/CLionProjects/deconvtool_pm_24/
 
 /usr/include/c++/12/ext/type_traits.h:
 
+/usr/include/cufftw.h:
+
 /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h:
 
 /usr/include/c++/12/cmath:
@@ -1688,6 +1690,10 @@ CMakeFiles/CUBE.dir/src/utl.cu.o: /home/asb_user/CLionProjects/deconvtool_pm_24/
 /usr/include/features.h:
 
 /usr/include/c++/12/bits/alloc_traits.h:
+
+/usr/include/c++/12/new:
+
+/usr/include/limits.h:
 
 /usr/include/c++/12/bits/stl_function.h:
 
@@ -1826,12 +1832,6 @@ CMakeFiles/CUBE.dir/src/utl.cu.o: /home/asb_user/CLionProjects/deconvtool_pm_24/
 /usr/include/c++/14/bits/stl_iterator_base_funcs.h:
 
 /usr/include/x86_64-linux-gnu/bits/types.h:
-
-/usr/include/c++/12/new:
-
-/usr/include/limits.h:
-
-/usr/include/fftw3.h:
 
 /usr/include/x86_64-linux-gnu/bits/stdint-intn.h:
 

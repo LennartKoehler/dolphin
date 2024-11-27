@@ -31,8 +31,8 @@ set(CUDA_SOURCES
 
 # Create the executable
 add_library(CUBE STATIC ${CPP_SOURCES} ${CUDA_SOURCES})
-add_definitions(-DENABLE_CUBE_DEBUG)
-add_definitions(-DENABLE_CUBEUTL_DEBUG)
+#add_definitions(-DENABLE_CUBE_DEBUG)
+#add_definitions(-DENABLE_CUBEUTL_DEBUG)
 
 target_link_directories(CUBE PUBLIC include)
 
