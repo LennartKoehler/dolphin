@@ -44,6 +44,7 @@ __global__ void calculateLaplacianCufftComplexTiledGlobal(int Nx, int Ny, int Nz
 
 // Fourier Shift
 __global__ void normalizeComplexData(int Nx, int Ny, int Nz, cufftComplex* d_data);
+__global__ void normalizeFftwComplexDataGlobal(int Nx, int Ny, int Nz, fftw_complex* d_data);
 __global__ void octantFourierShiftCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* data);
 __global__ void padCufftMatGlobal(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, cufftComplex* oldMat, cufftComplex* newMat, int offsetX, int offsetY, int offsetZ);
 

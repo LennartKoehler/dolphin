@@ -63,7 +63,6 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data,
 
         // Forward FFT on image
         fftw_execute_dft(forwardPlan, g, g);
-        UtlFFT::octantFourierShift(g, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
         // H*H
         UtlFFT::complexMultiplication(H, H, H2, this->cubeVolume);
@@ -77,11 +76,6 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data,
         UtlFFT::complexMultiplication(g, FP, f, this->cubeVolume);
 
         // Inverse FFT
-        UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
         fftw_execute_dft(backwardPlan, f, f);
         UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-        //TODO
-        //UtlFFT::reorderLayers(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-
-
 }

@@ -718,6 +718,36 @@ void cufftInverse(int Nx, int Ny, int Nz, cufftComplex* input, cufftComplex* out
     cudaEventElapsedTime(&milliseconds, start, stop);
     DEBUG_LOG("[TIME][" << milliseconds << " ms] Inverse FFT in cuFFT");
 }
+void normalizeFftwComplexData(int Nx, int Ny, int Nz, fftw_complex* d_data) {
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    int num_elements = Nx * Ny * Nz;  // Beispiel: Gesamtzahl der Elemente
+    int block_size = 1024;
+    int num_blocks = (num_elements + block_size - 1) / block_size;
+
+    cudaEventRecord(start);
+
+    normalizeFftwComplexDataGlobal<<<num_blocks, block_size>>>(Nx, Ny, Nz, d_data);
+    cudaError_t errp = cudaPeekAtLastError();
+    if (errp != cudaSuccess) {
+        std::cerr << "Normalize FFT data kernel launch error: " << cudaGetErrorString(errp) << std::endl;
+    }
+    cudaDeviceSynchronize();
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+    }
+
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    DEBUG_LOG("[TIME][" << milliseconds << " ms] Normalizing FFT data in CUDA (fftw_complex) ("<<block_size*num_blocks<< " Threads)");
+
+}
 
 
 // Fourier Shift (fftw on CPU and cufft on GPU)

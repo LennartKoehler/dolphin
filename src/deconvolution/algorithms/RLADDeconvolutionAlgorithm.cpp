@@ -87,17 +87,14 @@ void RLADDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, ff
             a = this->alpha*exp(-this->beta*n);
         }
 
-
         // a) First transformation:
         // Fn = FFT(fn)
         fftw_execute_dft(this->forwardPlan, f, f);
-        UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
         // Fn' = Fn * H
         UtlFFT::complexMultiplication(f, H, c, this->cubeVolume);
 
         // fn' = IFFT(Fn')
-        UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
         fftw_execute_dft(this->backwardPlan, c, c);
         UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
@@ -109,19 +106,16 @@ void RLADDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, ff
         // c) Second transformation:
         // C = FFT(c)
         fftw_execute_dft(this->forwardPlan, c, c);
-        UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
         // C' = C * conj(H)
         UtlFFT::complexMultiplicationWithConjugate(c, H, c, this->cubeVolume);
 
         // c' = IFFT(C')
-        UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
         fftw_execute_dft(backwardPlan, c, c);
         UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
         // d) Update the estimated image:
         // fn = IFFT(Fn)
-        UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
         fftw_execute_dft(this->backwardPlan, f, f);
 
         // c = c * a
@@ -140,5 +134,4 @@ void RLADDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, ff
         std::flush(std::cout);
     }
     fftw_free(c);
-
 }

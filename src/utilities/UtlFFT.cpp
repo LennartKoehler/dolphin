@@ -354,6 +354,7 @@ void UtlFFT::convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, 
 }
 // Pad the PSF to the size of the image
 void UtlFFT::padPSF(fftw_complex* psf, int psf_width, int psf_height, int psf_depth, fftw_complex* padded_psf, int width, int height, int depth) {
+    UtlFFT::octantFourierShift(psf, psf_width, psf_height, psf_depth);
     for (int i = 0; i < width * height * depth; ++i) {
         padded_psf[i][0] = 0.0;
         padded_psf[i][1] = 0.0;
@@ -378,6 +379,7 @@ void UtlFFT::padPSF(fftw_complex* psf, int psf_width, int psf_height, int psf_de
             }
         }
     }
+    UtlFFT::octantFourierShift(padded_psf, width, height, depth);
 }
 
 void UtlFFT::convertFFTWComplexToCVMatVector(const fftw_complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {

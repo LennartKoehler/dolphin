@@ -127,7 +127,6 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         fftw_complex *h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
         UtlFFT::convertCVMatVectorToFFTWComplex(psfs[0].image.slices, h, originPsfWidth, originPsfHeight, originPsfDepth);
         fftw_execute_dft(forwardPSFPlan, h, h);
-        UtlFFT::octantFourierShift(h, originPsfWidth, originPsfHeight, originPsfDepth);
 
         std::cout << "[STATUS] Padding PSF..." << std::endl;
         // Pad the PSF to the size of the image
@@ -135,19 +134,35 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         UtlFFT::padPSF(h, originPsfWidth, originPsfHeight, originPsfDepth, this->paddedH, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
 
         if(this->secondPSF){
+            if(psfs.size() < 2) {
+                std::cerr << "[ERROR] Only one PSF loaded" << std::endl;
+                return false;
+            }
             //second PSF
             std::cout << "[STATUS] Performing Fourier Transform on PSF_2..." << std::endl;
             fftw_complex *h_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
             UtlFFT::convertCVMatVectorToFFTWComplex(psfs[1].image.slices, h_2, originPsfWidth, originPsfHeight, originPsfDepth);
             fftw_execute_dft(forwardPSFPlan, h_2, h_2);
-            UtlFFT::octantFourierShift(h_2, originPsfWidth, originPsfHeight, originPsfDepth);
             std::cout << "[STATUS] Padding PSF_2..." << std::endl;
             // Pad the PSF to the size of the image
             this->paddedH_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * safetyBorderPsfVolume);
             UtlFFT::padPSF(h_2, originPsfWidth, originPsfHeight, originPsfDepth, this->paddedH_2, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
             fftw_free(h_2);
-
         }
+
+#ifdef CUDA_AVAILABLE
+    if(this->gpu == "cuda") {
+        //INFO safetyBorderPsfVolume = this->cubeWidth* this->cubeHeight* this->cubeDepth
+        cudaMalloc((void**)&this->d_paddedH, safetyBorderPsfVolume * sizeof(fftw_complex));
+        copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, this->d_paddedH, this->paddedH);
+        if(this->secondPSF) {
+            cudaMalloc((void**)&this->d_paddedH_2, safetyBorderPsfVolume * sizeof(fftw_complex));
+            copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, this->d_paddedH_2, this->paddedH_2);
+        }
+    }
+#else
+#endif
+
         // Free FFTW resources for PSF
         fftw_free(h);
         fftw_free(fftwPSFPlanMem);
@@ -166,10 +181,6 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
         //UtlGrid::adjustCubeOverlap(this->gridImages,this->cubePadding);
 
         UtlGrid::cropCubePadding(this->gridImages, this->cubePadding);
-        this->cubeWidth = this->cubeSize;
-        this->cubeHeight = this->cubeSize;
-        this->cubeDepth = this->cubeSize;
-        this->cubeVolume = this->cubeWidth * this->cubeHeight * this->cubeDepth;
         std::cout << " " << std::endl;
         std::cout << "[STATUS] Merging Grid back to Image..." << std::endl;
         this->mergedVolume = UtlGrid::mergeCubes(this->gridImages, this->originalImageWidth, this->originalImageHeight, this->originalImageDepth, this->cubeSize);
@@ -177,12 +188,6 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
     }else{
         this->mergedVolume = this->gridImages[0];
     }
- //TODO FUUUUUUUUCCCKKKKKK, cuts everything above epsilon not under, oder doch nichz lol, cuda macht machnal negative werte
-   // for (auto& slice : this->mergedVolume) {
-        //TODOi
-    //    cv::threshold(slice, slice, epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter 0 auf 0 setzen
-        //cv::normalize(slice, slice, 0, 1, cv::NORM_MINMAX);
-   // }
 
 
     // Global normalization of the merged volume
@@ -190,6 +195,7 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
     double global_min_val = MAXFLOAT;
     int j = 0;
     for (const auto& slice : this->mergedVolume) {
+        cv::threshold(slice, slice, 0, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
         double min_val, max_val;
         cv::minMaxLoc(slice, &min_val, &max_val);
         global_max_val = std::max(global_max_val, max_val);
@@ -198,8 +204,9 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
 
     for (auto& slice : this->mergedVolume) {
         slice.convertTo(slice, CV_32F, 1.0 / (global_max_val - global_min_val), -global_min_val * (1 / (global_max_val - global_min_val)));  // Add epsilon to avoid division by zero
-        //cv::threshold(slice, slice, this->epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
+        cv::threshold(slice, slice, epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
     }
+
 
     return true;
 
@@ -209,6 +216,22 @@ void BaseDeconvolutionAlgorithm::cleanup() {
     if (this->paddedH) {
         fftw_free(this->paddedH);
         this->paddedH = nullptr;
+#ifdef CUDA_AVAILABLE
+        if(this->gpu == "cuda") {
+            cudaFree(this->d_paddedH);
+            this->d_paddedH = nullptr;
+        }
+#endif
+    }
+    if (this->paddedH_2) {
+        fftw_free(this->paddedH_2);
+        this->paddedH_2 = nullptr;
+#ifdef CUDA_AVAILABLE
+        if(this->gpu == "cuda") {
+            cudaFree(this->d_paddedH_2);
+            this->d_paddedH_2 = nullptr;
+        }
+#endif
     }
     if (this->fftwPlanMem) {
         fftw_free(this->fftwPlanMem);
@@ -229,8 +252,6 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
     // Create a copy of the input data
     Hyperstack deconvHyperstack{data};
 
-
-
 #ifdef CUDA_AVAILABLE
     if(this->gpu == "cuda") {
         std::cout << "[INFO] Using CUDA" << std::endl;
@@ -240,7 +261,6 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
         std::cerr << "[ERROR] CUDA is not available" << std::endl;
         return deconvHyperstack;
     }
-
         // Init threads for FFTW
         if(fftw_init_threads() > 0){
             std::cout << "[STATUS] FFTW init threads" << std::endl;
@@ -248,9 +268,7 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
             std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
             fftw_make_planner_thread_safe();
         }
-
 #endif
-
 
     // Deconvolve every channel
     int channel_z = 0;
@@ -274,7 +292,6 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
         this->cubesPerZ = static_cast<int>(std::ceil(static_cast<double>(this->originalImageDepth) / this->cubeSize));
         this->cubesPerLayer = cubesPerX * cubesPerY;
         std::cout << "[INFO] Cubes per Layer(" << cubesPerZ<< "):" << cubesPerX << "x" << cubesPerY << " (" << cubesPerLayer << ")" << std::endl;
-        //UtlFFT::octantFourierShift(this->paddedH, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
         // Parallelization of grid for
 // Using static scheduling because the execution time for each iteration is similar, which reduces overhead costs by minimizing task assignment.
@@ -288,7 +305,6 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
             // Result image
             fftw_complex* f = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
 
-
             if(this->secondPSF){
                 // Check if second PSF has to be applied
                 int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / this->cubesPerLayer));
@@ -297,15 +313,26 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
                 // Load the correct PSF
                 if (useSecondPsfForThisLayer != secondpsflayers.end() ||  useSecondPsfForThisCube != secondpsfcubes.end()) {
                     //std::cout << "[DEBUG] second PSF at "<< i+1 << std::endl;
+#ifdef CUDA_AVAILABLE
+                    if(this->gpu == "cuda") {H = this->d_paddedH_2;}else {H = this->paddedH_2;}
+#else
                     H = this->paddedH_2;
+#endif
                 } else {
                     //std::cout << "[DEBUG] first PSF at "<< i+1 << std::endl;
+#ifdef CUDA_AVAILABLE
+                    if(this->gpu == "cuda") {H = this->d_paddedH;}else {H = this->paddedH;}
+#else
                     H = this->paddedH;
+#endif
                 }
             }else{
+#ifdef CUDA_AVAILABLE
+                if(this->gpu == "cuda") {H = this->d_paddedH;}else {H = this->paddedH;}
+#else
                 H = this->paddedH;
+#endif
             }
-
 
             // Convert image to fftcomplex
             UtlFFT::convertCVMatVectorToFFTWComplex(this->gridImages[i], g, this->cubeWidth, this->cubeHeight, this->cubeDepth);

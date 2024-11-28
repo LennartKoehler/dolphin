@@ -37,24 +37,13 @@ void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& c
 }
 
 void InverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
-
-
-
-
-
-
         // Forward FFT on image
         fftw_execute_dft(forwardPlan, g, g);
-        UtlFFT::octantFourierShift(g, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
         // Division in frequency domain
         UtlFFT::complexDivisionStabilized(g, H, f, this->cubeVolume, this->epsilon);
 
         // Inverse FFT
-        UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
         fftw_execute_dft(backwardPlan, f, f);
         UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-
-
-
 }

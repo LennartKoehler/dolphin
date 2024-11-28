@@ -68,10 +68,6 @@ void RLTVDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, ff
     fftw_complex *gx = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
     fftw_complex *gy = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
     fftw_complex *gz = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-    // Memory reuse
-    //fftw_complex *ggx = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-    //fftw_complex *ggy = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-    //fftw_complex *ggz = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
     fftw_complex *tv = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
 
     for (int n = 0; n < this->iterations; ++n) {
@@ -92,13 +88,11 @@ void RLTVDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, ff
         // a) First transformation:
         // Fn = FFT(fn)
         fftw_execute_dft(this->forwardPlan, f, f);
-        UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
         // Fn' = Fn * H
         UtlFFT::complexMultiplication(f, H, c, this->cubeVolume);
 
         // fn' = IFFT(Fn')
-        UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
         fftw_execute_dft(this->backwardPlan, c, c);
         UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
@@ -110,19 +104,16 @@ void RLTVDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, ff
         // c) Second transformation:
         // C = FFT(c)
         fftw_execute_dft(this->forwardPlan, c, c);
-        UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
         // C' = C * conj(H)
         UtlFFT::complexMultiplicationWithConjugate(c, H, c, this->cubeVolume);
 
         // c' = IFFT(C')
-        UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
         fftw_execute_dft(backwardPlan, c, c);
         UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
         // d) Update the estimated image:
         // fn = IFFT(Fn)
-        UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
         fftw_execute_dft(this->backwardPlan, f, f);
 
         // fn+1' = fn * c
@@ -136,7 +127,7 @@ void RLTVDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, ff
         // UtlFFT::saveInterimImages(f, imageWidth, imageHeight, imageDepth, gridNum, channel_z, i);
         // Überprüfung
         if (!(UtlImage::isValidForFloat(f, this->cubeVolume))) {
-            std::cout << "[WARNING] Value fftwPlanMem fftcomplex(double) is smaller than float" << std::endl;
+            std::cout << "[WARNING] Value of f fftcomplex(double) is smaller than float" << std::endl;
         }
         std::flush(std::cout);
     }
@@ -144,10 +135,5 @@ void RLTVDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, ff
     fftw_free(gx);
     fftw_free(gy);
     fftw_free(gz);
-    //fftw_free(ggx);
-    //fftw_free(ggy);
-    //fftw_free(ggz);
     fftw_free(tv);
-
-
 }

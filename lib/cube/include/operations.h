@@ -26,6 +26,8 @@ void complexElementwiseMatMulFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A
 void complexElementwiseMatMulConjugateFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C);
 void complexElementwiseMatDivStabilizedFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon);
 void octantFourierShiftFftwComplex(int Nx, int Ny, int Nz, fftw_complex* data);
+void normalizeFftwComplexData(int Nx, int Ny, int Nz, fftw_complex* d_data);
+
 
 // Regularization
 void calculateLaplacianCufftComplex(int Nx, int Ny, int Nz, cufftComplex* psf, cufftComplex* laplacian_fft);

@@ -40,9 +40,8 @@ protected:
     fftw_complex *paddedH_2 = nullptr;
     fftw_complex *fftwPlanMem = nullptr;
 #ifdef CUDA_AVAILABLE
-    cufftHandle cufftPlan;
     fftw_complex *d_paddedH = nullptr;
-    cufftComplex *d_paddedH_2 = nullptr;
+    fftw_complex *d_paddedH_2 = nullptr;
 #endif
 
     // Image info

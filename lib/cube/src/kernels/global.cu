@@ -607,6 +607,20 @@ void normalizeComplexData(int Nx, int Ny, int Nz, cufftComplex* d_data) {
     }
 }
 __global__
+void normalizeFftwComplexDataGlobal(int Nx, int Ny, int Nz, fftw_complex* d_data) {
+    // Calculate the 1D index for the 3D data array
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Ensure that the thread is within bounds of the data
+    if (idx < Nx * Ny * Nz) {
+        // Normalize the real part by dividing by the total number of elements
+        d_data[idx][0] /= (Nx * Ny * Nz);
+
+        // Set the imaginary part to 0 as specified
+        d_data[idx][1] /= (Nx * Ny * Nz);
+    }
+}
+__global__
 void padCufftMatGlobal(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, cufftComplex* oldMat, cufftComplex* newMat, int offsetX, int offsetY, int offsetZ)
 {
     // 3D-Index des Threads im Grid
