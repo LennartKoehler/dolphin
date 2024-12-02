@@ -389,8 +389,11 @@ void UtlFFT::convertFFTWComplexToCVMatVector(const fftw_complex* input, std::vec
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 int index = z * height * width + y * width + x;
-                result.at<float>(y, x) =
-                        input[index][0] / (width * height * depth); // Normalize
+                //result.at<float>(y, x) = input[index][0] / (width * height * depth); // Normalize
+                // Berechne die Amplitude: A = sqrt(Re(X)^2 + Im(X)^2)
+                double real_part = input[index][0];
+                double imag_part = input[index][1];
+                result.at<float>(y, x) = static_cast<float>(sqrt(real_part * real_part + imag_part * imag_part));
 
             }
         }

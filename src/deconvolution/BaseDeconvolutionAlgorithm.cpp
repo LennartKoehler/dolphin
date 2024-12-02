@@ -341,7 +341,7 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
                       << this->totalGridNum << "/" << this->gridImages.size() << " ";
             // Methode overridden in specific algorithm class
             if (!(UtlImage::isValidForFloat(g, this->cubeVolume))) {
-                std::cout << "[WARNING LOL] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
+                std::cout << "[WARNING] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
             }
 
             algorithm(data, channel_z, H, g, f);

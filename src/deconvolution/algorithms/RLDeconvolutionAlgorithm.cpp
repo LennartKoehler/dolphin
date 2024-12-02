@@ -101,7 +101,7 @@ void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw
 
             // fn' = IFFT(Fn')
             fftw_execute_dft(this->backwardPlan, d_c, d_c);
-            //normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
             octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
 
             // b) Calculation of the Correction Factor:
@@ -118,13 +118,13 @@ void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw
 
             // c' = IFFT(C')
             fftw_execute_dft(this->backwardPlan, d_c, d_c);
-            //normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
             octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
 
             // d) Update the estimated image:
             // fn = IFFT(Fn)
             fftw_execute_dft(this->backwardPlan, d_f, d_f);
-            //normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f);
+            normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f);
             // fn+1 = fn * c
             complexElementwiseMatMulFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_c, d_f);
 

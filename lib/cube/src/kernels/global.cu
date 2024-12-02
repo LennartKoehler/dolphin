@@ -619,6 +619,10 @@ void normalizeFftwComplexDataGlobal(int Nx, int Ny, int Nz, fftw_complex* d_data
         // Set the imaginary part to 0 as specified
         d_data[idx][1] /= (Nx * Ny * Nz);
     }
+    // Negative Werte behandeln
+    //if (d_data[idx][0] < 0.0) {
+    //    d_data[idx][0] = -d_data[idx][0]; // Setze Realteil auf 0
+    //}
 }
 __global__
 void padCufftMatGlobal(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, cufftComplex* oldMat, cufftComplex* newMat, int offsetX, int offsetY, int offsetZ)
