@@ -8,8 +8,7 @@
 #include <omp.h>
 #ifdef CUDA_AVAILABLE
 #include <cufftw.h>
-#include <operations.h>
-#include <utl.h>
+#include <CUBE.h>
 #else
 #include <fftw3.h>
 #endif
@@ -154,10 +153,10 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
     if(this->gpu == "cuda") {
         //INFO safetyBorderPsfVolume = this->cubeWidth* this->cubeHeight* this->cubeDepth
         cudaMalloc((void**)&this->d_paddedH, safetyBorderPsfVolume * sizeof(fftw_complex));
-        copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, this->d_paddedH, this->paddedH);
+        CUBE_UTL_COPY::copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, this->d_paddedH, this->paddedH);
         if(this->secondPSF) {
             cudaMalloc((void**)&this->d_paddedH_2, safetyBorderPsfVolume * sizeof(fftw_complex));
-            copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, this->d_paddedH_2, this->paddedH_2);
+            CUBE_UTL_COPY::copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, this->d_paddedH_2, this->paddedH_2);
         }
     }
 #else
@@ -189,7 +188,6 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
         this->mergedVolume = this->gridImages[0];
     }
 
-
     // Global normalization of the merged volume
     double global_max_val= 0.0;
     double global_min_val = MAXFLOAT;
@@ -209,8 +207,8 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
 
 
     return true;
-
 }
+
 void BaseDeconvolutionAlgorithm::cleanup() {
     // Free FFTW resources for the current channel
     if (this->paddedH) {
@@ -348,6 +346,9 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
 
             // Convert the result FFTW complex array back to OpenCV Mat vector
             UtlFFT::convertFFTWComplexToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
+            // Debug
+            //UtlFFT::convertFFTWComplexRealToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
+            //UtlFFT::convertFFTWComplexImgToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
             this->totalGridNum++;
             fftw_free(g);

@@ -399,7 +399,36 @@ void UtlFFT::convertFFTWComplexToCVMatVector(const fftw_complex* input, std::vec
         }
         tempOutput.push_back(result);
     }
+    output = tempOutput;
+}
 
+void UtlFFT::convertFFTWComplexRealToCVMatVector(const fftw_complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {
+    std::vector<cv::Mat> tempOutput;
+    for (int z = 0; z < depth; ++z) {
+        cv::Mat result(height, width, CV_32F);
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int index = z * height * width + y * width + x;
+                result.at<float>(y, x) = input[index][0];
+            }
+        }
+        tempOutput.push_back(result);
+    }
+    output = tempOutput;
+}
+
+void UtlFFT::convertFFTWComplexImgToCVMatVector(const fftw_complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {
+    std::vector<cv::Mat> tempOutput;
+    for (int z = 0; z < depth; ++z) {
+        cv::Mat result(height, width, CV_32F);
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int index = z * height * width + y * width + x;
+                result.at<float>(y, x) = input[index][1];
+            }
+        }
+        tempOutput.push_back(result);
+    }
     output = tempOutput;
 }
 

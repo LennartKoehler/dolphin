@@ -25,6 +25,10 @@ namespace UtlFFT {
     void convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, fftw_complex* output, int width, int height, int depth);
     void convertFFTWComplexToCVMatVector(const fftw_complex* input,std::vector<cv::Mat>& output, int width, int height, int depth);
 
+    void convertFFTWComplexRealToCVMatVector(const fftw_complex* input,std::vector<cv::Mat>& output, int width, int height, int depth);
+    void convertFFTWComplexImgToCVMatVector(const fftw_complex* input,std::vector<cv::Mat>& output, int width, int height, int depth);
+
+
     void padPSF(fftw_complex* psf, int psf_width, int psf_height, int psf_depth, fftw_complex* padded_psf, int width, int height, int depth);
 
     void forwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth);
@@ -58,4 +62,4 @@ namespace UtlFFT {
 
 
 
-    }
+}

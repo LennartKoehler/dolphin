@@ -39,6 +39,15 @@ __global__ void gradientZCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex
 __global__ void computeTVCufftComplexGlobal(int Nx, int Ny, int Nz, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv);
 __global__ void normalizeTVCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon);
 
+// Regularization FFTW
+__global__ void calculateLaplacianFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* Afft, fftw_complex* laplacianfft);
+__global__ void gradientXFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradX);
+__global__ void gradientYFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradX);
+__global__ void gradientZFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradX);
+__global__ void computeTVFftwComplexGlobal(int Nx, int Ny, int Nz, double lambda, fftw_complex* gx, fftw_complex* gy, fftw_complex* gz, fftw_complex* tv);
+__global__ void normalizeTVFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, double epsilon);
+
+
 // Tiled
 __global__ void calculateLaplacianCufftComplexTiledGlobal(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft);
 

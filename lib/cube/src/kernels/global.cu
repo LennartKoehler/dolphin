@@ -468,6 +468,165 @@ void normalizeTVCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* gradX, 
     }
 }
 
+// Regularization FFTW
+__global__
+void calculateLaplacianFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* Afft, fftw_complex* laplacianfft) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < width && y < height && z < depth) {
+        int index = (z * height + y) * width + x;
+
+        // Berechne die Frequenzkomponenten
+        float wx = 2 * M_PI * x / width;
+        float wy = 2 * M_PI * y / height;
+        float wz = 2 * M_PI * z / depth;
+
+        // Laplace-Wert im Frequenzraum berechnen
+        float laplacian_value = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
+
+        // Elementweise Multiplikation im Frequenzraum
+        laplacianfft[index][0] = Afft[index][0] * laplacian_value;  // Realteil
+        laplacianfft[index][1] = Afft[index][1]* laplacian_value;  // Imaginärteil
+    }
+}
+__global__
+void gradientXFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradX) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < width - 1 && y < height && z < depth) {
+        int index = z * height * width + y * width + x;
+        int nextIndex = index + 1;
+
+        // Compute gradient in the x-direction
+        gradX[index][0] = image[index][0] - image[nextIndex][0]; // Real part
+        gradX[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+    }
+
+    // Handle boundary condition at the last x position
+    if (x == width - 1 && y < height && z < depth) {
+        int lastIndex = z * height * width + y * width + x;
+        gradX[lastIndex][0] = 0.0f;
+        gradX[lastIndex][1] = 0.0f;
+    }
+}
+__global__
+void gradientYFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradY) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (y < height - 1 && x < width && z < depth) {
+        int index = z * height * width + y * width + x;
+        int nextIndex = index + width;
+
+        // Compute gradient in the y-direction
+        gradY[index][0] = image[index][0] - image[nextIndex][0]; // Real part
+        gradY[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+    }
+
+    // Handle boundary condition at the last y position
+    if (y == height - 1 && x < width && z < depth) {
+        int lastIndex = z * height * width + y * width + x;
+        gradY[lastIndex][0] = 0.0f;
+        gradY[lastIndex][1] = 0.0f;
+    }
+}
+__global__
+void gradientZFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradZ) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (z < depth - 1 && y < height && x < width) {
+        int index = z * height * width + y * width + x;
+        int nextIndex = index + height * width;
+
+        // Compute gradient in the z-direction
+        gradZ[index][0] = image[index][0] - image[nextIndex][0]; // Real part
+        gradZ[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+    }
+
+    // Handle boundary condition at the last z position
+    if (z == depth - 1 && y < height && x < width) {
+        int lastIndex = z * height * width + y * width + x;
+        gradZ[lastIndex][0] = 0.0f;
+        gradZ[lastIndex][1] = 0.0f;
+    }
+}
+__global__
+void computeTVFftwComplexGlobal(int Nx, int Ny, int Nz, double lambda, fftw_complex* gx, fftw_complex* gy, fftw_complex* gz, fftw_complex* tv) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    int index = z * height * width + y * width + x;
+
+    if (x < width && y < height && z < depth) {
+        // Retrieve the gradient components
+        double dx = gx[index][0]; // Assuming gradient data is in the real part
+        double dy = gy[index][0];
+        double dz = gz[index][0];
+
+        // Compute the total variation (TV) value
+        tv[index][0] = static_cast<float>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+        tv[index][1] = 0.0f; // Assuming the output is real-valued, set the imaginary part to zero
+    }
+}
+__global__
+void normalizeTVFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, double epsilon) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    int index = z * height * width + y * width + x;
+
+    if (x < width && y < height && z < depth) {
+        // Compute the norm of the vector
+        double norm = sqrt(
+            gradX[index][0] * gradX[index][0] + gradX[index][1] * gradX[index][1] +
+            gradY[index][0] * gradY[index][0] + gradY[index][1] * gradY[index][1] +
+            gradZ[index][0] * gradZ[index][0] + gradZ[index][1] * gradZ[index][1]
+        );
+
+        // Avoid division by very small values by setting a minimum threshold
+        norm = fmax(norm, epsilon);
+
+        // Normalize the components
+        gradX[index][0] /= norm;
+        gradX[index][1] /= norm;
+        gradY[index][0] /= norm;
+        gradY[index][1] /= norm;
+        gradZ[index][0] /= norm;
+        gradZ[index][1] /= norm;
+    }
+}
+
+
 
 // Tiled
 __global__
@@ -607,24 +766,6 @@ void normalizeComplexData(int Nx, int Ny, int Nz, cufftComplex* d_data) {
     }
 }
 __global__
-void normalizeFftwComplexDataGlobal(int Nx, int Ny, int Nz, fftw_complex* d_data) {
-    // Calculate the 1D index for the 3D data array
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-    // Ensure that the thread is within bounds of the data
-    if (idx < Nx * Ny * Nz) {
-        // Normalize the real part by dividing by the total number of elements
-        d_data[idx][0] /= (Nx * Ny * Nz);
-
-        // Set the imaginary part to 0 as specified
-        d_data[idx][1] /= (Nx * Ny * Nz);
-    }
-    // Negative Werte behandeln
-    //if (d_data[idx][0] < 0.0) {
-    //    d_data[idx][0] = -d_data[idx][0]; // Setze Realteil auf 0
-    //}
-}
-__global__
 void padCufftMatGlobal(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, cufftComplex* oldMat, cufftComplex* newMat, int offsetX, int offsetY, int offsetZ)
 {
     // 3D-Index des Threads im Grid
@@ -657,7 +798,20 @@ void padCufftMatGlobal(int oldNx, int oldNy, int oldNz, int newNx, int newNy, in
         newMat[newIndex] = oldMat[oldIndex];
     }
 }
+__global__
+void normalizeFftwComplexDataGlobal(int Nx, int Ny, int Nz, fftw_complex* d_data) {
+    // Calculate the 1D index for the 3D data array
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
+    // Ensure that the thread is within bounds of the data
+    if (idx < Nx * Ny * Nz) {
+        // Normalize the real part by dividing by the total number of elements
+        d_data[idx][0] /= (Nx * Ny * Nz);
+
+        // Normalize the img part by dividing by the total number of elements
+        d_data[idx][1] /= (Nx * Ny * Nz);
+    }
+}
 
 // Device Kernels (TODO __device__ in decvice.cu)
 __global__

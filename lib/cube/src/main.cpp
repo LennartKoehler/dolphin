@@ -7,12 +7,22 @@
 #include <cstring>
 #include <cufft.h>
 #include <kernels.h>
+#include <omp.h>
 
 //CUDA Boost Engine - CUBE
 
 #include <cstring> // Für memset
 
-
+using namespace CUBE_MAT;
+using namespace CUBE_REG;
+using namespace CUBE_FTT;
+using namespace CUBE_TILED;
+using namespace CUBE_DEVICE_KERNEL;
+using namespace CUBE_UTL_COPY;
+using namespace CUBE_UTL_CONVERT;
+using namespace CUBE_UTL_INFO;
+using namespace CUBE_UTL_CHECK;
+using namespace CUBE_UTL_INIT_MAT;
 
 int main() {
 

@@ -6,7 +6,7 @@
   "time": true,
   "seperate": false,
 
-  "algorithm": "rl",
+  "algorithm": "rltv",
   "epsilon": 1e-6,
   "lambda": 0.005,
   "iterations": 50,

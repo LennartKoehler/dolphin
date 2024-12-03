@@ -1,7 +1,6 @@
 #include "RLDeconvolutionAlgorithm.h"
 #ifdef CUDA_AVAILABLE
-#include <operations.h>
-#include <utl.h>
+#include <CUBE.h>
 #else
 #include <fftw3.h>
 #endif
@@ -31,10 +30,10 @@ void normalizeFFTW(fftw_complex* data, std::size_t sizeX, std::size_t sizeY, std
 void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Algorithm specific
     this->iterations = config.iterations;
-    this->gpu = config.gpu;
 
     // General
     this->epsilon = config.epsilon;
+    this->gpu = config.gpu;
 
     // Grid
     this->grid = config.grid;
@@ -84,8 +83,8 @@ void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw
         cudaMalloc((void**)&d_c, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
         cudaMalloc((void**)&d_f, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
         cudaMalloc((void**)&d_g, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
-        copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, g);
-        copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, g);
+        CUBE_UTL_COPY::copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, g);
+        CUBE_UTL_COPY::copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, g);
 
         for (int n = 0; n < this->iterations; ++n) {
             std::cout << "\r[STATUS] Channel: " << channel_num + 1 << "/" << data.channels.size() << " GridImage: "
@@ -97,40 +96,40 @@ void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw
             fftw_execute_dft(this->forwardPlan, d_f, d_f);
 
             // Fn' = Fn * H
-            complexElementwiseMatMulFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, H, d_c);
+            CUBE_MAT::complexElementwiseMatMulFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, H, d_c);
 
             // fn' = IFFT(Fn')
             fftw_execute_dft(this->backwardPlan, d_c, d_c);
-            normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
-            octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            CUBE_FTT::normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            CUBE_FTT::octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
 
             // b) Calculation of the Correction Factor:
             // c = g / fn'
             // c = max(c, ε)
-            complexElementwiseMatDivStabilizedFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, d_c, d_c, this->epsilon);
+            CUBE_MAT::complexElementwiseMatDivStabilizedFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, d_c, d_c, this->epsilon);
 
             // c) Second transformation:
             // C = FFT(c)
             fftw_execute_dft(this->forwardPlan, d_c, d_c);
 
             // C' = C * conj(H)
-            complexElementwiseMatMulConjugateFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, H, d_c);
+            CUBE_MAT::complexElementwiseMatMulConjugateFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, H, d_c);
 
             // c' = IFFT(C')
             fftw_execute_dft(this->backwardPlan, d_c, d_c);
-            normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
-            octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            CUBE_FTT::normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
+            CUBE_FTT::octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
 
             // d) Update the estimated image:
             // fn = IFFT(Fn)
             fftw_execute_dft(this->backwardPlan, d_f, d_f);
-            normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f);
+            CUBE_FTT::normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f);
             // fn+1 = fn * c
-            complexElementwiseMatMulFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_c, d_f);
+            CUBE_MAT::complexElementwiseMatMulFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_c, d_f);
 
             std::flush(std::cout);
         }
-        copyDataFromDeviceToHost(this->cubeWidth, this->cubeHeight, this->cubeDepth, f, d_f);
+        CUBE_UTL_COPY::copyDataFromDeviceToHost(this->cubeWidth, this->cubeHeight, this->cubeDepth, f, d_f);
         cudaFree(d_c);
         cudaFree(d_f);
         cudaFree(d_g);
