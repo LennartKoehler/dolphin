@@ -20,7 +20,6 @@ namespace UtlFFT {
     void reorderLayers(fftw_complex* data, int width, int height, int depth);
     void visualizeFFT(fftw_complex* data, int width, int height, int depth);
 
-
     // FFT functions
     void convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, fftw_complex* output, int width, int height, int depth);
     void convertFFTWComplexToCVMatVector(const fftw_complex* input,std::vector<cv::Mat>& output, int width, int height, int depth);
@@ -45,21 +44,15 @@ namespace UtlFFT {
     void complexMultiplicationWithConjugate(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size);
     void complexDivisionStabilized(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon);
 
-
-
-        void calculateLaplacianOfPSF(fftw_complex* psf, fftw_complex* laplacian, int width, int height, int depth);
+    void calculateLaplacianOfPSF(fftw_complex* psf, fftw_complex* laplacian, int width, int height, int depth);
 
     void normalizeImage(fftw_complex* resultImage, int size, double epsilon);
     void rescaledInverse(fftw_complex* data, double cubeVolume);
     void saveInterimImages(fftw_complex* resultImage, int imageWidth, int imageHeight, int imageDepth, int gridNum, int channel_z, int i);
-
 
     void gradientX(fftw_complex* image, fftw_complex* gradX, int width, int height, int depth);
     void gradientY(fftw_complex* image, fftw_complex* gradY, int width, int height, int depth);
     void gradientZ(fftw_complex* image, fftw_complex* gradZ, int width, int height, int depth);
     void computeTV(double lambda, fftw_complex* gx, fftw_complex* gy, fftw_complex* gz, fftw_complex* tv, int width, int height, int depth);
     void normalizeTV(fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, int width, int height, int depth, double epsilon);
-
-
-
 }

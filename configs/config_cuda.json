@@ -33,7 +33,7 @@
   "cubeSize": 0,
   "psfSafetyBorder": 10,
 
-  "gpu": "none"
+  "gpu": "cuda"
 }
 
 //  "algorithm": "rif",

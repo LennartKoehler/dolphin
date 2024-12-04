@@ -29,7 +29,8 @@ __global__
 void complexElementwiseMatMulConjugateFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C);
 __global__
 void complexElementwiseMatMulFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C);
-
+__global__
+void complexElementwiseMatDivFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon);
 
 // Regularization
 __global__ void calculateLaplacianCufftComplexGlobal(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft);

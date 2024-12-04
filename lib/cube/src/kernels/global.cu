@@ -282,6 +282,38 @@ void complexElementwiseMatDivStabilizedCufftComplexGlobal(int Nx, int Ny, int Nz
 }
 
 __global__
+void complexElementwiseMatDivFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    // Check if the thread is within the valid bounds of the 3D grid
+    if (x < Nx && y < Ny && z < Nz) {
+        // Compute the 1D index from the 3D coordinates
+        int index = z * (Nx * Ny) + y * Nx + x;
+
+        // Get real and imaginary components of A and B
+        float real_a = A[index][0];
+        float imag_a = A[index][1];
+        float real_b = B[index][0];
+        float imag_b = B[index][1];
+
+        // Calculate the denominator (magnitude squared of B)
+        double denominator = real_b * real_b + imag_b * imag_b;
+
+        // Apply stabilization: if denominator is smaller than epsilon, set to zero
+        if (denominator < epsilon) {
+            C[index][0] = 0.0f;  // Real part of C
+            C[index][1] = 0.0f;  // Imaginary part of C
+        } else {
+            // Perform the complex division
+            C[index][0] = (real_a * real_b + imag_a * imag_b) / denominator; // Real part
+            C[index][1] = (imag_a * real_b - real_a * imag_b) / denominator; // Imaginary part
+        }
+    }
+}
+
+__global__
 void complexElementwiseMatDivStabilizedFftwComplexGlobal(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon) {
     // Compute the 3D coordinates of the current thread
     int x = blockIdx.x * blockDim.x + threadIdx.x;

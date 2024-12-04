@@ -74,20 +74,20 @@ int main(int argc, char** argv) {
     cli_group->add_option("-i,--image", image_path, "Input image Path")->required();
     cli_group->add_option("-p,--psf", psf_path, "Input PSF path or 'synthetic'")->required();
     cli_group->add_option("--psf2", psf_path_2, "Input second PSF path or 'synthetic'");
-    cli_group->add_option("--psftype", psfModel, "Type of synthetic PSF ('gauss')");
+    cli_group->add_option("--psfmodel", psfModel, "Model of synthetic PSF ['gauss'] ('gauss')");
     cli_group->add_option("-a,--algorithm", algorithm, "Algorithm selection ('rl'/'rltv'/'rif'/'inverse')")->required();
     cli_group->add_option("--dataFormatImage", dataFormatImage, "Data format of Image ('FILE'/'DIR')")->required();
     cli_group->add_option("--dataFormatPSF", dataFormatPSF, "Data format of PSF ('FILE'/'DIR')")->required();
 
-    cli_group->add_option("--psfx", psfx, "PSF width for synthetic PSF  [20]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--psfy", psfy, "PSF heigth for synthetic PSF  [20]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--psfz", psfz, "PSF depth for synthetic PSF  [30]")->check(CLI::PositiveNumber);
+    cli_group->add_option("--psfx", psfx, "PSF width for synthetic PSF [20]")->check(CLI::PositiveNumber);
+    cli_group->add_option("--psfy", psfy, "PSF heigth for synthetic PSF [20]")->check(CLI::PositiveNumber);
+    cli_group->add_option("--psfz", psfz, "PSF depth for synthetic PSF [30]")->check(CLI::PositiveNumber);
     cli_group->add_option("--sigmax", sigmax, "SigmaX for synthetic PSF [5]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--sigmay", sigmay, "SigmaY for synthetic PSF  [5]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--sigmaz", sigmaz, "SigmaZ for synthetic PSF  [5]")->check(CLI::PositiveNumber);
+    cli_group->add_option("--sigmay", sigmay, "SigmaY for synthetic PSF [5]")->check(CLI::PositiveNumber);
+    cli_group->add_option("--sigmaz", sigmaz, "SigmaZ for synthetic PSF [5]")->check(CLI::PositiveNumber);
     cli_group->add_option("--sigmax_2", sigmax_2, "SigmaX for second synthetic PSF [10]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--sigmay_2", sigmay_2, "SigmaY for second synthetic PSF  [10]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--sigmaz_2", sigmaz_2, "SigmaZ for second synthetic PSF  [15]")->check(CLI::PositiveNumber);
+    cli_group->add_option("--sigmay_2", sigmay_2, "SigmaY for second synthetic PSF [10]")->check(CLI::PositiveNumber);
+    cli_group->add_option("--sigmaz_2", sigmaz_2, "SigmaZ for second synthetic PSF [15]")->check(CLI::PositiveNumber);
 
     cli_group->add_option("--epsilon", epsilon, "Epsilon [1e-6] (for Complex Division)")->check(CLI::PositiveNumber);
     cli_group->add_option("--iterations", iterations, "Iterations [10] (for 'rl' and 'rltv')")->check(CLI::PositiveNumber);

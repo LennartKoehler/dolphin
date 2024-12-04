@@ -13,27 +13,17 @@ find_package(OpenCV REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(TIFF REQUIRED)
 
-# Suche nach CUDA, wenn vorhanden
-find_package(CUDA)
+enable_language(CUDA OPTIONAL)
 
-# Wenn CUDA verfügbar ist, baue die cuBe-Bibliothek und binde sie ein
-if(CUDA_FOUND)
-    # Füge das Verzeichnis der cuBe-Bibliothek hinzu
-    add_subdirectory(${CMAKE_SOURCE_DIR}/lib/cube)
-    link_directories(${CMAKE_SOURCE_DIR}/lib/cube/build)
-    add_definitions(-DCUDA_AVAILABLE)
-    message(STATUS "CUDA found. Compiling with cuBe library.")
+if(CMAKE_CUDA_COMPILER)
+    message(STATUS "CUDA found. Compiling with CUBE library. Creating second executable.")
 else()
-    message(STATUS "CUDA not found. Compiling without cube library.")
+    message(STATUS "CUDA not found. Compiling without CUBE library.")
 endif()
 
 include_directories(${OpenCV_INCLUDE_DIRS} ${TIFF_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/include)
-# Füge auch das Include-Verzeichnis von cube hinzu, wenn CUDA verfügbar ist
-if(CUDA_FOUND)
-    include_directories(${CMAKE_SOURCE_DIR}/lib/cube/include)
-endif()
 
-# Definiere die Quelldatei(en) für das ausführbare Programm
+# Define source files for CPU executable
 add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
         src/hyperstack/HyperstackImage.cpp
         include/HyperstackImage.h
@@ -78,7 +68,7 @@ add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
         include/RLADDeconvolutionAlgorithm.h
         src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
 )
-# Link your executable with the required libraries
+# Link CPU executable with the required libraries (FFTW)
 target_link_libraries(deconvtool
         -lpthread
         -lgomp
@@ -86,11 +76,76 @@ target_link_libraries(deconvtool
         stdc++fs
         ${TIFF_LIBRARIES}
         OpenMP::OpenMP_CXX
+        fftw3
+        fftw3_threads
 )
-# Verlinke die cuBe-Bibliothek, wenn CUDA verfügbar ist
-if(CUDA_FOUND)
-    target_link_libraries(deconvtool ${CMAKE_SOURCE_DIR}/lib/cube/build/libCUBE.a cuda
-            cufft cudart cufftw)   # Füge die Bibliothek direkt hinzu)  # Verlinke die 'cube' Bibliothek
-else ()
-    target_link_libraries(deconvtool fftw3 fftw3_threads)
+
+# Create second executable only if CUDA available
+if(CMAKE_CUDA_COMPILER)
+    # Include the CUBE dir
+    add_subdirectory(${CMAKE_SOURCE_DIR}/lib/cube)
+    link_directories(${CMAKE_SOURCE_DIR}/lib/cube/build)
+    include_directories(${CMAKE_SOURCE_DIR}/lib/cube/include)
+    # Define source files for GPU executable
+    add_executable(deconvtoolcuda ${CMAKE_SOURCE_DIR}/src/main.cpp
+            src/hyperstack/HyperstackImage.cpp
+            include/HyperstackImage.h
+            src/hyperstack/Image3D.cpp
+            include/Image3D.h
+            src/hyperstack/ImageMetaData.cpp
+            include/ImageMetaData.h
+            src/psf/PSF.cpp
+            include/PSF.h
+            include/BasePSFGeneratorAlgorithm.h
+            src/psf/algorithms/SimpleGaussianPSFGeneratorAlgorithm.cpp
+            include/SimpleGaussianPSFGeneratorAlgorithm.h
+            include/PSFGenerator.h
+            include/DeconvolutionAlgorithm.h
+            include/RegularizedInverseFilterDeconvolutionAlgorithm.h
+            include/RLDeconvolutionAlgorithm.h
+            src/deconvolution/DeconvolutionConfig.cpp
+            include/DeconvolutionConfig.h
+            include/BaseDeconvolutionAlgorithm.h
+            src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
+            src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
+            src/hyperstack/HyperstackIO.cpp
+            src/hyperstack/HyperstackMetaData.cpp
+            src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
+            include/InverseFilterDeconvolutionAlgorithm.h
+            include/UtlFFT.h
+            src/utilities/UtlFFT.cpp
+            include/UtlGrid.h
+            src/utilities/UtlGrid.cpp
+            include/UtlImage.h
+            src/utilities/UtlImage.cpp
+            include/UtlIO.h
+            src/utilities/UtlIO.cpp
+            include/Channel.h
+            src/deconvolution/BaseDeconvolutionAlgorithm.cpp
+            include/GaussianPSFGeneratorAlgorithm.h
+            src/psf/algorithms/GaussianPSFGeneratorAlgorithm.cpp
+            src/psf/algorithms/BornWolfModel.cpp
+            include/BornWolfModel.h
+            include/RLTVDeconvolutionAlgorithm.h
+            src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
+            include/RLADDeconvolutionAlgorithm.h
+            src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
+    )
+    # Set macro for GPU executable, for compiling correct libs in source code
+    target_compile_definitions(deconvtoolcuda PRIVATE CUDA_AVAILABLE)
+    # Link CPU executable with the required libraries (cuFFTW)
+    target_link_libraries(deconvtoolcuda
+            -lpthread
+            -lgomp
+            ${OpenCV_LIBS}
+            stdc++fs
+            ${TIFF_LIBRARIES}
+            OpenMP::OpenMP_CXX
+            ${CMAKE_SOURCE_DIR}/lib/cube/build/libCUBE.a
+            cuda
+            cufft
+            cudart
+            cufftw
+    )
 endif()
+

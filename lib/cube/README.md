@@ -1,6 +1,6 @@
 <div style="display: flex; align-items: center;">
     <img src="icon.png" alt="Whale Icon" width="60" height="60" style="margin-right: 10px;">
-    <h1>CUBE - CUDA Boost Engine v0.2.1</h1>
+    <h1>CUBE - CUDA Boost Engine v0.3.1</h1>
 </div>
 
 ## Overview
@@ -10,20 +10,20 @@ CUBE (CUDA Boost Engine) is a high-performance framework designed for accelerati
 ## Key Features
 
 - **Multi-Platform Support**:
-   - CPU (Naive C++ and OpenMP)
-   - GPU (CUDA)
+    - CPU (Naive C++ and OpenMP)
+    - GPU (CUDA)
 
 - **Matrix Operations**:
-   - Complex matrix multiplication and element-wise operations (using `fftw_complex`, `cuComplex`, and `cufftComplex` types)
-   - Efficient conversion between different complex types (`fftw_complex`, `cuComplex`, `cufftComplex`)
+    - Complex matrix multiplication and element-wise operations (using `fftw_complex`, `cuComplex`, and `cufftComplex` types)
+    - Efficient conversion between different complex types (`fftw_complex`, `cuComplex`, `cufftComplex`)
 
 - **Fourier Transforms**:
-   - Forward and inverse FFT (cuFFT)
-   - Fourier shift for high-frequency centering on both CPU and GPU
+    - Forward and inverse FFT (cuFFT)
+    - Fourier shift for high-frequency centering on both CPU and GPU
 
 - **CUDA Kernels**:
-   - Optimized CUDA kernels for matrix multiplication and element-wise operations on complex matrices
-   - Support for device-side operations with `__device__` kernels
+    - Optimized CUDA kernels for matrix multiplication and element-wise operations on complex matrices
+    - Support for device-side operations with `__device__` kernels
 
 ## Directory Structure
 
@@ -196,9 +196,9 @@ free(h_c);
    Perform an element-wise matrix division between the two input matrices (`d_cua` and `d_cub`) using `complexElementwiseMatDivCufftComplex`.
 
 4. **FFT Operations**:
-   - Create a cuFFT plan (`cufftPlan3d`) for a 3D FFT transformation.
-   - Perform a forward FFT using `cufftForward`.
-   - Perform an inverse FFT using `cufftInverse`.
+    - Create a cuFFT plan (`cufftPlan3d`) for a 3D FFT transformation.
+    - Perform a forward FFT using `cufftForward`.
+    - Perform an inverse FFT using `cufftInverse`.
 
 5. **Data Conversion**:
    Convert the result from cuFFT back to FFTW format using `convertCufftToFftwComplexOnHost`.

@@ -172,7 +172,7 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 }
 bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
     if(this->gridImages.empty()){
-        std::cerr << "[ERROR] No grid images(cubes) processed" << std::endl;
+        std::cerr << "[ERROR] No grid images(subimages) processed" << std::endl;
         return false;
     }
     if(this->grid){
@@ -191,7 +191,6 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
     // Global normalization of the merged volume
     double global_max_val= 0.0;
     double global_min_val = MAXFLOAT;
-    int j = 0;
     for (const auto& slice : this->mergedVolume) {
         cv::threshold(slice, slice, 0, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
         double min_val, max_val;
@@ -204,7 +203,6 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
         slice.convertTo(slice, CV_32F, 1.0 / (global_max_val - global_min_val), -global_min_val * (1 / (global_max_val - global_min_val)));  // Add epsilon to avoid division by zero
         cv::threshold(slice, slice, epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
     }
-
 
     return true;
 }
@@ -293,6 +291,9 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
 
         // Parallelization of grid for
 // Using static scheduling because the execution time for each iteration is similar, which reduces overhead costs by minimizing task assignment.
+#ifdef CUDA_AVAILABLE
+        omp_set_num_threads(1);
+#endif
 #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < this->gridImages.size(); ++i) {
             // PSF
@@ -337,11 +338,11 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
 
             std::cout << "\r[STATUS] Channel: " << channel_z + 1 << "/" << data.channels.size() << " GridImage: "
                       << this->totalGridNum << "/" << this->gridImages.size() << " ";
-            // Methode overridden in specific algorithm class
             if (!(UtlImage::isValidForFloat(g, this->cubeVolume))) {
                 std::cout << "[WARNING] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
             }
 
+            // Methode overridden in specific algorithm class
             algorithm(data, channel_z, H, g, f);
 
             // Convert the result FFTW complex array back to OpenCV Mat vector
@@ -356,6 +357,9 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
             std::flush(std::cout);
 
         }
+#ifdef CUDA_AVAILABLE
+        omp_set_num_threads(omp_get_max_threads());
+#endif
         // this->girdImages of BaseDeconvolutionAlgorithm deconvolution complete
 
         // Debug ouptut

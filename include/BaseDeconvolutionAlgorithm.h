@@ -5,7 +5,6 @@
 #include "PSF.h"
 
 #ifdef CUDA_AVAILABLE
-#include <cufft.h>
 #include <cufftw.h>
 #else
 #include <fftw3.h>
