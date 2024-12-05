@@ -1,0 +1,11 @@
+{
+  "sigmax": 15.0,
+  "sigmay": 15.0,
+  "sigmaz": 15.0,
+  "psfx": 20,
+  "psfy": 20,
+  "psfz": 46,
+  "psfmodel": "gauss",
+  "secondpsflayers": [],
+  "secondpsfcubes": []
+}

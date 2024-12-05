@@ -1,0 +1,9 @@
+{
+  "sigmax": 5.0,
+  "sigmay": 5.0,
+  "sigmaz": 5.0,
+  "psfx": 20,
+  "psfy": 20,
+  "psfz": 46,
+  "psfmodel": "gauss"
+}

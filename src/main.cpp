@@ -61,6 +61,13 @@ int main(int argc, char** argv) {
     double sigmax_2 = 10.0; //synthetic second PSF
     double sigmay_2 = 10.0; //synthetic second PSF
     double sigmaz_2 = 15.0; //synthetic second PSF
+    int psfx_2 = 20; //synthetic PSF width
+    int psfy_2 = 20; //synthetic PSF heigth
+    int psfz_2 = 30; //synthetic PSF depth/layers
+    std::string psfModel_2 = "gauss";
+    bool psf_1_is_config = false;
+    bool psf_2_is_config = false;
+
     std::vector<int> secondpsflayers; //sub-image layers for secondPSF
     std::vector<int> secondpsfcubes; //sub-images for secondPSF
 
@@ -131,83 +138,12 @@ int main(int argc, char** argv) {
         // Values from configuration file passed to arguments
         image_path = config["image_path"].get<std::string>();
         psf_path = config["psf_path"].get<std::string>();
-        if(psf_path == "synthetic"){
-            if(!config.contains("psfmodel")){
-                std::cout << "[WARNING] No PSF model specified, using default 'gauss'" << std::endl;
-            }else{
-                psfModel = config["psfmodel"].get<std::string>();
-            }
-        }
-        if (config.contains("psf_path_2")) {
-            psf_path_2 = config["psf_path_2"].get<std::string>();
-            if(psf_path_2 == "synthetic"){
-                if(!config.contains("psfmodel")){
-                    std::cout << "[WARNING] No second PSF model specified, using default 'gauss'" << std::endl;
-                }else{
-                    psfModel = config["psfmodel"].get<std::string>();
-                }
-            }
-            if (!(config.contains("sigmax_2") || config.contains("sigmay_2") || config.contains("sigmaz_2") && psf_path_2 == "synthetic")) {
-                std::cerr << "[ERROR] Incomplete sigma values for second psf" << std::endl;
-                return EXIT_FAILURE;
-            } else{
-                sigmax_2 = config.value("sigmax_2", 0.0); // sigmax_2 ist vom Typ double
-                sigmay_2 = config.value("sigmay_2", 0.0); // sigmay_2 ist vom Typ double
-                sigmaz_2 = config.value("sigmaz_2", 0.0); // sigmaz_2 ist vom Typ double
-                if(sigmax_2 == 0.0){
-                    std::cout << "[WARNING] sigmaX value 0" << std::endl;
-                }
-                if(sigmay_2 == 0.0){
-                    std::cout << "[WARNING] sigmaY value 0" << std::endl;
-                }
-                if(sigmaz_2 == 0.0){
-                    std::cout << "[WARNING] sigmaZ value 0" << std::endl;
-                }
-            }
-            // Check, if "secondpsflayers" in config
-            if (config.contains("secondpsflayers")) {
-                secondpsflayers = config["secondpsflayers"].get<std::vector<int>>();
-
-                // Check values
-                std::cout << "[STATUS] secondpsflayers: ";
-                for (const int& layer : secondpsflayers) {
-                    std::cout << layer << " ";
-                }
-                std::cout << std::endl;
-            } else {
-                std::cout << "[WARNING] 'secondpsflayers' not found in the configuration file. Using default values." << std::endl;
-                secondpsflayers = {};
-            }
-            // Cehck, if "secondpsflayers" in config
-            if (config.contains("secondpsfcubes")) {
-                secondpsfcubes = config["secondpsfcubes"].get<std::vector<int>>();
-
-                // Check values
-                std::cout << "[STATUS] secondpsfcubes: ";
-                for (const int& cube : secondpsfcubes) {
-                    std::cout << cube << " ";
-                }
-                std::cout << std::endl;
-            } else {
-                std::cout << "[WARNING] 'secondpsfcubes' not found in the configuration file. Using default values." << std::endl;
-                secondpsfcubes = {};
-            }
-        }
-        secondPSF = true;
     }
-    if(secondpsflayers.empty() && secondpsfcubes.empty()){
-        secondPSF = false;
-    }
+
     // Required in configuration file
     algorithm = config["algorithm"].get<std::string>();
     dataFormatImage = config["dataFormatImage"].get<std::string>();
     dataFormatPSF = config["dataFormatPSF"].get<std::string>();
-    sigmax = config["sigmax"].get<double>();
-    sigmay = config["sigmay"].get<double>();
-    sigmaz = config["sigmaz"].get<double>();
-    psfx = config["psfx"].get<int>();
-    psfy = config["psfy"].get<int>();
-    psfz = config["psfz"].get<int>();
     epsilon = config["epsilon"].get<double>();
     iterations = config["iterations"].get<int>();
     lambda = config["lambda"].get<double>();
@@ -220,45 +156,152 @@ int main(int argc, char** argv) {
     showExampleLayers = config["showExampleLayers"].get<bool>();
     printInfo = config["info"].get<bool>();
     grid = config["grid"].get<bool>();
-
     if (config.contains("gpu")) {
         gpu = config["gpu"].get<std::string>();
+    }
+    if (psf_path.substr(psf_path.find_last_of(".") + 1) == "json") {
+        std::ifstream psf_file(psf_path);
+        if (!psf_file.is_open()) {
+            std::cerr << "[ERROR] Unable to open PSF JSON file: " << psf_path << std::endl;
+            return EXIT_FAILURE;
+        }
+        json psf_config;
+        psf_file >> psf_config;
+        psf_1_is_config = true;
+        // JSON-Parameter lesen und in Variablen speichern
+        try {
+            sigmax = psf_config.at("sigmax").get<double>();
+            sigmay = psf_config.at("sigmay").get<double>();
+            sigmaz = psf_config.at("sigmaz").get<double>();
+            psfx = psf_config.at("psfx").get<int>();
+            psfy = psf_config.at("psfy").get<int>();
+            psfz = psf_config.at("psfz").get<int>();
+            psfModel = psf_config.value("psfmodel", "gauss");
+
+            std::cout << "[INFO] PSF parameters loaded from JSON file:" << std::endl;
+            std::cout << "  sigmax: " << sigmax << ", sigmay: " << sigmay
+                      << ", sigmaz: " << sigmaz << std::endl;
+            std::cout << "  psfx: " << psfx << ", psfy: " << psfy
+                      << ", psfz: " << psfz << std::endl;
+            std::cout << "  psfmodel: " << psfModel << std::endl;
+        } catch (const json::exception &e) {
+            std::cerr << "[ERROR] Invalid PSF JSON structure: " << e.what() << std::endl;
+            return EXIT_FAILURE;
+        }
+    }
+    if (config.contains("psf_path_2")) {
+        psf_path_2 = config["psf_path_2"].get<std::string>();
+        if(psf_path_2 != "none") {
+            if (psf_path_2.substr(psf_path.find_last_of(".") + 1) == "json") {
+            std::ifstream psf_file_2(psf_path_2);
+            if (!psf_file_2.is_open()) {
+                std::cerr << "[ERROR] Unable to open PSF JSON file: " << psf_path_2 << std::endl;
+                return EXIT_FAILURE;
+            }
+            json psf_config_2;
+            psf_file_2 >> psf_config_2;
+            psf_2_is_config = true;
+
+            // JSON-Parameter lesen und in Variablen speichern
+            try {
+                sigmax_2 = psf_config_2.at("sigmax").get<double>();
+                sigmay_2 = psf_config_2.at("sigmay").get<double>();
+                sigmaz_2 = psf_config_2.at("sigmaz").get<double>();
+                psfx_2 = psf_config_2.at("psfx").get<int>();
+                psfy_2 = psf_config_2.at("psfy").get<int>();
+                psfz_2 = psf_config_2.at("psfz").get<int>();
+                psfModel_2 = psf_config_2.value("psfmodel", "gauss");
+                std::cout << "[INFO] PSF_2 parameters loaded from JSON file:" << std::endl;
+                std::cout << "  sigmax: " << sigmax_2 << ", sigmay: " << sigmay_2
+                          << ", sigmaz: " << sigmaz_2<< std::endl;
+                std::cout << "  psfx: " << psfx_2 << ", psfy: " << psfy_2
+                          << ", psfz: " << psfz_2 << std::endl;
+                std::cout << "  psfmodel: " << psfModel_2 << std::endl;
+
+                // Check, if "secondpsflayers" in config
+                if (psf_config_2.contains("secondpsflayers")) {
+                    secondpsflayers = psf_config_2["secondpsflayers"].get<std::vector<int>>();
+
+                    // Check values
+                    std::cout << "[STATUS] secondpsflayers: ";
+                    for (const int& layer : secondpsflayers) {
+                        std::cout << layer << " ";
+                    }
+                    std::cout << std::endl;
+                } else {
+                    std::cout << "[WARNING] 'secondpsflayers' not found in the configuration file. Using default values." << std::endl;
+                    secondpsflayers = {};
+                }
+                // Cehck, if "secondpsflayers" in config
+                if (psf_config_2.contains("secondpsfcubes")) {
+                    secondpsfcubes = psf_config_2["secondpsfcubes"].get<std::vector<int>>();
+
+                    // Check values
+                    std::cout << "[STATUS] secondpsfcubes: ";
+                    for (const int& cube : secondpsfcubes) {
+                        std::cout << cube << " ";
+                    }
+                    std::cout << std::endl;
+                } else {
+                    std::cout << "[WARNING] 'secondpsfcubes' not found in the configuration file. Using default values." << std::endl;
+                    secondpsfcubes = {};
+                }
+                if(secondpsflayers.size() == 0 && secondpsfcubes.size() == 0) {
+                    std::cout << "[WARNING] PSF_2 never used" <<std::endl;
+                }
+
+                if(psfx_2 != psfx || psfy_2 != psfy || psfz_2 != psfz) {
+                    std::cerr << "[ERROR] All PSFs have to be the same size" << std::endl;
+                    return EXIT_FAILURE;
+                }
+
+                if(secondpsflayers.empty() && secondpsfcubes.empty()){
+                    secondPSF = false;
+                }else {
+                    secondPSF = true;
+                }
+            } catch (const json::exception &e) {
+                std::cerr << "[ERROR] Invalid PSF_2 JSON structure: " << e.what() << std::endl;
+                return EXIT_FAILURE;
+            }
+            }
+        }
     }
 
     //###PROGRAMM START###//
     PSF psf;
     PSF psf_2;
     std::vector<PSF> psfs;
-    if (psf_path == "synthetic") {
-        if(psfModel == "gauss") {
-            PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(
-                    sigmax, sigmay, sigmaz, psfx, psfy, psfz);
-            psf = gaussianGenerator.generate();
-            psfs.push_back(psf);
-        }else{
-            std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
-            return EXIT_FAILURE;
+
+    if (dataFormatPSF == "DIR") {
+        psf.readFromTifDir(psf_path.c_str());
+    } else if (dataFormatPSF == "FILE") {
+        if (psf_1_is_config == true) {
+            if(psfModel == "gauss") {
+                PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(sigmax, sigmay, sigmaz, psfx, psfy, psfz);
+                psf = gaussianGenerator.generate();
+            }else{
+                std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
+                return EXIT_FAILURE;
+            }
+        }else {
+            psf.readFromTifFile(psf_path.c_str());
         }
     } else {
-        if (dataFormatPSF == "DIR") {
-            psf.readFromTifDir(psf_path.c_str());
-        } else if (dataFormatPSF == "FILE") {
-            psf.readFromTifFile(psf_path.c_str());
-        } else {
-            std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
-            return EXIT_FAILURE;
-        }
-        psfs.push_back(psf);
+        std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
+        return EXIT_FAILURE;
     }
-    if (config.contains("psf_path_2")) {
-        if(psf_path_2 != "none"){
-            if(psf_path_2 == "synthetic"){
-                if(psfModel == "gauss"){
+    psfs.push_back(psf);
+
+    if (secondPSF) {
+        if (dataFormatPSF == "DIR") {
+            psf_2.readFromTifDir(psf_path_2.c_str());
+        } else if (dataFormatPSF == "FILE") {
+            if(psf_2_is_config == true){
+                if(psfModel_2 == "gauss"){
                     std::cout << "[INFO] Generated second PSF" << std::endl;
-                    PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(
-                            sigmax_2, sigmay_2, sigmaz_2, psfx, psfy, psfz);
+                    PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(sigmax_2, sigmay_2, sigmaz_2, psfx_2, psfy_2, psfz_2);
                     psf_2 = gaussianGenerator.generate();
-                    psfs.push_back(psf_2);
                 }else{
                     std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
                     return EXIT_FAILURE;
@@ -268,22 +311,17 @@ int main(int argc, char** argv) {
                     return EXIT_FAILURE;
                 }
             }else {
-                if (dataFormatPSF == "DIR") {
-                    psf_2.readFromTifDir(psf_path_2.c_str());
-                } else if (dataFormatPSF == "FILE") {
-                    psf_2.readFromTifFile(psf_path_2.c_str());
-                } else {
-                    std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
-                    return EXIT_FAILURE;
-                }
-                if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
-                    std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
-                    return EXIT_FAILURE;
-                }
-                psfs.push_back(psf_2);
+                psf_2.readFromTifFile(psf_path_2.c_str());
             }
+        } else {
+            std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
+            return EXIT_FAILURE;
         }
-
+        if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
+            std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
+            return EXIT_FAILURE;
+        }
+        psfs.push_back(psf_2);
     }
     std::cout << "[INFO] " << psfs.size() << " PSF(s) loaded" << std::endl;
 

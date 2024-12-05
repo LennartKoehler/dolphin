@@ -67,6 +67,8 @@ add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
         src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
         include/RLADDeconvolutionAlgorithm.h
         src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
+        include/PSFConfig.h
+        src/psf/PSFConfig.cpp
 )
 # Link CPU executable with the required libraries (FFTW)
 target_link_libraries(deconvtool
