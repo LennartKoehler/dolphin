@@ -12,10 +12,12 @@ public:
     double sigmay = 10;
     double sigmaz = 10;
     std::string psfModel = "gauss";
-    std::vector<int> psfLayers; //sub-image layers for PSF
-    std::vector<int> psfCubes; //sub-images for PSF
+    std::vector<int> psfLayers = {}; //sub-image layers for PSF
+    std::vector<int> psfCubes = {}; //sub-images for PSF
 
-    void loadFromJSON(const std::string &directoryPath);
+    bool loadFromJSON(const std::string &directoryPath);
+    bool compareDim(const PSFConfig &other);
+    void printValues();
 };
 
 

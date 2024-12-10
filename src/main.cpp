@@ -13,6 +13,7 @@
 #include "PSF.h"
 
 #include "PSFGenerator.h"
+#include "PSFConfig.h"
 #include "GaussianPSFGeneratorAlgorithm.h"
 #include "SimpleGaussianPSFGeneratorAlgorithm.h"
 #include "BornWolfModel.h"
@@ -70,6 +71,11 @@ int main(int argc, char** argv) {
 
     std::vector<int> secondpsflayers; //sub-image layers for secondPSF
     std::vector<int> secondpsfcubes; //sub-images for secondPSF
+
+
+    //TODO CLI daten einlesen
+    PSFConfig psfconfig_1;
+    PSFConfig psfconfig_2;
 
     std::string gpu = "";
 
@@ -160,111 +166,27 @@ int main(int argc, char** argv) {
         gpu = config["gpu"].get<std::string>();
     }
     if (psf_path.substr(psf_path.find_last_of(".") + 1) == "json") {
-        std::ifstream psf_file(psf_path);
-        if (!psf_file.is_open()) {
-            std::cerr << "[ERROR] Unable to open PSF JSON file: " << psf_path << std::endl;
-            return EXIT_FAILURE;
-        }
-        json psf_config;
-        psf_file >> psf_config;
         psf_1_is_config = true;
-        // JSON-Parameter lesen und in Variablen speichern
-        try {
-            sigmax = psf_config.at("sigmax").get<double>();
-            sigmay = psf_config.at("sigmay").get<double>();
-            sigmaz = psf_config.at("sigmaz").get<double>();
-            psfx = psf_config.at("psfx").get<int>();
-            psfy = psf_config.at("psfy").get<int>();
-            psfz = psf_config.at("psfz").get<int>();
-            psfModel = psf_config.value("psfmodel", "gauss");
 
-            std::cout << "[INFO] PSF parameters loaded from JSON file:" << std::endl;
-            std::cout << "  sigmax: " << sigmax << ", sigmay: " << sigmay
-                      << ", sigmaz: " << sigmaz << std::endl;
-            std::cout << "  psfx: " << psfx << ", psfy: " << psfy
-                      << ", psfz: " << psfz << std::endl;
-            std::cout << "  psfmodel: " << psfModel << std::endl;
-        } catch (const json::exception &e) {
-            std::cerr << "[ERROR] Invalid PSF JSON structure: " << e.what() << std::endl;
+        if( psfconfig_1.loadFromJSON(psf_path)) {
+            psfconfig_1.printValues();
+        }else {
             return EXIT_FAILURE;
         }
+
     }
     if (config.contains("psf_path_2")) {
         psf_path_2 = config["psf_path_2"].get<std::string>();
         if(psf_path_2 != "none") {
             if (psf_path_2.substr(psf_path.find_last_of(".") + 1) == "json") {
-            std::ifstream psf_file_2(psf_path_2);
-            if (!psf_file_2.is_open()) {
-                std::cerr << "[ERROR] Unable to open PSF JSON file: " << psf_path_2 << std::endl;
-                return EXIT_FAILURE;
-            }
-            json psf_config_2;
-            psf_file_2 >> psf_config_2;
-            psf_2_is_config = true;
-
-            // JSON-Parameter lesen und in Variablen speichern
-            try {
-                sigmax_2 = psf_config_2.at("sigmax").get<double>();
-                sigmay_2 = psf_config_2.at("sigmay").get<double>();
-                sigmaz_2 = psf_config_2.at("sigmaz").get<double>();
-                psfx_2 = psf_config_2.at("psfx").get<int>();
-                psfy_2 = psf_config_2.at("psfy").get<int>();
-                psfz_2 = psf_config_2.at("psfz").get<int>();
-                psfModel_2 = psf_config_2.value("psfmodel", "gauss");
-                std::cout << "[INFO] PSF_2 parameters loaded from JSON file:" << std::endl;
-                std::cout << "  sigmax: " << sigmax_2 << ", sigmay: " << sigmay_2
-                          << ", sigmaz: " << sigmaz_2<< std::endl;
-                std::cout << "  psfx: " << psfx_2 << ", psfy: " << psfy_2
-                          << ", psfz: " << psfz_2 << std::endl;
-                std::cout << "  psfmodel: " << psfModel_2 << std::endl;
-
-                // Check, if "secondpsflayers" in config
-                if (psf_config_2.contains("secondpsflayers")) {
-                    secondpsflayers = psf_config_2["secondpsflayers"].get<std::vector<int>>();
-
-                    // Check values
-                    std::cout << "[STATUS] secondpsflayers: ";
-                    for (const int& layer : secondpsflayers) {
-                        std::cout << layer << " ";
-                    }
-                    std::cout << std::endl;
-                } else {
-                    std::cout << "[WARNING] 'secondpsflayers' not found in the configuration file. Using default values." << std::endl;
-                    secondpsflayers = {};
-                }
-                // Cehck, if "secondpsflayers" in config
-                if (psf_config_2.contains("secondpsfcubes")) {
-                    secondpsfcubes = psf_config_2["secondpsfcubes"].get<std::vector<int>>();
-
-                    // Check values
-                    std::cout << "[STATUS] secondpsfcubes: ";
-                    for (const int& cube : secondpsfcubes) {
-                        std::cout << cube << " ";
-                    }
-                    std::cout << std::endl;
-                } else {
-                    std::cout << "[WARNING] 'secondpsfcubes' not found in the configuration file. Using default values." << std::endl;
-                    secondpsfcubes = {};
-                }
-                if(secondpsflayers.size() == 0 && secondpsfcubes.size() == 0) {
-                    std::cout << "[WARNING] PSF_2 never used" <<std::endl;
-                }
-
-                if(psfx_2 != psfx || psfy_2 != psfy || psfz_2 != psfz) {
-                    std::cerr << "[ERROR] All PSFs have to be the same size" << std::endl;
+                psf_2_is_config = true;
+                if( psfconfig_2.loadFromJSON(psf_path_2)) {
+                    psfconfig_2.printValues();
+                }else {
                     return EXIT_FAILURE;
                 }
-
-                if(secondpsflayers.empty() && secondpsfcubes.empty()){
-                    secondPSF = false;
-                }else {
-                    secondPSF = true;
-                }
-            } catch (const json::exception &e) {
-                std::cerr << "[ERROR] Invalid PSF_2 JSON structure: " << e.what() << std::endl;
-                return EXIT_FAILURE;
             }
-            }
+            secondPSF = true;
         }
     }
 
@@ -278,7 +200,7 @@ int main(int argc, char** argv) {
     } else if (dataFormatPSF == "FILE") {
         if (psf_1_is_config == true) {
             if(psfModel == "gauss") {
-                PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(sigmax, sigmay, sigmaz, psfx, psfy, psfz);
+                PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(psfconfig_1.sigmax, psfconfig_1.sigmay, psfconfig_1.sigmaz, psfconfig_1.x, psfconfig_1.y, psfconfig_1.z);
                 psf = gaussianGenerator.generate();
             }else{
                 std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
@@ -300,7 +222,7 @@ int main(int argc, char** argv) {
             if(psf_2_is_config == true){
                 if(psfModel_2 == "gauss"){
                     std::cout << "[INFO] Generated second PSF" << std::endl;
-                    PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(sigmax_2, sigmay_2, sigmaz_2, psfx_2, psfy_2, psfz_2);
+                    PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(psfconfig_2.sigmax, psfconfig_2.sigmay, psfconfig_2.sigmaz, psfconfig_2.x, psfconfig_2.y, psfconfig_2.z);
                     psf_2 = gaussianGenerator.generate();
                 }else{
                     std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
@@ -357,8 +279,8 @@ int main(int argc, char** argv) {
     deconvConfig.borderType = borderType;
     deconvConfig.psfSafetyBorder = psfSafetyBorder;
     deconvConfig.cubeSize = cubeSize;
-    deconvConfig.secondpsflayers = secondpsflayers;
-    deconvConfig.secondpsfcubes = secondpsfcubes;
+    deconvConfig.secondpsflayers = psfconfig_2.psfLayers;
+    deconvConfig.secondpsfcubes = psfconfig_2.psfCubes;
     deconvConfig.secondPSF = secondPSF;
     deconvConfig.gpu = gpu;
 

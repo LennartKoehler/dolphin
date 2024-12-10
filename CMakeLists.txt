@@ -132,6 +132,8 @@ if(CMAKE_CUDA_COMPILER)
             src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
             include/RLADDeconvolutionAlgorithm.h
             src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
+            include/PSFConfig.h
+            src/psf/PSFConfig.cpp
     )
     # Set macro for GPU executable, for compiling correct libs in source code
     target_compile_definitions(deconvtoolcuda PRIVATE CUDA_AVAILABLE)
