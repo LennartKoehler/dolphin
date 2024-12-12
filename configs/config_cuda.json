@@ -11,8 +11,7 @@
   "lambda": 0.005,
   "iterations": 50,
 
-  "psf_path": "../configs/psf1_config.json",
-  "psf_path_2": "../configs/psf2_config.json",
+  "psf_path": ["../configs/psf1_config.json", "../configs/psf2_config.json", "../configs/psf3_config.json"],
   "dataFormatPSF": "FILE",
   "savePsf": true,
 

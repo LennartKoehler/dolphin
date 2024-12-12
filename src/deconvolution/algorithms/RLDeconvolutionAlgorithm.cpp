@@ -42,6 +42,11 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     this->cubeSize = config.cubeSize;
     this->secondpsflayers = config.secondpsflayers;
     this->secondpsfcubes = config.secondpsfcubes;
+
+    //TODO also in other algo classes!!!
+    this->cubeNumVec = config.psfCubeVec;
+    this->layerNumVec = config.psfLayerVec;
+
     this->secondPSF = config.secondPSF;
 
     // Output
@@ -153,7 +158,6 @@ void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw
             // a) First transformation:
             // Fn = FFT(fn)
             fftw_execute_dft(this->forwardPlan, f, f);
-
             // Fn' = Fn * H
             UtlFFT::complexMultiplication(f, H, c, this->cubeVolume);
 

@@ -15,6 +15,7 @@ public:
     int cubeSize = 50;
     std::vector<int> secondpsflayers = {};
     std::vector<int> secondpsfcubes = {};
+    std::vector<std::vector<int>> psfCubeVec, psfLayerVec;
     bool secondPSF = false;
 
     std::string gpu = "";

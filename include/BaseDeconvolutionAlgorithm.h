@@ -38,9 +38,11 @@ protected:
     fftw_complex *paddedH = nullptr;
     fftw_complex *paddedH_2 = nullptr;
     fftw_complex *fftwPlanMem = nullptr;
+    std::vector<fftw_complex*> paddedHs;
 #ifdef CUDA_AVAILABLE
     fftw_complex *d_paddedH = nullptr;
     fftw_complex *d_paddedH_2 = nullptr;
+    std::vector<fftw_complex*> d_paddedHs;
 #endif
 
     // Image info
@@ -51,6 +53,9 @@ protected:
     int cubesPerX, cubesPerY, cubesPerZ, cubesPerLayer = 0;
     int cubeVolume, cubeWidth, cubeHeight, cubeDepth, cubePadding;
     std::vector<int> secondpsflayers, secondpsfcubes;
+    std::vector<std::vector<int>> cubeNumVec;
+    std::vector<std::vector<int>> layerNumVec;
+
 
     std::string gpu = "";
 };

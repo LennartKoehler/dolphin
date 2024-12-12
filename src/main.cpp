@@ -76,6 +76,8 @@ int main(int argc, char** argv) {
     //TODO CLI daten einlesen
     PSFConfig psfconfig_1;
     PSFConfig psfconfig_2;
+    std::vector<PSFConfig> psfConfigs;
+    std::vector<std::string> psfPaths;
 
     std::string gpu = "";
 
@@ -143,189 +145,289 @@ int main(int argc, char** argv) {
         config_file >> config;
         // Values from configuration file passed to arguments
         image_path = config["image_path"].get<std::string>();
-        psf_path = config["psf_path"].get<std::string>();
-    }
+        if (config.contains("psf_path")) {
+            if (config["psf_path"].is_string()) {
+                psf_path = config["psf_path"].get<std::string>();
+                if (psf_path.substr(psf_path.find_last_of(".") + 1) == "json") {
+                    //psfconfig objekt machen
+                    PSFConfig psf_config;
+                    if( psf_config.loadFromJSON(psf_path)) {
+                        psf_config.printValues();
+                    }else {
+                        std::cerr << "[ERROR] psf_config.loadFromJSON failed" << std::endl;
+                        return EXIT_FAILURE;
+                    }
+                    psfConfigs.push_back(psf_config);
 
-    // Required in configuration file
-    algorithm = config["algorithm"].get<std::string>();
-    dataFormatImage = config["dataFormatImage"].get<std::string>();
-    dataFormatPSF = config["dataFormatPSF"].get<std::string>();
-    epsilon = config["epsilon"].get<double>();
-    iterations = config["iterations"].get<int>();
-    lambda = config["lambda"].get<double>();
-    psfSafetyBorder = config["psfSafetyBorder"].get<int>();
-    cubeSize = config["cubeSize"].get<int>();
-    borderType = config["borderType"].get<int>();
-    sep = config["seperate"].get<bool>();
-    time = config["time"].get<bool>();
-    savePsf = config["savePsf"].get<bool>();
-    showExampleLayers = config["showExampleLayers"].get<bool>();
-    printInfo = config["info"].get<bool>();
-    grid = config["grid"].get<bool>();
-    if (config.contains("gpu")) {
-        gpu = config["gpu"].get<std::string>();
-    }
-    if (psf_path.substr(psf_path.find_last_of(".") + 1) == "json") {
-        psf_1_is_config = true;
+                    //werte übergeben
+                    //in psfconfig vector einfügen
 
-        if( psfconfig_1.loadFromJSON(psf_path)) {
-            psfconfig_1.printValues();
-        }else {
-            return EXIT_FAILURE;
+                } else {
+                    //oder path
+                    //dann in einen path vector schreiben
+                    psfPaths.push_back(psf_path);
+                    //(später dann durch vector beim elnsen iterieren und psf dirket in psfs vector schreiben)
+                }
+            } else if (config["psf_path"].is_array()) {
+                for (const auto& element : config["psf_path"]) { // Range-based for loop
+                    if (element.is_string()) {
+                        //entweder config
+                        std::string elementStr = element.get<std::string>();
+                        // Überprüfe die Dateiendung
+                        if (elementStr.substr(elementStr.find_last_of(".") + 1) == "json") {
+                            //psfconfig objekt machen
+                            PSFConfig psf_config;
+                            if( psf_config.loadFromJSON(elementStr)) {
+                                psf_config.printValues();
+                            }else {
+                                std::cerr << "[ERROR] psf_config.loadFromJSON failed" << std::endl;
+                                return EXIT_FAILURE;
+                            }
+                            psfConfigs.push_back(psf_config);
+
+                            //werte übergeben
+                            //in psfconfig vector einfügen
+
+                        } else {
+                            //oder path
+                            //dann in einen path vector schreiben
+                            psfPaths.push_back(elementStr);
+                            //(später dann durch vector beim elnsen iterieren und psf dirket in psfs vector schreiben)
+                        }
+                    }
+                }
+            } else {
+                std::cerr << "[ERROR] Field 'psf_path' does not exist." << std::endl;
+                return EXIT_FAILURE;
+            }
+
         }
 
     }
-    if (config.contains("psf_path_2")) {
-        psf_path_2 = config["psf_path_2"].get<std::string>();
-        if(psf_path_2 != "none") {
-            if (psf_path_2.substr(psf_path.find_last_of(".") + 1) == "json") {
-                psf_2_is_config = true;
-                if( psfconfig_2.loadFromJSON(psf_path_2)) {
-                    psfconfig_2.printValues();
-                }else {
+
+
+        // Required in configuration file
+        algorithm = config["algorithm"].get<std::string>();
+        dataFormatImage = config["dataFormatImage"].get<std::string>();
+        dataFormatPSF = config["dataFormatPSF"].get<std::string>();
+        epsilon = config["epsilon"].get<double>();
+        iterations = config["iterations"].get<int>();
+        lambda = config["lambda"].get<double>();
+        psfSafetyBorder = config["psfSafetyBorder"].get<int>();
+        cubeSize = config["cubeSize"].get<int>();
+        borderType = config["borderType"].get<int>();
+        sep = config["seperate"].get<bool>();
+        time = config["time"].get<bool>();
+        savePsf = config["savePsf"].get<bool>();
+        showExampleLayers = config["showExampleLayers"].get<bool>();
+        printInfo = config["info"].get<bool>();
+        grid = config["grid"].get<bool>();
+        if (config.contains("gpu")) {
+            gpu = config["gpu"].get<std::string>();
+        }
+
+/*
+        if (psf_path.substr(psf_path.find_last_of(".") + 1) == "json") {
+            psf_1_is_config = true;
+
+            if( psfconfig_1.loadFromJSON(psf_path)) {
+                psfconfig_1.printValues();
+            }else {
+                return EXIT_FAILURE;
+            }
+            psfConfigs.push_back(psfconfig_1);
+        }
+        if (config.contains("psf_path_2")) {
+            psf_path_2 = config["psf_path_2"].get<std::string>();
+            if(psf_path_2 != "none") {
+                if (psf_path_2.substr(psf_path_2.find_last_of(".") + 1) == "json") {
+                    psf_2_is_config = true;
+                    if( psfconfig_2.loadFromJSON(psf_path_2)) {
+                        psfconfig_2.printValues();
+                    }else {
+                        return EXIT_FAILURE;
+                    }
+                }
+                secondPSF = true;
+                psfConfigs.push_back(psfconfig_2);
+
+            }
+        }
+*/
+        //###PROGRAMM START###//
+        PSF psf;
+        PSF psf_2;
+        std::vector<PSF> psfs;
+
+        if (dataFormatPSF == "DIR") {
+            psf.readFromTifDir(psf_path.c_str());
+        } else if (dataFormatPSF == "FILE") {
+            //TODO
+            for (const auto& psfConfig : psfConfigs) {
+                if(psfConfig.psfModel == "gauss") {
+                    double sigmax = psfConfig.sigmax;
+                    double sigmay = psfConfig.sigmay;
+                    double sigmaz = psfConfig.sigmaz;
+                    int x = psfConfig.x;
+                    int y = psfConfig.y;
+                    int z = psfConfig.z;
+
+                    PSFGenerator<GaussianPSFGeneratorAlgorithm, double&, double&, double&, int&, int&, int&> gaussianGenerator(sigmax, sigmay, sigmaz, x, y, z);
+
+                    PSF psftmp;
+                    psftmp = gaussianGenerator.generate();
+                    psfs.push_back(psftmp);
+                }else{
+                    std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
                     return EXIT_FAILURE;
                 }
             }
-            secondPSF = true;
-        }
-    }
-
-    //###PROGRAMM START###//
-    PSF psf;
-    PSF psf_2;
-    std::vector<PSF> psfs;
-
-    if (dataFormatPSF == "DIR") {
-        psf.readFromTifDir(psf_path.c_str());
-    } else if (dataFormatPSF == "FILE") {
-        if (psf_1_is_config == true) {
-            if(psfModel == "gauss") {
-                PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(psfconfig_1.sigmax, psfconfig_1.sigmay, psfconfig_1.sigmaz, psfconfig_1.x, psfconfig_1.y, psfconfig_1.z);
-                psf = gaussianGenerator.generate();
-            }else{
-                std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
-                return EXIT_FAILURE;
+            for (const auto& psfPath : psfPaths) {
+                PSF psftmp;
+                psftmp.readFromTifFile(psf_path.c_str());
+                psfs.push_back(psftmp);
             }
-        }else {
-            psf.readFromTifFile(psf_path.c_str());
-        }
-    } else {
-        std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
-        return EXIT_FAILURE;
-    }
-    psfs.push_back(psf);
 
-    if (secondPSF) {
-        if (dataFormatPSF == "DIR") {
-            psf_2.readFromTifDir(psf_path_2.c_str());
-        } else if (dataFormatPSF == "FILE") {
-            if(psf_2_is_config == true){
-                if(psfModel_2 == "gauss"){
-                    std::cout << "[INFO] Generated second PSF" << std::endl;
-                    PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(psfconfig_2.sigmax, psfconfig_2.sigmay, psfconfig_2.sigmaz, psfconfig_2.x, psfconfig_2.y, psfconfig_2.z);
-                    psf_2 = gaussianGenerator.generate();
-                }else{
-                    std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
+            /*
+                    if (psf_1_is_config == true) {
+                        if(psfModel == "gauss") {
+                            PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(psfconfig_1.sigmax, psfconfig_1.sigmay, psfconfig_1.sigmaz, psfconfig_1.x, psfconfig_1.y, psfconfig_1.z);
+                            psf = gaussianGenerator.generate();
+                        }else{
+                            std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
+                            return EXIT_FAILURE;
+                        }
+                    }else {
+                        psf.readFromTifFile(psf_path.c_str());
+                    }
+                } else {
+                    std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
+                    return EXIT_FAILURE;
+                }
+                psfs.push_back(psf);*/
+
+            /*if (secondPSF) {
+                if (dataFormatPSF == "DIR") {
+                    psf_2.readFromTifDir(psf_path_2.c_str());
+                } else if (dataFormatPSF == "FILE") {
+                    if(psf_2_is_config == true){
+                        if(psfModel_2 == "gauss"){
+                            std::cout << "[INFO] Generated second PSF" << std::endl;
+                            PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(psfconfig_2.sigmax, psfconfig_2.sigmay, psfconfig_2.sigmaz, psfconfig_2.x, psfconfig_2.y, psfconfig_2.z);
+                            psf_2 = gaussianGenerator.generate();
+                        }else{
+                            std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
+                            return EXIT_FAILURE;
+                        }
+                        if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
+                            std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
+                            return EXIT_FAILURE;
+                        }
+                    }else {
+                        psf_2.readFromTifFile(psf_path_2.c_str());
+                    }
+                } else {
+                    std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
                     return EXIT_FAILURE;
                 }
                 if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
                     std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
                     return EXIT_FAILURE;
                 }
-            }else {
-                psf_2.readFromTifFile(psf_path_2.c_str());
+                psfs.push_back(psf_2);
+            */
             }
-        } else {
-            std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
-            return EXIT_FAILURE;
+            std::cout << "[INFO] " << psfs.size() << " PSF(s) loaded" << std::endl;
+
+            Hyperstack hyperstack;
+            if(dataFormatImage == "FILE"){
+                hyperstack.readFromTifFile(image_path.c_str());
+            }else if(dataFormatImage == "DIR"){
+                hyperstack.readFromTifDir(image_path.c_str());
+            } else {
+                std::cerr << "[ERROR] No correct dataformat for Image - choose DIR or FILE" << std::endl;
+                return EXIT_FAILURE;
+            }
+            if (savePsf) {
+                psf.saveAsTifFile("../result/psf.tif");
+                if(secondPSF) {
+                    psf_2.saveAsTifFile("../result/psf_2.tif");
+                }
+            }
+            if (printInfo) {
+                hyperstack.printMetadata();
+            }
+            if (showExampleLayers) {
+                hyperstack.showChannel(0);
+            }
+            hyperstack.saveAsTifFile("../result/input_hyperstack.tif");
+            hyperstack.saveAsTifDir("../result/input_hyperstack");
+
+            DeconvolutionConfig deconvConfig;
+            deconvConfig.iterations = iterations;
+            deconvConfig.epsilon = epsilon;
+            deconvConfig.grid = grid;
+            deconvConfig.lambda = lambda;
+            deconvConfig.borderType = borderType;
+            deconvConfig.psfSafetyBorder = psfSafetyBorder;
+            deconvConfig.cubeSize = cubeSize;
+            //deconvConfig.secondpsflayers = psfconfig_2.psfLayers;
+            //deconvConfig.secondpsfcubes = psfconfig_2.psfCubes;
+            //deconvConfig.secondPSF = secondPSF;
+            deconvConfig.gpu = gpu;
+
+            std::vector<std::vector<int>> psfCubeVec, psfLayerVec;
+            for(int i = 0; i < psfConfigs.size(); i++) {
+                psfCubeVec.push_back(psfConfigs[i].psfCubes);
+                psfLayerVec.push_back(psfConfigs[i].psfLayers);
+            }
+            deconvConfig.psfCubeVec = psfCubeVec;
+            deconvConfig.psfLayerVec = psfLayerVec;
+
+
+            Hyperstack deconvHyperstack;
+
+            // Starttime
+            auto start = std::chrono::high_resolution_clock::now();
+
+            if (algorithm == "inverse") {
+                DeconvolutionAlgorithm<InverseFilterDeconvolutionAlgorithm> inverseAlgorithm(deconvConfig);
+                deconvHyperstack = inverseAlgorithm.deconvolve(hyperstack, psfs);
+            } else if (algorithm == "rl") {
+                DeconvolutionAlgorithm<RLDeconvolutionAlgorithm> rlAlgorithm(deconvConfig);
+                deconvHyperstack = rlAlgorithm.deconvolve(hyperstack, psfs);
+            }else if (algorithm == "rltv") {
+                DeconvolutionAlgorithm<RLTVDeconvolutionAlgorithm> rltvAlgorithm(deconvConfig);
+                deconvHyperstack = rltvAlgorithm.deconvolve(hyperstack, psfs);
+            } else if (algorithm == "rif") {
+                DeconvolutionAlgorithm<RegularizedInverseFilterDeconvolutionAlgorithm> rifAlgorithm(deconvConfig);
+                deconvHyperstack = rifAlgorithm.deconvolve(hyperstack, psfs);
+                //TODO
+            } else if (algorithm == "convolve") {
+                deconvHyperstack = hyperstack.convolve(psf);
+            } else {
+                std::cerr << "[ERROR] Please choose a --algorithm: InverseFilter[inverse], RegularizedInverseFilter[rif], RichardsonLucy[rl], RichardsonLucyTotalVariation[rltv]" << std::endl;
+                return EXIT_FAILURE;
+            }
+
+            if (time) {
+                // Endtime
+                auto end = std::chrono::high_resolution_clock::now();
+                // Calculation of the duration of the programm
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+                std::cout << "[INFO] Algorithm duration: " << duration.count() << " ms" << std::endl;
+            }
+            if (showExampleLayers) {
+                deconvHyperstack.showChannel(0);
+            }
+
+            deconvHyperstack.saveAsTifFile("../result/deconv.tif");
+            if(sep){
+                deconvHyperstack.saveAsTifDir("../result/deconv");
+            }
+
+            //###PROGRAMM END###//
+            std::cout << "[End DeconvTool]" << std::endl;
+            return EXIT_SUCCESS;
         }
-        if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
-            std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
-            return EXIT_FAILURE;
-        }
-        psfs.push_back(psf_2);
-    }
-    std::cout << "[INFO] " << psfs.size() << " PSF(s) loaded" << std::endl;
 
-    Hyperstack hyperstack;
-    if(dataFormatImage == "FILE"){
-        hyperstack.readFromTifFile(image_path.c_str());
-    }else if(dataFormatImage == "DIR"){
-        hyperstack.readFromTifDir(image_path.c_str());
-    } else {
-        std::cerr << "[ERROR] No correct dataformat for Image - choose DIR or FILE" << std::endl;
-        return EXIT_FAILURE;
-    }
-    if (savePsf) {
-        psf.saveAsTifFile("../result/psf.tif");
-        if(secondPSF) {
-            psf_2.saveAsTifFile("../result/psf_2.tif");
-        }
-    }
-    if (printInfo) {
-        hyperstack.printMetadata();
-    }
-    if (showExampleLayers) {
-        hyperstack.showChannel(0);
-    }
-    hyperstack.saveAsTifFile("../result/input_hyperstack.tif");
-    hyperstack.saveAsTifDir("../result/input_hyperstack");
-
-    DeconvolutionConfig deconvConfig;
-    deconvConfig.iterations = iterations;
-    deconvConfig.epsilon = epsilon;
-    deconvConfig.grid = grid;
-    deconvConfig.lambda = lambda;
-    deconvConfig.borderType = borderType;
-    deconvConfig.psfSafetyBorder = psfSafetyBorder;
-    deconvConfig.cubeSize = cubeSize;
-    deconvConfig.secondpsflayers = psfconfig_2.psfLayers;
-    deconvConfig.secondpsfcubes = psfconfig_2.psfCubes;
-    deconvConfig.secondPSF = secondPSF;
-    deconvConfig.gpu = gpu;
-
-    Hyperstack deconvHyperstack;
-
-    // Starttime
-    auto start = std::chrono::high_resolution_clock::now();
-
-    if (algorithm == "inverse") {
-         DeconvolutionAlgorithm<InverseFilterDeconvolutionAlgorithm> inverseAlgorithm(deconvConfig);
-         deconvHyperstack = inverseAlgorithm.deconvolve(hyperstack, psfs);
-    } else if (algorithm == "rl") {
-         DeconvolutionAlgorithm<RLDeconvolutionAlgorithm> rlAlgorithm(deconvConfig);
-         deconvHyperstack = rlAlgorithm.deconvolve(hyperstack, psfs);
-    }else if (algorithm == "rltv") {
-        DeconvolutionAlgorithm<RLTVDeconvolutionAlgorithm> rltvAlgorithm(deconvConfig);
-        deconvHyperstack = rltvAlgorithm.deconvolve(hyperstack, psfs);
-    } else if (algorithm == "rif") {
-        DeconvolutionAlgorithm<RegularizedInverseFilterDeconvolutionAlgorithm> rifAlgorithm(deconvConfig);
-        deconvHyperstack = rifAlgorithm.deconvolve(hyperstack, psfs);
-    //TODO
-    } else if (algorithm == "convolve") {
-        deconvHyperstack = hyperstack.convolve(psf);
-    } else {
-        std::cerr << "[ERROR] Please choose a --algorithm: InverseFilter[inverse], RegularizedInverseFilter[rif], RichardsonLucy[rl], RichardsonLucyTotalVariation[rltv]" << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    if (time) {
-        // Endtime
-        auto end = std::chrono::high_resolution_clock::now();
-        // Calculation of the duration of the programm
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        std::cout << "[INFO] Algorithm duration: " << duration.count() << " ms" << std::endl;
-    }
-    if (showExampleLayers) {
-        deconvHyperstack.showChannel(0);
-    }
-
-    deconvHyperstack.saveAsTifFile("../result/deconv.tif");
-    if(sep){
-        deconvHyperstack.saveAsTifDir("../result/deconv");
-    }
-
-    //###PROGRAMM END###//
-    std::cout << "[End DeconvTool]" << std::endl;
-    return EXIT_SUCCESS;
-}

@@ -1,7 +1,7 @@
 {
-  "sigmax": 5.0,
-  "sigmay": 5.0,
-  "sigmaz": 5.0,
+  "sigmax": 5,
+  "sigmay": 5,
+  "sigmaz": 5,
   "psfx": 20,
   "psfy": 20,
   "psfz": 46,
