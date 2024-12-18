@@ -6,6 +6,6 @@
   "psfy": 20,
   "psfz": 46,
   "psfmodel": "gauss",
-  "secondpsflayers": [],
-  "secondpsfcubes": [136]
+  "layers": [],
+  "subimages": [136]
 }

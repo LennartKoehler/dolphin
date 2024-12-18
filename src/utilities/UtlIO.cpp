@@ -17,14 +17,30 @@ void UtlIO::convertImageTo32F(std::vector<cv::Mat> &layers, int &dataType, uint1
     UtlImage::findGlobalMinMax(layers, globalMin, globalMax);
 
     int i = 0;
-    for(auto& layer: layers){
-        // Konvertiere in ein 32-Bit-Bild durch Normalisierung
-        layer.convertTo(layer, CV_32F, 1/(globalMax-globalMin), -globalMin*(1/(globalMax-globalMin)));
-        std::cout << "\r[STATUS] Layer " << i << "/" << layers.size()-1 << " in 32F converted" << " ";
+    for (auto& layer : layers) {
+        // Sicherstellen, dass die Matrix mehrere Kanäle unterstützt
+        int type = CV_MAKETYPE(CV_32F, layer.channels()); // Typ mit gleichem Kanalanzahl erstellen
+        layer.convertTo(layer, type, 1 / (globalMax - globalMin), -globalMin * (1 / (globalMax - globalMin)));
+
+        std::cout << "\r[STATUS] Layer " << i << "/" << layers.size() - 1 << " in 32F converted"
+                  << " ";
         std::flush(std::cout);
         i++;
     }
-    std::cout << " " << std::endl;
+    //TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/*
+    for (auto& layer : layers) {
+        std::cout << "Before convertTo: Type=" << layer.type() << ", Channels=" << layer.channels() << std::endl;
+
+        int targetType = CV_MAKETYPE(CV_32F, layer.channels());
+        layer.convertTo(layer, targetType, 1 / (globalMax - globalMin), -globalMin * (1 / (globalMax - globalMin)));
+
+        std::cout << "After convertTo: Type=" << layer.type() << ", Channels=" << layer.channels() << std::endl;
+        std::cout << "Size: " << layer.size << ", Depth: " << layer.depth()
+          << ", Channels: " << layer.channels() << std::endl;
+    }*/
+    //std::cout << layers[0].channels() << std::endl;
+
     bitsPerSample = 32;
     dataType = CV_32F;
 }
@@ -75,6 +91,7 @@ bool UtlIO::readLayers(std::vector<cv::Mat> &layers, int &totalImages, int &data
 
     //TODO debug
     std::cout<< "[INFO] Read in " << layers.size() << " layers"<< std::endl;
+
 
     return true;
 }

@@ -1,6 +1,8 @@
 #include <opencv2/core.hpp>
 #include "UtlImage.h"
 
+#include <iostream>
+
 // find global min/max value of image pixel values
 void UtlImage::findGlobalMinMax(const std::vector<cv::Mat>& images, double& globalMin, double& globalMax) {
     globalMin = std::numeric_limits<double>::max();
@@ -17,7 +19,10 @@ void UtlImage::findGlobalMinMax(const std::vector<cv::Mat>& images, double& glob
 void UtlImage::normalizeToSumOne(std::vector<cv::Mat>& psf) {
     // Berechne die Summe aller Werte in der PSF
     double totalSum = 0.0;
-    for (const auto& slice : psf) {
+    for (auto& slice : psf) {
+        if (slice.type() != CV_32F) {
+            std::cerr << "Error: Unsupported matrix type! " << slice.type() << std::endl;
+        }
         totalSum += cv::sum(slice)[0]; // Summe über alle Pixel in jedem Slice
     }
 

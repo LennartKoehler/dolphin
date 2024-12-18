@@ -15,6 +15,8 @@ public:
     std::vector<int> psfLayers = {}; //sub-image layers for PSF
     std::vector<int> psfCubes = {}; //sub-images for PSF
 
+    std::string psfPath = "";
+
     bool loadFromJSON(const std::string &directoryPath);
     bool compareDim(const PSFConfig &other);
     void printValues();

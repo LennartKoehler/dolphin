@@ -209,7 +209,6 @@ int main(int argc, char** argv) {
         // Required in configuration file
         algorithm = config["algorithm"].get<std::string>();
         dataFormatImage = config["dataFormatImage"].get<std::string>();
-        dataFormatPSF = config["dataFormatPSF"].get<std::string>();
         epsilon = config["epsilon"].get<double>();
         iterations = config["iterations"].get<int>();
         lambda = config["lambda"].get<double>();
@@ -259,12 +258,31 @@ int main(int argc, char** argv) {
         PSF psf_2;
         std::vector<PSF> psfs;
 
-        if (dataFormatPSF == "DIR") {
-            psf.readFromTifDir(psf_path.c_str());
-        } else if (dataFormatPSF == "FILE") {
+
             //TODO
-            for (const auto& psfConfig : psfConfigs) {
-                if(psfConfig.psfModel == "gauss") {
+            for (const auto& psfPath : psfPaths) {
+                PSF psftmp;
+                if (psfPath.substr(psfPath.find_last_of(".") + 1) == "tif" || psfPath.substr(psfPath.find_last_of(".") + 1) == "tiff" || psfPath.substr(psfPath.find_last_of(".") + 1) == "ometif") {
+                    psftmp.readFromTifFile(psfPath.c_str());
+                } else {
+                    psf.readFromTifDir(psfPath.c_str());
+
+                }
+                psfs.push_back(psftmp);
+                if(psfConfigs.size() > 0) {
+                    PSFConfig tmpPsfConfig;
+                    psfConfigs.insert(psfConfigs.begin(), tmpPsfConfig); // Fügt PSFConfig mit standard werten an Stelle 0 ein
+                }
+            }
+            for (auto& psfConfig : psfConfigs) {
+                if(psfConfig.psfPath != "") {
+                    PSF psftmp;
+                    psftmp.readFromTifFile(psfConfig.psfPath.c_str());
+                    psfs.push_back(psftmp);
+                    psfConfig.x = psftmp.image.slices[0].cols;
+                    psfConfig.y = psftmp.image.slices[0].rows;
+                    psfConfig.z = psftmp.image.slices.size();
+                }else if(psfConfig.psfModel == "gauss") {
                     double sigmax = psfConfig.sigmax;
                     double sigmay = psfConfig.sigmay;
                     double sigmaz = psfConfig.sigmaz;
@@ -282,11 +300,17 @@ int main(int argc, char** argv) {
                     return EXIT_FAILURE;
                 }
             }
-            for (const auto& psfPath : psfPaths) {
-                PSF psftmp;
-                psftmp.readFromTifFile(psf_path.c_str());
-                psfs.push_back(psftmp);
-            }
+
+            int firstPsfX = psfs[0].image.slices[0].cols;
+            int firstPsfY = psfs[0].image.slices[0].rows;
+            int firstPsfZ = psfs[0].image.slices.size();
+            for (int i = 0; i < psfs.size(); i++) {
+                if(firstPsfX != psfs[i].image.slices[0].cols || firstPsfY != psfs[i].image.slices[0].rows || firstPsfZ != psfs[i].image.slices.size()) {
+                    std::cerr << "[ERROR] PSF sizes do not match" << std::endl;
+                    return EXIT_FAILURE;
+                }
+
+
 
             /*
                     if (psf_1_is_config == true) {
@@ -349,9 +373,8 @@ int main(int argc, char** argv) {
                 return EXIT_FAILURE;
             }
             if (savePsf) {
-                psf.saveAsTifFile("../result/psf.tif");
-                if(secondPSF) {
-                    psf_2.saveAsTifFile("../result/psf_2.tif");
+                for (int i = 0; i < psfs.size(); i++) {
+                    psfs[i].saveAsTifFile("../result/psf_"+std::to_string(i)+".tif");
                 }
             }
             if (printInfo) {

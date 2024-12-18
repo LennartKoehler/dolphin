@@ -19,6 +19,24 @@ bool PSFConfig::loadFromJSON(const std::string &filePath) {
     // JSON-Parameter lesen und in Variablen speichern
     try {
 
+        if (j.contains("layers")) {
+            this->psfLayers = j["layers"].get<std::vector<int>>();
+
+        } else {
+            //throw std::runtime_error("Missing required parameter: secondpsflayers");
+        }
+        if (j.contains("subimages")) {
+            this->psfCubes = j["subimages"].get<std::vector<int>>();
+
+        } else {
+            //throw std::runtime_error("Missing required parameter: secondpsfcubes");
+        }
+        if (j.contains("path")) {
+            this->psfPath = j["path"].get<std::string>();
+            return true;
+        }
+
+
         if (j.contains("psfx")) {
             this->x = j.at("psfx").get<int>();
         } else {
@@ -56,18 +74,7 @@ bool PSFConfig::loadFromJSON(const std::string &filePath) {
             throw std::runtime_error("[ERROR] Missing required parameter: psfModel");
         }
 
-        if (j.contains("secondpsflayers")) {
-            this->psfLayers = j["secondpsflayers"].get<std::vector<int>>();
 
-        } else {
-            //throw std::runtime_error("Missing required parameter: secondpsflayers");
-        }
-        if (j.contains("secondpsfcubes")) {
-            this->psfCubes = j["secondpsfcubes"].get<std::vector<int>>();
-
-        } else {
-            //throw std::runtime_error("Missing required parameter: secondpsfcubes");
-        }
     } catch (const json::exception &e) {
         std::cerr << "[ERROR] Invalid PSF JSON structure: " << e.what() << std::endl;
         return false;

@@ -1,7 +1,7 @@
 {
   "image_path": "../input/bacteria.tif",
   "dataFormatImage": "FILE",
-  "info": false,
+  "info": true,
   "showExampleLayers": false,
   "time": true,
   "seperate": false,
@@ -11,8 +11,7 @@
   "lambda": 0.005,
   "iterations": 50,
 
-  "psf_path": ["../configs/psf1_config.json", "../configs/psf2_config.json", "../configs/psf3_config.json"],
-  "dataFormatPSF": "FILE",
+  "psf_path": "../result/psf_1.tif",
   "savePsf": true,
 
   "grid": true,

@@ -417,7 +417,7 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
                     for(int v = 1; v < this->layerNumVec.size(); ++v) {
                         // Check if second PSF has to be applied
                         // if iterator shows to end, cube (i+1) isnt in list
-                        auto itOfLayer = std::find(this->layerNumVec[0].begin(),this->layerNumVec[0].end(), currentCubeLayer);
+                        auto itOfLayer = std::find(this->layerNumVec[v].begin(),this->layerNumVec[v].end(), currentCubeLayer);
                         if (itOfLayer != this->layerNumVec[v].end()) {
 #ifdef CUDA_AVAILABLE
                             if(this->gpu == "cuda") {H = this->d_paddedHs[v];}else {H = this->paddedHs[v];}
