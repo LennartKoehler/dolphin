@@ -4,7 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include "../lib/CLI/CLI11.hpp"
 #include "../lib/nlohmann/json.hpp"
-
+#include <sys/stat.h>
 #ifdef CUDA_AVAILABLE
 #include "../lib/cube/include/CUBE.h"
 #endif
@@ -35,11 +35,8 @@ int main(int argc, char** argv) {
     std::string image_path;
     std::string psf_path;
     std::string psf_path_2;
-    bool secondPSF = false; //use second PSF
     std::string algorithm;
     std::string psfModel = "gauss";
-    std::string dataFormatImage; //FILE or DIR
-    std::string dataFormatPSF; //FILE or DIR
     int iterations = 10; //RL and RLTV
     double lambda = 0.01; //RIF and RLTV
     double sigmax = 5.0; //synthetic PSF
@@ -62,12 +59,8 @@ int main(int argc, char** argv) {
     double sigmax_2 = 10.0; //synthetic second PSF
     double sigmay_2 = 10.0; //synthetic second PSF
     double sigmaz_2 = 15.0; //synthetic second PSF
-    int psfx_2 = 20; //synthetic PSF width
-    int psfy_2 = 20; //synthetic PSF heigth
-    int psfz_2 = 30; //synthetic PSF depth/layers
     std::string psfModel_2 = "gauss";
-    bool psf_1_is_config = false;
-    bool psf_2_is_config = false;
+
 
     std::vector<int> secondpsflayers; //sub-image layers for secondPSF
     std::vector<int> secondpsfcubes; //sub-images for secondPSF
@@ -78,32 +71,33 @@ int main(int argc, char** argv) {
     PSFConfig psfconfig_2;
     std::vector<PSFConfig> psfConfigs;
     std::vector<std::string> psfPaths;
+    std::vector<std::string> psfPathsCLI;
 
     std::string gpu = "";
-
 
     CLI::App app{"deconvtool - Deconvolution of Microscopy Images"};
     // Define a group for CLI arguments
     CLI::Option_group *cli_group = app.add_option_group("CLI", "Commandline options");
 
     cli_group->add_option("-i,--image", image_path, "Input image Path")->required();
-    cli_group->add_option("-p,--psf", psf_path, "Input PSF path or 'synthetic'")->required();
-    cli_group->add_option("--psf2", psf_path_2, "Input second PSF path or 'synthetic'");
-    cli_group->add_option("--psfmodel", psfModel, "Model of synthetic PSF ['gauss'] ('gauss')");
+    // Example: ./deconvtool -p psf1.json psf2.json
+    cli_group->add_option("-p,--psf", psfPathsCLI, "Input PSF path(s) or 'synthetic'")
+        ->required()
+        ->expected(-1) // Allows multiple values
+        ->check([](const std::string& path) {
+            if (path == "synthetic") {
+                return std::string(); // "synthetic" is valid
+            }
+            struct stat info;
+            if (stat(path.c_str(), &info) != 0) {
+                return "Path does not exist: " + path;
+            }
+            if (!(info.st_mode & S_IFDIR) && !(info.st_mode & S_IFREG)) {
+                return "Path is neither a file nor a directory: " + path;
+            }
+            return std::string(); // Valid
+        });
     cli_group->add_option("-a,--algorithm", algorithm, "Algorithm selection ('rl'/'rltv'/'rif'/'inverse')")->required();
-    cli_group->add_option("--dataFormatImage", dataFormatImage, "Data format of Image ('FILE'/'DIR')")->required();
-    cli_group->add_option("--dataFormatPSF", dataFormatPSF, "Data format of PSF ('FILE'/'DIR')")->required();
-
-    cli_group->add_option("--psfx", psfx, "PSF width for synthetic PSF [20]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--psfy", psfy, "PSF heigth for synthetic PSF [20]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--psfz", psfz, "PSF depth for synthetic PSF [30]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--sigmax", sigmax, "SigmaX for synthetic PSF [5]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--sigmay", sigmay, "SigmaY for synthetic PSF [5]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--sigmaz", sigmaz, "SigmaZ for synthetic PSF [5]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--sigmax_2", sigmax_2, "SigmaX for second synthetic PSF [10]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--sigmay_2", sigmay_2, "SigmaY for second synthetic PSF [10]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--sigmaz_2", sigmaz_2, "SigmaZ for second synthetic PSF [15]")->check(CLI::PositiveNumber);
-
     cli_group->add_option("--epsilon", epsilon, "Epsilon [1e-6] (for Complex Division)")->check(CLI::PositiveNumber);
     cli_group->add_option("--iterations", iterations, "Iterations [10] (for 'rl' and 'rltv')")->check(CLI::PositiveNumber);
     cli_group->add_option("--lambda", lambda, "Lambda regularization parameter [1e-2] (for 'rif' and 'rltv')");
@@ -159,14 +153,8 @@ int main(int argc, char** argv) {
                     }
                     psfConfigs.push_back(psf_config);
 
-                    //werte übergeben
-                    //in psfconfig vector einfügen
-
                 } else {
-                    //oder path
-                    //dann in einen path vector schreiben
                     psfPaths.push_back(psf_path);
-                    //(später dann durch vector beim elnsen iterieren und psf dirket in psfs vector schreiben)
                 }
             } else if (config["psf_path"].is_array()) {
                 for (const auto& element : config["psf_path"]) { // Range-based for loop
@@ -185,14 +173,8 @@ int main(int argc, char** argv) {
                             }
                             psfConfigs.push_back(psf_config);
 
-                            //werte übergeben
-                            //in psfconfig vector einfügen
-
                         } else {
-                            //oder path
-                            //dann in einen path vector schreiben
                             psfPaths.push_back(elementStr);
-                            //(später dann durch vector beim elnsen iterieren und psf dirket in psfs vector schreiben)
                         }
                     }
                 }
@@ -203,12 +185,27 @@ int main(int argc, char** argv) {
 
         }
 
+    }else {
+        for(auto path: psfPathsCLI) {
+            if (path.substr(psf_path.find_last_of(".") + 1) == "json") {
+                PSFConfig psf_config;
+                if( psf_config.loadFromJSON(psf_path)) {
+                    psf_config.printValues();
+                }else {
+                    std::cerr << "[ERROR] psf_config.loadFromJSON failed" << std::endl;
+                    return EXIT_FAILURE;
+                }
+                psfConfigs.push_back(psf_config);
+
+            } else {
+                psfPaths.push_back(path);
+            }
+        }
     }
 
 
         // Required in configuration file
         algorithm = config["algorithm"].get<std::string>();
-        dataFormatImage = config["dataFormatImage"].get<std::string>();
         epsilon = config["epsilon"].get<double>();
         iterations = config["iterations"].get<int>();
         lambda = config["lambda"].get<double>();
@@ -225,56 +222,36 @@ int main(int argc, char** argv) {
             gpu = config["gpu"].get<std::string>();
         }
 
-/*
-        if (psf_path.substr(psf_path.find_last_of(".") + 1) == "json") {
-            psf_1_is_config = true;
 
-            if( psfconfig_1.loadFromJSON(psf_path)) {
-                psfconfig_1.printValues();
-            }else {
-                return EXIT_FAILURE;
-            }
-            psfConfigs.push_back(psfconfig_1);
-        }
-        if (config.contains("psf_path_2")) {
-            psf_path_2 = config["psf_path_2"].get<std::string>();
-            if(psf_path_2 != "none") {
-                if (psf_path_2.substr(psf_path_2.find_last_of(".") + 1) == "json") {
-                    psf_2_is_config = true;
-                    if( psfconfig_2.loadFromJSON(psf_path_2)) {
-                        psfconfig_2.printValues();
-                    }else {
-                        return EXIT_FAILURE;
-                    }
-                }
-                secondPSF = true;
-                psfConfigs.push_back(psfconfig_2);
-
-            }
-        }
-*/
         //###PROGRAMM START###//
         PSF psf;
         PSF psf_2;
         std::vector<PSF> psfs;
 
+    std::vector<std::vector<int>> psfCubeVec, psfLayerVec;
 
-            //TODO
             for (const auto& psfPath : psfPaths) {
                 PSF psftmp;
                 if (psfPath.substr(psfPath.find_last_of(".") + 1) == "tif" || psfPath.substr(psfPath.find_last_of(".") + 1) == "tiff" || psfPath.substr(psfPath.find_last_of(".") + 1) == "ometif") {
                     psftmp.readFromTifFile(psfPath.c_str());
                 } else {
-                    psf.readFromTifDir(psfPath.c_str());
+                    psftmp.readFromTifDir(psfPath.c_str());
 
                 }
                 psfs.push_back(psftmp);
-                if(psfConfigs.size() > 0) {
-                    PSFConfig tmpPsfConfig;
-                    psfConfigs.insert(psfConfigs.begin(), tmpPsfConfig); // Fügt PSFConfig mit standard werten an Stelle 0 ein
-                }
+                psfCubeVec.push_back({});
+                psfLayerVec.push_back({});
+              //  if(psfConfigs.size() > 0) {
+              //      PSFConfig tmpPsfConfig;
+              //      tmpPsfConfig.x = psftmp.image.slices[0].cols;
+              //      tmpPsfConfig.y = psftmp.image.slices[0].rows;
+              //      tmpPsfConfig.z = psftmp.image.slices.size();
+              //      psfConfigs.insert(psfConfigs.begin(), tmpPsfConfig); // Fügt PSFConfig mit standard werten an Stelle 0 ein
+              //  }
             }
             for (auto& psfConfig : psfConfigs) {
+                psfCubeVec.push_back(psfConfig.psfCubes);
+                psfLayerVec.push_back(psfConfig.psfLayers);
                 if(psfConfig.psfPath != "") {
                     PSF psftmp;
                     psftmp.readFromTifFile(psfConfig.psfPath.c_str());
@@ -307,6 +284,7 @@ int main(int argc, char** argv) {
             for (int i = 0; i < psfs.size(); i++) {
                 if(firstPsfX != psfs[i].image.slices[0].cols || firstPsfY != psfs[i].image.slices[0].rows || firstPsfZ != psfs[i].image.slices.size()) {
                     std::cerr << "[ERROR] PSF sizes do not match" << std::endl;
+                    std::cout << firstPsfX << " " << firstPsfY << " " << firstPsfZ << " " << psfs[i].image.slices[0].cols << " " << psfs[i].image.slices[0].rows << " "<<psfs[i].image.slices.size()<<std::endl;
                     return EXIT_FAILURE;
                 }
 
@@ -364,14 +342,13 @@ int main(int argc, char** argv) {
             std::cout << "[INFO] " << psfs.size() << " PSF(s) loaded" << std::endl;
 
             Hyperstack hyperstack;
-            if(dataFormatImage == "FILE"){
+            if (image_path.substr(image_path.find_last_of(".") + 1) == "tif" || image_path.substr(image_path.find_last_of(".") + 1) == "tiff" || image_path.substr(image_path.find_last_of(".") + 1) == "ometif") {
                 hyperstack.readFromTifFile(image_path.c_str());
-            }else if(dataFormatImage == "DIR"){
-                hyperstack.readFromTifDir(image_path.c_str());
             } else {
-                std::cerr << "[ERROR] No correct dataformat for Image - choose DIR or FILE" << std::endl;
-                return EXIT_FAILURE;
+                std::cout << "[INFO] No file ending .tif, pretending image is DIR" << std::endl;
+                hyperstack.readFromTifDir(image_path.c_str());
             }
+            
             if (savePsf) {
                 for (int i = 0; i < psfs.size(); i++) {
                     psfs[i].saveAsTifFile("../result/psf_"+std::to_string(i)+".tif");
@@ -399,11 +376,7 @@ int main(int argc, char** argv) {
             //deconvConfig.secondPSF = secondPSF;
             deconvConfig.gpu = gpu;
 
-            std::vector<std::vector<int>> psfCubeVec, psfLayerVec;
-            for(int i = 0; i < psfConfigs.size(); i++) {
-                psfCubeVec.push_back(psfConfigs[i].psfCubes);
-                psfLayerVec.push_back(psfConfigs[i].psfLayers);
-            }
+
             deconvConfig.psfCubeVec = psfCubeVec;
             deconvConfig.psfLayerVec = psfLayerVec;
 
