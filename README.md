@@ -32,7 +32,16 @@ DeconvTool is a C++ command-line tool designed for deconvolution of microscopy i
 - [nlohmann/json](https://github.com/nlohmann/json) (for JSON handling)
 
 ## Build
+First build the CUBE library in /lib/cube/.
+```bash
+cd ./lib/cube/
+mkdir build
+cd build
 
+cmake ..
+make
+```
+Then the DeconvTool:
 ```bash
 mkdir build
 cd build
