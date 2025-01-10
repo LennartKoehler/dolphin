@@ -50,13 +50,13 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         this->cubePadding = this->psfSafetyBorder;
         if(this->cubeSize < 1){
             // Auto function for cubeSize, sets cubeSize to fit PSF
-            std::cout << "[INFO] CubeSize fitted to PSF size" << std::endl;
+            std::cout << "[INFO] SubimageSize fitted to PSF size" << std::endl;
             this->cubeSize = std::max({originPsfWidth, originPsfHeight, originPsfDepth});
         }
 
         if(safetyBorderPsfWidth < this->cubeSize){
             this->cubePadding = 10;
-            std::cout << "[INFO] PSF with safety border smaller than cubeSize" << std::endl;
+            std::cout << "[INFO] PSF with safety border smaller than subimageSize" << std::endl;
         }
         if(this->cubeSize+2*this->cubePadding < safetyBorderPsfWidth){
             this->cubePadding = (safetyBorderPsfWidth-this->cubeSize)/2;
@@ -79,18 +79,18 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         }else {
 
             if(this->psfSafetyBorder < 1){
-                std::cerr << "[ERROR] CubeSize should be greater than 1 and PsfSafetyBorder should be greater than 0" << std::endl;
+                std::cerr << "[ERROR] SubimageSize should be greater than 1 and PsfSafetyBorder should be greater than 0" << std::endl;
                 return false;
             }
 
             UtlGrid::extendImage(channel.image.slices, imagePadding, this->borderType);
 
             this->gridImages = UtlGrid::splitWithCubePadding(channel.image.slices, this->cubeSize, imagePadding, this->cubePadding);
-            std::cout << "[INFO] Actual cubeSize: " << this->cubeSize << "px" << std::endl;
-            std::cout << "[INFO] GridImage(with extentsion) properties: [Depth: " << this->gridImages[0].size() << " Width:" << this->gridImages[0][0].cols << " Height:" << this->gridImages[0][0].rows << " Subimages: " << this->gridImages.size() << "]" << std::endl;
+            std::cout << "[INFO] Actual subimageSize: " << this->cubeSize << "px" << std::endl;
+            std::cout << "[INFO] Subimages(with extentsion) properties: [Depth: " << this->gridImages[0].size() << " Width:" << this->gridImages[0][0].cols << " Height:" << this->gridImages[0][0].rows << " Subimages: " << this->gridImages.size() << "]" << std::endl;
 
             if((this->cubeSize + 2*this->cubePadding) != this->gridImages[0][0].cols){
-                std::cerr << "[ERROR] CubeSize doesnt match with actual CubeSize: " << this->gridImages[0][0].cols << " (should be: " << (this->cubeSize + 2*this->cubePadding) << ")" << std::endl;
+                std::cerr << "[ERROR] SubimageSize doesnt match with actual CubeSize: " << this->gridImages[0][0].cols << " (should be: " << (this->cubeSize + 2*this->cubePadding) << ")" << std::endl;
                 return false;
             }
 
@@ -113,47 +113,6 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
             std::cout << "[WARNING] PSF is larger than image/cube" << std::endl;
         }
 
-    /*
-     *fft plan erstellen - fftwPSFPlanMem, forwardPSFPlan
-     *foreach psf in psfs
-     *  von Mat zu fftwcomplex konveriteien
-     *  fft - h
-     *  pad - fftwcomplex temp_paddedH
-     *  entweder in paddedH oder d_paddedH schieben
-     *  free temp_paddedH
-     */
-    //TODO =============
- /*   fftw_complex *h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
-    fftw_complex *fftwPSFPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
-    fftw_plan forwardPSFPlan = fftw_plan_dft_3d(originPsfDepth, originPsfHeight, originPsfWidth, fftwPSFPlanMem, fftwPSFPlanMem, FFTW_FORWARD, FFTW_MEASURE);
-
-    for(int p = 0; p < psfs.size(); p++) {
-        std::cout << "[STATUS] Performing Fourier Transform on PSF"<<std::to_string(p+1)<<"..." << std::endl;
-        UtlFFT::convertCVMatVectorToFFTWComplex(psfs[p].image.slices, h, originPsfWidth, originPsfHeight, originPsfDepth);
-        fftw_execute_dft(forwardPSFPlan, h, h);
-
-        std::cout << "[STATUS] Padding PSF "<<std::to_string(p+1)<<"..." << std::endl;
-        // Pad the PSF to the size of the image
-        //fftw_complex *temp_h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * safetyBorderPsfVolume);
-       this->paddedH = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * safetyBorderPsfVolume);
-        UtlFFT::padPSF(h, originPsfWidth, originPsfHeight, originPsfDepth, this->paddedH, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
-
-#ifdef CUDA_AVAILABLE
-        if(this->gpu == "cuda") {
-            //INFO safetyBorderPsfVolume = this->cubeWidth* this->cubeHeight* this->cubeDepth
-            fftw_complex *d_temp_h;
-            cudaMalloc((void**)&d_temp_h, safetyBorderPsfVolume * sizeof(fftw_complex));
-            CUBE_UTL_COPY::copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_temp_h, temp_h);
-            this->d_paddedHs.push_back(d_temp_h);
-        }else {
-            this->paddedHs.push_back(temp_h);
-        }
-#else
-
-#endif
-    }
-    this->paddedHs.push_back(this->paddedH);
-*/
         std::cout << "[STATUS] Creating fftw plans..." << std::endl;
         // In-line fftplan for fast ft calculation and inverse
         this->fftwPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
@@ -187,35 +146,6 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         this->paddedHs.push_back(temp_h);
 #endif
     }
-  /*      if(this->secondPSF){
-            if(psfs.size() < 2) {
-                std::cerr << "[ERROR] Only one PSF loaded" << std::endl;
-                return false;
-            }
-            //second PSF
-            std::cout << "[STATUS] Performing Fourier Transform on PSF_2..." << std::endl;
-            fftw_complex *h_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
-            UtlFFT::convertCVMatVectorToFFTWComplex(psfs[1].image.slices, h_2, originPsfWidth, originPsfHeight, originPsfDepth);
-            fftw_execute_dft(forwardPSFPlan, h_2, h_2);
-            std::cout << "[STATUS] Padding PSF_2..." << std::endl;
-            // Pad the PSF to the size of the image
-            this->paddedH_2 = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * safetyBorderPsfVolume);
-            UtlFFT::padPSF(h_2, originPsfWidth, originPsfHeight, originPsfDepth, this->paddedH_2, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
-            fftw_free(h_2);
-        }
-
-#ifdef CUDA_AVAILABLE
-    if(this->gpu == "cuda") {
-        //INFO safetyBorderPsfVolume = this->cubeWidth* this->cubeHeight* this->cubeDepth
-        cudaMalloc((void**)&this->d_paddedH, safetyBorderPsfVolume * sizeof(fftw_complex));
-        CUBE_UTL_COPY::copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, this->d_paddedH, this->paddedH);
-        if(this->secondPSF) {
-            cudaMalloc((void**)&this->d_paddedH_2, safetyBorderPsfVolume * sizeof(fftw_complex));
-            CUBE_UTL_COPY::copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, this->d_paddedH_2, this->paddedH_2);
-        }
-    }
-#else
-#endif*/
 
         // Free FFTW resources for PSF
         fftw_free(h);
@@ -227,7 +157,7 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 }
 bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
     if(this->gridImages.empty()){
-        std::cerr << "[ERROR] No grid images(subimages) processed" << std::endl;
+        std::cerr << "[ERROR] No subimages processed" << std::endl;
         return false;
     }
     if(this->grid){
@@ -362,7 +292,7 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
         this->cubesPerY = static_cast<int>(std::ceil(static_cast<double>(this->originalImageHeight) / this->cubeSize));
         this->cubesPerZ = static_cast<int>(std::ceil(static_cast<double>(this->originalImageDepth) / this->cubeSize));
         this->cubesPerLayer = cubesPerX * cubesPerY;
-        std::cout << "[INFO] Cubes per Layer(" << cubesPerZ<< "):" << cubesPerX << "x" << cubesPerY << " (" << cubesPerLayer << ")" << std::endl;
+        std::cout << "[INFO] Subimages per Layer(" << cubesPerZ<< "):" << cubesPerX << "x" << cubesPerY << " (" << cubesPerLayer << ")" << std::endl;
 
         // Parallelization of grid for
         // Using static scheduling because the execution time for each iteration is similar, which reduces overhead costs by minimizing task assignment.
@@ -379,38 +309,6 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
             fftw_complex* g = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
             // Result image
             fftw_complex* f = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-/*
-            if(this->secondPSF){
-                // Check if second PSF has to be applied
-                int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / this->cubesPerLayer));
-                auto useSecondPsfForThisLayer = std::find(secondpsflayers.begin(), secondpsflayers.end(), currentCubeLayer);
-                auto useSecondPsfForThisCube = std::find(secondpsfcubes.begin(), secondpsfcubes.end(), i+1);
-                // Load the correct PSF
-                if (useSecondPsfForThisLayer != secondpsflayers.end() ||  useSecondPsfForThisCube != secondpsfcubes.end()) {
-                    //std::cout << "[DEBUG] second PSF at "<< i+1 << std::endl;
-#ifdef CUDA_AVAILABLE
-                    if(this->gpu == "cuda") {H = this->d_paddedH_2;}else {H = this->paddedH_2;}
-#else
-                    H = this->paddedH_2;
-#endif
-                } else {
-                    //std::cout << "[DEBUG] first PSF at "<< i+1 << std::endl;
-#ifdef CUDA_AVAILABLE
-                    if(this->gpu == "cuda") {H = this->d_paddedH;}else {H = this->paddedH;}
-#else
-                    H = this->paddedH;
-#endif
-                }
-            }else{
-#ifdef CUDA_AVAILABLE
-                if(this->gpu == "cuda") {H = this->d_paddedH;}else {H = this->paddedH;}
-#else
-                H = this->paddedH;
-#endif
-            }
-*/
-            //TODO OOOOOOOOOOOOOOOOOOOOOOOOOOOO
-
 
                 if(this->layerNumVec.size() > 1) {
                     int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / this->cubesPerLayer));

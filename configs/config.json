@@ -15,7 +15,7 @@
 
   "grid": true,
   "borderType": 2,
-  "cubeSize": 0,
+  "subimageSize": 0,
   "psfSafetyBorder": 10,
 
   "gpu": "none"

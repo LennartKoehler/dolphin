@@ -34,17 +34,9 @@ int main(int argc, char** argv) {
     // Arguments
     std::string image_path;
     std::string psf_path;
-    std::string psf_path_2;
     std::string algorithm;
-    std::string psfModel = "gauss";
     int iterations = 10; //RL and RLTV
     double lambda = 0.01; //RIF and RLTV
-    double sigmax = 5.0; //synthetic PSF
-    double sigmay = 5.0; //synthetic PSF
-    double sigmaz = 5.0; //synthetic PSF
-    int psfx = 20; //synthetic PSF width
-    int psfy = 20; //synthetic PSF heigth
-    int psfz = 30; //synthetic PSF depth/layers
     double epsilon = 1e-6; // complex divison
     bool time = false; //show time
     bool sep = false; //save layer separate (TIF dir)
@@ -52,21 +44,10 @@ int main(int argc, char** argv) {
     bool showExampleLayers = false; //show random example layer of image and PSF
     bool printInfo = false; //show metadata of image
     bool grid = true; //do grid processing
-    int cubeSize = 0; //sub-image size (edge)
+    int subimageSize = 0; //sub-image size (edge)
     int psfSafetyBorder = 10; //padding around PSF
     int borderType = cv::BORDER_REFLECT; //extension type of image
 
-    double sigmax_2 = 10.0; //synthetic second PSF
-    double sigmay_2 = 10.0; //synthetic second PSF
-    double sigmaz_2 = 15.0; //synthetic second PSF
-    std::string psfModel_2 = "gauss";
-
-
-    std::vector<int> secondpsflayers; //sub-image layers for secondPSF
-    std::vector<int> secondpsfcubes; //sub-images for secondPSF
-
-
-    //TODO CLI daten einlesen
     PSFConfig psfconfig_1;
     PSFConfig psfconfig_2;
     std::vector<PSFConfig> psfConfigs;
@@ -104,7 +85,7 @@ int main(int argc, char** argv) {
 
     cli_group->add_option("--borderType", borderType, "Border for extended image [2](0-constant, 1-replicate, 2-reflecting)")->check(CLI::PositiveNumber);
     cli_group->add_option("--psfSafetyBorder", psfSafetyBorder, "Padding around PSF [10]")->check(CLI::PositiveNumber);
-    cli_group->add_option("--cubeSize", cubeSize, "CubeSize/EdgeLength for sub-images of grid [0] (0-auto fit to PSF)")->check(CLI::PositiveNumber);
+    cli_group->add_option("--subimageSize", subimageSize, "CubeSize/EdgeLength for sub-images of grid [0] (0-auto fit to PSF)")->check(CLI::PositiveNumber);
 
     cli_group->add_option("--gpu", gpu, "Type of GPU API ('cuda'/'none')");
 
@@ -203,227 +184,160 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Required in configuration file
+    algorithm = config["algorithm"].get<std::string>();
+    epsilon = config["epsilon"].get<double>();
+    iterations = config["iterations"].get<int>();
+    lambda = config["lambda"].get<double>();
+    psfSafetyBorder = config["psfSafetyBorder"].get<int>();
+    subimageSize = config["subimageSize"].get<int>();
+    borderType = config["borderType"].get<int>();
+    sep = config["seperate"].get<bool>();
+    time = config["time"].get<bool>();
+    savePsf = config["savePsf"].get<bool>();
+    showExampleLayers = config["showExampleLayers"].get<bool>();
+    printInfo = config["info"].get<bool>();
+    grid = config["grid"].get<bool>();
+    if (config.contains("gpu")) {
+        gpu = config["gpu"].get<std::string>();
+    }
 
-        // Required in configuration file
-        algorithm = config["algorithm"].get<std::string>();
-        epsilon = config["epsilon"].get<double>();
-        iterations = config["iterations"].get<int>();
-        lambda = config["lambda"].get<double>();
-        psfSafetyBorder = config["psfSafetyBorder"].get<int>();
-        cubeSize = config["cubeSize"].get<int>();
-        borderType = config["borderType"].get<int>();
-        sep = config["seperate"].get<bool>();
-        time = config["time"].get<bool>();
-        savePsf = config["savePsf"].get<bool>();
-        showExampleLayers = config["showExampleLayers"].get<bool>();
-        printInfo = config["info"].get<bool>();
-        grid = config["grid"].get<bool>();
-        if (config.contains("gpu")) {
-            gpu = config["gpu"].get<std::string>();
-        }
-
-
-        //###PROGRAMM START###//
-        PSF psf;
-        PSF psf_2;
-        std::vector<PSF> psfs;
+    //###PROGRAMM START###//
+    PSF psf;
+    std::vector<PSF> psfs;
 
     std::vector<std::vector<int>> psfCubeVec, psfLayerVec;
 
-            for (const auto& psfPath : psfPaths) {
-                PSF psftmp;
-                if (psfPath.substr(psfPath.find_last_of(".") + 1) == "tif" || psfPath.substr(psfPath.find_last_of(".") + 1) == "tiff" || psfPath.substr(psfPath.find_last_of(".") + 1) == "ometif") {
-                    psftmp.readFromTifFile(psfPath.c_str());
-                } else {
-                    psftmp.readFromTifDir(psfPath.c_str());
-
-                }
-                psfs.push_back(psftmp);
-                psfCubeVec.push_back({});
-                psfLayerVec.push_back({});
-              //  if(psfConfigs.size() > 0) {
-              //      PSFConfig tmpPsfConfig;
-              //      tmpPsfConfig.x = psftmp.image.slices[0].cols;
-              //      tmpPsfConfig.y = psftmp.image.slices[0].rows;
-              //      tmpPsfConfig.z = psftmp.image.slices.size();
-              //      psfConfigs.insert(psfConfigs.begin(), tmpPsfConfig); // Fügt PSFConfig mit standard werten an Stelle 0 ein
-              //  }
-            }
-            for (auto& psfConfig : psfConfigs) {
-                psfCubeVec.push_back(psfConfig.psfCubes);
-                psfLayerVec.push_back(psfConfig.psfLayers);
-                if(psfConfig.psfPath != "") {
-                    PSF psftmp;
-                    psftmp.readFromTifFile(psfConfig.psfPath.c_str());
-                    psfs.push_back(psftmp);
-                    psfConfig.x = psftmp.image.slices[0].cols;
-                    psfConfig.y = psftmp.image.slices[0].rows;
-                    psfConfig.z = psftmp.image.slices.size();
-                }else if(psfConfig.psfModel == "gauss") {
-                    double sigmax = psfConfig.sigmax;
-                    double sigmay = psfConfig.sigmay;
-                    double sigmaz = psfConfig.sigmaz;
-                    int x = psfConfig.x;
-                    int y = psfConfig.y;
-                    int z = psfConfig.z;
-
-                    PSFGenerator<GaussianPSFGeneratorAlgorithm, double&, double&, double&, int&, int&, int&> gaussianGenerator(sigmax, sigmay, sigmaz, x, y, z);
-
-                    PSF psftmp;
-                    psftmp = gaussianGenerator.generate();
-                    psfs.push_back(psftmp);
-                }else{
-                    std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
-                    return EXIT_FAILURE;
-                }
-            }
-
-            int firstPsfX = psfs[0].image.slices[0].cols;
-            int firstPsfY = psfs[0].image.slices[0].rows;
-            int firstPsfZ = psfs[0].image.slices.size();
-            for (int i = 0; i < psfs.size(); i++) {
-                if(firstPsfX != psfs[i].image.slices[0].cols || firstPsfY != psfs[i].image.slices[0].rows || firstPsfZ != psfs[i].image.slices.size()) {
-                    std::cerr << "[ERROR] PSF sizes do not match" << std::endl;
-                    std::cout << firstPsfX << " " << firstPsfY << " " << firstPsfZ << " " << psfs[i].image.slices[0].cols << " " << psfs[i].image.slices[0].rows << " "<<psfs[i].image.slices.size()<<std::endl;
-                    return EXIT_FAILURE;
-                }
-
-
-
-            /*
-                    if (psf_1_is_config == true) {
-                        if(psfModel == "gauss") {
-                            PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(psfconfig_1.sigmax, psfconfig_1.sigmay, psfconfig_1.sigmaz, psfconfig_1.x, psfconfig_1.y, psfconfig_1.z);
-                            psf = gaussianGenerator.generate();
-                        }else{
-                            std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
-                            return EXIT_FAILURE;
-                        }
-                    }else {
-                        psf.readFromTifFile(psf_path.c_str());
-                    }
-                } else {
-                    std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
-                    return EXIT_FAILURE;
-                }
-                psfs.push_back(psf);*/
-
-            /*if (secondPSF) {
-                if (dataFormatPSF == "DIR") {
-                    psf_2.readFromTifDir(psf_path_2.c_str());
-                } else if (dataFormatPSF == "FILE") {
-                    if(psf_2_is_config == true){
-                        if(psfModel_2 == "gauss"){
-                            std::cout << "[INFO] Generated second PSF" << std::endl;
-                            PSFGenerator<GaussianPSFGeneratorAlgorithm, double &, double &, double &, int &, int &, int &> gaussianGenerator(psfconfig_2.sigmax, psfconfig_2.sigmay, psfconfig_2.sigmaz, psfconfig_2.x, psfconfig_2.y, psfconfig_2.z);
-                            psf_2 = gaussianGenerator.generate();
-                        }else{
-                            std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
-                            return EXIT_FAILURE;
-                        }
-                        if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
-                            std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
-                            return EXIT_FAILURE;
-                        }
-                    }else {
-                        psf_2.readFromTifFile(psf_path_2.c_str());
-                    }
-                } else {
-                    std::cerr << "[ERROR] No correct dataformat for PSF - choose DIR or FILE" << std::endl;
-                    return EXIT_FAILURE;
-                }
-                if((psf_2.image.slices.size() != psf.image.slices.size()) || (psf_2.image.slices[0].cols != psf.image.slices[0].cols) || (psf_2.image.slices[0].rows != psf.image.slices[0].rows)){
-                    std::cerr << "[ERROR] Dimensions of both PSFs are not equal" << std::endl;
-                    return EXIT_FAILURE;
-                }
-                psfs.push_back(psf_2);
-            */
-            }
-            std::cout << "[INFO] " << psfs.size() << " PSF(s) loaded" << std::endl;
-
-            Hyperstack hyperstack;
-            if (image_path.substr(image_path.find_last_of(".") + 1) == "tif" || image_path.substr(image_path.find_last_of(".") + 1) == "tiff" || image_path.substr(image_path.find_last_of(".") + 1) == "ometif") {
-                hyperstack.readFromTifFile(image_path.c_str());
-            } else {
-                std::cout << "[INFO] No file ending .tif, pretending image is DIR" << std::endl;
-                hyperstack.readFromTifDir(image_path.c_str());
-            }
-            
-            if (savePsf) {
-                for (int i = 0; i < psfs.size(); i++) {
-                    psfs[i].saveAsTifFile("../result/psf_"+std::to_string(i)+".tif");
-                }
-            }
-            if (printInfo) {
-                hyperstack.printMetadata();
-            }
-            if (showExampleLayers) {
-                hyperstack.showChannel(0);
-            }
-            hyperstack.saveAsTifFile("../result/input_hyperstack.tif");
-            hyperstack.saveAsTifDir("../result/input_hyperstack");
-
-            DeconvolutionConfig deconvConfig;
-            deconvConfig.iterations = iterations;
-            deconvConfig.epsilon = epsilon;
-            deconvConfig.grid = grid;
-            deconvConfig.lambda = lambda;
-            deconvConfig.borderType = borderType;
-            deconvConfig.psfSafetyBorder = psfSafetyBorder;
-            deconvConfig.cubeSize = cubeSize;
-            //deconvConfig.secondpsflayers = psfconfig_2.psfLayers;
-            //deconvConfig.secondpsfcubes = psfconfig_2.psfCubes;
-            //deconvConfig.secondPSF = secondPSF;
-            deconvConfig.gpu = gpu;
-
-
-            deconvConfig.psfCubeVec = psfCubeVec;
-            deconvConfig.psfLayerVec = psfLayerVec;
-
-
-            Hyperstack deconvHyperstack;
-
-            // Starttime
-            auto start = std::chrono::high_resolution_clock::now();
-
-            if (algorithm == "inverse") {
-                DeconvolutionAlgorithm<InverseFilterDeconvolutionAlgorithm> inverseAlgorithm(deconvConfig);
-                deconvHyperstack = inverseAlgorithm.deconvolve(hyperstack, psfs);
-            } else if (algorithm == "rl") {
-                DeconvolutionAlgorithm<RLDeconvolutionAlgorithm> rlAlgorithm(deconvConfig);
-                deconvHyperstack = rlAlgorithm.deconvolve(hyperstack, psfs);
-            }else if (algorithm == "rltv") {
-                DeconvolutionAlgorithm<RLTVDeconvolutionAlgorithm> rltvAlgorithm(deconvConfig);
-                deconvHyperstack = rltvAlgorithm.deconvolve(hyperstack, psfs);
-            } else if (algorithm == "rif") {
-                DeconvolutionAlgorithm<RegularizedInverseFilterDeconvolutionAlgorithm> rifAlgorithm(deconvConfig);
-                deconvHyperstack = rifAlgorithm.deconvolve(hyperstack, psfs);
-                //TODO
-            } else if (algorithm == "convolve") {
-                deconvHyperstack = hyperstack.convolve(psf);
-            } else {
-                std::cerr << "[ERROR] Please choose a --algorithm: InverseFilter[inverse], RegularizedInverseFilter[rif], RichardsonLucy[rl], RichardsonLucyTotalVariation[rltv]" << std::endl;
-                return EXIT_FAILURE;
-            }
-
-            if (time) {
-                // Endtime
-                auto end = std::chrono::high_resolution_clock::now();
-                // Calculation of the duration of the programm
-                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-                std::cout << "[INFO] Algorithm duration: " << duration.count() << " ms" << std::endl;
-            }
-            if (showExampleLayers) {
-                deconvHyperstack.showChannel(0);
-            }
-
-            deconvHyperstack.saveAsTifFile("../result/deconv.tif");
-            if(sep){
-                deconvHyperstack.saveAsTifDir("../result/deconv");
-            }
-
-            //###PROGRAMM END###//
-            std::cout << "[End DeconvTool]" << std::endl;
-            return EXIT_SUCCESS;
+    for (const auto& psfPath : psfPaths) {
+        PSF psftmp;
+        if (psfPath.substr(psfPath.find_last_of(".") + 1) == "tif" || psfPath.substr(psfPath.find_last_of(".") + 1) == "tiff" || psfPath.substr(psfPath.find_last_of(".") + 1) == "ometif") {
+            psftmp.readFromTifFile(psfPath.c_str());
+        } else {
+            psftmp.readFromTifDir(psfPath.c_str());
         }
+        psfs.push_back(psftmp);
+        psfCubeVec.push_back({});
+        psfLayerVec.push_back({});
+    }
+    for (auto& psfConfig : psfConfigs) {
+        psfCubeVec.push_back(psfConfig.psfCubes);
+        psfLayerVec.push_back(psfConfig.psfLayers);
+        if(psfConfig.psfPath != "") {
+            PSF psftmp;
+            psftmp.readFromTifFile(psfConfig.psfPath.c_str());
+            psfs.push_back(psftmp);
+            psfConfig.x = psftmp.image.slices[0].cols;
+            psfConfig.y = psftmp.image.slices[0].rows;
+            psfConfig.z = psftmp.image.slices.size();
+        }else if(psfConfig.psfModel == "gauss") {
+            double sigmax = psfConfig.sigmax;
+            double sigmay = psfConfig.sigmay;
+            double sigmaz = psfConfig.sigmaz;
+            int x = psfConfig.x;
+            int y = psfConfig.y;
+            int z = psfConfig.z;
+
+            PSFGenerator<GaussianPSFGeneratorAlgorithm, double&, double&, double&, int&, int&, int&> gaussianGenerator(sigmax, sigmay, sigmaz, x, y, z);
+
+            PSF psftmp;
+            psftmp = gaussianGenerator.generate();
+            psfs.push_back(psftmp);
+        }else{
+            std::cerr << "[ERROR] No correct PSF model ('gauss'/...)" << std::endl;
+            return EXIT_FAILURE;
+        }
+    }
+
+    int firstPsfX = psfs[0].image.slices[0].cols;
+    int firstPsfY = psfs[0].image.slices[0].rows;
+    int firstPsfZ = psfs[0].image.slices.size();
+    for (int i = 0; i < psfs.size(); i++) {
+        if(firstPsfX != psfs[i].image.slices[0].cols || firstPsfY != psfs[i].image.slices[0].rows || firstPsfZ != psfs[i].image.slices.size()) {
+            std::cerr << "[ERROR] PSF sizes do not match" << std::endl;
+            std::cout << firstPsfX << " " << firstPsfY << " " << firstPsfZ << " " << psfs[i].image.slices[0].cols << " " << psfs[i].image.slices[0].rows << " "<<psfs[i].image.slices.size()<<std::endl;
+            return EXIT_FAILURE;
+        }
+    }
+    std::cout << "[INFO] " << psfs.size() << " PSF(s) loaded" << std::endl;
+
+    Hyperstack hyperstack;
+    if (image_path.substr(image_path.find_last_of(".") + 1) == "tif" || image_path.substr(image_path.find_last_of(".") + 1) == "tiff" || image_path.substr(image_path.find_last_of(".") + 1) == "ometif") {
+        hyperstack.readFromTifFile(image_path.c_str());
+    } else {
+        std::cout << "[INFO] No file ending .tif, pretending image is DIR" << std::endl;
+        hyperstack.readFromTifDir(image_path.c_str());
+    }
+
+    if (savePsf) {
+        for (int i = 0; i < psfs.size(); i++) {
+            psfs[i].saveAsTifFile("../result/psf_"+std::to_string(i)+".tif");
+        }
+    }
+    if (printInfo) {
+        hyperstack.printMetadata();
+    }
+    if (showExampleLayers) {
+        hyperstack.showChannel(0);
+    }
+    hyperstack.saveAsTifFile("../result/input_hyperstack.tif");
+    hyperstack.saveAsTifDir("../result/input_hyperstack");
+
+    DeconvolutionConfig deconvConfig;
+    deconvConfig.iterations = iterations;
+    deconvConfig.epsilon = epsilon;
+    deconvConfig.grid = grid;
+    deconvConfig.lambda = lambda;
+    deconvConfig.borderType = borderType;
+    deconvConfig.psfSafetyBorder = psfSafetyBorder;
+    deconvConfig.cubeSize = subimageSize;
+    deconvConfig.gpu = gpu;
+    deconvConfig.psfCubeVec = psfCubeVec;
+    deconvConfig.psfLayerVec = psfLayerVec;
+
+
+    Hyperstack deconvHyperstack;
+
+    // Starttime
+    auto start = std::chrono::high_resolution_clock::now();
+
+    if (algorithm == "inverse") {
+        DeconvolutionAlgorithm<InverseFilterDeconvolutionAlgorithm> inverseAlgorithm(deconvConfig);
+        deconvHyperstack = inverseAlgorithm.deconvolve(hyperstack, psfs);
+    } else if (algorithm == "rl") {
+        DeconvolutionAlgorithm<RLDeconvolutionAlgorithm> rlAlgorithm(deconvConfig);
+        deconvHyperstack = rlAlgorithm.deconvolve(hyperstack, psfs);
+    }else if (algorithm == "rltv") {
+        DeconvolutionAlgorithm<RLTVDeconvolutionAlgorithm> rltvAlgorithm(deconvConfig);
+        deconvHyperstack = rltvAlgorithm.deconvolve(hyperstack, psfs);
+    } else if (algorithm == "rif") {
+        DeconvolutionAlgorithm<RegularizedInverseFilterDeconvolutionAlgorithm> rifAlgorithm(deconvConfig);
+        deconvHyperstack = rifAlgorithm.deconvolve(hyperstack, psfs);
+        //TODO
+    } else if (algorithm == "convolve") {
+        deconvHyperstack = hyperstack.convolve(psf);
+    } else {
+        std::cerr << "[ERROR] Please choose a --algorithm: InverseFilter[inverse], RegularizedInverseFilter[rif], RichardsonLucy[rl], RichardsonLucyTotalVariation[rltv]" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    if (time) {
+        // Endtime
+        auto end = std::chrono::high_resolution_clock::now();
+        // Calculation of the duration of the programm
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        std::cout << "[INFO] Algorithm duration: " << duration.count() << " ms" << std::endl;
+    }
+    if (showExampleLayers) {
+        deconvHyperstack.showChannel(0);
+    }
+
+    deconvHyperstack.saveAsTifFile("../result/deconv.tif");
+    if(sep){
+        deconvHyperstack.saveAsTifDir("../result/deconv");
+    }
+
+    //###PROGRAMM END###//
+    std::cout << "[End DeconvTool]" << std::endl;
+    return EXIT_SUCCESS;
+}
 
