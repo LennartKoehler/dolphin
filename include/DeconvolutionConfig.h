@@ -12,7 +12,7 @@ public:
     double lambda = 0.001;
     int borderType = cv::BORDER_REFLECT;
     int psfSafetyBorder = 20;
-    int cubeSize = 50;
+    int cubeSize = 0;
     std::vector<int> secondpsflayers = {};
     std::vector<int> secondpsfcubes = {};
     std::vector<std::vector<int>> psfCubeVec, psfLayerVec;

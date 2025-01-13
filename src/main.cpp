@@ -112,11 +112,11 @@ int main(int argc, char** argv) {
     if (!config_file_path.empty()) {
         // Read configuration file
         std::ifstream config_file(config_file_path);
-        std::cout<< "[STATUS] " << config_file_path << " successfully read" << std::endl;
         if (!config_file.is_open()) {
             std::cerr << "[ERROR] failed opening of configuration file:" << config_file_path << std::endl;
             return EXIT_FAILURE;
         }
+        std::cout<< "[STATUS] " << config_file_path << " successfully read" << std::endl;
         config_file >> config;
         // Values from configuration file passed to arguments
         image_path = config["image_path"].get<std::string>();
@@ -135,7 +135,9 @@ int main(int argc, char** argv) {
                     psfConfigs.push_back(psf_config);
 
                 } else {
-                    psfPaths.push_back(psf_path);
+                    if(psf_path != "" || !psf_path.empty()) {
+                        psfPaths.push_back(psf_path);
+                    }
                 }
             } else if (config["psf_path"].is_array()) {
                 for (const auto& element : config["psf_path"]) { // Range-based for loop
