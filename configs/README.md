@@ -4,8 +4,6 @@
 - `-i, --image <path>`
 - `-p, --psf <path>`
 - `-a, --algorithm <algorithm>`
-- `--dataFormatImage <format>`
-- `--dataFormatPSF <format>`
 
 ## Input and Output
 
@@ -16,10 +14,6 @@
 - `-p, --psf <path>`  
   **Description**: Path to the input PSF file or use `'synthetic'` to generate a synthetic PSF.  
   **Required**: Yes.
-
-- `--psf2 <path>`  
-  **Description**: Path to the second input PSF file or use `'synthetic'` to generate a second synthetic PSF.  
-  **Required**: No.
 
 - `--savepsf`  
   **Description**: Save the PSF used in the process.  
@@ -44,20 +38,6 @@
     - `'rltv'`: Richardson-Lucy Total Variation.
     - `'rif'`: Regularized Inverse Filter.
     - `'inverse'`: Inverse filtering.  
-      **Required**: Yes.
-
-## Data Format
-
-- `--dataFormatImage <format>`  
-  **Description**: Specifies the data format for the input image. Options are:
-    - `'FILE'`: Single image file.
-    - `'DIR'`: Directory containing image slices.  
-      **Required**: Yes.
-
-- `--dataFormatPSF <format>`  
-  **Description**: Specifies the data format for the input PSF. Options are:
-    - `'FILE'`: Single PSF file.
-    - `'DIR'`: Directory containing PSF slices.  
       **Required**: Yes.
 
 ## Synthetic PSF Parameters
@@ -98,21 +78,6 @@
 - `--psfz <value>`  
   **Description**: Depth in px of the synthetic PSF.  
   **Default**: 30.  
-  **Required**: No.
-
-- `--sigmax_2 <value>`  
-  **Description**: Sigma value in the X direction for the second synthetic PSF.  
-  **Default**: 10.  
-  **Required**: No.
-
-- `--sigmay_2 <value>`  
-  **Description**: Sigma value in the Y direction for the second synthetic PSF.  
-  **Default**: 10.  
-  **Required**: No.
-
-- `--sigmaz_2 <value>`  
-  **Description**: Sigma value in the Z direction for the second synthetic PSF.  
-  **Default**: 15.  
   **Required**: No.
 
 ## Deconvolution and Regularization

@@ -1,11 +1,12 @@
 {
-  "sigmax": 2.5,
-  "sigmay": 2.5,
-  "sigmaz": 2.5,
+  "path": "",
+  "sigmax": 5,
+  "sigmay": 5,
+  "sigmaz": 5,
   "psfx": 20,
   "psfy": 20,
   "psfz": 46,
   "psfmodel": "gauss",
   "layers": [],
-  "subimages": [136]
+  "subimages": []
 }

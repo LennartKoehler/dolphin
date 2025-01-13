@@ -3,6 +3,7 @@ build/*
 cmake-build-debug/*
 input/*
 lib/cube/build/*
+configs/*
 
 uml.puml
 uml2.puml
@@ -13,9 +14,13 @@ uml3.puml
 !result/
 !build/
 !lib/cube/build/
+!configs/
 
 # Erlaube eine .gitignore-Datei im Verzeichnis input (optional, falls du .gitignore im Verzeichnis haben möchtest)
 !input/.gitkeep
 !result/.gitkeep
 !build/.gitkeep
 !/lib/cube/build/.gitkeep
+!configs/README.md
+!configs/default_config.json
+!configs/default_psf_config.json
