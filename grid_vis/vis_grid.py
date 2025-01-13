@@ -21,9 +21,9 @@ def plot_cube_with_subcubes(cube_size=10, subcube_size=3):
     subcube_count = 0
     
     # Loops for the subcubes, allowing the last ones to protrude beyond the edge
-    for y in range(0, cube_size, subcube_size):
+    for z in range(0, cube_size, subcube_size):
         for x in range(0, cube_size, subcube_size):
-            for z in range(0, cube_size, subcube_size):
+            for y in range(0, cube_size, subcube_size):
                 # Calculate the corners of the subcube
                 subcube_corners = [
                     [x, y, z],
@@ -57,7 +57,7 @@ def plot_cube_with_subcubes(cube_size=10, subcube_size=3):
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    
+    ax.view_init(elev=-138, azim=-125)
     # ax.view_init(elev=110, azim=0)
     
     plt.show()

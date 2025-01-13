@@ -20,7 +20,7 @@ uml3.puml
 !input/.gitkeep
 !result/.gitkeep
 !build/.gitkeep
-!/lib/cube/build/.gitkeep
+!lib/cube/build/.gitkeep
 !configs/README.md
 !configs/default_config.json
 !configs/default_psf_config.json
