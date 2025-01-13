@@ -165,12 +165,28 @@ int main(int argc, char** argv) {
             }
 
         }
-
+        // Required in configuration file
+        algorithm = config["algorithm"].get<std::string>();
+        epsilon = config["epsilon"].get<double>();
+        iterations = config["iterations"].get<int>();
+        lambda = config["lambda"].get<double>();
+        psfSafetyBorder = config["psfSafetyBorder"].get<int>();
+        subimageSize = config["subimageSize"].get<int>();
+        borderType = config["borderType"].get<int>();
+        sep = config["seperate"].get<bool>();
+        time = config["time"].get<bool>();
+        savePsf = config["savePsf"].get<bool>();
+        showExampleLayers = config["showExampleLayers"].get<bool>();
+        printInfo = config["info"].get<bool>();
+        grid = config["grid"].get<bool>();
+        if (config.contains("gpu")) {
+            gpu = config["gpu"].get<std::string>();
+        }
     }else {
         for(auto path: psfPathsCLI) {
-            if (path.substr(psf_path.find_last_of(".") + 1) == "json") {
+            if (path.substr(path.find_last_of(".") + 1) == "json") {
                 PSFConfig psf_config;
-                if( psf_config.loadFromJSON(psf_path)) {
+                if( psf_config.loadFromJSON(path)) {
                     psf_config.printValues();
                 }else {
                     std::cerr << "[ERROR] psf_config.loadFromJSON failed" << std::endl;
@@ -184,23 +200,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Required in configuration file
-    algorithm = config["algorithm"].get<std::string>();
-    epsilon = config["epsilon"].get<double>();
-    iterations = config["iterations"].get<int>();
-    lambda = config["lambda"].get<double>();
-    psfSafetyBorder = config["psfSafetyBorder"].get<int>();
-    subimageSize = config["subimageSize"].get<int>();
-    borderType = config["borderType"].get<int>();
-    sep = config["seperate"].get<bool>();
-    time = config["time"].get<bool>();
-    savePsf = config["savePsf"].get<bool>();
-    showExampleLayers = config["showExampleLayers"].get<bool>();
-    printInfo = config["info"].get<bool>();
-    grid = config["grid"].get<bool>();
-    if (config.contains("gpu")) {
-        gpu = config["gpu"].get<std::string>();
-    }
+
 
     //###PROGRAMM START###//
     PSF psf;
@@ -325,7 +325,7 @@ int main(int argc, char** argv) {
         auto end = std::chrono::high_resolution_clock::now();
         // Calculation of the duration of the programm
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        std::cout << "[INFO] Algorithm duration: " << duration.count() << " ms" << std::endl;
+        std::cout << "[INFO] Algorithm runtime: " << duration.count() << " ms" << std::endl;
     }
     if (showExampleLayers) {
         deconvHyperstack.showChannel(0);

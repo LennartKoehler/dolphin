@@ -25,7 +25,7 @@ bool Hyperstack::readFromTifFile(const char *filename) {
     int imageWidth, imageLength = 0;
     int frameCount = 0;
     uint16_t resolutionUnit = 0;
-    uint16_t samplesPerPixel = 0; //num of channels
+    uint16_t samplesPerPixel = 1; //num of channels
     uint16_t bitsPerSample = 0;//bit depth
     uint16_t photometricInterpretation = 0;
     int linChannels = 1;//in Description (linearized channels)
