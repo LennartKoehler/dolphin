@@ -32,8 +32,11 @@ bool PSFConfig::loadFromJSON(const std::string &filePath) {
             //throw std::runtime_error("Missing required parameter: secondpsfcubes");
         }
         if (j.contains("path")) {
-            this->psfPath = j["path"].get<std::string>();
-            return true;
+            if(j["path"].get<std::string>() != "") {
+                this->psfPath = j["path"].get<std::string>();
+                std::cout << "[INFO] Using PSF Path:" << this->psfPath << std::endl;
+                return true;
+            }
         }
 
 
@@ -87,6 +90,7 @@ bool PSFConfig::compareDim(const PSFConfig &other) {
         std::cerr << "[ERROR] All PSFs have to be the same size" << std::endl;
         return false;
     }
+    return true;
 }
 
 void PSFConfig::printValues() {
