@@ -47,7 +47,6 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     this->cubeNumVec = config.psfCubeVec;
     this->layerNumVec = config.psfLayerVec;
 
-    this->secondPSF = config.secondPSF;
 
     // Output
     std::cout << "[CONFIGURATION] Richardson-Lucy algorithm" << std::endl;
@@ -59,7 +58,7 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     if(this->grid){
         std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;
         std::cout << "[CONFIGURATION] psfSafetyBorder: " << this->psfSafetyBorder << std::endl;
-        std::cout << "[CONFIGURATION] cubeSize: " << this->cubeSize << std::endl;
+        std::cout << "[CONFIGURATION] subimageSize: " << this->cubeSize << std::endl;
         if(!this->secondpsflayers.empty()){
             std::cout << "[CONFIGURATION] secondpsflayers: ";
             for (const int& layer : secondpsflayers) {

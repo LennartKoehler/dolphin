@@ -30,7 +30,6 @@ void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     this->cubeSize = config.cubeSize;
     this->secondpsflayers = config.secondpsflayers;
     this->secondpsfcubes = config.secondpsfcubes;
-    this->secondPSF = config.secondPSF;
 
     // Output
     std::cout << "[CONFIGURATION] Richardson-Lucy with Total Variation algorithm" << std::endl;
@@ -43,7 +42,7 @@ void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     if(this->grid){
         std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;
         std::cout << "[CONFIGURATION] psfSafetyBorder: " << this->psfSafetyBorder << std::endl;
-        std::cout << "[CONFIGURATION] cubeSize: " << this->cubeSize << std::endl;
+        std::cout << "[CONFIGURATION] subimageSize: " << this->cubeSize << std::endl;
         if(!this->secondpsflayers.empty()){
             std::cout << "[CONFIGURATION] secondpsflayers: ";
             for (const int& layer : secondpsflayers) {

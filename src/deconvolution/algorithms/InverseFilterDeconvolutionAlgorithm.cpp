@@ -20,7 +20,6 @@ void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& c
     this->borderType = config.borderType;
     this->psfSafetyBorder = config.psfSafetyBorder;
     this->cubeSize = config.cubeSize;
-    this->secondPSF = config.secondPSF;
 
 
     // Output
@@ -32,7 +31,7 @@ void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& c
     if(this->grid){
         std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;
         std::cout << "[CONFIGURATION] psfSafetyBorder: " << this->psfSafetyBorder << std::endl;
-        std::cout << "[CONFIGURATION] cubeSize: " << this->cubeSize << std::endl;
+        std::cout << "[CONFIGURATION] subimageSize: " << this->cubeSize << std::endl;
     }
 }
 
