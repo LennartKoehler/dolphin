@@ -284,6 +284,14 @@ int main(int argc, char** argv) {
     hyperstack.saveAsTifFile("../result/input_hyperstack.tif");
     hyperstack.saveAsTifDir("../result/input_hyperstack");
 
+#ifdef CUDA_AVAILABLE
+    if(gpu == "") {
+        gpu = "cuda";
+        std::cout << "[INFO] CUDA activated, to deactivated use --gpu none (CPU parallelism is deactivated for deconvtoolcuda)" << std::endl;
+    }else if(gpu != "cuda") {
+        std::cout << "[WARNING] --gpu set to "<< gpu <<". CUDA is available, but not activated. Use --gpu cuda (CPU parallelism is deactivated for deconvtoolcuda)" << std::endl;
+    }
+#endif
     DeconvolutionConfig deconvConfig;
     deconvConfig.iterations = iterations;
     deconvConfig.epsilon = epsilon;
@@ -295,11 +303,7 @@ int main(int argc, char** argv) {
     deconvConfig.gpu = gpu;
     deconvConfig.psfCubeVec = psfCubeVec;
     deconvConfig.psfLayerVec = psfLayerVec;
-#ifdef CUDA_AVAILABLE
-    if(gpu != "") {
-        std::cout << "[WARNING] CUDA is available, but not activated. Use --gpu cuda (CPU parallelism is deactived for deconvtoolcuda)" << std::endl;
-    }
-#endif
+
     Hyperstack deconvHyperstack;
 
     // Starttime
