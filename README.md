@@ -149,6 +149,8 @@ You can specify your input, PSF, and other parameters using a JSON file. An exam
   "borderType": 2,
   "cubeSize": 0,
   "psfSafetyBorder": 10,
+  
+  "saveSubimages": false,
 
   "gpu": "none"
 }
