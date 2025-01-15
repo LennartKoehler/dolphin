@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
     bool savePsf = false; //save PSF
     bool showExampleLayers = false; //show random example layer of image and PSF
     bool printInfo = false; //show metadata of image
-    bool grid = true; //do grid processing
+    bool grid = false; //do grid processing
     int subimageSize = 0; //sub-image size (edge)
     int psfSafetyBorder = 10; //padding around PSF
     int borderType = cv::BORDER_REFLECT; //extension type of image
@@ -295,8 +295,11 @@ int main(int argc, char** argv) {
     deconvConfig.gpu = gpu;
     deconvConfig.psfCubeVec = psfCubeVec;
     deconvConfig.psfLayerVec = psfLayerVec;
-
-
+#ifdef CUDA_AVAILABLE
+    if(gpu != "") {
+        std::cout << "[WARNING] CUDA is available, but not activated. Use --gpu cuda (CPU parallelism is deactived for deconvtoolcuda)" << std::endl;
+    }
+#endif
     Hyperstack deconvHyperstack;
 
     // Starttime

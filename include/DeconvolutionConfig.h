@@ -8,7 +8,7 @@ class DeconvolutionConfig {
 public:
     int iterations = 10;
     double epsilon = 1e-6;
-    bool grid = true;
+    bool grid = false;
     double lambda = 0.001;
     int borderType = cv::BORDER_REFLECT;
     int psfSafetyBorder = 10;
