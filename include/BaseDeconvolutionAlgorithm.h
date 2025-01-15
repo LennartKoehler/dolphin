@@ -18,7 +18,7 @@ public:
 
     Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psfs);
     bool preprocess(Channel& channel, std::vector<PSF>& psfs);
-    bool postprocess(double epsilon);
+    bool postprocess(double epsilon, ImageMetaData& meta);
     void cleanup();
 
 protected:
@@ -28,7 +28,8 @@ protected:
     int borderType;
     int psfSafetyBorder;
     int cubeSize;
-    bool secondPSF;
+    bool time;
+    bool saveSubimages;
 
     // Image handling and fftw
     std::vector<cv::Mat> mergedVolume;

@@ -18,5 +18,7 @@
   "subimageSize": 0,
   "psfSafetyBorder": 10,
 
+  "saveSubimages": false,
+
   "gpu": "none"
 }

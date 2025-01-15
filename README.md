@@ -1,6 +1,6 @@
 <div style="display: flex; align-items: center;">
     <img src="icon.png" alt="Whale Icon" width="60" height="60" style="margin-right: 10px;">
-    <h1>DeconvTool v1.6.1</h1>
+    <h1>DeconvTool v1.6.2</h1>
 </div>
 
 
@@ -75,6 +75,7 @@ Flags:
 --seperate                       Save image layers separately [false]
 --info                           Print information about the input image [false]
 --showExampleLayers              Display example layers of the image and PSF [false]
+--saveSubimages                  Saves subimages seperate as file in /result/tiles/ [false]
 ```
 
 The PSF can be provided as a TIF file, a TIF directory (where each layer is a separate TIF file), or a JSON configuration file. The JSON configuration file can be used to generate a synthetic PSF or specify the path to a file or directory. With a configuration-based PSF file, it is possible to target specific sub-images for processing. This requires an array of PSFs as input. Only the first PSF in the array will be processed globally, while all subsequent PSFs will be processed based on their corresponding sub-image and layer IDs. If no position is specified, the PSF will not be applied. If a position is provided multiple times, only the PSF with the smaller index in the array will be applied; subsequent PSFs at the same position will be ignored. The following JSON configuration show a example configuration of a synthetic PSF and a configuration file with a file path.

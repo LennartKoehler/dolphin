@@ -13,6 +13,10 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const Deconvoluti
 
     // General
     this->epsilon = config.epsilon;
+    this->time = config.time;
+    this->saveSubimages = config.saveSubimages;
+
+
 
     // Grid
     this->grid = config.grid;
@@ -28,7 +32,6 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const Deconvoluti
     std::cout << "[CONFIGURATION] lambda: " << this->lambda << std::endl;
     std::cout << "[CONFIGURATION] epsilon: " << epsilon << std::endl;
     std::cout << "[CONFIGURATION] grid: " << this->grid << std::endl;
-    std::cout << "[CONFIGURATION] secondPSF: " << std::to_string(this->secondPSF) << std::endl;
 
     if(this->grid){
         std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;

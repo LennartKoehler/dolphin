@@ -16,6 +16,8 @@ public:
     std::vector<int> secondpsflayers = {};
     std::vector<int> secondpsfcubes = {};
     std::vector<std::vector<int>> psfCubeVec, psfLayerVec;
+    bool time = false;
+    bool saveSubimages = false;
 
     std::string gpu = "";
 

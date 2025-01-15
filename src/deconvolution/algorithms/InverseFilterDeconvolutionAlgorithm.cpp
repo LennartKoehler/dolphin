@@ -14,6 +14,10 @@
 void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // General
     this->epsilon = config.epsilon;
+    this->time = config.time;
+    this->saveSubimages = config.saveSubimages;
+
+
 
     // Grid
     this->grid = config.grid;
@@ -26,7 +30,6 @@ void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& c
     std::cout << "[CONFIGURATION] Naive Inverse Filter" << std::endl;
     std::cout << "[CONFIGURATION] epsilon: " << epsilon << std::endl;
     std::cout << "[CONFIGURATION] grid: " << this->grid << std::endl;
-    std::cout << "[CONFIGURATION] secondPSF: " << std::to_string(this->secondPSF) << std::endl;
 
     if(this->grid){
         std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;

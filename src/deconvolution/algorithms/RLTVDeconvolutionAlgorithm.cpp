@@ -22,6 +22,8 @@ void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // General
     this->epsilon = config.epsilon;
     this->gpu = config.gpu;
+    this->time = config.time;
+    this->saveSubimages = config.saveSubimages;
 
     // Grid
     this->grid = config.grid;
@@ -37,7 +39,6 @@ void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     std::cout << "[CONFIGURATION] lambda: " << this->lambda << std::endl;
     std::cout << "[CONFIGURATION] epsilon: " << this->epsilon << std::endl;
     std::cout << "[CONFIGURATION] grid: " << std::to_string(this->grid) << std::endl;
-    std::cout << "[CONFIGURATION] secondPSF: " << std::to_string(this->secondPSF) << std::endl;
 
     if(this->grid){
         std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;

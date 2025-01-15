@@ -24,9 +24,7 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
             double globalMinPsf, globalMaxPsf;
             UtlImage::findGlobalMinMax(psf.image.slices, globalMinPsf, globalMaxPsf);
             std::cout << "[INFO] PSF" << "_" << psfcount<<" values min/max: " << globalMinPsf << "/" << globalMaxPsf << std::endl;
-            if(!this->secondPSF){
-                break;
-            }
+
             psfcount++;
         }
         int originImageWidth = channel.image.slices[0].cols;
@@ -155,17 +153,58 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 
     return true;
 }
-bool BaseDeconvolutionAlgorithm::postprocess(double epsilon){
+bool BaseDeconvolutionAlgorithm::postprocess(double epsilon, ImageMetaData& meta){
     if(this->gridImages.empty()){
         std::cerr << "[ERROR] No subimages processed" << std::endl;
         return false;
     }
+    ////////////////////////////////////////
+    if(this->saveSubimages){
+
+    std::vector<std::vector<cv::Mat>> tiles(this->gridImages); // Kopie erstellen
+    UtlGrid::cropCubePadding(tiles, this->cubePadding);
+
+    double global_max_val_tile= 0.0;
+    double global_min_val_tile = MAXFLOAT;
+    for(auto gridImage : tiles){
+        // Global normalization of the merged volume
+        for (const auto& slice : gridImage) {
+            cv::threshold(slice, slice, 0, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
+            double min_val, max_val;
+            cv::minMaxLoc(slice, &min_val, &max_val);
+            global_max_val_tile = std::max(global_max_val_tile, max_val);
+            global_min_val_tile = std::min(global_min_val_tile, min_val);
+           }
+    }
+    int num = 1;
+    for(auto gridImage : tiles){
+    // Global normalization of the merged volume
+
+    for (auto& slice : gridImage) {
+        slice.convertTo(slice, CV_32F, 1.0 / (global_max_val_tile - global_min_val_tile), -global_min_val_tile * (1 / (global_max_val_tile - global_min_val_tile)));  // Add epsilon to avoid division by zero
+        cv::threshold(slice, slice, epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
+    }
+        Hyperstack gridImageHyperstack;
+        gridImageHyperstack.metaData = meta;
+        gridImageHyperstack.metaData.imageWidth = this->cubeWidth-(2*this->cubePadding);
+        gridImageHyperstack.metaData.imageLength = this->cubeWidth-(2*this->cubePadding);
+        gridImageHyperstack.metaData.slices = this->cubeWidth-(2*this->cubePadding);
+
+        Image3D image3d;
+        image3d.slices = gridImage;
+        Channel channel;
+        channel.image = image3d;
+        gridImageHyperstack.channels.push_back(channel);
+        gridImageHyperstack.saveAsTifFile("../result/tiles/deconv_"+std::to_string(num)+".tif");
+        num++;
+    }
+    }
+    //////////////////////////////////////////////
     if(this->grid){
         //TODO no effect
         //UtlGrid::adjustCubeOverlap(this->gridImages,this->cubePadding);
 
         UtlGrid::cropCubePadding(this->gridImages, this->cubePadding);
-        std::cout << " " << std::endl;
         std::cout << "[STATUS] Merging Grid back to Image..." << std::endl;
         this->mergedVolume = UtlGrid::mergeCubes(this->gridImages, this->originalImageWidth, this->originalImageHeight, this->originalImageDepth, this->cubeSize);
         std::cout << "[INFO] Image size: " << this->mergedVolume[0].rows << "x" << this->mergedVolume[0].cols << "x" << this->mergedVolume.size()<< std::endl;
@@ -300,6 +339,8 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
         omp_set_num_threads(1);
 
 #endif
+        // Starttime
+        auto start = std::chrono::high_resolution_clock::now();
 #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < this->gridImages.size(); ++i) {
             // PSF
@@ -366,8 +407,10 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
                     std::cout << "[WARNING] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
                 }
 
+
                 // Methode overridden in specific algorithm class
                 algorithm(data, channel_z, H, g, f);
+
 
                 // Convert the result FFTW complex array back to OpenCV Mat vector
                 UtlFFT::convertFFTWComplexToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
@@ -384,6 +427,14 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
 #ifdef CUDA_AVAILABLE
             omp_set_num_threads(omp_get_max_threads());
 #endif
+            if (this->time) {
+                // Endtime
+                auto end = std::chrono::high_resolution_clock::now();
+                // Calculation of the duration of the programm
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+                std::cout << "" << std::endl;
+                std::cout << "[INFO] Algorithm runtime: " << duration.count() << " ms" << std::endl;
+            }
             // this->girdImages of BaseDeconvolutionAlgorithm deconvolution complete
 
             // Debug ouptut
@@ -401,7 +452,7 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
             //std::cout << channel.image.slices.size() << std::endl;
             //std::cout << this->originalImageDepth << std::endl;
 
-            if(postprocess(this->epsilon)){
+            if(postprocess(this->epsilon, data.metaData)){
                 std::cout << "[STATUS] Postprocessing channel " << channel_z + 1 << " finished" << std::endl;
             }else{
                 std::cerr << "[ERROR] Postprocessing channel " << channel_z + 1 << " failed" << std::endl;

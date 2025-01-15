@@ -47,6 +47,7 @@ int main(int argc, char** argv) {
     int subimageSize = 0; //sub-image size (edge)
     int psfSafetyBorder = 10; //padding around PSF
     int borderType = cv::BORDER_REFLECT; //extension type of image
+    bool saveSubimages = false;
 
     PSFConfig psfconfig_1;
     PSFConfig psfconfig_2;
@@ -95,6 +96,7 @@ int main(int argc, char** argv) {
     cli_group->add_flag("--seperate", sep, "Save as TIF directory, each layer as single file");
     cli_group->add_flag("--info", printInfo, "Prints info about input Image");
     cli_group->add_flag("--showExampleLayers", showExampleLayers, "Shows a layer of loaded image and PSF)");
+    cli_group->add_flag("--saveSubimages", saveSubimages, "Saves subimages seperate as file");
 
     // Define a group for configuration file
     CLI::Option_group *config_group = app.add_option_group("Config", "Configuration file");
@@ -181,6 +183,9 @@ int main(int argc, char** argv) {
         showExampleLayers = config["showExampleLayers"].get<bool>();
         printInfo = config["info"].get<bool>();
         grid = config["grid"].get<bool>();
+        if (config.contains("saveSubimages")) {
+            saveSubimages = config["saveSubimages"].get<bool>();
+        }
         if (config.contains("gpu")) {
             gpu = config["gpu"].get<std::string>();
         }
@@ -303,11 +308,11 @@ int main(int argc, char** argv) {
     deconvConfig.gpu = gpu;
     deconvConfig.psfCubeVec = psfCubeVec;
     deconvConfig.psfLayerVec = psfLayerVec;
+    deconvConfig.time = time;
+    deconvConfig.saveSubimages = saveSubimages;
+
 
     Hyperstack deconvHyperstack;
-
-    // Starttime
-    auto start = std::chrono::high_resolution_clock::now();
 
     if (algorithm == "inverse") {
         DeconvolutionAlgorithm<InverseFilterDeconvolutionAlgorithm> inverseAlgorithm(deconvConfig);
@@ -329,13 +334,7 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    if (time) {
-        // Endtime
-        auto end = std::chrono::high_resolution_clock::now();
-        // Calculation of the duration of the programm
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        std::cout << "[INFO] Algorithm runtime: " << duration.count() << " ms" << std::endl;
-    }
+
     if (showExampleLayers) {
         deconvHyperstack.showChannel(0);
     }

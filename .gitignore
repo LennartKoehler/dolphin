@@ -1,4 +1,5 @@
 result/*
+result/tiles/*
 build/*
 cmake-build-debug/*
 input/*
@@ -12,6 +13,7 @@ uml3.puml
 # Stelle sicher, dass das Verzeichnis input nicht ignoriert wird
 !input/
 !result/
+!result/tiles/
 !build/
 !lib/cube/build/
 !configs/
@@ -24,3 +26,4 @@ uml3.puml
 !configs/README.md
 !configs/default_config.json
 !configs/default_psf_config.json
+!result/tiles/
