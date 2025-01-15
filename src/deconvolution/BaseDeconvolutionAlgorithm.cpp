@@ -311,6 +311,7 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
             fftw_complex* f = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
 
                 if(this->layerNumVec.size() > 1) {
+
                     int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / this->cubesPerLayer));
                     for(int v = 1; v < this->layerNumVec.size(); ++v) {
                         // Check if second PSF has to be applied
@@ -352,20 +353,8 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
 
 #endif
                         break;
-                    }else {
-#ifdef CUDA_AVAILABLE
-                        if(this->gpu == "cuda") {H = this->d_paddedHs[0];}else {H = this->paddedHs[0];}
-#else
-                        H = this->paddedHs[0];
-#endif
                     }
                 }
-            }else {
-#ifdef CUDA_AVAILABLE
-                if(this->gpu == "cuda") {H = this->d_paddedHs[0];}else {H = this->paddedHs[0];}
-#else
-                H = this->paddedHs[0];
-#endif
             }
 
                 // Convert image to fftcomplex
