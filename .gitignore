@@ -26,4 +26,4 @@ uml3.puml
 !configs/README.md
 !configs/default_config.json
 !configs/default_psf_config.json
-!result/tiles/
+!result/tiles/.gitkeep
