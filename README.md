@@ -25,26 +25,33 @@ DeconvTool is a C++ command-line tool designed for deconvolution of microscopy i
 
 ## Requirements
 
+Standard usage
 - C++17 or later
-- [OpenCV](https://opencv.org/) (for image processing)
-- [FFTW](http://www.fftw.org/) (for fast Fourier transforms)
-- [CLI11](https://github.com/CLIUtils/CLI11) (for command-line parsing)
-- [nlohmann/json](https://github.com/nlohmann/json) (for JSON handling)
+- [OpenCV](https://opencv.org/) 4.6.0 (for image processing)
+- [FFTW](http://www.fftw.org/) 3.3.10 (for fast Fourier transforms) 
+
+GPU acceleration
+- [NVCC](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/) 12.1.105 (NVIDIA CUDA Compiler Driver)
+- [cuFFTW](https://docs.nvidia.com/cuda/cufft/) 11.0.2 (for fast Fourier transforms on GPU)
+  
+included Header files
+- [CLI11](https://github.com/CLIUtils/CLI11) 2.4.1 (for command-line parsing)
+- [nlohmann/json](https://github.com/nlohmann/json) 3.11.3 (for JSON handling)
+- [CUBE](https://git.uni-jena.de/qi36soq/cube) 0.3.1 (for operations on GPU)
 
 ## Build
-First build the CUBE library in /lib/cube/.
+First build the CUBE library in /lib/cube/, if CUDA is installed on your system.
 ```bash
-cd ./lib/cube/
-mkdir build
-cd build
+mkdir ./lib/cube/build
+cd ./lib/cube/build
 
 cmake ..
 make
 ```
 Then the DeconvTool:
 ```bash
-mkdir build
-cd build
+mkdir ./build
+cd ./build
 
 cmake ..
 make
