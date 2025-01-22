@@ -13,9 +13,10 @@ find_package(OpenCV REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(TIFF REQUIRED)
 
-enable_language(CUDA OPTIONAL)
+find_program(CUDA_COMPILER nvcc)
 
 if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
     message(STATUS "CUDA found. Compiling with CUBE library. Creating second executable.")
 else()
     message(STATUS "CUDA not found. Compiling without CUBE library.")
