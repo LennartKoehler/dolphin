@@ -597,7 +597,7 @@ void UtlFFT::computeTV(double lambda, fftw_complex* gx, fftw_complex* gy, fftw_c
 
             // Compute the TV value using the provided formula.
             tv[index][0] = static_cast<float>(1.0 / ((dx + dy + dz) * lambda + 1.0));
-            tv[index][1] = 0.0; // Assuming the output is real-valued, set the imaginary part to zero.
+            tv[index][1] = 1.0; // Assuming the output is real-valued, set the imaginary part to zero.
         }
     }
 }
