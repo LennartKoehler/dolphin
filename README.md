@@ -1,12 +1,12 @@
 <div style="display: flex; align-items: center;">
     <img src="icon.png" alt="Whale Icon" width="60" height="60" style="margin-right: 10px;">
-    <h1>DeconvTool v1.6.2</h1>
+    <h1>DOLPHIN v1.6.2</h1>
 </div>
 
 
 ---
 
-DeconvTool is a C++ command-line tool designed for deconvolution of microscopy images. It supports multiple deconvolution algorithms and allows the generation and use of synthetic Point Spread Functions (PSF). The tool is intended for users familiar with image processing and deconvolution techniques.
+Deconvolution with Optimized Local PSFs for High-speed Image recoNstruction (DOLPHIN) is a C++ command-line tool designed for deconvolution of microscopy images. It supports multiple deconvolution algorithms and allows the generation and use of synthetic Point Spread Functions (PSF). The tool is intended for users familiar with image processing and deconvolution techniques.
 
 ## Features
 
@@ -48,7 +48,7 @@ cd ./lib/cube/build
 cmake ..
 make
 ```
-Then the DeconvTool:
+Then the DOLPHIN:
 ```bash
 mkdir ./build
 cd ./build
@@ -61,7 +61,7 @@ make
 
 ### Command-Line Options
 
-DeconvTool provides a variety of command-line options:
+DOLPHIN provides a variety of command-line options:
 
 ```
 -i, --image <path>               Input Image Path (required)
@@ -106,7 +106,7 @@ The PSF can be provided as a TIF file, a TIF directory (where each layer is a se
   "subimages": [10,11,12,16]
 }
 ```
-DeconvTool provides this parameters for a PSF configuration:
+DOLPHIN provides this parameters for a PSF configuration:
 ```
 path                             Path to PSF TIF file or dir (string "" or json array of strings["",""])
 psfx                             X dimension of PSF (pixel) (integer)
@@ -122,13 +122,13 @@ subimages                        Specific subimages, where PSF will be applied (
 ### Example
 
 ```bash
-./deconvtool -i input_image.tif -p psf.tif -a rl --iterations 100 --time
+./dolphin -i input_image.tif -p psf.tif -a rl --iterations 100 --time
 ```
 
 This command will run the Richardson-Lucy algorithm with a PSF file using the input image file and displaying the time taken.
 
 ```bash
-./deconvtool -i input_image.tif -p psf_syn.json psf_path.json -a rltv --iterations 50 --info
+./dolphin -i input_image.tif -p psf_syn.json psf_path.json -a rltv --iterations 50 --info
 ```
 
 This command will run the Richardson-Lucy with Total Variation algorithm with a synthetic PSF using a config file globally and a PSF file locally through antoher config file. The metadata of the input image will displayed. 
@@ -162,14 +162,14 @@ You can specify your input, PSF, and other parameters using a JSON file. An exam
   "gpu": "none"
 }
 ```
-DeconvTool creates two executable if CUDA is availabe on your system: deconvtool and deconvtoolcuda. Make sure your specify the "gpu" parameter with "cuda" if your are using the GPU accelerated version deconvtoolcuda.
+DOLPHIN creates two executable if CUDA is availabe on your system: dolphin and dolphincuda. Make sure your specify the "gpu" parameter with "cuda" if your are using the GPU accelerated version dolphincuda.
 You can run the tool using the configuration file like this:
 
 ```bash
-./deconvtool -c config.json
+./dolphin -c config.json
 ```
 ```bash
-./deconvtoolcuda -c config_gpu.json
+./dolphincuda -c config_gpu.json
 ```
 
 ### Output

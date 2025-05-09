@@ -25,7 +25,7 @@ endif()
 include_directories(${OpenCV_INCLUDE_DIRS} ${TIFF_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/include)
 
 # Define source files for CPU executable
-add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
+add_executable(dolphin ${CMAKE_SOURCE_DIR}/src/main.cpp
         src/hyperstack/HyperstackImage.cpp
         include/HyperstackImage.h
         src/hyperstack/Image3D.cpp
@@ -72,7 +72,7 @@ add_executable(deconvtool ${CMAKE_SOURCE_DIR}/src/main.cpp
         src/psf/PSFConfig.cpp
 )
 # Link CPU executable with the required libraries (FFTW)
-target_link_libraries(deconvtool
+target_link_libraries(dolphin
         -lpthread
         -lgomp
         ${OpenCV_LIBS}
@@ -90,7 +90,7 @@ if(CMAKE_CUDA_COMPILER)
     link_directories(${CMAKE_SOURCE_DIR}/lib/cube/build)
     include_directories(${CMAKE_SOURCE_DIR}/lib/cube/include)
     # Define source files for GPU executable
-    add_executable(deconvtoolcuda ${CMAKE_SOURCE_DIR}/src/main.cpp
+    add_executable(dolphincuda ${CMAKE_SOURCE_DIR}/src/main.cpp
             src/hyperstack/HyperstackImage.cpp
             include/HyperstackImage.h
             src/hyperstack/Image3D.cpp
@@ -137,9 +137,9 @@ if(CMAKE_CUDA_COMPILER)
             src/psf/PSFConfig.cpp
     )
     # Set macro for GPU executable, for compiling correct libs in source code
-    target_compile_definitions(deconvtoolcuda PRIVATE CUDA_AVAILABLE)
+    target_compile_definitions(dolphincuda PRIVATE CUDA_AVAILABLE)
     # Link CPU executable with the required libraries (cuFFTW)
-    target_link_libraries(deconvtoolcuda
+    target_link_libraries(dolphincuda
             -lpthread
             -lgomp
             ${OpenCV_LIBS}
