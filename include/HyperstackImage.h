@@ -28,6 +28,7 @@ public:
     void printMetadata() const;
 
     float getPixel(int channel, int x, int y, int z);
+    bool isValid();
 
     Hyperstack convolve(PSF psf);
 

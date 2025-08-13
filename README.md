@@ -29,6 +29,7 @@ Standard usage
 - C++17 or later
 - [OpenCV](https://opencv.org/) 4.6.0 (for image processing)
 - [FFTW](http://www.fftw.org/) 3.3.10 (for fast Fourier transforms) 
+- [LibTIFF](https://libtiff.gitlab.io/libtiff/) 4.7.0 (for Tag Image File Format)
 
 GPU acceleration
 - [NVCC](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/) 12.1.105 (NVIDIA CUDA Compiler Driver)

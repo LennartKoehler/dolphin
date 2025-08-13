@@ -14,9 +14,8 @@ find_package(OpenMP REQUIRED)
 find_package(TIFF REQUIRED)
 
 
-find_program(CUDA_COMPILER nvcc)
-
-if(CUDA_COMPILER)
+find_package(CUDAToolkit REQUIRED)
+if(CUDAToolkit_FOUND)
     enable_language(CUDA)
     message(STATUS "CUDA found. Compiling with CUBE library. Creating second executable.")
 else()
@@ -27,6 +26,9 @@ include_directories(${OpenCV_INCLUDE_DIRS} ${TIFF_INCLUDE_DIR} ${CMAKE_SOURCE_DI
 
 # Define source files for CPU executable
 add_executable(dolphin ${CMAKE_SOURCE_DIR}/src/main.cpp
+        src/Dolphin.cpp
+        include/Dolphin.h
+        src/algorithms/ConvolutionAlgorithm.cpp
         src/hyperstack/HyperstackImage.cpp
         include/HyperstackImage.h
         src/hyperstack/Image3D.cpp
@@ -85,14 +87,17 @@ target_link_libraries(dolphin
 )
 
 # Create second executable only if CUDA available
-if(CMAKE_CUDA_COMPILER)
+if(CUDAToolkit_FOUND)
     # Include the CUBE dir
     add_subdirectory(${CMAKE_SOURCE_DIR}/lib/cube)
     link_directories(${CMAKE_SOURCE_DIR}/lib/cube/build)
     include_directories(${CMAKE_SOURCE_DIR}/lib/cube/include)
     # Define source files for GPU executable
     add_executable(dolphincuda ${CMAKE_SOURCE_DIR}/src/main.cpp
-            src/hyperstack/HyperstackImage.cpp
+                src/Dolphin.cpp
+                include/Dolphin.h
+                src/algorithms/ConvolutionAlgorithm.cpp
+                src/hyperstack/HyperstackImage.cpp
             include/HyperstackImage.h
             src/hyperstack/Image3D.cpp
             include/Image3D.h
@@ -149,9 +154,9 @@ if(CMAKE_CUDA_COMPILER)
             OpenMP::OpenMP_CXX
             ${CMAKE_SOURCE_DIR}/lib/cube/build/libCUBE.a
             cuda
-            cufft
-            cudart
-            cufftw
+            CUDA::cufft
+            CUDA::cudart
+            CUDA::cufftw
     )
 endif()
 

@@ -6,6 +6,8 @@
 
 using json = nlohmann::json;
 
+
+
 bool PSFConfig::loadFromJSON(const std::string &filePath) {
     //TODO put stuff from main.cpp here, load every PSF parameter in PSFConfig object
 
@@ -18,6 +20,10 @@ bool PSFConfig::loadFromJSON(const std::string &filePath) {
     inputFile >> j;
     // JSON-Parameter lesen und in Variablen speichern
     try {
+
+        if (j.contains("qualityFactor")){
+            this->qualityFactor = j["qualityFactor"].get<double>();
+        }
 
         if (j.contains("layers")) {
             this->psfLayers = j["layers"].get<std::vector<int>>();
@@ -55,21 +61,32 @@ bool PSFConfig::loadFromJSON(const std::string &filePath) {
         } else {
             throw std::runtime_error("[ERROR] Missing required parameter: psfz");
         }
-        if (j.contains("sigmax")) {
-            this->sigmax = j.at("sigmax").get<double>();
-        } else {
-            throw std::runtime_error("[ERROR] Missing required parameter: sigmax");
+
+        if (!j.contains("sigmax")){
+            if (!j.contains("resolutionx")){
+                throw std::runtime_error("[ERROR] Missing required parameter: sigmax or resolutionx");
+            }
+            this->sigmax = convertResolution(j.at("resolutionx").get<double>());
         }
-        if (j.contains("sigmay")) {
-            this->sigmay = j.at("sigmay").get<double>();
-        } else {
-            throw std::runtime_error("[ERROR] Missing required parameter: sigmay");
+        else{this->sigmax = convertSigma(j.at("sigmax").get<double>());}
+
+
+        if (!j.contains("sigmay")){
+            if (!j.contains("resolutiony")){
+                throw std::runtime_error("[ERROR] Missing required parameter: sigmay or resolutiony");
+            }
+            this->sigmay = convertResolution(j.at("resolutiony").get<double>());
         }
-        if (j.contains("sigmaz")) {
-            this->sigmaz = j.at("sigmaz").get<double>();
-        } else {
-            throw std::runtime_error("[ERROR] Missing required parameter: sigmaz");
+        else{this->sigmay = convertSigma(j.at("sigmay").get<double>());}
+
+        if (!j.contains("sigmaz")){
+            if (!j.contains("resolutionz")){
+                throw std::runtime_error("[ERROR] Missing required parameter: sigmaz or resolutionz");
+            }
+            this->sigmaz = convertResolution(j.at("resolutionz").get<double>());
         }
+        else{this->sigmaz = convertSigma(j.at("sigmaz").get<double>());}
+
 
         if (j.contains("psfmodel")) {
             this->psfModel = j.value("psfmodel", "gauss");
@@ -114,5 +131,13 @@ void PSFConfig::printValues() {
         std::cout << cube << " ";
     }
     std::cout << std::endl;
+}
+
+double PSFConfig::convertResolution(double resolution_nm){
+    return convertSigma(resolution_nm * pixelScaling);
+}
+
+double PSFConfig::convertSigma(double sigma){
+    return sigma * qualityFactor;
 }
 

@@ -1,11 +1,13 @@
 {
   "path": "",
+  "qualityFactor" : 1.0,
+  "pixelScaling" : 1e-6,
   "sigmax": 5,
   "sigmay": 5,
   "sigmaz": 5,
   "psfx": 20,
   "psfy": 20,
-  "psfz": 26,
+  "psfz": 40,
   "psfmodel": "gauss",
   "layers": [],
   "subimages": []

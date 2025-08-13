@@ -4,19 +4,46 @@
 #include <utility>
 #include "BaseDeconvolutionAlgorithm.h"
 #include "DeconvolutionConfig.h"
+#include "DeconvolutionAlgorithm.h"
+#include "InverseFilterDeconvolutionAlgorithm.h"
+#include "RegularizedInverseFilterDeconvolutionAlgorithm.h"
+#include "RLDeconvolutionAlgorithm.h"
+#include "RLTVDeconvolutionAlgorithm.h"
+#include "RLADDeconvolutionAlgorithm.h"
 
-template<typename Algorithm, typename... Args>
-class DeconvolutionAlgorithm {
-public:
-    DeconvolutionAlgorithm(const DeconvolutionConfig& config, Args&&... args)
-            : algo(std::make_unique<Algorithm>(std::forward<Args>(args)...)) {
-        algo->configure(config);
+// template<typename Algorithm, typename... Args>
+// class DeconvolutionAlgorithm {
+// public:
+//     DeconvolutionAlgorithm(const DeconvolutionConfig& config, Args&&... args)
+//             : algo(std::make_unique<Algorithm>(std::forward<Args>(args)...)) {
+//         algo->configure(config);
+//     }
+
+//     Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psfs) const {
+//         return algo->deconvolve(data, psfs);
+//     }
+
+// private:
+//     std::unique_ptr<BaseDeconvolutionAlgorithm> algo;
+// };
+
+//TODO this entire file can be removed and this factory included somewhere else
+static std::unique_ptr<BaseDeconvolutionAlgorithm> deconvolutionAlgorithmFactory(
+    const std::string& name, const DeconvolutionConfig& config
+) {
+    std::unique_ptr<BaseDeconvolutionAlgorithm> algorithm;
+    if (name == "inverse") {
+        algorithm = std::make_unique<InverseFilterDeconvolutionAlgorithm>();
+    } else if (name == "rl") {
+        algorithm = std::make_unique<RLDeconvolutionAlgorithm>();
+    } else if (name == "rltv") {
+        algorithm = std::make_unique<RLTVDeconvolutionAlgorithm>();
+    } else if (name == "rif") {
+        algorithm = std::make_unique<RegularizedInverseFilterDeconvolutionAlgorithm>();
     }
-
-    Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psfs) const {
-        return algo->deconvolve(data, psfs);
-    }
-
-private:
-    std::unique_ptr<BaseDeconvolutionAlgorithm> algo;
-};
+    else{
+        throw std::runtime_error("Unknown algorithm: " + name);
+    }    
+    algorithm->configure(config);
+    return algorithm;
+}

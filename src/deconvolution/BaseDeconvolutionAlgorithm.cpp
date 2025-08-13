@@ -2,9 +2,12 @@
 #include "UtlImage.h"
 #include "UtlGrid.h"
 #include "UtlFFT.h"
+#include "BaseAlgorithm.h"
+
 #include <opencv2/core.hpp>
 #include <iostream>
 #include <opencv2/imgproc.hpp>
+
 #include <omp.h>
 #ifdef CUDA_AVAILABLE
 #include <cufftw.h>
@@ -12,6 +15,11 @@
 #else
 #include <fftw3.h>
 #endif
+
+
+Hyperstack BaseDeconvolutionAlgorithm::run(Hyperstack& data, std::vector<PSF>& psfs){
+    return deconvolve(data, psfs);
+}
 
 
 bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& psfs) {

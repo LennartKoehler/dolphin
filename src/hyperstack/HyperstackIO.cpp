@@ -82,6 +82,11 @@ bool Hyperstack::readFromTifFile(const char *filename) {
 
     return true;
 }
+
+
+bool Hyperstack::isValid(){
+    return !channels.empty();
+}
 bool Hyperstack::readFromTifDir(const std::string& directoryPath) {
     fs::path dirPath(directoryPath);
     if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
