@@ -134,7 +134,7 @@ void PSFConfig::printValues() {
 }
 
 double PSFConfig::convertResolution(double resolution_nm){
-    return convertSigma(resolution_nm * pixelScaling);
+    return convertSigma(resolution_nm * pixelScaling/nanometerScale);
 }
 
 double PSFConfig::convertSigma(double sigma){

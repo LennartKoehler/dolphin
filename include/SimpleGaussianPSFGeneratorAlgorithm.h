@@ -5,7 +5,7 @@
 #include "BasePSFGeneratorAlgorithm.h"
 
 // Konkrete Klasse SimpleGaussianPSFGeneratorAlgorithm
-class SimpleGaussianPSFGeneratorAlgorithm : public BasePSFGeneratorAlgorithm {
+class SimpleGaussianPSFGeneratorAlgorithm : public BasePSFGenerator {
 public:
     SimpleGaussianPSFGeneratorAlgorithm(double sigmaX, double sigmaY, double sigmaZ, int sizeX, int sizeY, int sizeZ)
             : sigmaX(sigmaX), sigmaY(sigmaY), sigmaZ(sigmaZ), sizeX(sizeX), sizeY(sizeY), sizeZ(sizeZ) {}

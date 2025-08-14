@@ -105,7 +105,7 @@ if(CUDAToolkit_FOUND)
             include/ImageMetaData.h
             src/psf/PSF.cpp
             include/PSF.h
-            include/BasePSFGeneratorAlgorithm.h
+            include/BasePSFGenerator.h
             src/psf/algorithms/SimpleGaussianPSFGeneratorAlgorithm.cpp
             include/SimpleGaussianPSFGeneratorAlgorithm.h
             include/PSFGenerator.h
@@ -131,8 +131,8 @@ if(CUDAToolkit_FOUND)
             src/utilities/UtlIO.cpp
             include/Channel.h
             src/deconvolution/BaseDeconvolutionAlgorithm.cpp
-            include/GaussianPSFGeneratorAlgorithm.h
-            src/psf/algorithms/GaussianPSFGeneratorAlgorithm.cpp
+            include/GaussianPSFGeneratorAlgorith.h
+            src/psf/algorithms/GaussianPSFGenerator.cpp
             src/psf/algorithms/BornWolfModel.cpp
             include/BornWolfModel.h
             include/RLTVDeconvolutionAlgorithm.h

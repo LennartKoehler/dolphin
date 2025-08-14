@@ -6,7 +6,7 @@
 
 
 // Konkrete Klasse SimpleGaussianPSFGeneratorAlgorithm
-class BornWolfModel : public BasePSFGeneratorAlgorithm {
+class BornWolfModel : public BasePSFGenerator {
 public:
     BornWolfModel(double sigmaX, double sigmaY, double sigmaZ, int sizeX, int sizeY, int sizeZ)
             : sigmaX(sigmaX), sigmaY(sigmaY), sigmaZ(sigmaZ), sizeX(sizeX), sizeY(sizeY), sizeZ(sizeZ) {}

@@ -3,9 +3,10 @@
 
 #include <iostream>
 #include <memory>
-#include "BasePSFGeneratorAlgorithm.h"
+#include "BasePSFGenerator.h"
 
 // Template-Klasse PSFGenerator, die den Algorithmus akzeptiert
+// LK TODO make this into simple factory pattern, its basically the same as deconvolution factory, maybe make both into one -> create algorithm, give config
 template<typename Algorithm, typename... Args>
 class PSFGenerator {
 public:
@@ -21,6 +22,6 @@ public:
     }
 
 private:
-    std::unique_ptr<BasePSFGeneratorAlgorithm> algo;
+    std::unique_ptr<BasePSFGenerator> algo;
 };
 

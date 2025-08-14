@@ -5,6 +5,8 @@
 #include <opencv2/core.hpp>
 #include "SimpleGaussianPSFGeneratorAlgorithm.h"
 
+
+//LK is this supposed to be the same as the gaussian psf generator?
 PSF SimpleGaussianPSFGeneratorAlgorithm::generatePSF() const {
     int width = sizeX, height = sizeY;  // Größe des Bildes
     double meanX = width / 2, meanY = height / 2;  // Mittelpunkte
