@@ -2,9 +2,8 @@
 
 #include <memory>
 #include <utility>
-#include "BaseDeconvolutionAlgorithm.h"
-#include "DeconvolutionConfig.h"
-#include "DeconvolutionAlgorithm.h"
+// #include "BaseDeconvolutionAlgorithm.h"
+// #include "DeconvolutionConfig.h"
 #include "InverseFilterDeconvolutionAlgorithm.h"
 #include "RegularizedInverseFilterDeconvolutionAlgorithm.h"
 #include "RLDeconvolutionAlgorithm.h"
@@ -32,13 +31,13 @@ static std::unique_ptr<BaseDeconvolutionAlgorithm> deconvolutionAlgorithmFactory
     const std::string& name, const DeconvolutionConfig& config
 ) {
     std::unique_ptr<BaseDeconvolutionAlgorithm> algorithm;
-    if (name == "inverse") {
+    if (name == "InverseFilter") {
         algorithm = std::make_unique<InverseFilterDeconvolutionAlgorithm>();
-    } else if (name == "rl") {
+    } else if (name == "RichardsonLucy") {
         algorithm = std::make_unique<RLDeconvolutionAlgorithm>();
-    } else if (name == "rltv") {
+    } else if (name == "RichardsonLucyTotalVariation") {
         algorithm = std::make_unique<RLTVDeconvolutionAlgorithm>();
-    } else if (name == "rif") {
+    } else if (name == "RegularizedInverseFilter") {
         algorithm = std::make_unique<RegularizedInverseFilterDeconvolutionAlgorithm>();
     }
     else{

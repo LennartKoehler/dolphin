@@ -25,6 +25,8 @@ endif()
 include_directories(${OpenCV_INCLUDE_DIRS} ${TIFF_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/include)
 
 # Define source files for CPU executable
+
+# LK make these into their own library, so with or without cuda can just import that library
 add_executable(dolphin ${CMAKE_SOURCE_DIR}/src/main.cpp
         src/Dolphin.cpp
         include/Dolphin.h
@@ -37,11 +39,11 @@ add_executable(dolphin ${CMAKE_SOURCE_DIR}/src/main.cpp
         include/ImageMetaData.h
         src/psf/PSF.cpp
         include/PSF.h
-        include/BasePSFGeneratorAlgorithm.h
+        include/BasePSFGenerator.h
         src/psf/algorithms/SimpleGaussianPSFGeneratorAlgorithm.cpp
         include/SimpleGaussianPSFGeneratorAlgorithm.h
-        include/PSFGenerator.h
-        include/DeconvolutionAlgorithm.h
+        include/PSFGeneratorFactory.h
+        include/DeconvolutionAlgorithmFactory.h
         include/RegularizedInverseFilterDeconvolutionAlgorithm.h
         include/RLDeconvolutionAlgorithm.h
         src/deconvolution/DeconvolutionConfig.cpp
@@ -63,16 +65,22 @@ add_executable(dolphin ${CMAKE_SOURCE_DIR}/src/main.cpp
         src/utilities/UtlIO.cpp
         include/Channel.h
         src/deconvolution/BaseDeconvolutionAlgorithm.cpp
-        include/GaussianPSFGeneratorAlgorithm.h
-        src/psf/algorithms/GaussianPSFGeneratorAlgorithm.cpp
+        include/GaussianPSFGenerator.h
+        src/psf/algorithms/GaussianPSFGenerator.cpp
         src/psf/algorithms/BornWolfModel.cpp
         include/BornWolfModel.h
         include/RLTVDeconvolutionAlgorithm.h
         src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
+        src/psf/algorithms/GibsonLanniPSFGenerator.cpp
+        src/psf/configs/GibsonLanniPSFConfig.cpp
+        src/psf/configs/GaussianPSFConfig.cpp
+
+
+        include/GibsonLanniPSFGenerator.h
         include/RLADDeconvolutionAlgorithm.h
         src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
         include/PSFConfig.h
-        src/psf/PSFConfig.cpp
+        
 )
 # Link CPU executable with the required libraries (FFTW)
 target_link_libraries(dolphin
@@ -108,8 +116,8 @@ if(CUDAToolkit_FOUND)
             include/BasePSFGenerator.h
             src/psf/algorithms/SimpleGaussianPSFGeneratorAlgorithm.cpp
             include/SimpleGaussianPSFGeneratorAlgorithm.h
-            include/PSFGenerator.h
-            include/DeconvolutionAlgorithm.h
+            include/PSFGeneratorFactory.h
+            include/DeconvolutionAlgorithmFactory.h
             include/RegularizedInverseFilterDeconvolutionAlgorithm.h
             include/RLDeconvolutionAlgorithm.h
             src/deconvolution/DeconvolutionConfig.cpp
@@ -131,16 +139,20 @@ if(CUDAToolkit_FOUND)
             src/utilities/UtlIO.cpp
             include/Channel.h
             src/deconvolution/BaseDeconvolutionAlgorithm.cpp
-            include/GaussianPSFGeneratorAlgorith.h
+            include/GaussianPSFGenerator.h
             src/psf/algorithms/GaussianPSFGenerator.cpp
+            src/psf/algorithms/GibsonLanniPSFGenerator.cpp
+            include/GibsonLanniPSFGenerator.h
             src/psf/algorithms/BornWolfModel.cpp
             include/BornWolfModel.h
             include/RLTVDeconvolutionAlgorithm.h
             src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
             include/RLADDeconvolutionAlgorithm.h
+            src/psf/configs/GibsonLanniPSFConfig.cpp
+            src/psf/configs/GaussianPSFConfig.cpp
             src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
             include/PSFConfig.h
-            src/psf/PSFConfig.cpp
+            
     )
     # Set macro for GPU executable, for compiling correct libs in source code
     target_compile_definitions(dolphincuda PRIVATE CUDA_AVAILABLE)

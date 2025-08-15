@@ -132,7 +132,7 @@ This command will run the Richardson-Lucy algorithm with a PSF file using the in
 ./dolphin -i input_image.tif -p psf_syn.json psf_path.json -a rltv --iterations 50 --info
 ```
 
-This command will run the Richardson-Lucy with Total Variation algorithm with a synthetic PSF using a config file globally and a PSF file locally through antoher config file. The metadata of the input image will displayed. 
+This command will run the Richardson-Lucy with Total Variation algorithm with a synthetic PSF using a config file globally and a PSF file locally through another config file. The metadata of the input image will displayed. 
 ### Using a Configuration File
 
 You can specify your input, PSF, and other parameters using a JSON file. An example of the JSON configuration file is shown below:

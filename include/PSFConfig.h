@@ -2,31 +2,39 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
+#include "../lib/nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 class PSFConfig {
 public:
-    int x = 20;
-    int y = 20;
-    int z = 40;
-    double sigmax = 10;
-    double sigmay = 10;
-    double sigmaz = 10;
-    double qualityFactor = 1.0; // 1.0 for perfect a perfect image, larger if the image is blurry and therefore the psd should be too
-    double pixelScaling = 1e-6; //TODO should this be here? or in main config?
-    double nanometerScale = 1e-9;
-    std::string psfModel = "gauss";
-    std::vector<int> psfLayers = {}; //sub-image layers for PSF
-    std::vector<int> psfCubes = {}; //sub-images for PSF
-
-    std::string psfPath = "";
+    PSFConfig() = default;
+    virtual ~PSFConfig(){};
+    virtual bool loadFromJSON(const json& jsonData) = 0;
+    virtual void printValues() = 0;
+    virtual std::string getName() = 0;
     
-    virtual bool loadFromJSON(const std::string &directoryPath);
-    bool loadConfigType(const std::string &directoryPath);
-    bool compareDim(const PSFConfig &other);
-    void printValues();
-    double convertSigma(double sigma);
-    double convertResolution(double resolution);
+    template<typename T>
+    T readParameter(const json& jsonData, std::string fieldName){
+        if (jsonData.contains(fieldName)) {
+            return jsonData.at(fieldName).get<T>();
+        } else {
+            throw std::runtime_error("[ERROR] Missing required parameter: " + fieldName);
+        }
+    }
+    bool compareDim(const PSFConfig &other) {
+        if(this->sizeX != other.sizeX || this->sizeY != other.sizeY || this->sizeZ != other.sizeZ) {
+            std::cerr << "[ERROR] All PSFs have to be the same size" << std::endl;
+            return false;
+        }
+        return true;
+    }
+
+
+    int sizeX;
+    int sizeY;
+    int sizeZ;
 
 };
-
 

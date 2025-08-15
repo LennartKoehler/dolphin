@@ -7,26 +7,15 @@
 #include "../lib/CLI/CLI11.hpp"
 
 #include "HyperstackImage.h"
-#include "PSF.h"
-#include "PSFConfig.h"
-#include "PSFGenerator.h"
-#include "GaussianPSFGeneratorAlgorithm.h"
-#include "SimpleGaussianPSFGeneratorAlgorithm.h"
-#include "BornWolfModel.h"
 #include "BaseDeconvolutionAlgorithm.h"
-
+#include "PSFConfig.h"
+#include "BasePSFGenerator.h"
 #include "../lib/CLI/CLI11.hpp"
 #include "../lib/nlohmann/json.hpp"
 
 
 using json = nlohmann::json;
 
-
-struct PSFPackage{
-    std::vector<std::vector<int>> psfCubeVec;
-    std::vector<std::vector<int>> psfLayerVec;
-    std::vector<PSF> psfs;
-};
 
 class Dolphin{
 public:
@@ -36,14 +25,27 @@ public:
     bool init(int argc, char** argv);
     void run();
     void setCLIOptions();
-    void handleConfigs();
     void setCuda();
-    PSFPackage initPSF();
-    Hyperstack initHyperstack();
-    std::unique_ptr<BaseAlgorithm> initDeconvolution(const std::vector<std::vector<int>>& psfCubeVec, const std::vector<std::vector<int>>& psfLayerVec);
+    void initPSFs();
+    Hyperstack initHyperstack() const ;
+    std::unique_ptr<BaseDeconvolutionAlgorithm> initDeconvolution(const std::vector<std::vector<int>>& psfCubeVec, const std::vector<std::vector<int>>& psfLayerVec);
     std::unique_ptr<BaseAlgorithm> algorithmFactory(const std::string& algorithmName);
+    std::unique_ptr<BasePSFGenerator> initPSFGenerator(const std::string& modelName, const json& PSFConfig);
     
-
+    void createPSFFromConfig(std::unique_ptr<PSFConfig> psfConfig);
+    void createPSFFromFile(const std::string& path);
+    void handleConfigs(const std::string& configPath);
+    void handleJSONConfigs(const std::string& configPath);
+    json loadJSONFile(const std::string& path) const;
+    std::string extractImagePath(const json& file) const;
+    void processPSFPaths();
+    void processSinglePSFPath(const std::string& path);
+    void processPSFPathArray();
+    bool isJSONFile(const std::string& path);
+    void addPSFConfigFromJSON(const json& config);
+    void extractAlgorithmParameters();
+    void extractOptionalParameters();
+    void handleCLIConfigs();
 private:
     // Arguments
     std::string image_path;
@@ -65,9 +67,8 @@ private:
     bool saveSubimages = false;
 
     json config;
-    PSFConfig psfconfig_1;
-    PSFConfig psfconfig_2;
-    std::vector<PSFConfig> psfConfigs;
+    std::vector<std::unique_ptr<PSFConfig>> psfConfigs;
+    std::vector<std::unique_ptr<BasePSFGenerator>> psfGenerators;
     std::vector<std::string> psfPaths;
     std::vector<std::string> psfPathsCLI;
     
@@ -76,6 +77,17 @@ private:
 
     CLI::App app{"deconvtool - Deconvolution of Microscopy Images"};
     CLI::Option_group* cli_group;
+
+    std::vector<std::string> deconvolutionAlgorithmNames{
+        "InverseFilter",
+        "RichardsonLucy",
+        "RichardsonLucyTotalVariation",
+        "RegularizedInverseFilter",
+    };
+    std::vector<std::string> PSFGeneratorNames{
+        "Gaussian",
+        "GibsonLanni"
+    };
 
 
     std::vector<std::vector<int>> psfCubeVec, psfLayerVec;

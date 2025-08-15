@@ -9,23 +9,23 @@
 namespace fs = std::filesystem;
 #include "UtlImage.h"
 
-void PSF::setParameters(int sizeX, int sizeY, int sizeZ, double resLat, double resAx, 
-                  double numericalAperture, double wavelength, 
-                  const std::string& fullName = "Untitled", 
-                  const std::string& shortName = "...", 
-                  int psfType = 0, int psfScale = 1) {
-    this->sizeXPixels = sizeX;
-    this->sizeYPixels = sizeY;
-    this->sizeZPixels = sizeZ;
-    this->resLateral = resLat;
-    this->resAxial = resAx;
-    this->NA = numericalAperture;
-    this->lambda = wavelength;
-    this->fullname = fullName;
-    this->shortname = shortName;
-    this->type = psfType;
-    this->scale = psfScale;
-}
+// void PSF::setParameters(int sizeX, int sizeY, int sizeZ, double resLat, double resAx, 
+//                   double numericalAperture, double wavelength, 
+//                   const std::string& fullName = "Untitled", 
+//                   const std::string& shortName = "...", 
+//                   int psfType = 0, int psfScale = 1) {
+//     this->sizeXPixels = sizeX;
+//     this->sizeYPixels = sizeY;
+//     this->sizeZPixels = sizeZ;
+//     this->resLateral = resLat;
+//     this->resAxial = resAx;
+//     this->NA = numericalAperture;
+//     this->lambda = wavelength;
+//     this->fullname = fullName;
+//     this->shortname = shortName;
+//     this->type = psfType;
+//     this->scale = psfScale;
+// }
 
 
 bool PSF::readFromTifFile(const char *filename) {

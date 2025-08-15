@@ -4,7 +4,8 @@
 #include <fstream>
 #include <opencv2/opencv.hpp>
 #include "ConvolutionAlgorithm.h"
-#include "DeconvolutionAlgorithm.h"
+#include "DeconvolutionAlgorithmFactory.h"
+#include "PSFGeneratorFactory.h"
 
 #include <sys/stat.h>
 #ifdef CUDA_AVAILABLE
@@ -25,22 +26,17 @@ Dolphin::~Dolphin(){
 
 bool Dolphin::init(int argc, char** argv){
     std::cout << "[Start DeconvTool]" << std::endl;
-    PSFPackage psfPackage;
     try{
         setCLIOptions();
         CLI11_PARSE(app, argc, argv);
         setCuda();
-        handleConfigs();
-        psfPackage = initPSF();
+        handleConfigs(config_file_path);
+        initPSFs();
     }
     catch (const std::exception& e) {
         std::cerr << "[ERROR] " << e.what() << '\n';
         return EXIT_FAILURE;
     }
-
-    psfs = psfPackage.psfs;
-    psfCubeVec = psfPackage.psfCubeVec;
-    psfLayerVec = psfPackage.psfLayerVec;
 
     inputHyperstack = initHyperstack();
     algorithm = algorithmFactory(algorithmName);
@@ -117,146 +113,133 @@ void Dolphin::setCuda(){
 #endif
 }
 
-void Dolphin::handleConfigs(){
-    if (!config_file_path.empty()) {
-        // Read configuration file
-        std::ifstream config_file(config_file_path);
-        if (!config_file.is_open()) {
-            throw std::runtime_error("Failed to open configuration file: " + config_file_path);
-        }
-
-        std::cout<< "[STATUS] " << config_file_path << " successfully read" << std::endl;
-        config_file >> config;
-        // Values from configuration file passed to arguments
-        image_path = config["image_path"].get<std::string>();
-        if (config.contains("psf_path")) {
-            if (config["psf_path"].is_string()) {
-                psf_path = config["psf_path"].get<std::string>();
-                if (psf_path.substr(psf_path.find_last_of(".") + 1) == "json") {
-                    //psfconfig objekt machen
-                    PSFConfig psf_config;
-                    if( psf_config.loadFromJSON(psf_path)) {
-                        psf_config.printValues();
-                    }else {
-                        throw std::runtime_error("psf_foncig.loadFromJSON failed");
-                    }
-                    psfConfigs.push_back(psf_config);
-
-                } else {
-                    if(psf_path != "" || !psf_path.empty()) {
-                        psfPaths.push_back(psf_path);
-                    }
-                }
-            } else if (config["psf_path"].is_array()) {
-                for (const auto& element : config["psf_path"]) { // Range-based for loop
-                    if (element.is_string()) {
-                        //entweder config
-                        std::string elementStr = element.get<std::string>();
-                        // Überprüfe die Dateiendung
-                        if (elementStr.substr(elementStr.find_last_of(".") + 1) == "json") {
-                            //psfconfig objekt machen
-                            PSFConfig psf_config;
-                            if( psf_config.loadFromJSON(elementStr)) {
-                                psf_config.printValues();
-                            }else {
-                                throw std::runtime_error("psf_config.loagFromJSON failed");
-                            }
-                            psfConfigs.push_back(psf_config);
-
-                        } else {
-                            psfPaths.push_back(elementStr);
-                        }
-                    }
-                }
-            } else {
-                throw std::runtime_error("Field 'psf_path' does not exist.");
-                
-            }
-
-        }
-        // Required in configuration file
-        algorithmName = config["algorithm"].get<std::string>();
-        epsilon = config["epsilon"].get<double>();
-        iterations = config["iterations"].get<int>();
-        lambda = config["lambda"].get<double>();
-        psfSafetyBorder = config["psfSafetyBorder"].get<int>();
-        subimageSize = config["subimageSize"].get<int>();
-        borderType = config["borderType"].get<int>();
-        sep = config["seperate"].get<bool>();
-        time = config["time"].get<bool>();
-        savePsf = config["savePsf"].get<bool>();
-        showExampleLayers = config["showExampleLayers"].get<bool>();
-        printInfo = config["info"].get<bool>();
-        grid = config["grid"].get<bool>();
-        if (config.contains("saveSubimages")) {
-            saveSubimages = config["saveSubimages"].get<bool>();
-        }
-        if (config.contains("gpu")) {
-            gpu = config["gpu"].get<std::string>();
-        }
-    }else {
-        for(auto path: psfPathsCLI) {
-            if (path.substr(path.find_last_of(".") + 1) == "json") {
-                PSFConfig psf_config;
-                if( psf_config.loadFromJSON(path)) {
-                    psf_config.printValues();
-                }else {
-                    throw std::runtime_error("psf_config.loadFromJSON failed");
-                    
-                }
-                psfConfigs.push_back(psf_config);
-
-            } else {
-                psfPaths.push_back(path);
-            }
-        }
+void Dolphin::handleConfigs(const std::string& configPath){
+    if (!configPath.empty()) {
+        handleJSONConfigs(configPath);
+    } else {
+        handleCLIConfigs();
     }
-
 }
 
-PSFPackage Dolphin::initPSF(){
-    std::vector<PSF> psfs;
+void Dolphin::handleJSONConfigs(const std::string& configPath) {
+    this->config = loadJSONFile(configPath);
+    std::string imagePath = extractImagePath(this->config);
+    processPSFPaths();
+    extractAlgorithmParameters();
+    extractOptionalParameters();
+}
 
-    std::vector<std::vector<int>> psfCubeVec, psfLayerVec;
+json Dolphin::loadJSONFile(const std::string& filePath) const {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open configuration file: " + filePath);
+    }
+    
+    std::cout << "[STATUS] " << filePath << " successfully read" << std::endl;
+
+    json jsonFile;
+    file >> jsonFile;
+    return jsonFile;
+}
+
+std::string Dolphin::extractImagePath(const json& config) const {
+    return config["image_path"].get<std::string>();
+}
+
+void Dolphin::processPSFPaths() {
+    if (!config.contains("psf_path")) {
+        return;
+    }
+    
+    if (config["psf_path"].is_string()) {
+        std::string psf_path = config["psf_path"].get<std::string>();
+        processSinglePSFPath(psf_path);
+    } else if (config["psf_path"].is_array()) {
+        processPSFPathArray();
+    } else {
+        throw std::runtime_error("Field 'psf_path' has invalid format.");
+    }
+}
+
+void Dolphin::processSinglePSFPath(const std::string& psf_path) {
+    
+    if (isJSONFile(psf_path)) {
+        addPSFConfigFromJSON(loadJSONFile(psf_path));
+    } else {
+        // if (!psf_path.empty()) { // LK why do i need this? only add psf_paths if theyre not empty?
+        psfPaths.push_back(psf_path);
+        // }
+    }
+}
+
+void Dolphin::processPSFPathArray() {
+    for (const auto& element : config["psf_path"]) {
+        if (element.is_string()) {
+            std::string elementStr = element.get<std::string>();
+            processSinglePSFPath(elementStr);
+        }
+    }
+}
+
+bool Dolphin::isJSONFile(const std::string& path) {
+    return path.substr(path.find_last_of(".") + 1) == "json";
+}
+
+void Dolphin::addPSFConfigFromJSON(const json& configJson) {
+
+    if (configJson.contains("path") && configJson["path"].get<std::string>() != "") {
+        psfPaths.push_back(configJson["path"].get<std::string>());
+    }
+
+    else{
+        // LK TODO i dont know what psfcubevec and layervec are and where they should be processed. the deconvolution algorithms rely on them. are they needed to create the psfs? do they need to be apart of PSFConfig?
+        psfCubeVec.push_back(configJson["subimages"].get<std::vector<int>>());
+        psfLayerVec.push_back(configJson["layers"].get<std::vector<int>>());
+    
+        std::unique_ptr<PSFConfig> psfConfig = PSFFactory::PSFConfigFactory(configJson);
+        psfConfigs.push_back(std::move(psfConfig));
+    }
+}
+
+void Dolphin::extractAlgorithmParameters() {
+    algorithmName = config["algorithm"].get<std::string>();
+    epsilon = config["epsilon"].get<double>();
+    iterations = config["iterations"].get<int>();
+    lambda = config["lambda"].get<double>();
+    psfSafetyBorder = config["psfSafetyBorder"].get<int>();
+    subimageSize = config["subimageSize"].get<int>();
+    borderType = config["borderType"].get<int>();
+}
+
+void Dolphin::extractOptionalParameters() {
+    sep = config["seperate"].get<bool>();
+    time = config["time"].get<bool>();
+    savePsf = config["savePsf"].get<bool>();
+    showExampleLayers = config["showExampleLayers"].get<bool>();
+    printInfo = config["info"].get<bool>();
+    grid = config["grid"].get<bool>();
+    
+    if (config.contains("saveSubimages")) {
+        saveSubimages = config["saveSubimages"].get<bool>();
+    }
+    if (config.contains("gpu")) {
+        gpu = config["gpu"].get<std::string>();
+    }
+}
+
+void Dolphin::handleCLIConfigs() {
+    for (const auto& path : psfPathsCLI) {
+        processSinglePSFPath(path);
+    }
+}
+
+void Dolphin::initPSFs(){
 
     for (const auto& psfPath : psfPaths) {
-        PSF psftmp;
-        if (psfPath.substr(psfPath.find_last_of(".") + 1) == "tif" || psfPath.substr(psfPath.find_last_of(".") + 1) == "tiff" || psfPath.substr(psfPath.find_last_of(".") + 1) == "ometif") {
-            psftmp.readFromTifFile(psfPath.c_str());
-        } else {
-            psftmp.readFromTifDir(psfPath.c_str());
-        }
-        psfs.push_back(psftmp);
-        psfCubeVec.push_back({});
-        psfLayerVec.push_back({});
+        createPSFFromFile(psfPath);
     }
     for (auto& psfConfig : psfConfigs) {
-        psfCubeVec.push_back(psfConfig.psfCubes);
-        psfLayerVec.push_back(psfConfig.psfLayers);
-        if(psfConfig.psfPath != "") {
-            PSF psftmp;
-            psftmp.readFromTifFile(psfConfig.psfPath.c_str());
-            psfs.push_back(psftmp);
-            psfConfig.x = psftmp.image.slices[0].cols;
-            psfConfig.y = psftmp.image.slices[0].rows;
-            psfConfig.z = psftmp.image.slices.size();
-        }else if(psfConfig.psfModel == "gauss") {
-            double sigmax = psfConfig.sigmax;
-            double sigmay = psfConfig.sigmay;
-            double sigmaz = psfConfig.sigmaz;
-            int x = psfConfig.x;
-            int y = psfConfig.y;
-            int z = psfConfig.z;
-
-            PSFGenerator<GaussianPSFGeneratorAlgorithm, double&, double&, double&, int&, int&, int&> gaussianGenerator(sigmax, sigmay, sigmaz, x, y, z); // LK the psfgenerator is pretty useles as it is bound to the generator algorithm, should be used more like a factory
-            // create PSFGenerator which simply takes the psfconfig, has multiple algorithms, and runs the specified algorithm to generate a psf
-            PSF psftmp;
-            psftmp = gaussianGenerator.generate();
-            psfs.push_back(psftmp);
-        }else{
-            throw std::runtime_error("No correct PSF model ('gauss'/...)");
-            
-        }
+        createPSFFromConfig(std::move(psfConfig));
     }
 
     int firstPsfX = psfs[0].image.slices[0].cols;
@@ -275,10 +258,29 @@ PSFPackage Dolphin::initPSF(){
             psfs[i].saveAsTifFile("../result/psf_"+std::to_string(i)+".tif");
         }
     }
-    return PSFPackage{psfCubeVec, psfLayerVec, psfs};
 }
 
-Hyperstack Dolphin::initHyperstack(){
+void Dolphin::createPSFFromConfig(std::unique_ptr<PSFConfig> psfConfig){
+
+    std::unique_ptr<BasePSFGenerator> psfGenerator = PSFFactory::PSFGeneratorFactory(std::move(psfConfig));
+    PSF psftmp = psfGenerator->generatePSF();
+    psfs.push_back(psftmp);
+    
+}
+
+void Dolphin::createPSFFromFile(const std::string& psfPath){
+    PSF psftmp;
+    if (psfPath.substr(psfPath.find_last_of(".") + 1) == "tif" || psfPath.substr(psfPath.find_last_of(".") + 1) == "tiff" || psfPath.substr(psfPath.find_last_of(".") + 1) == "ometif") {
+        psftmp.readFromTifFile(psfPath.c_str());
+    } else {
+        psftmp.readFromTifDir(psfPath.c_str());
+    }
+    psfs.push_back(psftmp);
+    psfCubeVec.push_back({});
+    psfLayerVec.push_back({});
+}
+
+Hyperstack Dolphin::initHyperstack() const{
     Hyperstack hyperstack;
     if (image_path.substr(image_path.find_last_of(".") + 1) == "tif" || image_path.substr(image_path.find_last_of(".") + 1) == "tiff" || image_path.substr(image_path.find_last_of(".") + 1) == "ometif") {
         hyperstack.readFromTifFile(image_path.c_str());
@@ -298,7 +300,7 @@ Hyperstack Dolphin::initHyperstack(){
     return hyperstack;
 }
 
-std::unique_ptr<BaseAlgorithm> Dolphin::initDeconvolution(const std::vector<std::vector<int>>& psfCubeVec, const std::vector<std::vector<int>>& psfLayerVec){
+std::unique_ptr<BaseDeconvolutionAlgorithm> Dolphin::initDeconvolution(const std::vector<std::vector<int>>& psfCubeVec, const std::vector<std::vector<int>>& psfLayerVec){
 
 
     DeconvolutionConfig deconvConfig;

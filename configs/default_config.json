@@ -5,7 +5,7 @@
   "time": false,
   "seperate": false,
 
-  "algorithm": "rltv",
+  "algorithm": "RichardsonLucyTotalVariation",
   "epsilon": 1e-6,
   "lambda": 0.015,
   "iterations": 10,

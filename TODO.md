@@ -1,4 +1,7 @@
 
+make psf config loading and algorithm generation in dolphin more general and abstract
+
+
 create more general writer (that writes all kinds of outputs)
 
 
@@ -13,3 +16,10 @@ what to think about:
 - gpu?
 - input/output format
 - how will it be used? standalone?
+
+
+
+general PSF structure:
+
+a psf generator always works together with its own psf config
+where the psf config will hold the data it needs and can be created from a json and the psf generator only uses that for all the data management, but doesnt store data itself (except for the config)

@@ -358,7 +358,7 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
             fftw_complex* g = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
             // Result image
             fftw_complex* f = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-
+                // LK layernumvec used here
                 if(this->layerNumVec.size() > 1) {
 
                     int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / this->cubesPerLayer));
@@ -388,7 +388,7 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
                     H = this->paddedHs[0];
 #endif
                 }
-
+                // LK this is where cubenumvec is used
             if(this->cubeNumVec.size() > 1) {
                 for(int v = 1; v < this->cubeNumVec.size(); ++v) {
                     // Check if second PSF has to be applied

@@ -1,0 +1,25 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations":[
+        {
+            "name": "Debug dolphin",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}", // your built binary
+            "args": [
+                "-i", "~/data/dolphin_test_data/bacteria.tif",
+                "-p", "../configs/default_psf_config.json",
+                "-a", "RichardsonLucyTotalVariation",
+                "--iterations", "50",
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb"
+        }
+    ]
+}
