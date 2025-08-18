@@ -1,6 +1,6 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
-#include "GaussianPSFGenerator.h"
+#include "psf/GaussianPSFGenerator.h"
 
 
 

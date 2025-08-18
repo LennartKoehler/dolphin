@@ -8,7 +8,7 @@
   "psfx": 20,
   "psfy": 20,
   "psfz": 40,
-  "psfmodel": "Gaussian",
+  "psfmodel": "gauss",
   "layers": [],
   "subimages": []
 }

@@ -2,7 +2,7 @@
 #include <string>
 #include "DeconvolutionConfig.h"
 #include "HyperstackImage.h"
-#include "PSF.h"
+#include "psf/PSF.h"
 #include "BaseAlgorithm.h"
 
 #ifdef CUDA_AVAILABLE

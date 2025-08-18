@@ -4,7 +4,7 @@
 #include "Image3D.h"
 #include "ImageMetaData.h"
 #include "Channel.h"
-#include "PSF.h"
+#include "psf/PSF.h"
 
 class Hyperstack {
 public:

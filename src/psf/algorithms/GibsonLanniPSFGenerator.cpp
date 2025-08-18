@@ -1,4 +1,4 @@
-#include "GibsonLanniPSFGenerator.h"
+#include "psf/GibsonLanniPSFGenerator.h"
 // #include "KirchoffDiffractionSimpson.h"
 
 bool GibsonLanniPSFGenerator::hasConfig(){

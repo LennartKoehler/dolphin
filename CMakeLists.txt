@@ -12,163 +12,94 @@ link_directories(/usr/local/lib)
 find_package(OpenCV REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(TIFF REQUIRED)
-
-
 find_package(CUDAToolkit REQUIRED)
-if(CUDAToolkit_FOUND)
-    enable_language(CUDA)
-    message(STATUS "CUDA found. Compiling with CUBE library. Creating second executable.")
-else()
-    message(STATUS "CUDA not found. Compiling without CUBE library.")
-endif()
-
-include_directories(${OpenCV_INCLUDE_DIRS} ${TIFF_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/include)
-
-# Define source files for CPU executable
-
-# LK make these into their own library, so with or without cuda can just import that library
-add_executable(dolphin ${CMAKE_SOURCE_DIR}/src/main.cpp
-        src/Dolphin.cpp
-        include/Dolphin.h
-        src/algorithms/ConvolutionAlgorithm.cpp
-        src/hyperstack/HyperstackImage.cpp
-        include/HyperstackImage.h
-        src/hyperstack/Image3D.cpp
-        include/Image3D.h
-        src/hyperstack/ImageMetaData.cpp
-        include/ImageMetaData.h
-        src/psf/PSF.cpp
-        include/PSF.h
-        include/BasePSFGenerator.h
-        src/psf/algorithms/SimpleGaussianPSFGeneratorAlgorithm.cpp
-        include/SimpleGaussianPSFGeneratorAlgorithm.h
-        include/PSFGeneratorFactory.h
-        include/DeconvolutionAlgorithmFactory.h
-        include/RegularizedInverseFilterDeconvolutionAlgorithm.h
-        include/RLDeconvolutionAlgorithm.h
-        src/deconvolution/DeconvolutionConfig.cpp
-        include/DeconvolutionConfig.h
-        include/BaseDeconvolutionAlgorithm.h
-        src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
-        src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
-        src/hyperstack/HyperstackIO.cpp
-        src/hyperstack/HyperstackMetaData.cpp
-        src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
-        include/InverseFilterDeconvolutionAlgorithm.h
-        include/UtlFFT.h
-        src/utilities/UtlFFT.cpp
-        include/UtlGrid.h
-        src/utilities/UtlGrid.cpp
-        include/UtlImage.h
-        src/utilities/UtlImage.cpp
-        include/UtlIO.h
-        src/utilities/UtlIO.cpp
-        include/Channel.h
-        src/deconvolution/BaseDeconvolutionAlgorithm.cpp
-        include/GaussianPSFGenerator.h
-        src/psf/algorithms/GaussianPSFGenerator.cpp
-        src/psf/algorithms/BornWolfModel.cpp
-        include/BornWolfModel.h
-        include/RLTVDeconvolutionAlgorithm.h
-        src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
-        src/psf/algorithms/GibsonLanniPSFGenerator.cpp
-        src/psf/configs/GibsonLanniPSFConfig.cpp
-        src/psf/configs/GaussianPSFConfig.cpp
 
 
-        include/GibsonLanniPSFGenerator.h
-        include/RLADDeconvolutionAlgorithm.h
-        src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
-        include/PSFConfig.h
-        
+# Common include dirs
+include_directories(
+    ${OpenCV_INCLUDE_DIRS}
+    ${TIFF_INCLUDE_DIR}
+    ${CMAKE_SOURCE_DIR}/include
 )
-# Link CPU executable with the required libraries (FFTW)
-target_link_libraries(dolphin
-        -lpthread
-        -lgomp
+# ------------------------------------------------------------
+# Collect sources
+# ------------------------------------------------------------
+set(COMMON_SOURCES
+    src/Dolphin.cpp
+    src/algorithms/ConvolutionAlgorithm.cpp
+    src/hyperstack/HyperstackImage.cpp
+    src/hyperstack/Image3D.cpp
+    src/hyperstack/ImageMetaData.cpp
+    src/hyperstack/HyperstackIO.cpp
+    src/hyperstack/HyperstackMetaData.cpp
+    src/psf/PSF.cpp
+    src/psf/algorithms/SimpleGaussianPSFGeneratorAlgorithm.cpp
+    src/psf/algorithms/GaussianPSFGenerator.cpp
+    src/psf/algorithms/BornWolfModel.cpp
+    src/psf/algorithms/GibsonLanniPSFGenerator.cpp
+    src/psf/configs/GibsonLanniPSFConfig.cpp
+    src/psf/configs/GaussianPSFConfig.cpp
+    src/deconvolution/BaseDeconvolutionAlgorithm.cpp
+    src/deconvolution/DeconvolutionConfig.cpp
+    src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
+    src/utilities/UtlFFT.cpp
+    src/utilities/UtlGrid.cpp
+    src/utilities/UtlImage.cpp
+    src/utilities/UtlIO.cpp
+)
+
+# ------------------------------------------------------------
+# Build shared library containing all algorithms
+# ------------------------------------------------------------
+add_library(dolphinlib ${COMMON_SOURCES})
+
+target_link_libraries(dolphinlib
+    PUBLIC
         ${OpenCV_LIBS}
-        stdc++fs
         ${TIFF_LIBRARIES}
         OpenMP::OpenMP_CXX
-        fftw3
         fftw3_threads
+        fftw3
 )
 
-# Create second executable only if CUDA available
+target_include_directories(dolphinlib
+    PUBLIC
+        ${CMAKE_SOURCE_DIR}/include
+)
+
+# ------------------------------------------------------------
+# CPU executable
+# ------------------------------------------------------------
+add_executable(dolphin src/main.cpp)
+target_link_libraries(dolphin PRIVATE dolphinlib pthread gomp stdc++fs)
+
+# ------------------------------------------------------------
+# GPU executable (only if CUDA found)
+# ------------------------------------------------------------
 if(CUDAToolkit_FOUND)
-    # Include the CUBE dir
+    enable_language(CUDA)
+    message(STATUS "CUDA found, building dolphincuda with CUBE.")
+
+    # Add CUBE subproject
     add_subdirectory(${CMAKE_SOURCE_DIR}/lib/cube)
-    link_directories(${CMAKE_SOURCE_DIR}/lib/cube/build)
-    include_directories(${CMAKE_SOURCE_DIR}/lib/cube/include)
-    # Define source files for GPU executable
-    add_executable(dolphincuda ${CMAKE_SOURCE_DIR}/src/main.cpp
-                src/Dolphin.cpp
-                include/Dolphin.h
-                src/algorithms/ConvolutionAlgorithm.cpp
-                src/hyperstack/HyperstackImage.cpp
-            include/HyperstackImage.h
-            src/hyperstack/Image3D.cpp
-            include/Image3D.h
-            src/hyperstack/ImageMetaData.cpp
-            include/ImageMetaData.h
-            src/psf/PSF.cpp
-            include/PSF.h
-            include/BasePSFGenerator.h
-            src/psf/algorithms/SimpleGaussianPSFGeneratorAlgorithm.cpp
-            include/SimpleGaussianPSFGeneratorAlgorithm.h
-            include/PSFGeneratorFactory.h
-            include/DeconvolutionAlgorithmFactory.h
-            include/RegularizedInverseFilterDeconvolutionAlgorithm.h
-            include/RLDeconvolutionAlgorithm.h
-            src/deconvolution/DeconvolutionConfig.cpp
-            include/DeconvolutionConfig.h
-            include/BaseDeconvolutionAlgorithm.h
-            src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
-            src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
-            src/hyperstack/HyperstackIO.cpp
-            src/hyperstack/HyperstackMetaData.cpp
-            src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
-            include/InverseFilterDeconvolutionAlgorithm.h
-            include/UtlFFT.h
-            src/utilities/UtlFFT.cpp
-            include/UtlGrid.h
-            src/utilities/UtlGrid.cpp
-            include/UtlImage.h
-            src/utilities/UtlImage.cpp
-            include/UtlIO.h
-            src/utilities/UtlIO.cpp
-            include/Channel.h
-            src/deconvolution/BaseDeconvolutionAlgorithm.cpp
-            include/GaussianPSFGenerator.h
-            src/psf/algorithms/GaussianPSFGenerator.cpp
-            src/psf/algorithms/GibsonLanniPSFGenerator.cpp
-            include/GibsonLanniPSFGenerator.h
-            src/psf/algorithms/BornWolfModel.cpp
-            include/BornWolfModel.h
-            include/RLTVDeconvolutionAlgorithm.h
-            src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
-            include/RLADDeconvolutionAlgorithm.h
-            src/psf/configs/GibsonLanniPSFConfig.cpp
-            src/psf/configs/GaussianPSFConfig.cpp
-            src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
-            include/PSFConfig.h
-            
-    )
-    # Set macro for GPU executable, for compiling correct libs in source code
-    target_compile_definitions(dolphincuda PRIVATE CUDA_AVAILABLE)
-    # Link CPU executable with the required libraries (cuFFTW)
+
+    add_executable(dolphincuda src/main.cpp)
     target_link_libraries(dolphincuda
-            -lpthread
-            -lgomp
-            ${OpenCV_LIBS}
+        PRIVATE
+            dolphinlib
+            pthread
+            gomp
             stdc++fs
-            ${TIFF_LIBRARIES}
-            OpenMP::OpenMP_CXX
-            ${CMAKE_SOURCE_DIR}/lib/cube/build/libCUBE.a
-            cuda
+            CUBE          # provided by lib/cube/CMakeLists.txt
             CUDA::cufft
             CUDA::cudart
             CUDA::cufftw
     )
+    target_compile_definitions(dolphincuda PRIVATE CUDA_AVAILABLE)
+else()
+    message(STATUS "CUDA not found. Building only CPU version.")
 endif()
-

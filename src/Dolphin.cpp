@@ -5,7 +5,8 @@
 #include <opencv2/opencv.hpp>
 #include "ConvolutionAlgorithm.h"
 #include "DeconvolutionAlgorithmFactory.h"
-#include "PSFGeneratorFactory.h"
+#include "psf/PSFGeneratorFactory.h"
+#include "DeconvolutionAlgorithmFactory.h"
 
 #include <sys/stat.h>
 #ifdef CUDA_AVAILABLE
@@ -26,6 +27,7 @@ Dolphin::~Dolphin(){
 
 bool Dolphin::init(int argc, char** argv){
     std::cout << "[Start DeconvTool]" << std::endl;
+
     try{
         setCLIOptions();
         CLI11_PARSE(app, argc, argv);
@@ -319,7 +321,8 @@ std::unique_ptr<BaseDeconvolutionAlgorithm> Dolphin::initDeconvolution(const std
     deconvConfig.time = time;
     deconvConfig.saveSubimages = saveSubimages;
 
-    return deconvolutionAlgorithmFactory(algorithmName, deconvConfig);
+    DeconvolutionAlgorithmFactory DAF = DeconvolutionAlgorithmFactory::getInstance();
+    return DAF.create(algorithmName, deconvConfig);
 }
 
 void Dolphin::run(){

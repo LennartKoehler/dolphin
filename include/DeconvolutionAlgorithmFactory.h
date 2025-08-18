@@ -2,47 +2,64 @@
 
 #include <memory>
 #include <utility>
-// #include "BaseDeconvolutionAlgorithm.h"
-// #include "DeconvolutionConfig.h"
+
 #include "InverseFilterDeconvolutionAlgorithm.h"
 #include "RegularizedInverseFilterDeconvolutionAlgorithm.h"
 #include "RLDeconvolutionAlgorithm.h"
 #include "RLTVDeconvolutionAlgorithm.h"
 #include "RLADDeconvolutionAlgorithm.h"
 
-// template<typename Algorithm, typename... Args>
-// class DeconvolutionAlgorithm {
-// public:
-//     DeconvolutionAlgorithm(const DeconvolutionConfig& config, Args&&... args)
-//             : algo(std::make_unique<Algorithm>(std::forward<Args>(args)...)) {
-//         algo->configure(config);
-//     }
 
-//     Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psfs) const {
-//         return algo->deconvolve(data, psfs);
-//     }
+class DeconvolutionAlgorithmFactory {
+public:
+    using AlgorithmCreator = std::function<std::unique_ptr<BaseDeconvolutionAlgorithm>()>;
 
-// private:
-//     std::unique_ptr<BaseDeconvolutionAlgorithm> algo;
-// };
-
-//TODO this entire file can be removed and this factory included somewhere else
-static std::unique_ptr<BaseDeconvolutionAlgorithm> deconvolutionAlgorithmFactory(
-    const std::string& name, const DeconvolutionConfig& config
-) {
-    std::unique_ptr<BaseDeconvolutionAlgorithm> algorithm;
-    if (name == "InverseFilter") {
-        algorithm = std::make_unique<InverseFilterDeconvolutionAlgorithm>();
-    } else if (name == "RichardsonLucy") {
-        algorithm = std::make_unique<RLDeconvolutionAlgorithm>();
-    } else if (name == "RichardsonLucyTotalVariation") {
-        algorithm = std::make_unique<RLTVDeconvolutionAlgorithm>();
-    } else if (name == "RegularizedInverseFilter") {
-        algorithm = std::make_unique<RegularizedInverseFilterDeconvolutionAlgorithm>();
+    static DeconvolutionAlgorithmFactory& getInstance() {
+        static DeconvolutionAlgorithmFactory instance;
+        return instance;
     }
-    else{
-        throw std::runtime_error("Unknown algorithm: " + name);
-    }    
-    algorithm->configure(config);
-    return algorithm;
-}
+
+    void registerAlgorithm(const std::string& name, AlgorithmCreator creator) {
+        algorithms_[name] = creator;
+    }
+
+    std::unique_ptr<BaseDeconvolutionAlgorithm> create(
+        const std::string& name, const DeconvolutionConfig& config
+    ) {
+        auto it = algorithms_.find(name);
+        if (it == algorithms_.end()) {
+            throw std::runtime_error("Unknown algorithm: " + name);
+        }
+        
+        auto algorithm = it->second();
+        algorithm->configure(config);
+        return algorithm;
+    }
+
+    std::vector<std::string> getAvailableAlgorithms() const {
+        std::vector<std::string> names;
+        for (const auto& pair : algorithms_) {
+            names.push_back(pair.first);
+        }
+        return names;
+    }
+
+private:
+    DeconvolutionAlgorithmFactory() {
+        // Register algorithms
+        registerAlgorithm("InverseFilter", []() {
+            return std::make_unique<InverseFilterDeconvolutionAlgorithm>();
+        });
+        registerAlgorithm("RichardsonLucy", []() {
+            return std::make_unique<RLDeconvolutionAlgorithm>();
+        });
+        registerAlgorithm("RichardsonLucyTotalVariation", []() {
+            return std::make_unique<RLTVDeconvolutionAlgorithm>();
+        });
+        registerAlgorithm("RegularizedInverseFilter", []() {
+            return std::make_unique<RegularizedInverseFilterDeconvolutionAlgorithm>();
+        });
+    }
+
+    std::unordered_map<std::string, AlgorithmCreator> algorithms_;
+};

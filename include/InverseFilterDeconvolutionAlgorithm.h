@@ -1,7 +1,7 @@
 #pragma once
 
 #include "BaseDeconvolutionAlgorithm.h"
-#include "PSF.h"
+#include "psf/PSF.h"
 #include <iostream>
 #include <vector>
 #ifdef CUDA_AVAILABLE

@@ -8,8 +8,8 @@
 
 #include "HyperstackImage.h"
 #include "BaseDeconvolutionAlgorithm.h"
-#include "PSFConfig.h"
-#include "BasePSFGenerator.h"
+#include "psf/PSFConfig.h"
+#include "psf/BasePSFGenerator.h"
 #include "../lib/CLI/CLI11.hpp"
 #include "../lib/nlohmann/json.hpp"
 

@@ -1,4 +1,4 @@
-#include "GaussianPSFGenerator.h"
+#include "psf/GaussianPSFGenerator.h"
 #include <fstream>
 #include <iostream>
 
