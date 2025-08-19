@@ -32,28 +32,22 @@ bool Dolphin::init(int argc, char** argv){
         setCLIOptions();
         CLI11_PARSE(app, argc, argv);
         setCuda();
-        handleConfigs(config_file_path);
+        handleInput();
         initPSFs();
+        inputHyperstack = initHyperstack();
+        algorithm = setAlgorithm(algorithmName);
     }
     catch (const std::exception& e) {
         std::cerr << "[ERROR] " << e.what() << '\n';
         return EXIT_FAILURE;
     }
 
-    inputHyperstack = initHyperstack();
-    algorithm = algorithmFactory(algorithmName);
+
     return 0;
 
 }
 
-std::unique_ptr<BaseAlgorithm> Dolphin::algorithmFactory(const std::string& algorithmName){
-    if (algorithmName == "convolve"){
-        return std::make_unique<ConvolutionAlgorithm>();
-    }
-    else{
-        return initDeconvolution(psfCubeVec, psfLayerVec);
-    }
-}
+
 
 void Dolphin::setCLIOptions(){
     cli_group = app.add_option_group("CLI", "Commandline options");
@@ -115,17 +109,17 @@ void Dolphin::setCuda(){
 #endif
 }
 
-void Dolphin::handleConfigs(const std::string& configPath){
-    if (!configPath.empty()) {
-        handleJSONConfigs(configPath);
-    } else {
-        handleCLIConfigs();
+void Dolphin::handleInput(){
+    handleCLIConfigs();
+
+    if (!config_file_path.empty()) {
+        handleJSONConfigs(config_file_path);
     }
 }
 
 void Dolphin::handleJSONConfigs(const std::string& configPath) {
     this->config = loadJSONFile(configPath);
-    std::string imagePath = extractImagePath(this->config);
+    image_path = extractImagePath(this->config);
     processPSFPaths();
     extractAlgorithmParameters();
     extractOptionalParameters();
@@ -198,7 +192,8 @@ void Dolphin::addPSFConfigFromJSON(const json& configJson) {
         psfCubeVec.push_back(configJson["subimages"].get<std::vector<int>>());
         psfLayerVec.push_back(configJson["layers"].get<std::vector<int>>());
     
-        std::unique_ptr<PSFConfig> psfConfig = PSFFactory::PSFConfigFactory(configJson);
+        PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
+        std::unique_ptr<PSFConfig> psfConfig = factory.createConfig(configJson);
         psfConfigs.push_back(std::move(psfConfig));
     }
 }
@@ -264,7 +259,8 @@ void Dolphin::initPSFs(){
 
 void Dolphin::createPSFFromConfig(std::unique_ptr<PSFConfig> psfConfig){
 
-    std::unique_ptr<BasePSFGenerator> psfGenerator = PSFFactory::PSFGeneratorFactory(std::move(psfConfig));
+    PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
+    std::unique_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(std::move(psfConfig));
     PSF psftmp = psfGenerator->generatePSF();
     psfs.push_back(psftmp);
     
@@ -300,6 +296,15 @@ Hyperstack Dolphin::initHyperstack() const{
     hyperstack.saveAsTifFile("../result/input_hyperstack.tif");
     hyperstack.saveAsTifDir("../result/input_hyperstack");
     return hyperstack;
+}
+
+std::unique_ptr<BaseAlgorithm> Dolphin::setAlgorithm(const std::string& algorithmName){
+    if (algorithmName == "convolve"){
+        return std::make_unique<ConvolutionAlgorithm>();
+    }
+    else{
+        return initDeconvolution(psfCubeVec, psfLayerVec);
+    }
 }
 
 std::unique_ptr<BaseDeconvolutionAlgorithm> Dolphin::initDeconvolution(const std::vector<std::vector<int>>& psfCubeVec, const std::vector<std::vector<int>>& psfLayerVec){

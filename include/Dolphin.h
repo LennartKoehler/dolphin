@@ -29,12 +29,12 @@ public:
     void initPSFs();
     Hyperstack initHyperstack() const ;
     std::unique_ptr<BaseDeconvolutionAlgorithm> initDeconvolution(const std::vector<std::vector<int>>& psfCubeVec, const std::vector<std::vector<int>>& psfLayerVec);
-    std::unique_ptr<BaseAlgorithm> algorithmFactory(const std::string& algorithmName);
+    std::unique_ptr<BaseAlgorithm> setAlgorithm(const std::string& algorithmName);
     std::unique_ptr<BasePSFGenerator> initPSFGenerator(const std::string& modelName, const json& PSFConfig);
     
     void createPSFFromConfig(std::unique_ptr<PSFConfig> psfConfig);
     void createPSFFromFile(const std::string& path);
-    void handleConfigs(const std::string& configPath);
+    void handleInput();
     void handleJSONConfigs(const std::string& configPath);
     json loadJSONFile(const std::string& path) const;
     std::string extractImagePath(const json& file) const;

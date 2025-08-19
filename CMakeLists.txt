@@ -33,10 +33,12 @@ set(COMMON_SOURCES
     src/hyperstack/HyperstackIO.cpp
     src/hyperstack/HyperstackMetaData.cpp
     src/psf/PSF.cpp
+    src/psf/PSFConfig.cpp
     src/psf/algorithms/SimpleGaussianPSFGeneratorAlgorithm.cpp
     src/psf/algorithms/GaussianPSFGenerator.cpp
     src/psf/algorithms/BornWolfModel.cpp
     src/psf/algorithms/GibsonLanniPSFGenerator.cpp
+    src/psf/algorithms/KirchhoffDiffractionSimpson.cpp
     src/psf/configs/GibsonLanniPSFConfig.cpp
     src/psf/configs/GaussianPSFConfig.cpp
     src/deconvolution/BaseDeconvolutionAlgorithm.cpp

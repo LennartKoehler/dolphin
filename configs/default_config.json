@@ -1,16 +1,16 @@
 {
-  "image_path": "../input/your_image.tif",
+  "image_path": "../../../data/dolphin_test_data/bacteria.tif",
   "info": false,
   "showExampleLayers": false,
   "time": false,
   "seperate": false,
 
-  "algorithm": "rltv",
+  "algorithm": "RichardsonLucyTotalVariation",
   "epsilon": 1e-6,
   "lambda": 0.015,
   "iterations": 10,
 
-  "psf_path": "../configs/default_psf.json",
+  "psf_path": "../configs/default_psf_config_gibsonlanni.json",
   "savePsf": false,
 
   "grid": true,

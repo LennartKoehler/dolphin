@@ -11,9 +11,25 @@
             "program": "${command:cmake.launchTargetPath}", // your built binary
             "args": [
                 "-i", "~/data/dolphin_test_data/bacteria.tif",
-                "-p", "../configs/default_psf_config.json",
+                "-p", "../configs/default_psf_config_gibsonlanni.json",
                 "-a", "RichardsonLucyTotalVariation",
                 "--iterations", "50",
+
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb"
+        },
+        {
+            "name": "Debug dolphin stable",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}", // your built binary
+            "args": [
+                "-c", "../configs/default_config.json"
+
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build",
