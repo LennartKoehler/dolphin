@@ -299,7 +299,7 @@ Hyperstack Dolphin::initHyperstack() const{
 }
 
 std::unique_ptr<BaseAlgorithm> Dolphin::setAlgorithm(const std::string& algorithmName){
-    if (algorithmName == "convolve"){
+    if (algorithmName == "Convolve"){ // TODO should be changed
         return std::make_unique<ConvolutionAlgorithm>();
     }
     else{
@@ -338,8 +338,8 @@ void Dolphin::run(){
     Hyperstack result = algorithm->run(inputHyperstack, psfs);
     // Hyperstack deconvHyperstack = deconvolutionAlgorithm->deconvolve(inputHyperstack, psfs);
 
-
-    // TODO save function, maybe create more general writer class
+    
+    // TODO write save function, maybe create more general writer class
     if (showExampleLayers) {
         result.showChannel(0);
     }
@@ -348,7 +348,6 @@ void Dolphin::run(){
     if(sep){
         result.saveAsTifDir("../result/deconv");
     }
-    // result = inverseAlgorithm.deconvolve(hyperstack, psfs);
-    //###PROGRAMM END###//
+
     std::cout << "[End DeconvTool]" << std::endl;
 }

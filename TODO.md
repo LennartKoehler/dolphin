@@ -1,8 +1,6 @@
 
 make psf config loading and algorithm generation in dolphin more general and abstract
-
-
-create more general writer (that writes all kinds of outputs)
+make reader/writer, might need that for gui
 
 
 PSF:

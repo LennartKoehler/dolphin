@@ -23,19 +23,31 @@
             "MIMode": "gdb"
         },
         {
-            "name": "Debug dolphin stable",
+            "name": "Debug dolphin config",
             "type": "cppdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}", // your built binary
             "args": [
-                "-c", "../configs/default_config.json"
+                "-c", "~/data/last_run/config_mod_lk.json"
 
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build",
             "environment": [],
             "externalConsole": false,
-            "MIMode": "gdb"
+            "MIMode": "gdb",
+            "setupCommands": [
+            {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            },
+            {
+                "description": "Disassemble in intel syntax",
+                "text": "-gdb-set disassembly-flavor intel",
+                "ignoreFailures": true
+            }
+            ]
         }
     ]
 }

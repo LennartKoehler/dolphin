@@ -10,7 +10,7 @@
   "lambda": 0.015,
   "iterations": 10,
 
-  "psf_path": "../configs/default_psf_config_gibsonlanni.json",
+  "psf_path": "../configs/default_psf_config_gaussian.json",
   "savePsf": false,
 
   "grid": true,

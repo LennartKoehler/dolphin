@@ -37,30 +37,30 @@ bool GaussianPSFConfig::loadFromJSON(const json& jsonData) {
 
 
 
-        if (!jsonData.contains("sigmax")){
+        if (!jsonData.contains("sigmaX")){
             if (!resAxial_nm){
                 throw std::runtime_error("[ERROR] Missing required parameter: sigmax or resAxial");
             }
             this->sigmaX = convertResolution(resAxial_nm);
         }
-        else{this->sigmaX = convertSigma(jsonData.at("sigmax").get<double>());}
+        else{this->sigmaX = convertSigma(jsonData.at("sigmaX").get<double>());}
 
 
-        if (!jsonData.contains("sigmay")){
+        if (!jsonData.contains("sigmaY")){
             if (!resAxial_nm){
                 throw std::runtime_error("[ERROR] Missing required parameter: sigmay or resolutiony");
             }
             this->sigmaY = convertResolution(resAxial_nm);
         }
-        else{this->sigmaY = convertSigma(jsonData.at("sigmay").get<double>());}
+        else{this->sigmaY = convertSigma(jsonData.at("sigmaY").get<double>());}
 
-        if (!jsonData.contains("sigmaz")){
+        if (!jsonData.contains("sigmaZ")){
             if (!resLateral_nm){
                 throw std::runtime_error("[ERROR] Missing required parameter: sigmaz or resolutionz");
             }
             this->sigmaZ = convertResolution(resLateral_nm);
         }
-        else{this->sigmaZ = convertSigma(jsonData.at("sigmaz").get<double>());}
+        else{this->sigmaZ = convertSigma(jsonData.at("sigmaZ").get<double>());}
 
 
 
@@ -96,7 +96,7 @@ void GaussianPSFConfig::printValues() {
 }
 
 double GaussianPSFConfig::convertResolution(double resolution_nm){
-    return convertSigma(resolution_nm * pixelScaling/nanometerScale);
+    return convertSigma(resolution_nm * nanometerScale / pixelScaling);
 }
 
 double GaussianPSFConfig::convertSigma(double sigma){

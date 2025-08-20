@@ -1,5 +1,48 @@
-#include "psf/KirchoffDiffractionSimpson.h"
+/**
+ * PSFGenerator
+ * 
+ * Authors: Daniel Sage and Hagai Kirshner
+ * Organization: Biomedical Imaging Group (BIG), Ecole Polytechnique Federale de Lausanne
+ * Address: EPFL-STI-IMT-LIB, 1015 Lausanne, Switzerland
+ * Information: http://bigwww.epfl.ch/algorithms/psfgenerator/
+ *
+ * References:
+ * [1] H. Kirshner, F. Aguet, D. Sage, M. Unser
+ * 3-D PSF Fitting for Fluorescence Microscopy: Implementation and Localization Application 
+ * Journal of Microscopy, vol. 249, no. 1, pp. 13-25, January 2013.
+ * Available at: http://bigwww.epfl.ch/publications/kirshner1301.html
+ * 
+ * [2] A. Griffa, N. Garin, D. Sage
+ * Comparison of Deconvolution Software in 3D Microscopy: A User Point of View
+ * G.I.T. Imaging & Microscopy, vol. 12, no. 1, pp. 43-45, March 2010.
+ * Available at: http://bigwww.epfl.ch/publications/griffa1001.html
+ *
+ * Conditions of use:
+ * Conditions of use: You are free to use this software for research or
+ * educational purposes. In addition, we expect you to include adequate
+ * citations and acknowledgments whenever you present or publish results that
+ * are based on it.
+ */
 
+/**
+ * Copyright 2010-2017 Biomedical Imaging Group at the EPFL.
+ * 
+ * This file is part of PSFGenerator.
+ * 
+ * PSFGenerator is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ * 
+ * PSFGenerator is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along with
+ * PSFGenerator. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "psf/KirchoffDiffractionSimpson.h"
 
 
 KirchhoffDiffractionSimpson::KirchhoffDiffractionSimpson(const GibsonLanniPSFConfig& params, int accuracy, double NA_, double lambda_)
@@ -11,8 +54,9 @@ KirchhoffDiffractionSimpson::KirchhoffDiffractionSimpson(const GibsonLanniPSFCon
     else K = 3;
 }
 
-std::vector<double> KirchhoffDiffractionSimpson::integrand(double rho, double r) {
-    std::vector<double> I(2, 0.0);
+// see equations (1) - (4) of 3-D PSF fitting for fluorescence microscopy: implementation and localization application
+std::array<double, 2> KirchhoffDiffractionSimpson::integrand(double rho, double r) {
+    std::array<double, 2> I = {0.0, 0.0};
     double k0 = 2.0 * M_PI / lambda;
     double BesselValue = std::cyl_bessel_j(0, k0 * NA * r * rho);
 
@@ -41,11 +85,11 @@ double KirchhoffDiffractionSimpson::calculate(double r) {
     double del = (b - a) / 2.0;
     double curDifference = TOL;
 
-    std::vector<double> sumOddIndex(2, 0.0);
-    std::vector<double> sumEvenIndex(2, 0.0);
-    std::vector<double> valueX0(2, 0.0);
-    std::vector<double> valueXn(2, 0.0);
-    std::vector<double> value(2, 0.0);
+    std::array<double, 2> sumOddIndex = {0.0, 0.0};
+    std::array<double, 2> sumEvenIndex = {0.0, 0.0};
+    std::array<double, 2> valueX0 = {0.0, 0.0};
+    std::array<double, 2> valueXn = {0.0, 0.0};
+    std::array<double, 2> value = {0.0, 0.0};
 
     double rho = (b - a) / 2.0;
     sumOddIndex = integrand(rho, r);

@@ -5,7 +5,8 @@ project(Deconvtool)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -fopenmp -march=native")
-
+set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 # Include directories and libraries for FFTW, OpenCV, OpenMP, and TIFF
 include_directories(/usr/local/include)
 link_directories(/usr/local/lib)

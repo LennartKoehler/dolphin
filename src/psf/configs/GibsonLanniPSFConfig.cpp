@@ -11,21 +11,21 @@ bool GibsonLanniPSFConfig::loadFromJSON(const json& jsonData) {
         loadFromJSONBase(jsonData);
         
         // Load Gibson-Lanni specific parameters (required)
-        workingDistanceDesign = readParameter<double>(jsonData, "workingDistanceDesign");
-        workingDistanceExperimental = readParameter<double>(jsonData, "workingDistanceExperimental");
-        immersionRIDesign = readParameter<double>(jsonData, "immersionRIDesign");
-        immersionRIExperimental = readParameter<double>(jsonData, "immersionRIExperimental");
-        coverslipThicknessDesign = readParameter<double>(jsonData, "coverslipThicknessDesign");
-        coverslipThicknessExperimental = readParameter<double>(jsonData, "coverslipThicknessExperimental");
-        sampleRI = readParameter<double>(jsonData, "sampleRI");
+        ti0 = readParameter<double>(jsonData, "workingDistanceDesign");
+        ti = readParameter<double>(jsonData, "workingDistanceExperimental");
+        ni0 = readParameter<double>(jsonData, "immersionRIDesign");
+        ni = readParameter<double>(jsonData, "immersionRIExperimental");
+        tg0 = readParameter<double>(jsonData, "coverslipThicknessDesign");
+        tg = readParameter<double>(jsonData, "coverslipThicknessExperimental");
+        ns = readParameter<double>(jsonData, "sampleRI");
         particleAxialPosition = readParameter<double>(jsonData, "particleAxialPosition");
         lambda = readParameter<double>(jsonData, "lambda");
         accuracy = readParameter<int>(jsonData, "accuracy");
         OVER_SAMPLING = readParameter<double>(jsonData, "OVER_SAMPLING");
 
         // Optional parameters with defaults
-        readParameterOptional<double>(jsonData, "coverslipRIDesign", coverslipRIDesign);
-        readParameterOptional<double>(jsonData, "coverslipRIExperimental", coverslipRIExperimental);
+        readParameterOptional<double>(jsonData, "coverslipRIDesign", ng0);
+        readParameterOptional<double>(jsonData, "coverslipRIExperimental", ng);
 
         return true;
 
@@ -44,15 +44,15 @@ void GibsonLanniPSFConfig::printValues() {
     std::cout << "  PSF Size: " << sizeX << "x" << sizeY << "x" << sizeZ << std::endl;
     
     // Optical parameters
-    std::cout << "  Working distance (design): " << workingDistanceDesign << " μm" << std::endl;
-    std::cout << "  Working distance (experimental): " << workingDistanceExperimental << " μm" << std::endl;
-    std::cout << "  Immersion RI (design): " << immersionRIDesign << std::endl;
-    std::cout << "  Immersion RI (experimental): " << immersionRIExperimental << std::endl;
-    std::cout << "  Coverslip thickness (design): " << coverslipThicknessDesign << " μm" << std::endl;
-    std::cout << "  Coverslip thickness (experimental): " << coverslipThicknessExperimental << " μm" << std::endl;
-    std::cout << "  Coverslip RI (design): " << coverslipRIDesign << std::endl;
-    std::cout << "  Coverslip RI (experimental): " << coverslipRIExperimental << std::endl;
-    std::cout << "  Sample RI: " << sampleRI << std::endl;
+    std::cout << "  Working distance (design): " << ti0 << " μm" << std::endl;
+    std::cout << "  Working distance (experimental): " << ti << " μm" << std::endl;
+    std::cout << "  Immersion RI (design): " << ni0 << std::endl;
+    std::cout << "  Immersion RI (experimental): " << ni << std::endl;
+    std::cout << "  Coverslip thickness (design): " << tg0 << " μm" << std::endl;
+    std::cout << "  Coverslip thickness (experimental): " << tg << " μm" << std::endl;
+    std::cout << "  Coverslip RI (design): " << ng0 << std::endl;
+    std::cout << "  Coverslip RI (experimental): " << ng << std::endl;
+    std::cout << "  Sample RI: " << ns << std::endl;
     std::cout << "  Particle axial position: " << particleAxialPosition << " μm" << std::endl;
     
     // Computational parameters
@@ -62,4 +62,30 @@ void GibsonLanniPSFConfig::printValues() {
     std::cout << "  Axial resolution: " << resAxial_nm << " nm" << std::endl;
     std::cout << "  Accuracy: " << accuracy << std::endl;
     std::cout << "  Oversampling factor: " << OVER_SAMPLING << std::endl;
+    
+    // if (z > 0) {
+    //     std::cout << "  Current Z-slice: " << z << std::endl;
+    // }
+
+    // // PSF layers and cubes (if applicable)
+    // if (!psfLayers.empty()) {
+    //     std::cout << "[STATUS] PSF layers: ";
+    //     for (const int& layer : psfLayers) {
+    //         std::cout << layer << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    // if (!psfCubes.empty()) {
+    //     std::cout << "[STATUS] PSF cubes: ";
+    //     for (const int& cube : psfCubes) {
+    //         std::cout << cube << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    // // PSF path (if loading from file)
+    // if (!psfPath.empty()) {
+    //     std::cout << "[INFO] Loading PSF from file: " << psfPath << std::endl;
+    // }
 }
