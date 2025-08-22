@@ -12,7 +12,7 @@
 #ifdef CUDA_AVAILABLE
 #include "../lib/cube/include/CUBE.h"
 #endif
-
+#include "gui/GUI.h"
 
 
 
@@ -28,6 +28,7 @@ Dolphin::~Dolphin(){
 void Dolphin::init(int argc, char** argv){
     std::cout << "[Start DeconvTool]" << std::endl;
 
+    int test = GUI_test();
     bool configSuccess = config.handleInput(argc, argv);
     if (!configSuccess) {
         std::cerr << "[ERROR] Failed to parse configuration. Exiting." << std::endl;

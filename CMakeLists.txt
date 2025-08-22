@@ -8,12 +8,43 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -fopenmp -march=native")
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 # Include directories and libraries for FFTW, OpenCV, OpenMP, and TIFF
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include_directories(/usr/local/include)
 link_directories(/usr/local/lib)
 find_package(OpenCV REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(CUDAToolkit REQUIRED)
+
+# IMGUI-------------------------------------------
+find_package(OpenGL REQUIRED)
+find_package(glfw3 3.3 REQUIRED)   # Needs GLFW installed system-wide
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GLEW REQUIRED glew)
+
+
+set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/lib/imgui)
+
+add_library(imgui_lib
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_demo.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+)
+target_link_libraries(imgui_lib PUBLIC
+    OpenGL::GL
+    glfw
+    ${GLEW_LIBRARIES}
+)
+target_include_directories(imgui_lib PUBLIC
+    ${CMAKE_SOURCE_DIR}/lib/imgui
+    ${CMAKE_SOURCE_DIR}/lib/imgui/backends
+    ${GLEW_INCLUDE_DIRS}
+)
+
 
 
 # Common include dirs
@@ -54,6 +85,7 @@ set(COMMON_SOURCES
     src/utilities/UtlGrid.cpp
     src/utilities/UtlImage.cpp
     src/utilities/UtlIO.cpp
+    src/gui/GUI.cpp
 )
 
 # ------------------------------------------------------------
@@ -63,6 +95,7 @@ add_library(dolphinlib ${COMMON_SOURCES})
 
 target_link_libraries(dolphinlib
     PUBLIC
+        imgui_lib
         ${OpenCV_LIBS}
         ${TIFF_LIBRARIES}
         OpenMP::OpenMP_CXX
@@ -73,13 +106,19 @@ target_link_libraries(dolphinlib
 target_include_directories(dolphinlib
     PUBLIC
         ${CMAKE_SOURCE_DIR}/include
+
 )
 
 # ------------------------------------------------------------
 # CPU executable
 # ------------------------------------------------------------
 add_executable(dolphin src/main.cpp)
-target_link_libraries(dolphin PRIVATE dolphinlib pthread gomp stdc++fs)
+target_link_libraries(dolphin
+    PRIVATE
+        dolphinlib
+        pthread
+        gomp
+        stdc++fs)
 
 # ------------------------------------------------------------
 # GPU executable (only if CUDA found)
