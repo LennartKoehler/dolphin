@@ -11,15 +11,15 @@ bool GibsonLanniPSFConfig::loadFromJSON(const json& jsonData) {
         loadFromJSONBase(jsonData);
         
         // Load Gibson-Lanni specific parameters (required)
-        ti0 = readParameter<double>(jsonData, "workingDistanceDesign");
-        ti = readParameter<double>(jsonData, "workingDistanceExperimental");
+        ti0_nm = readParameter<double>(jsonData, "workingDistanceDesign[nm]");
+        ti_nm = readParameter<double>(jsonData, "workingDistanceExperimental[nm]");
         ni0 = readParameter<double>(jsonData, "immersionRIDesign");
         ni = readParameter<double>(jsonData, "immersionRIExperimental");
-        tg0 = readParameter<double>(jsonData, "coverslipThicknessDesign");
-        tg = readParameter<double>(jsonData, "coverslipThicknessExperimental");
+        tg0_nm = readParameter<double>(jsonData, "coverslipThicknessDesign[nm]");
+        tg_nm = readParameter<double>(jsonData, "coverslipThicknessExperimental[nm]");
         ns = readParameter<double>(jsonData, "sampleRI");
-        particleAxialPosition = readParameter<double>(jsonData, "particleAxialPosition");
-        lambda = readParameter<double>(jsonData, "lambda");
+        particleAxialPosition_nm = readParameter<double>(jsonData, "particleAxialPosition[nm]");
+        lambda_nm = readParameter<double>(jsonData, "lambda[nm]");
         accuracy = readParameter<int>(jsonData, "accuracy");
         OVER_SAMPLING = readParameter<double>(jsonData, "OVER_SAMPLING");
 
@@ -44,19 +44,19 @@ void GibsonLanniPSFConfig::printValues() {
     std::cout << "  PSF Size: " << sizeX << "x" << sizeY << "x" << sizeZ << std::endl;
     
     // Optical parameters
-    std::cout << "  Working distance (design): " << ti0 << " μm" << std::endl;
-    std::cout << "  Working distance (experimental): " << ti << " μm" << std::endl;
+    std::cout << "  Working distance (design): " << ti0_nm << " nm" << std::endl;
+    std::cout << "  Working distance (experimental): " << ti_nm << " nm" << std::endl;
     std::cout << "  Immersion RI (design): " << ni0 << std::endl;
     std::cout << "  Immersion RI (experimental): " << ni << std::endl;
-    std::cout << "  Coverslip thickness (design): " << tg0 << " μm" << std::endl;
-    std::cout << "  Coverslip thickness (experimental): " << tg << " μm" << std::endl;
+    std::cout << "  Coverslip thickness (design): " << tg0_nm << " nm" << std::endl;
+    std::cout << "  Coverslip thickness (experimental): " << tg_nm << " nm" << std::endl;
     std::cout << "  Coverslip RI (design): " << ng0 << std::endl;
     std::cout << "  Coverslip RI (experimental): " << ng << std::endl;
     std::cout << "  Sample RI: " << ns << std::endl;
-    std::cout << "  Particle axial position: " << particleAxialPosition << " μm" << std::endl;
+    std::cout << "  Particle axial position: " << particleAxialPosition_nm << " nm" << std::endl;
     
     // Computational parameters
-    std::cout << "  Wavelength: " << lambda << " nm" << std::endl;
+    std::cout << "  Wavelength: " << lambda_nm << " nm" << std::endl;
     std::cout << "  Numerical Aperture: " << NA << std::endl;
     std::cout << "  Lateral resolution: " << resLateral_nm << " nm" << std::endl;
     std::cout << "  Axial resolution: " << resAxial_nm << " nm" << std::endl;

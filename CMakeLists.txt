@@ -27,6 +27,7 @@ include_directories(
 # ------------------------------------------------------------
 set(COMMON_SOURCES
     src/Dolphin.cpp
+    src/ConfigManager.cpp
     src/algorithms/ConvolutionAlgorithm.cpp
     src/hyperstack/HyperstackImage.cpp
     src/hyperstack/Image3D.cpp
@@ -39,7 +40,7 @@ set(COMMON_SOURCES
     src/psf/algorithms/GaussianPSFGenerator.cpp
     src/psf/algorithms/BornWolfModel.cpp
     src/psf/algorithms/GibsonLanniPSFGenerator.cpp
-    src/psf/algorithms/KirchhoffDiffractionSimpson.cpp
+    src/psf/algorithms/SimpsonIntegrator.cpp
     src/psf/configs/GibsonLanniPSFConfig.cpp
     src/psf/configs/GaussianPSFConfig.cpp
     src/deconvolution/BaseDeconvolutionAlgorithm.cpp

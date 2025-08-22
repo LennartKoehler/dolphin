@@ -44,10 +44,17 @@
 
 
 #include "psf/GibsonLanniPSFGenerator.h"
-#include "psf/KirchoffDiffractionSimpson.h"
+
+
+GibsonLanniPSFGenerator::GibsonLanniPSFGenerator(std::unique_ptr<NumericalIntegrator> integrator)
+    : numericalIntegrator(std::move(integrator)){}
 
 bool GibsonLanniPSFGenerator::hasConfig(){
     return config != nullptr;
+}
+
+void GibsonLanniPSFGenerator::setIntegrator(std::unique_ptr<NumericalIntegrator> integrator){
+    this->numericalIntegrator = std::move(integrator);
 }
 
 void GibsonLanniPSFGenerator::setConfig(std::unique_ptr<PSFConfig> config){
@@ -60,12 +67,10 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
     std::vector<cv::Mat> sphereLayers;
     sphereLayers.reserve(config->sizeZ);
 
-    for (int z = 0; z < config->sizeZ; z++){
-        GibsonLanniPSFConfig config = *(this->config); // copy to enale multiprocessing
-        config.ti = config.ti0 + config.resAxial_nm * 1E-9 * (z - (config.sizeZ - 1.0) / 2.0);
-        config.particleAxialPosition *= 1e-9;
-        config.lambda *= 1e-9;  // Convert nm to meters
-        sphereLayers.push_back(GibsonLanniEquation(config));
+    for (int z = 0; z < config->sizeZ; z++){ // TODO multiprocessing
+        GibsonLanniPSFConfig config = *(this->config); // copy should enable mp
+        config.ti_nm = config.ti0_nm + config.resAxial_nm * (z - (config.sizeZ - 1.0) / 2.0);
+        sphereLayers.push_back(SinglePlanePSF(config));
     }
     Image3D psfImage;
     psfImage.slices = sphereLayers;
@@ -75,15 +80,14 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
 }
 
 
-cv::Mat GibsonLanniPSFGenerator::GibsonLanniEquation(const GibsonLanniPSFConfig& config) const {    
+cv::Mat GibsonLanniPSFGenerator::SinglePlanePSF(const GibsonLanniPSFConfig& config) const {    
     int nx = config.sizeX;
     int ny = config.sizeY;
     int OVER_SAMPLING = config.OVER_SAMPLING;
     double NA = config.NA;
-    double lambda = config.lambda;
-    double resLateral = config.resLateral_nm;
+    double lambda_nm = config.lambda_nm;
+    double resLateral_nm = config.resLateral_nm;
     double resAxial = config.resAxial_nm;
-    int accuracy = config.accuracy;
 
     
     // The center of the image in units of [pixels]
@@ -100,11 +104,20 @@ cv::Mat GibsonLanniPSFGenerator::GibsonLanniEquation(const GibsonLanniPSFConfig&
     std::vector<double> r(maxRadius * OVER_SAMPLING);
     std::vector<double> h(r.size());
     
-    KirchhoffDiffractionSimpson I(config, accuracy, NA, lambda);
-    
-    for (size_t n = 0; n < r.size(); n++) {
+    // KirchhoffDiffractionSimpson I(config, accuracy, NA, lambda_nm);
+
+    //TODO set tolerance and K/accuracy for numerical integrator
+    //TODO what do i want to pass to the kirchhoffequation as parameteres, what is r, what is rho? do i want to pass r or rho
+    double a = 0.0;
+    double b = std::min(1.0, config.ns / NA);
+    int integrationAccuracy = config.accuracy;
+    double integrationTolerance = 1E-1;
+
+    for (size_t n = 0; n < r.size(); n++) { // get kirchhoffdiffraction for specific radius
+
         r[n] = static_cast<double>(n) / static_cast<double>(OVER_SAMPLING);
-        h[n] = I.calculate(r[n] * resLateral * 1E-9);
+        GibsonLanniIntegrand integrand(config, r[n] * resLateral_nm);
+        h[n] = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
     }
     
     // Linear interpolation of the pixel values
@@ -127,4 +140,29 @@ cv::Mat GibsonLanniPSFGenerator::GibsonLanniEquation(const GibsonLanniPSFConfig&
     }
     
     return slice;
+}
+
+
+GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r)
+    : config(config), r(r) {}
+
+std::array<double, 2> GibsonLanniIntegrand::operator()(double rho) const {
+    std::array<double, 2> I = {0.0, 0.0};
+    double k0 = 2.0 * M_PI / config.lambda_nm;
+    double BesselValue = std::cyl_bessel_j(0, k0 * config.NA * r * rho);
+
+    if ((config.NA * rho / config.ns) > 1.0)
+        std::cout << "Warning: NA*rho/ns > 1, (ns,NA,rho)=(" 
+                  << config.ns << ", " << config.NA << ", " << rho << ")\n";
+
+    double OPD1 = config.ns * config.particleAxialPosition_nm * std::sqrt(1 - std::pow(config.NA * rho / config.ns, 2));
+    double OPD3 = config.ni * (config.ti_nm - config.ti0_nm) * std::sqrt(1 - std::pow(config.NA * rho / config.ni, 2));
+    double OPD = OPD1 + OPD3;
+
+    double W = k0 * OPD;
+
+    I[0] = BesselValue * std::cos(W) * rho;
+    I[1] = BesselValue * std::sin(W) * rho;
+
+    return I;
 }
