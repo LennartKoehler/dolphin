@@ -1,4 +1,4 @@
-#include "psf/PSFConfig.h"
+#include "psf/configs/PSFConfig.h"
 
 
 PSFConfig::PSFConfig(const PSFConfig& other) 

@@ -6,7 +6,6 @@
 #include "ConvolutionAlgorithm.h"
 #include "DeconvolutionAlgorithmFactory.h"
 #include "psf/PSFGeneratorFactory.h"
-#include "DeconvolutionAlgorithmFactory.h"
 
 #include <sys/stat.h>
 #ifdef CUDA_AVAILABLE
@@ -28,7 +27,6 @@ Dolphin::~Dolphin(){
 void Dolphin::init(int argc, char** argv){
     std::cout << "[Start DeconvTool]" << std::endl;
 
-    int test = GUI_test();
     bool configSuccess = config.handleInput(argc, argv);
     if (!configSuccess) {
         std::cerr << "[ERROR] Failed to parse configuration. Exiting." << std::endl;

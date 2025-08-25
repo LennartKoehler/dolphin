@@ -1,4 +1,4 @@
-#include "psf/GibsonLanniPSFGenerator.h"
+#include "psf/configs/GibsonLanniPSFConfig.h"
 
 std::string GibsonLanniPSFConfig::getName(){
     return this->psfModelName;

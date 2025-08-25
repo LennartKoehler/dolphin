@@ -43,7 +43,8 @@
  */
 
 
-#include "psf/GibsonLanniPSFGenerator.h"
+#include "psf/generators/GibsonLanniPSFGenerator.h"
+#include "psf/configs/GibsonLanniPSFConfig.h"
 
 
 GibsonLanniPSFGenerator::GibsonLanniPSFGenerator(std::unique_ptr<NumericalIntegrator> integrator)

@@ -6,8 +6,8 @@
 
 #include "HyperstackImage.h"
 #include "BaseDeconvolutionAlgorithm.h"
-#include "psf/PSFConfig.h"
-#include "psf/BasePSFGenerator.h"
+#include "psf/configs/PSFConfig.h"
+#include "psf/generators/BasePSFGenerator.h"
 #include "ConfigManager.h"
 
 

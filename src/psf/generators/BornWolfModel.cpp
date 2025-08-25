@@ -1,5 +1,5 @@
 #include <opencv2/core.hpp>
-#include "psf/BornWolfModel.h"
+#include "psf/generators/BornWolfModel.h"
 #include <opencv2/opencv.hpp>
 #include <vector>
 #include <cmath>

@@ -1,5 +1,6 @@
 
-make reader/writer, might need that for gui
+interaction between dolphin / configmanager / gui
+who does what and how do they interact?
 
 
 PSF:

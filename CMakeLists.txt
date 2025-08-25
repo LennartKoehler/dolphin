@@ -60,20 +60,23 @@ set(COMMON_SOURCES
     src/Dolphin.cpp
     src/ConfigManager.cpp
     src/algorithms/ConvolutionAlgorithm.cpp
+
     src/hyperstack/HyperstackImage.cpp
     src/hyperstack/Image3D.cpp
     src/hyperstack/ImageMetaData.cpp
     src/hyperstack/HyperstackIO.cpp
     src/hyperstack/HyperstackMetaData.cpp
+
     src/psf/PSF.cpp
-    src/psf/PSFConfig.cpp
-    src/psf/algorithms/SimpleGaussianPSFGeneratorAlgorithm.cpp
-    src/psf/algorithms/GaussianPSFGenerator.cpp
-    src/psf/algorithms/BornWolfModel.cpp
-    src/psf/algorithms/GibsonLanniPSFGenerator.cpp
-    src/psf/algorithms/SimpsonIntegrator.cpp
+    src/psf/generators/SimpleGaussianPSFGeneratorAlgorithm.cpp
+    src/psf/generators/GaussianPSFGenerator.cpp
+    src/psf/generators/BornWolfModel.cpp
+    src/psf/generators/GibsonLanniPSFGenerator.cpp
+    src/psf/generators/SimpsonIntegrator.cpp
+    src/psf/configs/PSFConfig.cpp
     src/psf/configs/GibsonLanniPSFConfig.cpp
     src/psf/configs/GaussianPSFConfig.cpp
+
     src/deconvolution/BaseDeconvolutionAlgorithm.cpp
     src/deconvolution/DeconvolutionConfig.cpp
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
@@ -81,6 +84,7 @@ set(COMMON_SOURCES
     src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
+    
     src/utilities/UtlFFT.cpp
     src/utilities/UtlGrid.cpp
     src/utilities/UtlImage.cpp

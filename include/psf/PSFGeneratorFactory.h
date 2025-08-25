@@ -6,10 +6,12 @@
 #include <string>
 #include <stdexcept>
 
-#include "GaussianPSFGenerator.h"
-#include "GibsonLanniPSFGenerator.h"
-#include "BasePSFGenerator.h"
-#include "PSFConfig.h"
+#include "psf/generators/GaussianPSFGenerator.h"
+#include "psf/generators/GibsonLanniPSFGenerator.h"
+#include "psf/configs/GibsonLanniPSFConfig.h"
+#include "psf/configs/GaussianPSFConfig.h"
+#include "psf/generators/BasePSFGenerator.h"
+#include "psf/configs/PSFConfig.h"
 
 
 // factory singleton which creates either PSFConfigs or PSFGenerators, usually using the string name

@@ -1,28 +1,6 @@
+
 #pragma once
-
-
-#include "PSF.h"
 #include "PSFConfig.h"
-#include "BasePSFGenerator.h"
-
-class GaussianPSFConfig;
-
-class GaussianPSFGenerator : public BasePSFGenerator {
-public:
-    GaussianPSFGenerator() = default;
-    GaussianPSFGenerator(std::unique_ptr<PSFConfig>&& config) { setConfig(std::move(config)); }
-
-    PSF generatePSF() const override;
-    void setConfig(std::unique_ptr<PSFConfig> config) override;
-    bool hasConfig() override;
-
-private:
-    std::unique_ptr<GaussianPSFConfig> config;
-};
-
-
-
-
 
 class GaussianPSFConfig : public PSFConfig{
 public:
@@ -36,9 +14,6 @@ public:
 
 
 
-    int sizeX = 20;
-    int sizeY = 20;
-    int sizeZ = 40;
     double sigmaX = 10;
     double sigmaY = 10;
     double sigmaZ = 10;
