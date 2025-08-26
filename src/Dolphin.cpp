@@ -11,31 +11,16 @@
 #ifdef CUDA_AVAILABLE
 #include "../lib/cube/include/CUBE.h"
 #endif
-#include "gui/GUI.h"
 
 
 
 
-Dolphin::Dolphin(){
 
-}
-
-Dolphin::~Dolphin(){
-
-}
-
-void Dolphin::init(int argc, char** argv){
-    std::cout << "[Start DeconvTool]" << std::endl;
-
-    bool configSuccess = config.handleInput(argc, argv);
-    if (!configSuccess) {
-        std::cerr << "[ERROR] Failed to parse configuration. Exiting." << std::endl;
-        std::exit(EXIT_FAILURE);  // Or throw an exception
-    }
-    
+void Dolphin::init(ConfigManager* config){
+    this->config = config;
     initPSFs();
     inputHyperstack = initHyperstack();
-    algorithm = setAlgorithm(config.algorithmName);
+    algorithm = setAlgorithm(config->algorithmName);
 
 
 
@@ -44,11 +29,11 @@ void Dolphin::init(int argc, char** argv){
 
 
 void Dolphin::initPSFs(){
-    for (const auto& psfJson : config.psfJSON){
+    for (const auto& psfJson : config->psfJSON){
         addPSFConfigFromJSON(psfJson);
     }
 
-    for (const auto& psfPath : config.psfPaths) {
+    for (const auto& psfPath : config->psfPaths) {
         createPSFFromFile(psfPath);
     }
 
@@ -67,7 +52,7 @@ void Dolphin::initPSFs(){
         }
     }
     std::cout << "[INFO] " << psfs.size() << " PSF(s) loaded" << std::endl;
-    if (config.savePsf) {
+    if (config->savePsf) {
         for (int i = 0; i < psfs.size(); i++) {
             psfs[i].saveAsTifFile("../result/psf_"+std::to_string(i)+".tif");
         }
@@ -109,17 +94,17 @@ void Dolphin::createPSFFromFile(const std::string& psfPath){
 
 Hyperstack Dolphin::initHyperstack() const{
     Hyperstack hyperstack;
-    if (config.image_path.substr(config.image_path.find_last_of(".") + 1) == "tif" || config.image_path.substr(config.image_path.find_last_of(".") + 1) == "tiff" || config.image_path.substr(config.image_path.find_last_of(".") + 1) == "ometif") {
-        hyperstack.readFromTifFile(config.image_path.c_str());
+    if (config->image_path.substr(config->image_path.find_last_of(".") + 1) == "tif" || config->image_path.substr(config->image_path.find_last_of(".") + 1) == "tiff" || config->image_path.substr(config->image_path.find_last_of(".") + 1) == "ometif") {
+        hyperstack.readFromTifFile(config->image_path.c_str());
     } else {
         std::cout << "[INFO] No file ending .tif, pretending image is DIR" << std::endl;
-        hyperstack.readFromTifDir(config.image_path.c_str());
+        hyperstack.readFromTifDir(config->image_path.c_str());
     }
 
-    if (config.printInfo) {
+    if (config->printInfo) {
         hyperstack.printMetadata();
     }
-    if (config.showExampleLayers) {
+    if (config->showExampleLayers) {
         hyperstack.showChannel(0);
     }
     hyperstack.saveAsTifFile("../result/input_hyperstack.tif");
@@ -143,20 +128,20 @@ std::unique_ptr<BaseDeconvolutionAlgorithm> Dolphin::initDeconvolution(const std
     deconvConfig.psfCubeVec = psfCubeVec;
     deconvConfig.psfLayerVec = psfLayerVec;
 
-    deconvConfig.iterations = config.iterations;
-    deconvConfig.epsilon = config.epsilon;
-    deconvConfig.grid = config.grid;
-    deconvConfig.lambda = config.lambda;
-    deconvConfig.borderType = config.borderType;
-    deconvConfig.psfSafetyBorder = config.psfSafetyBorder;
-    deconvConfig.cubeSize = config.subimageSize;
-    deconvConfig.gpu = config.gpu;
+    deconvConfig.iterations = config->iterations;
+    deconvConfig.epsilon = config->epsilon;
+    deconvConfig.grid = config->grid;
+    deconvConfig.lambda = config->lambda;
+    deconvConfig.borderType = config->borderType;
+    deconvConfig.psfSafetyBorder = config->psfSafetyBorder;
+    deconvConfig.cubeSize = config->subimageSize;
+    deconvConfig.gpu = config->gpu;
 
     deconvConfig.time = time;
-    deconvConfig.saveSubimages = config.saveSubimages;
+    deconvConfig.saveSubimages = config->saveSubimages;
 
     DeconvolutionAlgorithmFactory DAF = DeconvolutionAlgorithmFactory::getInstance();
-    return DAF.create(config.algorithmName, deconvConfig);
+    return DAF.create(config->algorithmName, deconvConfig);
 }
 
 void Dolphin::run(){
@@ -169,12 +154,12 @@ void Dolphin::run(){
 
     
     // TODO write save function, maybe create more general writer class
-    if (config.showExampleLayers) {
+    if (config->showExampleLayers) {
         result.showChannel(0);
     }
 
     result.saveAsTifFile("../result/deconv.tif");
-    if(config.sep){
+    if(config->sep){
         result.saveAsTifDir("../result/deconv");
     }
 

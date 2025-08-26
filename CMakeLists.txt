@@ -58,7 +58,7 @@ include_directories(
 # ------------------------------------------------------------
 set(COMMON_SOURCES
     src/Dolphin.cpp
-    src/ConfigManager.cpp
+
     src/algorithms/ConvolutionAlgorithm.cpp
 
     src/hyperstack/HyperstackImage.cpp
@@ -89,7 +89,20 @@ set(COMMON_SOURCES
     src/utilities/UtlGrid.cpp
     src/utilities/UtlImage.cpp
     src/utilities/UtlIO.cpp
-    src/gui/GUI.cpp
+
+    src/frontend/CLIFrontend.cpp
+    src/frontend/ConfigManager.cpp
+    src/frontend/gui/imguiDisplayer.cpp
+    src/frontend/gui/DefaultGUIStyleConfig.cpp
+    src/frontend/gui/GUIFrontend.cpp
+
+    src/frontend/gui/uipsf/UIPSFConfig.cpp
+    src/frontend/gui/uipsf/UIPSFConfigGaussian.cpp
+    src/frontend/gui/uipsf/UIPSFConfigGibsonLanni.cpp
+
+    src/frontend/gui/windows/MainWindow.cpp
+    src/frontend/gui/windows/Window.cpp
+    src/frontend/gui/windows/UIPSFWindow.cpp
 )
 
 # ------------------------------------------------------------

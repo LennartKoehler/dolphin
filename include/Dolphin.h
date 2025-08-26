@@ -8,7 +8,7 @@
 #include "BaseDeconvolutionAlgorithm.h"
 #include "psf/configs/PSFConfig.h"
 #include "psf/generators/BasePSFGenerator.h"
-#include "ConfigManager.h"
+#include "frontend/ConfigManager.h"
 
 
 using json = nlohmann::json;
@@ -16,10 +16,10 @@ using json = nlohmann::json;
 
 class Dolphin{
 public:
-    Dolphin();
-    ~Dolphin();
+    Dolphin() = default;
+    ~Dolphin(){}
 
-    void init(int argc, char** argv);
+    void init(ConfigManager* config);
     void run();
 
 
@@ -38,7 +38,7 @@ private:
 
 
 
-    ConfigManager config;
+    ConfigManager* config;
     std::vector<std::unique_ptr<PSFConfig>> psfConfigs;
     std::vector<std::unique_ptr<BasePSFGenerator>> psfGenerators;
 
