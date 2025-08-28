@@ -10,7 +10,7 @@
 #include "frontend/gui/uipsf/UIConfigPSFGibsonLanni.h"
 
 
-#include "frontend/gui/UIDeconvolutionConfig.h"
+#include "frontend/gui/UIConfigManager.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -120,7 +120,7 @@ void GUIFrontend::initWindows(){
     std::shared_ptr<UIConfigPSFGibsonLanni> gibsonLanni = std::make_shared<UIConfigPSFGibsonLanni>();
     std::shared_ptr<PSFConfigWindow> gibsonwindow = std::make_shared<PSFConfigWindow>(this, (int)(1280 * mainScale), (int)(800 * mainScale), "Gibson Lanni PSF Config", gibsonLanni);
 
-    std::shared_ptr<UIDeconvolutionConfig> manager = std::make_shared<UIDeconvolutionConfig>();
+    std::shared_ptr<UIConfigManager> manager = std::make_shared<UIConfigManager>();
     std::shared_ptr<ConfigWindow> configmanager = std::make_shared<ConfigWindow>(this, (int)(1280 * mainScale), (int)(800 * mainScale), "Config Manager", manager);
 
     mainWindow->addChild(deconvButton);

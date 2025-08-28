@@ -8,7 +8,7 @@
 #include "BaseDeconvolutionAlgorithm.h"
 #include "psf/configs/PSFConfig.h"
 #include "psf/generators/BasePSFGenerator.h"
-#include "frontend/DeconvolutionConfig.h"
+#include "frontend/ConfigManager.h"
 
 
 using json = nlohmann::json;

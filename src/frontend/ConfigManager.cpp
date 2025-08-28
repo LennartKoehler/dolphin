@@ -1,4 +1,4 @@
-#include "frontend/DeconvolutionConfig.h"
+#include "frontend/ConfigManager.h"
 #include <sys/stat.h>
 #include <iostream>
 #include <fstream>

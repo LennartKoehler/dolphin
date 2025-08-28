@@ -1,5 +1,5 @@
 #pragma once
-#include "DeconvolutionConfig.h"
+#include "ConfigManager.h"
 
 class IFrontend{
 public:
