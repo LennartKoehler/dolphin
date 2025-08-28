@@ -1,4 +1,4 @@
-#include "DeconvolutionConfig.h"
+#include "DeconvolutionConfig.h""
 #include <fstream>
 #include "../lib/nlohmann/json.hpp"
 

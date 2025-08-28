@@ -385,7 +385,7 @@ CMakeFiles/dolphincuda.dir/src/deconvolution/algorithms/RegularizedInverseFilter
  /usr/local/include/opencv4/opencv2/core/cvdef.h \
  /home/lennart-k-hler/projects/dolphin/include/RegularizedInverseFilterDeconvolutionAlgorithm.h \
  /home/lennart-k-hler/projects/dolphin/include/BaseDeconvolutionAlgorithm.h \
- /home/lennart-k-hler/projects/dolphin/include/DeconvolutionConfig.h \
+ /home/lennart-k-hler/projects/dolphin/include/DeconvolutionConfig.h" \
  /home/lennart-k-hler/projects/dolphin/include/HyperstackImage.h \
  /home/lennart-k-hler/projects/dolphin/include/Image3D.h \
  /home/lennart-k-hler/projects/dolphin/include/ImageMetaData.h \

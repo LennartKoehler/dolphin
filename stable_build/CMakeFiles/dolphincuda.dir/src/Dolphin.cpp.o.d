@@ -519,7 +519,7 @@ CMakeFiles/dolphincuda.dir/src/Dolphin.cpp.o: \
  /home/lennart-k-hler/projects/dolphin/include/SimpleGaussianPSFGeneratorAlgorithm.h \
  /home/lennart-k-hler/projects/dolphin/include/BornWolfModel.h \
  /home/lennart-k-hler/projects/dolphin/include/BaseDeconvolutionAlgorithm.h \
- /home/lennart-k-hler/projects/dolphin/include/DeconvolutionConfig.h \
+ /home/lennart-k-hler/projects/dolphin/include/DeconvolutionConfig.h" \
  /home/lennart-k-hler/projects/dolphin/include/BaseAlgorithm.h \
  /usr/local/cuda/include/cufftw.h /usr/local/cuda/include/cufft.h \
  /usr/local/cuda/include/cuComplex.h \

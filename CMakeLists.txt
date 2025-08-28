@@ -25,6 +25,7 @@ pkg_check_modules(GLEW REQUIRED glew)
 
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/lib/imgui)
 
+
 add_library(imgui_lib
     ${IMGUI_DIR}/imgui.cpp
     ${IMGUI_DIR}/imgui_demo.cpp
@@ -44,6 +45,20 @@ target_include_directories(imgui_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/lib/imgui/backends
     ${GLEW_INCLUDE_DIRS}
 )
+
+# IMPLOT3------------------------------
+set(IMPLOT3D_DIR ${CMAKE_SOURCE_DIR}/lib/implot3d)
+
+add_library(implot3d_lib
+    ${IMPLOT3D_DIR}/implot3d.cpp
+    ${IMPLOT3D_DIR}/implot3d_items.cpp
+
+)
+target_link_libraries(implot3d_lib PUBLIC
+    imgui_lib)
+target_include_directories(implot3d_lib PUBLIC
+    ${CMAKE_SOURCE_DIR}/lib/implot3d)
+
 
 
 
@@ -92,18 +107,24 @@ set(COMMON_SOURCES
 
     src/frontend/CLIFrontend.cpp
     src/frontend/ConfigManager.cpp
-    src/frontend/gui/imguiDisplayer.cpp
+    src/frontend/gui/imguiWidget.cpp
     src/frontend/gui/DefaultGUIStyleConfig.cpp
     src/frontend/gui/GUIFrontend.cpp
+    src/frontend/gui/UIConfigManager.cpp
+    src/frontend/gui/UIConfig.cpp
 
-    src/frontend/gui/uipsf/UIPSFConfig.cpp
-    src/frontend/gui/uipsf/UIPSFConfigGaussian.cpp
-    src/frontend/gui/uipsf/UIPSFConfigGibsonLanni.cpp
+    # src/frontend/gui/uipsf/UIPSFConfig.cpp
+    src/frontend/gui/uipsf/UIConfigPSFGaussian.cpp
+    src/frontend/gui/uipsf/UIConfigPSFGibsonLanni.cpp
 
     src/frontend/gui/windows/MainWindow.cpp
+    src/frontend/gui/windows/FunctionContent.cpp
     src/frontend/gui/windows/Window.cpp
-    src/frontend/gui/windows/UIPSFWindow.cpp
+    src/frontend/gui/windows/ConfigWindow.cpp
+    src/frontend/gui/windows/PSFConfigWindow.cpp
+
 )
+#TODO add the imgui sources to the imgui library, not to common sources
 
 # ------------------------------------------------------------
 # Build shared library containing all algorithms
@@ -113,6 +134,7 @@ add_library(dolphinlib ${COMMON_SOURCES})
 target_link_libraries(dolphinlib
     PUBLIC
         imgui_lib
+        implot3d_lib
         ${OpenCV_LIBS}
         ${TIFF_LIBRARIES}
         OpenMP::OpenMP_CXX

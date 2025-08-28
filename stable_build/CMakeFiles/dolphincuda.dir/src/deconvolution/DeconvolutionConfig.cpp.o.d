@@ -1,7 +1,7 @@
 CMakeFiles/dolphincuda.dir/src/deconvolution/DeconvolutionConfig.cpp.o: \
  /home/lennart-k-hler/projects/dolphin/src/deconvolution/DeconvolutionConfig.cpp \
  /usr/include/stdc-predef.h \
- /home/lennart-k-hler/projects/dolphin/include/DeconvolutionConfig.h \
+ /home/lennart-k-hler/projects/dolphin/include/DeconvolutionConfig.h" \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \

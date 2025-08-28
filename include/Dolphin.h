@@ -8,7 +8,7 @@
 #include "BaseDeconvolutionAlgorithm.h"
 #include "psf/configs/PSFConfig.h"
 #include "psf/generators/BasePSFGenerator.h"
-#include "frontend/ConfigManager.h"
+#include "frontend/DeconvolutionConfig.h"
 
 
 using json = nlohmann::json;
@@ -21,7 +21,7 @@ public:
 
     void init(ConfigManager* config);
     void run();
-
+    std::shared_ptr<PSF> generatePSF();
 
     
 

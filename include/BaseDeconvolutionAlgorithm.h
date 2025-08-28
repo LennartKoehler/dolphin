@@ -16,7 +16,7 @@ public:
     Hyperstack run(Hyperstack& data, std::vector<PSF>& psfs) override;
 
     virtual ~BaseDeconvolutionAlgorithm(){cleanup();}
-    virtual void configure(const DeconvolutionConfig& config) = 0;
+    virtual void configure(const ConfigManager& config) = 0;
     virtual void algorithm(Hyperstack& data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) = 0;
 
     Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psfs);

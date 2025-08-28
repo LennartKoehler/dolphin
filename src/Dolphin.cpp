@@ -124,7 +124,7 @@ std::unique_ptr<BaseAlgorithm> Dolphin::setAlgorithm(const std::string& algorith
 std::unique_ptr<BaseDeconvolutionAlgorithm> Dolphin::initDeconvolution(const std::vector<std::vector<int>>& psfCubeVec, const std::vector<std::vector<int>>& psfLayerVec){
 
 
-    DeconvolutionConfig deconvConfig;
+    ConfigManager deconvConfig;
     deconvConfig.psfCubeVec = psfCubeVec;
     deconvConfig.psfLayerVec = psfLayerVec;
 
