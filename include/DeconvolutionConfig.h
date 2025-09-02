@@ -6,7 +6,7 @@
 #include "Config.h"
 class DeconvolutionConfig : public Config{
 public:
-    std::string algorithmName;
+    std::string algorithmName = "RichardsonLucyTotalVariation";
     int subimageSize = 0; //sub-image size (edge)
     int iterations = 10;
     double epsilon = 1e-6;
@@ -17,7 +17,7 @@ public:
     int cubeSize = 0;
     std::vector<int> secondpsflayers = {};
     std::vector<int> secondpsfcubes = {};
-    std::vector<std::vector<int>> psfCubeVec, psfLayerVec;
+    std::vector<std::vector<int>> psfCubeVec, psfLayerVec; // for later
     bool time = false;
     bool saveSubimages = false;
 

@@ -28,6 +28,7 @@
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}", // your built binary
             "args": [
+                "deconvolution",
                 "-c", "../../../data/last_run/config_mod_lk.json"
 
             ],

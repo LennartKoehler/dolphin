@@ -30,9 +30,36 @@ void Content::show(){
 
 }
 
-Window::Window(GUIFrontend* guiFrontend, int width, int height, std::string name)
-    : guiFrontend(guiFrontend),
-    width(width),
+void Content::setParent(Content* parent){
+    this->parent = parent;
+}
+void Content::showChildren(){
+    for (auto it : children){
+        it.second->show();
+    }
+}
+
+void Content::deactivateAllChildren(){
+    for (auto it : children){
+        it.second->deactivate();
+    }
+}
+
+std::shared_ptr<Content> Content::getChild(const std::string& name){
+    auto it = children.find(name);
+    if (it == children.end()){
+        throw std::runtime_error("Child with name '" + name + "' not found");
+    }
+    return it->second;
+}
+
+void Content::addChild(std::shared_ptr<Content> content){
+    children[content->getName()] = content;
+    content->setParent(this);
+}
+
+Window::Window(int width, int height, std::string name)
+    : width(width),
     height(height),
     Content(name)
     {
@@ -60,21 +87,7 @@ void Window::endWindow(){
     ImGui::End();
 }
 
-void Window::showChildren(){
-    for (auto it : children){
-        it->show();
-    }
-}
 
-void Window::deactivateAllChildren(){
-    for (auto it : children){
-        it->deactivate();
-    }
-}
-
-void Window::addChild(std::shared_ptr<Content> content){
-    children.push_back(content);
-}
 
 
 

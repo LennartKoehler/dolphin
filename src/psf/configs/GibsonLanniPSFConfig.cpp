@@ -25,12 +25,14 @@ bool GibsonLanniPSFConfig::loadFromJSONSpecific(const json& jsonData) {
         // Optional parameters with defaults
         readParameterOptional<double>(jsonData, "coverslipRIDesign", ng0);
         readParameterOptional<double>(jsonData, "coverslipRIExperimental", ng);
-
+        return true;
 
     } catch (const json::exception& e) {
         std::cerr << "[ERROR] JSON parsing error in GibsonLanniPSFConfig: " << e.what() << std::endl;
+        return false;
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Error loading GibsonLanniPSFConfig: " << e.what() << std::endl;
+        return false;
     }
 }
 

@@ -3,14 +3,35 @@
 #include "frontend/gui/UIConfig.h"
 
 
-class ConfigWindow : public Window{
+class ConfigBase {
 public:
-    ConfigWindow(GUIFrontend* guiFrontend, int width, int height, std::string name,  std::shared_ptr<UIConfig> config);
-    // void show() override;
-    
+    ConfigBase(std::shared_ptr<UIConfig> config) : config(config) {}
 
 protected:
     std::shared_ptr<UIConfig> config;
-    virtual void content() override;
+    
+};
 
+class ConfigContent : public Content, public ConfigBase {
+public:
+    ConfigContent(std::string name, std::shared_ptr<UIConfig> config)
+        : Content(name), ConfigBase(config) {}
+
+protected:
+    void content() override {
+        config->showParameters(style);
+
+    }
+};
+
+class ConfigWindow : public Window, public ConfigBase {
+public:
+    ConfigWindow(int width, int height, std::string name, std::shared_ptr<UIConfig> config)
+        : Window(width, height, name), ConfigBase(config) {}
+
+protected:
+    void content() override {
+        config->showParameters(style);
+
+    }
 };

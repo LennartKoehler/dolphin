@@ -1,13 +1,10 @@
 #include "frontend/gui/GUIFrontend.h"
 #include "frontend/gui/windows/Window.h"
 #include "frontend/gui/windows/ConfigWindow.h"
-#include "frontend/gui/windows/PSFConfigWindow.h"
 #include "frontend/gui/windows/MainWindow.h"
 #include "frontend/gui/windows/FunctionContent.h"
 
 #include "frontend/gui/DefaultGUIStyleConfig.h"
-#include "frontend/gui/uipsf/UIConfigPSFGaussian.h"
-#include "frontend/gui/uipsf/UIConfigPSFGibsonLanni.h"
 
 
 #include "frontend/gui/UISetupConfig.h"
@@ -41,15 +38,17 @@ static void glfw_error_callback(int error, const char* description)
 
 #include "SpinningDonut.cpp"
 void GUIFrontend::generatePSF(){
-    SpinningDonut();
-}
-
-void GUIFrontend::runDolphin(){
-    dolphin.run();
-}
-
-void GUIFrontend::initDolphin(){
+    config->app = Application::psfgeneration;
     dolphin.init(config);
+    dolphin.run();
+
+}
+
+void GUIFrontend::deconvolve(){
+    config->app = Application::deconvolution;
+    dolphin.init(config);
+    dolphin.run();
+
 }
 
 GUIFrontend::GUIFrontend(SetupConfig* config, Dolphin& dolphin)
@@ -88,22 +87,26 @@ void GUIFrontend::initWindows(){
     mainWindow = std::make_shared<MainWindow>(this, (int)(1500 * mainScale), (int)(800 * mainScale), "Main");
     mainWindow->activate();
 
-    std::shared_ptr<ButtonContent> deconvButton = std::make_shared<ButtonContent>("Start Deconvolution", [this](){initDolphin(); runDolphin();});
-    deconvButton->activate();
 
-    std::shared_ptr<UIConfigPSFGaussian> gaussian = std::make_shared<UIConfigPSFGaussian>();
-    std::shared_ptr<PSFConfigWindow> gaussianwindow = std::make_shared<PSFConfigWindow>(this, (int)(1280 * mainScale), (int)(800 * mainScale), "Gaussian PSF Config", gaussian);
-    
-    std::shared_ptr<UIConfigPSFGibsonLanni> gibsonLanni = std::make_shared<UIConfigPSFGibsonLanni>();
-    std::shared_ptr<PSFConfigWindow> gibsonwindow = std::make_shared<PSFConfigWindow>(this, (int)(1280 * mainScale), (int)(800 * mainScale), "Gibson Lanni PSF Config", gibsonLanni);
 
-    std::shared_ptr<UISetupConfig> manager = std::make_shared<UISetupConfig>();
-    std::shared_ptr<ConfigWindow> setupConfig = std::make_shared<ConfigWindow>(this, (int)(1280 * mainScale), (int)(800 * mainScale), "Config Manager", manager);
+//TODO move to psfmain window
 
-    mainWindow->addChild(deconvButton);
-    mainWindow->addChild(gaussianwindow);
-    mainWindow->addChild(gibsonwindow);
-    mainWindow->addChild(setupConfig);
+
+
+    // std::shared_ptr<UISetupConfig> manager = std::make_shared<UISetupConfig>();
+    // std::shared_ptr<ConfigContent> setupConfig = std::make_shared<ConfigContent>("Config Manager", manager); // slice to content class so it doesnt have its own window
+    // setupConfig->activate();
+
+
+
+// config->app = Application::deconvolution; initDolphin(); runDolphin();
+// config->app = Application::psfgeneration; initDolphin(); runDolphin();
+
+
+    // mainWindow->addChild(setupConfig);
+    // mainWindow->addChild(deconvButton);
+
+
 
 }
 

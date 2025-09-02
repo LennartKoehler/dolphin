@@ -33,7 +33,7 @@ private:
 
     void setCuda();
     Hyperstack initHyperstack() const ;
-    std::shared_ptr<BaseDeconvolutionAlgorithm> initDeconvolutionAlgorithm(std::shared_ptr<DeconvolutionConfig> config, const std::vector<std::vector<int>>& psfCubeVec, const std::vector<std::vector<int>>& psfLayerVec);
+    std::shared_ptr<BaseDeconvolutionAlgorithm> initDeconvolutionAlgorithm(std::shared_ptr<DeconvolutionConfig> config, std::vector<std::vector<int>> psfCubeVec, std::vector<std::vector<int>> psfLayerVec);
 
 
     SetupConfig* config;

@@ -30,7 +30,7 @@ void Dolphin::run(){
 }
 
 
-
+// make this compatible with the way gui handles the psf config
 std::shared_ptr<PSF> Dolphin::generatePSF(){
     PSFManager psfmanager;
     PSF psf = psfmanager.generatePSF(config->psfConfigPath);
@@ -56,20 +56,7 @@ std::shared_ptr<Hyperstack> Dolphin::deconvolve(){
     }
     return std::make_unique<Hyperstack>(result);
 
-
 }
-
-
-
-
-
-
-// void Dolphin::savePSFs(){
-//     for (int i = 0; i < psfs.size(); i++) {
-//         psfs[i].saveAsTifFile("../result/psf_"+std::to_string(i)+".tif");
-//     }
-// }
-
 
 
 
@@ -98,21 +85,18 @@ Hyperstack Dolphin::initHyperstack() const{
 
 
 
-std::shared_ptr<BaseDeconvolutionAlgorithm> Dolphin::initDeconvolutionAlgorithm(std::shared_ptr<DeconvolutionConfig> config, const std::vector<std::vector<int>>& psfCubeVec, const std::vector<std::vector<int>>& psfLayerVec){
-
-
-    DeconvolutionConfig deconvConfig;
-    deconvConfig.psfCubeVec = psfCubeVec;
-    deconvConfig.psfLayerVec = psfLayerVec;
+std::shared_ptr<BaseDeconvolutionAlgorithm> Dolphin::initDeconvolutionAlgorithm(std::shared_ptr<DeconvolutionConfig> deconvConfig, std::vector<std::vector<int>> psfCubeVec, std::vector<std::vector<int>> psfLayerVec){
+    deconvConfig->psfCubeVec = psfCubeVec;
+    deconvConfig->psfLayerVec = psfLayerVec;
 
     DeconvolutionAlgorithmFactory DAF = DeconvolutionAlgorithmFactory::getInstance();
-    return DAF.create(config->algorithmName, deconvConfig);
+    return DAF.create(deconvConfig->algorithmName, *deconvConfig);
 }
 
 
 
 void Dolphin::setCuda(){
-    if (config->gpu == ""){
+    if (config->gpu == "" || config->gpu == "none"){
         return;
     }
     if (config->gpu != "cuda"){

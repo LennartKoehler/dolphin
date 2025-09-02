@@ -17,20 +17,28 @@ std::shared_ptr<SetupConfig> UISetupConfig::getConfig(){
 
 void UISetupConfig::setSetupConfigParameters(std::shared_ptr<SetupConfig> setupConfig){
     std::vector<ParameterDescription> runtimeParams = {
-        // {"Iterations", ParameterType::Int, &setupConfig->iterations, 1, 10000},
-        // {"Lambda", ParameterType::Double, &setupConfig->lambda, 0.0, 1.0},
-        // {"Epsilon", ParameterType::Double, &setupConfig->epsilon, 1e-12, 1e-3},
-        // {"Grid Processing", ParameterType::Bool, &setupConfig->grid, 0.0, 1.0},
-        // {"Subimage Size", ParameterType::Int, &setupConfig->subimageSize, 0, 10000},
-        // {"PSF Safety Border", ParameterType::Int, &setupConfig->psfSafetyBorder, 0, 1000},
-        // {"Border Type", ParameterType::Int, &setupConfig->borderType, 0, 5},
-        {"Time", ParameterType::Bool, &setupConfig->time, 0.0, 1.0},
+        // Application selection
+        // Note: Application enum might need special handling or conversion to int
+        {"Application", ParameterType::Int, reinterpret_cast<int*>(&setupConfig->app), 0, 1}, // 0=deconvolution, 1=psfgeneration
+        
+        // File paths - these might need special UI handling for file selection
+        {"Image Path", ParameterType::String, &setupConfig->imagePath, 0.0, 0.0},
+        {"GPU Type", ParameterType::String, &setupConfig->gpu, 0.0, 0.0},
+        
+        // Boolean flags
+        {"Show Time", ParameterType::Bool, &setupConfig->time, 0.0, 1.0},
         {"Save Layer Separate", ParameterType::Bool, &setupConfig->sep, 0.0, 1.0},
         {"Save PSF", ParameterType::Bool, &setupConfig->savePsf, 0.0, 1.0},
         {"Show Example Layers", ParameterType::Bool, &setupConfig->showExampleLayers, 0.0, 1.0},
         {"Print Info", ParameterType::Bool, &setupConfig->printInfo, 0.0, 1.0},
-
-        {"Save Subimages", ParameterType::Bool, &setupConfig->saveSubimages, 0.0, 1.0}
+        {"Save Subimages", ParameterType::Bool, &setupConfig->saveSubimages, 0.0, 1.0},
+        
+        {"PSF Config Path", ParameterType::String, &setupConfig->psfConfigPath, 0.0, 0.0},
+        {"PSF File Path", ParameterType::String, &setupConfig->psfFilePath, 0.0, 0.0},
+        {"PSF Directory Path", ParameterType::String, &setupConfig->psfDirPath, 0.0, 0.0},
+        // Vector parameters (commented out as they need special handling)
+        // {"Layers", ParameterType::IntVector, &setupConfig->layers, 0.0, 0.0},
+        // {"Subimages", ParameterType::IntVector, &setupConfig->subimages, 0.0, 0.0},
     };
     parameters.insert(parameters.end(), runtimeParams.begin(), runtimeParams.end());
 }

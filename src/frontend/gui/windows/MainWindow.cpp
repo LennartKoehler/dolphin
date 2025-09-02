@@ -3,12 +3,17 @@
 #include <string>
 #include <stdexcept>
 #include "frontend/gui/GUIFrontend.h"
-
+#include "frontend/gui/windows/SpecificWindows.h"
 
 
 MainWindow::MainWindow(GUIFrontend* guiFrontend, int width, int height, std::string name)
-    : Window(guiFrontend, width, height, name)
+    : Window(width, height, name),
+    guiFrontend(guiFrontend)
     {
+    std::shared_ptr<DeconvolutionMainWindow> deconvmain = std::make_shared<DeconvolutionMainWindow>(guiFrontend, width, height, "Deconvolution");
+    std::shared_ptr<PSFMainWindow> psfmain = std::make_shared<PSFMainWindow>(guiFrontend, width, height, "PSF Generator");
+    addChild(deconvmain);
+    addChild(psfmain);
 
 }
 
@@ -46,20 +51,14 @@ void MainWindow::content(){
     ImGui::TextLink("https://github.com/LennartKoehler/dolphin");
 
 
-
-
     ImGui::Dummy(ImVec2(0.0f, 20.0f));
-    addConfigButtons();
-}
 
-void MainWindow::addConfigButtons(){
-
-    for (auto it : children){
-        if (it->getName().find("Config") != std::string::npos){
-            if (ImGui::Button(it->getName().c_str())){
-                it->activate();
-            }
-        }
+    if(ImGui::Button("Deconvolution")){
+        getChild("Deconvolution")->activate();
+    }
+    if(ImGui::Button("PSF Generator")){
+        getChild("PSF Generator")->activate();
     }
 }
+
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../lib/nlohmann/json.hpp"
+#include <fstream>
 using json = nlohmann::json;
 
 class Config{
@@ -23,6 +24,17 @@ protected:
         if (jsonData.contains(fieldName)) {
             field = jsonData.at(fieldName).get<T>();
         }
+    }
+
+    static json loadJSONFile(const std::string& filePath) {
+        std::ifstream configFile(filePath);
+        if (!configFile.is_open()) {
+            throw std::runtime_error("Could not open config file: " + filePath);
+        }
+        
+        json jsonData;
+        configFile >> jsonData;
+        return jsonData;
     }
 
 };

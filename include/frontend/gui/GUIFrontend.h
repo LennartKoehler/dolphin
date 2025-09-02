@@ -13,9 +13,11 @@ public:
     GUIFrontend(SetupConfig* config, Dolphin& dolphin);
     void run() override;
 
-    void runDolphin();
-    void initDolphin();
     void generatePSF();
+    void deconvolve();
+ 
+    double mainScale;
+
 private:
     int init();
     void initWindows();
@@ -30,7 +32,6 @@ private:
     GLFWwindow* glfwWindow;
     int width = 2500;
     int height = 1400;
-    double mainScale;
     std::shared_ptr<GUIStyleConfig> style;
     std::shared_ptr<MainWindow> mainWindow;
     // std::unordered_map<std::string, std::shared_ptr<Window>> configWindows;

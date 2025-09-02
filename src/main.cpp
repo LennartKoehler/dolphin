@@ -3,13 +3,12 @@
 #include "frontend/CLIFrontend.h"
 
 int main(int argc, char** argv) {
-    std::cout << "[Start DeconvTool]" << std::endl;
-    bool cli = false;
+    std::cout << "[Start Dolphin]" << std::endl;
     SetupConfig* setupConfig= new SetupConfig();
     Dolphin dolphin{};
     IFrontend* frontend;
 
-    if (cli){
+    if (argc > 1){
         frontend = new CLIFrontend{setupConfig, argc, argv};
         frontend->run();
         dolphin.init(setupConfig);
@@ -20,7 +19,7 @@ int main(int argc, char** argv) {
         frontend->run();
     }
     
-    std::cout << "[End DeconvTool]" << std::endl;
+    std::cout << "[End Dolphin]" << std::endl;
 
 }
 

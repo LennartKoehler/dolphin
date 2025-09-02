@@ -12,15 +12,28 @@ public:
 
 
 private:
-    CLI::App app{"deconvtool - Deconvolution of Microscopy Images"};
+    CLI::App app{"Dolphin"};
+    CLI::App* deconvolutionCLI = nullptr;
+    CLI::App* psfCLI = nullptr;
+
     CLI::Option_group* cli_group;
-    SetupConfig setupConfig;
+    CLI::Option_group* configGroup;
+
+
     DeconvolutionConfig deconvolutionConfig;
     int argc;
     char** argv;
+    std::string setupConfigPath = "";
+
+
+    void deconvolution();
+    void psfgenerator();
 
     bool parseCLI();
+    void readCLISetupConfigPath();
     void readCLIParameters();
     void readCLIParametersPSF();
     void readCLIParametersDeconvolution();
+    void handlePSFGeneration();
+    void handleDeconvolution();
 };

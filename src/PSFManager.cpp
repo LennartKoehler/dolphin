@@ -1,7 +1,7 @@
 #include "PSFManager.h"
 #include "psf/PSFGeneratorFactory.h"
 #include <fstream>
-
+#include <cassert>
 
 
 PSFPackage PSFManager::handleSetupConfig(const SetupConfig& setupConfig) {
@@ -22,6 +22,9 @@ PSFPackage PSFManager::handleSetupConfig(const SetupConfig& setupConfig) {
         psfPackage.push_back(PSFFromFilePath(setupConfig.psfFilePath));
     }
     PSFDimensionCheck(psfPackage);
+    for (int i = 0; i < psfPackage.psfs.size(); i++) {
+        psfPackage.psfs[i].saveAsTifFile("../result/psf_" + std::to_string(i)+".tif");
+    }
     return psfPackage;
 }
 
@@ -36,6 +39,10 @@ PSF PSFManager::generatePSF(const std::string& psfConfigPath){
     std::shared_ptr<PSFConfig> psfConfig = factory.createConfig(config);
     
     PSF psf = createPSFFromConfig(std::move(psfConfig));
+    
+    
+    psf.saveAsTifFile("../result/psf_" + psfConfig->getName() + ".tif");
+
     return psf;
 }
 
@@ -65,6 +72,7 @@ PSFPackage PSFManager::PSFFromConfigPath(const std::string& psfConfigPath){
         psfpackage.push_back(PSFFromFilePath(psfConfigPath));
         // }
     }
+    return psfpackage;
 }
 
 PSFPackage PSFManager::PSFFromFilePath(const std::string& psfPath){

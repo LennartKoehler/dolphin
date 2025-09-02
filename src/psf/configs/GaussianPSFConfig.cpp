@@ -19,19 +19,19 @@ bool GaussianPSFConfig::loadFromJSONSpecific(const json& jsonData) {
         }
 
 
-        // // LK TODO do these need to be here?
-        // if (jsonData.contains("layers")) {
-        //     this->psfLayers = jsonData["layers"].get<std::vector<int>>();
+        // LK TODO do these need to be here?
+        if (jsonData.contains("layers")) {
+            this->psfLayers = jsonData["layers"].get<std::vector<int>>();
 
-        // } else {
-        //     //throw std::runtime_error("Missing required parameter: secondpsflayers");
-        // }
-        // if (jsonData.contains("subimages")) {
-        //     this->psfCubes = jsonData["subimages"].get<std::vector<int>>();
+        } else {
+            //throw std::runtime_error("Missing required parameter: secondpsflayers");
+        }
+        if (jsonData.contains("subimages")) {
+            this->psfCubes = jsonData["subimages"].get<std::vector<int>>();
 
-        // } else {
-        //     //throw std::runtime_error("Missing required parameter: secondpsfcubes");
-        // }
+        } else {
+            //throw std::runtime_error("Missing required parameter: secondpsfcubes");
+        }
 
 
 
@@ -61,10 +61,11 @@ bool GaussianPSFConfig::loadFromJSONSpecific(const json& jsonData) {
         }
         else{this->sigmaZ = convertSigma(jsonData.at("sigmaZ").get<double>());}
 
-
+        return true;
 
     } catch (const json::exception &e) {
         std::cerr << "[ERROR] Invalid PSF JSON structure: " << e.what() << std::endl;
+        return false;
     }
 }
 

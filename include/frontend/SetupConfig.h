@@ -11,7 +11,7 @@ enum class Application{
 struct SetupConfig : public Config{
     SetupConfig(){}
     bool loadFromJSON(const json& jsonData) override;
-
+    static SetupConfig createFromJSONFile(const std::string& path);
 
 
     // Arguments
@@ -27,8 +27,8 @@ struct SetupConfig : public Config{
     bool printInfo = false; //show metadata of image
     bool saveSubimages = false;
     std::string gpu = "";
-    std::vector<int> layers;
-    std::vector<int> subimages;
+    // std::vector<int> layers;
+    // std::vector<int> subimages;
 
     std::shared_ptr<DeconvolutionConfig> deconvolutionConfig;
     std::shared_ptr<PSFConfig> psfConfig;

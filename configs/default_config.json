@@ -1,16 +1,4 @@
 {
-  "PSF": {
-    "psfModel": "Gaussian",
-    "qualityFactor" : 1.0,
-    "pixelScaling" : 1e-6,
-    "resAxial[nm]": 5000,
-    "resLateral[nm]": 5000,
-    "sizeX": 20,
-    "sizeY": 20,
-    "sizeZ": 40,
-    "NA": 1.2
-  },
-
   "Deconvolution": {
     "algorithmName": "RichardsonLucyTotalVariation",
     "subimageSize": 0,
