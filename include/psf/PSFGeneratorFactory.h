@@ -17,8 +17,8 @@
 // factory singleton which creates either PSFConfigs or PSFGenerators, usually using the string name
 class PSFGeneratorFactory {
 public:
-    using GeneratorCreator = std::function<std::unique_ptr<BasePSFGenerator>()>;
-    using ConfigCreator = std::function<std::unique_ptr<PSFConfig>()>;
+    using GeneratorCreator = std::function<std::shared_ptr<BasePSFGenerator>()>;
+    using ConfigCreator = std::function<std::shared_ptr<PSFConfig>()>;
 
     static PSFGeneratorFactory& getInstance() {
         static PSFGeneratorFactory instance;
@@ -32,7 +32,7 @@ public:
         configs_[name] = configCreator;
     }
 
-    std::unique_ptr<BasePSFGenerator> createGenerator(
+    std::shared_ptr<BasePSFGenerator> createGenerator(
         const std::string& name, 
         const json& configData
     ) {
@@ -57,7 +57,7 @@ public:
         return generator;
     }
 
-    std::unique_ptr<BasePSFGenerator> createGenerator(std::unique_ptr<PSFConfig> config) {
+    std::shared_ptr<BasePSFGenerator> createGenerator(std::shared_ptr<PSFConfig> config) {
         std::string modelName = config->getName();
         
         auto it = generators_.find(modelName);
@@ -70,7 +70,7 @@ public:
         return generator;
     }
 
-    std::unique_ptr<PSFConfig> createConfig(const json& configJson) {
+    std::shared_ptr<PSFConfig> createConfig(const json& configJson) {
         std::string psfModel = configJson["psfModel"].get<std::string>();
         
         auto it = configs_.find(psfModel);
@@ -115,20 +115,20 @@ private:
 
 // Backwards compatibility namespace (optional)
 namespace PSFFactory {
-    inline std::unique_ptr<BasePSFGenerator> PSFGeneratorFactory(
+    inline std::shared_ptr<BasePSFGenerator> PSFGeneratorFactory(
         const std::string& psfModelName, 
         const json& jsonData
     ) {
         return ::PSFGeneratorFactory::getInstance().createGenerator(psfModelName, jsonData);
     }
 
-    inline std::unique_ptr<BasePSFGenerator> PSFGeneratorFactory(
-        std::unique_ptr<PSFConfig> config
+    inline std::shared_ptr<BasePSFGenerator> PSFGeneratorFactory(
+        std::shared_ptr<PSFConfig> config
     ) {
         return ::PSFGeneratorFactory::getInstance().createGenerator(std::move(config));
     }
 
-    inline std::unique_ptr<PSFConfig> PSFConfigFactory(const json& configJson) {
+    inline std::shared_ptr<PSFConfig> PSFConfigFactory(const json& configJson) {
         return ::PSFGeneratorFactory::getInstance().createConfig(configJson);
     }
 }

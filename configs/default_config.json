@@ -1,24 +1,51 @@
 {
+  "PSF": {
+    "psfModel": "Gaussian",
+    "qualityFactor" : 1.0,
+    "pixelScaling" : 1e-6,
+    "resAxial[nm]": 5000,
+    "resLateral[nm]": 5000,
+    "sizeX": 20,
+    "sizeY": 20,
+    "sizeZ": 40,
+    "NA": 1.2
+  },
+
+  "Deconvolution": {
+    "algorithmName": "RichardsonLucyTotalVariation",
+    "subimageSize": 0,
+    "iterations": 10,
+    "epsilon": 1e-6,
+    "grid": true,
+    "lambda": 0.015,
+    "borderType": 2,
+    "psfSafetyBorder": 10,
+    "cubeSize": 0,
+    "secondpsflayers": [],
+    "secondpsfcubes": [],
+    "psfCubeVec": [],
+    "psfLayerVec": [],
+    "time": false,
+    "saveSubimages": false,
+    "gpu": "none"
+  },
+
+
+  "psf_config_path": "../configs/default_psf_config_gaussian.json",
+  "psf_file_path": "",
+  "psf_dir_path": "",
+
+  "deconvolution_config_path": "",
+
   "image_path": "../../../data/dolphin_test_data/bacteria.tif",
+  
   "info": false,
   "showExampleLayers": false,
   "time": false,
   "seperate": false,
 
-  "algorithm": "RichardsonLucyTotalVariation",
-  "epsilon": 1e-6,
-  "lambda": 0.015,
-  "iterations": 10,
-
-  "psf_path": "../configs/default_psf_config_gaussian.json",
   "savePsf": false,
+  "layers": [],
+  "subimages": []
 
-  "grid": true,
-  "borderType": 2,
-  "subimageSize": 0,
-  "psfSafetyBorder": 10,
-
-  "saveSubimages": false,
-
-  "gpu": "none"
 }

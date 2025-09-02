@@ -8,7 +8,8 @@
 #include "BaseDeconvolutionAlgorithm.h"
 #include "psf/configs/PSFConfig.h"
 #include "psf/generators/BasePSFGenerator.h"
-#include "frontend/ConfigManager.h"
+#include "frontend/SetupConfig.h"
+#include "DeconvolutionConfig.h"
 
 
 using json = nlohmann::json;
@@ -19,44 +20,22 @@ public:
     Dolphin() = default;
     ~Dolphin(){}
 
-    void init(ConfigManager* config);
+    void init(SetupConfig* config);
     void run();
-    std::shared_ptr<PSF> generatePSF();
+
 
     
 
 private:
+    std::shared_ptr<PSF> generatePSF();
+    std::shared_ptr<Hyperstack> deconvolve();
+    std::shared_ptr<Hyperstack> convolve(const Hyperstack& image, std::shared_ptr<PSF> psf);
+
+    void setCuda();
     Hyperstack initHyperstack() const ;
-    std::unique_ptr<BaseDeconvolutionAlgorithm> initDeconvolution(const std::vector<std::vector<int>>& psfCubeVec, const std::vector<std::vector<int>>& psfLayerVec);
-    std::unique_ptr<BaseAlgorithm> setAlgorithm(const std::string& algorithmName);
-    void initPSFs();
-
-    std::unique_ptr<BasePSFGenerator> initPSFGenerator(const std::string& modelName, const json& PSFConfig);
-    void addPSFConfigFromJSON(const json& configJson);
-    void createPSFFromConfig(std::unique_ptr<PSFConfig> psfConfig);
-    void createPSFFromFile(const std::string& path);
+    std::shared_ptr<BaseDeconvolutionAlgorithm> initDeconvolutionAlgorithm(std::shared_ptr<DeconvolutionConfig> config, const std::vector<std::vector<int>>& psfCubeVec, const std::vector<std::vector<int>>& psfLayerVec);
 
 
-
-    ConfigManager* config;
-    std::vector<std::unique_ptr<PSFConfig>> psfConfigs;
-    std::vector<std::unique_ptr<BasePSFGenerator>> psfGenerators;
-
-
-    std::vector<std::string> deconvolutionAlgorithmNames{
-        "InverseFilter",
-        "RichardsonLucy",
-        "RichardsonLucyTotalVariation",
-        "RegularizedInverseFilter",
-    };
-    std::vector<std::string> PSFGeneratorNames{
-        "Gaussian",
-        "GibsonLanni"
-    };
-
-    std::vector<std::vector<int>> psfCubeVec, psfLayerVec;
-    std::vector<PSF> psfs;
-    Hyperstack inputHyperstack;
-    std::unique_ptr<BaseAlgorithm> algorithm;
+    SetupConfig* config;
 
 };

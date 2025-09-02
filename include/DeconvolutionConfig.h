@@ -3,9 +3,11 @@
 #include <string>
 #include <opencv2/core/base.hpp>
 #include <vector>
-
-class DeconvolutionConfig {
+#include "Config.h"
+class DeconvolutionConfig : public Config{
 public:
+    std::string algorithmName;
+    int subimageSize = 0; //sub-image size (edge)
     int iterations = 10;
     double epsilon = 1e-6;
     bool grid = false;
@@ -20,8 +22,9 @@ public:
     bool saveSubimages = false;
 
     std::string gpu = "";
+    
+    bool loadFromJSON(const json& jsonData) override;
 
-    void loadFromJSON(const std::string &directoryPath);
 };
 
 

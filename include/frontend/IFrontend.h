@@ -1,12 +1,12 @@
 #pragma once
-#include "ConfigManager.h"
+#include "SetupConfig.h"
 
 class IFrontend{
 public:
-    IFrontend(ConfigManager* config) : config(config){}
+    IFrontend(SetupConfig* config) : config(config){}
     virtual ~IFrontend(){}
     virtual void run() = 0;
 
 protected:
-    ConfigManager* config;
+    SetupConfig* config;
 };

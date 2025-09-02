@@ -6,10 +6,12 @@
 
 
 
-void GaussianPSFGenerator::setConfig(std::unique_ptr<PSFConfig> config){
-    auto* ucfg = dynamic_cast<GaussianPSFConfig*>(config.get());
+void GaussianPSFGenerator::setConfig(const std::shared_ptr<const PSFConfig> config){
+    auto* ucfg = dynamic_cast<const GaussianPSFConfig*>(config.get());
     if (!ucfg) throw std::runtime_error("Wrong config type");
-    this->config.reset(static_cast<GaussianPSFConfig*>(config.release()));
+    this->config = std::make_unique<GaussianPSFConfig>(*ucfg);
+
+    // this->config.reset(static_cast<GaussianPSFConfig*>(config.release()));
 }
 
 bool GaussianPSFGenerator::hasConfig(){

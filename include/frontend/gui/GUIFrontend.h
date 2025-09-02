@@ -10,7 +10,7 @@ class MainWindow;
 
 class GUIFrontend : public IFrontend{
 public:
-    GUIFrontend(ConfigManager* config, Dolphin& dolphin);
+    GUIFrontend(SetupConfig* config, Dolphin& dolphin);
     void run() override;
 
     void runDolphin();

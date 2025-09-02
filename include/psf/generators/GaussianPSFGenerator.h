@@ -10,14 +10,14 @@ class GaussianPSFConfig;
 class GaussianPSFGenerator : public BasePSFGenerator {
 public:
     GaussianPSFGenerator() = default;
-    GaussianPSFGenerator(std::unique_ptr<PSFConfig>&& config) { setConfig(std::move(config)); }
+    GaussianPSFGenerator(std::shared_ptr<PSFConfig>&& config) { setConfig(std::move(config)); }
 
     PSF generatePSF() const override;
-    void setConfig(std::unique_ptr<PSFConfig> config) override;
+    void setConfig(const std::shared_ptr<const PSFConfig> config) override;
     bool hasConfig() override;
 
 private:
-    std::unique_ptr<GaussianPSFConfig> config;
+    std::shared_ptr<GaussianPSFConfig> config;
 };
 
 

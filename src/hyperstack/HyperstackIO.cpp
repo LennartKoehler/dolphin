@@ -236,7 +236,7 @@ bool Hyperstack::readFromTifDir(const std::string& directoryPath) {
     return true;
 }
 
-bool Hyperstack::saveAsTifFile(const std::string &directoryPath) {
+bool Hyperstack::saveAsTifFile(const std::string &directoryPath) const {
     std::vector<std::vector<cv::Mat>> channel_vec;
     for (auto& channel : this->channels) {
         channel_vec.push_back(channel.image.slices);
@@ -293,7 +293,7 @@ bool Hyperstack::saveAsTifFile(const std::string &directoryPath) {
     TIFFClose(out);
 
     return true;}
-bool Hyperstack::saveAsTifDir(const std::string& directoryPath) {
+bool Hyperstack::saveAsTifDir(const std::string& directoryPath) const {
     // Create the directory if it does not exist
     if (!fs::exists(directoryPath)) {
         fs::create_directory(directoryPath);

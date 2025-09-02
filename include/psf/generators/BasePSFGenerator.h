@@ -10,8 +10,8 @@ public:
     BasePSFGenerator() = default;
     virtual ~BasePSFGenerator() = default;
     virtual PSF generatePSF() const = 0;
-    virtual void setConfig(std::unique_ptr<PSFConfig> config) = 0; // LK i tihnk this can maybe be defined in the base class
-	virtual bool hasConfig() = 0; // TODO this could probably implemented in the base class when i also set a abstract unique_ptr<PSFConfig> in the base class (here);
+    virtual void setConfig(const std::shared_ptr<const PSFConfig> config) = 0; // LK i tihnk this can maybe be defined in the base class
+	virtual bool hasConfig() = 0; // TODO this could probably implemented in the base class when i also set a abstract shared_ptr<PSFConfig> in the base class (here);
 
 };
 

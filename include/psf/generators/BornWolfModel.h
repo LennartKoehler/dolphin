@@ -31,5 +31,3 @@ private:
     int sizeY;
     int sizeZ;
 };
-
-

@@ -8,7 +8,7 @@ PSFConfigWindow::PSFConfigWindow(GUIFrontend* guiFrontend, int width, int height
     : ConfigWindow(guiFrontend, width, height, name, config){
         std::shared_ptr<FunctionContent> plot = std::make_shared<FunctionContent>("PSF", [guiFrontend](){guiFrontend->generatePSF();});
         plot->activate();
-        plotWindow = std::make_shared<Window>(guiFrontend, 2000, 3000, "PSF Plot");
+        plotWindow = std::make_shared<Window>(guiFrontend, 4000, 7000, "PSF Plot");
         plotWindow->addChild(plot);
         addChild(plotWindow);
     }

@@ -58,10 +58,10 @@ void GibsonLanniPSFGenerator::setIntegrator(std::unique_ptr<NumericalIntegrator>
     this->numericalIntegrator = std::move(integrator);
 }
 
-void GibsonLanniPSFGenerator::setConfig(std::unique_ptr<PSFConfig> config){
-    auto* ucfg = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
+void GibsonLanniPSFGenerator::setConfig(const std::shared_ptr<const PSFConfig> config){
+    auto* ucfg = dynamic_cast<const GibsonLanniPSFConfig*>(config.get());
     if (!ucfg) throw std::runtime_error("Wrong config type");
-    this->config.reset(static_cast<GibsonLanniPSFConfig*>(config.release()));
+    this->config = std::make_unique<GibsonLanniPSFConfig>(*ucfg);
 }
 
 PSF GibsonLanniPSFGenerator::generatePSF() const {

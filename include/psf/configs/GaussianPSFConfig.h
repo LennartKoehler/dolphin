@@ -4,8 +4,8 @@
 
 class GaussianPSFConfig : public PSFConfig{
 public:
-    std::string getName() override;
-    bool loadFromJSON(const json& jsonData) override;
+    std::string getName() const override;
+    bool loadFromJSONSpecific(const json& jsonData) override;
     void printValues() override;
 
 

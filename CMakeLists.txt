@@ -73,8 +73,10 @@ include_directories(
 # ------------------------------------------------------------
 set(COMMON_SOURCES
     src/Dolphin.cpp
-
+    src/PSFManager.cpp
+    
     src/algorithms/ConvolutionAlgorithm.cpp
+
 
     src/hyperstack/HyperstackImage.cpp
     src/hyperstack/Image3D.cpp
@@ -106,11 +108,11 @@ set(COMMON_SOURCES
     src/utilities/UtlIO.cpp
 
     src/frontend/CLIFrontend.cpp
-    src/frontend/ConfigManager.cpp
+    src/frontend/SetupConfig.cpp
     src/frontend/gui/imguiWidget.cpp
     src/frontend/gui/DefaultGUIStyleConfig.cpp
     src/frontend/gui/GUIFrontend.cpp
-    src/frontend/gui/UIConfigManager.cpp
+    src/frontend/gui/UISetupConfig.cpp
     src/frontend/gui/UIConfig.cpp
 
     # src/frontend/gui/uipsf/UIPSFConfig.cpp
@@ -123,6 +125,7 @@ set(COMMON_SOURCES
     src/frontend/gui/windows/ConfigWindow.cpp
     src/frontend/gui/windows/PSFConfigWindow.cpp
 
+    src/frontend/gui/SpinningDonut.cpp
 )
 #TODO add the imgui sources to the imgui library, not to common sources
 

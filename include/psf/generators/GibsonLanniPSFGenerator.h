@@ -12,14 +12,14 @@ public:
 	GibsonLanniPSFGenerator(std::unique_ptr<NumericalIntegrator> integrator = std::make_unique<SimpsonIntegrator>());
     PSF generatePSF() const override;
 
-    void setConfig(std::unique_ptr<PSFConfig> config) override;
+    void setConfig(const std::shared_ptr<const PSFConfig> config) override;
     bool hasConfig() override;
 	void setIntegrator(std::unique_ptr<NumericalIntegrator> integrator);
 	cv::Mat SinglePlanePSF(const GibsonLanniPSFConfig& config) const; // gibson lanni equation for one z-slice
 
 private:
 	std::unique_ptr<NumericalIntegrator> numericalIntegrator;
-    std::unique_ptr<GibsonLanniPSFConfig> config;
+    std::shared_ptr<GibsonLanniPSFConfig> config;
 
 };
 

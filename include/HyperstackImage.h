@@ -19,11 +19,11 @@ public:
     bool readFromTifFile(const char *filename);
     bool readFromTifDir(const std::string& directoryPath);
 
-    bool saveAsTifFile(const std::string &directoryPath);
-    bool saveAsTifDir(const std::string& directoryPath);
+    bool saveAsTifFile(const std::string &directoryPath) const ;
+    bool saveAsTifDir(const std::string& directoryPath) const;
 
     bool showSlice(int channel, int z);
-    bool showChannel(int channel);
+    bool showChannel(int channel) const;
 
     void printMetadata() const;
 

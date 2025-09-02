@@ -3,36 +3,19 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#include "../lib/nlohmann/json.hpp"
 
-using json = nlohmann::json;
+#include "Config.h"
 
-class PSFConfig {
+class PSFConfig : public Config{
 public:
     PSFConfig() = default;
     virtual ~PSFConfig(){};
     PSFConfig(const PSFConfig& other);
-    virtual bool loadFromJSON(const json& jsonData) = 0;
-    virtual bool loadFromJSONBase(const json& jsonData);
+    virtual bool loadFromJSON(const json& jsonData);
     virtual void printValues() = 0;
-    virtual std::string getName() = 0;
-    
-    template<typename T>
-    T readParameter(const json& jsonData, std::string fieldName){
-        if (jsonData.contains(fieldName)) {
-            return jsonData.at(fieldName).get<T>();
-        } else {
-            throw std::runtime_error("[ERROR] Missing required parameter: " + fieldName);
-        }
-    }
-
-    template<typename T>
-    void readParameterOptional(const json& jsonData, std::string fieldName, T& field){
-        if (jsonData.contains(fieldName)) {
-            field = jsonData.at(fieldName).get<T>();
-        }
-    }
-
+    virtual std::string getName() const = 0;
+    virtual bool loadFromJSONSpecific(const json& jsonData) = 0; // factory method
+    static std::shared_ptr<PSFConfig> createFromJSON(const json& jsonData);
 
     bool compareDim(const PSFConfig &other);
 
@@ -43,5 +26,9 @@ public:
     double NA;
     double resLateral_nm;
     double resAxial_nm;
+    std::vector<int> psfCubeVec;
+    std::vector<int> psfLayerVec;
+
+
 };
 

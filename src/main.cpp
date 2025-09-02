@@ -5,20 +5,22 @@
 int main(int argc, char** argv) {
     std::cout << "[Start DeconvTool]" << std::endl;
     bool cli = false;
-    ConfigManager* configManager= new ConfigManager();
+    SetupConfig* setupConfig= new SetupConfig();
     Dolphin dolphin{};
     IFrontend* frontend;
 
     if (cli){
-        frontend = new CLIFrontend{configManager, argc, argv};
-        dolphin.init(configManager);
+        frontend = new CLIFrontend{setupConfig, argc, argv};
+        frontend->run();
+        dolphin.init(setupConfig);
         dolphin.run();
     }
     else{
-        frontend = new GUIFrontend{configManager, dolphin};
+        frontend = new GUIFrontend{setupConfig, dolphin};
         frontend->run();
     }
     
+    std::cout << "[End DeconvTool]" << std::endl;
 
 }
 

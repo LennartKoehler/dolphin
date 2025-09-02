@@ -12,7 +12,7 @@
 
 class DeconvolutionAlgorithmFactory {
 public:
-    using AlgorithmCreator = std::function<std::unique_ptr<BaseDeconvolutionAlgorithm>()>;
+    using AlgorithmCreator = std::function<std::shared_ptr<BaseDeconvolutionAlgorithm>()>;
 
     static DeconvolutionAlgorithmFactory& getInstance() {
         static DeconvolutionAlgorithmFactory instance;
@@ -23,7 +23,7 @@ public:
         algorithms_[name] = creator;
     }
 
-    std::unique_ptr<BaseDeconvolutionAlgorithm> create(
+    std::shared_ptr<BaseDeconvolutionAlgorithm> create(
         const std::string& name, const DeconvolutionConfig& config
     ) {
         auto it = algorithms_.find(name);

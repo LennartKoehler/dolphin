@@ -2,10 +2,11 @@
 #include "../lib/CLI/CLI11.hpp"
 
 #include "IFrontend.h"
+#include "DeconvolutionConfig.h"
 
 class CLIFrontend : public IFrontend{
 public:
-    CLIFrontend(ConfigManager* config, int argc, char** argv);
+    CLIFrontend(SetupConfig* config, int argc, char** argv);
     void init(int argc, char** argv);
     void run() override;
 
@@ -13,13 +14,13 @@ public:
 private:
     CLI::App app{"deconvtool - Deconvolution of Microscopy Images"};
     CLI::Option_group* cli_group;
-    std::vector<std::string> psfPaths;
-    std::string configFilePath;
+    SetupConfig setupConfig;
+    DeconvolutionConfig deconvolutionConfig;
     int argc;
     char** argv;
 
     bool parseCLI();
     void readCLIParameters();
     void readCLIParametersPSF();
-    void handleCLIConfigs();
+    void readCLIParametersDeconvolution();
 };

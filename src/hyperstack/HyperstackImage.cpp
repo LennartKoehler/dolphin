@@ -46,7 +46,7 @@ bool Hyperstack::showSlice(int channel, int z) {
         return false;
     }
 }
-bool Hyperstack::showChannel(int channel){
+bool Hyperstack::showChannel(int channel) const {
     for (const auto &mat : this->channels[channel].image.slices) {
             if (mat.type() != CV_32F) {
                 std::cerr << "Expected CV_32F data type." << std::endl;

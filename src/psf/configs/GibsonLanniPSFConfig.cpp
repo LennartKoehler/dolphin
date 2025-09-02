@@ -1,14 +1,13 @@
 #include "psf/configs/GibsonLanniPSFConfig.h"
 
-std::string GibsonLanniPSFConfig::getName(){
+std::string GibsonLanniPSFConfig::getName() const {
     return this->psfModelName;
 }
 
-bool GibsonLanniPSFConfig::loadFromJSON(const json& jsonData) {
+bool GibsonLanniPSFConfig::loadFromJSONSpecific(const json& jsonData) {
     try {
         psfModelName = "GibsonLanni";
 
-        loadFromJSONBase(jsonData);
         
         // Load Gibson-Lanni specific parameters (required)
         ti0_nm = readParameter<double>(jsonData, "workingDistanceDesign[nm]");
@@ -27,14 +26,11 @@ bool GibsonLanniPSFConfig::loadFromJSON(const json& jsonData) {
         readParameterOptional<double>(jsonData, "coverslipRIDesign", ng0);
         readParameterOptional<double>(jsonData, "coverslipRIExperimental", ng);
 
-        return true;
 
     } catch (const json::exception& e) {
         std::cerr << "[ERROR] JSON parsing error in GibsonLanniPSFConfig: " << e.what() << std::endl;
-        return false;
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Error loading GibsonLanniPSFConfig: " << e.what() << std::endl;
-        return false;
     }
 }
 

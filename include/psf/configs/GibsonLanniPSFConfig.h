@@ -26,9 +26,9 @@ public:
         this->accuracy = p.accuracy;
         this->OVER_SAMPLING = p.OVER_SAMPLING;
 	}
-    bool loadFromJSON(const json& jsonData) override;
+    bool loadFromJSONSpecific(const json& jsonData) override;
     void printValues() override;
-	std::string getName() override;
+	std::string getName() const override;
 
 	std::string psfModelName = "GibsonLanni";
 	double OVER_SAMPLING;

@@ -6,15 +6,14 @@
 
 using json = nlohmann::json;
 
-std::string GaussianPSFConfig::getName(){
+std::string GaussianPSFConfig::getName() const{
     return this->psfModelName;
 }
 
-bool GaussianPSFConfig::loadFromJSON(const json& jsonData) {
+bool GaussianPSFConfig::loadFromJSONSpecific(const json& jsonData) {
 
     try {
 
-        loadFromJSONBase(jsonData);
         if (jsonData.contains("qualityFactor")){
             this->qualityFactor = jsonData["qualityFactor"].get<double>();
         }
@@ -66,9 +65,7 @@ bool GaussianPSFConfig::loadFromJSON(const json& jsonData) {
 
     } catch (const json::exception &e) {
         std::cerr << "[ERROR] Invalid PSF JSON structure: " << e.what() << std::endl;
-        return false;
     }
-    return true;
 }
 
 
