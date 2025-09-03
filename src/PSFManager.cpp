@@ -28,7 +28,12 @@ PSFPackage PSFManager::handleSetupConfig(const SetupConfig& setupConfig) {
     return psfPackage;
 }
 
-
+PSF PSFManager::PSFFromSetupConfig(const SetupConfig& setupConfig){
+    if (setupConfig.psfConfig == nullptr){
+        throw std::runtime_error("No PSF Config in Setup Config");
+    }
+    return createPSFFromConfig(setupConfig.psfConfig);
+}
 
 PSF PSFManager::generatePSF(const std::string& psfConfigPath){
     if (!isJSONFile(psfConfigPath)){
@@ -38,10 +43,8 @@ PSF PSFManager::generatePSF(const std::string& psfConfigPath){
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     std::shared_ptr<PSFConfig> psfConfig = factory.createConfig(config);
     
-    PSF psf = createPSFFromConfig(std::move(psfConfig));
+    PSF psf = createPSFFromConfig(psfConfig);
     
-    
-    psf.saveAsTifFile("../result/psf_" + psfConfig->getName() + ".tif");
 
     return psf;
 }
@@ -100,14 +103,16 @@ PSFPackage PSFManager::PSFFromConfig(const json& configJson) {
 
     std::shared_ptr<PSFConfig> psfConfig = PSFConfig::createFromJSON(configJson);
     
-    psfpackage.psfs.push_back(createPSFFromConfig(std::move(psfConfig)));
+    psfpackage.psfs.push_back(createPSFFromConfig(psfConfig));
     return psfpackage;
 }
 
 PSF PSFManager::createPSFFromConfig(std::shared_ptr<PSFConfig> psfConfig){
 
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
-    std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(std::move(psfConfig));
+    std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(psfConfig);
+    std::cout << "[STATUS] Generating PSF" << std::endl;
+    psfConfig->printValues();
     PSF psftmp = psfGenerator->generatePSF();
     return psftmp;
     
@@ -167,7 +172,7 @@ void PSFManager::PSFDimensionCheck(const PSFPackage& psfpackage){
 // void Dolphin::createPSFFromConfig(std::shared_ptr<PSFConfig> psfConfig){
 
 //     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
-//     std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(std::move(psfConfig));
+//     std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(psfConfig));
 //     PSF psftmp = psfGenerator->generatePSF();
 //     psfs.push_back(psftmp);
     
@@ -181,7 +186,7 @@ void PSFManager::PSFDimensionCheck(const PSFPackage& psfpackage){
 
 //     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
 //     std::shared_ptr<PSFConfig> psfConfig = factory.createConfig(configJson);
-//     psfConfigs.push_back(std::move(psfConfig));
+//     psfConfigs.push_back(psfConfig));
     
 // }
 

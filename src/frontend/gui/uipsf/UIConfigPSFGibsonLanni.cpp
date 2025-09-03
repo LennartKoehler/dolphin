@@ -15,7 +15,7 @@ void UIConfigPSFGibsonLanni::setParameters(const std::shared_ptr<const GibsonLan
 }
 
 std::shared_ptr<PSFConfig> UIConfigPSFGibsonLanni::getConfig(){
-    return psfConfig;
+    return std::make_shared<GibsonLanniPSFConfig>(*psfConfig);
 }
 
 

@@ -12,28 +12,56 @@
 #include "../lib/cube/include/CUBE.h"
 #endif
 
+#include <thread>
 void Dolphin::init(SetupConfig* config){
     this->config = config;
 }
 
 
+// void Dolphin::run(){
+
+//     setCuda();
+//     if (config->app == Application::deconvolution){
+//         deconvolve();
+//     }
+//     if (config->app == Application::psfgeneration){
+//         generatePSF();
+//     }
+// }
+//TODO change, just multithreading for testing
 void Dolphin::run(){
     setCuda();
     if (config->app == Application::deconvolution){
-        deconvolve();
+        // Fix: need to capture 'this' and call member function properly
+        std::thread deconvThread([this]() {
+            try {
+                this->deconvolve();
+            } catch (const std::exception& e) {
+                std::cout << "[ERROR] Deconvolution failed: " << e.what() << std::endl;
+            }
+        });
+        deconvThread.detach(); // or join() if you want to wait
     }
     if (config->app == Application::psfgeneration){
-        generatePSF();
+        // Fix: same here
+        std::thread psfThread([this]() {
+            try {
+                this->generatePSF();
+            } catch (const std::exception& e) {
+                std::cout << "[ERROR] PSF generation failed: " << e.what() << std::endl;
+            }
+        });
+        psfThread.detach(); // or join() if you want to wait
     }
-    
-
 }
-
 
 // make this compatible with the way gui handles the psf config
 std::shared_ptr<PSF> Dolphin::generatePSF(){
     PSFManager psfmanager;
-    PSF psf = psfmanager.generatePSF(config->psfConfigPath);
+    PSF psf = psfmanager.PSFFromSetupConfig(*config);
+    std::string filename = "../result/psf_" + config->psfConfig->getName() + ".tif";
+    psf.saveAsTifFile(filename);
+    std::cout << "[STATUS] PSF generated: " << filename << std::endl;
     return std::make_shared<PSF>(psf);
 }
 

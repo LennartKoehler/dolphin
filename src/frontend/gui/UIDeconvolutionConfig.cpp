@@ -1,6 +1,6 @@
 #include "frontend/gui/UIDeconvolutionConfig.h"
-
-
+#include "frontend/gui/imguiWidget.h"
+#include "DeconvolutionAlgorithmFactory.h"
 UIDeconvolutionConfig::UIDeconvolutionConfig(){
     setParameters(std::make_shared<DeconvolutionConfig>());
 }
@@ -17,9 +17,12 @@ std::shared_ptr<DeconvolutionConfig> UIDeconvolutionConfig::getConfig(){
 
 
 void UIDeconvolutionConfig::setDeconvolutionConfigParameters(std::shared_ptr<DeconvolutionConfig> deconvolutionConfig){
+    static std::vector<std::string> algorithmOptions = DeconvolutionAlgorithmFactory::getInstance().getAvailableAlgorithms();
+    static StringSelectionHelper algorithmHelper{&deconvolutionConfig->algorithmName, &algorithmOptions};
     std::vector<ParameterDescription> runtimeParams = {
         // Core algorithm parameters
-        {"Algorithm Name", ParameterType::String, &deconvolutionConfig->algorithmName, 0.0, 0.0},
+
+        {"Algorithm", ParameterType::VectorString, &algorithmHelper, 0.0, 0.0},
         {"Iterations", ParameterType::Int, &deconvolutionConfig->iterations, 1, 10000},
         {"Lambda", ParameterType::Double, &deconvolutionConfig->lambda, 0.0, 1.0},
         {"Epsilon", ParameterType::Double, &deconvolutionConfig->epsilon, 1e-12, 1e-3},

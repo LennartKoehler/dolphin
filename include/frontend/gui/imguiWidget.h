@@ -46,3 +46,17 @@ private:
     void addElementWidget();
     void removeElement(int index);
 };
+
+struct StringSelectionHelper{
+    std::string* field;
+    std::vector<std::string>* selection;
+};
+
+class imguiStringSelection : public imguiWidget {
+public:    
+    void display(const ParameterDescription& p) override;
+
+private:
+    std::vector<std::string> options;
+    int currentSelection = 0;
+};

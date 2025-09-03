@@ -27,7 +27,9 @@ protected:
             {"Size Z", ParameterType::Int, &config->sizeZ, 1, 512},
             {"NA", ParameterType::Double, &config->NA, 0.1, 2.0},
             {"Lateral resolution (nm)", ParameterType::Double, &config->resLateral_nm, 10.0, 500.0},
-            {"Axial resolution (nm)", ParameterType::Double, &config->resAxial_nm, 50.0, 2000.0}
+            {"Axial resolution (nm)", ParameterType::Double, &config->resAxial_nm, 50.0, 2000.0},
+            {"PSF Layers", ParameterType::VectorInt, &config->psfLayerVec, 0, 1024},
+            {"PSF Cubes", ParameterType::VectorInt, &config->psfCubeVec, 0, 1024}
         };
         parameters.insert(parameters.end(), temp.begin(), temp.end());
     }

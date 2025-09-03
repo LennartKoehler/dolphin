@@ -36,9 +36,9 @@ static void glfw_error_callback(int error, const char* description)
 
 
 
-#include "SpinningDonut.cpp"
-void GUIFrontend::generatePSF(){
+void GUIFrontend::generatePSF(std::shared_ptr<PSFConfig> psfConfig){
     config->app = Application::psfgeneration;
+    config->psfConfig = psfConfig;
     dolphin.init(config);
     dolphin.run();
 
@@ -86,27 +86,6 @@ void GUIFrontend::initWindows(){
 
     mainWindow = std::make_shared<MainWindow>(this, (int)(1500 * mainScale), (int)(800 * mainScale), "Main");
     mainWindow->activate();
-
-
-
-//TODO move to psfmain window
-
-
-
-    // std::shared_ptr<UISetupConfig> manager = std::make_shared<UISetupConfig>();
-    // std::shared_ptr<ConfigContent> setupConfig = std::make_shared<ConfigContent>("Config Manager", manager); // slice to content class so it doesnt have its own window
-    // setupConfig->activate();
-
-
-
-// config->app = Application::deconvolution; initDolphin(); runDolphin();
-// config->app = Application::psfgeneration; initDolphin(); runDolphin();
-
-
-    // mainWindow->addChild(setupConfig);
-    // mainWindow->addChild(deconvButton);
-
-
 
 }
 

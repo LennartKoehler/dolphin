@@ -20,12 +20,12 @@ public:
     bool compareDim(const PSFConfig &other);
 
 
-    int sizeX;
-    int sizeY;
-    int sizeZ;
-    double NA;
-    double resLateral_nm;
-    double resAxial_nm;
+    int sizeX = 20;
+    int sizeY = 20;
+    int sizeZ = 10;
+    double NA = 1.0;
+    double resLateral_nm = 200;
+    double resAxial_nm = 200;
     std::vector<int> psfCubeVec;
     std::vector<int> psfLayerVec;
 

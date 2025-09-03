@@ -5,7 +5,7 @@
 
 
 enum class ParameterType{
- Double, Int, String, VectorInt, Bool
+ Double, Int, String, VectorInt, Bool, VectorString
 };
 
 

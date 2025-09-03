@@ -20,19 +20,36 @@ PSFMainWindow::PSFMainWindow(GUIFrontend* guiFrontend, int width, int height, st
         std::shared_ptr<UIConfigPSFGibsonLanni> gibsonlanni = std::make_shared<UIConfigPSFGibsonLanni>();
         std::shared_ptr<ConfigWindow> gibsonlanniwindow = std::make_shared<ConfigWindow>(width, height, "GibsonLanni PSF", gibsonlanni);
 
+        addChild(gausswindow);
+        addChild(gibsonlanniwindow);
 
-        std::shared_ptr<FunctionContent> plot = std::make_shared<FunctionContent>("PSF", [guiFrontend](){guiFrontend->generatePSF();});
-        plot->activate();
-        std::shared_ptr<Window> plotWindow = std::make_shared<Window>(4000, 7000, "PSF Plot");
-        plotWindow->addChild(plot);
-        addChild(plotWindow);
+        // Create separate buttons for each PSF type
+        std::shared_ptr<ButtonContent> gaussButton = std::make_shared<ButtonContent>("Generate Gaussian PSF", 
+            [guiFrontend, gauss]() {
+                auto config = gauss->getConfig();
+                guiFrontend->generatePSF(config);
+            });
+        gaussButton->activate();
+
+        std::shared_ptr<ButtonContent> gibsonButton = std::make_shared<ButtonContent>("Generate Gibson-Lanni PSF", 
+            [guiFrontend, gibsonlanni]() {
+                auto config = gibsonlanni->getConfig();
+                guiFrontend->generatePSF(config);
+            });
+        gibsonButton->activate();
+
+        gausswindow->addChild(gaussButton);
+        gibsonlanniwindow->addChild(gibsonButton);
     }
 
 void PSFMainWindow::content(){
-    Window::content();
-    // if (ImGui::Button("Generate PSF")){
-    //     plotWindow->activate();
-    // }
+    ImGui::Text("Select the PSF Model");
+    if (ImGui::Button("Gaussian PSF")){
+        getChild("Gaussian PSF")->activate();
+    }
+    if (ImGui::Button("GibsonLanni PSF")){
+        getChild("GibsonLanni PSF")->activate();
+    }
 }
 
 
@@ -47,6 +64,8 @@ DeconvolutionMainWindow::DeconvolutionMainWindow(GUIFrontend* guiFrontend, int w
         std::shared_ptr<ConfigContent> setupwindow = std::make_shared<ConfigContent>("Setup Config", setup);
         setupwindow->activate();
 
+        std::shared_ptr<PSFMainWindow> psfconfig = std::make_shared<PSFMainWindow>(guiFrontend, width, height, "Generate PSF");
+        addChild(psfconfig);
         addChild(deconvwindow);
         addChild(setupwindow);
     }
@@ -61,7 +80,13 @@ void DeconvolutionMainWindow::show(){
             ImGui::Text("Main Setup");
             ImGui::Dummy(ImVec2(0.0f, 20.0f));
             getChild("Setup Config")->show();
-        
+            getChild("Generate PSF")->show();
+
+            // PSF:
+            ImGui::Text("Select the PSF Model");
+            if (ImGui::Button("Generate PSF")){
+                getChild("Generate PSF")->activate();
+            }
             ImGui::TableNextColumn();
 
             ImGui::Text("Deconvolution Parameters");
@@ -75,8 +100,8 @@ void DeconvolutionMainWindow::show(){
     }
 }
 
-        // std::shared_ptr<UIConfigPSFGaussian> gaussian = std::make_shared<UIConfigPSFGaussian>();
-        // std::shared_ptr<BackendConfigWindow> gaussianwindow = std::make_shared<BackendConfigWindow>(this, (int)(1280 * guiFrontend->mainScale), (int)(800 * guiFrontend->mainScale), "Gaussian PSF Config", gaussian);
+        // std::shared_ptr<UIConfigPSFGibsonLanni> gaussian = std::make_shared<UIConfigPSFGaussian>();
+        // std::shared_ptr<BackendibsonLanniWindow> gaussianwindow = std::make_shared<BackendConfigWindow>(this, (int)(1280 * guiFrontend->mainScale), (int)(800 * guiFrontend->mainScale), "Gaussian PSF Config", gaussian);
         
         // std::shared_ptr<UIConfigPSFGibsonLanni> gibsonLanni = std::make_shared<UIConfigPSFGibsonLanni>();
         // std::shared_ptr<BackendConfigWindow> gibsonwindow = std::make_shared<BackendConfigWindow>(this, (int)(1280 * guiFrontend->mainScale), (int)(800 * guiFrontend->mainScale), "Gibson Lanni PSF Config", gibsonLanni);

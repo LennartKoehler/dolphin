@@ -59,7 +59,9 @@ private:
         registerAlgorithm("RegularizedInverseFilter", []() {
             return std::make_unique<RegularizedInverseFilterDeconvolutionAlgorithm>();
         });
+        registerAlgorithm("RichardsonLucywithAdaptiveDamping", []() {
+            return std::make_unique<RLADDeconvolutionAlgorithm>();
+        });
     }
-
     std::unordered_map<std::string, AlgorithmCreator> algorithms_;
 };

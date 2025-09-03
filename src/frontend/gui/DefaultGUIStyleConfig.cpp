@@ -17,6 +17,7 @@ DefaultGUIStyleConfig::DefaultGUIStyleConfig(){
 }
 
 void DefaultGUIStyleConfig::drawParameter(const ParameterDescription& param){
+
     if (auto it = styleGuide.find(param.type); it != styleGuide.end()) {
         it->second->display(param);
     } else {
@@ -31,5 +32,7 @@ void DefaultGUIStyleConfig::registerDisplays(){
     styleGuide[ParameterType::Double] = std::make_unique<imguiSliderDouble>();
     styleGuide[ParameterType::Bool] = std::make_unique<imguiCheckbox>();
     styleGuide[ParameterType::VectorInt] = std::make_unique<imguiVectorInt>();
+    styleGuide[ParameterType::VectorString] = std::make_unique<imguiStringSelection>();
+
 
 }

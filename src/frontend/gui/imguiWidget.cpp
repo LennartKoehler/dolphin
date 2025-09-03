@@ -5,6 +5,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include <stdio.h>
+#include <algorithm>
 #define GL_SILENCE_DEPRECATION
 #if defined(IMGUI_IMPL_OPENGL_ES2)
 #include <GLES2/gl2.h>
@@ -54,10 +55,12 @@ void imguiCheckbox::display(const ParameterDescription& p) {
 
 void imguiVectorInt::display(const ParameterDescription& p){
     values = static_cast<std::vector<int>*>(p.ptr);
-    
+    ImGui::Dummy(ImVec2(0.0f, 20.0f));
+
     ImGui::Text("%s:", p.name.c_str());
-    ImGui::Separator();
+    // ImGui::Separator();
     
+    ImGui::PushID(p.name.c_str());
     // Display existing elements
     for (size_t i = 0; i < values->size(); ++i) {
         int id = static_cast<int>(i);
@@ -77,6 +80,9 @@ void imguiVectorInt::display(const ParameterDescription& p){
     
     // Add new element widget
     addElementWidget();
+    ImGui::PopID();
+    ImGui::Dummy(ImVec2(0.0f, 20.0f));
+
 }
 
 void imguiVectorInt::displayElement(int* val, int index) {
@@ -114,5 +120,35 @@ void imguiVectorInt::addElementWidget() {
 void imguiVectorInt::removeElement(int index) {
     if (values && index >= 0 && index < static_cast<int>(values->size())) {
         values->erase(values->begin() + index);
+    }
+}
+
+// In imguiWidget.cpp - add this implementation
+void imguiStringSelection::display(const ParameterDescription& p) {
+    auto strPtr = static_cast<StringSelectionHelper*>(p.ptr);
+
+    std::string* field = strPtr->field;
+    std::vector<std::string>* options = strPtr->selection;
+
+    // Find current selection index
+    auto it = std::find(options->begin(), options->end(), *field);
+    if (it != options->end()) {
+        currentSelection = static_cast<int>(std::distance(options->begin(), it));
+    } else {
+        currentSelection = 0; // Default to first option if not found
+    }
+    
+    // Create array of const char* for ImGui::Combo
+    std::vector<const char*> items;
+    for (const auto& option : *options) {
+        items.push_back(option.c_str());
+    }
+    
+    // Display combo box
+    if (ImGui::Combo(p.name.c_str(), &currentSelection, items.data(), static_cast<int>(items.size()))) {
+        // Update the string when selection changes
+        if (currentSelection >= 0 && currentSelection < static_cast<int>(options->size())) {
+            *field = (*options)[currentSelection];
+        }
     }
 }
