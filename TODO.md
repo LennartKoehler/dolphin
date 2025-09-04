@@ -1,12 +1,3 @@
-make all configs constructor use the .json files to initialize?
-
-
-
-when in mainwindow, click on psfstyle
--> create default psfconfig of that style from a json that stores default parameters
--> create and store UIpsfconfig in frontend
--> create window using that
--> when done, retrieve new psfconfig from uipsfconfig and feed it to dolphin
 
 PSF:
 

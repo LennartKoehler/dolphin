@@ -23,7 +23,6 @@ void UISetupConfig::setSetupConfigParameters(std::shared_ptr<SetupConfig> setupC
     std::vector<ParameterDescription> runtimeParams = {
         // Application selection
         // Note: Application enum might need special handling or conversion to int
-        {"Application", ParameterType::Int, reinterpret_cast<int*>(&setupConfig->app), 0, 1}, // 0=deconvolution, 1=psfgeneration
         
         // File paths - these might need special UI handling for file selection
         {"Image Path", ParameterType::FilePath, &setupConfig->imagePath, 0.0, 0.0},

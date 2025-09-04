@@ -13,7 +13,7 @@ public:
     GUIFrontend(SetupConfig* config, Dolphin& dolphin);
     void run() override;
 
-    void generatePSF(std::shared_ptr<PSFConfig> config);
+    std::string generatePSF(std::shared_ptr<PSFConfig> config);
     void deconvolve(std::shared_ptr<SetupConfig> config);
  
     double mainScale;

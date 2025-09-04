@@ -9,6 +9,8 @@
 
 #include "imgui.h"
 
+
+// big mess :)
 PSFMainWindow::PSFMainWindow(GUIFrontend* guiFrontend, int width, int height, std::string name)
     : guiFrontend(guiFrontend),
     Window(width, height, name){
@@ -25,16 +27,18 @@ PSFMainWindow::PSFMainWindow(GUIFrontend* guiFrontend, int width, int height, st
 
         // Create separate buttons for each PSF type
         std::shared_ptr<ButtonContent> gaussButton = std::make_shared<ButtonContent>("Generate Gaussian PSF", 
-            [guiFrontend, gauss]() {
+            [this, guiFrontend, gauss, gausswindow]() {
                 auto config = gauss->getConfig();
-                guiFrontend->generatePSF(config);
+                this->psfPath = guiFrontend->generatePSF(config);
+                gausswindow->deactivate();
             });
         gaussButton->activate();
 
         std::shared_ptr<ButtonContent> gibsonButton = std::make_shared<ButtonContent>("Generate Gibson-Lanni PSF", 
-            [guiFrontend, gibsonlanni]() {
+            [this, guiFrontend, gibsonlanni, gibsonlanniwindow]() {
                 auto config = gibsonlanni->getConfig();
-                guiFrontend->generatePSF(config);
+                this->psfPath = guiFrontend->generatePSF(config);
+                gibsonlanniwindow->deactivate();
             });
         gibsonButton->activate();
 
@@ -50,6 +54,27 @@ void PSFMainWindow::content(){
     if (ImGui::Button("GibsonLanni PSF")){
         getChild("GibsonLanni PSF")->activate();
     }
+    static bool showPSFWindow = true;
+    if (!this->psfPath.empty() && showPSFWindow){
+        ImGui::Begin("PSF saved under", &showPSFWindow);
+        
+        // Create a buffer for the path (InputText needs char array)
+        static char pathBuffer[512];
+        std::strncpy(pathBuffer, psfPath.c_str(), sizeof(pathBuffer) - 1);
+        pathBuffer[sizeof(pathBuffer) - 1] = '\0';
+        
+        // Read-only input text that user can select and copy
+        ImGui::InputText("Path", pathBuffer, sizeof(pathBuffer), 
+                        ImGuiInputTextFlags_ReadOnly);
+        
+        // Optional: Add a copy button
+        ImGui::SameLine();
+        if (ImGui::Button("Copy")) {
+            ImGui::SetClipboardText(psfPath.c_str());
+        }
+        
+        ImGui::End();
+    }
 }
 
 
@@ -64,19 +89,22 @@ DeconvolutionMainWindow::DeconvolutionMainWindow(GUIFrontend* guiFrontend, int w
         std::shared_ptr<ConfigContent> setupwindow = std::make_shared<ConfigContent>("Setup Config", setup);
         setupwindow->activate();
 
-        std::shared_ptr<PSFMainWindow> psfconfig = std::make_shared<PSFMainWindow>(guiFrontend, width, height, "Generate PSF");
+        std::shared_ptr<PSFMainWindow> psfconfigwindow = std::make_shared<PSFMainWindow>(guiFrontend, width, height, "Generate PSF");
 
         std::shared_ptr<ButtonContent> startDeconvolutionButton = std::make_shared<ButtonContent>("Start Deconvolution", 
-            [guiFrontend, setup, deconv]() {
+            [guiFrontend, setup, deconv, psfconfigwindow]() {
                 auto setupconfig = setup->getConfig();
                 auto deconvconfig = deconv->getConfig();
+                if (setupconfig->psfFilePath.empty() && !psfconfigwindow->psfPath.empty()){
+                    setupconfig->psfFilePath = psfconfigwindow->psfPath;
+                }
                 setupconfig->deconvolutionConfig = deconvconfig;
                 guiFrontend->deconvolve(setupconfig);
             });
         startDeconvolutionButton->activate();
 
         addChild(startDeconvolutionButton);
-        addChild(psfconfig);
+        addChild(psfconfigwindow);
         addChild(deconvwindow);
         addChild(setupwindow);
     }
@@ -94,7 +122,6 @@ void DeconvolutionMainWindow::show(){
             getChild("Generate PSF")->show();
 
             // PSF:
-
             if (ImGui::Button("Generate PSF")){
                 getChild("Generate PSF")->activate();
             }

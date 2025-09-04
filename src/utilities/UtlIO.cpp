@@ -26,7 +26,7 @@ void UtlIO::convertImageTo32F(std::vector<cv::Mat> &layers, int &dataType, uint1
         std::flush(std::cout);
         i++;
     }
-    std::cout << std::to_string(layers[14].at<float>(10, 10)) << std::endl;
+    std::cout << std::to_string(layers[1].at<float>(1, 1)) << std::endl;
 
     bitsPerSample = 32;
     dataType = CV_32F;

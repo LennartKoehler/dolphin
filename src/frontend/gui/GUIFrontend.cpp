@@ -36,11 +36,13 @@ static void glfw_error_callback(int error, const char* description)
 
 
 
-void GUIFrontend::generatePSF(std::shared_ptr<PSFConfig> psfConfig){
+std::string GUIFrontend::generatePSF(std::shared_ptr<PSFConfig> psfConfig){
     config->app = Application::psfgeneration;
     config->psfConfig = psfConfig;
     dolphin.init(config);
     dolphin.run();
+    return "../result/psf_" + config->psfConfig->getName() + ".tif";
+
 }
 
 void GUIFrontend::deconvolve(std::shared_ptr<SetupConfig> setupConfig){

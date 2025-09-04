@@ -6,6 +6,7 @@ public:
     PSFMainWindow(GUIFrontend* frontend, int width, int height, std::string name);
     virtual void content() override;
 
+    std::string psfPath;
 
 private:
     GUIFrontend* guiFrontend;
