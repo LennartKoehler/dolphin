@@ -41,12 +41,11 @@ void GUIFrontend::generatePSF(std::shared_ptr<PSFConfig> psfConfig){
     config->psfConfig = psfConfig;
     dolphin.init(config);
     dolphin.run();
-
 }
 
-void GUIFrontend::deconvolve(){
-    config->app = Application::deconvolution;
-    dolphin.init(config);
+void GUIFrontend::deconvolve(std::shared_ptr<SetupConfig> setupConfig){
+    setupConfig->app = Application::deconvolution;
+    dolphin.init(setupConfig.get());
     dolphin.run();
 
 }
@@ -60,6 +59,7 @@ GUIFrontend::GUIFrontend(SetupConfig* config, Dolphin& dolphin)
 void GUIFrontend::run(){
     init();
     update();
+    cleanup();
 }
 
 

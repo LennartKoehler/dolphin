@@ -14,7 +14,7 @@ public:
     void run() override;
 
     void generatePSF(std::shared_ptr<PSFConfig> config);
-    void deconvolve();
+    void deconvolve(std::shared_ptr<SetupConfig> config);
  
     double mainScale;
 

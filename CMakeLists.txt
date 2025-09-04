@@ -46,7 +46,7 @@ target_include_directories(imgui_lib PUBLIC
     ${GLEW_INCLUDE_DIRS}
 )
 
-# IMPLOT3------------------------------
+# IMPLOT3 and imguiFileExplorer------------------------------
 set(IMPLOT3D_DIR ${CMAKE_SOURCE_DIR}/lib/implot3d)
 
 add_library(implot3d_lib
@@ -54,11 +54,13 @@ add_library(implot3d_lib
     ${IMPLOT3D_DIR}/implot3d_items.cpp
 
 )
+
+target_include_directories(implot3d_lib PUBLIC
+    ${CMAKE_SOURCE_DIR}/lib/implot3d
+    ${CMAKE_SOURCE_DIR}/lib/imgui-filebrowser)
+    
 target_link_libraries(implot3d_lib PUBLIC
     imgui_lib)
-target_include_directories(implot3d_lib PUBLIC
-    ${CMAKE_SOURCE_DIR}/lib/implot3d)
-
 
 
 

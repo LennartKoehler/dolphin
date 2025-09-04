@@ -16,9 +16,9 @@ bool DeconvolutionConfig::loadFromJSON(const json& jsonData) {
     readParameterOptional<std::vector<int>>(jsonData, "secondpsfcubes", secondpsfcubes);
     readParameterOptional<std::vector<std::vector<int>>>(jsonData, "psfCubeVec", psfCubeVec);
     readParameterOptional<std::vector<std::vector<int>>>(jsonData, "psfLayerVec", psfLayerVec);
-    readParameterOptional<bool>(jsonData, "time", time);
-    readParameterOptional<bool>(jsonData, "saveSubimages", saveSubimages);
-    readParameterOptional<std::string>(jsonData, "gpu", gpu);
+    // readParameterOptional<bool>(jsonData, "time", time);
+    // readParameterOptional<bool>(jsonData, "saveSubimages", saveSubimages);
+    // readParameterOptional<std::string>(jsonData, "gpu", gpu);
     
     return true;
 }

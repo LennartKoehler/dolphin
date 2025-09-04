@@ -19,17 +19,17 @@ int SimpsonIntegrator::getK(int accuracy){
 
 
 double SimpsonIntegrator::integrateComplex(std::function<std::array<double, 2>(double)> func,
-                          double a, double b,
-                          double tolerance, int accuracy) {
-    return adaptiveSimpson(func, a, b, tolerance, accuracy);
+    double a, double b,
+    double tolerance, int accuracy) {
+        return adaptiveSimpson(func, a, b, tolerance, accuracy);
 }
 
 double SimpsonIntegrator::integrate(std::function<double(double)> func, 
-                    double a, double b, 
-                    double tolerance, int accuracy){
-                    throw std::runtime_error("SimpsonIntegrator::integrate() not implemented - use integrateComplex() instead");
+    double a, double b, 
+    double tolerance, int accuracy){
+        throw std::runtime_error("SimpsonIntegrator::integrate() not implemented - use integrateComplex() instead");
 
-                    }
+}
 
 double SimpsonIntegrator::adaptiveSimpson(std::function<std::array<double, 2>(double)> func,
     double a, double b,

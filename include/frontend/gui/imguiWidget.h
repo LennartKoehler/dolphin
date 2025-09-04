@@ -2,6 +2,8 @@
 
 #include "GUIStyleConfig.h"
 #include <vector>
+#include "imgui.h"
+#include <imfilebrowser.h>
 
 //basically my own api for common imgui calls
 class imguiWidget{
@@ -59,4 +61,15 @@ public:
 private:
     std::vector<std::string> options;
     int currentSelection = 0;
+};
+
+
+class imguiFileExplorer : public imguiWidget{
+public:
+    void display(const ParameterDescription& p) override;
+
+private:
+    ImGui::FileBrowser fileDialog;
+    std::string buttonName;
+    std::string selected;
 };

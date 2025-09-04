@@ -5,16 +5,25 @@
 
 
 enum class ParameterType{
- Double, Int, String, VectorInt, Bool, VectorString
+ Double, Int, String, VectorInt, Bool, VectorString, FilePath
 };
 
 
+class ParameterIDGenerator {
+public:
+    static int getNextID() {
+        static int currentID = 0;
+        return ++currentID;
+    }
+};
 
 struct ParameterDescription {
     std::string name;
     ParameterType type;
     void* ptr;
     double minVal, maxVal;
+    int ID = ParameterIDGenerator::getNextID();
+    
 };
 
 

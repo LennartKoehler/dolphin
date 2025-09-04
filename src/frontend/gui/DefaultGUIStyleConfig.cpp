@@ -17,22 +17,31 @@ DefaultGUIStyleConfig::DefaultGUIStyleConfig(){
 }
 
 void DefaultGUIStyleConfig::drawParameter(const ParameterDescription& param){
-
-    if (auto it = styleGuide.find(param.type); it != styleGuide.end()) {
-        it->second->display(param);
+    // Create a unique key for this parameter
+    int cacheKey = param.ID;
+    
+    // Check if we already have a widget for this parameter
+    if (widgetCache.find(cacheKey) == widgetCache.end()) {
+        // Create new widget instance for this parameter
+        if (auto it = widgetFactory.find(param.type); it != widgetFactory.end()) {
+            widgetCache[cacheKey] = it->second();
+        }
+    }
+    
+    // Use the cached widget
+    if (auto& widget = widgetCache[cacheKey]) {
+        widget->display(param);
     } else {
         ImGui::Text("No widget for type!");
     }
 }
 
-
 void DefaultGUIStyleConfig::registerDisplays(){
-    styleGuide[ParameterType::Int] = std::make_unique<imguiSliderInt>();
-    styleGuide[ParameterType::String] = std::make_unique<imguiInputString>();
-    styleGuide[ParameterType::Double] = std::make_unique<imguiSliderDouble>();
-    styleGuide[ParameterType::Bool] = std::make_unique<imguiCheckbox>();
-    styleGuide[ParameterType::VectorInt] = std::make_unique<imguiVectorInt>();
-    styleGuide[ParameterType::VectorString] = std::make_unique<imguiStringSelection>();
-
-
+    widgetFactory[ParameterType::Int] = []() { return std::make_unique<imguiSliderInt>(); };
+    widgetFactory[ParameterType::String] = []() { return std::make_unique<imguiInputString>(); };
+    widgetFactory[ParameterType::Double] = []() { return std::make_unique<imguiSliderDouble>(); };
+    widgetFactory[ParameterType::Bool] = []() { return std::make_unique<imguiCheckbox>(); };
+    widgetFactory[ParameterType::VectorInt] = []() { return std::make_unique<imguiVectorInt>(); };
+    widgetFactory[ParameterType::VectorString] = []() { return std::make_unique<imguiStringSelection>(); };
+    widgetFactory[ParameterType::FilePath] = []() { return std::make_unique<imguiFileExplorer>(); };
 }

@@ -3,7 +3,7 @@
 #include <memory>
 #include <unordered_map>
 #include "frontend/gui/imguiWidget.h"
-
+#include <functional>
 
 
 class DefaultGUIStyleConfig : public GUIStyleConfig{
@@ -14,5 +14,7 @@ public:
 
 private:
     void registerDisplays();
-    std::unordered_map<ParameterType, std::unique_ptr<imguiWidget>> styleGuide;
+    std::unordered_map<ParameterType, std::function<std::unique_ptr<imguiWidget>()>> widgetFactory;
+    mutable std::unordered_map<int, std::unique_ptr<imguiWidget>> widgetCache;
+
 };

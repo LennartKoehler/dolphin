@@ -12,6 +12,7 @@
 #endif
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
+
 void imguiWidget::operator() (const ParameterDescription& param){
     display(param);
 }
@@ -151,4 +152,34 @@ void imguiStringSelection::display(const ParameterDescription& p) {
             *field = (*options)[currentSelection];
         }
     }
+}
+
+
+void imguiFileExplorer::display(const ParameterDescription& p){
+    fileDialog.SetTitle(p.name);
+    ImGui::PushID(p.name.c_str());
+    
+    if (selected.empty()){
+        buttonName = "Open...";
+    }
+    else{
+        buttonName = selected;
+    }
+    // Get the current item width and use it for button
+    float currentItemWidth = ImGui::CalcItemWidth();
+    ImVec2 buttonSize(currentItemWidth, 0.0f);
+    if(ImGui::Button(buttonName.c_str(), buttonSize))
+        fileDialog.Open();
+    fileDialog.Display();
+    ImGui::SameLine();
+    ImGui::Text(p.name.c_str());
+    
+    if(fileDialog.HasSelected())
+    {
+        selected = fileDialog.GetSelected().string();
+        *static_cast<std::string*>(p.ptr) = selected;
+        // std::cout << "Selected filename" <<  << std::endl;
+        fileDialog.ClearSelected();
+    }
+    ImGui::PopID();
 }

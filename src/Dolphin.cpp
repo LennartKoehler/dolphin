@@ -32,7 +32,6 @@ void Dolphin::init(SetupConfig* config){
 void Dolphin::run(){
     setCuda();
     if (config->app == Application::deconvolution){
-        // Fix: need to capture 'this' and call member function properly
         std::thread deconvThread([this]() {
             try {
                 this->deconvolve();
@@ -43,7 +42,6 @@ void Dolphin::run(){
         deconvThread.detach(); // or join() if you want to wait
     }
     if (config->app == Application::psfgeneration){
-        // Fix: same here
         std::thread psfThread([this]() {
             try {
                 this->generatePSF();
@@ -114,8 +112,12 @@ Hyperstack Dolphin::initHyperstack() const{
 
 
 std::shared_ptr<BaseDeconvolutionAlgorithm> Dolphin::initDeconvolutionAlgorithm(std::shared_ptr<DeconvolutionConfig> deconvConfig, std::vector<std::vector<int>> psfCubeVec, std::vector<std::vector<int>> psfLayerVec){
+ 
     deconvConfig->psfCubeVec = psfCubeVec;
     deconvConfig->psfLayerVec = psfLayerVec;
+    deconvConfig->gpu = config->gpu;
+    deconvConfig->time = config->time;
+    deconvConfig->saveSubimages = config->saveSubimages;
 
     DeconvolutionAlgorithmFactory DAF = DeconvolutionAlgorithmFactory::getInstance();
     return DAF.create(deconvConfig->algorithmName, *deconvConfig);

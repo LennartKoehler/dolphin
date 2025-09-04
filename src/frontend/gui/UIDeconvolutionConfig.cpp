@@ -35,10 +35,10 @@ void UIDeconvolutionConfig::setDeconvolutionConfigParameters(std::shared_ptr<Dec
         {"Border Type", ParameterType::Int, &deconvolutionConfig->borderType, 0, 5},
         
         // Output/behavior parameters
-        {"Save Subimages", ParameterType::Bool, &deconvolutionConfig->saveSubimages, 0.0, 1.0},
-        {"Show Timing", ParameterType::Bool, &deconvolutionConfig->time, 0.0, 1.0},
-        {"GPU Type", ParameterType::String, &deconvolutionConfig->gpu, 0.0, 0.0},
-        
+        // {"Show Timing", ParameterType::Bool, &deconvolutionConfig->time, 0.0, 1.0},
+        // {"GPU Type", ParameterType::String, &deconvolutionConfig->gpu, 0.0, 0.0},
+        // {"Save Subimages", ParameterType::Bool, &deconvolutionConfig->saveSubimages, 0.0, 1.0},
+
         // Vector parameters (if you want to display them)
         // Note: These might need special handling depending on your UI framework
         // {"Second PSF Layers", ParameterType::IntVector, &deconvolutionConfig->secondpsflayers, 0.0, 0.0},

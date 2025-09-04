@@ -105,8 +105,6 @@ cv::Mat GibsonLanniPSFGenerator::SinglePlanePSF(const GibsonLanniPSFConfig& conf
     std::vector<double> r(maxRadius * OVER_SAMPLING);
     std::vector<double> h(r.size());
     
-    // KirchhoffDiffractionSimpson I(config, accuracy, NA, lambda_nm);
-
     //TODO set tolerance and K/accuracy for numerical integrator
     //TODO what do i want to pass to the kirchhoffequation as parameteres, what is r, what is rho? do i want to pass r or rho
     double a = 0.0;

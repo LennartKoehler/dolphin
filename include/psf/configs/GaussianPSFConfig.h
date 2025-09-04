@@ -23,6 +23,5 @@ public:
     std::vector<int> psfLayers = {}; //sub-image layers for PSF
     std::vector<int> psfCubes = {}; //sub-images for PSF
 
-    std::string psfPath = "";
     std::string psfModelName = "Gaussian";
 };
