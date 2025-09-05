@@ -1,5 +1,4 @@
-
-#include "InverseFilterDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <vector>
@@ -8,8 +7,6 @@
 #include "UtlFFT.h"
 #include "UtlImage.h"
 
-
-
 // Configure the deconvolution parameters
 void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // General
@@ -17,14 +14,11 @@ void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& c
     this->time = config.time;
     this->saveSubimages = config.saveSubimages;
 
-
-
     // Grid
     this->grid = config.grid;
     this->borderType = config.borderType;
     this->psfSafetyBorder = config.psfSafetyBorder;
     this->cubeSize = config.cubeSize;
-
 
     // Output
     std::cout << "[CONFIGURATION] Naive Inverse Filter" << std::endl;

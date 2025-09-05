@@ -10,11 +10,11 @@ class MainWindow;
 
 class GUIFrontend : public IFrontend{
 public:
-    GUIFrontend(SetupConfig* config, Dolphin& dolphin);
+    GUIFrontend(Dolphin* dolphin);
     void run() override;
 
-    std::string generatePSF(std::shared_ptr<PSFConfig> config);
-    void deconvolve(std::shared_ptr<SetupConfig> config);
+    std::unique_ptr<PSFGenerationResult> generatePSF(std::shared_ptr<PSFConfig> config);
+    std::unique_ptr<DeconvolutionResult> deconvolve(std::shared_ptr<SetupConfig> config);
  
     double mainScale;
 
@@ -31,5 +31,5 @@ private:
     int height = 1400;
     std::shared_ptr<GUIStyleConfig> style;
     std::shared_ptr<MainWindow> mainWindow;
-    Dolphin& dolphin; // does it need to know about dlophin?
+    Dolphin* dolphin; // does it need to know about dlophin?
 };

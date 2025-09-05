@@ -1,8 +1,7 @@
-#include "BaseDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/BaseDeconvolutionAlgorithm.h"
 #include "UtlImage.h"
 #include "UtlGrid.h"
 #include "UtlFFT.h"
-#include "BaseAlgorithm.h"
 
 #include <opencv2/core.hpp>
 #include <iostream>

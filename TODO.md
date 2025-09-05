@@ -1,4 +1,13 @@
 
+cubenumvec and layernumvec: what do they do
+
+secondarypsfcube / vec what do they do
+
+
+
+
+
+
 PSF:
 
 create psfgenerator inside dolphin or seperately? do they share libraries/functionalities? perhaps make seperate like cube but include here

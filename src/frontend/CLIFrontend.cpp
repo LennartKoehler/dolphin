@@ -1,19 +1,14 @@
 #include "frontend/CLIFrontend.h"
 #include <sys/stat.h>
+#include "Dolphin.h"
 
-
-CLIFrontend::CLIFrontend(SetupConfig* config, int argc, char** argv)
-    : IFrontend(config){
-        init(argc, argv);
+CLIFrontend::CLIFrontend(Dolphin* dolphin, int argc, char** argv)
+    : IFrontend(dolphin){
+        this->argc = argc;
+        this->argv = argv;
+        psfCLI = app.add_subcommand("psfgenerator", "Generate PSF file");
+        deconvolutionCLI = app.add_subcommand("deconvolution", "Run deconvolution");
     }
-
-void CLIFrontend::init(int argc, char** argv){
-    this->argc = argc;
-    this->argv = argv;
-    psfCLI = app.add_subcommand("psfgenerator", "Generate PSF file");
-    deconvolutionCLI = app.add_subcommand("deconvolution", "Run deconvolution");
-
-}
 
 
 bool CLIFrontend::parseCLI(){
@@ -43,11 +38,11 @@ void CLIFrontend::run() {
     // 3. Handle based on which subcommand was selected
     if (*psfCLI) {
         handlePSFGeneration();
-        config->app = Application::psfgeneration;
+        dolphin->generatePSF(setupConfig.psfConfigPath);
     }
     else if (*deconvolutionCLI) {
         handleDeconvolution();
-        config->app = Application::deconvolution;
+        dolphin->deconvolve(std::make_shared<SetupConfig>(setupConfig));
     }
     else {
         std::cerr << "[ERROR] No subcommand selected" << std::endl;
@@ -58,7 +53,7 @@ void CLIFrontend::run() {
 void CLIFrontend::psfgenerator() {
     // Define PSF generator options
     CLI::Option_group* psf_group = psfCLI->add_option_group("PSF Options", "PSF generation options");
-    psf_group->add_option("--psfConfig", config->psfConfigPath, "Input PSF Config file")->required();
+    psf_group->add_option("-p", setupConfig.psfConfigPath, "Input PSF Config file")->required();
 }
 
 void CLIFrontend::deconvolution() {
@@ -74,7 +69,7 @@ void CLIFrontend::deconvolution() {
 void CLIFrontend::handlePSFGeneration() {
     std::cout << "[INFO] PSF generation mode selected" << std::endl;
     // PSF-specific processing
-    if (config->psfConfigPath.empty()) {
+    if (setupConfig.psfConfigPath.empty()) {
         std::cerr << "[ERROR] PSF config path is required for PSF generation" << std::endl;
         return;
     }
@@ -86,8 +81,7 @@ void CLIFrontend::handleDeconvolution() {
     // Handle configuration loading
     if (!setupConfigPath.empty()) {
         try {
-            SetupConfig jsonConfig = SetupConfig::createFromJSONFile(setupConfigPath);
-            *config = jsonConfig;
+            setupConfig = SetupConfig::createFromJSONFile(setupConfigPath);
             std::cout << "[INFO] Configuration loaded from: " << setupConfigPath << std::endl;
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] " << e.what() << std::endl;
@@ -95,15 +89,9 @@ void CLIFrontend::handleDeconvolution() {
         }
     } else {
         // CLI was used, copy deconvolution config
-        config->deconvolutionConfig = std::make_shared<DeconvolutionConfig>(deconvolutionConfig);
+        setupConfig.deconvolutionConfig = std::make_shared<DeconvolutionConfig>(deconvolutionConfig);
     }
 }
-
-
-
-
-
-
 
 
 
@@ -112,16 +100,16 @@ void CLIFrontend::readCLIParameters() {
     cli_group = deconvolutionCLI->add_option_group("CLI", "Commandline options");
     
     // Remove ->required() - CLI11 will only check this if deconvolution subcommand is used
-    cli_group->add_option("-i,--image", config->imagePath, "Input image Path")->required();
+    cli_group->add_option("-i,--image", setupConfig.imagePath, "Input image Path")->required();
     
     // Optional parameters
-    cli_group->add_option("--gpu", config->gpu, "Type of GPU API ('cuda'/'none')");
-    cli_group->add_flag("--savepsf", config->savePsf, "Save used PSF");
-    cli_group->add_flag("--time", config->time, "Show duration active");
-    cli_group->add_flag("--seperate", config->sep, "Save as TIF directory, each layer as single file");
-    cli_group->add_flag("--info", config->printInfo, "Prints info about input Image");
-    cli_group->add_flag("--showExampleLayers", config->showExampleLayers, "Shows a layer of loaded image and PSF)");
-    cli_group->add_flag("--saveSubimages", config->saveSubimages, "Saves subimages seperate as file");
+    cli_group->add_option("--gpu", setupConfig.gpu, "Type of GPU API ('cuda'/'none')");
+    cli_group->add_flag("--savepsf", setupConfig.savePsf, "Save used PSF");
+    cli_group->add_flag("--time", setupConfig.time, "Show duration active");
+    cli_group->add_flag("--seperate", setupConfig.sep, "Save as TIF directory, each layer as single file");
+    cli_group->add_flag("--info", setupConfig.printInfo, "Prints info about input Image");
+    cli_group->add_flag("--showExampleLayers", setupConfig.showExampleLayers, "Shows a layer of loaded image and PSF)");
+    cli_group->add_flag("--saveSubimages", setupConfig.saveSubimages, "Saves subimages seperate as file");
     
     // Set up exclusions
     if (configGroup) {
@@ -156,9 +144,9 @@ void CLIFrontend::readCLISetupConfigPath() {
 
 void CLIFrontend::readCLIParametersPSF(){
 
-    cli_group->add_option("-p,--psf", config->psfFilePath, "Input PSF path(s) or 'synthetic'");
-    cli_group->add_option("--psfDirectory", config->psfDirPath, "Input PSF path(s) or 'synthetic'");
-    cli_group->add_option("--psfConfig", config->psfConfigPath, "Input PSF Config file");
+    cli_group->add_option("-p,--psf", setupConfig.psfFilePath, "Input PSF path(s) or 'synthetic'");
+    cli_group->add_option("--psfDirectory", setupConfig.psfDirPath, "Input PSF path(s) or 'synthetic'");
+    cli_group->add_option("--psfConfig", setupConfig.psfConfigPath, "Input PSF Config file");
 
 
 }

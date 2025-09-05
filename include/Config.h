@@ -4,6 +4,7 @@
 #include <fstream>
 using json = nlohmann::json;
 
+// object representation of the json configs
 class Config{
 public:
     virtual bool loadFromJSON(const json& jsonData) = 0;

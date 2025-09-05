@@ -35,26 +35,8 @@ static void glfw_error_callback(int error, const char* description)
 }
 
 
-
-std::string GUIFrontend::generatePSF(std::shared_ptr<PSFConfig> psfConfig){
-    config->app = Application::psfgeneration;
-    config->psfConfig = psfConfig;
-    dolphin.init(config);
-    dolphin.run();
-    return "../result/psf_" + config->psfConfig->getName() + ".tif";
-
-}
-
-void GUIFrontend::deconvolve(std::shared_ptr<SetupConfig> setupConfig){
-    setupConfig->app = Application::deconvolution;
-    dolphin.init(setupConfig.get());
-    dolphin.run();
-
-}
-
-GUIFrontend::GUIFrontend(SetupConfig* config, Dolphin& dolphin)
-    :IFrontend(config),
-    dolphin(dolphin),
+GUIFrontend::GUIFrontend(Dolphin* dolphin)
+    :IFrontend(dolphin),
     style(std::make_shared<DefaultGUIStyleConfig>()){}
 
 
@@ -64,23 +46,15 @@ void GUIFrontend::run(){
     cleanup();
 }
 
+std::unique_ptr<PSFGenerationResult> GUIFrontend::generatePSF(std::shared_ptr<PSFConfig> psfConfig){
+    return dolphin->generatePSF(psfConfig);
+}
 
-// std::shared_ptr<Window> GUIFrontend::getWindow(std::string windowName){
-//     auto it = configWindows.find(windowName);
-//     if (it == configWindows.end()){
-//         throw std::runtime_error("window not found: "+ windowName);
-//     }
-//     return it->second;
-// }
+std::unique_ptr<DeconvolutionResult> GUIFrontend::deconvolve(std::shared_ptr<SetupConfig> setupConfig){
+    return dolphin->deconvolve(setupConfig);
+}
 
 
-// std::unordered_map<std::string, std::shared_ptr<Window>> GUIFrontend::getConfigWindows(){
-//     return configWindows;
-// }
-
-// void GUIFrontend::addWindow(std::string windowName, std::shared_ptr<Window> window){
-//     configWindows[windowName] = window;
-// }
 
 void GUIFrontend::initWindows(){
     // Create window with graphics context

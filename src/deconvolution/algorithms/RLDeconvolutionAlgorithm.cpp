@@ -1,4 +1,4 @@
-#include "RLDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
 #ifdef CUDA_AVAILABLE
 #include <CUBE.h>
 #else
@@ -46,9 +46,9 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     this->secondpsflayers = config.secondpsflayers;
     this->secondpsfcubes = config.secondpsfcubes;
 
-    //TODO also in other algo classes!!!
-    this->cubeNumVec = config.psfCubeVec;
-    this->layerNumVec = config.psfLayerVec;
+    //TODO also in other algo classes!!! LK ???
+    this->cubeNumVec = config.cubeNumVec;
+    this->layerNumVec = config.layerNumVec;
 
 
     // Output

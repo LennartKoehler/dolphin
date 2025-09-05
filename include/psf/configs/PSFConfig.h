@@ -26,8 +26,7 @@ public:
     double NA = 1.0;
     double resLateral_nm = 200;
     double resAxial_nm = 200;
-    std::vector<int> psfCubeVec;
-    std::vector<int> psfLayerVec;
+
 
 
 };

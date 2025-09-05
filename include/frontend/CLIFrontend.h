@@ -2,12 +2,11 @@
 #include "../lib/CLI/CLI11.hpp"
 
 #include "IFrontend.h"
-#include "DeconvolutionConfig.h"
-
+#include "deconvolution/DeconvolutionConfig.h"
+#include "SetupConfig.h"
 class CLIFrontend : public IFrontend{
 public:
-    CLIFrontend(SetupConfig* config, int argc, char** argv);
-    void init(int argc, char** argv);
+    CLIFrontend(Dolphin* dolphin, int argc, char** argv);
     void run() override;
 
 
@@ -19,7 +18,7 @@ private:
     CLI::Option_group* cli_group;
     CLI::Option_group* configGroup;
 
-
+    SetupConfig setupConfig;
     DeconvolutionConfig deconvolutionConfig;
     int argc;
     char** argv;

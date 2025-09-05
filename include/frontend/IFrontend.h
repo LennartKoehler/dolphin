@@ -1,12 +1,12 @@
 #pragma once
-#include "SetupConfig.h"
 
+class Dolphin;
 class IFrontend{
 public:
-    IFrontend(SetupConfig* config) : config(config){}
+    IFrontend(Dolphin* dolphin) : dolphin(dolphin){}
     virtual ~IFrontend(){}
     virtual void run() = 0;
 
 protected:
-    SetupConfig* config;
+    Dolphin* dolphin;
 };

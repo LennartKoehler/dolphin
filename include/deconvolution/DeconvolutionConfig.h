@@ -17,11 +17,12 @@ public:
     int cubeSize = 0;
     std::vector<int> secondpsflayers = {};
     std::vector<int> secondpsfcubes = {};
-    std::vector<std::vector<int>> psfCubeVec, psfLayerVec; // for later
+    std::vector<std::vector<int>> cubeNumVec;
+    std::vector<std::vector<int>> layerNumVec;
 
-
-    bool time = false; // LK TODO i dont think the deconv config should know anything about the following parameters
-    bool saveSubimages = false;
+    
+    bool time; // for compatibility with deconv implementation, these dont belong here
+    bool saveSubimages;
     std::string gpu = "";
     
     bool loadFromJSON(const json& jsonData) override;

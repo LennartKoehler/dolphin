@@ -112,23 +112,3 @@ private:
     std::unordered_map<std::string, GeneratorCreator> generators_;
     std::unordered_map<std::string, ConfigCreator> configs_;
 };
-
-// Backwards compatibility namespace (optional)
-namespace PSFFactory {
-    inline std::shared_ptr<BasePSFGenerator> PSFGeneratorFactory(
-        const std::string& psfModelName, 
-        const json& jsonData
-    ) {
-        return ::PSFGeneratorFactory::getInstance().createGenerator(psfModelName, jsonData);
-    }
-
-    inline std::shared_ptr<BasePSFGenerator> PSFGeneratorFactory(
-        std::shared_ptr<PSFConfig> config
-    ) {
-        return ::PSFGeneratorFactory::getInstance().createGenerator(std::move(config));
-    }
-
-    inline std::shared_ptr<PSFConfig> PSFConfigFactory(const json& configJson) {
-        return ::PSFGeneratorFactory::getInstance().createConfig(configJson);
-    }
-}

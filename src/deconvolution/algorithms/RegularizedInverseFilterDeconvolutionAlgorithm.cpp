@@ -1,5 +1,5 @@
 #include <opencv2/core.hpp>
-#include "RegularizedInverseFilterDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
 #include "UtlImage.h"
 #include "UtlFFT.h"
 #include "UtlGrid.h"

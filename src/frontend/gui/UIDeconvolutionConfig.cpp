@@ -1,6 +1,6 @@
 #include "frontend/gui/UIDeconvolutionConfig.h"
 #include "frontend/gui/imguiWidget.h"
-#include "DeconvolutionAlgorithmFactory.h"
+#include "deconvolution/DeconvolutionAlgorithmFactory.h"
 UIDeconvolutionConfig::UIDeconvolutionConfig(){
     setParameters(std::make_shared<DeconvolutionConfig>());
 }

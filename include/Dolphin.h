@@ -4,12 +4,8 @@
 #include <opencv2/opencv.hpp>
 #include <memory>
 
-#include "HyperstackImage.h"
-#include "BaseDeconvolutionAlgorithm.h"
-#include "psf/configs/PSFConfig.h"
-#include "psf/generators/BasePSFGenerator.h"
-#include "frontend/SetupConfig.h"
-#include "DeconvolutionConfig.h"
+#include "ServiceAbstractions.h"
+#include "ServiceFactory.h"
 
 
 using json = nlohmann::json;
@@ -20,22 +16,26 @@ public:
     Dolphin() = default;
     ~Dolphin(){}
 
-    void init(SetupConfig* config);
-    void run();
+    void init();
+
+    std::unique_ptr<PSFGenerationResult> generatePSF(std::shared_ptr<PSFConfig> psfconfig);
+    std::unique_ptr<PSFGenerationResult> generatePSF(const std::string& psfconfigpath);
+    std::unique_ptr<DeconvolutionResult> deconvolve(std::shared_ptr<SetupConfig> setupConfig);
+    std::shared_ptr<Hyperstack> convolve(const Hyperstack& image, std::shared_ptr<PSF> psf);
 
 
     
 
 private:
-    std::shared_ptr<PSF> generatePSF();
-    std::shared_ptr<Hyperstack> deconvolve();
-    std::shared_ptr<Hyperstack> convolve(const Hyperstack& image, std::shared_ptr<PSF> psf);
 
     void setCuda();
-    Hyperstack initHyperstack() const ;
-    std::shared_ptr<BaseDeconvolutionAlgorithm> initDeconvolutionAlgorithm(std::shared_ptr<DeconvolutionConfig> config, std::vector<std::vector<int>> psfCubeVec, std::vector<std::vector<int>> psfLayerVec);
-
-
-    SetupConfig* config;
+    
+    // Service layer components (abstracted)
+    std::unique_ptr<ServiceFactory> service_factory_;
+    std::unique_ptr<IPSFGenerationService> psf_service_;
+    std::unique_ptr<IDeconvolutionService> deconv_service_;
+    
+    // Flag to track if service layer is initialized
+    bool service_layer_initialized_;
 
 };

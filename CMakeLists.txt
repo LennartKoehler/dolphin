@@ -76,9 +76,9 @@ include_directories(
 set(COMMON_SOURCES
     src/Dolphin.cpp
     src/PSFManager.cpp
-    
-    src/algorithms/ConvolutionAlgorithm.cpp
-
+    src/ServiceFactory.cpp
+    src/PSFGenerationService.cpp
+    src/DeconvolutionService.cpp
 
     src/hyperstack/HyperstackImage.cpp
     src/hyperstack/Image3D.cpp
@@ -98,6 +98,7 @@ set(COMMON_SOURCES
 
     src/deconvolution/BaseDeconvolutionAlgorithm.cpp
     src/deconvolution/DeconvolutionConfig.cpp
+    src/deconvolution/DeconvolutionAlgorithmFactory.cpp
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp

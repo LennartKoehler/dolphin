@@ -18,8 +18,6 @@ bool PSFConfig::loadFromJSON(const json& jsonData){
         resAxial_nm = readParameter<int>(jsonData, "resAxial[nm]");
         resLateral_nm = readParameter<int>(jsonData, "resLateral[nm]");
         NA = readParameter<double>(jsonData, "NA");
-        psfCubeVec = readParameter<std::vector<int>>(jsonData, "subimages");
-        psfLayerVec = readParameter<std::vector<int>>(jsonData, "layers");
 
         return true;
     } catch (const json::exception &e) {

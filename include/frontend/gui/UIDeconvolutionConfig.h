@@ -1,7 +1,7 @@
 #pragma once
 
 #include "UIConfig.h"
-#include "DeconvolutionConfig.h"
+#include "deconvolution/DeconvolutionConfig.h"
 
 
 class UIDeconvolutionConfig : public UIConfig{

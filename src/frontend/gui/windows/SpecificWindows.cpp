@@ -29,7 +29,8 @@ PSFMainWindow::PSFMainWindow(GUIFrontend* guiFrontend, int width, int height, st
         std::shared_ptr<ButtonContent> gaussButton = std::make_shared<ButtonContent>("Generate Gaussian PSF", 
             [this, guiFrontend, gauss, gausswindow]() {
                 auto config = gauss->getConfig();
-                this->psfPath = guiFrontend->generatePSF(config);
+                std::unique_ptr<PSFGenerationResult> result = guiFrontend->generatePSF(config);
+                this->psfPath = result->generated_path;
                 gausswindow->deactivate();
             });
         gaussButton->activate();
@@ -37,7 +38,8 @@ PSFMainWindow::PSFMainWindow(GUIFrontend* guiFrontend, int width, int height, st
         std::shared_ptr<ButtonContent> gibsonButton = std::make_shared<ButtonContent>("Generate Gibson-Lanni PSF", 
             [this, guiFrontend, gibsonlanni, gibsonlanniwindow]() {
                 auto config = gibsonlanni->getConfig();
-                this->psfPath = guiFrontend->generatePSF(config);
+                std::unique_ptr<PSFGenerationResult> result = guiFrontend->generatePSF(config);
+                this->psfPath = result->generated_path;
                 gibsonlanniwindow->deactivate();
             });
         gibsonButton->activate();

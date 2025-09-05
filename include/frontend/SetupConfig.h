@@ -1,21 +1,19 @@
 #pragma once
 #include <vector>
-#include "DeconvolutionConfig.h"
 #include "psf/configs/PSFConfig.h"
 
-enum class Application{
-    deconvolution,
-    psfgeneration
-};
+class DeconvolutionConfig;
 
 struct SetupConfig : public Config{
     SetupConfig(){}
+    SetupConfig(const SetupConfig& other);
+    SetupConfig& operator=(const SetupConfig& other);
+
     bool loadFromJSON(const json& jsonData) override;
     static SetupConfig createFromJSONFile(const std::string& path);
 
 
     // Arguments
-    Application app;
     std::string imagePath;
     std::string psfConfigPath;
     std::string psfFilePath;
@@ -31,7 +29,6 @@ struct SetupConfig : public Config{
     // std::vector<int> subimages;
 
     std::shared_ptr<DeconvolutionConfig> deconvolutionConfig;
-    std::shared_ptr<PSFConfig> psfConfig;
 
 
 

@@ -1,4 +1,4 @@
-#include "RLADDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <vector>

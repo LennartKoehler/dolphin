@@ -1,9 +1,8 @@
 #pragma once
 #include <string>
-#include "DeconvolutionConfig.h"
+#include "../DeconvolutionConfig.h"
 #include "HyperstackImage.h"
 #include "psf/PSF.h"
-#include "BaseAlgorithm.h"
 
 #ifdef CUDA_AVAILABLE
 #include <cufftw.h>
@@ -11,9 +10,9 @@
 #include <fftw3.h>
 #endif
 
-class BaseDeconvolutionAlgorithm : public BaseAlgorithm{
+class BaseDeconvolutionAlgorithm{
 public:
-    Hyperstack run(Hyperstack& data, std::vector<PSF>& psfs) override;
+    Hyperstack run(Hyperstack& data, std::vector<PSF>& psfs);
 
     virtual ~BaseDeconvolutionAlgorithm(){cleanup();}
     virtual void configure(const DeconvolutionConfig& config) = 0;

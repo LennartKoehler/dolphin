@@ -2,7 +2,7 @@
 #include <sys/stat.h>
 #include <iostream>
 #include <fstream>
-#include "DeconvolutionConfig.h"
+#include "deconvolution/DeconvolutionConfig.h"
 #include "psf/configs/PSFConfig.h"
 #include "psf/PSFGeneratorFactory.h"
 
@@ -36,10 +36,6 @@ bool SetupConfig::loadFromJSON(const json& config){
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
         std::cout << "[INFO] No deconvolution parameters found, running with default parameters" << std::endl;
     }
-    if (config.contains("PSF")) {
-        psfConfig = PSFConfig::createFromJSON(config);
-    }
-
     
     return true;
 }
@@ -57,58 +53,50 @@ SetupConfig SetupConfig::createFromJSONFile(const std::string& filePath) {
     return config;
 }
 
-// SetupConfig::SetupConfig(const SetupConfig& other) 
-//     : Config(other)  // Call base class copy constructor
-//     , app(other.app)
-//     , imagePath(other.imagePath)
-//     , psfConfigPath(other.psfConfigPath)
-//     , psfFilePath(other.psfFilePath)
-//     , psfDirPath(other.psfDirPath)
-//     , time(other.time)
-//     , sep(other.sep)
-//     , savePsf(other.savePsf)
-//     , showExampleLayers(other.showExampleLayers)
-//     , printInfo(other.printInfo)
-//     , saveSubimages(other.saveSubimages)
-//     , gpu(other.gpu)
-//     , layers(other.layers)
-//     , subimages(other.subimages)
-//     , deconvolutionConfig(other.deconvolutionConfig ? 
-//                          std::make_unique<DeconvolutionConfig>(*other.deconvolutionConfig) : 
-//                          nullptr)
-//     , psfConfig(other.psfConfig ? 
-//                other.psfConfig->clone() :  // Assumes PSFConfig has clone method
-//                nullptr)
-// {
-// }
+SetupConfig::SetupConfig(const SetupConfig& other) 
+    : Config(other),  // Copy base class
+        imagePath(other.imagePath),
+        psfConfigPath(other.psfConfigPath),
+        psfFilePath(other.psfFilePath),
+        psfDirPath(other.psfDirPath),
+        time(other.time),
+        sep(other.sep),
+        savePsf(other.savePsf),
+        showExampleLayers(other.showExampleLayers),
+        printInfo(other.printInfo),
+        saveSubimages(other.saveSubimages),
+        gpu(other.gpu)
+{
+    // Deep copy the shared_ptr content
+    if (other.deconvolutionConfig) {
+        deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
+    }
+    // If other.deconvolutionConfig is nullptr, our deconvolutionConfig will also be nullptr (default)
+}
 
-// // Copy assignment operator
-// SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
-//     if (this != &other) {  // Self-assignment check
-//         Config::operator=(other);  // Call base class assignment
+// Copy assignment operator (recommended to implement if you have copy constructor)
+SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
+    if (this != &other) {  // Self-assignment check
+        Config::operator=(other);  // Copy base class
         
-//         app = other.app;
-//         imagePath = other.imagePath;
-//         psfConfigPath = other.psfConfigPath;
-//         psfFilePath = other.psfFilePath;
-//         psfDirPath = other.psfDirPath;
-//         time = other.time;
-//         sep = other.sep;
-//         savePsf = other.savePsf;
-//         showExampleLayers = other.showExampleLayers;
-//         printInfo = other.printInfo;
-//         saveSubimages = other.saveSubimages;
-//         gpu = other.gpu;
-//         layers = other.layers;
-//         subimages = other.subimages;
+        imagePath = other.imagePath;
+        psfConfigPath = other.psfConfigPath;
+        psfFilePath = other.psfFilePath;
+        psfDirPath = other.psfDirPath;
+        time = other.time;
+        sep = other.sep;
+        savePsf = other.savePsf;
+        showExampleLayers = other.showExampleLayers;
+        printInfo = other.printInfo;
+        saveSubimages = other.saveSubimages;
+        gpu = other.gpu;
         
-//         // Deep copy unique_ptrs
-//         deconvolutionConfig = other.deconvolutionConfig ? 
-//                              std::make_unique<DeconvolutionConfig>(*other.deconvolutionConfig) : 
-//                              nullptr;
-//         psfConfig = other.psfConfig ? 
-//                    other.psfConfig->clone() : 
-//                    nullptr;
-//     }
-//     return *this;
-// }
+        // Deep copy the shared_ptr content
+        if (other.deconvolutionConfig) {
+            deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
+        } else {
+            deconvolutionConfig.reset();  // Set to nullptr
+        }
+    }
+    return *this;
+}

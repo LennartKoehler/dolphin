@@ -3,11 +3,11 @@
 #include <memory>
 #include <utility>
 
-#include "InverseFilterDeconvolutionAlgorithm.h"
-#include "RegularizedInverseFilterDeconvolutionAlgorithm.h"
-#include "RLDeconvolutionAlgorithm.h"
-#include "RLTVDeconvolutionAlgorithm.h"
-#include "RLADDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
 
 
 class DeconvolutionAlgorithmFactory {
@@ -24,11 +24,11 @@ public:
     }
 
     std::shared_ptr<BaseDeconvolutionAlgorithm> create(
-        const std::string& name, const DeconvolutionConfig& config
+        const DeconvolutionConfig& config
     ) {
-        auto it = algorithms_.find(name);
+        auto it = algorithms_.find(config.algorithmName);
         if (it == algorithms_.end()) {
-            throw std::runtime_error("Unknown algorithm: " + name);
+            throw std::runtime_error("Unknown algorithm: " + config.algorithmName);
         }
         
         auto algorithm = it->second();
