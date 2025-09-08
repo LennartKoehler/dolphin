@@ -47,11 +47,16 @@ void GUIFrontend::run(){
 }
 
 std::unique_ptr<PSFGenerationResult> GUIFrontend::generatePSF(std::shared_ptr<PSFConfig> psfConfig){
-    return dolphin->generatePSF(psfConfig);
+    PSFGenerationRequest request(psfConfig);
+    request.save_result = true;
+    request.output_path = output_path_;
+    return dolphin->generatePSF(request);
 }
 
 std::unique_ptr<DeconvolutionResult> GUIFrontend::deconvolve(std::shared_ptr<SetupConfig> setupConfig){
-    return dolphin->deconvolve(setupConfig);
+    DeconvolutionRequest request(setupConfig);
+    request.output_path = output_path_;
+    return dolphin->deconvolve(request);
 }
 
 
@@ -214,3 +219,4 @@ void GUIFrontend::cleanup(){
     glfwTerminate();
 
 }
+

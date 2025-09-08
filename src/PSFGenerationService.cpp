@@ -46,9 +46,12 @@ void PSFGenerationService::initialize() {
                 return j;
             };
         }
+
+        default_output_path_ = getExecutableDirectory() + "/results/";
         
         initialized_ = true;
         logMessage("PSF Generation Service initialized successfully");
+
     } catch (const std::exception& e) {
         handleError("Failed to initialize PSF Generation Service: " + std::string(e.what()));
         initialized_ = false;
@@ -99,15 +102,12 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
             return createResult(false, "Failed to create PSF",
                               std::chrono::duration<double>::zero());
         }
-        
+        std::string output_file;
+
         // Handle saving if requested
-        std::string output_path;
         if (request.save_result) {
-            std::string filename = "psf_" + (request.config_.psf_config_ ?
-                request.config_.psf_config_->getName() : "default") + ".tif";
-            output_path = "../result/" + filename;
-            psf->saveAsTifFile(output_path);
-            logMessage("PSF saved to: " + output_path);
+            std::string filename = "PSF.tiff";
+            output_file = saveResult(request.output_path, filename, psf);
         }
         
         if (request.show_example) {
@@ -120,7 +120,7 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         
         auto result = createResult(true, "PSF generation completed successfully", duration);
         result->psf = psf;
-        result->generated_path = output_path;
+        result->generated_path = output_file;
         
         return result;
         
@@ -276,4 +276,29 @@ std::unique_ptr<PSF> PSFGenerationService::createPSFFromFilePathInternal(const s
 bool PSFGenerationService::isValidPSFType(const std::string& psf_type) const {
     auto it = std::find(supported_types_.begin(), supported_types_.end(), psf_type);
     return it != supported_types_.end();
+}
+
+std::string PSFGenerationService::saveResult(const std::string& path, const std::string& filename, std::shared_ptr<PSF> psf){
+    // Use filesystem::path for better path handling
+    std::filesystem::path base_path = path.empty() ? default_output_path_ : path;
+    std::filesystem::path output_path = base_path / filename;  // Automatically handles separators
+    
+    // Ensure directory exists
+    std::filesystem::create_directories(output_path.parent_path());
+    
+    std::string output_path_str = output_path.string();
+    psf->saveAsTifFile(output_path_str);
+    logMessage("PSF saved to: " + output_path_str);
+    return output_path_str;
+}
+
+std::string PSFGenerationService::getExecutableDirectory() {
+    try {
+        // Get the path of the current executable
+        std::filesystem::path execPath = std::filesystem::canonical("/proc/self/exe");
+        return execPath.parent_path().string();
+    } catch (const std::exception& e) {
+        // Fallback to current working directory
+        return std::filesystem::current_path().string();
+    }
 }

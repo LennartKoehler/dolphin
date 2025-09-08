@@ -77,6 +77,10 @@ void PSFMainWindow::content(){
         
         ImGui::End();
     }
+    else{
+        this->psfPath.clear();
+        showPSFWindow = true;
+    }
 }
 
 

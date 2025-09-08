@@ -16,7 +16,7 @@ public:
 
     // IDeconvolutionService interface
     std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request) override;
-    std::unique_ptr<DeconvolutionResult> deconvolveFromConfig(const json& config) override;
+    // std::unique_ptr<DeconvolutionResult> deconvolveFromConfig(const json& config) override;
     std::vector<std::string> getSupportedAlgorithms() const override;
     bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const override;
 

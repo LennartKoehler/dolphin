@@ -38,11 +38,13 @@ void CLIFrontend::run() {
     // 3. Handle based on which subcommand was selected
     if (*psfCLI) {
         handlePSFGeneration();
-        dolphin->generatePSF(setupConfig.psfConfigPath);
+        PSFGenerationRequest request = generatePSFRequest(setupConfig.psfConfigPath);
+        dolphin->generatePSF(request);
     }
     else if (*deconvolutionCLI) {
         handleDeconvolution();
-        dolphin->deconvolve(std::make_shared<SetupConfig>(setupConfig));
+        DeconvolutionRequest request = generateDeconvRequest(std::make_shared<SetupConfig>(setupConfig));
+        dolphin->deconvolve(request);
     }
     else {
         std::cerr << "[ERROR] No subcommand selected" << std::endl;
@@ -54,6 +56,7 @@ void CLIFrontend::psfgenerator() {
     // Define PSF generator options
     CLI::Option_group* psf_group = psfCLI->add_option_group("PSF Options", "PSF generation options");
     psf_group->add_option("-p", setupConfig.psfConfigPath, "Input PSF Config file")->required();
+    psf_group->add_option("-d", setupConfig.outputDir, "Output directory");
 }
 
 void CLIFrontend::deconvolution() {
@@ -103,6 +106,7 @@ void CLIFrontend::readCLIParameters() {
     cli_group->add_option("-i,--image", setupConfig.imagePath, "Input image Path")->required();
     
     // Optional parameters
+    cli_group->add_option("-d", setupConfig.outputDir, "Output directory");
     cli_group->add_option("--gpu", setupConfig.gpu, "Type of GPU API ('cuda'/'none')");
     cli_group->add_flag("--savepsf", setupConfig.savePsf, "Save used PSF");
     cli_group->add_flag("--time", setupConfig.time, "Show duration active");
@@ -147,7 +151,28 @@ void CLIFrontend::readCLIParametersPSF(){
     cli_group->add_option("-p,--psf", setupConfig.psfFilePath, "Input PSF path(s) or 'synthetic'");
     cli_group->add_option("--psfDirectory", setupConfig.psfDirPath, "Input PSF path(s) or 'synthetic'");
     cli_group->add_option("--psfConfig", setupConfig.psfConfigPath, "Input PSF Config file");
-
-
 }
 
+
+PSFGenerationRequest CLIFrontend::generatePSFRequest(const std::string& configPath){
+    PSFGenerationRequest request(configPath);
+    
+    // Set CLI-specific options
+    request.save_result = true;  // CLI typically wants to save results
+    request.output_path = setupConfig.outputDir;
+    return request;    
+}
+
+DeconvolutionRequest CLIFrontend::generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfig) {
+    // Create request with setup config
+    DeconvolutionRequest request(setupConfig);
+    
+    // Set CLI-specific options from parsed arguments
+    request.save_separate = setupConfig->sep;
+    request.save_subimages = setupConfig->saveSubimages;
+    request.show_example = setupConfig->showExampleLayers;
+    request.print_info = setupConfig->printInfo;
+    request.output_path = setupConfig->outputDir;
+    return request;
+
+}

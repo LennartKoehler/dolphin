@@ -4,21 +4,17 @@
 
 int main(int argc, char** argv) {
     std::cout << "[Start Dolphin]" << std::endl;
-    SetupConfig* setupConfig= new SetupConfig();
-    Dolphin dolphin{};
+    Dolphin* dolphin = new Dolphin;
+    dolphin->init();
     IFrontend* frontend;
 
     if (argc > 1){
-        frontend = new CLIFrontend{setupConfig, argc, argv};
-        frontend->run();
-        dolphin.init(setupConfig);
-        dolphin.run();
+        frontend = new CLIFrontend{dolphin, argc, argv};
     }
     else{
-        frontend = new GUIFrontend{setupConfig, dolphin};
-        frontend->run();
+        frontend = new GUIFrontend{dolphin};
     }
-    
+    frontend->run();
     std::cout << "[End Dolphin]" << std::endl;
 
 }

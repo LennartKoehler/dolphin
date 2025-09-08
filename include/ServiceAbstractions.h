@@ -156,7 +156,7 @@ public:
     virtual ~IDeconvolutionService() = default;
     
     virtual std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request) = 0;
-    virtual std::unique_ptr<DeconvolutionResult> deconvolveFromConfig(const json& config) = 0;
+    // virtual std::unique_ptr<DeconvolutionResult> deconvolveFromConfig(const json& config) = 0;
     virtual std::vector<std::string> getSupportedAlgorithms() const = 0;
     virtual bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const = 0;
     
@@ -176,6 +176,6 @@ public:
     virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
     virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
     
-    static std::unique_ptr<ServiceFactory> create();
+    static ServiceFactory* create();
 };
 

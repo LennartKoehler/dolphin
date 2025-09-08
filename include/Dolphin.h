@@ -18,9 +18,9 @@ public:
 
     void init();
 
-    std::unique_ptr<PSFGenerationResult> generatePSF(std::shared_ptr<PSFConfig> psfconfig);
-    std::unique_ptr<PSFGenerationResult> generatePSF(const std::string& psfconfigpath);
-    std::unique_ptr<DeconvolutionResult> deconvolve(std::shared_ptr<SetupConfig> setupConfig);
+    std::unique_ptr<PSFGenerationResult> generatePSF(PSFGenerationRequest request); // should prob just take the request
+    // std::unique_ptr<PSFGenerationResult> generatePSF(const std::string& psfconfigpath);
+    std::unique_ptr<DeconvolutionResult> deconvolve(DeconvolutionRequest request);
     std::shared_ptr<Hyperstack> convolve(const Hyperstack& image, std::shared_ptr<PSF> psf);
 
 
@@ -31,7 +31,7 @@ private:
     void setCuda();
     
     // Service layer components (abstracted)
-    std::unique_ptr<ServiceFactory> service_factory_;
+    ServiceFactory* service_factory_;
     std::unique_ptr<IPSFGenerationService> psf_service_;
     std::unique_ptr<IDeconvolutionService> deconv_service_;
     

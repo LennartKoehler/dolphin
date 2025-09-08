@@ -53,6 +53,6 @@ ServiceFactoryImpl& ServiceFactoryImpl::getInstance() {
 }
 
 // Implementation of static method declared in ServiceAbstractions.h
-// std::unique_ptr<ServiceFactory> ServiceFactory::create() {
-//     return std::make_unique<ServiceFactoryImpl>();
-// }
+ServiceFactory* ServiceFactory::create() {
+    return &ServiceFactoryImpl::getInstance();
+}

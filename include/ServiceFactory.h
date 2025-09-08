@@ -29,18 +29,18 @@ private:
     bool config_loader_set_ = false;
     
     // Friend function for singleton access
-    friend std::unique_ptr<ServiceFactory> ServiceFactory::create();
+    friend ServiceFactory* ServiceFactory::create();
 };
 
 // Custom deleter for singleton
-struct ServiceFactoryDeleter {
-    void operator()(ServiceFactoryImpl* p) const {
-        // Don't delete singleton instance
-    }
-};
+// struct ServiceFactoryDeleter {
+//     void operator()(ServiceFactoryImpl* p) const {
+//         // Don't delete singleton instance
+//     }
+// };
 
 // Inline factory implementation for easy access
-inline std::unique_ptr<ServiceFactory> ServiceFactory::create() {
-    static ServiceFactoryDeleter deleter;
-    return std::unique_ptr<ServiceFactory>(&ServiceFactoryImpl::getInstance(), deleter);
-}
+// inline std::unique_ptr<ServiceFactory> ServiceFactory::create() {
+//     static ServiceFactoryDeleter deleter;
+//     return std::make_unique<ServiceFactory>(ServiceFactoryImpl::getInstance());
+// }

@@ -33,6 +33,8 @@ public:
 
 
 private:
+    std::string saveResult(const std::string& path, const std::string& name, std::shared_ptr<PSF> psf);
+    std::string getExecutableDirectory();
     void logMessage(const std::string& message);
     void handleError(const std::string& error);
     
@@ -62,4 +64,5 @@ private:
     
     // Cached data
     std::vector<std::string> supported_types_;
+    std::string default_output_path_;
 };

@@ -18,6 +18,7 @@ struct SetupConfig : public Config{
     std::string psfConfigPath;
     std::string psfFilePath;
     std::string psfDirPath;
+    std::string outputDir;
     bool time = false; //show time
     bool sep = false; //save layer separate (TIF dir)
     bool savePsf = false; //save PSF

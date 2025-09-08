@@ -4,6 +4,7 @@
 #include "IFrontend.h"
 #include "deconvolution/DeconvolutionConfig.h"
 #include "SetupConfig.h"
+#include "ServiceAbstractions.h"
 class CLIFrontend : public IFrontend{
 public:
     CLIFrontend(Dolphin* dolphin, int argc, char** argv);
@@ -35,4 +36,7 @@ private:
     void readCLIParametersDeconvolution();
     void handlePSFGeneration();
     void handleDeconvolution();
+
+    PSFGenerationRequest generatePSFRequest(const std::string& psfconfigpath);
+    DeconvolutionRequest generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfig);
 };

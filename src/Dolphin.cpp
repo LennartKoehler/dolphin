@@ -27,17 +27,15 @@ void Dolphin::init(){
     }
 }
 
-std::unique_ptr<PSFGenerationResult> Dolphin::generatePSF(std::shared_ptr<PSFConfig> psfconfig){
-    PSFGenerationRequest request(psfconfig);
+std::unique_ptr<PSFGenerationResult> Dolphin::generatePSF(PSFGenerationRequest request){
     return psf_service_->generatePSF(request);
 }
-std::unique_ptr<PSFGenerationResult> Dolphin::generatePSF(const std::string& psfconfigpath){
-    PSFGenerationRequest request(psfconfigpath);
-    return psf_service_->generatePSF(request);
-}
+// std::unique_ptr<PSFGenerationResult> Dolphin::generatePSF(const std::string& psfconfigpath){
+//     PSFGenerationRequest request(psfconfigpath);
+//     return psf_service_->generatePSF(request);
+// }
 
-std::unique_ptr<DeconvolutionResult> Dolphin::deconvolve(std::shared_ptr<SetupConfig> setupConfig){
-    DeconvolutionRequest request(setupConfig);
+std::unique_ptr<DeconvolutionResult> Dolphin::deconvolve(DeconvolutionRequest request){
     return deconv_service_->deconvolve(request);
 }
 

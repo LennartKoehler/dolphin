@@ -25,11 +25,12 @@ private:
     void cleanup();
     void render();
 
+    std::string getExecutableDirectory();
 
     GLFWwindow* glfwWindow;
     int width = 2500;
     int height = 1400;
     std::shared_ptr<GUIStyleConfig> style;
     std::shared_ptr<MainWindow> mainWindow;
-    Dolphin* dolphin; // does it need to know about dlophin?
+    std::string output_path_;
 };
