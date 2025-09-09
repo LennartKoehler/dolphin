@@ -1,6 +1,8 @@
 #include "psf/configs/GibsonLanniPSFConfig.h"
 
-GibsonLanniPSFConfig::GibsonLanniPSFConfig() : PSFConfig(){
+GibsonLanniPSFConfig::GibsonLanniPSFConfig()
+    : PSFConfig(){
+    psfModelName = "GibsonLanni";
     registerAllParameters();
 }
 
@@ -11,7 +13,6 @@ std::string GibsonLanniPSFConfig::getName() const {
 
 void GibsonLanniPSFConfig::registerAllParameters(){
     bool optional = true;
-    psfModelName = "GibsonLanni";
     registerParameter("workingDistanceDesign[nm]", ti0_nm, !optional);
     registerParameter("workingDistanceExperimental[nm]", ti_nm, !optional);
     registerParameter("immersionRIDesign", ni0, !optional);
@@ -29,7 +30,6 @@ void GibsonLanniPSFConfig::registerAllParameters(){
 }
 GibsonLanniPSFConfig::GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other)
     : PSFConfig(other){
-    registerAllParameters();
     ti0_nm = other.ti0_nm;
     ti_nm = other.ti_nm;
     ni0 = other.ni0;
@@ -43,4 +43,6 @@ GibsonLanniPSFConfig::GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other)
     OVER_SAMPLING = other.OVER_SAMPLING;
     ng0 = other.ng0;
     ng = other.ng;
+    // dont clear because parent already cleared, else i clear the parent
+    registerAllParameters();
 }

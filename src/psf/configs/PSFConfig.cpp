@@ -8,15 +8,16 @@ PSFConfig::PSFConfig(){
 PSFConfig::PSFConfig(const PSFConfig& other) 
     : Config(other)  // Delegate to default constructor first (registers parameters)
 {
-    registerAllParameters();
     // Then copy the values
+    psfModelName = other.psfModelName;
     sizeX = other.sizeX;
     sizeY = other.sizeY;
     sizeZ = other.sizeZ;
     resLateral_nm = other.resLateral_nm;
     resAxial_nm = other.resAxial_nm;
     NA = other.NA;
-    
+    registerAllParameters();
+
     // Copy any other members
 }
 
@@ -43,6 +44,7 @@ void PSFConfig::registerAllParameters(){
     bool optional = true;
     
     // Basic PSF dimensions (required)
+    registerParameter("modelName", psfModelName, !optional);
     registerParameter("sizeX", sizeX, !optional);
     registerParameter("sizeY", sizeY, !optional);
     registerParameter("sizeZ", sizeZ, !optional);

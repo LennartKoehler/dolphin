@@ -27,7 +27,6 @@ void DeconvolutionConfig::registerAllParameters(){
 }
 DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     : Config(other){
-    registerAllParameters();
     algorithmName = other.algorithmName;
     subimageSize = other.subimageSize;
     iterations = other.iterations;
@@ -39,4 +38,5 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     cubeSize = other.cubeSize;
     secondpsflayers = other.secondpsflayers;
     secondpsfcubes = other.secondpsfcubes;
+    registerAllParameters();
 }

@@ -5,17 +5,23 @@
 #include <iostream>
 
 using json = nlohmann::json;
+using ordered_json = nlohmann::ordered_json;
 
 
 struct ReadWriteHelper {
     std::string jsonTag;
     std::function<void(const json&)> reader;
-    std::function<void(json&)> writer;
+    std::function<void(ordered_json&)> writer;
 };
 
 class Config{
 public:
+    Config() = default;
 
+    // IMPORTANT: in any derived class always run the copy constructor of parent so that at the end this is run:
+    Config(const Config& other){
+        parameters.clear();
+    }
 
 
     virtual bool loadFromJSON(const json& jsonData) {
@@ -30,8 +36,8 @@ public:
         return true;
     }
 
-    virtual json writeToJSON() {
-        json result;
+    virtual ordered_json writeToJSON() {
+        ordered_json result;
         for (auto& param : parameters) {
             param.writer(result);
         }
@@ -44,6 +50,10 @@ public:
     }
 
 protected:
+    virtual void registerAllParameters() = 0;
+
+
+
     template<typename T>
     void registerParameter(const std::string& jsonTag, T& field, bool isOptional) {
         ReadWriteHelper param;
@@ -60,14 +70,13 @@ protected:
         };
         
         // Writer lambda
-        param.writer = [&field, jsonTag](json& jsonData) {
+        param.writer = [&field, jsonTag](ordered_json& jsonData) {
             jsonData[jsonTag] = field;
         };
         
         parameters.push_back(std::move(param));
     }
 
-    virtual void registerAllParameters() = 0;
 
     static json loadJSONFile(const std::string& filePath) {
         std::ifstream configFile(filePath);

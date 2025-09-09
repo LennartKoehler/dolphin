@@ -38,13 +38,13 @@ SetupConfig::SetupConfig(const SetupConfig& other)
         saveSubimages(other.saveSubimages),
         gpu(other.gpu)
 {
-    registerAllParameters();
 
     // Deep copy the shared_ptr content
     if (other.deconvolutionConfig) {
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
     }
     // If other.deconvolutionConfig is nullptr, our deconvolutionConfig will also be nullptr (default)
+    registerAllParameters();
 }
 
 // Copy assignment operator (recommended to implement if you have copy constructor)
@@ -90,7 +90,7 @@ void SetupConfig::registerDeconvolution(){
     };
     
     // Writer lambda
-    param.writer = [this, jsonTag](json& jsonData) {
+    param.writer = [this, jsonTag](ordered_json& jsonData) {
         jsonData[jsonTag] = this->deconvolutionConfig->writeToJSON();
     };
     

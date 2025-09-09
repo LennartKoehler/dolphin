@@ -23,7 +23,7 @@ public:
     double NA = 1.0;
     double resLateral_nm = 200;
     double resAxial_nm = 200;
-
+    std::string psfModelName;
 
 private:
     virtual void registerAllParameters() override;

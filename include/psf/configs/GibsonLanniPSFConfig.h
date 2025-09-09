@@ -13,9 +13,6 @@ public:
 	std::string getName() const override;
 
 
-
-    std::string psfModelName = "GibsonLanni";
-    
     double OVER_SAMPLING = 4.0;
     double lambda_nm = 520.0;
     int accuracy = 32;

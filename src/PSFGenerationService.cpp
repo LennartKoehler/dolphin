@@ -264,7 +264,7 @@ std::string PSFGenerationService::savePSFConfig(const std::string& path, const s
     std::filesystem::create_directories(output_path.parent_path());
     
     std::string output_path_str = output_path.string();
-    json jsonConfig = psfconfig->writeToJSON();
+    ordered_json jsonConfig = psfconfig->writeToJSON();
     std::ofstream o(output_path_str);
     o << std::setw(4) << jsonConfig << std::endl;
     logMessage("PSFConfig saved to: " + output_path_str);
@@ -290,59 +290,3 @@ std::string PSFGenerationService::getExecutableDirectory() {
 
 
 
-
-
-
-
-
-
-// std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSFFromConfig(std::shared_ptr<PSFConfig> config) {
-//     auto start_time = std::chrono::high_resolution_clock::now();
-    
-//     try {
-
-        
-//         PSFGenerationRequest request;
-        
-//         // Set up PSF config info with file path
-//         PSFGenerationRequest::PSFConfigInfo config_info;
-//         config_info.psf_config_ = config;
-//         request.setConfig(config_info);
-        
-//         auto result = generatePSF(request);
-        
-//         return result;
-        
-//     } catch (const std::exception& e) {
-//         auto end_time = std::chrono::high_resolution_clock::now();
-//         std::chrono::duration<double> duration = end_time - start_time;
-        
-//         std::string error_msg = "PSF generation from config failed: " + std::string(e.what());
-//         logMessage(error_msg);
-//         return createResult(false, error_msg, duration);
-//     }
-// }
-
-// std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSFFromFilePath(const std::string& path) {
-//     auto start_time = std::chrono::high_resolution_clock::now();
-    
-//     try {
-//         PSFGenerationRequest request;
-        
-//         // Set up PSF config info
-//         PSFGenerationRequest::PSFConfigInfo config_info;
-//         config_info.config_path_ = path;
-
-//         request.setConfig(config_info);
-        
-//         return generatePSF(request);
-        
-//     } catch (const std::exception& e) {
-//         auto end_time = std::chrono::high_resolution_clock::now();
-//         std::chrono::duration<double> duration = end_time - start_time;
-        
-//         std::string error_msg = "PSF generation from file failed: " + std::string(e.what());
-//         logMessage(error_msg);
-//         return createResult(false, error_msg, duration);
-//     }
-// }
