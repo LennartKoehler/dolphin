@@ -4,6 +4,7 @@
 #include "psf/configs/PSFConfig.h"
 #include <memory>
 
+class ThreadPool;
 class PSFGeneratorFactory;
 class BasePSFGenerator;
 
@@ -14,6 +15,7 @@ public:
 
     // IPSFGenerationService interface
     std::unique_ptr<PSFGenerationResult> generatePSF(const PSFGenerationRequest& request) override;
+    std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(const PSFGenerationRequest& request) override;
 
 
     std::vector<std::string> getSupportedPSFTypes() const override;
@@ -32,7 +34,8 @@ public:
 
 
 private:
-    std::string saveResult(const std::string& path, const std::string& name, std::shared_ptr<PSF> psf);
+    std::string savePSF(const std::string& path, const std::string& name, std::shared_ptr<PSF> psf);
+    std::string savePSFConfig(const std::string& path, const std::string& name, std::shared_ptr<PSFConfig> psfconfig);
     std::string getExecutableDirectory();
     void logMessage(const std::string& message);
     void handleError(const std::string& error);
@@ -64,4 +67,8 @@ private:
     // Cached data
     std::vector<std::string> supported_types_;
     std::string default_output_path_;
+
+    std::unique_ptr<ThreadPool> thread_pool_;
+    std::function<void(int)> progress_callback_;
+    std::mutex progress_mutex_;
 };

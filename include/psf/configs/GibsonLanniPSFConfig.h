@@ -6,28 +6,10 @@
 
 class GibsonLanniPSFConfig : public PSFConfig{
 public:
-	GibsonLanniPSFConfig() {
-	}
+	GibsonLanniPSFConfig();
+	GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other);
 
 
-	GibsonLanniPSFConfig(const GibsonLanniPSFConfig& p)
-	: PSFConfig(p){
-		this->ng = p.ng;
-		this->ng0 = p.ng0;
-		this->ni = p.ni;
-		this->ni0 = p.ni0;
-		this->ns = p.ns;
-		this->particleAxialPosition_nm = p.particleAxialPosition_nm;
-		this->tg_nm = p.tg_nm;
-		this->tg0_nm = p.tg0_nm;
-		this->ti_nm = p.ti_nm;
-		this->ti0_nm = p.ti0_nm;
-		this->lambda_nm = p.lambda_nm;
-        this->accuracy = p.accuracy;
-        this->OVER_SAMPLING = p.OVER_SAMPLING;
-	}
-    bool loadFromJSONSpecific(const json& jsonData) override;
-    void printValues() override;
 	std::string getName() const override;
 
 
@@ -69,4 +51,6 @@ public:
     double particleAxialPosition_nm = 1000.0;
 
 
+private:
+    virtual void registerAllParameters() override;
 };

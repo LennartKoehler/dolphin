@@ -79,6 +79,7 @@ set(COMMON_SOURCES
     src/ServiceFactory.cpp
     src/PSFGenerationService.cpp
     src/DeconvolutionService.cpp
+    src/ThreadPool.cpp
 
     src/hyperstack/HyperstackImage.cpp
     src/hyperstack/Image3D.cpp

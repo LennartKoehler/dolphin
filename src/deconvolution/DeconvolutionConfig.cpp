@@ -1,23 +1,42 @@
 #include "deconvolution/DeconvolutionConfig.h"
 
-
-bool DeconvolutionConfig::loadFromJSON(const json& jsonData) {
-    // Use readParameterOptional for all parameters
-    readParameterOptional<std::string>(jsonData, "algorithmName", algorithmName);
-    readParameterOptional<int>(jsonData, "subimageSize", subimageSize);
-    readParameterOptional<int>(jsonData, "iterations", iterations);
-    readParameterOptional<double>(jsonData, "epsilon", epsilon);
-    readParameterOptional<bool>(jsonData, "grid", grid);
-    readParameterOptional<double>(jsonData, "lambda", lambda);
-    readParameterOptional<int>(jsonData, "borderType", borderType);
-    readParameterOptional<int>(jsonData, "psfSafetyBorder", psfSafetyBorder);
-    readParameterOptional<int>(jsonData, "cubeSize", cubeSize);
-    readParameterOptional<std::vector<int>>(jsonData, "secondpsflayers", secondpsflayers);
-    readParameterOptional<std::vector<int>>(jsonData, "secondpsfcubes", secondpsfcubes);
-    // readParameterOptional<bool>(jsonData, "time", time);
-    // readParameterOptional<bool>(jsonData, "saveSubimages", saveSubimages);
-    // readParameterOptional<std::string>(jsonData, "gpu", gpu);
-    
-    return true;
+DeconvolutionConfig::DeconvolutionConfig() {
+    registerAllParameters();
 }
 
+void DeconvolutionConfig::registerAllParameters(){
+    bool optional = true;
+    
+    // Register all deconvolution parameters
+    registerParameter("algorithmName", algorithmName, !optional);  // Required
+    registerParameter("subimageSize", subimageSize, optional);
+    registerParameter("iterations", iterations, optional);
+    registerParameter("epsilon", epsilon, optional);
+    registerParameter("grid", grid, optional);
+    registerParameter("lambda", lambda, optional);
+    registerParameter("borderType", borderType, optional);
+    registerParameter("psfSafetyBorder", psfSafetyBorder, optional);
+    registerParameter("cubeSize", cubeSize, optional);
+    registerParameter("secondpsflayers", secondpsflayers, optional);
+    registerParameter("secondpsfcubes", secondpsfcubes, optional);
+    
+    // Commented out parameters - add if needed
+    // registerParameter("time", time, optional);
+    // registerParameter("saveSubimages", saveSubimages, optional);
+    // registerParameter("gpu", gpu, optional);
+}
+DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
+    : Config(other){
+    registerAllParameters();
+    algorithmName = other.algorithmName;
+    subimageSize = other.subimageSize;
+    iterations = other.iterations;
+    epsilon = other.epsilon;
+    grid = other.grid;
+    lambda = other.lambda;
+    borderType = other.borderType;
+    psfSafetyBorder = other.psfSafetyBorder;
+    cubeSize = other.cubeSize;
+    secondpsflayers = other.secondpsflayers;
+    secondpsfcubes = other.secondpsfcubes;
+}

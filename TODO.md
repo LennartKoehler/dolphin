@@ -1,6 +1,3 @@
-
-multithreaded deconvolution still doesnt work
-test
 a event system which lets lower layer windows be able to ocmmunicate with higher level would be nice
 
 

@@ -8,13 +8,10 @@
 
 class PSFConfig : public Config{
 public:
-    PSFConfig() = default;
+    PSFConfig();
     virtual ~PSFConfig(){};
     PSFConfig(const PSFConfig& other);
-    virtual bool loadFromJSON(const json& jsonData);
-    virtual void printValues() = 0;
     virtual std::string getName() const = 0;
-    virtual bool loadFromJSONSpecific(const json& jsonData) = 0; // factory method
     static std::shared_ptr<PSFConfig> createFromJSON(const json& jsonData);
 
     bool compareDim(const PSFConfig &other);
@@ -28,6 +25,7 @@ public:
     double resAxial_nm = 200;
 
 
-
+private:
+    virtual void registerAllParameters() override;
 };
 

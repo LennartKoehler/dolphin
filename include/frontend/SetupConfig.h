@@ -4,12 +4,12 @@
 
 class DeconvolutionConfig;
 
-struct SetupConfig : public Config{
-    SetupConfig(){}
+class SetupConfig : public Config{
+public:
+    SetupConfig();
     SetupConfig(const SetupConfig& other);
     SetupConfig& operator=(const SetupConfig& other);
 
-    bool loadFromJSON(const json& jsonData) override;
     static SetupConfig createFromJSONFile(const std::string& path);
 
 
@@ -31,7 +31,9 @@ struct SetupConfig : public Config{
 
     std::shared_ptr<DeconvolutionConfig> deconvolutionConfig;
 
-
+private:
+    void registerDeconvolution();
+    virtual void registerAllParameters() override;
 
 };
 

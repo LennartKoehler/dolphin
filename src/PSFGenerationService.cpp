@@ -3,6 +3,7 @@
 #include "psf/PSFGeneratorFactory.h"
 #include "psf/configs/GaussianPSFConfig.h"
 #include "psf/configs/GibsonLanniPSFConfig.h"
+#include "ThreadPool.h"
 #include <chrono>
 #include <fstream>
 #include <sstream>
@@ -106,8 +107,15 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
 
         // Handle saving if requested
         if (request.save_result) {
-            std::string filename = "PSF.tiff";
-            output_file = saveResult(request.output_path, filename, psf);
+            std::string endFilename = "PSF.tiff";
+            output_file = savePSF(request.output_path, endFilename, psf);
+
+            // if a config was not provided by file the generated psfconfig is saved next
+            // to the psf otherwise you already have the config somewhere, no need to save it
+            if (request.config_.psf_config_ != nullptr){
+                std::string configFilename = "Config_" + endFilename;
+                std::string output_file_config = savePSFConfig(request.output_path, configFilename, request.config_.psf_config_);
+            }
         }
         
         if (request.show_example) {
@@ -134,7 +142,12 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
     }
 }
 
-// 
+std::future<std::unique_ptr<PSFGenerationResult>> PSFGenerationService::generatePSFAsync(const PSFGenerationRequest& request){
+    return thread_pool_->enqueue([this, request](){
+        return generatePSF(request);
+    });
+}
+
 std::vector<std::string> PSFGenerationService::getSupportedPSFTypes() const {
     return supported_types_;
 }
@@ -228,7 +241,7 @@ bool PSFGenerationService::isValidPSFType(const std::string& psf_type) const {
     return it != supported_types_.end();
 }
 
-std::string PSFGenerationService::saveResult(const std::string& path, const std::string& filename, std::shared_ptr<PSF> psf){
+std::string PSFGenerationService::savePSF(const std::string& path, const std::string& filename, std::shared_ptr<PSF> psf){
     // Use filesystem::path for better path handling
     std::filesystem::path base_path = path.empty() ? default_output_path_ : path;
     std::filesystem::path output_path = base_path / filename;  // Automatically handles separators
@@ -241,6 +254,24 @@ std::string PSFGenerationService::saveResult(const std::string& path, const std:
     logMessage("PSF saved to: " + output_path_str);
     return output_path_str;
 }
+
+std::string PSFGenerationService::savePSFConfig(const std::string& path, const std::string& filename, std::shared_ptr<PSFConfig> psfconfig){
+    // Use filesystem::path for better path handling
+    std::filesystem::path base_path = path.empty() ? default_output_path_ : path;
+    std::filesystem::path output_path = base_path / filename;  // Automatically handles separators
+    
+    // Ensure directory exists
+    std::filesystem::create_directories(output_path.parent_path());
+    
+    std::string output_path_str = output_path.string();
+    json jsonConfig = psfconfig->writeToJSON();
+    std::ofstream o(output_path_str);
+    o << std::setw(4) << jsonConfig << std::endl;
+    logMessage("PSFConfig saved to: " + output_path_str);
+    return output_path_str;
+}
+
+
 
 std::string PSFGenerationService::getExecutableDirectory() {
     try {

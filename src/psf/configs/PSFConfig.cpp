@@ -1,32 +1,26 @@
 #include "psf/configs/PSFConfig.h"
 #include "psf/PSFGeneratorFactory.h"
 
+PSFConfig::PSFConfig(){
+    registerAllParameters();
+}
+
 PSFConfig::PSFConfig(const PSFConfig& other) 
-    : sizeX(other.sizeX)
-    , sizeY(other.sizeY) 
-    , sizeZ(other.sizeZ)
-    , resLateral_nm(other.resLateral_nm)
-    , resAxial_nm(other.resAxial_nm)
-    , NA(other.NA){
+    : Config(other)  // Delegate to default constructor first (registers parameters)
+{
+    registerAllParameters();
+    // Then copy the values
+    sizeX = other.sizeX;
+    sizeY = other.sizeY;
+    sizeZ = other.sizeZ;
+    resLateral_nm = other.resLateral_nm;
+    resAxial_nm = other.resAxial_nm;
+    NA = other.NA;
+    
+    // Copy any other members
 }
 
-bool PSFConfig::loadFromJSON(const json& jsonData){
-    try{// Load basic PSF dimensions (required)
-        sizeX = readParameter<int>(jsonData, "sizeX");
-        sizeY = readParameter<int>(jsonData, "sizeY");
-        sizeZ = readParameter<int>(jsonData, "sizeZ");
-        resAxial_nm = readParameter<int>(jsonData, "resAxial[nm]");
-        resLateral_nm = readParameter<int>(jsonData, "resLateral[nm]");
-        NA = readParameter<double>(jsonData, "NA");
 
-        return true;
-    } catch (const json::exception &e) {
-        std::cerr << "[ERROR] Invalid PSF JSON structure: " << e.what() << std::endl;
-        return false;
-    }
-    loadFromJSONSpecific(jsonData);
-    return true;
-}
     
 
 bool PSFConfig::compareDim(const PSFConfig &other) {
@@ -45,3 +39,18 @@ std::shared_ptr<PSFConfig> PSFConfig::createFromJSON(const json& jsonData){
 
 }
 
+void PSFConfig::registerAllParameters(){
+    bool optional = true;
+    
+    // Basic PSF dimensions (required)
+    registerParameter("sizeX", sizeX, !optional);
+    registerParameter("sizeY", sizeY, !optional);
+    registerParameter("sizeZ", sizeZ, !optional);
+    registerParameter("resAxial[nm]", resAxial_nm, !optional);
+    registerParameter("resLateral[nm]", resLateral_nm, !optional);
+    registerParameter("NA", NA, !optional);
+    
+    
+    // Additional parameters that might be optional
+    // Add any other PSF-specific parameters here
+}

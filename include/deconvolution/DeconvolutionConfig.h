@@ -6,6 +6,8 @@
 #include "Config.h"
 class DeconvolutionConfig : public Config{
 public:
+    DeconvolutionConfig();
+    DeconvolutionConfig(const DeconvolutionConfig& other);
     std::string algorithmName = "RichardsonLucyTotalVariation";
     int subimageSize = 0; //sub-image size (edge)
     int iterations = 10;
@@ -25,8 +27,10 @@ public:
     bool saveSubimages;
     std::string gpu = "";
     
-    bool loadFromJSON(const json& jsonData) override;
+    // bool loadFromJSON(const json& jsonData) override;
 
+private:
+    virtual void registerAllParameters() override;
 };
 
 

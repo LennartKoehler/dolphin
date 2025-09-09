@@ -35,9 +35,14 @@ std::unique_ptr<DeconvolutionResult> Dolphin::deconvolve(DeconvolutionRequest re
     return deconv_service_->deconvolve(request);
 }
 
+std::future<std::unique_ptr<PSFGenerationResult>> Dolphin::generatePSFAsync(PSFGenerationRequest request){
+    return psf_service_->generatePSFAsync(request);
+}
+
 std::future<std::unique_ptr<DeconvolutionResult>> Dolphin::deconvolveAsync(DeconvolutionRequest request){
     return deconv_service_->deconvolveAsync(request);
 }
+
 
 
 

@@ -4,9 +4,9 @@
 
 class GaussianPSFConfig : public PSFConfig{
 public:
+    GaussianPSFConfig();
+    GaussianPSFConfig(const GaussianPSFConfig& other);
     std::string getName() const override;
-    bool loadFromJSONSpecific(const json& jsonData) override;
-    void printValues() override;
 
 
     double convertSigma(double sigma);
@@ -24,4 +24,8 @@ public:
     std::vector<int> psfCubes = {}; //sub-images for PSF
 
     std::string psfModelName = "Gaussian";
+
+
+private:
+    virtual void registerAllParameters() override;
 };

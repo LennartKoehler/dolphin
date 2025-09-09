@@ -99,6 +99,7 @@ public:
     virtual ~IPSFGenerationService() = default;
     
     virtual std::unique_ptr<PSFGenerationResult> generatePSF(const PSFGenerationRequest& request) = 0;
+    virtual std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(const PSFGenerationRequest& request) = 0;
     virtual std::vector<std::string> getSupportedPSFTypes() const = 0;
     virtual bool validateConfig(const json& config) const = 0;
     

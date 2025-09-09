@@ -6,39 +6,10 @@
 #include "psf/configs/PSFConfig.h"
 #include "psf/PSFGeneratorFactory.h"
 
-bool SetupConfig::loadFromJSON(const json& config){
-    // Required fields using readParameter (will throw if missing)
-    sep = readParameter<bool>(config, "seperate");
-    time = readParameter<bool>(config, "time");
-    savePsf = readParameter<bool>(config, "savePsf");
-    showExampleLayers = readParameter<bool>(config, "showExampleLayers");
-    printInfo = readParameter<bool>(config, "info");
-    imagePath = readParameter<std::string>(config, "image_path");
-    
-    // Path configurations
-    readParameterOptional<std::string>(config, "psf_config_path", psfConfigPath);
-    readParameterOptional<std::string>(config, "psf_file_path", psfFilePath);
-    readParameterOptional<std::string>(config, "psf_dir_path", psfDirPath);
-    
-    // Arrays
-    // layers = readParameter<std::vector<int>>(config, "layers");
-    // subimages = readParameter<std::vector<int>>(config, "subimages");
-
-    // Optional fields using readParameterOptional
-    readParameterOptional<bool>(config, "saveSubimages", saveSubimages);
-    readParameterOptional<std::string>(config, "gpu", gpu);
-    
-    // Optional fields from Deconvolution section
-    if (config.contains("Deconvolution")) {
-        deconvolutionConfig->loadFromJSON(config.at("Deconvolution"));
-    }
-    else {
-        deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
-        std::cout << "[INFO] No deconvolution parameters found, running with default parameters" << std::endl;
-    }
-    
-    return true;
+SetupConfig::SetupConfig() {
+    registerAllParameters();
 }
+
 
 
 
@@ -67,6 +38,8 @@ SetupConfig::SetupConfig(const SetupConfig& other)
         saveSubimages(other.saveSubimages),
         gpu(other.gpu)
 {
+    registerAllParameters();
+
     // Deep copy the shared_ptr content
     if (other.deconvolutionConfig) {
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
@@ -99,4 +72,58 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         }
     }
     return *this;
+}
+
+
+void SetupConfig::registerDeconvolution(){
+    ReadWriteHelper param;
+    std::string jsonTag = "Deconvolution";
+    param.jsonTag = jsonTag;
+    param.reader = [this, jsonTag](const json& jsonData) {
+        if (jsonData.contains(jsonTag)) {
+            this->deconvolutionConfig->loadFromJSON(jsonData.at(jsonTag));
+        }
+        else {
+            this->deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
+            std::cout << "[INFO] No deconvolution parameters found, running with default parameters" << std::endl;
+        }
+    };
+    
+    // Writer lambda
+    param.writer = [this, jsonTag](json& jsonData) {
+        jsonData[jsonTag] = this->deconvolutionConfig->writeToJSON();
+    };
+    
+    parameters.push_back(std::move(param));
+}
+
+void SetupConfig::registerAllParameters(){
+    bool optional = true;
+    
+    // Initialize deconvolutionConfig first
+    deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
+    
+    // Register all parameters
+    // Required fields
+    registerParameter("seperate", sep, !optional);
+    registerParameter("time", time, !optional);
+    registerParameter("savePsf", savePsf, !optional);
+    registerParameter("showExampleLayers", showExampleLayers, !optional);
+    registerParameter("info", printInfo, !optional);
+    registerParameter("image_path", imagePath, !optional);
+    
+    // Optional path configurations
+    registerParameter("psf_config_path", psfConfigPath, optional);
+    registerParameter("psf_file_path", psfFilePath, optional);
+    registerParameter("psf_dir_path", psfDirPath, optional);
+    
+    // Optional fields
+    registerParameter("saveSubimages", saveSubimages, optional);
+    registerParameter("gpu", gpu, optional);
+    
+    // Arrays (if needed)
+    // registerParameter("layers", layers, optional);
+    // registerParameter("subimages", subimages, optional);
+    registerDeconvolution();
+
 }
