@@ -2,17 +2,17 @@
 #include "HyperstackImage.h"
 #include "PSFManager.h"
 #include "deconvolution/DeconvolutionAlgorithmFactory.h"
+#include "ThreadPool.h"
 #include <chrono>
 #include <fstream>
 
 DeconvolutionService::DeconvolutionService() 
     : initialized_(false),
       logger_([](const std::string& msg) { std::cout << "[DECONV_SERVICE] " << msg << std::endl; }),
-      error_handler_([](const std::string& msg) { std::cerr << "[DECONV_ERROR] " << msg << std::endl; }) {
+      error_handler_([](const std::string& msg) { std::cerr << "[DECONV_ERROR] " << msg << std::endl; }),
+      thread_pool_(std::make_unique<ThreadPool>()) {
     
     // Initialize supported algorithms
-    supported_algorithms_ = {"RichardsonLucy", "RichardsonLucyTV", "RichardsonLucyAD", 
-                           "RegularizedInverseFilter", "InverseFilter"};
 }
 
 DeconvolutionService::~DeconvolutionService() {
@@ -24,6 +24,7 @@ void DeconvolutionService::initialize() {
     
     try {
         algorithm_factory_ = &DeconvolutionAlgorithmFactory::getInstance();
+        supported_algorithms_ = algorithm_factory_->getAvailableAlgorithms();
 
         // Create default config loader if not set
         if (!config_loader_) {
@@ -152,21 +153,34 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
     }
 }
 
-// std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolveFromConfig(const json& config) {
-//     auto start_time = std::chrono::high_resolution_clock::now();
+std::future<std::unique_ptr<DeconvolutionResult>> DeconvolutionService::deconvolveAsync(
+    const DeconvolutionRequest& request){
+        return thread_pool_->enqueue([this, request]() {
+            return deconvolve(request);
+        });
+    }
+
+std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> DeconvolutionService::deconvolveBatchAsync(
+    const std::vector<DeconvolutionRequest>& requests){
     
-//     try {
-//         DeconvolutionRequest request(config);
+    return thread_pool_->enqueue([this, requests]() {
+        std::vector<std::unique_ptr<DeconvolutionResult>> results;
+        results.reserve(requests.size());
         
-//         return deconvolve(request);
-//     } catch (const std::exception& e) {
-//         auto end_time = std::chrono::high_resolution_clock::now();
-//         std::chrono::duration<double> duration = end_time - start_time;
+        for (size_t i = 0; i < requests.size(); ++i) {
+            // Update progress
+            if (progress_callback_) {
+                std::lock_guard<std::mutex> lock(progress_mutex_);
+                progress_callback_(static_cast<int>((i * 100) / requests.size()));
+            }
+            
+            results.push_back(deconvolve(requests[i]));
+        }
         
-//         std::string error_msg = "Deconvolution from config failed: " + std::string(e.what());
-//         return createResult(false, error_msg, duration);
-//     }
-// }
+        return results;
+    });
+}
+
 
 std::vector<std::string> DeconvolutionService::getSupportedAlgorithms() const {
     return supported_algorithms_;
@@ -269,7 +283,7 @@ std::vector<PSF> DeconvolutionService::createPSFsFromSetup(
         psfs.push_back(PSFManager::generatePSFFromConfigPath(setupConfig->psfConfigPath));
     }
     if (!setupConfig->psfFilePath.empty()){
-        psfs.push_back(PSFManager::generatePSFFromConfigPath(setupConfig->psfFilePath));
+        psfs.push_back(PSFManager::readPSFFromFilePath(setupConfig->psfFilePath));
     }
     if (!setupConfig->psfDirPath.empty()){
         std::vector<PSF> psfstemp = PSFManager::generatePSFsFromDir(setupConfig->psfDirPath);
@@ -291,3 +305,7 @@ std::shared_ptr<BaseDeconvolutionAlgorithm> DeconvolutionService::createAlgorith
         std::shared_ptr<BaseDeconvolutionAlgorithm> algorithm(algorithm_factory_->create(*deconvConfig));
         return algorithm;
     }
+
+void DeconvolutionService::setProgressCallback(std::function<void(int)> callback){
+    this->progress_callback_ = callback;
+}

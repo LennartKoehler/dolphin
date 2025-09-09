@@ -4,6 +4,7 @@
 #include <memory>
 
 // Forward declarations
+class ThreadPool;
 class Hyperstack;
 class BaseDeconvolutionAlgorithm;
 class DeconvolutionConfig;
@@ -16,7 +17,13 @@ public:
 
     // IDeconvolutionService interface
     std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request) override;
-    // std::unique_ptr<DeconvolutionResult> deconvolveFromConfig(const json& config) override;
+
+    virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request) override;
+    
+    virtual std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> deconvolveBatchAsync(const std::vector<DeconvolutionRequest>& requests) override;
+        
+
+    virtual void setProgressCallback(std::function<void(int)> callback) override;
     std::vector<std::string> getSupportedAlgorithms() const override;
     bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const override;
 
@@ -33,16 +40,16 @@ public:
     void setErrorHandler(std::function<void(const std::string&)> handler) override;
 
     // Additional methods for advanced deconvolution
-    std::unique_ptr<DeconvolutionResult> batchDeconvolute(
-        const std::vector<DeconvolutionRequest>& requests);
+    // std::unique_ptr<DeconvolutionResult> batchDeconvolute(
+    //     const std::vector<DeconvolutionRequest>& requests);
     
-    std::unique_ptr<DeconvolutionResult> hybridDeconvolution(
-        const DeconvolutionRequest& request,
-        const std::vector<std::string>& algorithm_sequence);
+    // std::unique_ptr<DeconvolutionResult> hybridDeconvolution(
+    //     const DeconvolutionRequest& request,
+    //     const std::vector<std::string>& algorithm_sequence);
     
-    std::vector<std::unique_ptr<DeconvolutionResult>> experimentDeconvolution(
-        const DeconvolutionRequest& base_request,
-        const std::vector<std::string>& algorithms_to_test);
+    // std::vector<std::unique_ptr<DeconvolutionResult>> experimentDeconvolution(
+    //     const DeconvolutionRequest& base_request,
+    //     const std::vector<std::string>& algorithms_to_test);
 
 private:
     void logMessage(const std::string& message);
@@ -52,6 +59,7 @@ private:
         bool success,
         const std::string& message,
         std::chrono::duration<double> duration);
+
     
     bool validateDeconvolutionRequest(const DeconvolutionRequest& request) const;
     bool validateImageConfig(const json& config) const;
@@ -80,4 +88,9 @@ private:
     
     // Cached data
     std::vector<std::string> supported_algorithms_;
+
+    // Multithreading
+    std::unique_ptr<ThreadPool> thread_pool_;
+    std::function<void(int)> progress_callback_;
+    std::mutex progress_mutex_;
 };

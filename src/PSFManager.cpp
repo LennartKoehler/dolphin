@@ -19,6 +19,11 @@ PSF PSFManager::generatePSFFromConfigPath(const std::string& psfConfigPath){
     return psf;
 }
 
+PSF PSFManager::readPSFFromFilePath(const std::string& psfFilePath){
+    PSF psf;
+    psf.readFromTifFile(psfFilePath.c_str());
+    return psf;
+}
 
 PSF PSFManager::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig){
 

@@ -134,57 +134,7 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
     }
 }
 
-std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSFFromConfig(std::shared_ptr<PSFConfig> config) {
-    auto start_time = std::chrono::high_resolution_clock::now();
-    
-    try {
-
-        
-        PSFGenerationRequest request;
-        
-        // Set up PSF config info with file path
-        PSFGenerationRequest::PSFConfigInfo config_info;
-        config_info.psf_config_ = config;
-        request.setConfig(config_info);
-        
-        auto result = generatePSF(request);
-        
-        return result;
-        
-    } catch (const std::exception& e) {
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> duration = end_time - start_time;
-        
-        std::string error_msg = "PSF generation from config failed: " + std::string(e.what());
-        logMessage(error_msg);
-        return createResult(false, error_msg, duration);
-    }
-}
-
-std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSFFromFilePath(const std::string& path) {
-    auto start_time = std::chrono::high_resolution_clock::now();
-    
-    try {
-        PSFGenerationRequest request;
-        
-        // Set up PSF config info
-        PSFGenerationRequest::PSFConfigInfo config_info;
-        config_info.config_path_ = path;
-
-        request.setConfig(config_info);
-        
-        return generatePSF(request);
-        
-    } catch (const std::exception& e) {
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> duration = end_time - start_time;
-        
-        std::string error_msg = "PSF generation from file failed: " + std::string(e.what());
-        logMessage(error_msg);
-        return createResult(false, error_msg, duration);
-    }
-}
-
+// 
 std::vector<std::string> PSFGenerationService::getSupportedPSFTypes() const {
     return supported_types_;
 }
@@ -302,3 +252,66 @@ std::string PSFGenerationService::getExecutableDirectory() {
         return std::filesystem::current_path().string();
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+// std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSFFromConfig(std::shared_ptr<PSFConfig> config) {
+//     auto start_time = std::chrono::high_resolution_clock::now();
+    
+//     try {
+
+        
+//         PSFGenerationRequest request;
+        
+//         // Set up PSF config info with file path
+//         PSFGenerationRequest::PSFConfigInfo config_info;
+//         config_info.psf_config_ = config;
+//         request.setConfig(config_info);
+        
+//         auto result = generatePSF(request);
+        
+//         return result;
+        
+//     } catch (const std::exception& e) {
+//         auto end_time = std::chrono::high_resolution_clock::now();
+//         std::chrono::duration<double> duration = end_time - start_time;
+        
+//         std::string error_msg = "PSF generation from config failed: " + std::string(e.what());
+//         logMessage(error_msg);
+//         return createResult(false, error_msg, duration);
+//     }
+// }
+
+// std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSFFromFilePath(const std::string& path) {
+//     auto start_time = std::chrono::high_resolution_clock::now();
+    
+//     try {
+//         PSFGenerationRequest request;
+        
+//         // Set up PSF config info
+//         PSFGenerationRequest::PSFConfigInfo config_info;
+//         config_info.config_path_ = path;
+
+//         request.setConfig(config_info);
+        
+//         return generatePSF(request);
+        
+//     } catch (const std::exception& e) {
+//         auto end_time = std::chrono::high_resolution_clock::now();
+//         std::chrono::duration<double> duration = end_time - start_time;
+        
+//         std::string error_msg = "PSF generation from file failed: " + std::string(e.what());
+//         logMessage(error_msg);
+//         return createResult(false, error_msg, duration);
+//     }
+// }

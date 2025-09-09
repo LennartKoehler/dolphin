@@ -14,7 +14,7 @@ using json = nlohmann::json;
 // basically a namespace
 // this thing is a mess
 namespace PSFManager{
-
+    PSF readPSFFromFilePath(const std::string& psfFilePath);
     PSF generatePSFFromConfigPath(const std::string& psfConfigPath);
     PSF generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> config);
     std::vector<PSF> generatePSFsFromDir(const std::string& psfDirPath);

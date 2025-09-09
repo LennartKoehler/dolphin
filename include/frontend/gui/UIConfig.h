@@ -7,7 +7,6 @@
 class UIConfig{
 public:
     void showParameters(std::shared_ptr<GUIStyleConfig> style);
-
 protected:
     std::vector<ParameterDescription> parameters;
 

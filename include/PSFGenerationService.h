@@ -14,8 +14,7 @@ public:
 
     // IPSFGenerationService interface
     std::unique_ptr<PSFGenerationResult> generatePSF(const PSFGenerationRequest& request) override;
-    std::unique_ptr<PSFGenerationResult> generatePSFFromFilePath(const std::string& path) override;
-    std::unique_ptr<PSFGenerationResult> generatePSFFromConfig(std::shared_ptr<PSFConfig> config) override;
+
 
     std::vector<std::string> getSupportedPSFTypes() const override;
     bool validateConfig(const json& config) const override;

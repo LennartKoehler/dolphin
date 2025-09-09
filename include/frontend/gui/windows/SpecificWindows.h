@@ -9,6 +9,7 @@ public:
     std::string psfPath;
 
 private:
+    bool showPSFWindow = false;
     GUIFrontend* guiFrontend;
 };
 

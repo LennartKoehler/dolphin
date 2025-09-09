@@ -8,6 +8,7 @@
 #include <functional>
 #include "../lib/nlohmann/json.hpp"
 #include "HyperstackImage.h"
+#include <future>
 
 using json = nlohmann::json;
 
@@ -79,6 +80,8 @@ public:
     std::string output_path;
     bool save_result = false;
     bool show_example = false;
+    // int num_threads = 1;
+
 };
 
 class PSFGenerationResult : public ServiceResultBase {
@@ -96,8 +99,6 @@ public:
     virtual ~IPSFGenerationService() = default;
     
     virtual std::unique_ptr<PSFGenerationResult> generatePSF(const PSFGenerationRequest& request) = 0;
-    virtual std::unique_ptr<PSFGenerationResult> generatePSFFromConfig(std::shared_ptr<PSFConfig> config) = 0;
-    virtual std::unique_ptr<PSFGenerationResult> generatePSFFromFilePath(const std::string& path) = 0;
     virtual std::vector<std::string> getSupportedPSFTypes() const = 0;
     virtual bool validateConfig(const json& config) const = 0;
     
@@ -123,6 +124,7 @@ public:
     bool save_subimages = false;
     bool show_example = false;
     bool print_info = false;
+    // int num_threads = 1;
     std::string output_path = "../result/deconv.tif";
     
     
@@ -156,6 +158,15 @@ public:
     virtual ~IDeconvolutionService() = default;
     
     virtual std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request) = 0;
+    // Asynchronous  
+    virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request) = 0;
+    
+    // Batch processing
+    virtual std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> deconvolveBatchAsync(
+        const std::vector<DeconvolutionRequest>& requests) = 0;
+        
+    virtual void setProgressCallback(std::function<void(int)> callback) = 0;
+
     // virtual std::unique_ptr<DeconvolutionResult> deconvolveFromConfig(const json& config) = 0;
     virtual std::vector<std::string> getSupportedAlgorithms() const = 0;
     virtual bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const = 0;

@@ -32,6 +32,7 @@ PSFMainWindow::PSFMainWindow(GUIFrontend* guiFrontend, int width, int height, st
                 std::unique_ptr<PSFGenerationResult> result = guiFrontend->generatePSF(config);
                 this->psfPath = result->generated_path;
                 gausswindow->deactivate();
+                showPSFWindow = true;
             });
         gaussButton->activate();
 
@@ -41,6 +42,7 @@ PSFMainWindow::PSFMainWindow(GUIFrontend* guiFrontend, int width, int height, st
                 std::unique_ptr<PSFGenerationResult> result = guiFrontend->generatePSF(config);
                 this->psfPath = result->generated_path;
                 gibsonlanniwindow->deactivate();
+                showPSFWindow = true;
             });
         gibsonButton->activate();
 
@@ -56,8 +58,8 @@ void PSFMainWindow::content(){
     if (ImGui::Button("GibsonLanni PSF")){
         getChild("GibsonLanni PSF")->activate();
     }
-    static bool showPSFWindow = true;
-    if (!this->psfPath.empty() && showPSFWindow){
+
+    if (showPSFWindow){
         ImGui::Begin("PSF saved under", &showPSFWindow);
         
         // Create a buffer for the path (InputText needs char array)
@@ -76,10 +78,6 @@ void PSFMainWindow::content(){
         }
         
         ImGui::End();
-    }
-    else{
-        this->psfPath.clear();
-        showPSFWindow = true;
     }
 }
 
@@ -120,6 +118,8 @@ void DeconvolutionMainWindow::show(){
         startWindow();
         if (ImGui::BeginTable("Split", 2, ImGuiTableFlags_Resizable)) 
         {
+
+            //Setup
             ImGui::TableNextColumn();
             
             ImGui::Text("Main Setup");
@@ -127,13 +127,15 @@ void DeconvolutionMainWindow::show(){
             getChild("Setup Config")->show();
             getChild("Generate PSF")->show();
 
-            // PSF:
+            // PSF
             if (ImGui::Button("Generate PSF")){
                 getChild("Generate PSF")->activate();
             }
             ImGui::SameLine();
             ImGui::Text("Select the PSF Model");
 
+
+            // Deconvolution
             ImGui::TableNextColumn();
 
             ImGui::Text("Deconvolution Parameters");

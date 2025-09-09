@@ -6,6 +6,8 @@
 
 #include "ServiceAbstractions.h"
 #include "ServiceFactory.h"
+#include <unordered_map>
+#include "ThreadPool.h"
 
 
 using json = nlohmann::json;
@@ -19,12 +21,12 @@ public:
     void init();
 
     std::unique_ptr<PSFGenerationResult> generatePSF(PSFGenerationRequest request); // should prob just take the request
-    // std::unique_ptr<PSFGenerationResult> generatePSF(const std::string& psfconfigpath);
     std::unique_ptr<DeconvolutionResult> deconvolve(DeconvolutionRequest request);
     std::shared_ptr<Hyperstack> convolve(const Hyperstack& image, std::shared_ptr<PSF> psf);
 
+    std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(PSFGenerationRequest request);
+    std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(DeconvolutionRequest request);
 
-    
 
 private:
 
@@ -38,4 +40,9 @@ private:
     // Flag to track if service layer is initialized
     bool service_layer_initialized_;
 
+
+    // Multithreading
+    // std::unique_ptr<ThreadPool> background_pool_;
+    // std::unordered_map<std::string, std::future<void>> running_operations_;
+    // std::mutex operations_mutex_;
 };
