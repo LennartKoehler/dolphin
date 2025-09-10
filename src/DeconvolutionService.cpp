@@ -10,10 +10,7 @@ DeconvolutionService::DeconvolutionService()
     : initialized_(false),
       logger_([](const std::string& msg) { std::cout << "[DECONV_SERVICE] " << msg << std::endl; }),
       error_handler_([](const std::string& msg) { std::cerr << "[DECONV_ERROR] " << msg << std::endl; }),
-      thread_pool_(std::make_unique<ThreadPool>()) {
-    
-    // Initialize supported algorithms
-}
+      thread_pool_(std::make_unique<ThreadPool>(std::thread::hardware_concurrency())){}
 
 DeconvolutionService::~DeconvolutionService() {
     shutdown();
@@ -90,7 +87,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         // Create PSFs
         std::vector<PSF> psfs = createPSFsFromSetup(setupConfig);
         if (request.getPSFConfig() != nullptr){
-            psfs.push_back(PSFManager::generatePSFFromPSFConfig(request.getPSFConfig()));
+            psfs.push_back(PSFManager::generatePSFFromPSFConfig(request.getPSFConfig(), thread_pool_.get()));
         }
         if (psfs.empty()) {
             return createResult(false, "No valid PSFs provided",
@@ -280,14 +277,17 @@ std::vector<PSF> DeconvolutionService::createPSFsFromSetup(
     std::vector<PSF> psfs;
 
     if (!setupConfig->psfConfigPath.empty()){
-        psfs.push_back(PSFManager::generatePSFFromConfigPath(setupConfig->psfConfigPath));
+        std::shared_ptr<PSFConfig> config = PSFManager::generatePSFConfigFromConfigPath(setupConfig->psfConfigPath);
+        psfs.push_back(PSFManager::generatePSFFromPSFConfig(config, thread_pool_.get()));
     }
     if (!setupConfig->psfFilePath.empty()){
         psfs.push_back(PSFManager::readPSFFromFilePath(setupConfig->psfFilePath));
     }
     if (!setupConfig->psfDirPath.empty()){
-        std::vector<PSF> psfstemp = PSFManager::generatePSFsFromDir(setupConfig->psfDirPath);
-        psfs.insert(psfs.end(), psfstemp.begin(), psfstemp.end());
+        std::vector<std::shared_ptr<PSFConfig>> psfconfigs = PSFManager::generatePSFsFromDir(setupConfig->psfDirPath);
+        for (auto psfconfig : psfconfigs){
+            psfs.push_back(PSFManager::generatePSFFromPSFConfig(psfconfig, thread_pool_.get()));
+        }
     }
     return psfs;
 }

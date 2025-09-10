@@ -12,7 +12,8 @@
 PSFGenerationService::PSFGenerationService()
     : initialized_(false),
       logger_([](const std::string& msg) { std::cout << "[PSF_SERVICE] " << msg << std::endl; }),
-      error_handler_([](const std::string& msg) { std::cerr << "[PSF_ERROR] " << msg << std::endl; })
+      error_handler_([](const std::string& msg) { std::cerr << "[PSF_ERROR] " << msg << std::endl; }),
+      thread_pool_(std::make_unique<ThreadPool>(std::thread::hardware_concurrency()))
 {
     // Initialize supported PSF types
     supported_types_ = {"Gaussian", "GibsonLanni", "BornWolf"};
@@ -107,13 +108,13 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
 
         // Handle saving if requested
         if (request.save_result) {
-            std::string endFilename = "PSF.tiff";
-            output_file = savePSF(request.output_path, endFilename, psf);
+            std::string filenameBase = "PSF";
+            output_file = savePSF(request.output_path, filenameBase + ".tiff", psf);
 
             // if a config was not provided by file the generated psfconfig is saved next
             // to the psf otherwise you already have the config somewhere, no need to save it
             if (request.config_.psf_config_ != nullptr){
-                std::string configFilename = "Config_" + endFilename;
+                std::string configFilename = "Config_" + filenameBase + ".json";
                 std::string output_file_config = savePSFConfig(request.output_path, configFilename, request.config_.psf_config_);
             }
         }
@@ -213,8 +214,8 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::createResult(
 
 std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(std::shared_ptr<PSFConfig> psfConfig) {
     try {
-        logMessage("Creating PSF from config using PSFManager");
-        return std::make_unique<PSF>(PSFManager::generatePSFFromPSFConfig(psfConfig));
+        logMessage("Creating PSF from config using PSFConfig");
+        return std::make_unique<PSF>(PSFManager::generatePSFFromPSFConfig(psfConfig, thread_pool_.get()));
     } catch (const std::exception& e) {
         std::string error_msg = "Failed to create PSF from config: " + std::string(e.what());
         logMessage(error_msg);
@@ -226,8 +227,11 @@ std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(std::shar
 std::unique_ptr<PSF> PSFGenerationService::createPSFFromFilePathInternal(const std::string& path) {
     try {
         logMessage("Creating PSF from file path using PSFManager: " + path);
-        return std::make_unique<PSF>(PSFManager::generatePSFFromConfigPath(path));
+        std::shared_ptr<PSFConfig> config = PSFManager::generatePSFConfigFromConfigPath(path);
+        return std::make_unique<PSF>(PSFManager::generatePSFFromPSFConfig(config, thread_pool_.get()));
+        
     } catch (const std::exception& e) {
+
         std::string error_msg = "Failed to create PSF from file: " + std::string(e.what());
         logMessage(error_msg);
         handleError(error_msg);

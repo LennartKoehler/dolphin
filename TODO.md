@@ -5,7 +5,6 @@ cubenumvec and layernumvec: what do they do
 
 secondarypsfcube / vec what do they do
 
-multithreaded services
 
 
 

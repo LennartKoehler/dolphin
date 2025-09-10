@@ -5,18 +5,14 @@
 
 
 
-PSF PSFManager::generatePSFFromConfigPath(const std::string& psfConfigPath){
+std::shared_ptr<PSFConfig> PSFManager::generatePSFConfigFromConfigPath(const std::string& psfConfigPath){
     if (!isJSONFile(psfConfigPath)){
         throw std::runtime_error("PSF Config file is not a JSON file: " + psfConfigPath);
     }
     json config = loadJSONFile(psfConfigPath);
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     std::shared_ptr<PSFConfig> psfConfig = factory.createConfig(config);
-    
-    PSF psf = generatePSFFromPSFConfig(psfConfig);
-    std::cout << "[STATUS] Generating PSF" << std::endl;
-    psfConfig->printValues();
-    return psf;
+    return psfConfig;
 }
 
 PSF PSFManager::readPSFFromFilePath(const std::string& psfFilePath){
@@ -25,18 +21,18 @@ PSF PSFManager::readPSFFromFilePath(const std::string& psfFilePath){
     return psf;
 }
 
-PSF PSFManager::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig){
+PSF PSFManager::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, ThreadPool* threadPool){
 
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(psfConfig);
-
+    psfGenerator->setThreadPool(threadPool);
     PSF psf = psfGenerator->generatePSF();
     return psf;
     
 }
 
-std::vector<PSF> PSFManager::generatePSFsFromDir(const std::string& psfDirPath){
-    std::vector<PSF> psfs;
+std::vector<std::shared_ptr<PSFConfig>> PSFManager::generatePSFsFromDir(const std::string& psfDirPath){
+    std::vector<std::shared_ptr<PSFConfig>> psfs;
     
     try {
         // Check if directory exists
@@ -61,7 +57,7 @@ std::vector<PSF> PSFManager::generatePSFsFromDir(const std::string& psfDirPath){
                         std::cout << "[STATUS] Processing config file: " << entry.path().filename().string() << std::endl;
                         
                         // Generate PSF from this config file
-                        PSF psf = generatePSFFromConfigPath(filePath);
+                        std::shared_ptr<PSFConfig> psf = generatePSFConfigFromConfigPath(filePath);
                         psfs.push_back(std::move(psf));
                         
                     } catch (const std::exception& e) {

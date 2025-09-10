@@ -94,7 +94,6 @@ public:
         }
         return names;
     }
-
 private:
     PSFGeneratorFactory() {
         // Register PSF types

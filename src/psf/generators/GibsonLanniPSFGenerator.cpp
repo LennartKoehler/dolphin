@@ -45,7 +45,7 @@
 
 #include "psf/generators/GibsonLanniPSFGenerator.h"
 #include "psf/configs/GibsonLanniPSFConfig.h"
-
+#include "ThreadPool.h"
 
 GibsonLanniPSFGenerator::GibsonLanniPSFGenerator(std::unique_ptr<NumericalIntegrator> integrator)
     : numericalIntegrator(std::move(integrator)){}
@@ -64,14 +64,23 @@ void GibsonLanniPSFGenerator::setConfig(const std::shared_ptr<const PSFConfig> c
     this->config = std::make_unique<GibsonLanniPSFConfig>(*ucfg);
 }
 
+
 PSF GibsonLanniPSFGenerator::generatePSF() const {
     std::vector<cv::Mat> sphereLayers;
+    std::vector<std::future<cv::Mat>> tempSphereLayers;
     sphereLayers.reserve(config->sizeZ);
 
-    for (int z = 0; z < config->sizeZ; z++){ // TODO multiprocessing
-        GibsonLanniPSFConfig config = *(this->config); // copy should enable mp
+
+
+    for (int z = 0; z < config->sizeZ; z++){
+        GibsonLanniPSFConfig config = *(this->config);
         config.ti_nm = config.ti0_nm + config.resAxial_nm * (z - (config.sizeZ - 1.0) / 2.0);
-        sphereLayers.push_back(SinglePlanePSF(config));
+        tempSphereLayers.emplace_back(threadPool->enqueue([this, config](){
+            return SinglePlanePSF(config);
+        })); 
+    }
+    for (auto& future : tempSphereLayers){
+        sphereLayers.push_back(future.get());
     }
     Image3D psfImage;
     psfImage.slices = sphereLayers;

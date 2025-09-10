@@ -97,9 +97,10 @@ set(COMMON_SOURCES
     src/psf/configs/GibsonLanniPSFConfig.cpp
     src/psf/configs/GaussianPSFConfig.cpp
 
-    src/deconvolution/BaseDeconvolutionAlgorithm.cpp
+
     src/deconvolution/DeconvolutionConfig.cpp
-    src/deconvolution/DeconvolutionAlgorithmFactory.cpp
+    src/deconvolution/DeconvolutionAlgorithmFactory.cpp 
+    src/deconvolution/algorithms/BaseDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
