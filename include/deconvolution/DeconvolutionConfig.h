@@ -20,7 +20,7 @@ public:
     std::vector<int> secondpsflayers = {};
     std::vector<int> secondpsfcubes = {};
     std::vector<std::vector<int>> cubeNumVec;
-    std::vector<std::vector<int>> layerNumVec;
+    std::vector<std::vector<int>> layerPSFMap;
 
     
     bool time; // for compatibility with deconv implementation, these dont belong here

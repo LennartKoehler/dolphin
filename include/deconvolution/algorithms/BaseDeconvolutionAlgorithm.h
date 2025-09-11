@@ -26,14 +26,20 @@ public:
 protected:
     // Configuration
     DeconvolutionConfig config;
+    
+    // Common algorithm parameters (should be moved to derived base class)
+    double epsilon = 1e-6;      // Minimum threshold for values
+    bool time = false;            // Whether to measure and display timing
+    bool saveSubimages = false;   // Whether to save subimage results
+    bool grid = false;            // Whether to use grid processing
+    std::string gpu = "";        // GPU API selection ("cuda", "", "opencl")
 
     // Image handling and fftw
     std::vector<cv::Mat> mergedVolume;
     std::vector<std::vector<cv::Mat>> gridImages;
     fftw_plan forwardPlan  = nullptr;
     fftw_plan backwardPlan = nullptr;
-    fftw_complex *paddedH = nullptr;
-    fftw_complex *paddedH_2 = nullptr;
+
     fftw_complex *fftwPlanMem = nullptr;
     std::vector<fftw_complex*> paddedHs;
 #ifdef CUDA_AVAILABLE
@@ -50,8 +56,8 @@ protected:
     int cubesPerX, cubesPerY, cubesPerZ, cubesPerLayer = 0;
     int cubeVolume, cubeWidth, cubeHeight, cubeDepth, cubePadding;
     std::vector<int> secondpsflayers, secondpsfcubes;
-    std::vector<std::vector<int>> cubeNumVec;
-    std::vector<std::vector<int>> layerNumVec;
+    std::vector<std::vector<int>> cubePSFMap;
+    std::vector<std::vector<int>> layerPSFMap;
 
 
     std::string gpu = "";

@@ -1,183 +1,153 @@
 #include "deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
-#include <opencv2/opencv.hpp>
-#include <iostream>
-#include <vector>
-#ifdef CUDA_AVAILABLE
-#include <cufft.h>
-#include <cufftw.h>
-#include <CUBE.h>
-#else
-#include <fftw3.h>
-#endif
 #include "UtlFFT.h"
-#include "UtlGrid.h"
-#include "UtlImage.h"
-#include <omp.h>
+#include <iostream>
 
+void RLTVDeconvolutionAlgorithm::configureAlgorithmSpecific(const DeconvolutionConfig& config) {
+    // Configure algorithm-specific parameters
+    iterations = config.iterations;
+    lambda = config.lambda;
 
-void RLTVDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
-    if(this->gpu == "cuda") {
-#ifdef CUDA_AVAILABLE
-        //INFO H(PSF) memory already allocated on GPU
-        fftw_complex *d_c, *d_f, *d_g;
-        cudaMalloc((void**)&d_c, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
-        cudaMalloc((void**)&d_f, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
-        cudaMalloc((void**)&d_g, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
-        CUBE_UTL_COPY::copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, g);
-        CUBE_UTL_COPY::copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, g);
+    // Output algorithm-specific configuration
+    std::cout << "[CONFIGURATION] Richardson-Lucy Total Variation algorithm" << std::endl;
+    std::cout << "[CONFIGURATION] iterations: " << iterations << std::endl;
+    std::cout << "[CONFIGURATION] lambda: " << lambda << std::endl;
+}
 
-        fftw_complex *d_gx, *d_gy, *d_gz, *d_tv;
-        cudaMalloc((void**)&d_gx, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
-        cudaMalloc((void**)&d_gy, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
-        cudaMalloc((void**)&d_gz, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
-        cudaMalloc((void**)&d_tv, this->cubeWidth* this->cubeHeight* this->cubeDepth * sizeof(fftw_complex));
+void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
+    // Call base class configure to set up common parameters
+    BaseDeconvolutionAlgorithmCPU::configure(config);
+    
+    // Configure algorithm-specific parameters
+    configureAlgorithmSpecific(config);
+}
 
+bool RLTVDeconvolutionAlgorithm::preprocessBackendSpecific(int channel_num, int psf_index) {
+    // Richardson-Lucy TV specific preprocessing if needed
+    return true;
+}
 
-        for (int n = 0; n < this->iterations; ++n) {
-            std::cout << "\r[STATUS] Channel: " << channel_num + 1 << "/" << data.channels.size() << " GridImage: "
-                      << this->totalGridNum << "/" << this->gridImages.size() << " Iteration: " << n + 1 << "/"
-                      << this->iterations << " ";
-
-            // Calculate gradients and the Total Variation
-            CUBE_REG::gradXFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, d_gx);
-            CUBE_REG::gradYFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, d_gy);
-            CUBE_REG::gradZFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, d_gz);
-            CUBE_REG::normalizeTVFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth,d_gx, d_gy, d_gz, this->epsilon);
-            CUBE_REG::gradXFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_gx, d_gx);
-            CUBE_REG::gradYFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_gy, d_gy);
-            CUBE_REG::gradZFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_gz, d_gz);
-            CUBE_REG::computeTVFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth,  this->lambda, d_gx, d_gy, d_gz, d_tv);
-
-            // a) First transformation:
-            // Fn = FFT(fn)
-            fftw_execute_dft(this->forwardPlan, d_f, d_f);
-
-            // Fn' = Fn * H
-            CUBE_MAT::complexElementwiseMatMulFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, H, d_c);
-
-            // fn' = IFFT(Fn')
-            fftw_execute_dft(this->backwardPlan, d_c, d_c);
-            CUBE_FTT::normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
-            CUBE_FTT::octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
-
-            // b) Calculation of the Correction Factor:
-            // c = g / fn'
-            // c = max(c, ε)
-            CUBE_MAT::complexElementwiseMatDivStabilizedFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_g, d_c, d_c, this->epsilon);
-
-            // c) Second transformation:
-            // C = FFT(c)
-            fftw_execute_dft(this->forwardPlan, d_c, d_c);
-
-            // C' = C * conj(H)
-            CUBE_MAT::complexElementwiseMatMulConjugateFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c, H, d_c);
-
-            // c' = IFFT(C')
-            fftw_execute_dft(this->backwardPlan, d_c, d_c);
-            CUBE_FTT::normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
-            CUBE_FTT::octantFourierShiftFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_c);
-
-            // d) Update the estimated image:
-            // fn = IFFT(Fn)
-            fftw_execute_dft(this->backwardPlan, d_f, d_f);
-            CUBE_FTT::normalizeFftwComplexData(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f);
-            // fn+1 = fn * c
-            CUBE_MAT::complexElementwiseMatMulFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_c, d_f);
-
-            // fn+1 = fn+1' * tv
-            CUBE_MAT::complexElementwiseMatMulFftwComplex(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_f, d_tv, d_f);
-
-            std::flush(std::cout);
-        }
-        CUBE_UTL_COPY::copyDataFromDeviceToHost(this->cubeWidth, this->cubeHeight, this->cubeDepth, f, d_f);
-        cudaFree(d_c);
-        cudaFree(d_f);
-        cudaFree(d_g);
-
-#else
-        std::cout << "[ERROR] Cuda is not available" << std::endl;
-#endif
-
-    }else if(this->gpu == "opencl") {
-        std::cout << "[ERROR] OpenCL is not implemented yet" << std::endl;
-    }else if(this->gpu == "" || this->gpu == "none") {
-        // Allocate memory for intermediate FFTW arrays
-        fftw_complex *c = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-        std::memcpy(f, g, sizeof(fftw_complex) * this->cubeVolume);
-
-        fftw_complex *gx = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-        fftw_complex *gy = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-        fftw_complex *gz = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-        fftw_complex *tv = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-
-        // Calculate gradients and the Total Variation
-        UtlFFT::gradientX(g, gx, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-        UtlFFT::gradientY(g, gy, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-        UtlFFT::gradientZ(g, gz, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-        UtlFFT::normalizeTV(gx, gy, gz, this->cubeWidth, this->cubeHeight, this->cubeDepth, this->epsilon);
-        UtlFFT::gradientX(gx, gx, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-        UtlFFT::gradientY(gy, gy, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-        UtlFFT::gradientZ(gz, gz, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-        UtlFFT::computeTV(this->lambda, gx, gy, gz, tv, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-
-        for (int n = 0; n < this->iterations; ++n) {
-            std::cout << "\r[STATUS] Channel: " << channel_num + 1 << "/" << data.channels.size() << " GridImage: "
-                      << this->totalGridNum << "/" << this->gridImages.size() << " Iteration: " << n + 1 << "/"
-                      << this->iterations << " ";
-
-
-            // a) First transformation:
-            // Fn = FFT(fn)
-            fftw_execute_dft(this->forwardPlan, f, f);
-
-            // Fn' = Fn * H
-            UtlFFT::complexMultiplication(f, H, c, this->cubeVolume);
-
-            // fn' = IFFT(Fn')
-            fftw_execute_dft(this->backwardPlan, c, c);
-            UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-
-            // b) Calculation of the Correction Factor:
-            // c = g / fn'
-            // c = max(c, ε)
-            UtlFFT::complexDivision(g, c, c, this->cubeVolume, this->epsilon);
-
-            // c) Second transformation:
-            // C = FFT(c)
-            fftw_execute_dft(this->forwardPlan, c, c);
-
-            // C' = C * conj(H)
-            UtlFFT::complexMultiplicationWithConjugate(c, H, c, this->cubeVolume);
-
-            // c' = IFFT(C')
-            fftw_execute_dft(backwardPlan, c, c);
-            UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-
-            // d) Update the estimated image:
-            // fn = IFFT(Fn)
-            fftw_execute_dft(this->backwardPlan, f, f);
-
-            // fn+1' = fn * c
-            UtlFFT::complexMultiplication(f, c, f, this->cubeVolume);
-
-            // fn+1 = fn+1' * tv
-            UtlFFT::complexMultiplication(f, tv, f, this->cubeVolume);
-
-            // Uncomment the following lines for debugging
-            // UtlFFT::normalizeImage(f, size, this->epsilon);
-            // UtlFFT::saveInterimImages(f, imageWidth, imageHeight, imageDepth, gridNum, channel_z, i);
-            // Überprüfung
-            if (!(UtlImage::isValidForFloat(f, this->cubeVolume))) {
-                std::cout << "[WARNING] Value of f fftcomplex(double) is smaller than float" << std::endl;
-            }
-            std::flush(std::cout);
-        }
-        fftw_free(c);
-        fftw_free(gx);
-        fftw_free(gy);
-        fftw_free(gz);
-        fftw_free(tv);
-    }else {
-        std::cout << "[ERROR] Please give a specific GPU API" << std::endl;
+void RLTVDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+    // Allocate memory for intermediate arrays using base class helper functions
+    fftw_complex *c = nullptr;
+    fftw_complex *gx = nullptr;
+    fftw_complex *gy = nullptr;
+    fftw_complex *gz = nullptr;
+    fftw_complex *tv = nullptr;
+    
+    if (!allocateCPUArray(c, cubeVolume) ||
+        !allocateCPUArray(gx, cubeVolume) ||
+        !allocateCPUArray(gy, cubeVolume) ||
+        !allocateCPUArray(gz, cubeVolume) ||
+        !allocateCPUArray(tv, cubeVolume)) {
+        std::cerr << "[ERROR] Failed to allocate memory for Richardson-Lucy TV algorithm" << std::endl;
+        
+        // Cleanup what we allocated
+        deallocateCPUArray(c);
+        deallocateCPUArray(gx);
+        deallocateCPUArray(gy);
+        deallocateCPUArray(gz);
+        deallocateCPUArray(tv);
+        return;
     }
+    
+    // Initialize result with input data
+    copyComplexArray(g, f, cubeVolume);
+
+    // Calculate gradients and the Total Variation (one-time computation)
+    UtlFFT::gradientX(g, gx, cubeWidth, cubeHeight, cubeDepth);
+    UtlFFT::gradientY(g, gy, cubeWidth, cubeHeight, cubeDepth);
+    UtlFFT::gradientZ(g, gz, cubeWidth, cubeHeight, cubeDepth);
+    UtlFFT::normalizeTV(gx, gy, gz, cubeWidth, cubeHeight, cubeDepth, epsilon);
+    UtlFFT::gradientX(gx, gx, cubeWidth, cubeHeight, cubeDepth);
+    UtlFFT::gradientY(gy, gy, cubeWidth, cubeHeight, cubeDepth);
+    UtlFFT::gradientZ(gz, gz, cubeWidth, cubeHeight, cubeDepth);
+    UtlFFT::computeTV(lambda, gx, gy, gz, tv, cubeWidth, cubeHeight, cubeDepth);
+
+    for (int n = 0; n < iterations; ++n) {
+        std::cout << "\r[STATUS] Channel: " << channel_num + 1 << " GridImage: " << totalGridNum
+                  << "/" << gridImages.size() << " Iteration: " << n + 1 << "/" << iterations << " ";
+
+        // a) First transformation: Fn = FFT(fn)
+        if (!executeForwardFFT(f, c)) {
+            std::cerr << "[ERROR] Forward FFT failed in Richardson-Lucy TV algorithm" << std::endl;
+            goto cleanup;
+        }
+
+        // Fn' = Fn * H
+        UtlFFT::complexMultiplication(f, H, c, cubeVolume);
+
+        // fn' = IFFT(Fn')
+        if (!executeBackwardFFT(c, f)) {
+            std::cerr << "[ERROR] Backward FFT failed in Richardson-Lucy TV algorithm" << std::endl;
+            goto cleanup;
+        }
+        UtlFFT::octantFourierShift(f, cubeWidth, cubeHeight, cubeDepth);
+
+        // b) Calculation of the Correction Factor: c = g / fn'
+        UtlFFT::complexDivision(g, f, c, cubeVolume, epsilon);
+
+        // c) Second transformation: C = FFT(c)
+        if (!executeForwardFFT(c, f)) {
+            std::cerr << "[ERROR] Forward FFT of correction factor failed" << std::endl;
+            goto cleanup;
+        }
+
+        // C' = C * conj(H)
+        UtlFFT::complexMultiplicationWithConjugate(f, H, f, cubeVolume);
+
+        // c' = IFFT(C')
+        if (!executeBackwardFFT(f, c)) {
+            std::cerr << "[ERROR] Backward FFT of correction failed" << std::endl;
+            goto cleanup;
+        }
+        UtlFFT::octantFourierShift(c, cubeWidth, cubeHeight, cubeDepth);
+
+        // d) Update the estimated image:fn+1' = fn * c
+        if (!copyComplexArray(c, f, cubeVolume)) {
+            std::cerr << "[ERROR] Failed to update result image" << std::endl;
+            goto cleanup;
+        }
+
+        // fn+1 = fn+1' * tv
+        UtlFFT::complexMultiplication(f, tv, f, cubeVolume);
+
+        // Debugging check
+        if (!validateComplexArray(f, cubeVolume, "Richardson-Lucy TV result")) {
+            std::cout << "[WARNING] Invalid array values detected in iteration " << n + 1 << std::endl;
+        }
+
+        std::flush(std::cout);
+    }
+    
+    // Clean up allocated arrays
+cleanup:
+    deallocateCPUArray(c);
+    deallocateCPUArray(gx);
+    deallocateCPUArray(gy);
+    deallocateCPUArray(gz);
+    deallocateCPUArray(tv);
+}
+
+bool RLTVDeconvolutionAlgorithm::postprocessBackendSpecific(int channel_num, int psf_index) {
+    // Richardson-Lucy TV specific postprocessing if needed
+    return true;
+}
+
+bool RLTVDeconvolutionAlgorithm::allocateBackendMemory(int channel_num) {
+    // Allocate memory specific to Richardson-Lucy TV algorithm if needed
+    return true;
+}
+
+void RLTVDeconvolutionAlgorithm::deallocateBackendMemory(int channel_num) {
+    // Deallocate memory specific to Richardson-Lucy TV algorithm if needed
+}
+
+void RLTVDeconvolutionAlgorithm::cleanupBackendSpecific() {
+    // Cleanup specific to Richardson-Lucy TV algorithm if needed
+}
+
+// Legacy algorithm method for compatibility with existing code
+void RLTVDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+    // Simply delegate to the new backend-specific implementation
+    algorithmBackendSpecific(channel_num, H, g, f);
 }

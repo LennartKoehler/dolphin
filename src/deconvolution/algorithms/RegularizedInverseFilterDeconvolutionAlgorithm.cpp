@@ -1,83 +1,111 @@
-#include <opencv2/core.hpp>
 #include "deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
-#include "UtlImage.h"
 #include "UtlFFT.h"
-#include "UtlGrid.h"
+#include "UtlImage.h"
+#include <iostream>
 
-
-
-// Configure the deconvolution parameters
-void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Algorithm specific
-    this->lambda = config.lambda;
-
-    // General
-    this->epsilon = config.epsilon;
-    this->time = config.time;
-    this->saveSubimages = config.saveSubimages;
-
-
-
-    // Grid
-    this->grid = config.grid;
-    this->borderType = config.borderType;
-    this->psfSafetyBorder = config.psfSafetyBorder;
-    this->cubeSize = config.cubeSize;
-    this->secondpsflayers = config.secondpsflayers;
-    this->secondpsfcubes = config.secondpsfcubes;
-
-
-    // Output
-    std::cout << "[CONFIGURATION] Regularized Inverse Filter" << std::endl;
-    std::cout << "[CONFIGURATION] lambda: " << this->lambda << std::endl;
-    std::cout << "[CONFIGURATION] epsilon: " << epsilon << std::endl;
-    std::cout << "[CONFIGURATION] grid: " << this->grid << std::endl;
-
-    if(this->grid){
-        std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;
-        std::cout << "[CONFIGURATION] psfSafetyBorder: " << this->psfSafetyBorder << std::endl;
-        std::cout << "[CONFIGURATION] subimageSize: " << this->cubeSize << std::endl;
-        if(!this->secondpsflayers.empty()){
-            std::cout << "[CONFIGURATION] secondpsflayers: ";
-            for (const int& layer : secondpsflayers) {
-                std::cout << layer << ", ";
-            }
-            std::cout << std::endl;
-        }
-        if(!this->secondpsfcubes.empty()){
-            std::cout << "[CONFIGURATION] secondpsfcubes: ";
-            for (const int& cube : secondpsfcubes) {
-                std::cout << cube << ", ";
-            }
-            std::cout << std::endl;
-        }
-    }
+void RegularizedInverseFilterDeconvolutionAlgorithm::configureAlgorithmSpecific(const DeconvolutionConfig& config) {
+    // Configure algorithm-specific parameters
+    lambda = config.lambda;
 }
 
-void RegularizedInverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
-        // Allocate memory for intermediate FFTW arrays
-        fftw_complex* H2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-        fftw_complex* L = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-        fftw_complex* L2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-        fftw_complex* FA = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-        fftw_complex* FP = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
+void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
+    // Call base class configure to set up common parameters
+    BaseDeconvolutionAlgorithmCPU::configure(config);
+    
+    // Configure algorithm-specific parameters
+    configureAlgorithmSpecific(config);
+}
 
+bool RegularizedInverseFilterDeconvolutionAlgorithm::preprocessBackendSpecific(int channel_num, int psf_index) {
+    // No specific preprocessing needed for regularized inverse filter
+    return true;
+}
 
+void RegularizedInverseFilterDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+    // Allocate memory for intermediate arrays using base class helper functions
+    fftw_complex* H2 = nullptr;
+    fftw_complex* L = nullptr;
+    fftw_complex* L2 = nullptr;
+    fftw_complex* FA = nullptr;
+    fftw_complex* FP = nullptr;
+    
+    if (!allocateCPUArray(H2, cubeVolume) ||
+        !allocateCPUArray(L, cubeVolume) ||
+        !allocateCPUArray(L2, cubeVolume) ||
+        !allocateCPUArray(FA, cubeVolume) ||
+        !allocateCPUArray(FP, cubeVolume)) {
+        std::cerr << "[ERROR] Failed to allocate memory for regularized inverse filter processing" << std::endl;
+        
+        // Cleanup what we allocated
+        deallocateCPUArray(H2);
+        deallocateCPUArray(L);
+        deallocateCPUArray(L2);
+        deallocateCPUArray(FA);
+        deallocateCPUArray(FP);
+        return;
+    }
+    
+    try {
         // Forward FFT on image
-        fftw_execute_dft(forwardPlan, g, g);
+        if (!executeForwardFFT(g, g)) {
+            std::cerr << "[ERROR] Forward FFT failed in regularized inverse filter algorithm" << std::endl;
+            return;
+        }
 
         // H*H
-        UtlFFT::complexMultiplication(H, H, H2, this->cubeVolume);
+        UtlFFT::complexMultiplication(H, H, H2, cubeVolume);
+        
         // Laplacian L
-        UtlFFT::calculateLaplacianOfPSF(H, L, this->cubeWidth, this->cubeHeight, this->cubeDepth);
-        UtlFFT::complexMultiplication(L, L, L2, this->cubeVolume);
-        UtlFFT::scalarMultiplication(L2, this->lambda, L2, this->cubeVolume);
+        UtlFFT::calculateLaplacianOfPSF(H, L, cubeWidth, cubeHeight, cubeDepth);
+        UtlFFT::complexMultiplication(L, L, L2, cubeVolume);
+        UtlFFT::scalarMultiplication(L2, lambda, L2, cubeVolume);
 
-        UtlFFT::complexAddition(H2, L2, FA, this->cubeVolume);
-        UtlFFT::complexDivisionStabilized(H, FA, FP, this->cubeVolume, this->epsilon);
-        UtlFFT::complexMultiplication(g, FP, f, this->cubeVolume);
+        UtlFFT::complexAddition(H2, L2, FA, cubeVolume);
+        UtlFFT::complexDivisionStabilized(H, FA, FP, cubeVolume, epsilon);
+        UtlFFT::complexMultiplication(g, FP, f, cubeVolume);
 
         // Inverse FFT
-        fftw_execute_dft(backwardPlan, f, f);
-        UtlFFT::octantFourierShift(f, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+        if (!executeBackwardFFT(f, g)) {
+            std::cerr << "[ERROR] Backward FFT failed in regularized inverse filter algorithm" << std::endl;
+            return;
+        }
+        UtlFFT::octantFourierShift(g, cubeWidth, cubeHeight, cubeDepth);
+        
+        // Copy result to output
+        copyComplexArray(g, f, cubeVolume);
+        
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in regularized inverse filter algorithm: " << e.what() << std::endl;
+    }
+    
+    // Cleanup allocated arrays
+    deallocateCPUArray(H2);
+    deallocateCPUArray(L);
+    deallocateCPUArray(L2);
+    deallocateCPUArray(FA);
+    deallocateCPUArray(FP);
+}
+
+bool RegularizedInverseFilterDeconvolutionAlgorithm::postprocessBackendSpecific(int channel_num, int psf_index) {
+    // No specific postprocessing needed for regularized inverse filter
+    return true;
+}
+
+bool RegularizedInverseFilterDeconvolutionAlgorithm::allocateBackendMemory(int channel_num) {
+    // No specific memory allocation needed for regularized inverse filter
+    return true;
+}
+
+void RegularizedInverseFilterDeconvolutionAlgorithm::deallocateBackendMemory(int channel_num) {
+    // No specific memory deallocation needed for regularized inverse filter
+}
+
+void RegularizedInverseFilterDeconvolutionAlgorithm::cleanupBackendSpecific() {
+    // No specific cleanup needed for regularized inverse filter
+}
+
+// Legacy algorithm method for compatibility with existing code
+void RegularizedInverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+    // Simply delegate to the new backend-specific implementation
+    algorithmBackendSpecific(channel_num, H, g, f);
 }

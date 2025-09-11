@@ -1,30 +1,29 @@
-// #include "deconvolution/DeconvolutionAlgorithmFactory.h"
-// #include "deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
-// #include "deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
-// #include "deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
-// #include "deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
-// #include "deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
+#include "deconvolution/DeconvolutionAlgorithmFactory.h"
+#include "deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
 
-// DeconvolutionAlgorithmFactory& DeconvolutionAlgorithmFactory::getInstance() {
-//     static DeconvolutionAlgorithmFactory instance;
-//     return instance;
-// }
+#ifdef CUDA_AVAILABLE
+#include "deconvolution/algorithms/BaseDeconvolutionAlgorithmGPU.h"
+#endif
 
-// DeconvolutionAlgorithmFactory::DeconvolutionAlgorithmFactory() {
-//     // Register algorithms
-//     registerAlgorithm("InverseFilter", []() {
-//         return std::make_unique<InverseFilterDeconvolutionAlgorithm>();
-//     });
-//     registerAlgorithm("RichardsonLucy", []() {
-//         return std::make_unique<RLDeconvolutionAlgorithm>();
-//     });
-//     registerAlgorithm("RichardsonLucyTotalVariation", []() {
-//         return std::make_unique<RLTVDeconvolutionAlgorithm>();
-//     });
-//     registerAlgorithm("RegularizedInverseFilter", []() {
-//         return std::make_unique<RegularizedInverseFilterDeconvolutionAlgorithm>();
-//     });
-//     registerAlgorithm("RichardsonLucywithAdaptiveDamping", []() {
-//         return std::make_unique<RLADDeconvolutionAlgorithm>();
-//     });
-// }
+DeconvolutionAlgorithmFactory& DeconvolutionAlgorithmFactory::getInstance() {
+    static DeconvolutionAlgorithmFactory instance;
+    return instance;
+}
+
+DeconvolutionAlgorithmFactory::DeconvolutionAlgorithmFactory() {
+    // Detect CUDA availability first
+    // Register all CPU algorithms
+    registerCPUAlgorithms();
+    
+    // Register GPU algorithms if CUDA is available
+    if (is_cuda_available_) {
+        registerGPUAlgorithms();
+        std::cout << "[INFO] CUDA available, GPU algorithms registered" << std::endl;
+    } else {
+        std::cout << "[INFO] CUDA not available, only CPU algorithms registered" << std::endl;
+    }
+}

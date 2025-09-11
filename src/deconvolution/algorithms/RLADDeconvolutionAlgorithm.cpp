@@ -1,139 +1,134 @@
 #include "deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
-#include <opencv2/opencv.hpp>
-#include <iostream>
-#include <vector>
-#ifdef CUDA_AVAILABLE
-#include <cufft.h>
-#include <cufftw.h>
-#else
-#include <fftw3.h>
-#endif
 #include "UtlFFT.h"
-#include "UtlGrid.h"
 #include "UtlImage.h"
-#include <omp.h>
+#include <iostream>
 
-void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Algorithm specific
-    this->iterations = config.iterations;
-    //this->dampingDecrease = config.dampingDecrease;
-    //this->alpha = config.alpha;
-    //this->beta = config.beta;
-    this->dampingDecrease = 0;
-    this->alpha = 0.9;
-    this->beta = 0.01;
-
-    // General
-    this->epsilon = config.epsilon;
-    this->time = config.time;
-    this->saveSubimages = config.saveSubimages;
-
-
-
-    // Grid
-    this->grid = config.grid;
-    this->borderType = config.borderType;
-    this->psfSafetyBorder = config.psfSafetyBorder;
-    this->cubeSize = config.cubeSize;
-    this->secondpsflayers = config.secondpsflayers;
-    this->secondpsfcubes = config.secondpsfcubes;
-
-    // Output
-    std::cout << "[CONFIGURATION] Richardson-Lucy with Adaptive Damping algorithm" << std::endl;
-    std::cout << "[CONFIGURATION] iterations: " << this->iterations << std::endl;
-    std::cout << "[CONFIGURATION] dampingDecrease: " << this->dampingDecrease << std::endl;
-    std::cout << "[CONFIGURATION] alpha: " << this->alpha << std::endl;
-    std::cout << "[CONFIGURATION] beta: " << this->beta << std::endl;
-    std::cout << "[CONFIGURATION] epsilon: " << this->epsilon << std::endl;
-    std::cout << "[CONFIGURATION] grid: " << std::to_string(this->grid) << std::endl;
-
-    if(this->grid){
-        std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;
-        std::cout << "[CONFIGURATION] psfSafetyBorder: " << this->psfSafetyBorder << std::endl;
-        std::cout << "[CONFIGURATION] subimageSize: " << this->cubeSize << std::endl;
-        if(!this->secondpsflayers.empty()){
-            std::cout << "[CONFIGURATION] secondpsflayers: ";
-            for (const int& layer : secondpsflayers) {
-                std::cout << layer << ", ";
-            }
-            std::cout << std::endl;
-        }
-        if(!this->secondpsfcubes.empty()){
-            std::cout << "[CONFIGURATION] secondpsfcubes: ";
-            for (const int& cube : secondpsfcubes) {
-                std::cout << cube << ", ";
-            }
-            std::cout << std::endl;
-        }
-    }
+void RLADDeconvolutionAlgorithm::configureAlgorithmSpecific(const DeconvolutionConfig& config) {
+    // Configure algorithm-specific parameters
+    iterations = config.iterations;
+    dampingDecrease = 0; // Fixed to exponential decay as in original
+    alpha = 0.9;         // Fixed as in original
+    beta = 0.01;         // Fixed as in original
 }
 
-void RLADDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
+    // Call base class configure to set up common parameters
+    BaseDeconvolutionAlgorithmCPU::configure(config);
+    
+    // Configure algorithm-specific parameters
+    configureAlgorithmSpecific(config);
+}
 
-    // Allocate memory for intermediate FFTW arrays
-    fftw_complex *c = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
-    std::memcpy(f, g, sizeof(fftw_complex) * this->cubeVolume);
+bool RLADDeconvolutionAlgorithm::preprocessBackendSpecific(int channel_num, int psf_index) {
+    // No specific preprocessing needed for RLAD algorithm
+    return true;
+}
+
+void RLADDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+    // Allocate memory for intermediate arrays using base class helper functions
+    fftw_complex *c = nullptr;
+    if (!allocateCPUArray(c, cubeVolume)) {
+        std::cerr << "[ERROR] Failed to allocate memory for RLAD algorithm processing" << std::endl;
+        return;
+    }
+    
+    // Initialize result with input data
+    copyComplexArray(g, f, cubeVolume);
 
     double a;
 
-    for (int n = 0; n < this->iterations; ++n) {
-        std::cout << "\r[STATUS] Channel: " << channel_num + 1 << "/" << data.channels.size() << " GridImage: "
-                  << this->totalGridNum << "/" << this->gridImages.size() << " Iteration: " << n + 1 << "/"
-                  << this->iterations << " ";
-
-        if(true) {
-            a = this->alpha*exp(-this->beta*n);
-        }else if(this->dampingDecrease = 1) {
-            a = this->alpha-this->beta*n;
-        }else {
-            a = this->alpha*exp(-this->beta*n);
+    for (int n = 0; n < iterations; ++n) {
+        // Calculate damping factor
+        if (dampingDecrease == 0) {
+            a = alpha * exp(-beta * n);
+        } else {  // Linear decay
+            a = alpha - beta * n;
         }
 
-        // a) First transformation:
-        // Fn = FFT(fn)
-        fftw_execute_dft(this->forwardPlan, f, f);
+        std::cout << "\r[STATUS] Channel: " << channel_num + 1 << " GridImage: " << totalGridNum 
+                  << "/" << gridImages.size() << " Iteration: " << n + 1 << "/" << iterations << " ";
+
+        // a) First transformation: Fn = FFT(fn)
+        if (!executeForwardFFT(f, c)) {
+            std::cerr << "[ERROR] Forward FFT failed in RLAD algorithm" << std::endl;
+            goto cleanup;
+        }
 
         // Fn' = Fn * H
-        UtlFFT::complexMultiplication(f, H, c, this->cubeVolume);
+        UtlFFT::complexMultiplication(f, H, c, cubeVolume);
 
         // fn' = IFFT(Fn')
-        fftw_execute_dft(this->backwardPlan, c, c);
-        UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+        if (!executeBackwardFFT(c, f)) {
+            std::cerr << "[ERROR] Backward FFT failed in RLAD algorithm" << std::endl;
+            goto cleanup;
+        }
+        UtlFFT::octantFourierShift(f, cubeWidth, cubeHeight, cubeDepth);
 
-        // b) Calculation of the Correction Factor:
-        // c = g / fn'
-        // c = max(c, ε)
-        UtlFFT::complexDivision(g, c, c, this->cubeVolume, this->epsilon);
+        // b) Calculation of the Correction Factor: c = g / fn'
+        UtlFFT::complexDivision(g, f, c, cubeVolume, epsilon);
 
-        // c) Second transformation:
-        // C = FFT(c)
-        fftw_execute_dft(this->forwardPlan, c, c);
+        // c) Second transformation: C = FFT(c)
+        if (!executeForwardFFT(c, f)) {
+            std::cerr << "[ERROR] Forward FFT of correction factor failed" << std::endl;
+            goto cleanup;
+        }
 
         // C' = C * conj(H)
-        UtlFFT::complexMultiplicationWithConjugate(c, H, c, this->cubeVolume);
+        UtlFFT::complexMultiplicationWithConjugate(f, H, f, cubeVolume);
 
         // c' = IFFT(C')
-        fftw_execute_dft(backwardPlan, c, c);
-        UtlFFT::octantFourierShift(c, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+        if (!executeBackwardFFT(f, c)) {
+            std::cerr << "[ERROR] Backward FFT of correction failed" << std::endl;
+            goto cleanup;
+        }
+        UtlFFT::octantFourierShift(c, cubeWidth, cubeHeight, cubeDepth);
 
         // d) Update the estimated image:
         // fn = IFFT(Fn)
-        fftw_execute_dft(this->backwardPlan, f, f);
+        if (!executeBackwardFFT(c, f)) {
+            std::cerr << "[ERROR] Final backward FFT failed in RLAD algorithm" << std::endl;
+            goto cleanup;
+        }
 
-        // c = c * a
-        UtlFFT::scalarMultiplication(c, a, c, this->cubeVolume);
+        // c = c * a (Apply adaptive damping)
+        UtlFFT::scalarMultiplication(c, a, c, cubeVolume);
 
         // fn+1' = fn * c
-        UtlFFT::complexMultiplication(f, c, f, this->cubeVolume);
+        UtlFFT::complexMultiplication(f, c, f, cubeVolume);
 
-        // Uncomment the following lines for debugging
-        // UtlFFT::normalizeImage(f, size, this->epsilon);
-        // UtlFFT::saveInterimImages(f, imageWidth, imageHeight, imageDepth, gridNum, channel_z, i);
-        // Überprüfung
-        if (!(UtlImage::isValidForFloat(f, this->cubeVolume))) {
-            std::cout << "[WARNING] Value fftwPlanMem fftcomplex(double) is smaller than float" << std::endl;
+        // Debugging check
+        if (!validateComplexArray(f, cubeVolume, "RLAD result")) {
+            std::cout << "[WARNING] Invalid array values detected in iteration " << n + 1 << std::endl;
         }
+
         std::flush(std::cout);
     }
-    fftw_free(c);
+    
+    // Clean up allocated arrays
+cleanup:
+    deallocateCPUArray(c);
+}
+
+bool RLADDeconvolutionAlgorithm::postprocessBackendSpecific(int channel_num, int psf_index) {
+    // No specific postprocessing needed for RLAD algorithm
+    return true;
+}
+
+bool RLADDeconvolutionAlgorithm::allocateBackendMemory(int channel_num) {
+    // No specific memory allocation needed for RLAD algorithm
+    return true;
+}
+
+void RLADDeconvolutionAlgorithm::deallocateBackendMemory(int channel_num) {
+    // No specific memory deallocation needed for RLAD algorithm
+}
+
+void RLADDeconvolutionAlgorithm::cleanupBackendSpecific() {
+    // No specific cleanup needed for RLAD algorithm
+}
+
+// Legacy algorithm method for compatibility with existing code
+void RLADDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+    // Simply delegate to the new backend-specific implementation
+    algorithmBackendSpecific(channel_num, H, g, f);
 }
