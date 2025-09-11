@@ -14,55 +14,6 @@
 #include "UtlImage.h"
 #include <omp.h>
 
-void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Algorithm specific
-    this->iterations = config.iterations;
-    this->lambda = config.lambda;
-
-    // General
-    this->epsilon = config.epsilon;
-    this->gpu = config.gpu;
-    this->time = config.time;
-    this->saveSubimages = config.saveSubimages;
-
-    // Grid
-    this->grid = config.grid;
-    this->borderType = config.borderType;
-    this->psfSafetyBorder = config.psfSafetyBorder;
-    this->cubeSize = config.cubeSize;
-    this->secondpsflayers = config.secondpsflayers;
-    this->secondpsfcubes = config.secondpsfcubes;
-
-    // Output
-    std::cout << "[CONFIGURATION] Richardson-Lucy with Total Variation algorithm" << std::endl;
-    std::cout << "[CONFIGURATION] iterations: " << this->iterations << std::endl;
-    std::cout << "[CONFIGURATION] lambda: " << this->lambda << std::endl;
-    std::cout << "[CONFIGURATION] epsilon: " << this->epsilon << std::endl;
-    std::cout << "[CONFIGURATION] grid: " << std::to_string(this->grid) << std::endl;
-
-    if(this->grid){
-        std::cout << "[CONFIGURATION] borderType: " << this->borderType << std::endl;
-        std::cout << "[CONFIGURATION] psfSafetyBorder: " << this->psfSafetyBorder << std::endl;
-        std::cout << "[CONFIGURATION] subimageSize: " << this->cubeSize << std::endl;
-        if(!this->secondpsflayers.empty()){
-            std::cout << "[CONFIGURATION] secondpsflayers: ";
-            for (const int& layer : secondpsflayers) {
-                std::cout << layer << ", ";
-            }
-            std::cout << std::endl;
-        }
-        if(!this->secondpsfcubes.empty()){
-            std::cout << "[CONFIGURATION] secondpsfcubes: ";
-            for (const int& cube : secondpsfcubes) {
-                std::cout << cube << ", ";
-            }
-            std::cout << std::endl;
-        }
-    }
-    if(this->gpu != "") {
-        std::cout << "[CONFIGURATION] gpu: " << this->gpu << std::endl;
-    }
-}
 
 void RLTVDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
     if(this->gpu == "cuda") {

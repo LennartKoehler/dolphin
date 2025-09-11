@@ -20,6 +20,9 @@ Hyperstack BaseDeconvolutionAlgorithm::run(Hyperstack& data, std::vector<PSF>& p
     return deconvolve(data, psfs);
 }
 
+void BaseDeconvolutionAlgorithm::configure(DeconvolutionConfig config) {
+    this->config = config;
+}
 
 bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& psfs) {
         // Find and display global min and max of the data
@@ -47,28 +50,28 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         int originPsfVolume = originPsfWidth * originPsfHeight * originPsfDepth;
 
         //int psfSafetyBorder = 20;//originPsfWidth/2;
-        int safetyBorderPsfWidth = psfs[0].image.slices[0].cols+(2*this->psfSafetyBorder);
-        int safetyBorderPsfHeight = psfs[0].image.slices[0].rows+(2*this->psfSafetyBorder);
-        int safetyBorderPsfDepth = psfs[0].image.slices.size()+(2*this->psfSafetyBorder);
+        int safetyBorderPsfWidth = psfs[0].image.slices[0].cols+(2*config.psfSafetyBorder);
+        int safetyBorderPsfHeight = psfs[0].image.slices[0].rows+(2*config.psfSafetyBorder);
+        int safetyBorderPsfDepth = psfs[0].image.slices.size()+(2*config.psfSafetyBorder);
         int safetyBorderPsfVolume = safetyBorderPsfWidth * safetyBorderPsfHeight * safetyBorderPsfDepth;
         int imagePadding = originImageWidth / 2;
-        this->cubePadding = this->psfSafetyBorder;
-        if(this->cubeSize < 1){
+        this->cubePadding = config.psfSafetyBorder;
+        if(config.cubeSize < 1){
             // Auto function for cubeSize, sets cubeSize to fit PSF
             std::cout << "[INFO] SubimageSize fitted to PSF size" << std::endl;
-            this->cubeSize = std::max({originPsfWidth, originPsfHeight, originPsfDepth});
+            config.cubeSize = std::max({originPsfWidth, originPsfHeight, originPsfDepth});
         }
 
-        if(safetyBorderPsfWidth < this->cubeSize){
+        if(safetyBorderPsfWidth < config.cubeSize){
             this->cubePadding = 10;
             std::cout << "[INFO] PSF with safety border smaller than subimageSize" << std::endl;
         }
-        if(this->cubeSize+2*this->cubePadding < safetyBorderPsfWidth){
-            this->cubePadding = (safetyBorderPsfWidth-this->cubeSize)/2;
+        if(config.cubeSize+2*this->cubePadding < safetyBorderPsfWidth){
+            this->cubePadding = (safetyBorderPsfWidth-config.cubeSize)/2;
             //std::cout <<  "[INFO] cubeSize smaller than PSF with safety border" << std::endl;
         }
 
-        if(!this->grid){
+        if(!config.grid){
             std::cout << "[INFO] Processing without grid" << std::endl;
             this->gridImages.push_back(channel.image.slices);
             this->cubeWidth = channel.image.slices[0].cols;
@@ -83,29 +86,29 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 
         }else {
 
-            if(this->psfSafetyBorder < 1){
+            if(config.psfSafetyBorder < 1){
                 std::cerr << "[ERROR] SubimageSize should be greater than 1 and PsfSafetyBorder should be greater than 0" << std::endl;
                 return false;
             }
 
-            UtlGrid::extendImage(channel.image.slices, imagePadding, this->borderType);
+            UtlGrid::extendImage(channel.image.slices, imagePadding, config.borderType);
 
-            this->gridImages = UtlGrid::splitWithCubePadding(channel.image.slices, this->cubeSize, imagePadding, this->cubePadding);
-            std::cout << "[INFO] Actual subimageSize: " << this->cubeSize << "px" << std::endl;
+            this->gridImages = UtlGrid::splitWithCubePadding(channel.image.slices, config.cubeSize, imagePadding, this->cubePadding);
+            std::cout << "[INFO] Actual subimageSize: " << config.cubeSize << "px" << std::endl;
             std::cout << "[INFO] Subimages(with extentsion) properties: [Depth: " << this->gridImages[0].size() << " Width:" << this->gridImages[0][0].cols << " Height:" << this->gridImages[0][0].rows << " Subimages: " << this->gridImages.size() << "]" << std::endl;
 
-            if((this->cubeSize + 2*this->cubePadding) != this->gridImages[0][0].cols){
-                std::cerr << "[ERROR] SubimageSize doesnt match with actual CubeSize: " << this->gridImages[0][0].cols << " (should be: " << (this->cubeSize + 2*this->cubePadding) << ")" << std::endl;
+            if((config.cubeSize + 2*this->cubePadding) != this->gridImages[0][0].cols){
+                std::cerr << "[ERROR] SubimageSize doesnt match with actual CubeSize: " << this->gridImages[0][0].cols << " (should be: " << (config.cubeSize + 2*this->cubePadding) << ")" << std::endl;
                 return false;
             }
 
-            this->cubeWidth = (this->cubeSize + 2*this->cubePadding);
-            this->cubeHeight = (this->cubeSize + 2 * this->cubePadding);
-            this->cubeDepth = (this->cubeSize + 2*this->cubePadding);
+            this->cubeWidth = (config.cubeSize + 2*this->cubePadding);
+            this->cubeHeight = (config.cubeSize + 2 * this->cubePadding);
+            this->cubeDepth = (config.cubeSize + 2*this->cubePadding);
             this->cubeVolume = this->cubeWidth * this->cubeHeight * this->cubeDepth;
 
-            if(this->cubeWidth != this->psfSafetyBorder){
-                if(this->cubeWidth > this->psfSafetyBorder){
+            if(this->cubeWidth != config.psfSafetyBorder){
+                if(this->cubeWidth > config.psfSafetyBorder){
                     safetyBorderPsfWidth = this->cubeWidth;
                     safetyBorderPsfHeight = this->cubeHeight;
                     safetyBorderPsfDepth = this->cubeDepth;
@@ -114,7 +117,7 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
             }
 
         }
-        if(this->cubeSize < originPsfWidth){
+        if(config.cubeSize < originPsfWidth){
             std::cout << "[WARNING] PSF is larger than image/cube" << std::endl;
         }
 
@@ -138,14 +141,14 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
         fftw_complex *temp_h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * safetyBorderPsfVolume);
         UtlFFT::padPSF(h, originPsfWidth, originPsfHeight, originPsfDepth, temp_h, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
 #ifdef CUDA_AVAILABLE
-        if(this->gpu == "cuda") {
-            //INFO safetyBorderPsfVolume = this->cubeWidth* this->cubeHeight* this->cubeDepth
+        if(config.gpu == "cuda") {
+            //INFO safetyBorderPsfVolume = this->cubeWidth* this->cubeHeight*this->cubeDepth 
             fftw_complex *d_temp_h;
             cudaMalloc((void**)&d_temp_h, safetyBorderPsfVolume * sizeof(fftw_complex));
             CUBE_UTL_COPY::copyDataFromHostToDevice(this->cubeWidth, this->cubeHeight, this->cubeDepth, d_temp_h, temp_h);
-            this->d_paddedHs.push_back(d_temp_h);
+            config.d_paddedHs.push_back(d_temp_h);
         }else {
-            this->paddedHs.push_back(temp_h);
+            config.paddedHs.push_back(temp_h);
         }
 #else
         this->paddedHs.push_back(temp_h);
@@ -166,7 +169,7 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon, ImageMetaData& meta
         return false;
     }
     ////////////////////////////////////////
-    if(this->saveSubimages){
+    if(config.saveSubimages){
 
     std::vector<std::vector<cv::Mat>> tiles(this->gridImages); // Kopie erstellen
     UtlGrid::cropCubePadding(tiles, this->cubePadding);
@@ -207,13 +210,13 @@ bool BaseDeconvolutionAlgorithm::postprocess(double epsilon, ImageMetaData& meta
     }
     }
     //////////////////////////////////////////////
-    if(this->grid){
+    if(config.grid){
         //TODO no effect
         //UtlGrid::adjustCubeOverlap(this->gridImages,this->cubePadding);
 
         UtlGrid::cropCubePadding(this->gridImages, this->cubePadding);
         std::cout << "[STATUS] Merging Grid back to Image..." << std::endl;
-        this->mergedVolume = UtlGrid::mergeCubes(this->gridImages, this->originalImageWidth, this->originalImageHeight, this->originalImageDepth, this->cubeSize);
+        this->mergedVolume = UtlGrid::mergeCubes(this->gridImages, this->originalImageWidth, this->originalImageHeight, this->originalImageDepth, config.cubeSize);
         std::cout << "[INFO] Image size: " << this->mergedVolume[0].rows << "x" << this->mergedVolume[0].cols << "x" << this->mergedVolume.size()<< std::endl;
     }else{
         this->mergedVolume = this->gridImages[0];
@@ -295,6 +298,10 @@ void BaseDeconvolutionAlgorithm::cleanup() {
     // Clear the subimage vector
     this->gridImages.clear();
 }
+
+
+
+
 Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<PSF> &psfs) {
     // Create a copy of the input data
     Hyperstack deconvHyperstack{data};
@@ -334,9 +341,9 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
 
         // Prepare info of cube arrangement
         std::cout << "[STATUS] Running Deconvolution..." << std::endl;
-        this->cubesPerX = static_cast<int>(std::ceil(static_cast<double>(this->originalImageWidth) / this->cubeSize));
-        this->cubesPerY = static_cast<int>(std::ceil(static_cast<double>(this->originalImageHeight) / this->cubeSize));
-        this->cubesPerZ = static_cast<int>(std::ceil(static_cast<double>(this->originalImageDepth) / this->cubeSize));
+        this->cubesPerX = static_cast<int>(std::ceil(static_cast<double>(this->originalImageWidth) / config.cubeSize));
+        this->cubesPerY = static_cast<int>(std::ceil(static_cast<double>(this->originalImageHeight) / config.cubeSize));
+        this->cubesPerZ = static_cast<int>(std::ceil(static_cast<double>(this->originalImageDepth) / config.cubeSize));
         this->cubesPerLayer = cubesPerX * cubesPerY;
         std::cout << "[INFO] Subimages per Layer(" << cubesPerZ<< "):" << cubesPerX << "x" << cubesPerY << " (" << cubesPerLayer << ")" << std::endl;
 
@@ -360,7 +367,7 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
                 // LK layernumvec used here
                 if(this->layerNumVec.size() > 1) {
 
-                    int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / this->cubesPerLayer));
+                    int currentCubeLayer = static_cast<int>(std::ceil(static_cast<double>((i+1)) / this->cubesPerLayer)); // LK layer is the z axis, so how manx cubes does each z layer have
                     for(int v = 1; v < this->layerNumVec.size(); ++v) {
                         // Check if second PSF has to be applied
                         // if iterator shows to end, cube (i+1) isnt in list

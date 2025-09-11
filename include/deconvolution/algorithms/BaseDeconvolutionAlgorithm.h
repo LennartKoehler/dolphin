@@ -15,7 +15,7 @@ public:
     Hyperstack run(Hyperstack& data, std::vector<PSF>& psfs);
 
     virtual ~BaseDeconvolutionAlgorithm(){cleanup();}
-    virtual void configure(const DeconvolutionConfig& config) = 0;
+    virtual void configure(DeconvolutionConfig config);
     virtual void algorithm(Hyperstack& data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) = 0;
 
     Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psfs);
@@ -25,13 +25,7 @@ public:
 
 protected:
     // Configuration
-    double epsilon;
-    bool grid;
-    int borderType;
-    int psfSafetyBorder;
-    int cubeSize;
-    bool time;
-    bool saveSubimages;
+    DeconvolutionConfig config;
 
     // Image handling and fftw
     std::vector<cv::Mat> mergedVolume;
