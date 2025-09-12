@@ -9,6 +9,7 @@
 
 
 class IDeconvolutionBackend{
+public:
     IDeconvolutionBackend() = default;
     virtual ~IDeconvolutionBackend(){};
 

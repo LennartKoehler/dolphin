@@ -1,35 +1,34 @@
 #include "deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
-#include "UtlFFT.h"
 #include <iostream>
 #include <omp.h>
 
-void RLDeconvolutionAlgorithm::configureAlgorithmSpecific(const DeconvolutionConfig& config) {
-    // Configure algorithm-specific parameters
-    iterations = config.iterations;
-
-    // Output algorithm-specific configuration
-    std::cout << "[CONFIGURATION] Richardson-Lucy algorithm" << std::endl;
-    std::cout << "[CONFIGURATION] iterations: " << iterations << std::endl;
+RLDeconvolutionAlgorithm::RLDeconvolutionAlgorithm(std::shared_ptr<IDeconvolutionBackend> backend)
+    : backend(backend) {
+    std::cout << "[INFO] RLDeconvolutionAlgorithm initialized with backend" << std::endl;
 }
 
 void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
-    BaseDeconvolutionAlgorithmCPU::configure(config);
-    
-    // Configure algorithm-specific parameters
-    configureAlgorithmSpecific(config);
+    iterations = config.iterations;
+
+
 }
 
-bool RLDeconvolutionAlgorithm::preprocessBackendSpecific(int channel_num, int psf_index) {
-    // Richardson-Lucy specific preprocessing if needed
-    return true;
-}
+// Legacy algorithm method for compatibility with existing code
+void RLDeconvolutionAlgorithm::deconvolve(fftw_complex* H, fftw_complex* g, fftw_complex* f, const RectangleShape& cubeSize) {
+    if (!backend) {
+        std::cerr << "[ERROR] No backend available for Richardson-Lucy algorithm" << std::endl;
+        return;
+    }
+    int cubeVolume = cubeSize.volume;
+    int cubeHeight = cubeSize.height;
+    int cubeWidth = cubeSize.width;
+    int cubeDepth = cubeSize.depth;
 
-void RLDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
-    // Allocate memory for intermediate FFTW arrays - using base class helper functions
+    // Allocate memory for intermediate arrays
     fftw_complex *c = nullptr;
     if (!allocateCPUArray(c, cubeVolume)) {
-        std::cerr << "[ERROR] Failed to allocate memory for CPU Richardson-Lucy processing" << std::endl;
+        std::cerr << "[ERROR] Failed to allocate memory for Richardson-Lucy processing" << std::endl;
         return;
     }
     
@@ -37,47 +36,34 @@ void RLDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, fftw_co
     copyComplexArray(g, f, cubeVolume);
 
     for (int n = 0; n < iterations; ++n) {
-        std::cout << "\r[STATUS] Channel: " << channel_num + 1 << " GridImage: " << totalGridNum
-                  << "/" << gridImages.size() << " Iteration: " << n + 1 << "/" << iterations << " ";
+        std::cout << "\r[STATUS] Iteration: " << iterations << " ";
 
         // a) First transformation:Fn = FFT(fn)
-        if (!executeForwardFFT(f, c)) {
-            std::cerr << "[ERROR] Forward FFT failed in Richardson-Lucy algorithm" << std::endl;
-            deallocateCPUArray(c);
-            return;
-        }
+        backend->forwardFFT(f, c, cubeDepth, cubeHeight, cubeWidth);
+
         
         // Fn' = Fn * H
-        UtlFFT::complexMultiplication(f, H, c, cubeVolume);
+        backend->complexMultiplication(f, H, c, cubeVolume);
 
         // fn' = IFFT(Fn')
-        if (!executeBackwardFFT(c, f)) {
-            std::cerr << "[ERROR] Backward FFT failed in Richardson-Lucy algorithm" << std::endl;
-            deallocateCPUArray(c);
-            return;
-        }
-        UtlFFT::octantFourierShift(f, cubeWidth, cubeHeight, cubeDepth);
+        backend->backwardFFT(c, f, cubeDepth, cubeHeight, cubeWidth);
+
+        backend->octantFourierShift(f, cubeWidth, cubeHeight, cubeDepth);
 
         // b) Calculation of the Correction Factor: c = g / fn'
-        UtlFFT::complexDivision(g, f, c, cubeVolume, epsilon);
+        backend->complexDivision(g, f, c, cubeVolume, complexDivisionEpsilon);
 
         // c) Second transformation: C = FFT(c)
-        if (!executeForwardFFT(c, f)) {
-            std::cerr << "[ERROR] Forward FFT of correction factor failed" << std::endl;
-            deallocateCPUArray(c);
-            return;
-        }
+        backend->forwardFFT(c, f, cubeDepth, cubeHeight, cubeWidth);
+
 
         // C' = C * conj(H)
-        UtlFFT::complexMultiplicationWithConjugate(f, H, f, cubeVolume);
+        backend->complexMultiplicationWithConjugate(f, H, f, cubeVolume);
 
         // c' = IFFT(C')
-        if (!executeBackwardFFT(f, c)) {
-            std::cerr << "[ERROR] Backward FFT of correction failed" << std::endl;
-            deallocateCPUArray(c);
-            return;
-        }
-        UtlFFT::octantFourierShift(c, cubeWidth, cubeHeight, cubeDepth);
+        backend->backwardFFT(f, c, cubeDepth, cubeHeight, cubeWidth);
+
+        backend->octantFourierShift(c, cubeWidth, cubeHeight, cubeDepth);
 
         // d) Update the estimated image: fn+1 = fn * c
         if (!copyComplexArray(c, f, cubeVolume)) {
@@ -98,26 +84,59 @@ void RLDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, fftw_co
     deallocateCPUArray(c);
 }
 
-bool RLDeconvolutionAlgorithm::postprocessBackendSpecific(int channel_num, int psf_index) {
-    // Richardson-Lucy specific postprocessing if needed
+
+
+bool RLDeconvolutionAlgorithm::copyComplexArray(const fftw_complex* source, fftw_complex* destination, int size) {
+    if (!source || !destination) {
+        std::cerr << "[ERROR] Invalid array pointers in copyComplexArray" << std::endl;
+        return false;
+    }
+    
+    for (int i = 0; i < size; ++i) {
+        destination[i][0] = source[i][0];  // Real part
+        destination[i][1] = source[i][1];  // Imaginary part
+    }
     return true;
 }
 
-bool RLDeconvolutionAlgorithm::allocateBackendMemory(int channel_num) {
-    // Allocate memory specific to Richardson-Lucy algorithm if needed
+bool RLDeconvolutionAlgorithm::validateComplexArray(fftw_complex* array, int size, const std::string& context) {
+    if (!array) {
+        std::cerr << "[ERROR] Invalid array pointer in validateComplexArray: " << context << std::endl;
+        return false;
+    }
+    
+    for (int i = 0; i < size; ++i) {
+        // Check for NaN or infinite values
+        if (!std::isfinite(array[i][0]) || !std::isfinite(array[i][1])) {
+            std::cerr << "[ERROR] Invalid complex value detected in " << context << " at index " << i << std::endl;
+            return false;
+        }
+    }
     return true;
 }
 
-void RLDeconvolutionAlgorithm::deallocateBackendMemory(int channel_num) {
-    // Deallocate memory specific to Richardson-Lucy algorithm if needed
+bool RLDeconvolutionAlgorithm::allocateCPUArray(fftw_complex*& array, int size) {
+    if (size <= 0) {
+        std::cerr << "[ERROR] Invalid size for array allocation" << std::endl;
+        return false;
+    }
+    
+    try {
+        array = new fftw_complex[size];
+        if (!array) {
+            std::cerr << "[ERROR] Memory allocation failed" << std::endl;
+            return false;
+        }
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Memory allocation exception: " << e.what() << std::endl;
+        return false;
+    }
 }
 
-void RLDeconvolutionAlgorithm::cleanupBackendSpecific() {
-    // Cleanup specific to Richardson-Lucy algorithm if needed
-}
-
-// Legacy algorithm method for compatibility with existing code
-void RLDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
-    // Simply delegate to the new backend-specific implementation
-    algorithmBackendSpecific(channel_num, H, g, f);
+void RLDeconvolutionAlgorithm::deallocateCPUArray(fftw_complex* array) {
+    if (array) {
+        delete[] array;
+        array = nullptr;
+    }
 }
