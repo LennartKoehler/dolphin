@@ -416,79 +416,62 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
                 }
             }
 
-                // Convert image to fftcomplex
-                UtlFFT::convertCVMatVectorToFFTWComplex(this->gridImages[i], g, this->cubeWidth, this->cubeHeight, this->cubeDepth);
+            // Convert image to fftcomplex
+            UtlFFT::convertCVMatVectorToFFTWComplex(this->gridImages[i], g, this->cubeWidth, this->cubeHeight, this->cubeDepth);
 
-               std::cout << "\r[STATUS] Channel: " << channel_z + 1 << "/" << data.channels.size() << " GridImage: "
-                          << this->totalGridNum << "/" << this->gridImages.size() << " ";
-                if (!(UtlImage::isValidForFloat(g, this->cubeVolume))) {
-                    std::cout << "[WARNING] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
-                }
-
-
-                // Methode overridden in specific algorithm class
-                algorithm(data, channel_z, H, g, f);
-
-
-                // Convert the result FFTW complex array back to OpenCV Mat vector
-                UtlFFT::convertFFTWComplexToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
-                // Debug
-                //UtlFFT::convertFFTWComplexRealToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
-                //UtlFFT::convertFFTWComplexImgToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
-
-                this->totalGridNum++;
-                fftw_free(g);
-                fftw_free(f);
-                std::flush(std::cout);
-
+           std::cout << "\r[STATUS] Channel: " << channel_z + 1 << "/" << data.channels.size() << " GridImage: "
+                      << this->totalGridNum << "/" << this->gridImages.size() << " ";
+            if (!(UtlImage::isValidForFloat(g, this->cubeVolume))) {
+                std::cout << "[WARNING] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
             }
+
+
+            // Methode overridden in specific algorithm class
+            algorithm(data, channel_z, H, g, f);
+
+
+            // Convert the result FFTW complex array back to OpenCV Mat vector
+            UtlFFT::convertFFTWComplexToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
+            this->totalGridNum++;
+            fftw_free(g);
+            fftw_free(f);
+            std::flush(std::cout);
+
+        }
 #ifdef CUDA_AVAILABLE
             omp_set_num_threads(omp_get_max_threads());
 #endif
-            if (this->time) {
-                // Endtime
-                auto end = std::chrono::high_resolution_clock::now();
-                // Calculation of the duration of the programm
-                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-                std::cout << "" << std::endl;
-                std::cout << "[INFO] Algorithm runtime: " << duration.count() << " ms" << std::endl;
-            }
-            // this->girdImages of BaseDeconvolutionAlgorithm deconvolution complete
+        if (this->time) {
+            // Endtime
+        auto end = std::chrono::high_resolution_clock::now();
+        // Calculation of the duration of the programm
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        std::cout << "" << std::endl;
+        std::cout << "[INFO] Algorithm runtime: " << duration.count() << " ms" << std::endl;
+        }
+        // this->girdImages of BaseDeconvolutionAlgorithm deconvolution complete
 
-            // Debug ouptut
-            // 1. size in metadata, 2. size of extendes channel image, 3.original read in image size
-            //std::cout << " " << std::endl;
-            //std::cout << data.metaData.imageWidth << std::endl;
-            //std::cout << channel.image.slices[0].cols << std::endl;
-            //std::cout << this->originalImageWidth << std::endl;
-            //std::cout << " " << std::endl;
-            //std::cout << data.metaData.imageLength << std::endl;
-            //std::cout << channel.image.slices[0].rows << std::endl;
-            //std::cout << this->originalImageHeight << std::endl;
-            //std::cout << " " << std::endl;
-            //std::cout << data.metaData.slices << std::endl;
-            //std::cout << channel.image.slices.size() << std::endl;
-            //std::cout << this->originalImageDepth << std::endl;
 
-            if(postprocess(this->epsilon, data.metaData)){
-                std::cout << "[STATUS] Postprocessing channel " << channel_z + 1 << " finished" << std::endl;
-            }else{
-                std::cerr << "[ERROR] Postprocessing channel " << channel_z + 1 << " failed" << std::endl;
-                return deconvHyperstack;
-            }
 
-            // Save the result
-            std::cout << "[STATUS] Saving result of channel " << channel_z + 1 << std::endl;
-            Image3D deconvolutedImage;
-            deconvolutedImage.slices = this->mergedVolume;
-            deconvHyperstack.channels[channel.id].image = deconvolutedImage;
-            channel_z++;
-            this->mergedVolume.clear();
+        if(postprocess(this->epsilon, data.metaData)){
+            std::cout << "[STATUS] Postprocessing channel " << channel_z + 1 << " finished" << std::endl;
+        }else{
+            std::cerr << "[ERROR] Postprocessing channel " << channel_z + 1 << " failed" << std::endl;
+            return deconvHyperstack;
         }
 
-        std::cout << "[STATUS] Deconvolution complete" << std::endl;
-        return deconvHyperstack;
+        // Save the result
+        std::cout << "[STATUS] Saving result of channel " << channel_z + 1 << std::endl;
+        Image3D deconvolutedImage;
+        deconvolutedImage.slices = this->mergedVolume;
+        deconvHyperstack.channels[channel.id].image = deconvolutedImage;
+        channel_z++;
+        this->mergedVolume.clear();
     }
+
+    std::cout << "[STATUS] Deconvolution complete" << std::endl;
+    return deconvHyperstack;
+}
 
 
 

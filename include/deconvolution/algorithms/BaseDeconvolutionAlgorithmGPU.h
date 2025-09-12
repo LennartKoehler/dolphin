@@ -23,10 +23,10 @@ typedef cudaDeviceProp cudaDeviceProp_t;
  * all CUDA/CUFFT-based processing operations.
  * 
  * This class provides concrete implementations for all backend-specific
- * virtual methods in BaseDeconvolutionAlgorithmDerived, using CUDA and CUFFT
+ * virtual methods in DeconvolutionProcessor, using CUDA and CUFFT
  * for efficient GPU-based FFT processing.
  */
-class BaseDeconvolutionAlgorithmGPU : public BaseDeconvolutionAlgorithmDerived {
+class BaseDeconvolutionAlgorithmGPU : public DeconvolutionProcessor {
 public:
     BaseDeconvolutionAlgorithmGPU();
     virtual ~BaseDeconvolutionAlgorithmGPU();
@@ -142,7 +142,7 @@ private:
     void initializeGPUDevices();
     bool selectOptimalGPU();
     void cleanupGPUResources();
-    std::unordered_map<PSFIndex, PSFfftw*>& movePSFstoGPU(std::unordered_map<PSFIndex, PSFfftw*>& psfMap);
+    void movePSFstoGPU(std::unordered_map<PSFIndex, PSFfftw*>& psfMap);
     
     // Performance utilities
     void logPerformanceMetrics();

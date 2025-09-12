@@ -19,7 +19,6 @@
 
 using namespace std;
 
-#ifdef CUDA_AVAILABLE
 // Helper macro for CUDA error checking
 #define CUDA_CHECK(call) \
     do { \
@@ -40,7 +39,6 @@ using namespace std;
             return false; \
         } \
     } while(0)
-#endif
 
 BaseDeconvolutionAlgorithmGPU::BaseDeconvolutionAlgorithmGPU() 
     : m_forwardPlan(nullptr)
@@ -84,7 +82,7 @@ BaseDeconvolutionAlgorithmGPU::~BaseDeconvolutionAlgorithmGPU() {
     cleanupBackendSpecific();
 }
 
-// Implementation of pure virtual methods from BaseDeconvolutionAlgorithmDerived
+// Implementation of pure virtual methods from DeconvolutionProcessor
 bool BaseDeconvolutionAlgorithmGPU::preprocessBackendSpecific(int channel_num, int psf_index) {
     cout << "[STATUS] GPU preprocessing for channel " << channel_num << ", PSF " << psf_index << endl;
     
@@ -108,23 +106,7 @@ bool BaseDeconvolutionAlgorithmGPU::preprocessBackendSpecific(int channel_num, i
     }
 }
 
-std::unordered_map<PSFIndex, PSFfftw*>& BaseDeconvolutionAlgorithmGPU::movePSFstoGPU(std::unordered_map<PSFIndex, PSFfftw*>& psfMap){
-    try{     
-        for (auto it : psfMap){
-            fftw_complex *d_temp_h;
-            // psf same size as cube
-            cudaMalloc((void**)&d_temp_h, cubeMetaData.cubeVolume * sizeof(PSFfftw));
-            CUBE_UTL_COPY::copyDataFromHostToDevice(cubeMetaData.cubeWidth, cubeMetaData.cubeHeight, cubeMetaData.cubeDepth, d_temp_h, it.second);
 
-            it.second = d_temp_h; 
-        } 
-        
-    } catch (const exception& e) {
-        cerr << "[ERROR] Exception in GPU preprocessing: " << e.what() << endl;
-     }
-   return psfMap; 
-
-}
 
 void BaseDeconvolutionAlgorithmGPU::algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
     cout << "[STATUS] GPU algorithm execution for channel " << channel_num << endl;

@@ -10,10 +10,10 @@
  * all FFTW-based processing operations.
  * 
  * This class provides concrete implementations for all backend-specific
- * virtual methods in BaseDeconvolutionAlgorithmDerived, using FFTW for
+ * virtual methods in DeconvolutionProcessor, using FFTW for
  * efficient CPU-based FFT processing.
  */
-class BaseDeconvolutionAlgorithmCPU : public BaseDeconvolutionAlgorithmDerived {
+class BaseDeconvolutionAlgorithmCPU : public DeconvolutionProcessor {
 public:
     BaseDeconvolutionAlgorithmCPU();
     virtual ~BaseDeconvolutionAlgorithmCPU();

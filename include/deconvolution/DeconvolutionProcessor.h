@@ -1,33 +1,33 @@
 #pragma once
 #include <string>
-#include "../DeconvolutionConfig.h"
+#include "DeconvolutionConfig.h"
 #include "HyperstackImage.h"
 #include "psf/PSF.h"
-#include "BaseDeconvolutionAlgorithm.h"
+#include "backend/IDeconvolutionBackend.h"
+#include "algorithms/DeconvolutionAlgorithm.h"
 
-#ifdef CUDA_AVAILABLE
-#include <cufftw.h>
-#else
 #include <fftw3.h>
-#endif
-
-typedef size_t PSFIndex;
 typedef fftw_complex PSFfftw;
 
 
 
-struct CubeMetaData{
-    int originPsfWidth;
-    int originPsfHeight;
-    int originPsfDepth;
-    int originPsfVolume;
-
-    // Calculate safety border for PSF padding
-    int cubeWidth;
-    int cubeHeight;
-    int cubeDepth;
-    int cubeVolume;
+struct RectangleShape{
+    int width;
+    int height;
+    int depth;
+    int volume;
 };
+
+struct CubeArrangement{
+    int cubesPerX;      // Number of cubes along X axis
+    int cubesPerY;      // Number of cubes along Y axis
+    int cubesPerZ;      // Number of cubes along Z axis
+    int cubesPerLayer;  // Number of cubes per layer (cubesPerX * cubesPerY)
+    int totalGridNum;   // Total number of cubes (cubesPerX * cubesPerY * cubesPerZ)
+    int cubePadding;
+
+};
+
 /**
  * Abstract base class for deconvolution algorithms that separates common,
  * execution-agnostic functionality from backend-specific operations.
@@ -42,18 +42,16 @@ struct CubeMetaData{
  * Backend-specific operations are left as pure virtual methods to be
  * implemented by concrete algorithm classes (CPU, GPU, etc.).
  */
-class BaseDeconvolutionAlgorithmDerived : public BaseDeconvolutionAlgorithm {
+class DeconvolutionProcessor{
 public:
-    Hyperstack run(Hyperstack& data, std::vector<PSF>& psfs);
     
-    virtual ~BaseDeconvolutionAlgorithmDerived() { cleanup(); }
-    
+    virtual ~DeconvolutionProcessor() { cleanup(); }
+    void cleanup();
+    Hyperstack run(Hyperstack& input, const std::unordered_map<size_t, std::shared_ptr<PSF>>& psfs); // careful, this edits input inplace
+    void preprocess(const Hyperstack& input, const std::unordered_map<size_t, std::shared_ptr<PSF>>& psfs);
+    std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, std::vector<std::vector<cv::Mat>>& gridImages);
     // Override base virtual methods to separate concerns
     virtual void configure(DeconvolutionConfig config);
-    virtual void preprocessPSFS(const std::vector<PSF>& psfs,
-        const std::unordered_map<size_t, PSFIndex>& layerPSFMap,
-        const std::unordered_map<size_t, PSFIndex>& cubePSFMap);
-    virtual void algorithm(Hyperstack& data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) override = 0;
 
     /**
      * @brief Backend-specific preprocessing operations
@@ -105,39 +103,47 @@ public:
     virtual void configureAlgorithmSpecific(const DeconvolutionConfig& config) = 0;
 
 protected:
-    // Common configuration members - directly accessible by derived classes
-    double epsilon;      // Minimum threshold for values
-    bool time;           // Whether to measure and display timing
-    bool saveSubimages;   // Whether to save subimage results
-    bool grid;           // Whether to use grid processing
-    std::string gpu;    // GPU API selection ("cuda", "", "opencl")
-    // Grid processing parameters
-    int borderType;         // Border type for image extension
-    int psfSafetyBorder;    // Safety border around PSF
-    int cubeSize;           // Size of cubic subimages
+
+    std::unique_ptr<IDeconvolutionBackend> backend_;
+    std::unique_ptr<DeconvolutionAlgorithm> algorithm_;
+
+    DeconvolutionConfig config;
+
+    //memory
+    fftw_plan forwardPlan  = nullptr;
+    fftw_plan backwardPlan = nullptr;
+
+    fftw_complex *fftwPlanMem = nullptr;
+
     //multiple psfs
     std::unordered_map<size_t, PSFfftw*> layerPSFMap;
     std::unordered_map<size_t, PSFfftw*> cubePSFMap;
-    CubeMetaData cubeMetaData;
-    // std::vector<PSFfftw*> paddedHs;
-    fftw_complex *fftwPlanMem = nullptr;
- 
+
+    //shapes
+    RectangleShape cubeShape; // = psf padded shape
+    RectangleShape psfOriginalShape;
+    RectangleShape imageOriginalShape;
+    CubeArrangement cubes;
+    int cubePadding;
+
     // Helper functions that don't depend on execution backend
-    
-    /**
-     * @brief Configure grid processing parameters
-     * @param cubeSize Size of cubic subimages
-     */
-    void configureGridProcessing(int cubeSize);
-    
+
     /**
      * @brief Prepare PSF for processing - performs FFT and padding
      * @param psfs List of PSFs to prepare
      * @return true if PSF preparation succeeded, false otherwise
      */
-    std::vector<PSFfftw*> preparePSFs(const std::vector<PSF>& psfs);
-    void configureLayerMap(const std::vector<PSFfftw*>& psfs, const std::unordered_map<size_t, PSFIndex> layerPSFMap);
-    void configureCubeMap(const std::vector<PSFfftw*>& psfs, const std::unordered_map<size_t, PSFIndex> cubePSFMap);
+    void preprocessPSF(const std::unordered_map<size_t, std::shared_ptr<PSF>>& inputPSFs);
+    std::vector<std::vector<cv::Mat>> DeconvolutionProcessor::preprocessChannel(Channel& channel);
+
+    void setPSFShape(const PSF& psf);
+    void setImageOriginalShape(const Channel& channel);
+    void DeconvolutionProcessor::setCubeShape(
+        const RectangleShape& imageOriginalShape,
+        bool configgrid,
+        int configcubeSize,
+        int configpsfSafetyBorder
+    );
 
     /**
      * @brief Select appropriate PSF for current grid image based on layer and cube mappings
@@ -161,6 +167,9 @@ protected:
     PSFfftw* getPSFForCube(int cubeNumber) const;
 
 private:
+    void deconvolveSingleInplace(int gridIndex, std::vector<std::vector<cv::Mat>>& gridImages);
+
+    bool configured = false;
     // Internal helper functions
     void setupCubeArrangement();
     bool validateImageAndPsfSizes();

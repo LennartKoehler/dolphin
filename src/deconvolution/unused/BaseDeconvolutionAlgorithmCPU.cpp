@@ -38,7 +38,7 @@
     } while(0)
 
 BaseDeconvolutionAlgorithmCPU::BaseDeconvolutionAlgorithmCPU()
-    : BaseDeconvolutionAlgorithmDerived()
+    : DeconvolutionProcessor()
     , m_forwardPlan(nullptr)
     , m_backwardPlan(nullptr)
     , m_fftwInitialized(false)
