@@ -1,7 +1,7 @@
 #include "DeconvolutionService.h"
 #include "HyperstackImage.h"
 #include "PSFManager.h"
-#include "deconvolution/DeconvolutionAlgorithmFactory.h"
+#include "deconvolution/DeconvolutionProcessor.h"
 #include "ThreadPool.h"
 #include <chrono>
 #include <fstream>
@@ -94,17 +94,11 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
                               std::chrono::duration<double>::zero());
         }
         
-        // Create and run deconvolution algorithm
-        auto algorithm = createAlgorithm(setupConfig, deconvConfig);
 
         
-        if (!algorithm) {
-            return createResult(false, "Failed to create algorithm: " + 
-                              deconvConfig->algorithmName,
-                              std::chrono::duration<double>::zero());
-        }
-        
-        Hyperstack result = algorithm->run(*hyperstack, psfs);
+        deconvolutionProcessor->configure(*(deconvConfig.get()));
+
+        Hyperstack result = deconvolutionProcessor->run(*hyperstack, psfs);
         
         // Handle saving
         std::string output_path = request.output_path;
@@ -293,18 +287,6 @@ std::vector<PSF> DeconvolutionService::createPSFsFromSetup(
 }
 
 
-std::shared_ptr<BaseDeconvolutionAlgorithm> DeconvolutionService::createAlgorithm(
-    std::shared_ptr<SetupConfig> setupConfig,
-    std::shared_ptr<DeconvolutionConfig> deconvConfig){
-        deconvConfig->gpu = setupConfig->gpu;
-        deconvConfig->time = setupConfig->time;
-        deconvConfig->saveSubimages = setupConfig->saveSubimages;
-        
-        // Create and return the concrete algorithm directly from factory
-        // The factory returns a BaseDeconvolutionAlgorithm* that manages the concrete implementation
-        std::shared_ptr<BaseDeconvolutionAlgorithm> algorithm(algorithm_factory_->create(*deconvConfig));
-        return algorithm;
-    }
 
 void DeconvolutionService::setProgressCallback(std::function<void(int)> callback){
     this->progress_callback_ = callback;

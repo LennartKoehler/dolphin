@@ -7,7 +7,24 @@
 
 #include <fftw3.h>
 
+struct RectangleShape{
+    int width;
+    int height;
+    int depth;
+    int volume;
+};
 
+struct InputData{
+    FFTWData H;
+    FFTWData g;
+    FFTWData f;
+};
+
+struct FFTWData{
+    fftw_complex* data;
+    RectangleShape size;
+};
+// should split into memory management and fftw backend?
 class IDeconvolutionBackend{
 public:
     IDeconvolutionBackend() = default;
@@ -16,45 +33,59 @@ public:
     virtual void preprocess() = 0;
     virtual void postprocess() = 0;
 
+    // data management
+    virtual void allocateMemoryOnDevice(FFTWData& data) = 0;
+    virtual void initializeFFTPlans(const RectangleShape& cube) = 0;
+    virtual bool isOnDevice(void* data) = 0;
+    virtual FFTWData moveDataToDevice(const FFTWData& srcdata) = 0;
+    virtual FFTWData moveDataFromDevice(const FFTWData& srcdata) = 0;
+    virtual FFTWData copyData(const FFTWData& srcdata) = 0;
+    virtual FFTWData allocateMemoryOnDevice(const RectangleShape& shape) = 0;
+    virtual void freeMemoryOnDevice(FFTWData& data) = 0;
 
-
-
-    virtual void reorderLayers(fftw_complex* data, int width, int height, int depth) = 0;
-    virtual void visualizeFFT(fftw_complex* data, int width, int height, int depth) = 0;
+    //
+    virtual void reorderLayers(FFTWData& data) = 0;
+    virtual void visualizeFFT(const FFTWData& data) = 0;
 
     // FFT functions
-    virtual void convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, fftw_complex* output, int width, int height, int depth) = 0;
-    virtual void convertFFTWComplexToCVMatVector(const fftw_complex* input,std::vector<cv::Mat>& output, int width, int height, int depth) = 0;
+    virtual void convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, FFTWData& output) = 0;
+    virtual void convertFFTWComplexToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) = 0;
 
-    virtual void convertFFTWComplexRealToCVMatVector(const fftw_complex* input,std::vector<cv::Mat>& output, int width, int height, int depth) = 0;
-    virtual void convertFFTWComplexImgToCVMatVector(const fftw_complex* input,std::vector<cv::Mat>& output, int width, int height, int depth) = 0;
+    virtual void convertFFTWComplexRealToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) = 0;
+    virtual void convertFFTWComplexImgToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) = 0;
 
+    virtual void padPSF(const FFTWData& psf, FFTWData& padded_psf, const RectangleShape& target_size) = 0;
 
-    virtual void padPSF(fftw_complex* psf, int psf_width, int psf_height, int psf_depth, fftw_complex* padded_psf, int width, int height, int depth) = 0;
+    virtual void forwardFFT(const FFTWData& in, FFTWData& out) = 0;
+    virtual void backwardFFT(const FFTWData& in, FFTWData& out) = 0;
 
-    virtual void forwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth) = 0;
-    virtual void backwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth) = 0;
-
-    virtual void octantFourierShift(fftw_complex* data, int width, int height, int depth) = 0;
-    virtual void inverseQuadrantShift(fftw_complex* data, int width, int height, int depth) = 0;
+    virtual void octantFourierShift(FFTWData& data) = 0;
+    virtual void inverseQuadrantShift(FFTWData& data) = 0;
     virtual void quadrantShiftMat(cv::Mat& magI) = 0;
 
-    virtual void complexMultiplication(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) = 0;
-    virtual void complexDivision(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) = 0;
-    virtual void complexAddition(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) = 0;
-    virtual void scalarMultiplication(fftw_complex* a, double scalar, fftw_complex* result, int size) = 0;
-    virtual void complexMultiplicationWithConjugate(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) = 0;
-    virtual void complexDivisionStabilized(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) = 0;
+    virtual void complexMultiplication(const FFTWData& a, const FFTWData& b, FFTWData& result) = 0;
+    virtual void complexDivision(const FFTWData& a, const FFTWData& b, FFTWData& result, double epsilon) = 0;
+    virtual void complexAddition(const FFTWData& a, const FFTWData& b, FFTWData& result) = 0;
+    virtual void scalarMultiplication(const FFTWData& a, double scalar, FFTWData& result) = 0;
+    virtual void complexMultiplicationWithConjugate(const FFTWData& a, const FFTWData& b, FFTWData& result) = 0;
+    virtual void complexDivisionStabilized(const FFTWData& a, const FFTWData& b, FFTWData& result, double epsilon) = 0;
 
-    virtual void calculateLaplacianOfPSF(fftw_complex* psf, fftw_complex* laplacian, int width, int height, int depth) = 0;
+    virtual void calculateLaplacianOfPSF(const FFTWData& psf, FFTWData& laplacian) = 0;
 
-    virtual void normalizeImage(fftw_complex* resultImage, int size, double epsilon) = 0;
-    virtual void rescaledInverse(fftw_complex* data, double cubeVolume) = 0;
-    virtual void saveInterimImages(fftw_complex* resultImage, int imageWidth, int imageHeight, int imageDepth, int gridNum, int channel_z, int i) = 0;
+    virtual void normalizeImage(FFTWData& resultImage, double epsilon) = 0;
+    virtual void rescaledInverse(FFTWData& data, double cubeVolume) = 0;
+    virtual void saveInterimImages(const FFTWData& resultImage, int gridNum, int channel_z, int i) = 0;
 
-    virtual void gradientX(fftw_complex* image, fftw_complex* gradX, int width, int height, int depth) = 0;
-    virtual void gradientY(fftw_complex* image, fftw_complex* gradY, int width, int height, int depth) = 0;
-    virtual void gradientZ(fftw_complex* image, fftw_complex* gradZ, int width, int height, int depth) = 0;
-    virtual void computeTV(double lambda, fftw_complex* gx, fftw_complex* gy, fftw_complex* gz, fftw_complex* tv, int width, int height, int depth) = 0;
-    virtual void normalizeTV(fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, int width, int height, int depth, double epsilon) = 0;
+    virtual void gradientX(const FFTWData& image, FFTWData& gradX) = 0;
+    virtual void gradientY(const FFTWData& image, FFTWData& gradY) = 0;
+    virtual void gradientZ(const FFTWData& image, FFTWData& gradZ) = 0;
+    virtual void computeTV(double lambda, const FFTWData& gx, const FFTWData& gy, const FFTWData& gz, FFTWData& tv) = 0;
+    virtual void normalizeTV(FFTWData& gradX, FFTWData& gradY, FFTWData& gradZ, double epsilon) = 0;
+
+protected:
+    fftw_plan forwardPlan;
+    fftw_plan backwardPlan;
+    fftw_complex* planMemory;
+    std::vector<fftw_complex*> allocatedCPUMemory;
+    bool plansInitialized = false;
 };

@@ -6,27 +6,23 @@
 #include <iostream>
 #include <opencv2/imgproc.hpp>
 #include <omp.h>
-#ifdef CUDA_AVAILABLE
-#include <cufftw.h>
-#include <CUBE.h>
-#else
 #include <fftw3.h>
-#endif
 
 using namespace std;
 
-
+#include "backend/CPUBackend.h" // replace with backend factory
 
 Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::unordered_map<size_t, std::shared_ptr<PSF>>& psfs){
     preprocess(input, psfs);
     for (auto channel : input.channels){
         std::vector<std::vector<cv::Mat>> gridImages = preprocessChannel(channel);
         for (int gridIndex = 0; gridIndex < gridImages.size(); gridIndex++){ // TODO this loop can be concurrent
-            deconvolveSingleInplace(gridIndex, gridImages);
+            deconvolveSingle(gridIndex, gridImages[gridIndex]);
         }
 
         std::vector<cv::Mat> deconvolutedChannel = postprocessChannel(input.metaData, gridImages);
         // Save the result
+        // TODO clean up:
         std::cout << "[STATUS] Saving result of channel " << std::endl;
         Image3D deconvolutedImage;
         deconvolutedImage.slices = deconvolutedChannel;
@@ -37,26 +33,37 @@ Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::unordered_m
     return input;
 }
 
-void DeconvolutionProcessor::deconvolveSingleInplace(int gridIndex, std::vector<std::vector<cv::Mat>>& gridImages){
+// refactor
+std::vector<cv::Mat> DeconvolutionProcessor::deconvolveSingle(int gridIndex, std::vector<cv::Mat>& gridImages){
+
     int layerIndex = static_cast<int>(std::ceil(static_cast<double>((gridIndex+1)) / cubes.cubesPerLayer));
     int cubeIndex = gridIndex + 1;
     // PSF
-    fftw_complex* H = selectPSFForGridImage(layerIndex, cubeIndex);
+    fftw_complex* tempH = selectPSFForGridImage(layerIndex, cubeIndex);
+    FFTWData H = {tempH, cubeShape};
     // Observed image
-    fftw_complex* g = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
-    // Result image
-    fftw_complex* f = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
-    if (!(UtlImage::isValidForFloat(g, cubeShape.volume))) {
+    fftw_complex* tempg = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
+    FFTWData g = {tempg, cubeShape};
+
+    if (!(UtlImage::isValidForFloat(g.data, cubeShape.volume))) {
         std::cout << "[WARNING] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
     }
-    UtlFFT::convertCVMatVectorToFFTWComplex(gridImages[gridIndex], g, cubeShape.width, cubeShape.height, cubeShape.depth);
-    algorithm_->deconvolve(H, g, f);
+    UtlFFT::convertCVMatVectorToFFTWComplex(gridImages, g.data, cubeShape.width, cubeShape.height, cubeShape.depth);
+
+    FFTWData H_device = backend_->moveDataToDevice(H);
+    FFTWData g_device = backend_->moveDataToDevice(g);
+    FFTWData f_device = backend_->allocateMemoryOnDevice(cubeShape);
+
+    algorithm_->deconvolve(H_device, g_device, f_device);
+    FFTWData f = backend_->moveDataFromDevice(f_device);
+    backend_->freeMemoryOnDevice(H_device);
+    backend_->freeMemoryOnDevice(g_device);
+    backend_->freeMemoryOnDevice(f_device);
 
     // Convert the result FFTW complex array back to OpenCV Mat vector
-    UtlFFT::convertFFTWComplexToCVMatVector(f, gridImages[gridIndex], cubeShape.width, cubeShape.height, cubeShape.depth);
-    fftw_free(g);
-    fftw_free(f);
-
+    UtlFFT::convertFFTWComplexToCVMatVector(f.data, gridImages, cubeShape.width, cubeShape.height, cubeShape.depth);
+    fftw_free(g.data);
+    return gridImages;
 }
 
 // TODO refactor
@@ -149,13 +156,17 @@ void DeconvolutionProcessor::preprocess(const Hyperstack& input, const std::unor
     setCubeShape(imageOriginalShape, config.grid, config.cubeSize, config.psfSafetyBorder);
     setupCubeArrangement();
     backend_->preprocess();
-    algorithm_->preprocess();
+    // algorithm_->preprocess();
 
 }
 
 void DeconvolutionProcessor::configure(DeconvolutionConfig config) {
     // Store the config in base class
     this->config = config;
+    DeconvolutionAlgorithmFactory fact = DeconvolutionAlgorithmFactory::getInstance();
+    this->algorithm_ = std::make_unique<DeconvolutionAlgorithm>(fact.create(config));
+
+    this->backend_ = std::make_unique<CPUBackend>(); // TODO LK  to use the config and a factory
     configured = true;
 }
 
@@ -310,7 +321,6 @@ bool DeconvolutionProcessor::validateImageAndPsfSizes() {
 
 void DeconvolutionProcessor::cleanup() {
     // Clean up FFTW resources
-    cleanupBackendSpecific();
 
     if (fftwPlanMem) {
         fftw_free(fftwPlanMem);

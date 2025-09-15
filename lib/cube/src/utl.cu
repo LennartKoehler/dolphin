@@ -277,6 +277,26 @@ namespace CUBE_UTL_COPY {
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(fftw_complex)*Nx*Ny*Nz<<"B] Copy Data from Device to Host");
     }
+    void copyDataFromDeviceToDevice(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src) {
+        cudaEvent_t start, stop;
+        cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+        cudaEventRecord(start);
+
+        cudaMemcpy(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToDevice);
+        cudaDeviceSynchronize();
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+        }
+
+        float milliseconds = 0;
+        cudaEventElapsedTime(&milliseconds, start, stop);
+        DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(fftw_complex)*Nx*Ny*Nz<<"B] Copy Data from Device to Host");
+    }
 }
 
 namespace CUBE_UTL_CONVERT {

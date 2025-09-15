@@ -65,17 +65,13 @@ private:
     bool validateImageConfig(const json& config) const;
     
     // Algorithm management
-    std::shared_ptr<BaseDeconvolutionAlgorithm> createAlgorithm(
-        std::shared_ptr<SetupConfig> c1,
-        std::shared_ptr<DeconvolutionConfig> c2);
-    
+    DeconvolutionProcessor* deconvolutionProcessor;
+
     // PSF package management
     std::vector<PSF> createPSFsFromSetup(
         std::shared_ptr<SetupConfig> setupConfig);
 
-    // Dependencies
-    DeconvolutionAlgorithmFactory* algorithm_factory_;
-    
+
     // Configuration
     bool initialized_;
     std::function<void(const std::string&)> logger_;

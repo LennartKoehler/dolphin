@@ -1,48 +1,71 @@
 #pragma once
 #include "IDeconvolutionBackend.h"
+#include <unordered_map>
+#include "CUBE.h"
+
+typedef size_t PSFIndex;
 
 class CPUBackend : public IDeconvolutionBackend{
-    virtual void preprocess() override;
-    virtual void postprocess() override;
+public:
+    CPUBackend();
+    ~CPUBackend();
 
+    // Core processing functions
+    void preprocess() override;
+    void postprocess() override;
 
+    // Data management
+    std::unordered_map<PSFIndex, FFTWData>& movePSFstoCPU(std::unordered_map<PSFIndex, FFTWData>& psfMap);
+    void allocateMemoryOnDevice(FFTWData& data) override;
+    FFTWData allocateMemoryOnDevice(const RectangleShape& shape) override;
+    bool isOnDevice(void* data) override;
+    FFTWData copyData(const FFTWData& srcdata) override;
+    FFTWData moveDataToDevice(const FFTWData& srcdata) override;
+    FFTWData moveDataFromDevice(const FFTWData& srcdata) override;
+    void freeMemoryOnDevice(FFTWData& data) override;
 
-    virtual void reorderLayers(fftw_complex* data, int width, int height, int depth) override;
-    virtual void visualizeFFT(fftw_complex* data, int width, int height, int depth) override;
+    // Layer and visualization functions
+    void reorderLayers(FFTWData& data) override;
+    void visualizeFFT(const FFTWData& data) override;
 
-    // FFT functions
-    virtual void convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, fftw_complex* output, int width, int height, int depth) override;
-    virtual void convertFFTWComplexToCVMatVector(const fftw_complex* input,std::vector<cv::Mat>& output, int width, int height, int depth) override;
+    // Conversion functions
+    void convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, FFTWData& output) override;
+    void convertFFTWComplexToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) override;
+    void convertFFTWComplexRealToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) override;
+    void convertFFTWComplexImgToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) override;
 
-    virtual void convertFFTWComplexRealToCVMatVector(const fftw_complex* input,std::vector<cv::Mat>& output, int width, int height, int depth) override;
-    virtual void convertFFTWComplexImgToCVMatVector(const fftw_complex* input,std::vector<cv::Mat>& output, int width, int height, int depth) override;
+    // PSF and FFT functions
+    void padPSF(const FFTWData& psf, FFTWData& padded_psf, const RectangleShape& target_size) override;
+    void forwardFFT(const FFTWData& in, FFTWData& out) override;
+    void backwardFFT(const FFTWData& in, FFTWData& out) override;
 
+    // Shift functions
+    void octantFourierShift(FFTWData& data) override;
+    void inverseQuadrantShift(FFTWData& data) override;
+    void quadrantShiftMat(cv::Mat& magI) override;
 
-    virtual void padPSF(fftw_complex* psf, int psf_width, int psf_height, int psf_depth, fftw_complex* padded_psf, int width, int height, int depth) override;
+    // Complex arithmetic functions
+    void complexMultiplication(const FFTWData& a, const FFTWData& b, FFTWData& result) override;
+    void complexDivision(const FFTWData& a, const FFTWData& b, FFTWData& result, double epsilon) override;
+    void complexAddition(const FFTWData& a, const FFTWData& b, FFTWData& result) override;
+    void scalarMultiplication(const FFTWData& a, double scalar, FFTWData& result) override;
+    void complexMultiplicationWithConjugate(const FFTWData& a, const FFTWData& b, FFTWData& result) override;
+    void complexDivisionStabilized(const FFTWData& a, const FFTWData& b, FFTWData& result, double epsilon) override;
 
-    virtual void forwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth) override;
-    virtual void backwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth) override;
+    // Specialized functions
+    void calculateLaplacianOfPSF(const FFTWData& psf, FFTWData& laplacian) override;
+    void normalizeImage(FFTWData& resultImage, double epsilon) override;
+    void rescaledInverse(FFTWData& data, double cubeVolume) override;
+    void saveInterimImages(const FFTWData& resultImage, int gridNum, int channel_z, int i) override;
 
-    virtual void octantFourierShift(fftw_complex* data, int width, int height, int depth) override;
-    virtual void inverseQuadrantShift(fftw_complex* data, int width, int height, int depth) override;
-    virtual void quadrantShiftMat(cv::Mat& magI) override;
+    // Gradient and TV functions
+    void gradientX(const FFTWData& image, FFTWData& gradX) override;
+    void gradientY(const FFTWData& image, FFTWData& gradY) override;
+    void gradientZ(const FFTWData& image, FFTWData& gradZ) override;
+    void computeTV(double lambda, const FFTWData& gx, const FFTWData& gy, const FFTWData& gz, FFTWData& tv) override;
+    void normalizeTV(FFTWData& gradX, FFTWData& gradY, FFTWData& gradZ, double epsilon) override;
 
-    virtual void complexMultiplication(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) override;
-    virtual void complexDivision(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) override;
-    virtual void complexAddition(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) override;
-    virtual void scalarMultiplication(fftw_complex* a, double scalar, fftw_complex* result, int size) override;
-    virtual void complexMultiplicationWithConjugate(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) override;
-    virtual void complexDivisionStabilized(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) override;
-
-    virtual void calculateLaplacianOfPSF(fftw_complex* psf, fftw_complex* laplacian, int width, int height, int depth) override;
-
-    virtual void normalizeImage(fftw_complex* resultImage, int size, double epsilon) override;
-    virtual void rescaledInverse(fftw_complex* data, double cubeVolume) override;
-    virtual void saveInterimImages(fftw_complex* resultImage, int imageWidth, int imageHeight, int imageDepth, int gridNum, int channel_z, int i) override;
-
-    virtual void gradientX(fftw_complex* image, fftw_complex* gradX, int width, int height, int depth) override;
-    virtual void gradientY(fftw_complex* image, fftw_complex* gradY, int width, int height, int depth) override;
-    virtual void gradientZ(fftw_complex* image, fftw_complex* gradZ, int width, int height, int depth) override;
-    virtual void computeTV(double lambda, fftw_complex* gx, fftw_complex* gy, fftw_complex* gz, fftw_complex* tv, int width, int height, int depth) override;
-    virtual void normalizeTV(fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, int width, int height, int depth, double epsilon) override;
+private:
+    void initializeFFTPlans(const RectangleShape& cube) override;
+    void destroyFFTPlans();
 };

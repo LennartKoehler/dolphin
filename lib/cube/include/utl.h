@@ -31,6 +31,7 @@ namespace CUBE_UTL_INIT_MAT {
 namespace CUBE_UTL_COPY {
     void copyDataFromHostToDevice(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src);
     void copyDataFromDeviceToHost(int Nx, int Ny, int Nz, fftw_complex* dest, fftw_complex* src);
+    void copyDataFromDeviceToDevice(int Nx, int Ny, int Nz, fftw_complex* dest, fftw_complex* src);
 }
 
 namespace CUBE_UTL_CONVERT {

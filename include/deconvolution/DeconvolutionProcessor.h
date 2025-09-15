@@ -4,19 +4,13 @@
 #include "HyperstackImage.h"
 #include "psf/PSF.h"
 #include "backend/IDeconvolutionBackend.h"
-#include "algorithms/DeconvolutionAlgorithm.h"
+#include "DeconvolutionAlgorithmFactory.h"
 
 #include <fftw3.h>
 typedef fftw_complex PSFfftw;
 
 
 
-struct RectangleShape{
-    int width;
-    int height;
-    int depth;
-    int volume;
-};
 
 struct CubeArrangement{
     int cubesPerX;      // Number of cubes along X axis
@@ -44,63 +38,17 @@ struct CubeArrangement{
  */
 class DeconvolutionProcessor{
 public:
-    
+    Hyperstack run(Hyperstack& input, const std::unordered_map<size_t, std::shared_ptr<PSF>>& psfs); // careful, this edits input inplace
+
     virtual ~DeconvolutionProcessor() { cleanup(); }
     void cleanup();
+
     Hyperstack run(Hyperstack& input, const std::unordered_map<size_t, std::shared_ptr<PSF>>& psfs); // careful, this edits input inplace
+
     void preprocess(const Hyperstack& input, const std::unordered_map<size_t, std::shared_ptr<PSF>>& psfs);
     std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, std::vector<std::vector<cv::Mat>>& gridImages);
     // Override base virtual methods to separate concerns
     virtual void configure(DeconvolutionConfig config);
-
-    /**
-     * @brief Backend-specific preprocessing operations
-     * @param channel_num Channel number being processed
-     * @param psf_index Index of PSF for current processing
-     * @return true if preprocessing succeeded, false otherwise
-     */
-    virtual bool preprocessBackendSpecific(int channel_num, int psf_index) = 0;
-
-    /**
-     * @brief Backend-specific operations for main algorithm
-     * @param channel_num Channel number being processed
-     * @param H FFTW complex array for PSF (frequency domain)
-     * @param g FFTW complex array for observed image (frequency domain)
-     * @param f FFTW complex array for estimated image (frequency domain)
-     */
-    virtual void algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) = 0;
-
-    /**
-     * @brief Backend-specific postprocessing operations
-     * @param channel_num Channel number being processed
-     * @param psf_index Index of PSF for current processing
-     * @return true if postprocessing succeeded, false otherwise
-     */
-    virtual bool postprocessBackendSpecific(int channel_num, int psf_index) = 0;
-
-    /**
-     * @brief Backend-specific memory allocation
-     * @param channel_num Channel number being processed
-     * @return true if memory allocation succeeded, false otherwise
-     */
-    virtual bool allocateBackendMemory(int channel_num) = 0;
-
-    /**
-     * @brief Backend-specific memory deallocation
-     * @param channel_num Channel number being processed
-     */
-    virtual void deallocateBackendMemory(int channel_num) = 0;
-
-    /**
-     * @brief Backend-specific cleanup operations
-     */
-    virtual void cleanupBackendSpecific() = 0;
-    
-    /**
-     * @brief Algorithm-specific configuration
-     * @param config Deconvolution configuration
-     */
-    virtual void configureAlgorithmSpecific(const DeconvolutionConfig& config) = 0;
 
 protected:
 
@@ -167,7 +115,7 @@ protected:
     PSFfftw* getPSFForCube(int cubeNumber) const;
 
 private:
-    void deconvolveSingleInplace(int gridIndex, std::vector<std::vector<cv::Mat>>& gridImages);
+    std::vector<cv::Mat> deconvolveSingle(int gridIndex, std::vector<cv::Mat>& gridImages);
 
     bool configured = false;
     // Internal helper functions

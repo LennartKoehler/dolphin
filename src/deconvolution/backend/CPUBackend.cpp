@@ -6,653 +6,808 @@
 #include <algorithm>
 #include <sstream>
 #include <cmath>
-#include <iostream>
 #include <opencv2/opencv.hpp>
-#include "omp.h"
 
-void CPUBackend::preprocess(){
-    if(fftw_init_threads() > 0){
-        std::cout << "[STATUS] FFTW init threads" << std::endl;
-        fftw_plan_with_nthreads(omp_get_max_threads());
-        std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
-        fftw_make_planner_thread_safe();
+CPUBackend::CPUBackend() {
+    // Initialize FFTW with threading support
+    std::cout << "[STATUS] Initializing CPU backend" << std::endl;
+}
+
+CPUBackend::~CPUBackend() {
+    destroyFFTPlans();
+}
+
+void CPUBackend::preprocess() {
+    try {
+        if (fftw_init_threads() > 0) {
+            std::cout << "[STATUS] FFTW init threads" << std::endl;
+            fftw_plan_with_nthreads(omp_get_max_threads());
+            std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
+            fftw_make_planner_thread_safe();
+        }
+        
+        std::cout << "[STATUS] CPU backend preprocessing completed" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in CPU preprocessing: " << e.what() << std::endl;
     }
 }
 
+void CPUBackend::postprocess() {
+    try {
+        destroyFFTPlans();
+        fftw_cleanup_threads();
+        std::cout << "[STATUS] CPU backend postprocessing completed" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in CPU postprocessing: " << e.what() << std::endl;
+    }
+}
 
-
-// Visualize the magnitude of the Fourier-transformed images
-void CPUBackend::visualizeFFT(fftw_complex* data, int width, int height, int depth) {
-
-    // Convert the result FFTW complex array back to OpenCV Mat vector
-    Image3D i;
-    std::vector<cv::Mat> output;
-    for (int z = 0; z < depth; ++z) {
-        cv::Mat result(height, width, CV_32F);
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                int index = z * height * width + y * width + x;
-                result.at<float>(y, x) = data[index][0];// / (width * height * depth); // Normalize
+std::unordered_map<PSFIndex, FFTWData>& CPUBackend::movePSFstoCPU(std::unordered_map<PSFIndex, FFTWData>& psfMap) {
+    try {
+        for (auto& it : psfMap) {
+            FFTWData& psfData = it.second;
+            
+            // For CPU backend, data is already on "device" (CPU memory)
+            if (psfData.data == nullptr) {
+                std::cerr << "[WARNING] PSF data is null" << std::endl;
             }
         }
-        output.push_back(result);
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in movePSFstoCPU: " << e.what() << std::endl;
     }
-    i.slices = output;
-    i.show();
-
-}
-// Reorders Layer Middle to Ends (for InverseFilter)
-void CPUBackend::reorderLayers(fftw_complex* data, int width, int height, int depth) {
-    int layerSize = width * height;
-    int halfDepth = depth / 2;
-    fftw_complex* temp = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * width * height * depth);
-
-    int destIndex = 0;
-
-    // Copy the middle layer to the first position
-    std::memcpy(temp + destIndex * layerSize, data + halfDepth * layerSize, sizeof(fftw_complex) * layerSize);
-    destIndex++;
-
-    // Copy the layers after the middle layer
-    for (int z = halfDepth + 1; z < depth; ++z) {
-        std::memcpy(temp + destIndex * layerSize, data + z * layerSize, sizeof(fftw_complex) * layerSize);
-        destIndex++;
-    }
-
-    // Copy the layers before the middle layer
-    for (int z = 0; z < halfDepth; ++z) {
-        std::memcpy(temp + destIndex * layerSize, data + z * layerSize, sizeof(fftw_complex) * layerSize);
-        destIndex++;
-    }
-
-    // Copy reordered data back to the original array
-    std::memcpy(data, temp, sizeof(fftw_complex) * width * height * depth);
-    fftw_free(temp);
+    return psfMap;
 }
 
-// Forward Fourier Transformation with fftw
-void CPUBackend::forwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth){
-    //fftw_make_planner_thread_safe();
-
-    fftw_plan plan = fftw_plan_dft_3d(imageDepth, imageHeight, imageWidth, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(plan);
-        fftw_destroy_plan(plan);
-    octantFourierShift(out, imageWidth, imageHeight, imageDepth);
-    }
-// Backward Fourier Transformation with fftw
-void CPUBackend::backwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth){
-
-    octantFourierShift(out, imageWidth, imageHeight, imageDepth);
-    //fftw_make_planner_thread_safe();
-
-    fftw_plan plan = fftw_plan_dft_3d(imageDepth, imageHeight, imageWidth, in, out, FFTW_BACKWARD, FFTW_ESTIMATE);
-    fftw_execute(plan);
-    fftw_destroy_plan(plan);
+bool CPUBackend::isOnDevice(void* ptr) {
+    // For CPU backend, all valid pointers are "on device"
+    return ptr != nullptr;
 }
 
-// Perform point-wise complex multiplication
-void CPUBackend::complexMultiplication(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) {
-    // Ensure that input pointers are not null
-    if (!a || !b || !result) {
-        std::cerr << "Error: Null pointer passed to complexMultiplication." << std::endl;
-        return;
+void CPUBackend::allocateMemoryOnDevice(FFTWData& data) {
+    if (data.data != nullptr) {
+        return; // Already allocated
     }
+    
+    data.data = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * data.size.volume);
+    if (data.data == nullptr) {
+        std::cerr << "[ERROR] FFTW malloc failed" << std::endl;
+    }
+}
 
-    // Parallelize the loop with OpenMP
-/*#pragma omp parallel
-    {
-        // Get the thread number and total number of threads
-        int thread_id = omp_get_thread_num();
-        int num_threads = omp_get_num_threads();
+FFTWData CPUBackend::allocateMemoryOnDevice(const RectangleShape& shape) {
+    FFTWData result;
+    result.size = shape;
+    result.data = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * shape.volume);
+    
+    if (result.data == nullptr) {
+        std::cerr << "[ERROR] FFTW malloc failed" << std::endl;
+    }
+    
+    return result;
+}
 
-        // Calculate the chunk size for each thread
-        int chunk_size = size / num_threads;
-        int start = thread_id * chunk_size;
-        int end = (thread_id == num_threads - 1) ? size : start + chunk_size;
+FFTWData CPUBackend::moveDataToDevice(const FFTWData& srcdata) {
+    return srcdata;
+}
 
-        // Perform complex multiplication for the assigned chunk
-        for (int i = start; i < end; ++i) {
-            double real_a = a[i][0];
-            double imag_a = a[i][1];
-            double real_b = b[i][0];
-            double imag_b = b[i][1];
+FFTWData CPUBackend::moveDataFromDevice(const FFTWData& srcdata) {
+    return srcdata;
+}
 
-            // Perform the complex multiplication and store the result
-            result[i][0] = real_a * real_b - imag_a * imag_b;
-            result[i][1] = real_a * imag_b + imag_a * real_b;
+FFTWData CPUBackend::copyData(const FFTWData& srcdata) {
+    FFTWData destdata = allocateMemoryOnDevice(srcdata.size);
+    if (srcdata.data != nullptr && destdata.data != nullptr) {
+        std::memcpy(destdata.data, srcdata.data, srcdata.size.volume * sizeof(fftw_complex));
+    }
+    return destdata;
+}
+
+void CPUBackend::freeMemoryOnDevice(FFTWData& data){} // since we just move data we dont have to free it
+// on gpu we have to free because it copied not moved
+
+void CPUBackend::initializeFFTPlans(const RectangleShape& cube) {
+    if (plansInitialized) return;
+    
+    try {
+        // Allocate temporary memory for plan creation
+        fftw_complex* temp = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * cube.volume);
+        
+        // Create forward FFT plan
+        this->forwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width, 
+                                            temp, temp, FFTW_FORWARD, FFTW_MEASURE);
+        
+        // Create backward FFT plan
+        this->backwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width,
+                                             temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
+        
+        fftw_free(temp);
+        plansInitialized = true;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in FFT plan initialization: " << e.what() << std::endl;
+    }
+}
+
+void CPUBackend::destroyFFTPlans() {
+    if (plansInitialized) {
+        if (forwardPlan) {
+            fftw_destroy_plan(forwardPlan);
+            forwardPlan = nullptr;
         }
-    }*/
-// Perform complex multiplication for each element in a sequential manner
-#pragma omp parallel for simd
-    for (int i = 0; i < size; ++i) {
-        double real_a = a[i][0];
-        double imag_a = a[i][1];
-        double real_b = b[i][0];
-        double imag_b = b[i][1];
-
-        // Perform the complex multiplication and store the result
-        result[i][0] = real_a * real_b - imag_a * imag_b;
-        result[i][1] = real_a * imag_b + imag_a * real_b;
-    }
-}
-
-// Perform point-wise complex multiplication with conjugation
-void CPUBackend::complexMultiplicationWithConjugate(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) {
-    // Ensure that input pointers are not null
-    if (!a || !b || !result) {
-        std::cerr << "Error: Null pointer passed to complexMultiplicationWithConjugate." << std::endl;
-        return;
-    }
-
-    // Parallelize the loop with OpenMP
-#pragma omp parallel
-    {
-        // Get the thread number and total number of threads
-        int thread_id = omp_get_thread_num();
-        int num_threads = omp_get_num_threads();
-
-        // Calculate the chunk size for each thread
-        int chunk_size = size / num_threads;
-        int start = thread_id * chunk_size;
-        int end = (thread_id == num_threads - 1) ? size : start + chunk_size;
-
-        // Perform complex multiplication with conjugation for the assigned chunk
-        for (int i = start; i < end; ++i) {
-            double real_a = a[i][0];
-            double imag_a = a[i][1];
-            double real_b = b[i][0];
-            double imag_b = -b[i][1];  // Conjugate the imaginary part
-
-            // Perform the complex multiplication with conjugate and store the result
-            result[i][0] = real_a * real_b - imag_a * imag_b; // Real part
-            result[i][1] = real_a * imag_b + imag_a * real_b; // Imaginary part
+        if (backwardPlan) {
+            fftw_destroy_plan(backwardPlan);
+            backwardPlan = nullptr;
         }
+        plansInitialized = false;
     }
 }
-// Perform point-wise complex division (min->epsilon)
-void CPUBackend::complexDivision(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) {
-    // Ensure that input pointers are not null
-    if (!a || !b || !result) {
-        std::cerr << "Error: Null pointer passed to complexDivision." << std::endl;
-        return;
+
+// FFT Operations
+void CPUBackend::forwardFFT(const FFTWData& in, FFTWData& out) {
+    try {
+        if (!plansInitialized) {
+            initializeFFTPlans(in.size);
+        }
+        
+        fftw_execute_dft(forwardPlan, in.data, out.data);
+        octantFourierShift(out);
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in forwardFFT: " << e.what() << std::endl;
     }
+}
 
-    // Parallelize the loop with OpenMP
-#pragma omp parallel
-    {
-        // Get the thread number and total number of threads
-        int thread_id = omp_get_thread_num();
-        int num_threads = omp_get_num_threads();
+void CPUBackend::backwardFFT(const FFTWData& in, FFTWData& out) {
+    try {
+        if (!plansInitialized) {
+            initializeFFTPlans(in.size);
+        }
+        
+        octantFourierShift(out);
+        fftw_execute_dft(backwardPlan, in.data, out.data);
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in backwardFFT: " << e.what() << std::endl;
+    }
+}
 
-        // Calculate the chunk size for each thread
-        int chunk_size = size / num_threads;
-        int start = thread_id * chunk_size;
-        int end = (thread_id == num_threads - 1) ? size : start + chunk_size;
+// Shift Operations
+void CPUBackend::octantFourierShift(FFTWData& data) {
+    try {
+        int width = data.size.width;
+        int height = data.size.height;
+        int depth = data.size.depth;
+        int halfWidth = width / 2;
+        int halfHeight = height / 2;
+        int halfDepth = depth / 2;
 
-        // Perform complex division for the assigned chunk
-        for (int i = start; i < end; ++i) {
-            double real_a = a[i][0];
-            double imag_a = a[i][1];
-            double real_b = b[i][0];
-            double imag_b = b[i][1];
+        #pragma omp parallel for collapse(3)
+        for (int z = 0; z < halfDepth; ++z) {
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int idx1 = z * height * width + y * width + x;
+                    int idx2 = ((z + halfDepth) % depth) * height * width + 
+                              ((y + halfHeight) % height) * width + 
+                              ((x + halfWidth) % width);
+
+                    if (idx1 != idx2) {
+                        std::swap(data.data[idx1][0], data.data[idx2][0]);
+                        std::swap(data.data[idx1][1], data.data[idx2][1]);
+                    }
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in octantFourierShift: " << e.what() << std::endl;
+    }
+}
+
+void CPUBackend::inverseQuadrantShift(FFTWData& data) {
+    try {
+        int width = data.size.width;
+        int height = data.size.height;
+        int depth = data.size.depth;
+        int halfWidth = width / 2;
+        int halfHeight = height / 2;
+        int halfDepth = depth / 2;
+
+        for (int z = 0; z < halfDepth; ++z) {
+            for (int y = 0; y < halfHeight; ++y) {
+                for (int x = 0; x < halfWidth; ++x) {
+                    int idx1 = z * height * width + y * width + x;
+                    int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x + halfWidth);
+
+                    std::swap(data.data[idx1][0], data.data[idx2][0]);
+                    std::swap(data.data[idx1][1], data.data[idx2][1]);
+                }
+            }
+        }
+
+        for (int z = 0; z < halfDepth; ++z) {
+            for (int y = 0; y < halfHeight; ++y) {
+                for (int x = halfWidth; x < width; ++x) {
+                    int idx1 = z * height * width + y * width + x;
+                    int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x - halfWidth);
+
+                    std::swap(data.data[idx1][0], data.data[idx2][0]);
+                    std::swap(data.data[idx1][1], data.data[idx2][1]);
+                }
+            }
+        }
+
+        for (int z = 0; z < halfDepth; ++z) {
+            for (int y = halfHeight; y < height; ++y) {
+                for (int x = 0; x < halfWidth; ++x) {
+                    int idx1 = z * height * width + y * width + x;
+                    int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x + halfWidth);
+
+                    std::swap(data.data[idx1][0], data.data[idx2][0]);
+                    std::swap(data.data[idx1][1], data.data[idx2][1]);
+                }
+            }
+        }
+
+        for (int z = 0; z < halfDepth; ++z) {
+            for (int y = halfHeight; y < height; ++y) {
+                for (int x = halfWidth; x < width; ++x) {
+                    int idx1 = z * height * width + y * width + x;
+                    int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x - halfWidth);
+
+                    std::swap(data.data[idx1][0], data.data[idx2][0]);
+                    std::swap(data.data[idx1][1], data.data[idx2][1]);
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in inverseQuadrantShift: " << e.what() << std::endl;
+    }
+}
+
+void CPUBackend::quadrantShiftMat(cv::Mat& magI) {
+    try {
+        int cx = magI.cols / 2;
+        int cy = magI.rows / 2;
+
+        cv::Mat q0(magI, cv::Rect(0, 0, cx, cy));   // Top-Left
+        cv::Mat q1(magI, cv::Rect(cx, 0, cx, cy));  // Top-Right
+        cv::Mat q2(magI, cv::Rect(0, cy, cx, cy));  // Bottom-Left
+        cv::Mat q3(magI, cv::Rect(cx, cy, cx, cy)); // Bottom-Right
+
+        cv::Mat tmp;
+        q0.copyTo(tmp);
+        q3.copyTo(q0);
+        tmp.copyTo(q3);
+
+        q1.copyTo(tmp);
+        q2.copyTo(q1);
+        tmp.copyTo(q2);
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in quadrantShiftMat: " << e.what() << std::endl;
+    }
+}
+
+// Complex Arithmetic Operations
+void CPUBackend::complexMultiplication(const FFTWData& a, const FFTWData& b, FFTWData& result) {
+    try {
+        if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
+            std::cerr << "[ERROR] Size mismatch in complexMultiplication" << std::endl;
+            return;
+        }
+
+        #pragma omp parallel for simd
+        for (int i = 0; i < a.size.volume; ++i) {
+            double real_a = a.data[i][0];
+            double imag_a = a.data[i][1];
+            double real_b = b.data[i][0];
+            double imag_b = b.data[i][1];
+
+            result.data[i][0] = real_a * real_b - imag_a * imag_b;
+            result.data[i][1] = real_a * imag_b + imag_a * real_b;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in complexMultiplication: " << e.what() << std::endl;
+    }
+}
+
+void CPUBackend::complexDivision(const FFTWData& a, const FFTWData& b, FFTWData& result, double epsilon) {
+    try {
+        if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
+            std::cerr << "[ERROR] Size mismatch in complexDivision" << std::endl;
+            return;
+        }
+
+        #pragma omp parallel for
+        for (int i = 0; i < a.size.volume; ++i) {
+            double real_a = a.data[i][0];
+            double imag_a = a.data[i][1];
+            double real_b = b.data[i][0];
+            double imag_b = b.data[i][1];
 
             double denominator = real_b * real_b + imag_b * imag_b;
 
             if (denominator < epsilon) {
-                result[i][0] = 0.0;
-                result[i][1] = 0.0;
+                result.data[i][0] = 0.0;
+                result.data[i][1] = 0.0;
             } else {
-                result[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
-                result[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
+                result.data[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
+                result.data[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
             }
         }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in complexDivision: " << e.what() << std::endl;
     }
 }
 
-// Perform point-wise complex division with stabilization (min->epsilon)
-void CPUBackend::complexDivisionStabilized(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) {
-    // Ensure that input pointers are not null
-    if (!a || !b || !result) {
-        std::cerr << "Error: Null pointer passed to complexDivisionStabilized." << std::endl;
-        return;
+void CPUBackend::complexAddition(const FFTWData& a, const FFTWData& b, FFTWData& result) {
+    try {
+        if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
+            std::cerr << "[ERROR] Size mismatch in complexAddition" << std::endl;
+            return;
+        }
+
+        for (int i = 0; i < a.size.volume; ++i) {
+            result.data[i][0] = a.data[i][0] + b.data[i][0];
+            result.data[i][1] = a.data[i][1] + b.data[i][1];
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in complexAddition: " << e.what() << std::endl;
     }
+}
 
-    // Parallelize the loop with OpenMP
-#pragma omp parallel
-    {
-        // Get the thread number and total number of threads
-        int thread_id = omp_get_thread_num();
-        int num_threads = omp_get_num_threads();
+void CPUBackend::scalarMultiplication(const FFTWData& a, double scalar, FFTWData& result) {
+    try {
+        if (a.size.volume != result.size.volume) {
+            std::cerr << "[ERROR] Size mismatch in scalarMultiplication" << std::endl;
+            return;
+        }
 
-        // Calculate the chunk size for each thread
-        int chunk_size = size / num_threads;
-        int start = thread_id * chunk_size;
-        int end = (thread_id == num_threads - 1) ? size : start + chunk_size;
+        for (int i = 0; i < a.size.volume; ++i) {
+            result.data[i][0] = a.data[i][0] * scalar;
+            result.data[i][1] = a.data[i][1] * scalar;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in scalarMultiplication: " << e.what() << std::endl;
+    }
+}
 
-        // Perform stabilized complex division for the assigned chunk
-        for (int i = start; i < end; ++i) {
-            double real_a = a[i][0];  // Realteil von a
-            double imag_a = a[i][1];  // Imaginärteil von a
-            double real_b = b[i][0];  // Realteil von b
-            double imag_b = b[i][1];  // Imaginärteil von b
+void CPUBackend::complexMultiplicationWithConjugate(const FFTWData& a, const FFTWData& b, FFTWData& result) {
+    try {
+        if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
+            std::cerr << "[ERROR] Size mismatch in complexMultiplicationWithConjugate" << std::endl;
+            return;
+        }
 
-            // Berechnung des Betrags von b, mit Stabilisierung durch epsilon
+        #pragma omp parallel for
+        for (int i = 0; i < a.size.volume; ++i) {
+            double real_a = a.data[i][0];
+            double imag_a = a.data[i][1];
+            double real_b = b.data[i][0];
+            double imag_b = -b.data[i][1];  // Conjugate
+
+            result.data[i][0] = real_a * real_b - imag_a * imag_b;
+            result.data[i][1] = real_a * imag_b + imag_a * real_b;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in complexMultiplicationWithConjugate: " << e.what() << std::endl;
+    }
+}
+
+void CPUBackend::complexDivisionStabilized(const FFTWData& a, const FFTWData& b, FFTWData& result, double epsilon) {
+    try {
+        if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
+            std::cerr << "[ERROR] Size mismatch in complexDivisionStabilized" << std::endl;
+            return;
+        }
+
+        #pragma omp parallel for
+        for (int i = 0; i < a.size.volume; ++i) {
+            double real_a = a.data[i][0];
+            double imag_a = a.data[i][1];
+            double real_b = b.data[i][0];
+            double imag_b = b.data[i][1];
+
             double mag = std::max(epsilon, real_b * real_b + imag_b * imag_b);
 
-            // Durchführung der stabilisierten Division
-            result[i][0] = (real_a * real_b + imag_a * imag_b) / mag;  // Realteil des Ergebnisses
-            result[i][1] = (imag_a * real_b - real_a * imag_b) / mag;  // Imaginärteil des Ergebnisses
+            result.data[i][0] = (real_a * real_b + imag_a * imag_b) / mag;
+            result.data[i][1] = (imag_a * real_b - real_a * imag_b) / mag;
         }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in complexDivisionStabilized: " << e.what() << std::endl;
     }
 }
 
-
-// Perform quadrant shift on FFTW complex array
-void CPUBackend::octantFourierShift(fftw_complex* data, int width, int height, int depth) {
-    int halfWidth = width / 2;
-    int halfHeight = height / 2;
-    int halfDepth = depth / 2;
-
-    // Parallelize the nested loops using OpenMP with collapsing to reduce overhead
-#pragma omp parallel for collapse(3)
-    for (int z = 0; z < halfDepth; ++z) {
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                // Calculate the indices for the swap
-                int idx1 = z * height * width + y * width + x;
-                int idx2 = ((z + halfDepth) % depth) * height * width + ((y + halfHeight) % height) * width + ((x + halfWidth) % width);
-
-                // Perform the swap only if the indices are different
-                if (idx1 != idx2) {
-                    // Swap real parts
-                    double temp_real = data[idx1][0];
-                    data[idx1][0] = data[idx2][0];
-                    data[idx2][0] = temp_real;
-
-                    // Swap imaginary parts
-                    double temp_imag = data[idx1][1];
-                    data[idx1][1] = data[idx2][1];
-                    data[idx2][1] = temp_imag;
+// Conversion Functions
+void CPUBackend::convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, FFTWData& output) {
+    try {
+        int width = output.size.width;
+        int height = output.size.height;
+        int depth = output.size.depth;
+        
+        for (int z = 0; z < depth; ++z) {
+            CV_Assert(input[z].type() == CV_32F);
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    output.data[z * height * width + y * width + x][0] = static_cast<double>(input[z].at<float>(y, x));
+                    output.data[z * height * width + y * width + x][1] = 0.0;
                 }
             }
         }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in convertCVMatVectorToFFTWComplex: " << e.what() << std::endl;
     }
 }
 
-// Shift the quadrants of the image to reposition the zero-frequency component to the center
-void CPUBackend::quadrantShiftMat(cv::Mat& magI) {
-    int cx = magI.cols / 2;
-    int cy = magI.rows / 2;
-
-    cv::Mat q0(magI, cv::Rect(0, 0, cx, cy));   // Top-Left
-    cv::Mat q1(magI, cv::Rect(cx, 0, cx, cy));  // Top-Right
-    cv::Mat q2(magI, cv::Rect(0, cy, cx, cy));  // Bottom-Left
-    cv::Mat q3(magI, cv::Rect(cx, cy, cx, cy)); // Bottom-Right
-
-    cv::Mat tmp;                               // Swap quadrants (Top-Left with Bottom-Right)
-    q0.copyTo(tmp);
-    q3.copyTo(q0);
-    tmp.copyTo(q3);
-
-    q1.copyTo(tmp);                            // Swap quadrants (Top-Right with Bottom-Left)
-    q2.copyTo(q1);
-    tmp.copyTo(q2);
+void CPUBackend::convertFFTWComplexToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) {
+    try {
+        int width = input.size.width;
+        int height = input.size.height;
+        int depth = input.size.depth;
+        
+        std::vector<cv::Mat> tempOutput;
+        for (int z = 0; z < depth; ++z) {
+            cv::Mat result(height, width, CV_32F);
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int index = z * height * width + y * width + x;
+                    double real_part = input.data[index][0];
+                    double imag_part = input.data[index][1];
+                    result.at<float>(y, x) = static_cast<float>(sqrt(real_part * real_part + imag_part * imag_part));
+                }
+            }
+            tempOutput.push_back(result);
+        }
+        output = tempOutput;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in convertFFTWComplexToCVMatVector: " << e.what() << std::endl;
+    }
 }
-// Perform inverse quadrant shift on FFTW complex array
-void CPUBackend::inverseQuadrantShift(fftw_complex* data, int width, int height, int depth) {
-    int halfWidth = width / 2;
-    int halfHeight = height / 2;
-    int halfDepth = depth / 2;
 
-    for (int z = 0; z < halfDepth; ++z) {
-        for (int y = 0; y < halfHeight; ++y) {
-            for (int x = 0; x < halfWidth; ++x) {
-                int idx1 = z * height * width + y * width + x;
-                int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x + halfWidth);
+void CPUBackend::convertFFTWComplexRealToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) {
+    try {
+        int width = input.size.width;
+        int height = input.size.height;
+        int depth = input.size.depth;
+        
+        std::vector<cv::Mat> tempOutput;
+        for (int z = 0; z < depth; ++z) {
+            cv::Mat result(height, width, CV_32F);
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int index = z * height * width + y * width + x;
+                    result.at<float>(y, x) = input.data[index][0];
+                }
+            }
+            tempOutput.push_back(result);
+        }
+        output = tempOutput;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in convertFFTWComplexRealToCVMatVector: " << e.what() << std::endl;
+    }
+}
 
-                std::swap(data[idx1][0], data[idx2][0]);
-                std::swap(data[idx1][1], data[idx2][1]);
+void CPUBackend::convertFFTWComplexImgToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) {
+    try {
+        int width = input.size.width;
+        int height = input.size.height;
+        int depth = input.size.depth;
+        
+        std::vector<cv::Mat> tempOutput;
+        for (int z = 0; z < depth; ++z) {
+            cv::Mat result(height, width, CV_32F);
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int index = z * height * width + y * width + x;
+                    result.at<float>(y, x) = input.data[index][1];
+                }
+            }
+            tempOutput.push_back(result);
+        }
+        output = tempOutput;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in convertFFTWComplexImgToCVMatVector: " << e.what() << std::endl;
+    }
+}
+
+// PSF Operations
+void CPUBackend::padPSF(const FFTWData& psf, FFTWData& padded_psf, const RectangleShape& target_size) {
+    try {
+        // Create temporary copy for shifting
+        FFTWData temp_psf = copyData(psf);
+        octantFourierShift(temp_psf);
+        
+        // Zero out padded PSF
+        for (int i = 0; i < padded_psf.size.volume; ++i) {
+            padded_psf.data[i][0] = 0.0;
+            padded_psf.data[i][1] = 0.0;
+        }
+
+        if (psf.size.depth > target_size.depth) {
+            std::cerr << "[ERROR] PSF has more layers than target size" << std::endl;
+        }
+
+        int x_offset = (target_size.width - psf.size.width) / 2;
+        int y_offset = (target_size.height - psf.size.height) / 2;
+        int z_offset = (target_size.depth - psf.size.depth) / 2;
+
+        for (int z = 0; z < psf.size.depth; ++z) {
+            for (int y = 0; y < psf.size.height; ++y) {
+                for (int x = 0; x < psf.size.width; ++x) {
+                    int padded_index = ((z + z_offset) * target_size.height + (y + y_offset)) * target_size.width + (x + x_offset);
+                    int psf_index = (z * psf.size.height + y) * psf.size.width + x;
+
+                    padded_psf.data[padded_index][0] = temp_psf.data[psf_index][0];
+                    padded_psf.data[padded_index][1] = temp_psf.data[psf_index][1];
+                }
             }
         }
+        octantFourierShift(padded_psf);
+        
+        // Clean up temporary data
+        fftw_free(temp_psf.data);
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in padPSF: " << e.what() << std::endl;
     }
+}
 
-    for (int z = 0; z < halfDepth; ++z) {
-        for (int y = 0; y < halfHeight; ++y) {
-            for (int x = halfWidth; x < width; ++x) {
-                int idx1 = z * height * width + y * width + x;
-                int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x - halfWidth);
+// Specialized Functions
+void CPUBackend::calculateLaplacianOfPSF(const FFTWData& psf, FFTWData& laplacian) {
+    try {
+        int width = psf.size.width;
+        int height = psf.size.height;
+        int depth = psf.size.depth;
 
-                std::swap(data[idx1][0], data[idx2][0]);
-                std::swap(data[idx1][1], data[idx2][1]);
+        for (int z = 0; z < depth; ++z) {
+            float wz = 2 * M_PI * z / depth;
+            for (int y = 0; y < height; ++y) {
+                float wy = 2 * M_PI * y / height;
+                for (int x = 0; x < width; ++x) {
+                    float wx = 2 * M_PI * x / width;
+                    float laplacian_value = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
+
+                    int index = (z * height + y) * width + x;
+
+                    laplacian.data[index][0] = psf.data[index][0] * laplacian_value;
+                    laplacian.data[index][1] = psf.data[index][1] * laplacian_value;
+                }
             }
         }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in calculateLaplacianOfPSF: " << e.what() << std::endl;
     }
+}
 
-    for (int z = 0; z < halfDepth; ++z) {
-        for (int y = halfHeight; y < height; ++y) {
-            for (int x = 0; x < halfWidth; ++x) {
-                int idx1 = z * height * width + y * width + x;
-                int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x + halfWidth);
-
-                std::swap(data[idx1][0], data[idx2][0]);
-                std::swap(data[idx1][1], data[idx2][1]);
-            }
+void CPUBackend::normalizeImage(FFTWData& resultImage, double epsilon) {
+    try {
+        double max_val = 0.0, max_val2 = 0.0;
+        for (int j = 0; j < resultImage.size.volume; j++) {
+            max_val = std::max(max_val, resultImage.data[j][0]);
+            max_val2 = std::max(max_val2, resultImage.data[j][1]);
         }
-    }
-
-    for (int z = 0; z < halfDepth; ++z) {
-        for (int y = halfHeight; y < height; ++y) {
-            for (int x = halfWidth; x < width; ++x) {
-                int idx1 = z * height * width + y * width + x;
-                int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x - halfWidth);
-
-                std::swap(data[idx1][0], data[idx2][0]);
-                std::swap(data[idx1][1], data[idx2][1]);
-            }
+        for (int j = 0; j < resultImage.size.volume; j++) {
+            resultImage.data[j][0] /= (max_val + epsilon);
+            resultImage.data[j][1] /= (max_val2 + epsilon);
         }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in normalizeImage: " << e.what() << std::endl;
     }
 }
 
-// Convert OpenCV Mat vector to FFTW complex array
-void CPUBackend::convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, fftw_complex* output, int width, int height, int depth) {
-    for (int z = 0; z < depth; ++z) {
-        CV_Assert(input[z].type() == CV_32F);  // Ensure input is of type float
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                output[z * height * width + y * width + x][0] = static_cast<double>(input[z].at<float>(y, x));
-                output[z * height * width + y * width + x][1] = 0.0;
-            }
+void CPUBackend::rescaledInverse(FFTWData& data, double cubeVolume) {
+    try {
+        for (int i = 0; i < data.size.volume; ++i) {
+            data.data[i][0] /= cubeVolume;
+            data.data[i][1] /= cubeVolume;
         }
-    }
-}
-// Pad the PSF to the size of the image
-void CPUBackend::padPSF(fftw_complex* psf, int psf_width, int psf_height, int psf_depth, fftw_complex* padded_psf, int width, int height, int depth) {
-    CPUBackend::octantFourierShift(psf, psf_width, psf_height, psf_depth);
-    for (int i = 0; i < width * height * depth; ++i) {
-        padded_psf[i][0] = 0.0;
-        padded_psf[i][1] = 0.0;
-    }
-
-    if(psf_depth > depth){
-        std::cerr << "[ERROR] PSF has more layers than image" << std::endl;
-    }
-
-    int x_offset = (width - psf_width) / 2;
-    int y_offset = (height - psf_height) / 2;
-    int z_offset = (depth - psf_depth) / 2;
-
-    for (int z = 0; z < psf_depth; ++z) {
-        for (int y = 0; y < psf_height; ++y) {
-            for (int x = 0; x < psf_width; ++x) {
-                int padded_index = ((z + z_offset) * height + (y + y_offset)) * width + (x + x_offset);
-                int psf_index = (z * psf_height + y) * psf_width + x;
-
-                padded_psf[padded_index][0] = psf[psf_index][0];
-                padded_psf[padded_index][1] = psf[psf_index][1];
-            }
-        }
-    }
-    CPUBackend::octantFourierShift(padded_psf, width, height, depth);
-}
-
-void CPUBackend::convertFFTWComplexToCVMatVector(const fftw_complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {
-    std::vector<cv::Mat> tempOutput;
-    for (int z = 0; z < depth; ++z) {
-        cv::Mat result(height, width, CV_32F);
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                int index = z * height * width + y * width + x;
-                //result.at<float>(y, x) = input[index][0] / (width * height * depth); // Normalize
-                // Berechne die Amplitude: A = sqrt(Re(X)^2 + Im(X)^2)
-                double real_part = input[index][0];
-                double imag_part = input[index][1];
-                result.at<float>(y, x) = static_cast<float>(sqrt(real_part * real_part + imag_part * imag_part));
-
-            }
-        }
-        tempOutput.push_back(result);
-    }
-    output = tempOutput;
-}
-
-void CPUBackend::convertFFTWComplexRealToCVMatVector(const fftw_complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {
-    std::vector<cv::Mat> tempOutput;
-    for (int z = 0; z < depth; ++z) {
-        cv::Mat result(height, width, CV_32F);
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                int index = z * height * width + y * width + x;
-                result.at<float>(y, x) = input[index][0];
-            }
-        }
-        tempOutput.push_back(result);
-    }
-    output = tempOutput;
-}
-
-void CPUBackend::convertFFTWComplexImgToCVMatVector(const fftw_complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {
-    std::vector<cv::Mat> tempOutput;
-    for (int z = 0; z < depth; ++z) {
-        cv::Mat result(height, width, CV_32F);
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                int index = z * height * width + y * width + x;
-                result.at<float>(y, x) = input[index][1];
-            }
-        }
-        tempOutput.push_back(result);
-    }
-    output = tempOutput;
-}
-
-// Perform point-wise complex addition
-void CPUBackend::complexAddition(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) {
-    // Ensure that input pointers are not null
-    if (!a || !b || !result) {
-        std::cerr << "Error: Null pointer passed to complexAddition." << std::endl;
-        return;
-    }
-
-    // Perform complex addition
-    for (int i = 0; i < size; ++i) {
-        result[i][0] = a[i][0] + b[i][0]; // Real part
-        result[i][1] = a[i][1] + b[i][1]; // Imaginary part
-    }
-}
-// Perform point-wise scalar multiplication on FFTW complex array
-void CPUBackend::scalarMultiplication(fftw_complex* a, double scalar, fftw_complex* result, int size) {
-    // Ensure that input pointers are not null
-    if (!a || !result) {
-        std::cerr << "Error: Null pointer passed to scalarMultiplication." << std::endl;
-        return;
-    }
-    // Perform scalar multiplication
-    for (int i = 0; i < size; ++i) {
-        result[i][0] = a[i][0] * scalar; // Real part
-        result[i][1] = a[i][1] * scalar; // Imaginary part
-    }
-}
-// Calculate the 3D Laplacian of a PSF
-void CPUBackend::calculateLaplacianOfPSF(fftw_complex* psf, fftw_complex* laplacian_fft, int width, int height, int depth) {
-    // Ensure that input and output pointers are not null
-    if (!psf || !laplacian_fft) {
-        std::cerr << "Error: Null pointer passed to calculateLaplacianOfPSF." << std::endl;
-        return;
-    }
-
-    for (int z = 0; z < depth; ++z) {
-        float wz = 2 * M_PI * z / depth;
-        for (int y = 0; y < height; ++y) {
-            float wy = 2 * M_PI * y / height;
-            for (int x = 0; x < width; ++x) {
-                float wx = 2 * M_PI * x / width;
-                float laplacian_value = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
-
-                int index = (z * height + y) * width + x;
-
-                // Laplacian im Frequenzraum: Eingabewert multipliziert mit Laplacian-Wert
-                laplacian_fft[index][0] = psf[index][0] * laplacian_value;  // Realteil
-                laplacian_fft[index][1] = psf[index][1] * laplacian_value;  // Imaginärteil
-            }
-        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in rescaledInverse: " << e.what() << std::endl;
     }
 }
 
-void CPUBackend::normalizeImage(fftw_complex* resultImage,int size, double epsilon){
-    double max_val, max_val2 = 0.0;
-    for (int j = 0; j < size; j++) {
-        max_val = std::max(max_val, resultImage[j][0]);
-        max_val2 = std::max(max_val2, resultImage[j][1]);
-    }
-    for (int j = 0; j < size; j++) {
-        resultImage[j][0] /= (max_val + epsilon);  // Add epsilon to avoid division by zero
-        resultImage[j][1] /= (max_val2 + epsilon);  // Add epsilon to avoid division by zero
-    }
-}
-
-void CPUBackend::saveInterimImages(fftw_complex* resultImage, int imageWidth, int imageHeight, int imageDepth, int gridNum, int channel_z, int i){
-    std::vector<cv::Mat> debugImage;
-    CPUBackend::convertFFTWComplexToCVMatVector(resultImage, debugImage, imageWidth, imageHeight, imageDepth);
-    for (int k = 0; k < debugImage.size(); k++) {
-        cv::normalize(debugImage[k], debugImage[k], 0, 255, cv::NORM_MINMAX);
-        cv::imwrite(
+void CPUBackend::saveInterimImages(const FFTWData& resultImage, int gridNum, int channel_z, int i) {
+    try {
+        std::vector<cv::Mat> debugImage;
+        convertFFTWComplexToCVMatVector(resultImage, debugImage);
+        for (int k = 0; k < debugImage.size(); k++) {
+            cv::normalize(debugImage[k], debugImage[k], 0, 255, cv::NORM_MINMAX);
+            cv::imwrite(
                 "../result/debug/debug_image_" + std::to_string(channel_z) + "_" + std::to_string(gridNum) + "_iter_" +
                 std::to_string(i) + "_slice_" + std::to_string(k) + ".png", debugImage[k]);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in saveInterimImages: " << e.what() << std::endl;
     }
 }
 
-// Berechnet den Gradienten in x-Richtung eines 3D-Bildes.
-void CPUBackend::gradientX(fftw_complex* image, fftw_complex* gradX, int width, int height, int depth) {
-    // Parallelize the loops using OpenMP for better performance.
-//#pragma omp parallel for collapse(3)
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width - 1; ++x) {
-                // Calculate the linear index for the 3D array.
-                int index = z * height * width + y * width + x;
-                int nextIndex = index + 1;
+// Layer and Visualization Functions
+void CPUBackend::reorderLayers(FFTWData& data) {
+    try {
+        int width = data.size.width;
+        int height = data.size.height;
+        int depth = data.size.depth;
+        int layerSize = width * height;
+        int halfDepth = depth / 2;
+        
+        fftw_complex* temp = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * data.size.volume);
 
-                // Derivative in x-direction: gradX = image - next value in x.
-                gradX[index][0] = image[index][0] - image[nextIndex][0]; // Real part
-                gradX[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+        int destIndex = 0;
+
+        // Copy the middle layer to the first position
+        std::memcpy(temp + destIndex * layerSize, data.data + halfDepth * layerSize, sizeof(fftw_complex) * layerSize);
+        destIndex++;
+
+        // Copy the layers after the middle layer
+        for (int z = halfDepth + 1; z < depth; ++z) {
+            std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(fftw_complex) * layerSize);
+            destIndex++;
+        }
+
+        // Copy the layers before the middle layer
+        for (int z = 0; z < halfDepth; ++z) {
+            std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(fftw_complex) * layerSize);
+            destIndex++;
+        }
+
+        // Copy reordered data back to the original array
+        std::memcpy(data.data, temp, sizeof(fftw_complex) * data.size.volume);
+        fftw_free(temp);
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in reorderLayers: " << e.what() << std::endl;
+    }
+}
+
+void CPUBackend::visualizeFFT(const FFTWData& data) {
+    try {
+        int width = data.size.width;
+        int height = data.size.height;
+        int depth = data.size.depth;
+        
+        Image3D i;
+        std::vector<cv::Mat> output;
+        for (int z = 0; z < depth; ++z) {
+            cv::Mat result(height, width, CV_32F);
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int index = z * height * width + y * width + x;
+                    result.at<float>(y, x) = data.data[index][0];
+                }
+            }
+            output.push_back(result);
+        }
+        i.slices = output;
+        i.show();
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in visualizeFFT: " << e.what() << std::endl;
+    }
+}
+
+// Gradient and TV Functions
+void CPUBackend::gradientX(const FFTWData& image, FFTWData& gradX) {
+    try {
+        int width = image.size.width;
+        int height = image.size.height;
+        int depth = image.size.depth;
+        
+        for (int z = 0; z < depth; ++z) {
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width - 1; ++x) {
+                    int index = z * height * width + y * width + x;
+                    int nextIndex = index + 1;
+
+                    gradX.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                    gradX.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                }
+
+                int lastIndex = z * height * width + y * width + (width - 1);
+                gradX.data[lastIndex][0] = 0.0;
+                gradX.data[lastIndex][1] = 0.0;
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in gradientX: " << e.what() << std::endl;
+    }
+}
+
+void CPUBackend::gradientY(const FFTWData& image, FFTWData& gradY) {
+    try {
+        int width = image.size.width;
+        int height = image.size.height;
+        int depth = image.size.depth;
+        
+        for (int z = 0; z < depth; ++z) {
+            for (int y = 0; y < height - 1; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int index = z * height * width + y * width + x;
+                    int nextIndex = index + width;
+
+                    gradY.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                    gradY.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                }
             }
 
-            // Handle the boundary condition at the last x position.
-            int lastIndex = z * height * width + y * width + (width - 1);
-            gradX[lastIndex][0] = 0.0; // Set the derivative to zero or another suitable boundary condition.
-            gradX[lastIndex][1] = 0.0;
-        }
-    }
-}
-
-// Berechnet den Gradienten in y-Richtung eines 3D-Bildes.
-void CPUBackend::gradientY(fftw_complex* image, fftw_complex* gradY, int width, int height, int depth) {
-    // Parallelize the loops using OpenMP for better performance.
-//#pragma omp parallel for collapse(3)
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height - 1; ++y) {
             for (int x = 0; x < width; ++x) {
-                // Calculate the linear index for the 3D array.
-                int index = z * height * width + y * width + x;
-                int nextIndex = index + width;
-
-                // Derivative in y-direction: gradY = image - next value in y.
-                gradY[index][0] = image[index][0] - image[nextIndex][0]; // Real part
-                gradY[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+                int lastIndex = z * height * width + (height - 1) * width + x;
+                gradY.data[lastIndex][0] = 0.0;
+                gradY.data[lastIndex][1] = 0.0;
             }
-
-            // Handle the boundary condition at the last y position.
-            int lastIndex = z * height * width + (height - 1) * width + (width - 1);
-            gradY[lastIndex][0] = 0.0; // Set the derivative to zero or another suitable boundary condition.
-            gradY[lastIndex][1] = 0.0;
         }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in gradientY: " << e.what() << std::endl;
     }
 }
 
-// Berechnet den Gradienten in z-Richtung eines 3D-Bildes.
-void CPUBackend::gradientZ(fftw_complex* image, fftw_complex* gradZ, int width, int height, int depth) {
-    // Parallelize the loops using OpenMP for better performance.
-//#pragma omp parallel for collapse(3)
-    for (int z = 0; z < depth - 1; ++z) {
+void CPUBackend::gradientZ(const FFTWData& image, FFTWData& gradZ) {
+    try {
+        int width = image.size.width;
+        int height = image.size.height;
+        int depth = image.size.depth;
+        
+        for (int z = 0; z < depth - 1; ++z) {
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int index = z * height * width + y * width + x;
+                    int nextIndex = index + height * width;
+
+                    gradZ.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                    gradZ.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                }
+            }
+        }
+
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
-                // Calculate the linear index for the 3D array.
-                int index = z * height * width + y * width + x;
-                int nextIndex = index + height * width;
-
-                // Derivative in z-direction: gradZ = image - next value in z.
-                gradZ[index][0] = image[index][0] - image[nextIndex][0]; // Real part
-                gradZ[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+                int lastIndex = (depth - 1) * height * width + y * width + x;
+                gradZ.data[lastIndex][0] = 0.0;
+                gradZ.data[lastIndex][1] = 0.0;
             }
-
-            // Handle the boundary condition at the last z position.
-            int lastIndex = (depth - 1) * height * width + y * width + (width - 1);
-            gradZ[lastIndex][0] = 0.0; // Set the derivative to zero or another suitable boundary condition.
-            gradZ[lastIndex][1] = 0.0;
         }
-    }
-}
-// Berechnet die Total-Variation-Filterung basierend auf den Gradienten und einem Regularisierungsparameter lambda.
-void CPUBackend::computeTV(double lambda, fftw_complex* gx, fftw_complex* gy, fftw_complex* gz, fftw_complex* tv, int width, int height, int depth) {
-    int nxy = width * height;
-
-    // Parallelize the loops using OpenMP for better performance.
-//#pragma omp parallel for collapse(2)
-    for (int z = 0; z < depth; ++z) {
-        for (int i = 0; i < nxy; ++i) {
-            // Calculate the linear index for the 3D array.
-            int index = z * nxy + i;
-
-            // Retrieve the gradient components.
-            double dx = gx[index][0]; // Assume that the gradient data is stored in the real part.
-            double dy = gy[index][0];
-            double dz = gz[index][0];
-
-            // Compute the TV value using the provided formula.
-            tv[index][0] = static_cast<float>(1.0 / ((dx + dy + dz) * lambda + 1.0));
-            tv[index][1] = 1.0; // Assuming the output is real-valued, set the imaginary part to one, so it has no impact.
-        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in gradientZ: " << e.what() << std::endl;
     }
 }
 
-// Normalisiert die Vektorkomponenten eines 3D-Feldes.
-void CPUBackend::normalizeTV(fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, int width, int height, int depth, double epsilon) {
-    int nxy = width * height;
+void CPUBackend::computeTV(double lambda, const FFTWData& gx, const FFTWData& gy, const FFTWData& gz, FFTWData& tv) {
+    try {
+        int nxy = gx.size.width * gx.size.height;
 
-    // Parallelize the loops using OpenMP for better performance.
-//#pragma omp parallel for collapse(2)
-    for (int z = 0; z < depth; ++z) {
-        for (int i = 0; i < nxy; ++i) {
-            int index = z * nxy + i;
+        for (int z = 0; z < gx.size.depth; ++z) {
+            for (int i = 0; i < nxy; ++i) {
+                int index = z * nxy + i;
 
-            // Berechne die Norm (Länge) des Vektors.
-            double norm = std::sqrt(
-                    gradX[index][0] * gradX[index][0] + gradX[index][1] * gradX[index][1] +
-                    gradY[index][0] * gradY[index][0] + gradY[index][1] * gradY[index][1] +
-                    gradZ[index][0] * gradZ[index][0] + gradZ[index][1] * gradZ[index][1]
-            );
+                double dx = gx.data[index][0];
+                double dy = gy.data[index][0];
+                double dz = gz.data[index][0];
 
-            // Vermeide Division durch zu kleine Werte, indem die Norm durch max(epsilon, norm) ersetzt wird.
-            norm = std::max(norm, epsilon);
-
-            // Normalisiere die Komponenten.
-            gradX[index][0] /= norm;
-            gradX[index][1] /= norm;
-            gradY[index][0] /= norm;
-            gradY[index][1] /= norm;
-            gradZ[index][0] /= norm;
-            gradZ[index][1] /= norm;
+                tv.data[index][0] = static_cast<float>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+                tv.data[index][1] = 1.0;
+            }
         }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in computeTV: " << e.what() << std::endl;
     }
 }
 
-// Normalizing after the inverse FFT helps maintain correct scaling of the result,
-// especially in iterative algorithms where accumulated scaling errors could otherwise
-// lead to instability. However, in this case, the normalization/rescaling has no significant effect.
-// maybe TODO as optional configuration, rescaledInverse yes/no
-void CPUBackend::rescaledInverse(fftw_complex* data, double cubeVolume) {
-    for (int i = 0; i < cubeVolume; ++i) {
-        data[i][0] /= cubeVolume; // Realteil normalisieren
-        data[i][1] /= cubeVolume; // Imaginärteil normalisieren
+void CPUBackend::normalizeTV(FFTWData& gradX, FFTWData& gradY, FFTWData& gradZ, double epsilon) {
+    try {
+        int nxy = gradX.size.width * gradX.size.height;
+
+        for (int z = 0; z < gradX.size.depth; ++z) {
+            for (int i = 0; i < nxy; ++i) {
+                int index = z * nxy + i;
+
+                double norm = std::sqrt(
+                    gradX.data[index][0] * gradX.data[index][0] + gradX.data[index][1] * gradX.data[index][1] +
+                    gradY.data[index][0] * gradY.data[index][0] + gradY.data[index][1] * gradY.data[index][1] +
+                    gradZ.data[index][0] * gradZ.data[index][0] + gradZ.data[index][1] * gradZ.data[index][1]
+                );
+
+                norm = std::max(norm, epsilon);
+
+                gradX.data[index][0] /= norm;
+                gradX.data[index][1] /= norm;
+                gradY.data[index][0] /= norm;
+                gradY.data[index][1] /= norm;
+                gradZ.data[index][0] /= norm;
+                gradZ.data[index][1] /= norm;
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in normalizeTV: " << e.what() << std::endl;
     }
 }
