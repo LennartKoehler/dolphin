@@ -11,7 +11,7 @@
     "cubeSize": 20,
     "cubePSFMap": [],
     "layerPSFMap": {
-      "0:5": ["ID1234"]
+      ":": ["ID1234"]
     },
     "time": false,
     "saveSubimages": false,

@@ -43,32 +43,44 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     registerAllParameters();
 }
 
-void DeconvolutionConfig::registerRangeMap(const std::string& jsonTag, RangeMap<std::string>& field, bool optional){
+void DeconvolutionConfig::registerRangeMap(const std::string& jsonTag, RangeMap<std::string>& field, bool optional) {
     ReadWriteHelper param;
 
     param.jsonTag = jsonTag;
+    
+    // Reader lambda - captures field by reference
     param.reader = [&field, jsonTag](const json& jsonData) {
         if (jsonData.contains(jsonTag)) {
-            const json& subJson = jsonData.at(jsonTag);
-            field.loadFromJSON(subJson);
-        }
-        else {
-            field.clear();
-            std::cout << "[INFO] No deconvolution parameters found, running with default parameters" << std::endl;
+            try {
+                const json& subJson = jsonData.at(jsonTag);
+                field.loadFromJSON(subJson);
+                std::cout << "[INFO] Loaded " << jsonTag << " configuration" << std::endl;
+            } catch (const std::exception& e) {
+                std::cerr << "[ERROR] Failed to load " << jsonTag << ": " << e.what() << std::endl;
+                field.clear(); // Clear field on error
+            }
+        } else {
+            std::cout << "[INFO] No " << jsonTag << " found, using defaults" << std::endl;
+            field.clear(); // Ensure field is empty if not found
         }
     };
     
-    // Writer lambda
+    // Writer lambda - captures field by reference
     param.writer = [&field, jsonTag](ordered_json& jsonData) {
         // Convert RangeMap to JSON format
         ordered_json rangeMapJson = ordered_json::object();
         
-        // Iterate through the RangeMap and convert to JSON
-        for (const auto& [index, values] : field) {
-            if (!values.empty()) {
-                // Convert single index to range format for JSON
-                std::string rangeKey = std::to_string(index) + ":" + std::to_string(index + 1);
-                rangeMapJson[rangeKey] = values;
+        // Iterate through the RangeMap ranges
+        for (const auto& range : field) {
+            if (!range.values.empty()) {
+                // Convert range to string format for JSON
+                std::string rangeKey;
+                if (range.end == -1) {
+                    rangeKey = std::to_string(range.start) + ":";
+                } else {
+                    rangeKey = std::to_string(range.start) + ":" + std::to_string(range.end);
+                }
+                rangeMapJson[rangeKey] = range.values;
             }
         }
         

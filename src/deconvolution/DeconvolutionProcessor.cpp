@@ -281,14 +281,14 @@ std::vector<fftw_complex*> DeconvolutionProcessor::selectPSFsForCube(int cubeInd
 
     std::vector<fftw_complex*> psfs;
     
-    auto layerPSFs = layerPreparedPSFMap.find(layerIndex);
-    if (layerPSFs != layerPreparedPSFMap.end()) {
-        psfs.insert(psfs.end(), layerPSFs->second.begin(), layerPSFs->second.end());
+    std::vector<fftw_complex*> layerPSFs = layerPreparedPSFMap.get(layerIndex);
+    if (!layerPSFs.empty()) {
+        psfs.insert(psfs.end(), layerPSFs.begin(), layerPSFs.end());
     }
     
-    auto cubePSFs = cubePreparedPSFMap.find(cubeIndex);
-    if (cubePSFs != cubePreparedPSFMap.end()) {
-        psfs.insert(psfs.end(), cubePSFs->second.begin(), cubePSFs->second.end());
+    std::vector<fftw_complex*> cubePSFs = cubePreparedPSFMap.get(cubeIndex);
+    if (!cubePSFs.empty()) {
+        psfs.insert(psfs.end(), cubePSFs.begin(), cubePSFs.end());
     }
 
     return psfs;
@@ -391,11 +391,12 @@ bool DeconvolutionProcessor::setupFFTWPlans() {
 // basically using the raw psf and raw ranges to map to the prepared psfs
 // refactor
 void DeconvolutionProcessor::initPSFMaps(const std::vector<PSF>& psfs){
-    for (const auto& [key, psfids] : config.layerPSFMap){
-        for (auto psfid : psfids){
-            for (int psfindex = 0; psfindex < psfs.size(); psfindex++){
-                if (psfs[psfindex].ID == psfid){
-                    layerPreparedPSFMap[key].push_back(preparedpsfs[psfindex]);
+    for (const auto& range : config.layerPSFMap) {
+        for (int psfindex = 0; psfindex < psfs.size(); psfindex++) {
+            std::string ID = psfs[psfindex].ID;
+            for (const std::string& mapID : range.get()){
+                if (ID == mapID){
+                    layerPreparedPSFMap.addRange(range.start, range.end, preparedpsfs[psfindex]);
                 }
             }
         }

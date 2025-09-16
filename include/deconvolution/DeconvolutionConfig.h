@@ -8,45 +8,76 @@
 #include <map>
 #include <memory>
 
+
 template<typename T>
-class RangeMap {    
+class RangeMap {
+public:
+    struct Range {
+        int start;
+        int end;  // -1 means open-ended
+        std::vector<T> values;
+        
+        Range(int s, int e, T value) : start(s), end(e) {
+            values.push_back(value);
+        }
+        
+        bool contains(int index) const {
+            return index >= start && (end == -1 || index < end);
+        }
+
+        std::vector<T> get() const {
+            return values;
+        }
+    };
+
+private:
+    std::vector<Range> ranges;
+
 public:
     RangeMap() = default;
-    RangeMap(const RangeMap& other)
-        : ranges(other.ranges){}
+    RangeMap(const RangeMap& other) : ranges(other.ranges) {}
 
     void addRange(int start, int end, T value) {
-        for (int i = start; i < end; ++i) {
-            ranges[i].push_back(value);
+        // Find if there's an existing range that matches exactly
+        for (auto& range : ranges) {
+            if (range.start == start && range.end == end) {
+                range.values.push_back(value);
+                return;
+            }
         }
+        
+        // Create new range
+        ranges.emplace_back(start, end, value);
     }
-    
-    std::vector<T>& get(int index){
-        return ranges[index];
+
+    std::vector<T> get(int index) const {
+        std::vector<T> result;
+        
+        for (const auto& range : ranges) {
+            if (range.contains(index)) {
+                result.insert(result.end(), range.values.begin(), range.values.end());
+            }
+        }
+        
+        return result;
     }
-    
-    std::vector<T>& operator[](int index) {
+
+    std::vector<T> operator[](int index) const {
         return get(index);
     }
 
-    
-    
     void clear() {
         ranges.clear();
     }
-    
-    // Load from JSON - this is the key function
+
+    // Load from JSON - unchanged
     void loadFromJSON(const json& jsonObj) {
         clear();
         
-        
-        // Iterate through all key-value pairs in the JSON object
         for (auto& [rangeKey, valueArray] : jsonObj.items()) {
             try {
-                // Parse the range key "start:end"
                 auto [start, end] = parseRange(rangeKey);
                 
-                // Parse the value array
                 if (valueArray.is_array()) {
                     for (const auto& valueJson : valueArray) {
                         if (valueJson.is_string()) {
@@ -55,7 +86,6 @@ public:
                         }
                     }
                 } else if (valueArray.is_string()) {
-                    // Handle single string value
                     T value = valueArray.get<std::string>();
                     addRange(start, end, value);
                 }
@@ -65,95 +95,138 @@ public:
             }
         }
     }
-    
 
-
-private:
-    std::map<int, std::vector<T>> ranges;
-    
-    // Helper function to parse range string "start:end" 
-    std::pair<int, int> parseRange(const std::string& rangeStr) const {
-        size_t colonPos = rangeStr.find(':');
-        if (colonPos == std::string::npos) {
-            throw std::invalid_argument("Invalid range format: " + rangeStr);
-        }
-        
-        int start = std::stoi(rangeStr.substr(0, colonPos));
-        int end = std::stoi(rangeStr.substr(colonPos + 1));
-        
-        return {start, end};
-    }
-public:
+    // Iterator support - iterate over ranges, not individual indices
     class iterator {
     private:
-        typename std::map<int, std::vector<T>>::iterator mapIt;
+        typename std::vector<Range>::iterator rangeIt;
         
     public:
         using iterator_category = std::forward_iterator_tag;
-        using value_type = std::pair<const int, std::vector<T>>;
+        using value_type = Range;
         using difference_type = std::ptrdiff_t;
-        using pointer = value_type*;
-        using reference = value_type&;
+        using pointer = Range*;
+        using reference = Range&;
         
-        iterator(typename std::map<int, std::vector<T>>::iterator it) : mapIt(it) {}
+        iterator(typename std::vector<Range>::iterator it) : rangeIt(it) {}
         
-        reference operator*() { return *mapIt; }
-        pointer operator->() { return &(*mapIt); }
+        reference operator*() { return *rangeIt; }
+        pointer operator->() { return &(*rangeIt); }
         
         iterator& operator++() {
-            ++mapIt;
+            ++rangeIt;
             return *this;
         }
         
         iterator operator++(int) {
             iterator temp = *this;
-            ++mapIt;
+            ++rangeIt;
             return temp;
         }
         
-        bool operator==(const iterator& other) const { return mapIt == other.mapIt; }
-        bool operator!=(const iterator& other) const { return mapIt != other.mapIt; }
+        bool operator==(const iterator& other) const { return rangeIt == other.rangeIt; }
+        bool operator!=(const iterator& other) const { return rangeIt != other.rangeIt; }
     };
     
     class const_iterator {
     private:
-        typename std::map<int, std::vector<T>>::const_iterator mapIt;
+        typename std::vector<Range>::const_iterator rangeIt;
         
     public:
         using iterator_category = std::forward_iterator_tag;
-        using value_type = const std::pair<const int, std::vector<T>>;
+        using value_type = const Range;
         using difference_type = std::ptrdiff_t;
-        using pointer = value_type*;
-        using reference = value_type&;
+        using pointer = const Range*;
+        using reference = const Range&;
         
-        const_iterator(typename std::map<int, std::vector<T>>::const_iterator it) : mapIt(it) {}
+        const_iterator(typename std::vector<Range>::const_iterator it) : rangeIt(it) {}
         
-        reference operator*() const { return *mapIt; }
-        pointer operator->() const { return &(*mapIt); }
+        reference operator*() const { return *rangeIt; }
+        pointer operator->() const { return &(*rangeIt); }
         
         const_iterator& operator++() {
-            ++mapIt;
+            ++rangeIt;
             return *this;
         }
         
         const_iterator operator++(int) {
             const_iterator temp = *this;
-            ++mapIt;
+            ++rangeIt;
             return temp;
         }
         
-        bool operator==(const const_iterator& other) const { return mapIt == other.mapIt; }
-        bool operator!=(const const_iterator& other) const { return mapIt != other.mapIt; }
+        bool operator==(const const_iterator& other) const { return rangeIt == other.rangeIt; }
+        bool operator!=(const const_iterator& other) const { return rangeIt != other.rangeIt; }
     };
 
-    iterator find(int index) { return iterator(ranges.find(index)); }
-    const_iterator find(int index) const { return const_iterator(ranges.find(index)); }
+    // Iterator methods
     iterator begin() { return iterator(ranges.begin()); }
     iterator end() { return iterator(ranges.end()); }
     const_iterator begin() const { return const_iterator(ranges.begin()); }
     const_iterator end() const { return const_iterator(ranges.end()); }
     const_iterator cbegin() const { return const_iterator(ranges.begin()); }
     const_iterator cend() const { return const_iterator(ranges.end()); }
+
+    // Find ranges that contain a specific index
+    std::vector<iterator> findRangesContaining(int index) {
+        std::vector<iterator> result;
+        for (auto it = begin(); it != end(); ++it) {
+            if (it->contains(index)) {
+                result.push_back(it);
+            }
+        }
+        return result;
+    }
+
+    // Debug method
+    void debugPrint() const {
+        std::cout << "[DEBUG] RangeMap contents:" << std::endl;
+        for (const auto& range : ranges) {
+            std::cout << "[DEBUG] Range " << range.start << ":";
+            if (range.end == -1) {
+                std::cout << "END";
+            } else {
+                std::cout << range.end;
+            }
+            std::cout << " -> ";
+            for (const auto& value : range.values) {
+                std::cout << "'" << value << "' ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
+private:
+    // Fixed parseRange function
+    std::pair<int, int> parseRange(const std::string& rangeStr) const {
+        size_t colonPos = rangeStr.find(':');
+        if (colonPos == std::string::npos) {
+            throw std::invalid_argument("Invalid range format: " + rangeStr);
+        }
+        
+        int start, end;
+        
+        // Handle start
+        if (colonPos == 0) {
+            start = 0;
+        } else {
+            start = std::stoi(rangeStr.substr(0, colonPos));
+        }
+        
+        // Handle end
+        if (colonPos == rangeStr.length() - 1) {
+            end = -1; // Open-ended
+        } else {
+            std::string endStr = rangeStr.substr(colonPos + 1);
+            if (endStr.empty()) {
+                end = -1;
+            } else {
+                end = std::stoi(endStr);
+            }
+        }
+        
+        return {start, end};
+    }
 };
 
 
