@@ -43,6 +43,7 @@ void CLIFrontend::run() {
     }
     else if (*deconvolutionCLI) {
         handleDeconvolution();
+        // setupConfig.deconvolutionConfig = std::make_shared<DeconvolutionConfig>(deconvolutionConfig);
         DeconvolutionRequest request = generateDeconvRequest(std::make_shared<SetupConfig>(setupConfig));
         dolphin->deconvolve(request);
     }
@@ -163,16 +164,16 @@ PSFGenerationRequest CLIFrontend::generatePSFRequest(const std::string& configPa
     return request;    
 }
 
-DeconvolutionRequest CLIFrontend::generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfig) {
+DeconvolutionRequest CLIFrontend::generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfigCopy) {
     // Create request with setup config
-    DeconvolutionRequest request(setupConfig);
+    DeconvolutionRequest request(setupConfigCopy);
     
     // Set CLI-specific options from parsed arguments
-    request.save_separate = setupConfig->sep;
-    request.save_subimages = setupConfig->saveSubimages;
-    request.show_example = setupConfig->showExampleLayers;
-    request.print_info = setupConfig->printInfo;
-    request.output_path = setupConfig->outputDir;
+    request.save_separate = setupConfigCopy->sep;
+    request.save_subimages = setupConfigCopy->saveSubimages;
+    request.show_example = setupConfigCopy->showExampleLayers;
+    request.print_info = setupConfigCopy->printInfo;
+    request.output_path = setupConfigCopy->outputDir;
     return request;
 
 }

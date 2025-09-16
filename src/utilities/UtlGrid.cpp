@@ -117,16 +117,16 @@ void UtlGrid::extendImage(std::vector<cv::Mat>& image3D, int& padding, int borde
     // Den umgekehrten Vektor am Anfang des Originalvektors einfügen
     if(padding > image3D.size()){
         padding = image3D.size();
-        std::cout << "Adjusted padding to " << padding << "(Depth)"<<std::endl;
+        std::cout << "[INFO] Adjusted padding to " << padding << "(Depth)"<<std::endl;
     }
     if(padding > image3D[0].rows){
         padding = image3D[0].rows;
-        std::cout << "Adjusted padding to " << padding << "(Heigth)"<<std::endl;
+        std::cout << "[INFO] Adjusted padding to " << padding << "(Heigth)"<<std::endl;
 
     }
     if(padding > image3D[0].cols){
         padding = image3D[0].cols;
-        std::cout << "Adjusted padding to " << padding << "(Width)"<<std::endl;
+        std::cout << "[INFO] Adjusted padding to " << padding << "(Width)"<<std::endl;
 
     }
 

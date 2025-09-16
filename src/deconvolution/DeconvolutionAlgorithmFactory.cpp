@@ -42,7 +42,6 @@ std::shared_ptr<DeconvolutionAlgorithm> DeconvolutionAlgorithmFactory::create(
     
     // Configure the algorithm with the provided config
     algorithm->configure(config);
-    
     return algorithm;
 }
 

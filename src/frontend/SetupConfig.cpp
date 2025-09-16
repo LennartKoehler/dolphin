@@ -25,27 +25,31 @@ SetupConfig SetupConfig::createFromJSONFile(const std::string& filePath) {
 }
 
 SetupConfig::SetupConfig(const SetupConfig& other) 
-    : Config(other),  // Copy base class
-        imagePath(other.imagePath),
-        psfConfigPath(other.psfConfigPath),
-        psfFilePath(other.psfFilePath),
-        psfDirPath(other.psfDirPath),
-        time(other.time),
-        sep(other.sep),
-        savePsf(other.savePsf),
-        showExampleLayers(other.showExampleLayers),
-        printInfo(other.printInfo),
-        saveSubimages(other.saveSubimages),
-        gpu(other.gpu)
+    : Config(other)  // Copy base class
 {
+    // First, register all parameters to set up the infrastructure
+    registerAllParameters();
+    
+    // Then copy all the values
+    imagePath = other.imagePath;
+    psfConfigPath = other.psfConfigPath;
+    psfFilePath = other.psfFilePath;
+    psfDirPath = other.psfDirPath;
+    time = other.time;
+    sep = other.sep;
+    savePsf = other.savePsf;
+    showExampleLayers = other.showExampleLayers;
+    printInfo = other.printInfo;
+    saveSubimages = other.saveSubimages;
+    gpu = other.gpu;
 
     // Deep copy the shared_ptr content
-    if (other.deconvolutionConfig) {
+    if (other.deconvolutionConfig != nullptr) {
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
     }
-    // If other.deconvolutionConfig is nullptr, our deconvolutionConfig will also be nullptr (default)
-    registerAllParameters();
+    // If other.deconvolutionConfig is nullptr, our deconvolutionConfig will remain nullptr (from registerAllParameters)
 }
+
 
 // Copy assignment operator (recommended to implement if you have copy constructor)
 SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
@@ -65,7 +69,7 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         gpu = other.gpu;
         
         // Deep copy the shared_ptr content
-        if (other.deconvolutionConfig) {
+        if (other.deconvolutionConfig != nullptr) {
             deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
         } else {
             deconvolutionConfig.reset();  // Set to nullptr
@@ -76,6 +80,9 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
 
 
 void SetupConfig::registerDeconvolution(){
+    if (deconvolutionConfig == nullptr){
+        deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
+    }
     ReadWriteHelper param;
     std::string jsonTag = "Deconvolution";
     param.jsonTag = jsonTag;
@@ -100,8 +107,6 @@ void SetupConfig::registerDeconvolution(){
 void SetupConfig::registerAllParameters(){
     bool optional = true;
     
-    // Initialize deconvolutionConfig first
-    deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
     
     // Register all parameters
     // Required fields

@@ -10,7 +10,8 @@ DeconvolutionService::DeconvolutionService()
     : initialized_(false),
       logger_([](const std::string& msg) { std::cout << "[DECONV_SERVICE] " << msg << std::endl; }),
       error_handler_([](const std::string& msg) { std::cerr << "[DECONV_ERROR] " << msg << std::endl; }),
-      thread_pool_(std::make_unique<ThreadPool>(std::thread::hardware_concurrency())){}
+      thread_pool_(std::make_unique<ThreadPool>(std::thread::hardware_concurrency())),
+      deconvolutionProcessor(std::make_unique<DeconvolutionProcessor>()){}
 
 DeconvolutionService::~DeconvolutionService() {
     shutdown();
@@ -20,8 +21,8 @@ void DeconvolutionService::initialize() {
     if (initialized_) return;
     
     try {
-        algorithm_factory_ = &DeconvolutionAlgorithmFactory::getInstance();
-        supported_algorithms_ = algorithm_factory_->getAvailableAlgorithms();
+        DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
+        supported_algorithms_ = fact.getAvailableAlgorithms();
 
         // Create default config loader if not set
         if (!config_loader_) {
@@ -257,6 +258,7 @@ bool DeconvolutionService::validateDeconvolutionRequest(const DeconvolutionReque
     );
     
     if (algorithm_it == supported_algorithms_.end()) {
+        logger_("ERROR: could not find algorithm");
         return false;
     }
     

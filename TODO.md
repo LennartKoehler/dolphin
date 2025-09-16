@@ -6,7 +6,7 @@
 
 - rename gpu backend to cuda
 
-
+- in deconvconfig what is subimagesize and what is cubesize in original implementation
 
 
 

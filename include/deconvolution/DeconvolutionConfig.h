@@ -11,20 +11,24 @@
 template<typename T>
 class RangeMap {    
 public:
+    RangeMap() = default;
+    RangeMap(const RangeMap& other)
+        : ranges(other.ranges){}
+
     void addRange(int start, int end, T value) {
         for (int i = start; i < end; ++i) {
             ranges[i].push_back(value);
         }
     }
     
-    std::vector<T> get(int index) const {
-        auto it = ranges.find(index);
-        return (it != ranges.end()) ? it->second : std::vector<T>{};
+    std::vector<T>& get(int index){
+        return ranges[index];
     }
     
-    std::vector<T> operator[](int index) const {
+    std::vector<T>& operator[](int index) {
         return get(index);
     }
+
     
     
     void clear() {
@@ -35,9 +39,6 @@ public:
     void loadFromJSON(const json& jsonObj) {
         clear();
         
-        if (!jsonObj.is_object()) {
-            throw std::invalid_argument("JSON must be an object");
-        }
         
         // Iterate through all key-value pairs in the JSON object
         for (auto& [rangeKey, valueArray] : jsonObj.items()) {
@@ -144,7 +145,9 @@ public:
         bool operator==(const const_iterator& other) const { return mapIt == other.mapIt; }
         bool operator!=(const const_iterator& other) const { return mapIt != other.mapIt; }
     };
-    
+
+    iterator find(int index) { return iterator(ranges.find(index)); }
+    const_iterator find(int index) const { return const_iterator(ranges.find(index)); }
     iterator begin() { return iterator(ranges.begin()); }
     iterator end() { return iterator(ranges.end()); }
     const_iterator begin() const { return const_iterator(ranges.begin()); }
@@ -169,7 +172,7 @@ public:
     int cubeSize = 0;
     // std::vector<int> secondpsflayers = {};
     // std::vector<int> secondpsfcubes = {};
-    RangeMap<std::string> cubeNumVec;
+    RangeMap<std::string> cubePSFMap;
     RangeMap<std::string> layerPSFMap;
 
     
@@ -180,6 +183,8 @@ public:
     // bool loadFromJSON(const json& jsonData) override;
 
 private:
+    void registerRangeMap(const std::string& jsonTag, RangeMap<std::string>& field, bool optional);
+
     virtual void registerAllParameters() override;
 };
 

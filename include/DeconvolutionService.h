@@ -66,7 +66,7 @@ private:
     bool validateImageConfig(const json& config) const;
     
     // Algorithm management
-    DeconvolutionProcessor* deconvolutionProcessor;
+    std::unique_ptr<DeconvolutionProcessor> deconvolutionProcessor;
 
     // PSF package management
     std::vector<PSF> createPSFsFromSetup(

@@ -9,7 +9,6 @@
 #include <fftw3.h>
 
 using namespace std;
-#include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "deconvolution/backend/CPUBackend.h" // replace with backend factory
 
 Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>& psfs){
@@ -17,6 +16,7 @@ Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>
     for (auto channel : input.channels){
         std::vector<std::vector<cv::Mat>> cubeImages = preprocessChannel(channel);
         for (int cubeIndex = 0; cubeIndex < cubeImages.size(); cubeIndex++){ // TODO this loop can be concurrent
+            std::cerr << cubeIndex << std::endl;
             deconvolveSingleCube(cubeIndex, cubeImages[cubeIndex]);
         }
 
@@ -37,8 +37,6 @@ Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>
 
 void DeconvolutionProcessor::deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage){
 
-    int cubeIndex = cubeIndex + 1;// because not 0 based
-    // PSF
     std::vector<fftw_complex*> psfs = selectPSFsForCube(cubeIndex);
     for (auto psf: psfs){
         deconvolveSingleCubePSF(psf, cubeImage);
@@ -160,7 +158,7 @@ void DeconvolutionProcessor::preprocess(const Hyperstack& input, const std::vect
         std::__throw_runtime_error("Processor not configured");
     }
 
-    setPSFShape((*psfs.front()));
+    setPSFShape(psfs.front());
     setImageOriginalShape(input.channels[0]); // i tihnk every channel should be same size
     setCubeShape(imageOriginalShape, config.grid, config.cubeSize, config.psfSafetyBorder);
     setupCubeArrangement();
@@ -175,10 +173,11 @@ void DeconvolutionProcessor::preprocess(const Hyperstack& input, const std::vect
 void DeconvolutionProcessor::configure(DeconvolutionConfig config) {
     // Store the config in base class
     this->config = config;
-    DeconvolutionAlgorithmFactory fact = DeconvolutionAlgorithmFactory::getInstance();
-    this->algorithm_ = std::make_unique<DeconvolutionAlgorithm>(fact.create(config));
+    DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
+    this->algorithm_ = fact.create(config);
 
-    this->backend_ = std::make_unique<CPUBackend>(); // TODO LK  to use the config and afactory
+    this->backend_ = std::make_shared<CPUBackend>(); // TODO LK  to use the config and afactory
+    algorithm_->setBackend(this->backend_); // TODO now they share the backend, not good
     configured = true;
 }
 
@@ -212,6 +211,9 @@ void DeconvolutionProcessor::setCubeShape(
         cubeShape.depth = imageOriginalShape.depth;
         cubeShape.volume = imageOriginalShape.volume;
     } else {
+        if (configcubeSize < 1){
+            std::__throw_runtime_error("Can't use grid with a grid size of smaller than 0");
+        }
         // Grid processing - calculate cube size with padding
         // This logic mirrors BaseDeconvolutionAlgorithm::preprocess
         cubePadding = configpsfSafetyBorder;
@@ -263,7 +265,7 @@ void DeconvolutionProcessor::preprocessPSF(
             // Pad PSF to cube size
             fftw_complex *temp_h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
             UtlFFT::padPSF(h, psfOriginalShape.width, psfOriginalShape.height, psfOriginalShape.depth, temp_h, cubeShape.width, cubeShape.height, cubeShape.depth);
-            preparedpsfs[i] = temp_h;
+            preparedpsfs.push_back(temp_h);
         }
 
         initPSFMaps(inputPSFs);
@@ -274,16 +276,23 @@ void DeconvolutionProcessor::preprocessPSF(
         fftw_destroy_plan(forwardPSFPlan);
 }
 
-std::vector<fftw_complex*> DeconvolutionProcessor::selectPSFsForCube(int cubeIndex){
+std::vector<fftw_complex*> DeconvolutionProcessor::selectPSFsForCube(int cubeIndex) {
     int layerIndex = getLayerIndex(cubeIndex, cubes.cubesPerLayer);
 
     std::vector<fftw_complex*> psfs;
-    psfs.emplace_back(layerPreparedPSFMap[layerIndex]);
-    psfs.emplace_back(cubePreparedPSFMap[cubeIndex]);
+    
+    auto layerPSFs = layerPreparedPSFMap.find(layerIndex);
+    if (layerPSFs != layerPreparedPSFMap.end()) {
+        psfs.insert(psfs.end(), layerPSFs->second.begin(), layerPSFs->second.end());
+    }
+    
+    auto cubePSFs = cubePreparedPSFMap.find(cubeIndex);
+    if (cubePSFs != cubePreparedPSFMap.end()) {
+        psfs.insert(psfs.end(), cubePSFs->second.begin(), cubePSFs->second.end());
+    }
 
     return psfs;
 }
-
 
 
 
@@ -380,6 +389,7 @@ bool DeconvolutionProcessor::setupFFTWPlans() {
 // find the psf of which the id corresopnds to the one in the config.layerPSFMap
 // place the corresponding prepared psf into the layerPreparedPSFMap
 // basically using the raw psf and raw ranges to map to the prepared psfs
+// refactor
 void DeconvolutionProcessor::initPSFMaps(const std::vector<PSF>& psfs){
     for (const auto& [key, psfids] : config.layerPSFMap){
         for (auto psfid : psfids){
@@ -394,5 +404,5 @@ void DeconvolutionProcessor::initPSFMaps(const std::vector<PSF>& psfs){
 
 
 int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
-    return static_cast<int>(std::ceil(static_cast<double>((cubeIndex+1)) / cubesPerLayer));
+    return static_cast<int>(std::ceil(static_cast<double>((cubeIndex)) / cubesPerLayer));
 }

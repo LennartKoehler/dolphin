@@ -2,7 +2,6 @@
 #include "psf/PSFGeneratorFactory.h"
 
 PSFConfig::PSFConfig(){
-    generateUniqueID();
     registerAllParameters();
 }
 
@@ -38,6 +37,7 @@ bool PSFConfig::compareDim(const PSFConfig &other) {
 std::shared_ptr<PSFConfig> PSFConfig::createFromJSON(const json& jsonData){
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     std::shared_ptr<PSFConfig> config = factory.createConfig(jsonData);
+
     return config;
 
 }

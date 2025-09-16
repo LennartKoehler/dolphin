@@ -5,7 +5,7 @@
 #include "psf/PSF.h"
 #include "backend/IDeconvolutionBackend.h"
 #include "DeconvolutionAlgorithmFactory.h"
-
+#include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <fftw3.h>
 
 
@@ -41,15 +41,14 @@ public:
     virtual ~DeconvolutionProcessor() { cleanup(); }
     void cleanup();
 
-    void preprocess(const Hyperstack& input, const std::vector<PSF>& psfs);
-    std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, std::vector<std::vector<cv::Mat>>& gridImages);
-    // Override base virtual methods to separate concerns
+
     virtual void configure(DeconvolutionConfig config);
 
 protected:
 
-    std::unique_ptr<IDeconvolutionBackend> backend_;
-    std::unique_ptr<DeconvolutionAlgorithm> algorithm_;
+    
+    std::shared_ptr<IDeconvolutionBackend> backend_; // should this be shared?
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm_;
 
     DeconvolutionConfig config;
 
@@ -71,6 +70,10 @@ protected:
     CubeArrangement cubes;
     int cubePadding;
 
+
+    void preprocess(const Hyperstack& input, const std::vector<PSF>& psfs);
+    std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, std::vector<std::vector<cv::Mat>>& gridImages);
+    
     // Helper functions that don't depend on execution backend
 
     /**

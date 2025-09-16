@@ -1,45 +1,23 @@
 {
   "Deconvolution": {
-    "algorithmName": "RichardsonLucyTotalVariation",
-    "subimageSize": 0,
-    "iterations": 10,
+    "algorithmName": "RichardsonLucy",
+    "subimageSize": 10,
+    "iterations": 30,
     "epsilon": 1e-6,
     "grid": true,
     "lambda": 0.015,
     "borderType": 2,
     "psfSafetyBorder": 10,
-    "cubeSize": 0,
-    "secondpsflayers": [],
-    "secondpsfcubes": [],
-    "psfCubeVec": [],
-    "psfLayerVec": [],
+    "cubeSize": 20,
+    "cubePSFMap": [],
+    "layerPSFMap": {
+      "0:5": ["ID1234"]
+    },
     "time": false,
     "saveSubimages": false,
     "gpu": "none"
   },
   
-  "Algorithm_Notes": {
-    "CPU_Algorithms": [
-      "InverseFilter",
-      "RichardsonLucy",
-      "RichardsonLucyTotalVariation",
-      "RegularizedInverseFilter",
-      "RichardsonLucywithAdaptiveDamping"
-    ],
-    "GPU_Algorithms": [
-      "InverseFilterGPU",
-      "RichardsonLucyGPU",
-      "RichardsonLucyTotalVariationGPU",
-      "RegularizedInverseFilterGPU",
-      "RichardsonLucywithAdaptiveDampingGPU"
-    ],
-    "GPU_Requirements": {
-      "CUDA_Required": "CUDA must be available during build time",
-      "GPU_Selection": "Set 'gpu': 'cuda' in Deconvolution section to use GPU variants",
-      "Auto_Fallback": "Factory will automatically reject GPU variants if CUDA is not available"
-    }
-  },
-
 
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
   "psf_file_path": "",
@@ -54,8 +32,7 @@
   "time": false,
   "seperate": false,
 
-  "savePsf": false,
-  "layers": [],
-  "subimages": []
+  "savePsf": false
+
 
 }

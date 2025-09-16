@@ -105,7 +105,7 @@ set(COMMON_SOURCES
     # src/deconvolution/algorithms/BaseDeconvolutionAlgorithmGPU.cpp
     # src/deconvolution/algorithms/BaseDeconvolutionAlgorithmDerived.cpp
     src/deconvolution/backend/CPUBackend.cpp
-    src/deconvolution/backend/GPUBackend.cpp
+    # src/deconvolution/backend/GPUBackend.cpp
     src/deconvolution/DeconvolutionProcessor.cpp
     src/deconvolution/DeconvolutionAlgorithmFactory.cpp
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp

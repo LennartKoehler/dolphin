@@ -4,11 +4,6 @@
 #include <fftw3.h>
 #include <cassert>
 
-RLDeconvolutionAlgorithm::RLDeconvolutionAlgorithm(std::shared_ptr<IDeconvolutionBackend> backend)
-    : backend(backend) {
-    std::cout << "[INFO] RLDeconvolutionAlgorithm initialized with backend" << std::endl;
-}
-
 void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
     iterations = config.iterations;

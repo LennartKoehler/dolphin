@@ -71,7 +71,7 @@ public:
     }
 
     std::shared_ptr<PSFConfig> createConfig(const json& configJson) {
-        std::string psfModel = configJson["psfModel"].get<std::string>();
+        std::string psfModel = configJson["modelName"].get<std::string>();
         
         auto it = configs_.find(psfModel);
         if (it == configs_.end()) {

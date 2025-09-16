@@ -28,6 +28,6 @@ public:
 
 private:
     virtual void registerAllParameters() override;
-    void generateUniqueID();
+
 };
 
