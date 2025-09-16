@@ -27,8 +27,14 @@ namespace fs = std::filesystem;
 //     this->scale = psfScale;
 // }
 
+std::string getFilenameFromPath(const std::string& path) {
+    fs::path filePath(path);
+    return filePath.filename().string();
+}
+
 
 bool PSF::readFromTifFile(const char *filename) {
+    this->ID = getFilenameFromPath(filename);
     //METADATA
     std::string imageType = "";
     std::string name = "";
@@ -251,3 +257,6 @@ void PSF::scalePSF(int new_size_x, int new_size_y, int new_size_z) {
     // Ausgabe: Die skalierte PSF
     this->image.slices = final_scaled_psf;
 }
+
+
+

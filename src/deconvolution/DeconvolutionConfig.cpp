@@ -17,8 +17,7 @@ void DeconvolutionConfig::registerAllParameters(){
     registerParameter("borderType", borderType, optional);
     registerParameter("psfSafetyBorder", psfSafetyBorder, optional);
     registerParameter("cubeSize", cubeSize, optional);
-    registerParameter("secondpsflayers", secondpsflayers, optional);
-    registerParameter("secondpsfcubes", secondpsfcubes, optional);
+
     
     // Commented out parameters - add if needed
     // registerParameter("time", time, optional);
@@ -36,7 +35,6 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     borderType = other.borderType;
     psfSafetyBorder = other.psfSafetyBorder;
     cubeSize = other.cubeSize;
-    secondpsflayers = other.secondpsflayers;
-    secondpsfcubes = other.secondpsfcubes;
+
     registerAllParameters();
 }

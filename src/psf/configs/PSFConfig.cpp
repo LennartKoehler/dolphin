@@ -2,6 +2,7 @@
 #include "psf/PSFGeneratorFactory.h"
 
 PSFConfig::PSFConfig(){
+    generateUniqueID();
     registerAllParameters();
 }
 
@@ -9,6 +10,7 @@ PSFConfig::PSFConfig(const PSFConfig& other)
     : Config(other)  // Delegate to default constructor first (registers parameters)
 {
     // Then copy the values
+    ID = other.ID;
     psfModelName = other.psfModelName;
     sizeX = other.sizeX;
     sizeY = other.sizeY;
@@ -44,6 +46,7 @@ void PSFConfig::registerAllParameters(){
     bool optional = true;
     
     // Basic PSF dimensions (required)
+    registerParameter("ID", ID, !optional);
     registerParameter("modelName", psfModelName, !optional);
     registerParameter("sizeX", sizeX, !optional);
     registerParameter("sizeY", sizeY, !optional);

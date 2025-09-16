@@ -9,18 +9,18 @@
 #include <fftw3.h>
 
 using namespace std;
+#include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "deconvolution/backend/CPUBackend.h" // replace with backend factory
 
-#include "backend/CPUBackend.h" // replace with backend factory
-
-Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::unordered_map<size_t, std::shared_ptr<PSF>>& psfs){
+Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>& psfs){
     preprocess(input, psfs);
     for (auto channel : input.channels){
-        std::vector<std::vector<cv::Mat>> gridImages = preprocessChannel(channel);
-        for (int gridIndex = 0; gridIndex < gridImages.size(); gridIndex++){ // TODO this loop can be concurrent
-            deconvolveSingle(gridIndex, gridImages[gridIndex]);
+        std::vector<std::vector<cv::Mat>> cubeImages = preprocessChannel(channel);
+        for (int cubeIndex = 0; cubeIndex < cubeImages.size(); cubeIndex++){ // TODO this loop can be concurrent
+            deconvolveSingleCube(cubeIndex, cubeImages[cubeIndex]);
         }
 
-        std::vector<cv::Mat> deconvolutedChannel = postprocessChannel(input.metaData, gridImages);
+        std::vector<cv::Mat> deconvolutedChannel = postprocessChannel(input.metaData, cubeImages);
         // Save the result
         // TODO clean up:
         std::cout << "[STATUS] Saving result of channel " << std::endl;
@@ -33,14 +33,22 @@ Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::unordered_m
     return input;
 }
 
-// refactor
-std::vector<cv::Mat> DeconvolutionProcessor::deconvolveSingle(int gridIndex, std::vector<cv::Mat>& gridImages){
 
-    int layerIndex = static_cast<int>(std::ceil(static_cast<double>((gridIndex+1)) / cubes.cubesPerLayer));
-    int cubeIndex = gridIndex + 1;
+
+void DeconvolutionProcessor::deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage){
+
+    int cubeIndex = cubeIndex + 1;// because not 0 based
     // PSF
-    fftw_complex* tempH = selectPSFForGridImage(layerIndex, cubeIndex);
-    FFTWData H = {tempH, cubeShape};
+    std::vector<fftw_complex*> psfs = selectPSFsForCube(cubeIndex);
+    for (auto psf: psfs){
+        deconvolveSingleCubePSF(psf, cubeImage);
+    }
+}
+
+
+
+void DeconvolutionProcessor::deconvolveSingleCubePSF(fftw_complex* psf, std::vector<cv::Mat>& cubeImage){
+    FFTWData H = {psf, cubeShape};
     // Observed image
     fftw_complex* tempg = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
     FFTWData g = {tempg, cubeShape};
@@ -48,7 +56,7 @@ std::vector<cv::Mat> DeconvolutionProcessor::deconvolveSingle(int gridIndex, std
     if (!(UtlImage::isValidForFloat(g.data, cubeShape.volume))) {
         std::cout << "[WARNING] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
     }
-    UtlFFT::convertCVMatVectorToFFTWComplex(gridImages, g.data, cubeShape.width, cubeShape.height, cubeShape.depth);
+    UtlFFT::convertCVMatVectorToFFTWComplex(cubeImage, g.data, cubeShape.width, cubeShape.height, cubeShape.depth);
 
     FFTWData H_device = backend_->moveDataToDevice(H);
     FFTWData g_device = backend_->moveDataToDevice(g);
@@ -61,15 +69,16 @@ std::vector<cv::Mat> DeconvolutionProcessor::deconvolveSingle(int gridIndex, std
     backend_->freeMemoryOnDevice(f_device);
 
     // Convert the result FFTW complex array back to OpenCV Mat vector
-    UtlFFT::convertFFTWComplexToCVMatVector(f.data, gridImages, cubeShape.width, cubeShape.height, cubeShape.depth);
+    UtlFFT::convertFFTWComplexToCVMatVector(f.data, cubeImage, cubeShape.width, cubeShape.height, cubeShape.depth);
     fftw_free(g.data);
-    return gridImages;
 }
 
-// TODO refactor
-std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& metaData, std::vector<std::vector<cv::Mat>>& gridImages){
 
-    if(gridImages.empty()){
+
+// TODO refactor
+std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& metaData, std::vector<std::vector<cv::Mat>>& cubeImages){
+
+    if(cubeImages.empty()){
         std::cerr << "[ERROR] No subimages processed" << std::endl;
     }
 
@@ -77,14 +86,14 @@ std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& m
     ////////////////////////////////////////
     if(config.saveSubimages){
 
-        std::vector<std::vector<cv::Mat>> tiles(gridImages); // Kopie erstellen
+        std::vector<std::vector<cv::Mat>> tiles(cubeImages); // Kopie erstellen
         UtlGrid::cropCubePadding(tiles, cubes.cubePadding);
 
         double global_max_val_tile= 0.0;
         double global_min_val_tile = MAXFLOAT;
-        for(auto gridImage : tiles){
+        for(auto cubeImage : tiles){
             // Global normalization of the merged volume
-            for (const auto& slice : gridImage) {
+            for (const auto& slice : cubeImage) {
                 cv::threshold(slice, slice, 0, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
                 double min_val, max_val;
                 cv::minMaxLoc(slice, &min_val, &max_val);
@@ -93,39 +102,39 @@ std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& m
             }
         }
         int num = 1;
-        for(auto gridImage : tiles){
+        for(auto cubeImage : tiles){
         // Global normalization of the merged volume
 
-        for (auto& slice : gridImage) {
+        for (auto& slice : cubeImage) {
             slice.convertTo(slice, CV_32F, 1.0 / (global_max_val_tile - global_min_val_tile), -global_min_val_tile * (1 / (global_max_val_tile - global_min_val_tile)));  // Add epsilon to avoid division by zero
             cv::threshold(slice, slice, config.epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
         }
-            Hyperstack gridImageHyperstack;
-            gridImageHyperstack.metaData = metaData;
-            gridImageHyperstack.metaData.imageWidth = cubeShape.width-(2*this->cubePadding);
-            gridImageHyperstack.metaData.imageLength = cubeShape.width-(2*this->cubePadding);
-            gridImageHyperstack.metaData.slices = cubeShape.width-(2*this->cubePadding);
+            Hyperstack cubeImageHyperstack;
+            cubeImageHyperstack.metaData = metaData;
+            cubeImageHyperstack.metaData.imageWidth = cubeShape.width-(2*this->cubePadding);
+            cubeImageHyperstack.metaData.imageLength = cubeShape.width-(2*this->cubePadding);
+            cubeImageHyperstack.metaData.slices = cubeShape.width-(2*this->cubePadding);
 
             Image3D image3d;
-            image3d.slices = gridImage;
+            image3d.slices = cubeImage;
             Channel channel;
             channel.image = image3d;
-            gridImageHyperstack.channels.push_back(channel);
-            gridImageHyperstack.saveAsTifFile("../result/tiles/deconv_"+std::to_string(num)+".tif");
+            cubeImageHyperstack.channels.push_back(channel);
+            cubeImageHyperstack.saveAsTifFile("../result/tiles/deconv_"+std::to_string(num)+".tif");
             num++;
         }
     }
     //////////////////////////////////////////////
     if(config.grid){
         //TODO no effect
-        //UtlGrid::adjustCubeOverlap(gridImages,this->cubePadding);
+        //UtlGrid::adjustCubeOverlap(cubeImages,this->cubePadding);
 
-        UtlGrid::cropCubePadding(gridImages, this->cubePadding);
+        UtlGrid::cropCubePadding(cubeImages, this->cubePadding);
         std::cout << "[STATUS] Merging Grid back to Image..." << std::endl;
-        result = UtlGrid::mergeCubes(gridImages, imageOriginalShape.width, imageOriginalShape.height, imageOriginalShape.depth, config.cubeSize);
+        result = UtlGrid::mergeCubes(cubeImages, imageOriginalShape.width, imageOriginalShape.height, imageOriginalShape.depth, config.cubeSize);
         std::cout << "[INFO] Image size: " << result[0].rows << "x" << result[0].cols << "x" << result.size()<< std::endl;
     }else{
-        result = gridImages[0];
+        result = cubeImages[0];
     }
 
     // Global normalization of the merged volume
@@ -146,15 +155,18 @@ std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& m
     return result;
 }
 
-void DeconvolutionProcessor::preprocess(const Hyperstack& input, const std::unordered_map<size_t, std::shared_ptr<PSF>>& psfs){
+void DeconvolutionProcessor::preprocess(const Hyperstack& input, const std::vector<PSF>& psfs){
     if (!configured){
         std::__throw_runtime_error("Processor not configured");
     }
-    preprocessPSF(psfs);
-    setPSFShape(*(psfs.begin()->second));
+
+    setPSFShape((*psfs.front()));
     setImageOriginalShape(input.channels[0]); // i tihnk every channel should be same size
     setCubeShape(imageOriginalShape, config.grid, config.cubeSize, config.psfSafetyBorder);
     setupCubeArrangement();
+    
+    preprocessPSF(psfs);
+
     backend_->preprocess();
     // algorithm_->preprocess();
 
@@ -166,7 +178,7 @@ void DeconvolutionProcessor::configure(DeconvolutionConfig config) {
     DeconvolutionAlgorithmFactory fact = DeconvolutionAlgorithmFactory::getInstance();
     this->algorithm_ = std::make_unique<DeconvolutionAlgorithm>(fact.create(config));
 
-    this->backend_ = std::make_unique<CPUBackend>(); // TODO LK  to use the config and a factory
+    this->backend_ = std::make_unique<CPUBackend>(); // TODO LK  to use the config and afactory
     configured = true;
 }
 
@@ -228,24 +240,22 @@ std::vector<std::vector<cv::Mat>> DeconvolutionProcessor::preprocessChannel(Chan
 }
 
 void DeconvolutionProcessor::preprocessPSF(
-    const std::unordered_map<size_t, std::shared_ptr<PSF>>& inputPSFs
+    const std::vector<PSF>& inputPSFs
     ) {
-        std::unordered_map<size_t, PSFfftw*>  preparedPSFS;
-        preparedPSFS.reserve(inputPSFs.size());
+
         cout << "[STATUS] Creating FFTW plans for PSFs..." << endl;
         
-
         fftw_complex *fftwPSFPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * psfOriginalShape.volume);
         fftw_complex *h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * psfOriginalShape.volume);
         fftw_plan forwardPSFPlan = fftw_plan_dft_3d(psfOriginalShape.depth, psfOriginalShape.height, psfOriginalShape.width, fftwPSFPlanMem, fftwPSFPlanMem, FFTW_FORWARD, FFTW_MEASURE);
 
         int counter = 0;
-        for (auto psfit : inputPSFs) {
+        for (int i = 0; i < inputPSFs.size(); i++) {
             counter ++;
             cout << "[STATUS] Performing Fourier Transform on PSF" << counter<< "..." << endl;
             
             // Convert PSF to FFTW complex format and execute FFT
-            UtlFFT::convertCVMatVectorToFFTWComplex(psfit.second->image.slices, h, psfOriginalShape.width, psfOriginalShape.height, psfOriginalShape.depth);
+            UtlFFT::convertCVMatVectorToFFTWComplex(inputPSFs[i].image.slices, h, psfOriginalShape.width, psfOriginalShape.height, psfOriginalShape.depth);
             fftw_execute_dft(forwardPSFPlan, h, h);
 
             cout << "[STATUS] Padding PSF" << counter << "..." << endl;
@@ -253,49 +263,28 @@ void DeconvolutionProcessor::preprocessPSF(
             // Pad PSF to cube size
             fftw_complex *temp_h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
             UtlFFT::padPSF(h, psfOriginalShape.width, psfOriginalShape.height, psfOriginalShape.depth, temp_h, cubeShape.width, cubeShape.height, cubeShape.depth);
-            preparedPSFS[psfit.first] = temp_h;
+            preparedpsfs[i] = temp_h;
         }
+
+        initPSFMaps(inputPSFs);
 
         // Clean up temporary resources
         fftw_free(h);
         fftw_free(fftwPSFPlanMem);
         fftw_destroy_plan(forwardPSFPlan);
-        
-        this->layerPSFMap = preparedPSFS;
-    }
+}
 
-PSFfftw* DeconvolutionProcessor::selectPSFForGridImage(int layerIndex, int cubeIndex) const{
-    PSFfftw* psf;
-    psf = getPSFForLayer(layerIndex);
-    psf = getPSFForCube(cubeIndex);
-    return psf;
+std::vector<fftw_complex*> DeconvolutionProcessor::selectPSFsForCube(int cubeIndex){
+    int layerIndex = getLayerIndex(cubeIndex, cubes.cubesPerLayer);
+
+    std::vector<fftw_complex*> psfs;
+    psfs.emplace_back(layerPreparedPSFMap[layerIndex]);
+    psfs.emplace_back(cubePreparedPSFMap[cubeIndex]);
+
+    return psfs;
 }
 
 
-PSFfftw* DeconvolutionProcessor::getPSFForLayer(int layerIndex) const {
-    PSFfftw* psf;
-    for (int v = 1; v < layerPSFMap.size(); ++v) {
-        auto itOfLayer = layerPSFMap.find(layerIndex);
-        if (itOfLayer != layerPSFMap.end()) {
-            psf = itOfLayer->second;
-        }
-    }
-    psf = layerPSFMap.find(0)->second;
-    return psf; // Return default PSF index
-}
-
-// dont forget to do +1 when calling
-PSFfftw* DeconvolutionProcessor::getPSFForCube(int cubeIndex) const {
-    PSFfftw* psf;
-    for (int v = 1; v < cubePSFMap.size(); ++v) {
-        auto itOfLayer = cubePSFMap.find(cubeIndex);
-        if (itOfLayer != cubePSFMap.end()) {
-            psf = itOfLayer->second;
-        }
-    }
-    psf = cubePSFMap.find(0)->second;
-    return psf; // Return default PSF index
-}
 
 
 void DeconvolutionProcessor::setupCubeArrangement() {
@@ -335,22 +324,16 @@ void DeconvolutionProcessor::cleanup() {
         backwardPlan = nullptr;
     }
     
-    // Clean up PSF maps
-    for (auto& psf : layerPSFMap) {
-        if (psf.second) {
-            fftw_free(psf.second);
-            psf.second = nullptr;
+    // Clean up PSFs
+    for (auto& psf : preparedpsfs) {
+        if (psf) {
+            fftw_free(psf);
+            psf = nullptr;
         }
     }
-    layerPSFMap.clear();
-    
-    for (auto& psf : cubePSFMap) {
-        if (psf.second) {
-            fftw_free(psf.second);
-            psf.second = nullptr;
-        }
-    }
-    cubePSFMap.clear();
+    preparedpsfs.clear();
+    layerPreparedPSFMap.clear();
+    cubePreparedPSFMap.clear();
     
 }
 
@@ -392,4 +375,24 @@ bool DeconvolutionProcessor::setupFFTWPlans() {
     }
     
     return true;
+}
+
+// find the psf of which the id corresopnds to the one in the config.layerPSFMap
+// place the corresponding prepared psf into the layerPreparedPSFMap
+// basically using the raw psf and raw ranges to map to the prepared psfs
+void DeconvolutionProcessor::initPSFMaps(const std::vector<PSF>& psfs){
+    for (const auto& [key, psfids] : config.layerPSFMap){
+        for (auto psfid : psfids){
+            for (int psfindex = 0; psfindex < psfs.size(); psfindex++){
+                if (psfs[psfindex].ID == psfid){
+                    layerPreparedPSFMap[key].push_back(preparedpsfs[psfindex]);
+                }
+            }
+        }
+    }
+}
+
+
+int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
+    return static_cast<int>(std::ceil(static_cast<double>((cubeIndex+1)) / cubesPerLayer));
 }

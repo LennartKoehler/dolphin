@@ -16,6 +16,8 @@ public:
 
     bool compareDim(const PSFConfig &other);
 
+    std::string psfModelName;
+    std::string ID;
 
     int sizeX = 20;
     int sizeY = 20;
@@ -23,9 +25,9 @@ public:
     double NA = 1.0;
     double resLateral_nm = 200;
     double resAxial_nm = 200;
-    std::string psfModelName;
 
 private:
     virtual void registerAllParameters() override;
+    void generateUniqueID();
 };
 

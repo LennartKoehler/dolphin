@@ -8,6 +8,7 @@ class ThreadPool;
 class Hyperstack;
 class BaseDeconvolutionAlgorithm;
 class DeconvolutionConfig;
+class DeconvolutionProcessor;
 class DeconvolutionAlgorithmFactory;
 
 class DeconvolutionService : public IDeconvolutionService{

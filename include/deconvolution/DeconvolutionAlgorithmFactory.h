@@ -2,13 +2,14 @@
 
 #include <memory>
 #include <utility>
+#include <functional>
+#include <unordered_map>
+#include <vector>
+#include <string>
 
-// #include "deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
-// #include "deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
-// #include "deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
-// #include "deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
-#include "deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
-
+// Forward declarations
+class DeconvolutionAlgorithm;
+class DeconvolutionConfig;
 
 /**
  * @brief Factory class for creating deconvolution algorithm instances with CPU/GPU variants.
@@ -20,14 +21,18 @@ class DeconvolutionAlgorithmFactory {
 public:
     using AlgorithmCreator = std::function<std::shared_ptr<DeconvolutionAlgorithm>()>;
 
-    static DeconvolutionAlgorithmFactory& getInstance() {
-        static DeconvolutionAlgorithmFactory instance;
-        return instance;
-    }
+    /**
+     * @brief Get the singleton instance of the factory.
+     * @return Reference to the factory instance
+     */
+    static DeconvolutionAlgorithmFactory& getInstance();
 
-    void registerAlgorithm(const std::string& name, AlgorithmCreator creator) {
-        algorithms_[name] = creator;
-    }
+    /**
+     * @brief Register a new algorithm with the factory.
+     * @param name Algorithm name identifier
+     * @param creator Function that creates algorithm instances
+     */
+    void registerAlgorithm(const std::string& name, AlgorithmCreator creator);
 
     /**
      * @brief Create an algorithm instance based on configuration.
@@ -35,58 +40,35 @@ public:
      * @return Shared pointer to the created algorithm instance
      * @throws std::runtime_error if algorithm is unknown or GPU variant requested but unavailable
      */
-    std::shared_ptr<DeconvolutionAlgorithm> create(
-        const DeconvolutionConfig& config
-    ) {
-        auto it = algorithms_.find(config.algorithmName);
-        if (it == algorithms_.end()) {
-            throw std::runtime_error("Unknown algorithm: " + config.algorithmName);
-        }
-        
-        
-        auto algorithm = it->second();
-        algorithm->configure(config);
-        return algorithm;
-    }
+    std::shared_ptr<DeconvolutionAlgorithm> create(const DeconvolutionConfig& config);
 
     /**
      * @brief Get list of all available algorithms.
      * @return Vector of algorithm names
      */
-    std::vector<std::string> getAvailableAlgorithms() const {
-        std::vector<std::string> names;
-        for (const auto& pair : algorithms_) {
-            names.push_back(pair.first);
-        }
-        return names;
-    }
+    std::vector<std::string> getAvailableAlgorithms() const;
 
-
+    /**
+     * @brief Check if an algorithm is available.
+     * @param name Algorithm name to check
+     * @return True if algorithm is registered, false otherwise
+     */
+    bool isAlgorithmAvailable(const std::string& name) const;
 
 private:
     DeconvolutionAlgorithmFactory() = default;
+    ~DeconvolutionAlgorithmFactory() = default;
+    
+    // Prevent copying
+    DeconvolutionAlgorithmFactory(const DeconvolutionAlgorithmFactory&) = delete;
+    DeconvolutionAlgorithmFactory& operator=(const DeconvolutionAlgorithmFactory&) = delete;
 
+    /**
+     * @brief Register all available algorithms.
+     * Called automatically on first access to getInstance().
+     */
+    void registerAlgorithms();
 
-
-    void registerAlgorithms() {
-        // registerAlgorithm("InverseFilter", []() {
-        //     return std::make_unique<InverseFilterDeconvolutionAlgorithm>();
-        // });
-
-        // registerAlgorithm("RichardsonLucyTotalVariation", []() {
-        //     return std::make_unique<RLTVDeconvolutionAlgorithm>();
-        // });
-        // registerAlgorithm("RegularizedInverseFilter", []() {
-        //     return std::make_unique<RegularizedInverseFilterDeconvolutionAlgorithm>();
-        // });
-        // registerAlgorithm("RichardsonLucywithAdaptiveDamping", []() {
-        //     return std::make_unique<RLADDeconvolutionAlgorithm>();
-        // });
-        registerAlgorithm("RichardsonLucy", []() {
-            return std::make_unique<RLDeconvolutionAlgorithm>();
-        });
-    }
-
-
+    bool initialized_ = false;
     std::unordered_map<std::string, AlgorithmCreator> algorithms_;
 };

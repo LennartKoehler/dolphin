@@ -27,6 +27,7 @@ PSF PSFManager::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, T
     std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(psfConfig);
     psfGenerator->setThreadPool(threadPool);
     PSF psf = psfGenerator->generatePSF();
+    psf.ID = psfConfig->ID;
     return psf;
     
 }

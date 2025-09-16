@@ -13,17 +13,17 @@ struct RectangleShape{
     int depth;
     int volume;
 };
-
+struct FFTWData{
+    fftw_complex* data;
+    RectangleShape size;
+};
 struct InputData{
     FFTWData H;
     FFTWData g;
     FFTWData f;
 };
 
-struct FFTWData{
-    fftw_complex* data;
-    RectangleShape size;
-};
+
 // should split into memory management and fftw backend?
 class IDeconvolutionBackend{
 public:

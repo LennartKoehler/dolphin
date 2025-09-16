@@ -7,7 +7,6 @@
 #include "DeconvolutionAlgorithmFactory.h"
 
 #include <fftw3.h>
-typedef fftw_complex PSFfftw;
 
 
 
@@ -26,7 +25,6 @@ struct CubeArrangement{
  * Abstract base class for deconvolution algorithms that separates common,
  * execution-agnostic functionality from backend-specific operations.
  * 
- * This class inherits from BaseDeconvolutionAlgorithm and provides:
  * - Common grid processing logic
  * - PSF mapping and selection
  * - Data structure management
@@ -38,14 +36,12 @@ struct CubeArrangement{
  */
 class DeconvolutionProcessor{
 public:
-    Hyperstack run(Hyperstack& input, const std::unordered_map<size_t, std::shared_ptr<PSF>>& psfs); // careful, this edits input inplace
+    Hyperstack run(Hyperstack& input, const std::vector<PSF>& psfs); // careful, this edits input inplace
 
     virtual ~DeconvolutionProcessor() { cleanup(); }
     void cleanup();
 
-    Hyperstack run(Hyperstack& input, const std::unordered_map<size_t, std::shared_ptr<PSF>>& psfs); // careful, this edits input inplace
-
-    void preprocess(const Hyperstack& input, const std::unordered_map<size_t, std::shared_ptr<PSF>>& psfs);
+    void preprocess(const Hyperstack& input, const std::vector<PSF>& psfs);
     std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, std::vector<std::vector<cv::Mat>>& gridImages);
     // Override base virtual methods to separate concerns
     virtual void configure(DeconvolutionConfig config);
@@ -64,8 +60,9 @@ protected:
     fftw_complex *fftwPlanMem = nullptr;
 
     //multiple psfs
-    std::unordered_map<size_t, PSFfftw*> layerPSFMap;
-    std::unordered_map<size_t, PSFfftw*> cubePSFMap;
+    std::vector<fftw_complex*> preparedpsfs;
+    RangeMap<fftw_complex*> layerPreparedPSFMap;
+    RangeMap<fftw_complex*> cubePreparedPSFMap;
 
     //shapes
     RectangleShape cubeShape; // = psf padded shape
@@ -81,12 +78,12 @@ protected:
      * @param psfs List of PSFs to prepare
      * @return true if PSF preparation succeeded, false otherwise
      */
-    void preprocessPSF(const std::unordered_map<size_t, std::shared_ptr<PSF>>& inputPSFs);
-    std::vector<std::vector<cv::Mat>> DeconvolutionProcessor::preprocessChannel(Channel& channel);
+    void preprocessPSF(const std::vector<PSF>& inputPSFs);
+    std::vector<std::vector<cv::Mat>> preprocessChannel(Channel& channel);
 
     void setPSFShape(const PSF& psf);
     void setImageOriginalShape(const Channel& channel);
-    void DeconvolutionProcessor::setCubeShape(
+    void setCubeShape(
         const RectangleShape& imageOriginalShape,
         bool configgrid,
         int configcubeSize,
@@ -98,29 +95,19 @@ protected:
      * @param gridImageIndex Index of current grid image
      * @return Pointer to selected PSF's padded FFTW complex array
      */
-    PSFfftw* selectPSFForGridImage(int layerNumber, int cubeNumber) const;
-    
-    /**
-     * @brief Get PSF index for specified layer
-     * @param layerNumber Layer number to get PSF for
-     * @return Index of PSF in psfs vector, or 0 for default PSF
-     */
-    PSFfftw* getPSFForLayer(int layerNumber) const;
-    
-    /**
-     * @brief Get PSF index for specified cube
-     * @param cubeNumber Cube number to get PSF for
-     * @return Index of PSF in psfs vector, or 0 for default PSF
-     */
-    PSFfftw* getPSFForCube(int cubeNumber) const;
+    std::vector<fftw_complex*> selectPSFsForCube(int cubeIndex);
+
 
 private:
-    std::vector<cv::Mat> deconvolveSingle(int gridIndex, std::vector<cv::Mat>& gridImages);
+    void deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage);
+    void deconvolveSingleCubePSF(fftw_complex* psf, std::vector<cv::Mat>& cubeImage);
 
     bool configured = false;
     // Internal helper functions
+    void initPSFMaps(const std::vector<PSF>& psfs);
     void setupCubeArrangement();
     bool validateImageAndPsfSizes();
     void printConfigurationSummary() const;
     bool setupFFTWPlans();
+    int getLayerIndex(int cubeIndex, int cubesPerLayer);
 };
