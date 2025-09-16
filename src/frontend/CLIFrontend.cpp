@@ -1,7 +1,6 @@
 #include "frontend/CLIFrontend.h"
 #include <sys/stat.h>
 #include "Dolphin.h"
-#include "deconvolution/DeconvolutionAlgorithmFactory.h"
 
 CLIFrontend::CLIFrontend(Dolphin* dolphin, int argc, char** argv)
     : IFrontend(dolphin){
@@ -124,36 +123,8 @@ void CLIFrontend::readCLIParameters() {
 }
 
 void CLIFrontend::readCLIParametersDeconvolution() {
-    // Get available algorithms from factory
-    auto factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto availableAlgorithms = factory.getAvailableAlgorithms();
-    auto gpuAlgorithms = factory.getGPUAlgorithms();
-    
-    // Build algorithm description
-    std::string algorithm_desc = "Algorithm selection (";
-    for (size_t i = 0; i < availableAlgorithms.size(); ++i) {
-        if (i > 0) algorithm_desc += "/";
-        algorithm_desc += availableAlgorithms[i];
-        
-        // Add GPU variants note
-        if (factory.isGPUVariant(availableAlgorithms[i]) && factory.isGPUSupported()) {
-            algorithm_desc += "(GPU)";
-        }
-    }
-    algorithm_desc += ")";
-    
     // Remove ->required() - CLI11 handles this automatically for subcommands
-    cli_group->add_option("-a,--algorithm", deconvolutionConfig.algorithmName, algorithm_desc)->required();
-    
-    // Add help text for available algorithms
-    if (!gpuAlgorithms.empty()) {
-        std::string gpu_help = "Available GPU algorithms: ";
-        for (size_t i = 0; i < gpuAlgorithms.size(); ++i) {
-            if (i > 0) gpu_help += ", ";
-            gpu_help += gpuAlgorithms[i];
-        }
-        cli_group->footer("Note: " + gpu_help);
-    }
+    cli_group->add_option("-a,--algorithm", deconvolutionConfig.algorithmName, "Algorithm selection ('rl'/'rltv'/'rif'/'inverse')")->required();
     
     // Rest of options...
     cli_group->add_option("--epsilon", deconvolutionConfig.epsilon, "Epsilon [1e-6] (for Complex Division)")->check(CLI::PositiveNumber);
@@ -163,13 +134,6 @@ void CLIFrontend::readCLIParametersDeconvolution() {
     cli_group->add_option("--psfSafetyBorder", deconvolutionConfig.psfSafetyBorder, "Padding around PSF [10]")->check(CLI::PositiveNumber);
     cli_group->add_option("--subimageSize", deconvolutionConfig.subimageSize, "CubeSize/EdgeLength for sub-images of grid [0] (0-auto fit to PSF)")->check(CLI::PositiveNumber);
     cli_group->add_flag("--grid", deconvolutionConfig.grid, "Image divided into sub-image cubes (grid)");
-    
-    // Add GPU-specific option if CUDA is available
-    if (factory.isGPUSupported()) {
-        cli_group->add_option("--gpu", setupConfig.gpu, "Backend selection ('cuda'/'none')");
-    } else {
-        cli_group->add_option("--gpu", setupConfig.gpu, "Backend selection ('none' - CUDA not available)");
-    }
 }
 
 void CLIFrontend::readCLISetupConfigPath() {
