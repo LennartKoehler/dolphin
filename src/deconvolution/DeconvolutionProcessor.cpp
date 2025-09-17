@@ -6,17 +6,16 @@
 #include <iostream>
 #include <opencv2/imgproc.hpp>
 #include <omp.h>
-#include <fftw3.h>
 
-using namespace std;
+
 #include "deconvolution/backend/CPUBackend.h" // replace with backend factory
 
 Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>& psfs){
     preprocess(input, psfs);
     for (auto channel : input.channels){
         std::vector<std::vector<cv::Mat>> cubeImages = preprocessChannel(channel);
-        for (int cubeIndex = 0; cubeIndex < cubeImages.size(); cubeIndex++){ // TODO this loop can be concurrent
-            std::cerr << cubeIndex << std::endl;
+        for (int cubeIndex = 0; cubeIndex < cubeImages.size(); cubeIndex++){
+            std::cerr << "[STATUS] cubeIndex :" << cubeIndex << "\t out of " << cubeImages.size() << std::endl;
             deconvolveSingleCube(cubeIndex, cubeImages[cubeIndex]);
         }
 
@@ -42,7 +41,6 @@ void DeconvolutionProcessor::deconvolveSingleCube(int cubeIndex, std::vector<cv:
         deconvolveSingleCubePSF(psf, cubeImage);
     }
 }
-
 
 
 void DeconvolutionProcessor::deconvolveSingleCubePSF(fftw_complex* psf, std::vector<cv::Mat>& cubeImage){
@@ -245,7 +243,7 @@ void DeconvolutionProcessor::preprocessPSF(
     const std::vector<PSF>& inputPSFs
     ) {
 
-        cout << "[STATUS] Creating FFTW plans for PSFs..." << endl;
+        std::cout << "[STATUS] Creating FFTW plans for PSFs..." << std::endl;
         
         fftw_complex *fftwPSFPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * psfOriginalShape.volume);
         fftw_complex *h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * psfOriginalShape.volume);
@@ -254,13 +252,13 @@ void DeconvolutionProcessor::preprocessPSF(
         int counter = 0;
         for (int i = 0; i < inputPSFs.size(); i++) {
             counter ++;
-            cout << "[STATUS] Performing Fourier Transform on PSF" << counter<< "..." << endl;
+            std::cout << "[STATUS] Performing Fourier Transform on PSF" << counter<< "..." << std::endl;
             
             // Convert PSF to FFTW complex format and execute FFT
             UtlFFT::convertCVMatVectorToFFTWComplex(inputPSFs[i].image.slices, h, psfOriginalShape.width, psfOriginalShape.height, psfOriginalShape.depth);
             fftw_execute_dft(forwardPSFPlan, h, h);
 
-            cout << "[STATUS] Padding PSF" << counter << "..." << endl;
+            std::cout << "[STATUS] Padding PSF" << counter << "..." << std::endl;
             
             // Pad PSF to cube size
             fftw_complex *temp_h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
@@ -320,18 +318,6 @@ bool DeconvolutionProcessor::validateImageAndPsfSizes() {
 void DeconvolutionProcessor::cleanup() {
     // Clean up FFTW resources
 
-    if (fftwPlanMem) {
-        fftw_free(fftwPlanMem);
-        fftwPlanMem = nullptr;
-    }
-    if (forwardPlan) {
-        fftw_destroy_plan(forwardPlan);
-        forwardPlan = nullptr;
-    }
-    if (backwardPlan) {
-        fftw_destroy_plan(backwardPlan);
-        backwardPlan = nullptr;
-    }
     
     // Clean up PSFs
     for (auto& psf : preparedpsfs) {
@@ -347,44 +333,24 @@ void DeconvolutionProcessor::cleanup() {
 }
 
 // void DeconvolutionProcessor::printConfigurationSummary() const {
-//     cout << "[CONFIGURATION] Base algorithm configuration" << endl;
-//     cout << "[CONFIGURATION] epsilon: " << epsilon << endl;
-//     cout << "[CONFIGURATION] grid: " << (grid ? "true" : "false") << endl;
-//     cout << "[CONFIGURATION] saveSubimages: " << (saveSubimages ? "true" : "false") << endl;
-//     cout << "[CONFIGURATION] gpu: " << (gpu.empty() ? "none" : gpu) << endl;
+//     std::cout << "[CONFIGURATION] Base algorithm configuration" << std::endl;
+//     std::cout << "[CONFIGURATION] epsilon: " << epsilon << std::endl;
+//     std::cout << "[CONFIGURATION] grid: " << (grid ? "true" : "false") << std::endl;
+//     std::cout << "[CONFIGURATION] saveSubimages: " << (saveSubimages ? "true" : "false") << std::endl;
+//     std::cout << "[CONFIGURATION] gpu: " << (gpu.empty() ? "none" : gpu) << std::endl;
     
 //     if (grid) {
-//         cout << "[CONFIGURATION] borderType: " << borderType << endl;
-//         cout << "[CONFIGURATION] psfSafetyBorder: " << psfSafetyBorder << endl;
-//         cout << "[CONFIGURATION] cubeSize: " << cubeSize << endl;
+//         std::cout << "[CONFIGURATION] borderType: " << borderType << std::endl;
+//         std::cout << "[CONFIGURATION] psfSafetyBorder: " << psfSafetyBorder << std::endl;
+//         std::cout << "[CONFIGURATION] cubeSize: " << cubeSize << std::endl;
 //     }
     
-//     cout << "[CONFIGURATION] cubes per layer: " << cubesPerLayer << endl;
-//     cout << "[CONFIGURATION] layers: " << cubesPerZ << endl;
-//     cout << "[CONFIGURATION] total cubes: " << totalGridNum << endl;
+//     std::cout << "[CONFIGURATION] cubes per layer: " << cubesPerLayer << std::endl;
+//     std::cout << "[CONFIGURATION] layers: " << cubesPerZ << std::endl;
+//     std::cout << "[CONFIGURATION] total cubes: " << totalGridNum << std::endl;
 // }
 
-bool DeconvolutionProcessor::setupFFTWPlans() {
-    cout << "[STATUS] Creating FFTW plans..." << endl;
-    
-    // Allocate memory for FFTW plans
-    fftwPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
-    if (fftwPlanMem == nullptr) {
-        cerr << "[ERROR] Failed to allocate memory for FFTW plans" << endl;
-        return false;
-    }
-    
-    // Create forward and backward FFT plans
-    forwardPlan = fftw_plan_dft_3d(cubeShape.depth, cubeShape.height, cubeShape.width, fftwPlanMem, fftwPlanMem, FFTW_FORWARD, FFTW_MEASURE);
-    backwardPlan = fftw_plan_dft_3d(cubeShape.depth, cubeShape.height, cubeShape.width, fftwPlanMem, fftwPlanMem, FFTW_BACKWARD, FFTW_MEASURE);
-    
-    if (forwardPlan == nullptr || backwardPlan == nullptr) {
-        cerr << "[ERROR] Failed to create FFTW plans" << endl;
-        return false;
-    }
-    
-    return true;
-}
+
 
 // find the psf of which the id corresopnds to the one in the config.layerPSFMap
 // place the corresponding prepared psf into the layerPreparedPSFMap
@@ -407,3 +373,50 @@ void DeconvolutionProcessor::initPSFMaps(const std::vector<PSF>& psfs){
 int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
     return static_cast<int>(std::ceil(static_cast<double>((cubeIndex)) / cubesPerLayer));
 }
+
+
+
+// std::shared_ptr<IDeconvolutionBackend> getThreadLocalBackend() {
+//     if (!thread_backend_) {
+//         // Create and initialize backend for this thread
+//         thread_backend_ = backend_->clone();
+//         thread_backend_->preprocess(); // Initialize memory pools, FFTW plans, etc.
+//     }
+//     return thread_backend_;
+// }
+
+
+// // Define the thread_local static member
+// thread_local std::shared_ptr<IDeconvolutionBackend> DeconvolutionProcessorParallel::thread_backend_;
+
+// void DeconvolutionProcessorParallel::deconvolveSingleCubePSF(fftw_complex* psf, std::vector<cv::Mat>& cubeImage){
+//     FFTWData H = {psf, cubeShape};
+//     fftw_complex* tempg = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
+//     FFTWData g = {tempg, cubeShape};
+
+//     if (!(UtlImage::isValidForFloat(g.data, cubeShape.volume))) {
+//         std::cout << "[WARNING] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
+//     }
+//     UtlFFT::convertCVMatVectorToFFTWComplex(cubeImage, g.data, cubeShape.width, cubeShape.height, cubeShape.depth);
+
+//     // Get thread-local backend (created once per thread)
+//     auto thread_backend = getThreadLocalBackend();
+    
+//     FFTWData H_device = thread_backend->moveDataToDevice(H);
+//     FFTWData g_device = thread_backend->moveDataToDevice(g);
+//     FFTWData f_device = thread_backend->allocateMemoryOnDevice(cubeShape);
+
+//     // Clone algorithm (lightweight, just copies parameters)
+//     std::unique_ptr<DeconvolutionAlgorithm> algorithmClone = algorithm_->clone();
+//     algorithmClone->setBackend(thread_backend);
+
+//     algorithmClone->deconvolve(H_device, g_device, f_device);
+    
+//     FFTWData f = thread_backend->moveDataFromDevice(f_device);
+//     thread_backend->freeMemoryOnDevice(H_device);
+//     thread_backend->freeMemoryOnDevice(g_device);
+//     thread_backend->freeMemoryOnDevice(f_device);
+
+//     UtlFFT::convertFFTWComplexToCVMatVector(f.data, cubeImage, cubeShape.width, cubeShape.height, cubeShape.depth);
+//     fftw_free(g.data);   
+// }

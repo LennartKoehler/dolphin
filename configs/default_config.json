@@ -8,7 +8,7 @@
     "lambda": 0.015,
     "borderType": 2,
     "psfSafetyBorder": 10,
-    "cubeSize": 20,
+    "cubeSize": 40,
     "cubePSFMap": [],
     "layerPSFMap": {
       ":": ["ID1234"]

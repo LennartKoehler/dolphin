@@ -4,9 +4,7 @@
 #include <vector>
 #include <complex>
 #include <opencv2/core/mat.hpp>
-
-#include <fftw3.h>
-
+#include "../fftwType.h"
 struct RectangleShape{
     int width;
     int height;
@@ -32,6 +30,7 @@ public:
 
     virtual void preprocess() = 0;
     virtual void postprocess() = 0;
+    virtual std::shared_ptr<IDeconvolutionBackend> clone() const = 0;
 
     // data management
     virtual void allocateMemoryOnDevice(FFTWData& data) = 0;
@@ -86,6 +85,5 @@ protected:
     fftw_plan forwardPlan;
     fftw_plan backwardPlan;
     fftw_complex* planMemory;
-    std::vector<fftw_complex*> allocatedCPUMemory;
     bool plansInitialized = false;
 };

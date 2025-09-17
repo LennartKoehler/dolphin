@@ -1,0 +1,45 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run dolphin CLI",
+            "type": "shell",
+            "command": "${command:cmake.launchTargetPath}",
+            "args": [
+                "-i", "~/data/dolphin_test_data/bacteria.tif",
+                "-p", "../configs/default_psf_config_gibsonlanni.json",
+                "-a", "RichardsonLucyTotalVariation",
+                "--iterations", "50"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Run dolphin config",
+            "type": "shell",
+            "command": "${command:cmake.launchTargetPath}",
+            "args": [
+                "deconvolution",
+                "-c", "../configs/default_config.json"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        }
+    ]
+}

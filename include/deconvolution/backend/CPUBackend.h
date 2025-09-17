@@ -13,6 +13,7 @@ public:
     // Core processing functions
     void preprocess() override;
     void postprocess() override;
+    virtual std::shared_ptr<IDeconvolutionBackend> clone() const override ;
 
     // Data management
     std::unordered_map<PSFIndex, FFTWData>& movePSFstoCPU(std::unordered_map<PSFIndex, FFTWData>& psfMap);

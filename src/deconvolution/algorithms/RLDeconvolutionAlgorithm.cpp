@@ -24,7 +24,7 @@ void RLDeconvolutionAlgorithm::deconvolve(const FFTWData& H, const FFTWData& g, 
     assert(backend->isOnDevice(g.data) + "Input is not on device");
 
     for (int n = 0; n < iterations; ++n) {
-        std::cout << "\r[STATUS] Iteration: " << iterations << " ";
+        std::cerr << "\r[STATUS] Iteration: " << n << " ";
 
         // a) First transformation:Fn = FFT(fn)
         backend->forwardFFT(f, c);
@@ -65,4 +65,11 @@ void RLDeconvolutionAlgorithm::deconvolve(const FFTWData& H, const FFTWData& g, 
 
 
 
-
+std::unique_ptr<DeconvolutionAlgorithm> RLDeconvolutionAlgorithm::clone() const {
+    auto copy = std::make_unique<RLDeconvolutionAlgorithm>();
+    // Copy all relevant state
+    copy->iterations = this->iterations;
+    // Don't copy backend - each thread needs its own
+    return copy;
+    
+}

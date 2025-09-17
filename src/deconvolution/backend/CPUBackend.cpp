@@ -1,5 +1,4 @@
 #include "deconvolution/backend/CPUBackend.h"
-#include <fftw3.h>
 #include <iostream>
 #include <omp.h>
 #include "Image3D.h"
@@ -7,6 +6,7 @@
 #include <sstream>
 #include <cmath>
 #include <opencv2/opencv.hpp>
+
 
 CPUBackend::CPUBackend() {
     // Initialize FFTW with threading support
@@ -41,6 +41,13 @@ void CPUBackend::postprocess() {
         std::cerr << "[ERROR] Exception in CPU postprocessing: " << e.what() << std::endl;
     }
 }
+
+std::shared_ptr<IDeconvolutionBackend> CPUBackend::clone() const{
+    auto copy = std::make_unique<CPUBackend>();
+    return copy;
+    
+}
+
 
 std::unordered_map<PSFIndex, FFTWData>& CPUBackend::movePSFstoCPU(std::unordered_map<PSFIndex, FFTWData>& psfMap) {
     try {
@@ -178,7 +185,7 @@ void CPUBackend::octantFourierShift(FFTWData& data) {
         int halfHeight = height / 2;
         int halfDepth = depth / 2;
 
-        #pragma omp parallel for collapse(3)
+        // #pragma omp parallel for collapse(3)
         for (int z = 0; z < halfDepth; ++z) {
             for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < width; ++x) {
@@ -291,7 +298,7 @@ void CPUBackend::complexMultiplication(const FFTWData& a, const FFTWData& b, FFT
             return;
         }
 
-        #pragma omp parallel for simd
+        // #pragma omp parallel for simd
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];
@@ -313,7 +320,7 @@ void CPUBackend::complexDivision(const FFTWData& a, const FFTWData& b, FFTWData&
             return;
         }
 
-        #pragma omp parallel for
+        // #pragma omp parallel for
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];
@@ -374,7 +381,7 @@ void CPUBackend::complexMultiplicationWithConjugate(const FFTWData& a, const FFT
             return;
         }
 
-        #pragma omp parallel for
+        // #pragma omp parallel for
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];
@@ -396,7 +403,7 @@ void CPUBackend::complexDivisionStabilized(const FFTWData& a, const FFTWData& b,
             return;
         }
 
-        #pragma omp parallel for
+        // #pragma omp parallel for
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];

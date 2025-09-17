@@ -6,8 +6,6 @@
 #include "backend/IDeconvolutionBackend.h"
 #include "DeconvolutionAlgorithmFactory.h"
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
-#include <fftw3.h>
-
 
 
 
@@ -52,11 +50,7 @@ protected:
 
     DeconvolutionConfig config;
 
-    //memory
-    fftw_plan forwardPlan  = nullptr;
-    fftw_plan backwardPlan = nullptr;
 
-    fftw_complex *fftwPlanMem = nullptr;
 
     //multiple psfs
     std::vector<fftw_complex*> preparedpsfs;
@@ -103,14 +97,23 @@ protected:
 
 private:
     void deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage);
-    void deconvolveSingleCubePSF(fftw_complex* psf, std::vector<cv::Mat>& cubeImage);
+    virtual void deconvolveSingleCubePSF(fftw_complex* psf, std::vector<cv::Mat>& cubeImage);
 
     bool configured = false;
     // Internal helper functions
     void initPSFMaps(const std::vector<PSF>& psfs);
     void setupCubeArrangement();
     bool validateImageAndPsfSizes();
-    void printConfigurationSummary() const;
     bool setupFFTWPlans();
     int getLayerIndex(int cubeIndex, int cubesPerLayer);
 };
+
+
+
+// class DeconvolutionProcessorParallel : public DeconvolutionProcessor{
+//     virtual void deconvolveSingleCubePSF(fftw_complex* psf, std::vector<cv::Mat>& cubeImage) override;
+//     std::shared_ptr<IDeconvolutionBackend> getThreadLocalBackend();
+
+//     thread_local static std::shared_ptr<IDeconvolutionBackend> thread_backend_;
+
+// };

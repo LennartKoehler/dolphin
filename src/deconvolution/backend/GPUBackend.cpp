@@ -6,9 +6,13 @@
 #include <cmath>
 #include <opencv2/opencv.hpp>
 #include "Image3D.h"
-#include <cuda_runtime.h>
-#include <cufft.h>
+
 #include <cassert>
+
+#include <CUBE.h>
+#include <cuda_runtime.h>
+
+
 
 GPUBackend::GPUBackend() {
     // Initialize CUDA

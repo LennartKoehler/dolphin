@@ -10,7 +10,7 @@ public:
     
     void deconvolve(const FFTWData& H, const FFTWData& g, FFTWData& f) override;
     void configure(const DeconvolutionConfig& config) override;
-
+    std::unique_ptr<DeconvolutionAlgorithm> clone() const override;
 private:
     int iterations;
 

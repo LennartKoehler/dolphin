@@ -2,9 +2,6 @@
 #include "IDeconvolutionBackend.h"
 #include <unordered_map>
 
-#ifdef CUDA_AVAILABLE
-#include <CUBE.h>
-#endif
 
 typedef size_t PSFIndex;
 

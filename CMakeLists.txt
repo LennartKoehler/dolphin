@@ -73,6 +73,8 @@ include_directories(
 # ------------------------------------------------------------
 # Collect sources
 # ------------------------------------------------------------
+
+
 set(COMMON_SOURCES
     src/Dolphin.cpp
     src/PSFManager.cpp
@@ -105,7 +107,6 @@ set(COMMON_SOURCES
     # src/deconvolution/algorithms/BaseDeconvolutionAlgorithmGPU.cpp
     # src/deconvolution/algorithms/BaseDeconvolutionAlgorithmDerived.cpp
     src/deconvolution/backend/CPUBackend.cpp
-    # src/deconvolution/backend/GPUBackend.cpp
     src/deconvolution/DeconvolutionProcessor.cpp
     src/deconvolution/DeconvolutionAlgorithmFactory.cpp
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
@@ -141,8 +142,10 @@ set(COMMON_SOURCES
 
     src/frontend/gui/SpinningDonut.cpp
 )
-#TODO add the imgui sources to the imgui library, not to common sources
 
+set(CUDA_SOURCES
+    src/deconvolution/backend/GPUBackend.cpp
+)
 # ------------------------------------------------------------
 # Build shared library containing all algorithms
 # ------------------------------------------------------------
@@ -182,21 +185,33 @@ target_link_libraries(dolphin
 if(CUDAToolkit_FOUND)
     enable_language(CUDA)
     message(STATUS "CUDA found, building dolphincuda with CUBE.")
-
-    # Add CUBE subproject
     add_subdirectory(${CMAKE_SOURCE_DIR}/lib/cube)
-
+    # Add CUBE subproject
+    add_library(cudalib ${CUDA_SOURCES})
+    target_link_libraries(cudalib
+        PUBLIC
+            CUBE
+            dolphinlib  # cudalib depends on dolphinlib headers
+            CUDA::cufft
+            CUDA::cudart
+            CUDA::cufftw
+    )
+    target_include_directories(cudalib
+        PRIVATE
+            ${CMAKE_SOURCE_DIR}/include  # Needs access to GPUBackend.h
+            ${CMAKE_SOURCE_DIR}/lib/cube/include  # Add CUBE's include directory
+      
+    )
+    target_compile_definitions(cudalib PRIVATE CUDA_AVAILABLE)
     add_executable(dolphincuda src/main.cpp)
     target_link_libraries(dolphincuda
         PRIVATE
             dolphinlib
+            cudalib
             pthread
             gomp
             stdc++fs
-            CUBE          # provided by lib/cube/CMakeLists.txt
-            CUDA::cufft
-            CUDA::cudart
-            CUDA::cufftw
+
     )
     target_compile_definitions(dolphincuda PRIVATE CUDA_AVAILABLE)
 else()
