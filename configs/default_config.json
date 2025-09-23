@@ -1,27 +1,27 @@
 {
   "Deconvolution": {
     "algorithmName": "RichardsonLucy",
-    "subimageSize": 10,
+    "subimageSize": 100,
     "iterations": 30,
     "epsilon": 1e-6,
-    "grid": false,
+    "grid": true,
     "lambda": 0.015,
     "borderType": 2,
     "psfSafetyBorder": 10,
-    "cubeSize": 40,
     "cubePSFMap": [],
     "layerPSFMap": {
       ":": ["ID1234"]
     },
     "time": false,
     "saveSubimages": false,
-    "gpu": "none"
+    "backend": "cuda"
   },
   
 
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
   "psf_file_path": "",
   "psf_dir_path": "",
+  "outputDir": "result",
 
   "deconvolution_config_path": "",
 

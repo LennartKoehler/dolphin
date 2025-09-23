@@ -181,3 +181,13 @@ void UtlIO::createImage3D(std::vector<Channel> &channels, Image3D &imageLayers, 
         channels.push_back(channel);
     }
 }
+
+
+
+std::string UtlIO::getFilename(const std::string& path) {
+    size_t pos = path.find_last_of("/\\");
+    if (pos == std::string::npos) {
+        return path; // No directory separator found, return whole string
+    }
+    return path.substr(pos + 1);
+}

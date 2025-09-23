@@ -17,12 +17,12 @@ CPUBackend::~CPUBackend() {
 
 void CPUBackend::init(const RectangleShape& shape) {
     try {
-        if (fftw_init_threads() > 0) {
-            std::cout << "[STATUS] FFTW init threads" << std::endl;
-            fftw_plan_with_nthreads(omp_get_max_threads());
-            std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
-            fftw_make_planner_thread_safe();
-        }
+        // if (fftw_init_threads() > 0) {
+        //     std::cout << "[STATUS] FFTW init threads" << std::endl;
+        //     fftw_plan_with_nthreads(omp_get_max_threads());
+        //     std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
+        //     fftw_make_planner_thread_safe();
+        // }
         initializeFFTPlans(shape);
         
         std::cout << "[STATUS] CPU backend preprocessing completed" << std::endl;
@@ -157,9 +157,7 @@ void CPUBackend::memCopy(ComplexData& srcData, ComplexData& destData){
 }
 // FFT Operations
 void CPUBackend::forwardFFT(const ComplexData& in, ComplexData& out) {
-    try {
-
-        
+    try {     
         fftw_execute_dft(forwardPlan, in.data, out.data);
         octantFourierShift(out);
     } catch (const std::exception& e) {

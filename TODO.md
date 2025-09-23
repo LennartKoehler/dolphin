@@ -1,6 +1,6 @@
 - use my own complex datatype for both backends and throughout
 - maybe each deconvprocessor has a default cpu backend for preprocessing and then a second workerbackend
-
+- who should set backend type, setupconfig or deconvconfig
 
 - test refactor with rldeconv
 

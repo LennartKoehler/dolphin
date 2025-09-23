@@ -1,10 +1,10 @@
 #include "DeconvolutionService.h"
-#include "HyperstackImage.h"
 #include "PSFManager.h"
 #include "deconvolution/DeconvolutionProcessor.h"
 #include "ThreadPool.h"
 #include <chrono>
 #include <fstream>
+#include "UtlIO.h"
 
 DeconvolutionService::DeconvolutionService() 
     : initialized_(false),
@@ -16,6 +16,9 @@ DeconvolutionService::DeconvolutionService()
 DeconvolutionService::~DeconvolutionService() {
     shutdown();
 }
+
+
+
 
 void DeconvolutionService::initialize() {
     if (initialized_) return;
@@ -106,8 +109,9 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::vector<std::string> layer_paths;
         
         if (!output_path.empty()) {
-            result.saveAsTifFile(output_path);
-            logMessage("Deconvolution result saved to: " + output_path);
+            std::string path = output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath);
+            result.saveAsTifFile(path);
+            logMessage("Deconvolution result saved to: " + path);
             
             if (request.save_separate) {
                 result.saveAsTifDir("../result/deconv");

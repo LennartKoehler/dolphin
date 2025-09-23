@@ -17,8 +17,8 @@ std::shared_ptr<SetupConfig> UISetupConfig::getConfig(){
 
 
 void UISetupConfig::setSetupConfigParameters(std::shared_ptr<SetupConfig> setupConfig){
-    static std::vector<std::string> gpuTypes{"cuda", "none"};
-    static StringSelectionHelper gpuHelper{&setupConfig->gpu , &gpuTypes};
+    static std::vector<std::string> gpuTypes{"cuda", "cpu"};
+    static StringSelectionHelper gpuHelper{&setupConfig->backend, &gpuTypes};
 
     std::vector<ParameterDescription> runtimeParams = {
         // Application selection

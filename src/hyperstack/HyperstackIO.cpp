@@ -7,12 +7,8 @@
 #include "UtlIO.h"
 #include "psf/PSF.h"
 #include <filesystem>
-#ifdef CUDA_AVAILABLE
-#include <cufft.h>
-#include <cufftw.h>
-#else
-#include <fftw3.h>
-#endif
+#include <fstream>
+
 
 namespace fs = std::filesystem;
 
@@ -240,7 +236,13 @@ bool Hyperstack::saveAsTifFile(const std::string &directoryPath) const {
     for (auto& channel : this->channels) {
         channel_vec.push_back(channel.image.slices);
     }
-
+    std::filesystem::create_directories(std::filesystem::path(directoryPath).parent_path());
+    if (!std::filesystem::exists(directoryPath)) {
+        std::ofstream file(directoryPath);
+        if (file.is_open()) {
+            file.close();
+        }
+    }
     TIFF* out = TIFFOpen(directoryPath.c_str(), "w");
     if (!out) {
         std::cerr << "[ERROR] Cannot open TIFF file for writing: " << directoryPath.c_str() << std::endl;

@@ -5,6 +5,7 @@
 #include <opencv2/core/mat.hpp>
 #include "Image3D.h"
 #include "HyperstackImage.h"
+#include "tiffio.h"
 
 namespace UtlIO{
     void convertImageTo32F(std::vector<cv::Mat> &layers, int &dataType, uint16_t &bitsPerSample);
@@ -16,5 +17,8 @@ namespace UtlIO{
     void createImage3D(std::vector<Channel> &channels, Image3D &imageLayers, int linChannels, int totalImages, std::string name, std::vector<cv::Mat> layers);
 
     void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
+
+    std::string getFilename(const std::string& path);
+
 }
 

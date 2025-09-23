@@ -5,20 +5,20 @@ DeconvolutionConfig::DeconvolutionConfig() {
 }
 
 void DeconvolutionConfig::registerAllParameters(){
-    bool optional = true;
-    
+    #define PARAM(type, name, defaultValue, optional) registerParameter(#name, name, optional);
+    DECONV_PARAMS
+    #undef PARAM
     // Register all deconvolution parameters
-    registerParameter("algorithmName", algorithmName, !optional);  // Required
-    registerParameter("subimageSize", subimageSize, optional);
-    registerParameter("iterations", iterations, optional);
-    registerParameter("epsilon", epsilon, optional);
-    registerParameter("grid", grid, optional);
-    registerParameter("lambda", lambda, optional);
-    registerParameter("borderType", borderType, optional);
-    registerParameter("psfSafetyBorder", psfSafetyBorder, optional);
-    registerParameter("cubeSize", cubeSize, optional);
-    registerRangeMap("layerPSFMap", layerPSFMap, !optional);
-    registerRangeMap("cubePSFMap", cubePSFMap, !optional);
+    // registerParameter("algorithmName", algorithmName, !optional);  // Required
+    // registerParameter("subimageSize", subimageSize, optional);
+    // registerParameter("iterations", iterations, optional);
+    // registerParameter("epsilon", epsilon, optional);
+    // registerParameter("grid", grid, optional);
+    // registerParameter("lambda", lambda, optional);
+    // registerParameter("borderType", borderType, optional);
+    // registerParameter("psfSafetyBorder", psfSafetyBorder, optional);
+    registerRangeMap("layerPSFMap", layerPSFMap, false);
+    registerRangeMap("cubePSFMap", cubePSFMap, false);
     
 
     
@@ -37,7 +37,6 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     lambda(other.lambda),
     borderType(other.borderType),
     psfSafetyBorder(other.psfSafetyBorder),
-    cubeSize(other.cubeSize),
     layerPSFMap(other.layerPSFMap),
     cubePSFMap(other.cubePSFMap){
     registerAllParameters();
