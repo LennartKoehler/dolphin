@@ -41,7 +41,8 @@ SetupConfig::SetupConfig(const SetupConfig& other)
     showExampleLayers = other.showExampleLayers;
     printInfo = other.printInfo;
     saveSubimages = other.saveSubimages;
-    gpu = other.gpu;
+    backend = other.backend;
+    outputDir = other.outputDir;
 
     // Deep copy the shared_ptr content
     if (other.deconvolutionConfig != nullptr) {
@@ -66,7 +67,8 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         showExampleLayers = other.showExampleLayers;
         printInfo = other.printInfo;
         saveSubimages = other.saveSubimages;
-        gpu = other.gpu;
+        backend = other.backend;
+        outputDir = other.outputDir;
         
         // Deep copy the shared_ptr content
         if (other.deconvolutionConfig != nullptr) {
@@ -116,6 +118,7 @@ void SetupConfig::registerAllParameters(){
     registerParameter("showExampleLayers", showExampleLayers, !optional);
     registerParameter("info", printInfo, !optional);
     registerParameter("image_path", imagePath, !optional);
+    registerParameter("outputDir", outputDir, optional);
     
     // Optional path configurations
     registerParameter("psf_config_path", psfConfigPath, optional);
@@ -124,7 +127,7 @@ void SetupConfig::registerAllParameters(){
     
     // Optional fields
     registerParameter("saveSubimages", saveSubimages, optional);
-    registerParameter("gpu", gpu, optional);
+    registerParameter("backend", backend, optional);
     
     // Arrays (if needed)
     // registerParameter("layers", layers, optional);

@@ -230,29 +230,43 @@ private:
 };
 
 
+#define DECONV_PARAMS \
+    PARAM(std::string, algorithmName, "RichardsonLucyTotalVariation", false) \
+    PARAM(int, subimageSize, 0, true) \
+    PARAM(int, iterations, 10, true) \
+    PARAM(double, epsilon, 1e-6, true) \
+    PARAM(bool, grid, false, true) \
+    PARAM(double, lambda, 0.001, true) \
+    PARAM(int, borderType, cv::BORDER_REFLECT, true) \
+    PARAM(int, psfSafetyBorder, 10, true)\
+    PARAM(bool, time, false, true)\
+    PARAM(bool, saveSubimages, false, true)\
+    PARAM(std::string, backend, "cpu", true)
+
 class DeconvolutionConfig : public Config{
 public:
     DeconvolutionConfig();
     DeconvolutionConfig(const DeconvolutionConfig& other);
-    std::string algorithmName = "RichardsonLucyTotalVariation";
-    int subimageSize = 0; //sub-image size (edge)
-    int iterations = 10;
-    double epsilon = 1e-6;
-    bool grid = false;
-    double lambda = 0.001;
-    int borderType = cv::BORDER_REFLECT;
-    int psfSafetyBorder = 10;
-    int cubeSize = 0;
+    // std::string algorithmName = "RichardsonLucyTotalVariation";
+    // int subimageSize = 0; //sub-image size (edge)
+    // int iterations = 10;
+    // double epsilon = 1e-6;
+    // bool grid = false;
+    // double lambda = 0.001;
+    // int borderType = cv::BORDER_REFLECT;
+    // int psfSafetyBorder = 10;
     // std::vector<int> secondpsflayers = {};
     // std::vector<int> secondpsfcubes = {};
+    // bool time; // for compatibility with deconv implementation, these dont belong here
+    // bool saveSubimages;
+    // std::string gpu = "";
+    #define PARAM(type, name, defaultValue, optional) type name = defaultValue;
+    DECONV_PARAMS
+    #undef PARAM
+
     RangeMap<std::string> cubePSFMap;
     RangeMap<std::string> layerPSFMap;
 
-    
-    bool time; // for compatibility with deconv implementation, these dont belong here
-    bool saveSubimages;
-    std::string gpu = "";
-    
     // bool loadFromJSON(const json& jsonData) override;
 
 private:

@@ -25,7 +25,7 @@ public:
     bool showExampleLayers = false; //show random example layer of image and PSF
     bool printInfo = false; //show metadata of image
     bool saveSubimages = false;
-    std::string gpu = "";
+    std::string backend = "cpu";
     // std::vector<int> layers;
     // std::vector<int> subimages;
 

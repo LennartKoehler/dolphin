@@ -108,7 +108,7 @@ void CLIFrontend::readCLIParameters() {
     
     // Optional parameters
     cli_group->add_option("-d", setupConfig.outputDir, "Output directory");
-    cli_group->add_option("--gpu", setupConfig.gpu, "Type of GPU API ('cuda'/'none')");
+    cli_group->add_option("--backend", setupConfig.backend, "Type of Backend ('cuda'/'cpu')");
     cli_group->add_flag("--savepsf", setupConfig.savePsf, "Save used PSF");
     cli_group->add_flag("--time", setupConfig.time, "Show duration active");
     cli_group->add_flag("--seperate", setupConfig.sep, "Save as TIF directory, each layer as single file");
@@ -135,6 +135,7 @@ void CLIFrontend::readCLIParametersDeconvolution() {
     cli_group->add_option("--psfSafetyBorder", deconvolutionConfig.psfSafetyBorder, "Padding around PSF [10]")->check(CLI::PositiveNumber);
     cli_group->add_option("--subimageSize", deconvolutionConfig.subimageSize, "CubeSize/EdgeLength for sub-images of grid [0] (0-auto fit to PSF)")->check(CLI::PositiveNumber);
     cli_group->add_flag("--grid", deconvolutionConfig.grid, "Image divided into sub-image cubes (grid)");
+    cli_group->add_flag("--backenddeconv", deconvolutionConfig.backend, "Type of Backend for Deconvolution ('cuda'/'cpu')");
 }
 
 void CLIFrontend::readCLISetupConfigPath() {

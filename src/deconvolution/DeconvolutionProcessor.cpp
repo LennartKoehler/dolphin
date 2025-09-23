@@ -131,7 +131,9 @@ void convertFFTWComplexImgToCVMatVector(const ComplexData& input, std::vector<cv
 
 Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>& psfs){
     preprocess(input, psfs);
-    for (auto channel : input.channels){
+    Image3D deconvolutedImage;
+
+    for (auto& channel : input.channels){
         std::vector<std::vector<cv::Mat>> cubeImages = preprocessChannel(channel);
         for (int cubeIndex = 0; cubeIndex < cubeImages.size(); cubeIndex++){
             std::cerr << "[STATUS] cubeIndex :" << cubeIndex << "\t out of " << cubeImages.size() << std::endl;
@@ -142,7 +144,6 @@ Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>
         // Save the result
         // TODO clean up:
         std::cout << "[STATUS] Saving result of channel " << std::endl;
-        Image3D deconvolutedImage;
         deconvolutedImage.slices = deconvolutedChannel;
         input.channels[channel.id].image = deconvolutedImage;
     }
@@ -156,6 +157,9 @@ Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>
 void DeconvolutionProcessor::deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage){
 
     std::vector<complex*> psfs = selectPSFsForCube(cubeIndex);
+    if (psfs.size() == 0){
+        std::cout << "[INFO] using no psf for cube " + cubeIndex << std::endl;
+    }
     for (auto psf: psfs){
         deconvolveSingleCubePSF(psf, cubeImage);
     }
@@ -242,7 +246,7 @@ std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& m
 
         UtlGrid::cropCubePadding(cubeImages, this->cubePadding);
         std::cout << "[STATUS] Merging Grid back to Image..." << std::endl;
-        result = UtlGrid::mergeCubes(cubeImages, imageOriginalShape.width, imageOriginalShape.height, imageOriginalShape.depth, config.cubeSize);
+        result = UtlGrid::mergeCubes(cubeImages, imageOriginalShape.width, imageOriginalShape.height, imageOriginalShape.depth, config.subimageSize);
         std::cout << "[INFO] Image size: " << result[0].rows << "x" << result[0].cols << "x" << result.size()<< std::endl;
     }else{
         result = cubeImages[0];
@@ -273,7 +277,7 @@ void DeconvolutionProcessor::preprocess(const Hyperstack& input, const std::vect
 
     setPSFShape(psfs.front());
     setImageOriginalShape(input.channels[0]); // i tihnk every channel should be same size
-    setCubeShape(imageOriginalShape, config.grid, config.cubeSize, config.psfSafetyBorder);
+    setCubeShape(imageOriginalShape, config.grid, config.subimageSize, config.psfSafetyBorder);
     setupCubeArrangement();
     
 
@@ -290,20 +294,18 @@ void DeconvolutionProcessor::configure(DeconvolutionConfig config) {
     DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
     this->algorithm_ = fact.create(config);
 
-    this->backend_ = loadBackend(config.gpu);
+    this->backend_ = loadBackend(config.backend);
     this->cpu_backend_ = loadBackend("cpu");
-    this->algorithm_->setBackend(this->backend_->clone());
+    std::shared_ptr<IDeconvolutionBackend> backendalgo = this->backend_->clone();
+    backendalgo->init(cubeShape);
+    this->algorithm_->setBackend(backendalgo);
 
     configured = true;
 }
 
 std::shared_ptr<IDeconvolutionBackend> DeconvolutionProcessor::loadBackend(const std::string& backendName){
-    // Choose backend library at runtime
-    const char* libname = backendName == ""
-        ? "cuda"
-        : "cpu";
 
-    std::string libpath = std::string("backends/") + libname + "/lib" + libname + "_backend.so";
+    std::string libpath = std::string("backends/") + backendName + "/lib" + backendName + "_backend.so";
     void* handle = dlopen(libpath.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!handle) {
         const char* err = dlerror();
@@ -339,7 +341,7 @@ void DeconvolutionProcessor::setImageOriginalShape(const Channel& channel) {
 void DeconvolutionProcessor::setCubeShape(
     const RectangleShape& imageOriginalShape,
     bool configgrid,
-    int configcubeSize,
+    int configsubimageSize,
     int configpsfSafetyBorder
 ) {
     if (!configgrid) {
@@ -349,7 +351,7 @@ void DeconvolutionProcessor::setCubeShape(
         cubeShape.depth = imageOriginalShape.depth;
         cubeShape.volume = imageOriginalShape.volume;
     } else {
-        if (configcubeSize < 1){
+        if (configsubimageSize < 1){
             std::__throw_runtime_error("Can't use grid with a grid size of smaller than 0");
         }
         // Grid processing - calculate cube size with padding
@@ -359,24 +361,28 @@ void DeconvolutionProcessor::setCubeShape(
         // Adjust padding based on PSF size (from original logic)
         int safetyBorderPsfWidth = psfOriginalShape.width + (2 * configpsfSafetyBorder);
         
-        if (safetyBorderPsfWidth < configcubeSize) {
+        if (safetyBorderPsfWidth < configsubimageSize) {
             cubePadding = 10;
         }
-        if (configcubeSize + 2 * cubePadding < safetyBorderPsfWidth) {
-            cubePadding = (safetyBorderPsfWidth - configcubeSize) / 2;
+        if (configsubimageSize + 2 * cubePadding < safetyBorderPsfWidth) {
+            cubePadding = (safetyBorderPsfWidth - configsubimageSize) / 2;
         }
         
-        cubeShape.width = configcubeSize + (2 * cubePadding);
-        cubeShape.height = configcubeSize + (2 * cubePadding);
-        cubeShape.depth = configcubeSize + (2 * cubePadding);
+        cubeShape.width = configsubimageSize + (2 * cubePadding);
+        cubeShape.height = configsubimageSize + (2 * cubePadding);
+        cubeShape.depth = configsubimageSize + (2 * cubePadding);
         cubeShape.volume = cubeShape.width * cubeShape.height * cubeShape.depth;
     }
 }
 
 std::vector<std::vector<cv::Mat>> DeconvolutionProcessor::preprocessChannel(Channel& channel){
-    int imagepadding = imageOriginalShape.width/2;
-    UtlGrid::extendImage(channel.image.slices, imagepadding, config.borderType);
-    return UtlGrid::splitWithCubePadding(channel.image.slices, config.cubeSize, imagepadding, cubePadding);
+    if (config.grid){
+        int imagepadding= imageOriginalShape.width/2;
+        UtlGrid::extendImage(channel.image.slices, imagepadding, config.borderType);
+        return UtlGrid::splitWithCubePadding(channel.image.slices, config.subimageSize, imagepadding, cubePadding);}
+    else{
+        return std::vector<std::vector<cv::Mat>>{channel.image.slices};
+    }
 }
 
 void DeconvolutionProcessor::preprocessPSF(
@@ -433,9 +439,9 @@ void DeconvolutionProcessor::setupCubeArrangement() {
         cubes.cubesPerZ = 1;
         cubes.cubesPerLayer = 1;
     } else {
-        cubes.cubesPerX = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.width) / config.cubeSize));
-        cubes.cubesPerY = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.height) / config.cubeSize));
-        cubes.cubesPerZ = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.depth) / config.cubeSize));
+        cubes.cubesPerX = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.width) / config.subimageSize));
+        cubes.cubesPerY = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.height) / config.subimageSize));
+        cubes.cubesPerZ = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.depth) / config.subimageSize));
         cubes.cubesPerLayer = cubes.cubesPerX * cubes.cubesPerY;
     }
     

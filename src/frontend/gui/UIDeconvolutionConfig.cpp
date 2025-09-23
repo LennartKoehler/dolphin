@@ -30,7 +30,6 @@ void UIDeconvolutionConfig::setDeconvolutionConfigParameters(std::shared_ptr<Dec
         // Processing parameters
         {"Grid Processing", ParameterType::Bool, &deconvolutionConfig->grid, 0.0, 1.0},
         {"Subimage Size", ParameterType::Int, &deconvolutionConfig->subimageSize, 0, 10000},
-        {"Cube Size", ParameterType::Int, &deconvolutionConfig->cubeSize, 0, 10000},
         {"PSF Safety Border", ParameterType::Int, &deconvolutionConfig->psfSafetyBorder, 0, 1000},
         {"Border Type", ParameterType::Int, &deconvolutionConfig->borderType, 0, 5},
         

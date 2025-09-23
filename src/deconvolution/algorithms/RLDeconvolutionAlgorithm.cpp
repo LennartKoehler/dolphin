@@ -21,10 +21,8 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexDat
     // Allocate memory for intermediate arrays
     assert(backend->isOnDevice(f.data) + "PSF is not on device");
     ComplexData c = backend->allocateMemoryOnDevice(g.size);
-
+    
     for (int n = 0; n < iterations; ++n) {
-        std::cerr << "\r[STATUS] Iteration: " << n << " ";
-
 
         // a) First transformation:Fn = FFT(fn)
         backend->forwardFFT(f, c);
@@ -57,8 +55,6 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexDat
         backend->memCopy(c, f);
 
 
-
-        std::flush(std::cout);
     }
     backend->freeMemoryOnDevice(c);
 }
