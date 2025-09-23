@@ -213,7 +213,7 @@ namespace DeconvolutionHelpers {
     /**
      * @brief Check if FFTW complex array contains valid values
      */
-    inline bool isValidFFTWComplexArray(fftw_complex* data, size_t size, std::string& errorDetails) {
+    inline bool isValidFFTWComplexArray(complex* data, size_t size, std::string& errorDetails) {
         if (!data) {
             errorDetails = "Null pointer";
             return false;
@@ -274,7 +274,7 @@ namespace DeconvolutionHelpers {
     /**
      * @brief Normalize FFTW complex array
      */
-    inline void normalizeFFTWComplexArray(fftw_complex* data, size_t size, double epsilon = 1e-12) {
+    inline void normalizeFFTWComplexArray(complex* data, size_t size, double epsilon = 1e-12) {
         if (!data || size == 0) return;
 
         double sum = 0;
@@ -310,7 +310,7 @@ namespace DeconvolutionHelpers {
     /**
      * @brief Copy FFTW complex array
      */
-    inline void copyFFTWComplexArray(const fftw_complex* source, fftw_complex* destination, size_t size) {
+    inline void copyFFTWComplexArray(const complex* source, complex* destination, size_t size) {
         if (source && destination && size > 0) {
             std::copy(source, source + size, destination);
         }
@@ -334,7 +334,7 @@ namespace DeconvolutionHelpers {
     /**
      * @brief Apply threshold to FFTW complex values below epsilon
      */
-    inline void thresholdFFTWComplexArray(fftw_complex* data, size_t size, double thresholdValue) {
+    inline void thresholdFFTWComplexArray(complex* data, size_t size, double thresholdValue) {
         if (!data || size == 0) return;
 
         for (size_t i = 0; i < size; ++i) {
@@ -524,7 +524,7 @@ namespace DeconvolutionHelpers {
     /**
      * @brief Compute sum of squared magnitudes of FFTW complex array
      */
-    inline double sumSquaredFFTWComplexMagnitudes(fftw_complex* data, size_t size) {
+    inline double sumSquaredFFTWComplexMagnitudes(complex* data, size_t size) {
         double sum = 0;
         for (size_t i = 0; i < size; ++i) {
             double magnitude = std::sqrt(data[i][0] * data[i][0] + data[i][1] * data[i][1]);

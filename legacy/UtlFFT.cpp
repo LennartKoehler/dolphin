@@ -9,7 +9,7 @@
 
 
 // Visualize the magnitude of the Fourier-transformed images
-void UtlFFT::visualizeFFT(fftw_complex* data, int width, int height, int depth) {
+void UtlFFT::visualizeFFT(complex* data, int width, int height, int depth) {
 
     // Convert the result FFTW complex array back to OpenCV Mat vector
     Image3D i;
@@ -29,36 +29,36 @@ void UtlFFT::visualizeFFT(fftw_complex* data, int width, int height, int depth) 
 
 }
 // Reorders Layer Middle to Ends (for InverseFilter)
-void UtlFFT::reorderLayers(fftw_complex* data, int width, int height, int depth) {
+void UtlFFT::reorderLayers(complex* data, int width, int height, int depth) {
     int layerSize = width * height;
     int halfDepth = depth / 2;
-    fftw_complex* temp = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * width * height * depth);
+    complex* temp = (complex*) fftw_malloc(sizeof(complex) * width * height * depth);
 
     int destIndex = 0;
 
     // Copy the middle layer to the first position
-    std::memcpy(temp + destIndex * layerSize, data + halfDepth * layerSize, sizeof(fftw_complex) * layerSize);
+    std::memcpy(temp + destIndex * layerSize, data + halfDepth * layerSize, sizeof(complex) * layerSize);
     destIndex++;
 
     // Copy the layers after the middle layer
     for (int z = halfDepth + 1; z < depth; ++z) {
-        std::memcpy(temp + destIndex * layerSize, data + z * layerSize, sizeof(fftw_complex) * layerSize);
+        std::memcpy(temp + destIndex * layerSize, data + z * layerSize, sizeof(complex) * layerSize);
         destIndex++;
     }
 
     // Copy the layers before the middle layer
     for (int z = 0; z < halfDepth; ++z) {
-        std::memcpy(temp + destIndex * layerSize, data + z * layerSize, sizeof(fftw_complex) * layerSize);
+        std::memcpy(temp + destIndex * layerSize, data + z * layerSize, sizeof(complex) * layerSize);
         destIndex++;
     }
 
     // Copy reordered data back to the original array
-    std::memcpy(data, temp, sizeof(fftw_complex) * width * height * depth);
+    std::memcpy(data, temp, sizeof(complex) * width * height * depth);
     fftw_free(temp);
 }
 
 // Forward Fourier Transformation with fftw
-void UtlFFT::forwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth){
+void UtlFFT::forwardFFT(complex* in, complex* out,int imageDepth, int imageHeight, int imageWidth){
     //fftw_make_planner_thread_safe();
 
     fftw_plan plan = fftw_plan_dft_3d(imageDepth, imageHeight, imageWidth, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
@@ -67,7 +67,7 @@ void UtlFFT::forwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int 
     octantFourierShift(out, imageWidth, imageHeight, imageDepth);
     }
 // Backward Fourier Transformation with fftw
-void UtlFFT::backwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int imageHeight, int imageWidth){
+void UtlFFT::backwardFFT(complex* in, complex* out,int imageDepth, int imageHeight, int imageWidth){
 
     octantFourierShift(out, imageWidth, imageHeight, imageDepth);
     //fftw_make_planner_thread_safe();
@@ -78,7 +78,7 @@ void UtlFFT::backwardFFT(fftw_complex* in, fftw_complex* out,int imageDepth, int
 }
 
 // Perform point-wise complex multiplication
-void UtlFFT::complexMultiplication(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) {
+void UtlFFT::complexMultiplication(complex* a, complex* b, complex* result, int size) {
     // Ensure that input pointers are not null
     if (!a || !b || !result) {
         std::cerr << "Error: Null pointer passed to complexMultiplication." << std::endl;
@@ -124,7 +124,7 @@ void UtlFFT::complexMultiplication(fftw_complex* a, fftw_complex* b, fftw_comple
 }
 
 // Perform point-wise complex multiplication with conjugation
-void UtlFFT::complexMultiplicationWithConjugate(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) {
+void UtlFFT::complexMultiplicationWithConjugate(complex* a, complex* b, complex* result, int size) {
     // Ensure that input pointers are not null
     if (!a || !b || !result) {
         std::cerr << "Error: Null pointer passed to complexMultiplicationWithConjugate." << std::endl;
@@ -157,7 +157,7 @@ void UtlFFT::complexMultiplicationWithConjugate(fftw_complex* a, fftw_complex* b
     }
 }
 // Perform point-wise complex division (min->epsilon)
-void UtlFFT::complexDivision(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) {
+void UtlFFT::complexDivision(complex* a, complex* b, complex* result, int size, double epsilon) {
     // Ensure that input pointers are not null
     if (!a || !b || !result) {
         std::cerr << "Error: Null pointer passed to complexDivision." << std::endl;
@@ -197,7 +197,7 @@ void UtlFFT::complexDivision(fftw_complex* a, fftw_complex* b, fftw_complex* res
 }
 
 // Perform point-wise complex division with stabilization (min->epsilon)
-void UtlFFT::complexDivisionStabilized(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size, double epsilon) {
+void UtlFFT::complexDivisionStabilized(complex* a, complex* b, complex* result, int size, double epsilon) {
     // Ensure that input pointers are not null
     if (!a || !b || !result) {
         std::cerr << "Error: Null pointer passed to complexDivisionStabilized." << std::endl;
@@ -235,7 +235,7 @@ void UtlFFT::complexDivisionStabilized(fftw_complex* a, fftw_complex* b, fftw_co
 
 
 // Perform quadrant shift on FFTW complex array
-void UtlFFT::octantFourierShift(fftw_complex* data, int width, int height, int depth) {
+void UtlFFT::octantFourierShift(complex* data, int width, int height, int depth) {
     int halfWidth = width / 2;
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
@@ -286,7 +286,7 @@ void UtlFFT::quadrantShiftMat(cv::Mat& magI) {
     tmp.copyTo(q2);
 }
 // Perform inverse quadrant shift on FFTW complex array
-void UtlFFT::inverseQuadrantShift(fftw_complex* data, int width, int height, int depth) {
+void UtlFFT::inverseQuadrantShift(complex* data, int width, int height, int depth) {
     int halfWidth = width / 2;
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
@@ -341,7 +341,7 @@ void UtlFFT::inverseQuadrantShift(fftw_complex* data, int width, int height, int
 }
 
 // Convert OpenCV Mat vector to FFTW complex array
-void UtlFFT::convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, fftw_complex* output, int width, int height, int depth) {
+void UtlFFT::convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, complex* output, int width, int height, int depth) {
     for (int z = 0; z < depth; ++z) {
         CV_Assert(input[z].type() == CV_32F);  // Ensure input is of type float
         for (int y = 0; y < height; ++y) {
@@ -353,7 +353,7 @@ void UtlFFT::convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, 
     }
 }
 // Pad the PSF to the size of the image
-void UtlFFT::padPSF(fftw_complex* psf, int psf_width, int psf_height, int psf_depth, fftw_complex* padded_psf, int width, int height, int depth) {
+void UtlFFT::padPSF(complex* psf, int psf_width, int psf_height, int psf_depth, complex* padded_psf, int width, int height, int depth) {
     UtlFFT::octantFourierShift(psf, psf_width, psf_height, psf_depth);
     for (int i = 0; i < width * height * depth; ++i) {
         padded_psf[i][0] = 0.0;
@@ -382,7 +382,7 @@ void UtlFFT::padPSF(fftw_complex* psf, int psf_width, int psf_height, int psf_de
     UtlFFT::octantFourierShift(padded_psf, width, height, depth);
 }
 
-void UtlFFT::convertFFTWComplexToCVMatVector(const fftw_complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {
+void UtlFFT::convertFFTWComplexToCVMatVector(const complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {
     std::vector<cv::Mat> tempOutput;
     for (int z = 0; z < depth; ++z) {
         cv::Mat result(height, width, CV_32F);
@@ -402,7 +402,7 @@ void UtlFFT::convertFFTWComplexToCVMatVector(const fftw_complex* input, std::vec
     output = tempOutput;
 }
 
-void UtlFFT::convertFFTWComplexRealToCVMatVector(const fftw_complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {
+void UtlFFT::convertFFTWComplexRealToCVMatVector(const complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {
     std::vector<cv::Mat> tempOutput;
     for (int z = 0; z < depth; ++z) {
         cv::Mat result(height, width, CV_32F);
@@ -417,7 +417,7 @@ void UtlFFT::convertFFTWComplexRealToCVMatVector(const fftw_complex* input, std:
     output = tempOutput;
 }
 
-void UtlFFT::convertFFTWComplexImgToCVMatVector(const fftw_complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {
+void UtlFFT::convertFFTWComplexImgToCVMatVector(const complex* input, std::vector<cv::Mat>& output, int width, int height, int depth) {
     std::vector<cv::Mat> tempOutput;
     for (int z = 0; z < depth; ++z) {
         cv::Mat result(height, width, CV_32F);
@@ -433,7 +433,7 @@ void UtlFFT::convertFFTWComplexImgToCVMatVector(const fftw_complex* input, std::
 }
 
 // Perform point-wise complex addition
-void UtlFFT::complexAddition(fftw_complex* a, fftw_complex* b, fftw_complex* result, int size) {
+void UtlFFT::complexAddition(complex* a, complex* b, complex* result, int size) {
     // Ensure that input pointers are not null
     if (!a || !b || !result) {
         std::cerr << "Error: Null pointer passed to complexAddition." << std::endl;
@@ -447,7 +447,7 @@ void UtlFFT::complexAddition(fftw_complex* a, fftw_complex* b, fftw_complex* res
     }
 }
 // Perform point-wise scalar multiplication on FFTW complex array
-void UtlFFT::scalarMultiplication(fftw_complex* a, double scalar, fftw_complex* result, int size) {
+void UtlFFT::scalarMultiplication(complex* a, double scalar, complex* result, int size) {
     // Ensure that input pointers are not null
     if (!a || !result) {
         std::cerr << "Error: Null pointer passed to scalarMultiplication." << std::endl;
@@ -460,7 +460,7 @@ void UtlFFT::scalarMultiplication(fftw_complex* a, double scalar, fftw_complex* 
     }
 }
 // Calculate the 3D Laplacian of a PSF
-void UtlFFT::calculateLaplacianOfPSF(fftw_complex* psf, fftw_complex* laplacian_fft, int width, int height, int depth) {
+void UtlFFT::calculateLaplacianOfPSF(complex* psf, complex* laplacian_fft, int width, int height, int depth) {
     // Ensure that input and output pointers are not null
     if (!psf || !laplacian_fft) {
         std::cerr << "Error: Null pointer passed to calculateLaplacianOfPSF." << std::endl;
@@ -485,7 +485,7 @@ void UtlFFT::calculateLaplacianOfPSF(fftw_complex* psf, fftw_complex* laplacian_
     }
 }
 
-void UtlFFT::normalizeImage(fftw_complex* resultImage,int size, double epsilon){
+void UtlFFT::normalizeImage(complex* resultImage,int size, double epsilon){
     double max_val, max_val2 = 0.0;
     for (int j = 0; j < size; j++) {
         max_val = std::max(max_val, resultImage[j][0]);
@@ -497,7 +497,7 @@ void UtlFFT::normalizeImage(fftw_complex* resultImage,int size, double epsilon){
     }
 }
 
-void UtlFFT::saveInterimImages(fftw_complex* resultImage, int imageWidth, int imageHeight, int imageDepth, int gridNum, int channel_z, int i){
+void UtlFFT::saveInterimImages(complex* resultImage, int imageWidth, int imageHeight, int imageDepth, int gridNum, int channel_z, int i){
     std::vector<cv::Mat> debugImage;
     UtlFFT::convertFFTWComplexToCVMatVector(resultImage, debugImage, imageWidth, imageHeight, imageDepth);
     for (int k = 0; k < debugImage.size(); k++) {
@@ -509,7 +509,7 @@ void UtlFFT::saveInterimImages(fftw_complex* resultImage, int imageWidth, int im
 }
 
 // Berechnet den Gradienten in x-Richtung eines 3D-Bildes.
-void UtlFFT::gradientX(fftw_complex* image, fftw_complex* gradX, int width, int height, int depth) {
+void UtlFFT::gradientX(complex* image, complex* gradX, int width, int height, int depth) {
     // Parallelize the loops using OpenMP for better performance.
 //#pragma omp parallel for collapse(3)
     for (int z = 0; z < depth; ++z) {
@@ -533,7 +533,7 @@ void UtlFFT::gradientX(fftw_complex* image, fftw_complex* gradX, int width, int 
 }
 
 // Berechnet den Gradienten in y-Richtung eines 3D-Bildes.
-void UtlFFT::gradientY(fftw_complex* image, fftw_complex* gradY, int width, int height, int depth) {
+void UtlFFT::gradientY(complex* image, complex* gradY, int width, int height, int depth) {
     // Parallelize the loops using OpenMP for better performance.
 //#pragma omp parallel for collapse(3)
     for (int z = 0; z < depth; ++z) {
@@ -557,7 +557,7 @@ void UtlFFT::gradientY(fftw_complex* image, fftw_complex* gradY, int width, int 
 }
 
 // Berechnet den Gradienten in z-Richtung eines 3D-Bildes.
-void UtlFFT::gradientZ(fftw_complex* image, fftw_complex* gradZ, int width, int height, int depth) {
+void UtlFFT::gradientZ(complex* image, complex* gradZ, int width, int height, int depth) {
     // Parallelize the loops using OpenMP for better performance.
 //#pragma omp parallel for collapse(3)
     for (int z = 0; z < depth - 1; ++z) {
@@ -580,7 +580,7 @@ void UtlFFT::gradientZ(fftw_complex* image, fftw_complex* gradZ, int width, int 
     }
 }
 // Berechnet die Total-Variation-Filterung basierend auf den Gradienten und einem Regularisierungsparameter lambda.
-void UtlFFT::computeTV(double lambda, fftw_complex* gx, fftw_complex* gy, fftw_complex* gz, fftw_complex* tv, int width, int height, int depth) {
+void UtlFFT::computeTV(double lambda, complex* gx, complex* gy, complex* gz, complex* tv, int width, int height, int depth) {
     int nxy = width * height;
 
     // Parallelize the loops using OpenMP for better performance.
@@ -603,7 +603,7 @@ void UtlFFT::computeTV(double lambda, fftw_complex* gx, fftw_complex* gy, fftw_c
 }
 
 // Normalisiert die Vektorkomponenten eines 3D-Feldes.
-void UtlFFT::normalizeTV(fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, int width, int height, int depth, double epsilon) {
+void UtlFFT::normalizeTV(complex* gradX, complex* gradY, complex* gradZ, int width, int height, int depth, double epsilon) {
     int nxy = width * height;
 
     // Parallelize the loops using OpenMP for better performance.
@@ -637,7 +637,7 @@ void UtlFFT::normalizeTV(fftw_complex* gradX, fftw_complex* gradY, fftw_complex*
 // especially in iterative algorithms where accumulated scaling errors could otherwise
 // lead to instability. However, in this case, the normalization/rescaling has no significant effect.
 // maybe TODO as optional configuration, rescaledInverse yes/no
-void UtlFFT::rescaledInverse(fftw_complex* data, double cubeVolume) {
+void UtlFFT::rescaledInverse(complex* data, double cubeVolume) {
     for (int i = 0; i < cubeVolume; ++i) {
         data[i][0] /= cubeVolume; // Realteil normalisieren
         data[i][1] /= cubeVolume; // Imaginärteil normalisieren

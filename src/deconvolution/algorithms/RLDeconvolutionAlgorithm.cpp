@@ -12,19 +12,19 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 }
 
 // Legacy algorithm method for compatibility with existing code
-void RLDeconvolutionAlgorithm::deconvolve(const FFTWData& H, const FFTWData& g, FFTWData& f) {
+void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) {
     if (!backend) {
         std::cerr << "[ERROR] No backend available for Richardson-Lucy algorithm" << std::endl;
         return;
     }
 
     // Allocate memory for intermediate arrays
-    FFTWData c = backend->allocateMemoryOnDevice(g.size);
-    assert(backend->isOnDevice(H.data) + "PSF is not on device");
-    assert(backend->isOnDevice(g.data) + "Input is not on device");
+    assert(backend->isOnDevice(f.data) + "PSF is not on device");
+    ComplexData c = backend->allocateMemoryOnDevice(g.size);
 
     for (int n = 0; n < iterations; ++n) {
         std::cerr << "\r[STATUS] Iteration: " << n << " ";
+
 
         // a) First transformation:Fn = FFT(fn)
         backend->forwardFFT(f, c);
@@ -54,12 +54,13 @@ void RLDeconvolutionAlgorithm::deconvolve(const FFTWData& H, const FFTWData& g, 
         backend->octantFourierShift(c);
 
         // d) Update the estimated image: fn+1 = fn * c
-        f = backend->copyData(c);
+        backend->memCopy(c, f);
+
 
 
         std::flush(std::cout);
     }
-
+    backend->freeMemoryOnDevice(c);
 }
 
 

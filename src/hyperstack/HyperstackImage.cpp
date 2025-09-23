@@ -1,5 +1,4 @@
 #include "HyperstackImage.h"
-#include "UtlFFT.h"
 #include <iostream>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
@@ -75,42 +74,44 @@ float Hyperstack::getPixel(int channel, int x, int y, int z) {
     return this->channels[channel].image.slices[z].at<float>(x,y);
 }
 
-Hyperstack Hyperstack::convolve(PSF psf) {
 
-    Hyperstack convolved;
-    convolved.channels = this->channels;
-    int psfWidth = psf.image.slices[0].cols;
-    int psfHeight = psf.image.slices[0].rows;
-    int psfDepth = psf.image.slices.size();
-    int psfVolume = psfWidth * psfHeight * psfDepth;
-    fftw_complex *psfFFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * psfVolume);
-    UtlFFT::convertCVMatVectorToFFTWComplex(psf.image.slices, psfFFT, psfWidth, psfHeight, psfDepth);
-    UtlFFT::forwardFFT(psfFFT, psfFFT, psfDepth, psfHeight, psfWidth);
+//legacy
+// Hyperstack Hyperstack::convolve(PSF psf) {
 
-    for(auto& channel : convolved.channels){
-        int depth = channel.image.slices.size();
-        int width = channel.image.slices[0].cols;
-        int heigth = channel.image.slices[0].rows;
-        int volume =  depth * width * heigth;
-        fftw_complex *imageFFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * volume);
-        UtlFFT::convertCVMatVectorToFFTWComplex(channel.image.slices, imageFFT, width, heigth, depth);
-        UtlFFT::forwardFFT(imageFFT, imageFFT, depth, heigth, width);
+//     Hyperstack convolved;
+//     convolved.channels = this->channels;
+//     int psfWidth = psf.image.slices[0].cols;
+//     int psfHeight = psf.image.slices[0].rows;
+//     int psfDepth = psf.image.slices.size();
+//     int psfVolume = psfWidth * psfHeight * psfDepth;
+//     complex *psfFFT = (complex *) fftw_malloc(sizeof(complex) * psfVolume);
+//     UtlFFT::convertCVMatVectorToFFTWComplex(psf.image.slices, psfFFT, psfWidth, psfHeight, psfDepth);
+//     UtlFFT::forwardFFT(psfFFT, psfFFT, psfDepth, psfHeight, psfWidth);
 
-        fftw_complex *padded_psfFFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * volume);
-        UtlFFT::padPSF(psfFFT, psfWidth, psfHeight, psfDepth, padded_psfFFT, width, heigth, depth);
+//     for(auto& channel : convolved.channels){
+//         int depth = channel.image.slices.size();
+//         int width = channel.image.slices[0].cols;
+//         int heigth = channel.image.slices[0].rows;
+//         int volume =  depth * width * heigth;
+//         complex *imageFFT = (complex *) fftw_malloc(sizeof(complex) * volume);
+//         UtlFFT::convertCVMatVectorToFFTWComplex(channel.image.slices, imageFFT, width, heigth, depth);
+//         UtlFFT::forwardFFT(imageFFT, imageFFT, depth, heigth, width);
+
+//         complex *padded_psfFFT = (complex *) fftw_malloc(sizeof(complex) * volume);
+//         UtlFFT::padPSF(psfFFT, psfWidth, psfHeight, psfDepth, padded_psfFFT, width, heigth, depth);
 
 
-        // Convolve the result image with the PSF in frequency domain
-        UtlFFT::complexMultiplication(imageFFT, padded_psfFFT, imageFFT, volume);
+//         // Convolve the result image with the PSF in frequency domain
+//         UtlFFT::complexMultiplication(imageFFT, padded_psfFFT, imageFFT, volume);
 
-        UtlFFT::backwardFFT(imageFFT, imageFFT, depth, heigth, width);
-        UtlFFT::octantFourierShift(imageFFT, width, heigth, depth);
+//         UtlFFT::backwardFFT(imageFFT, imageFFT, depth, heigth, width);
+//         UtlFFT::octantFourierShift(imageFFT, width, heigth, depth);
 
-        UtlFFT::convertFFTWComplexToCVMatVector(imageFFT, channel.image.slices, width, heigth, depth);
-    }
+//         UtlFFT::convertFFTWComplexToCVMatVector(imageFFT, channel.image.slices, width, heigth, depth);
+//     }
 
-    return convolved;
-}
+//     return convolved;
+// }
 
 
 

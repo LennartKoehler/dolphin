@@ -32,7 +32,7 @@ void UtlImage::normalizeToSumOne(std::vector<cv::Mat>& psf) {
     }
 }
 
-bool UtlImage::isValidForFloat(fftw_complex* fftwData, size_t size) {
+bool UtlImage::isValidForFloat(complex* fftwData, size_t size) {
     for (size_t i = 0; i < size; ++i) {
         // Überprüfen der Real- und Imaginärteile
         if (fftwData[i][0] < std::numeric_limits<float>::lowest() ||

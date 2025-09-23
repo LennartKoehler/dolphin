@@ -30,7 +30,7 @@ set(CUDA_SOURCES
 )
 
 # Create the executable
-add_library(CUBE STATIC ${CPP_SOURCES} ${CUDA_SOURCES})
+add_library(CUBE SHARED ${CPP_SOURCES} ${CUDA_SOURCES})
 #add_definitions(-DENABLE_CUBE_DEBUG)
 #add_definitions(-DENABLE_CUBEUTL_DEBUG)
 
@@ -42,8 +42,8 @@ target_link_libraries(CUBE
         pthread
         gomp
         ${CUDA_CUDA_LIBRARY}
-        cufft
-        cufftw
+        CUDA::cufft
+        CUDA::cufftw
         ${OpenCV_LIBS}
 )
 

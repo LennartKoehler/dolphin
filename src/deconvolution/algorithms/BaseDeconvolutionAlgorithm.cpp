@@ -123,15 +123,15 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 
         std::cout << "[STATUS] Creating fftw plans..." << std::endl;
         // In-line fftplan for fast ft calculation and inverse
-        this->fftwPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
+        this->fftwPlanMem = (complex *) fftw_malloc(sizeof(complex) * this->cubeVolume);
         this->forwardPlan = fftw_plan_dft_3d(this->cubeDepth, this->cubeHeight, this->cubeWidth, this->fftwPlanMem, this->fftwPlanMem, FFTW_FORWARD, FFTW_MEASURE);
         this->backwardPlan = fftw_plan_dft_3d(this->cubeDepth, this->cubeHeight, this->cubeWidth, this->fftwPlanMem, this->fftwPlanMem, FFTW_BACKWARD, FFTW_MEASURE);
-        fftw_complex *fftwPSFPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
+        complex *fftwPSFPlanMem = (complex *) fftw_malloc(sizeof(complex) * originPsfVolume);
 
 
 
 
-    fftw_complex *h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * originPsfVolume);
+    complex *h = (complex *) fftw_malloc(sizeof(complex) * originPsfVolume);
 
     fftw_plan forwardPSFPlan = fftw_plan_dft_3d(originPsfDepth, originPsfHeight, originPsfWidth, fftwPSFPlanMem, fftwPSFPlanMem, FFTW_FORWARD, FFTW_MEASURE);
     for(int p = 0; p < psfs.size(); p++) {
@@ -142,7 +142,7 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 
         std::cout << "[STATUS] Padding PSF"<<std::to_string(p+1)<<"..." << std::endl;
         // Pad the PSF to the size of the image
-        fftw_complex *temp_h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * safetyBorderPsfVolume);
+        complex *temp_h = (complex *) fftw_malloc(sizeof(complex) * safetyBorderPsfVolume);
         UtlFFT::padPSF(h, originPsfWidth, originPsfHeight, originPsfDepth, temp_h, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
 #ifdef CUDA_AVAILABLE
         if(config.gpu == "cuda") {
@@ -363,11 +363,11 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
         for (size_t i = 0; i < this->gridImages.size(); ++i) {
             // PSF
             // H points to an existing PSF (paddedH or paddedH_2) and should not be freed here as it is not allocated with fftw_malloc.
-            fftw_complex* H = nullptr;
+            complex* H = nullptr;
             // Observed image
-            fftw_complex* g = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
+            complex* g = (complex *) fftw_malloc(sizeof(complex) * this->cubeVolume);
             // Result image
-            fftw_complex* f = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * this->cubeVolume);
+            complex* f = (complex *) fftw_malloc(sizeof(complex) * this->cubeVolume);
                 // LK layernumvec used here
                 if(this->layerNumVec.size() > 1) {
 

@@ -24,9 +24,9 @@ bool RLADDeconvolutionAlgorithm::preprocessBackendSpecific(int channel_num, int 
     return true;
 }
 
-void RLADDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+void RLADDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, complex* H, complex* g, complex* f) {
     // Allocate memory for intermediate arrays using base class helper functions
-    fftw_complex *c = nullptr;
+    complex *c = nullptr;
     if (!allocateCPUArray(c, cubeVolume)) {
         std::cerr << "[ERROR] Failed to allocate memory for RLAD algorithm processing" << std::endl;
         return;
@@ -128,7 +128,7 @@ void RLADDeconvolutionAlgorithm::cleanupBackendSpecific() {
 }
 
 // Legacy algorithm method for compatibility with existing code
-void RLADDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+void RLADDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, complex* H, complex* g, complex* f) {
     // Simply delegate to the new backend-specific implementation
     algorithmBackendSpecific(channel_num, H, g, f);
 }

@@ -13,7 +13,7 @@
 // Memory allocation guard macros
 #define ALLOCATE_MEMORY(ptr, size) \
     do { \
-        ptr = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (size)); \
+        ptr = (complex*)fftw_malloc(sizeof(complex) * (size)); \
         if (ptr == nullptr) { \
             std::cerr << "[ERROR] Failed to allocate memory for " << #ptr << std::endl; \
             return false; \
@@ -103,7 +103,7 @@ bool BaseDeconvolutionAlgorithmCPU::preprocessBackendSpecific(int channel_num, i
     }
 }
 
-void BaseDeconvolutionAlgorithmCPU::algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+void BaseDeconvolutionAlgorithmCPU::algorithmBackendSpecific(int channel_num, complex* H, complex* g, complex* f) {
     std::cout << "[STATUS] CPU algorithm processing for channel " << channel_num << std::endl;
     
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -120,8 +120,8 @@ void BaseDeconvolutionAlgorithmCPU::algorithmBackendSpecific(int channel_num, ff
         }
         
         // Create temporary arrays for processing
-        fftw_complex* temp_g = nullptr;
-        fftw_complex* temp_f = nullptr;
+        complex* temp_g = nullptr;
+        complex* temp_f = nullptr;
         
         if (!allocateCPUArray(temp_g, cubeVolume) || 
             !allocateCPUArray(temp_f, cubeVolume)) {
@@ -132,8 +132,8 @@ void BaseDeconvolutionAlgorithmCPU::algorithmBackendSpecific(int channel_num, ff
         }
         
         // Copy input data to working arrays
-        std::memcpy(temp_g, g, sizeof(fftw_complex) * cubeVolume);
-        std::memcpy(temp_f, g, sizeof(fftw_complex) * cubeVolume);  // Initialize with input data
+        std::memcpy(temp_g, g, sizeof(complex) * cubeVolume);
+        std::memcpy(temp_f, g, sizeof(complex) * cubeVolume);  // Initialize with input data
         
         // Execute main algorithm using FFTW utilities
         // Note: iterations would be defined in the concrete algorithm class
@@ -183,7 +183,7 @@ void BaseDeconvolutionAlgorithmCPU::algorithmBackendSpecific(int channel_num, ff
             UtlFFT::octantFourierShift(temp_g, cubeWidth, cubeHeight, cubeDepth);
             
             // Step 10: Update estimate
-            std::memcpy(temp_f, temp_g, sizeof(fftw_complex) * cubeVolume);
+            std::memcpy(temp_f, temp_g, sizeof(complex) * cubeVolume);
             
             // Validate result
             if (!validateComplexArray(temp_f, cubeVolume, "Iteration result")) {

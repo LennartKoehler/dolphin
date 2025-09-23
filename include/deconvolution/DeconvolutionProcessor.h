@@ -3,7 +3,7 @@
 #include "DeconvolutionConfig.h"
 #include "HyperstackImage.h"
 #include "psf/PSF.h"
-#include "backend/IDeconvolutionBackend.h"
+#include "IDeconvolutionBackend.h"
 #include "DeconvolutionAlgorithmFactory.h"
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 
@@ -43,8 +43,7 @@ public:
     virtual void configure(DeconvolutionConfig config);
 
 protected:
-
-    
+    std::shared_ptr<IDeconvolutionBackend> cpu_backend_;
     std::shared_ptr<IDeconvolutionBackend> backend_; // should this be shared?
     std::shared_ptr<DeconvolutionAlgorithm> algorithm_;
 
@@ -53,9 +52,9 @@ protected:
 
 
     //multiple psfs
-    std::vector<fftw_complex*> preparedpsfs;
-    RangeMap<fftw_complex*> layerPreparedPSFMap;
-    RangeMap<fftw_complex*> cubePreparedPSFMap;
+    std::vector<complex*> preparedpsfs;
+    RangeMap<complex*> layerPreparedPSFMap;
+    RangeMap<complex*> cubePreparedPSFMap;
 
     //shapes
     RectangleShape cubeShape; // = psf padded shape
@@ -92,26 +91,28 @@ protected:
      * @param gridImageIndex Index of current grid image
      * @return Pointer to selected PSF's padded FFTW complex array
      */
-    std::vector<fftw_complex*> selectPSFsForCube(int cubeIndex);
+    std::vector<complex*> selectPSFsForCube(int cubeIndex);
 
 
 private:
     void deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage);
-    virtual void deconvolveSingleCubePSF(fftw_complex* psf, std::vector<cv::Mat>& cubeImage);
-
-    bool configured = false;
-    // Internal helper functions
+    void deconvolveSingleCubePSF(complex* psf, std::vector<cv::Mat>& cubeImage);
     void initPSFMaps(const std::vector<PSF>& psfs);
+    std::shared_ptr<IDeconvolutionBackend> loadBackend(const std::string& backendName);
     void setupCubeArrangement();
     bool validateImageAndPsfSizes();
-    bool setupFFTWPlans();
     int getLayerIndex(int cubeIndex, int cubesPerLayer);
+    void padPSF(const ComplexData& psf, ComplexData& padded_psf);
+
+
+    bool configured = false;
+
 };
 
 
 
 // class DeconvolutionProcessorParallel : public DeconvolutionProcessor{
-//     virtual void deconvolveSingleCubePSF(fftw_complex* psf, std::vector<cv::Mat>& cubeImage) override;
+//     virtual void deconvolveSingleCubePSF(complex* psf, std::vector<cv::Mat>& cubeImage) override;
 //     std::shared_ptr<IDeconvolutionBackend> getThreadLocalBackend();
 
 //     thread_local static std::shared_ptr<IDeconvolutionBackend> thread_backend_;

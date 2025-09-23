@@ -1,14 +1,133 @@
 #include "deconvolution/DeconvolutionProcessor.h"
 #include "UtlImage.h"
 #include "UtlGrid.h"
-#include "UtlFFT.h"
 #include <opencv2/core.hpp>
 #include <iostream>
 #include <opencv2/imgproc.hpp>
 #include <omp.h>
+#include <dlfcn.h>
 
 
-#include "deconvolution/backend/CPUBackend.h" // replace with backend factory
+
+
+
+
+
+
+
+
+//temp
+
+
+// Conversion Functions
+ComplexData convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, const RectangleShape& shape) {
+    ComplexData result;
+
+    try {
+        result.size = shape;
+        result.data = (complex*)malloc(sizeof(complex) * shape.volume);
+
+        if (result.data == nullptr) {
+            std::cerr << "[ERROR] FFTW malloc failed" << std::endl;
+        }
+    
+         int width = shape.width;
+        int height = shape.height;
+        int depth = shape.depth;
+        
+        for (int z = 0; z < depth; ++z) {
+            CV_Assert(input[z].type() == CV_32F);
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    result.data[z * height * width + y * width + x][0] = static_cast<double>(input[z].at<float>(y, x));
+                    result.data[z * height * width + y * width + x][1] = 0.0;
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in convertCVMatVectorToFFTWComplex: " << e.what() << std::endl;
+    }
+    return result;
+}
+
+std::vector<cv::Mat> convertFFTWComplexToCVMatVector(const ComplexData& input) {
+    
+    std::vector<cv::Mat> output;
+    try {
+        int width = input.size.width;
+        int height = input.size.height;
+        int depth = input.size.depth;
+        
+        
+        for (int z = 0; z < depth; ++z) {
+            cv::Mat result(height, width, CV_32F);
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int index = z * height * width + y * width + x;
+                    double real_part = input.data[index][0];
+                    double imag_part = input.data[index][1];
+                    result.at<float>(y, x) = static_cast<float>(sqrt(real_part * real_part + imag_part * imag_part));
+                }
+            }
+            output.push_back(result);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in convertFFTWComplexToCVMatVector: " << e.what() << std::endl;
+    }
+    return output;
+}
+
+void convertFFTWComplexRealToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) {
+    try {
+        int width = input.size.width;
+        int height = input.size.height;
+        int depth = input.size.depth;
+        
+        std::vector<cv::Mat> tempOutput;
+        for (int z = 0; z < depth; ++z) {
+            cv::Mat result(height, width, CV_32F);
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int index = z * height * width + y * width + x;
+                    result.at<float>(y, x) = input.data[index][0];
+                }
+            }
+            tempOutput.push_back(result);
+        }
+        output = tempOutput;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in convertFFTWComplexRealToCVMatVector: " << e.what() << std::endl;
+    }
+}
+
+void convertFFTWComplexImgToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) {
+    try {
+        int width = input.size.width;
+        int height = input.size.height;
+        int depth = input.size.depth;
+        
+        std::vector<cv::Mat> tempOutput;
+        for (int z = 0; z < depth; ++z) {
+            cv::Mat result(height, width, CV_32F);
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int index = z * height * width + y * width + x;
+                    result.at<float>(y, x) = input.data[index][1];
+                }
+            }
+            tempOutput.push_back(result);
+        }
+        output = tempOutput;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in convertFFTWComplexImgToCVMatVector: " << e.what() << std::endl;
+    }
+}
+
+
+
+
+
+
 
 Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>& psfs){
     preprocess(input, psfs);
@@ -36,37 +155,33 @@ Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>
 
 void DeconvolutionProcessor::deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage){
 
-    std::vector<fftw_complex*> psfs = selectPSFsForCube(cubeIndex);
+    std::vector<complex*> psfs = selectPSFsForCube(cubeIndex);
     for (auto psf: psfs){
         deconvolveSingleCubePSF(psf, cubeImage);
     }
 }
 
 
-void DeconvolutionProcessor::deconvolveSingleCubePSF(fftw_complex* psf, std::vector<cv::Mat>& cubeImage){
-    FFTWData H = {psf, cubeShape};
+void DeconvolutionProcessor::deconvolveSingleCubePSF(complex* psf, std::vector<cv::Mat>& cubeImage){
+
     // Observed image
-    fftw_complex* tempg = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
-    FFTWData g = {tempg, cubeShape};
+    ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage, cubeShape);
 
-    if (!(UtlImage::isValidForFloat(g.data, cubeShape.volume))) {
-        std::cout << "[WARNING] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
-    }
-    UtlFFT::convertCVMatVectorToFFTWComplex(cubeImage, g.data, cubeShape.width, cubeShape.height, cubeShape.depth);
-
-    FFTWData H_device = backend_->moveDataToDevice(H);
-    FFTWData g_device = backend_->moveDataToDevice(g);
-    FFTWData f_device = backend_->allocateMemoryOnDevice(cubeShape);
+    ComplexData H_device = backend_->moveDataToDevice({psf, cubeShape});
+    ComplexData g_device = backend_->moveDataToDevice(g_host);
+    ComplexData f_device = backend_->allocateMemoryOnDevice(cubeShape);
 
     algorithm_->deconvolve(H_device, g_device, f_device);
-    FFTWData f = backend_->moveDataFromDevice(f_device);
+    ComplexData f_host = backend_->moveDataFromDevice(f_device);
+
     backend_->freeMemoryOnDevice(H_device);
     backend_->freeMemoryOnDevice(g_device);
     backend_->freeMemoryOnDevice(f_device);
 
     // Convert the result FFTW complex array back to OpenCV Mat vector
-    UtlFFT::convertFFTWComplexToCVMatVector(f.data, cubeImage, cubeShape.width, cubeShape.height, cubeShape.depth);
-    fftw_free(g.data);
+    cubeImage = convertFFTWComplexToCVMatVector(f_host);
+    cpu_backend_->freeMemoryOnDevice(g_host);
+    cpu_backend_->freeMemoryOnDevice(f_host);
 }
 
 
@@ -161,23 +276,48 @@ void DeconvolutionProcessor::preprocess(const Hyperstack& input, const std::vect
     setCubeShape(imageOriginalShape, config.grid, config.cubeSize, config.psfSafetyBorder);
     setupCubeArrangement();
     
+
+    backend_->init(cubeShape);
+    cpu_backend_->init(psfOriginalShape); // for psf preprocessing
     preprocessPSF(psfs);
 
-    backend_->preprocess();
-    // algorithm_->preprocess();
+    // algorithm_->init();
 
 }
 
 void DeconvolutionProcessor::configure(DeconvolutionConfig config) {
-    // Store the config in base class
     this->config = config;
     DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
     this->algorithm_ = fact.create(config);
 
-    this->backend_ = std::make_shared<CPUBackend>(); // TODO LK  to use the config and afactory
-    algorithm_->setBackend(this->backend_); // TODO now they share the backend, not good
+    this->backend_ = loadBackend(config.gpu);
+    this->cpu_backend_ = loadBackend("cpu");
+    this->algorithm_->setBackend(this->backend_->clone());
+
     configured = true;
 }
+
+std::shared_ptr<IDeconvolutionBackend> DeconvolutionProcessor::loadBackend(const std::string& backendName){
+    // Choose backend library at runtime
+    const char* libname = backendName == ""
+        ? "cuda"
+        : "cpu";
+
+    std::string libpath = std::string("backends/") + libname + "/lib" + libname + "_backend.so";
+    void* handle = dlopen(libpath.c_str(), RTLD_NOW | RTLD_LOCAL);
+    if (!handle) {
+        const char* err = dlerror();
+        std::cerr << "dlopen failed: " << (err ? err : "unknown error") << std::endl;
+        throw std::runtime_error(err ? err : "dlopen failed");    }
+
+    using create_fn = IDeconvolutionBackend*();
+    auto create_backend = reinterpret_cast<create_fn*>(dlsym(handle, "create_backend"));
+    if (!create_backend) {
+        throw std::runtime_error(dlerror());
+    }
+    return std::shared_ptr<IDeconvolutionBackend>(create_backend());
+}
+
 
 
 void DeconvolutionProcessor::setPSFShape(const PSF& psf) {
@@ -242,49 +382,41 @@ std::vector<std::vector<cv::Mat>> DeconvolutionProcessor::preprocessChannel(Chan
 void DeconvolutionProcessor::preprocessPSF(
     const std::vector<PSF>& inputPSFs
     ) {
-
+        assert(backend_->isInitialized() + "backend not initialized");
         std::cout << "[STATUS] Creating FFTW plans for PSFs..." << std::endl;
         
-        fftw_complex *fftwPSFPlanMem = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * psfOriginalShape.volume);
-        fftw_complex *h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * psfOriginalShape.volume);
-        fftw_plan forwardPSFPlan = fftw_plan_dft_3d(psfOriginalShape.depth, psfOriginalShape.height, psfOriginalShape.width, fftwPSFPlanMem, fftwPSFPlanMem, FFTW_FORWARD, FFTW_MEASURE);
-
-        int counter = 0;
+       
         for (int i = 0; i < inputPSFs.size(); i++) {
-            counter ++;
-            std::cout << "[STATUS] Performing Fourier Transform on PSF" << counter<< "..." << std::endl;
+            std::cout << "[STATUS] Performing Fourier Transform on PSF" << i << "..." << std::endl;
             
             // Convert PSF to FFTW complex format and execute FFT
-            UtlFFT::convertCVMatVectorToFFTWComplex(inputPSFs[i].image.slices, h, psfOriginalShape.width, psfOriginalShape.height, psfOriginalShape.depth);
-            fftw_execute_dft(forwardPSFPlan, h, h);
+            ComplexData h = convertCVMatVectorToFFTWComplex(inputPSFs[i].image.slices, psfOriginalShape);
+            cpu_backend_->forwardFFT(h, h);
 
-            std::cout << "[STATUS] Padding PSF" << counter << "..." << std::endl;
+            std::cout << "[STATUS] Padding PSF" << i << "..." << std::endl;
             
             // Pad PSF to cube size
-            fftw_complex *temp_h = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
-            UtlFFT::padPSF(h, psfOriginalShape.width, psfOriginalShape.height, psfOriginalShape.depth, temp_h, cubeShape.width, cubeShape.height, cubeShape.depth);
-            preparedpsfs.push_back(temp_h);
+            ComplexData temp_h = cpu_backend_->allocateMemoryOnDevice(cubeShape);
+            padPSF(h, temp_h);
+            preparedpsfs.push_back(temp_h.data);
+            cpu_backend_->freeMemoryOnDevice(h);
         }
-
         initPSFMaps(inputPSFs);
 
         // Clean up temporary resources
-        fftw_free(h);
-        fftw_free(fftwPSFPlanMem);
-        fftw_destroy_plan(forwardPSFPlan);
 }
 
-std::vector<fftw_complex*> DeconvolutionProcessor::selectPSFsForCube(int cubeIndex) {
+std::vector<complex*> DeconvolutionProcessor::selectPSFsForCube(int cubeIndex) {
     int layerIndex = getLayerIndex(cubeIndex, cubes.cubesPerLayer);
 
-    std::vector<fftw_complex*> psfs;
+    std::vector<complex*> psfs;
     
-    std::vector<fftw_complex*> layerPSFs = layerPreparedPSFMap.get(layerIndex);
+    std::vector<complex*> layerPSFs = layerPreparedPSFMap.get(layerIndex);
     if (!layerPSFs.empty()) {
         psfs.insert(psfs.end(), layerPSFs.begin(), layerPSFs.end());
     }
     
-    std::vector<fftw_complex*> cubePSFs = cubePreparedPSFMap.get(cubeIndex);
+    std::vector<complex*> cubePSFs = cubePreparedPSFMap.get(cubeIndex);
     if (!cubePSFs.empty()) {
         psfs.insert(psfs.end(), cubePSFs.begin(), cubePSFs.end());
     }
@@ -322,7 +454,8 @@ void DeconvolutionProcessor::cleanup() {
     // Clean up PSFs
     for (auto& psf : preparedpsfs) {
         if (psf) {
-            fftw_free(psf);
+            ComplexData temp{psf, cubeShape};
+            backend_->freeMemoryOnDevice(temp);
             psf = nullptr;
         }
     }
@@ -331,24 +464,6 @@ void DeconvolutionProcessor::cleanup() {
     cubePreparedPSFMap.clear();
     
 }
-
-// void DeconvolutionProcessor::printConfigurationSummary() const {
-//     std::cout << "[CONFIGURATION] Base algorithm configuration" << std::endl;
-//     std::cout << "[CONFIGURATION] epsilon: " << epsilon << std::endl;
-//     std::cout << "[CONFIGURATION] grid: " << (grid ? "true" : "false") << std::endl;
-//     std::cout << "[CONFIGURATION] saveSubimages: " << (saveSubimages ? "true" : "false") << std::endl;
-//     std::cout << "[CONFIGURATION] gpu: " << (gpu.empty() ? "none" : gpu) << std::endl;
-    
-//     if (grid) {
-//         std::cout << "[CONFIGURATION] borderType: " << borderType << std::endl;
-//         std::cout << "[CONFIGURATION] psfSafetyBorder: " << psfSafetyBorder << std::endl;
-//         std::cout << "[CONFIGURATION] cubeSize: " << cubeSize << std::endl;
-//     }
-    
-//     std::cout << "[CONFIGURATION] cubes per layer: " << cubesPerLayer << std::endl;
-//     std::cout << "[CONFIGURATION] layers: " << cubesPerZ << std::endl;
-//     std::cout << "[CONFIGURATION] total cubes: " << totalGridNum << std::endl;
-// }
 
 
 
@@ -375,6 +490,48 @@ int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
 }
 
 
+void DeconvolutionProcessor::padPSF(const ComplexData& psf, ComplexData& padded_psf) {
+    try {
+        // Create temporary copy for shifting
+        ComplexData temp_psf = cpu_backend_->copyData(psf);
+        cpu_backend_->octantFourierShift(temp_psf);
+        
+        // Zero out padded PSF
+        for (int i = 0; i < padded_psf.size.volume; ++i) {
+            padded_psf.data[i][0] = 0.0;
+            padded_psf.data[i][1] = 0.0;
+        }
+
+        if (psf.size.depth > padded_psf.size.depth) {
+            std::cerr << "[ERROR] PSF has more layers than target size" << std::endl;
+        }
+
+        int x_offset = (padded_psf.size.width - psf.size.width) / 2;
+        int y_offset = (padded_psf.size.height - psf.size.height) / 2;
+        int z_offset = (padded_psf.size.depth - psf.size.depth) / 2;
+
+        for (int z = 0; z < psf.size.depth; ++z) {
+            for (int y = 0; y < psf.size.height; ++y) {
+                for (int x = 0; x < psf.size.width; ++x) {
+                    int padded_index = ((z + z_offset) * padded_psf.size.height + (y + y_offset)) * padded_psf.size.width + (x + x_offset);
+                    int psf_index = (z * psf.size.height + y) * psf.size.width + x;
+
+                    padded_psf.data[padded_index][0] = temp_psf.data[psf_index][0];
+                    padded_psf.data[padded_index][1] = temp_psf.data[psf_index][1];
+                }
+            }
+        }
+        cpu_backend_->octantFourierShift(padded_psf);
+        
+        // Clean up temporary data
+        cpu_backend_->freeMemoryOnDevice(temp_psf);
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in padPSF: " << e.what() << std::endl;
+    }
+}
+
+
+
 
 // std::shared_ptr<IDeconvolutionBackend> getThreadLocalBackend() {
 //     if (!thread_backend_) {
@@ -390,9 +547,9 @@ int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
 // thread_local std::shared_ptr<IDeconvolutionBackend> DeconvolutionProcessorParallel::thread_backend_;
 
 // void DeconvolutionProcessorParallel::deconvolveSingleCubePSF(fftw_complex* psf, std::vector<cv::Mat>& cubeImage){
-//     FFTWData H = {psf, cubeShape};
+//     ComplexData H = {psf, cubeShape};
 //     fftw_complex* tempg = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * cubeShape.volume);
-//     FFTWData g = {tempg, cubeShape};
+//     ComplexData g = {tempg, cubeShape};
 
 //     if (!(UtlImage::isValidForFloat(g.data, cubeShape.volume))) {
 //         std::cout << "[WARNING] Value fftwPlanMem fftwcomplex(double) is smaller than float" << std::endl;
@@ -402,9 +559,9 @@ int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
 //     // Get thread-local backend (created once per thread)
 //     auto thread_backend = getThreadLocalBackend();
     
-//     FFTWData H_device = thread_backend->moveDataToDevice(H);
-//     FFTWData g_device = thread_backend->moveDataToDevice(g);
-//     FFTWData f_device = thread_backend->allocateMemoryOnDevice(cubeShape);
+//     ComplexData H_device = thread_backend->moveDataToDevice(H);
+//     ComplexData g_device = thread_backend->moveDataToDevice(g);
+//     ComplexData f_device = thread_backend->allocateMemoryOnDevice(cubeShape);
 
 //     // Clone algorithm (lightweight, just copies parameters)
 //     std::unique_ptr<DeconvolutionAlgorithm> algorithmClone = algorithm_->clone();
@@ -412,7 +569,7 @@ int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
 
 //     algorithmClone->deconvolve(H_device, g_device, f_device);
     
-//     FFTWData f = thread_backend->moveDataFromDevice(f_device);
+//     ComplexData f = thread_backend->moveDataFromDevice(f_device);
 //     thread_backend->freeMemoryOnDevice(H_device);
 //     thread_backend->freeMemoryOnDevice(g_device);
 //     thread_backend->freeMemoryOnDevice(f_device);
@@ -420,3 +577,4 @@ int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
 //     UtlFFT::convertFFTWComplexToCVMatVector(f.data, cubeImage, cubeShape.width, cubeShape.height, cubeShape.depth);
 //     fftw_free(g.data);   
 // }
+

@@ -4,9 +4,7 @@
 #include <fstream>
 #include <opencv2/opencv.hpp>
 #include <sys/stat.h>
-#ifdef CUDA_AVAILABLE
-#include "../lib/cube/include/CUBE.h"
-#endif
+
 
 #include <thread>
 void Dolphin::init(){

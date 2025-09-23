@@ -1,4 +1,6 @@
-- fix psf preprocessing (e.g. creating the psfmap = old cubenumvec and implement layermap AND cubemap, currently not implemented in deconvolutionprocessor)
+- use my own complex datatype for both backends and throughout
+- maybe each deconvprocessor has a default cpu backend for preprocessing and then a second workerbackend
+
 
 - test refactor with rldeconv
 

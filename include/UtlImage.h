@@ -1,11 +1,6 @@
 #pragma once
 
-#ifdef CUDA_AVAILABLE
-#include <cufft.h>
-#include <cufftw.h>
-#else
-#include <fftw3.h>
-#endif
+#include "complexType.h"
 #include <string>
 #include <vector>
 #include <opencv2/core/mat.hpp>
@@ -18,6 +13,6 @@ namespace UtlImage {
     // normalize an image that all values sum equal 1
     void normalizeToSumOne(std::vector<cv::Mat>& psf);
     // checks for valid float(32) value (overlfloat protection)
-    bool isValidForFloat(fftw_complex* fftwData, size_t size);
+    bool isValidForFloat(complex* fftwData, size_t size);
 
     }

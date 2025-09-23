@@ -1,20 +1,15 @@
-#include "deconvolution/backend/GPUBackend.h"
+#include "CUDABackend.h"
 #include <omp.h>
 #include <iostream>
 #include <algorithm>
 #include <sstream>
 #include <cmath>
-#include <opencv2/opencv.hpp>
-#include "Image3D.h"
 
 #include <cassert>
 
-#include <CUBE.h>
-#include <cuda_runtime.h>
 
 
-
-GPUBackend::GPUBackend() {
+CUDABackend::CUDABackend() {
     // Initialize CUDA
     cudaError_t cudaStatus = cudaSetDevice(0);
     if (cudaStatus != cudaSuccess) {
@@ -22,17 +17,19 @@ GPUBackend::GPUBackend() {
     }
 }
 
-GPUBackend::~GPUBackend() {
+CUDABackend::~CUDABackend() {
     destroyFFTPlans();
 }
 
-void GPUBackend::preprocess() {
+std::shared_ptr<IDeconvolutionBackend> CUDABackend::clone() const{
+    auto copy = std::make_unique<CUDABackend>();
+    return copy;
+    
+}
+
+void CUDABackend::init(const RectangleShape& shape) {
     try {
-        // Initialize FFT plans if not already done
-        if (!plansInitialized) {
-            // Plans will be initialized when needed based on image dimensions
-            plansInitialized = true;
-        }
+        initializeFFTPlans(shape);
         
         // Set OpenMP to single thread for GPU operations
         omp_set_num_threads(1);
@@ -43,7 +40,7 @@ void GPUBackend::preprocess() {
     }
 }
 
-void GPUBackend::postprocess() {
+void CUDABackend::postprocess() {
     try {
         // Clean up GPU resources if needed
         destroyFFTPlans();
@@ -53,30 +50,30 @@ void GPUBackend::postprocess() {
     }
 }
 
-std::unordered_map<PSFIndex, FFTWData>& GPUBackend::movePSFstoGPU(std::unordered_map<PSFIndex, FFTWData>& psfMap) {
-    try {
-        for (auto& it : psfMap) {
-            FFTWData& psfData = it.second;
+// std::unordered_map<PSFIndex, ComplexData>& CUDABackend::movePSFstoGPU(std::unordered_map<PSFIndex, ComplexData>& psfMap) {
+//     try {
+//         for (auto& it : psfMap) {
+//             ComplexData& psfData = it.second;
             
-            if (!isOnDevice(psfData.data)) {
-                fftw_complex* d_temp_h;
-                cudaError_t cudaStatus = cudaMalloc((void**)&d_temp_h, psfData.size.volume * sizeof(fftw_complex));
-                if (cudaStatus != cudaSuccess) {
-                    std::cerr << "[ERROR] CUDA malloc failed for PSF" << std::endl;
-                    continue;
-                }
+//             if (!isOnDevice(psfData.data)) {
+//                 complex* d_temp_h;
+//                 cudaError_t cudaStatus = cudaMalloc((void**)&d_temp_h, psfData.size.volume * sizeof(complex));
+//                 if (cudaStatus != cudaSuccess) {
+//                     std::cerr << "[ERROR] CUDA malloc failed for PSF" << std::endl;
+//                     continue;
+//                 }
                 
-                CUBE_UTL_COPY::copyDataFromHostToDevice(psfData.size.width, psfData.size.height, psfData.size.depth, d_temp_h, psfData.data);
-                psfData.data = d_temp_h;
-            }
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in movePSFstoGPU: " << e.what() << std::endl;
-    }
-    return psfMap;
-}
+//                 CUBE_UTL_COPY::copyDataFromHostToDevice(psfData.size.width, psfData.size.height, psfData.size.depth, d_temp_h, psfData.data);
+//                 psfData.data = d_temp_h;
+//             }
+//         }
+//     } catch (const std::exception& e) {
+//         std::cerr << "[ERROR] Exception in movePSFstoGPU: " << e.what() << std::endl;
+//     }
+//     return psfMap;
+// }
 
-bool GPUBackend::isOnDevice(void* ptr) {
+bool CUDABackend::isOnDevice(void* ptr) {
     if (ptr == nullptr) return false;
     
     cudaPointerAttributes attributes;
@@ -94,25 +91,86 @@ bool GPUBackend::isOnDevice(void* ptr) {
     }
 }
 
-void GPUBackend::allocateMemoryOnDevice(FFTWData& data) {
+void CUDABackend::allocateMemoryOnDevice(ComplexData& data) {
     if (data.data != nullptr && isOnDevice(data.data)) {
         return; // Already on device
     }
     
     // Allocate GPU memory
-    cudaError_t result = cudaMalloc((void**)&data.data, data.size.volume * sizeof(fftw_complex));
+    cudaError_t result = cudaMalloc((void**)&data.data, data.size.volume * sizeof(complex));
     if (result != cudaSuccess) {
         std::cerr << "[ERROR] CUDA malloc failed: " << cudaGetErrorString(result) << std::endl;
         data.data = nullptr;
     }
 }
 
-FFTWData GPUBackend::allocateMemoryOnDevice(const RectangleShape& shape) {
-    FFTWData result;
+void CUDABackend::memCopy(ComplexData& srcData, ComplexData& destData) {
+    // Ensure destination has memory allocated
+    if (destData.data == nullptr) {
+        allocateMemoryOnDevice(destData);
+    }
+    
+    // Check if sizes match
+    if (srcData.size.volume != destData.size.volume) {
+        std::cerr << "[ERROR] Size mismatch in moveData" << std::endl;
+        return;
+    }
+    
+    // Setup cudaMemcpy3D parameters
+    cudaMemcpy3DParms copyParams = {0};
+    
+    // Source parameters
+    copyParams.srcPtr = make_cudaPitchedPtr(
+        srcData.data,                           // Source pointer
+        srcData.size.width * sizeof(complex),  // Pitch (row width in bytes)
+        srcData.size.width,                     // Width in elements
+        srcData.size.height                     // Height in elements
+    );
+    copyParams.srcPos = make_cudaPos(0, 0, 0); // Start from origin
+    
+    // Destination parameters
+    copyParams.dstPtr = make_cudaPitchedPtr(
+        destData.data,                          // Destination pointer
+        destData.size.width * sizeof(complex), // Pitch (row width in bytes)
+        destData.size.width,                    // Width in elements
+        destData.size.height                    // Height in elements
+    );
+    copyParams.dstPos = make_cudaPos(0, 0, 0); // Start from origin
+    
+    // Copy extent (how much to copy)
+    copyParams.extent = make_cudaExtent(
+        srcData.size.width * sizeof(complex),  // Width in bytes
+        srcData.size.height,                    // Height in elements
+        srcData.size.depth                      // Depth in elements
+    );
+    
+    // Determine copy direction
+    bool srcIsDevice = isOnDevice(srcData.data);
+    bool dstIsDevice = isOnDevice(destData.data);
+    
+    if (srcIsDevice && dstIsDevice) {
+        copyParams.kind = cudaMemcpyDeviceToDevice;
+    } else if (!srcIsDevice && dstIsDevice) {
+        copyParams.kind = cudaMemcpyHostToDevice;
+    } else if (srcIsDevice && !dstIsDevice) {
+        copyParams.kind = cudaMemcpyDeviceToHost;
+    } else {
+        copyParams.kind = cudaMemcpyHostToHost;
+    }
+    
+    // Execute the copy
+    cudaError_t result = cudaMemcpy3D(&copyParams);
+    if (result != cudaSuccess) {
+        std::cerr << "[ERROR] cudaMemcpy3D failed: " << cudaGetErrorString(result) << std::endl;
+    }
+}
+
+ComplexData CUDABackend::allocateMemoryOnDevice(const RectangleShape& shape) {
+    ComplexData result;
     result.size = shape;
     result.data = nullptr;
     
-    cudaError_t cudaResult = cudaMalloc((void**)&result.data, shape.volume * sizeof(fftw_complex));
+    cudaError_t cudaResult = cudaMalloc((void**)&result.data, shape.volume * sizeof(complex));
     if (cudaResult != cudaSuccess) {
         std::cerr << "[ERROR] CUDA malloc failed: " << cudaGetErrorString(cudaResult) << std::endl;
         result.data = nullptr;
@@ -121,8 +179,8 @@ FFTWData GPUBackend::allocateMemoryOnDevice(const RectangleShape& shape) {
     return result;
 }
 
-FFTWData GPUBackend::moveDataToDevice(const FFTWData& srcdata) {
-    FFTWData destdata = allocateMemoryOnDevice(srcdata.size);
+ComplexData CUDABackend::moveDataToDevice(const ComplexData& srcdata) {
+    ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
     if (srcdata.data != nullptr) {
         CUBE_UTL_COPY::copyDataFromHostToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth, 
                                                destdata.data, srcdata.data);
@@ -130,9 +188,11 @@ FFTWData GPUBackend::moveDataToDevice(const FFTWData& srcdata) {
     return destdata;
 }
 
-FFTWData GPUBackend::moveDataFromDevice(const FFTWData& srcdata){
-    fftw_complex* temp = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * srcdata.size.volume);
-    FFTWData destdata{temp, srcdata.size};
+ComplexData CUDABackend::moveDataFromDevice(const ComplexData& srcdata){
+    complex* temp = (complex *) fftw_malloc(sizeof(complex) * srcdata.size.volume);
+    ComplexData destdata{temp, srcdata.size};
+    int test = sizeof(complex);
+    int test2 = sizeof(fftw_complex);
     if (srcdata.data != nullptr) {
         CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, 
                                                destdata.data, srcdata.data);
@@ -140,8 +200,8 @@ FFTWData GPUBackend::moveDataFromDevice(const FFTWData& srcdata){
     return destdata;
 }
 
-FFTWData GPUBackend::copyData(const FFTWData& srcdata) {
-    FFTWData destdata = allocateMemoryOnDevice(srcdata.size);
+ComplexData CUDABackend::copyData(const ComplexData& srcdata) {
+    ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
     if (srcdata.data != nullptr) {
         CUBE_UTL_COPY::copyDataFromDeviceToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
                                                  destdata.data, srcdata.data);
@@ -149,22 +209,27 @@ FFTWData GPUBackend::copyData(const FFTWData& srcdata) {
     return destdata;
 }
 
-void GPUBackend::freeMemoryOnDevice(FFTWData& srcdata){
+void CUDABackend::freeMemoryOnDevice(ComplexData& srcdata){
     assert((srcdata.data != nullptr) + "trying to free gpu memory that is a nullptr");
     cudaFree(srcdata.data);
 }
 
-void GPUBackend::initializeFFTPlans(const RectangleShape& cube) {
+void CUDABackend::initializeFFTPlans(const RectangleShape& cube) {
     if (plansInitialized) return;
     
     try {
+        // Allocate temporary memory for plan creation
+
+        workSize = sizeof(complex) * cube.volume;
         // Create forward FFT plan
-        this->forwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width, 
-                                            this->planMemory, this->planMemory, FFTW_FORWARD, FFTW_MEASURE);
+        cufftCreate(&this->forwardPlan);
+        cufftMakePlan3d(this->forwardPlan, cube.depth, cube.height, cube.width, CUFFT_Z2Z, &workSize);
+
         
         // Create backward FFT plan
-        this->backwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width,
-                                             this->planMemory, this->planMemory, FFTW_BACKWARD, FFTW_MEASURE);
+        cufftCreate(&this->backwardPlan);
+        cufftMakePlan3d(this->backwardPlan, cube.depth, cube.height, cube.width, CUFFT_Z2Z, &workSize);
+
         
         plansInitialized = true;
     } catch (const std::exception& e) {
@@ -172,31 +237,33 @@ void GPUBackend::initializeFFTPlans(const RectangleShape& cube) {
     }
 }
 
-void GPUBackend::destroyFFTPlans() {
+void CUDABackend::destroyFFTPlans() {
     if (plansInitialized) {
         if (forwardPlan) {
-            fftw_destroy_plan(forwardPlan);
-            forwardPlan = nullptr;
+            cufftDestroy(forwardPlan);
+            forwardPlan = CUFFT_PLAN_NULL;
         }
         if (backwardPlan) {
-            fftw_destroy_plan(backwardPlan);
-            backwardPlan = nullptr;
+            cufftDestroy(backwardPlan);
+            backwardPlan = CUFFT_PLAN_NULL;
         }
         plansInitialized = false;
     }
 }
 
 // FFT Operations
-void GPUBackend::forwardFFT(const FFTWData& in, FFTWData& out) {
-    fftw_execute_dft(this->forwardPlan, in.data, out.data);
+void CUDABackend::forwardFFT(const ComplexData& in, ComplexData& out) {
+    cufftExecZ2Z(this->forwardPlan, reinterpret_cast<cufftDoubleComplex*>(in.data), reinterpret_cast<cufftDoubleComplex*>(out.data), FFTW_FORWARD);
+
 }
 
-void GPUBackend::backwardFFT(const FFTWData& in, FFTWData& out) {
-    fftw_execute_dft(this->backwardPlan, in.data, out.data);
+void CUDABackend::backwardFFT(const ComplexData& in, ComplexData& out) {
+    cufftExecZ2Z(this->backwardPlan, reinterpret_cast<cufftDoubleComplex*>(in.data), reinterpret_cast<cufftDoubleComplex*>(out.data), FFTW_BACKWARD);
+
 }
 
 // Shift Operations
-void GPUBackend::octantFourierShift(FFTWData& data) {
+void CUDABackend::octantFourierShift(ComplexData& data) {
     try {
         CUBE_FTT::octantFourierShiftFftwComplex(data.size.width, data.size.height, data.size.depth, data.data);
     } catch (const std::exception& e) {
@@ -204,7 +271,7 @@ void GPUBackend::octantFourierShift(FFTWData& data) {
     }
 }
 
-void GPUBackend::inverseQuadrantShift(FFTWData& data) {
+void CUDABackend::inverseQuadrantShift(ComplexData& data) {
     try {
         int width = data.size.width;
         int height = data.size.height;
@@ -266,7 +333,7 @@ void GPUBackend::inverseQuadrantShift(FFTWData& data) {
     }
 }
 
-void GPUBackend::quadrantShiftMat(cv::Mat& magI) {
+void CUDABackend::quadrantShiftMat(cv::Mat& magI) {
     try {
         int cx = magI.cols / 2;
         int cy = magI.rows / 2;
@@ -290,7 +357,7 @@ void GPUBackend::quadrantShiftMat(cv::Mat& magI) {
 }
 
 // Complex Arithmetic Operations
-void GPUBackend::complexMultiplication(const FFTWData& a, const FFTWData& b, FFTWData& result) {
+void CUDABackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) {
     try {
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in complexMultiplication" << std::endl;
@@ -302,7 +369,7 @@ void GPUBackend::complexMultiplication(const FFTWData& a, const FFTWData& b, FFT
     }
 }
 
-void GPUBackend::complexDivision(const FFTWData& a, const FFTWData& b, FFTWData& result, double epsilon) {
+void CUDABackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
     try {
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in complexDivision" << std::endl;
@@ -314,7 +381,7 @@ void GPUBackend::complexDivision(const FFTWData& a, const FFTWData& b, FFTWData&
     }
 }
 
-void GPUBackend::complexAddition(const FFTWData& a, const FFTWData& b, FFTWData& result) {
+void CUDABackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) {
     try {
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in complexAddition" << std::endl;
@@ -329,7 +396,7 @@ void GPUBackend::complexAddition(const FFTWData& a, const FFTWData& b, FFTWData&
     }
 }
 
-void GPUBackend::scalarMultiplication(const FFTWData& a, double scalar, FFTWData& result) {
+void CUDABackend::scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) {
     try {
         if (a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in scalarMultiplication" << std::endl;
@@ -344,7 +411,7 @@ void GPUBackend::scalarMultiplication(const FFTWData& a, double scalar, FFTWData
     }
 }
 
-void GPUBackend::complexMultiplicationWithConjugate(const FFTWData& a, const FFTWData& b, FFTWData& result) {
+void CUDABackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) {
     try {
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in complexMultiplicationWithConjugate" << std::endl;
@@ -356,7 +423,7 @@ void GPUBackend::complexMultiplicationWithConjugate(const FFTWData& a, const FFT
     }
 }
 
-void GPUBackend::complexDivisionStabilized(const FFTWData& a, const FFTWData& b, FFTWData& result, double epsilon) {
+void CUDABackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
     try {
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in complexDivisionStabilized" << std::endl;
@@ -368,141 +435,51 @@ void GPUBackend::complexDivisionStabilized(const FFTWData& a, const FFTWData& b,
     }
 }
 
-// Conversion Functions
-void GPUBackend::convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, FFTWData& output) {
-    try {
-        int width = output.size.width;
-        int height = output.size.height;
-        int depth = output.size.depth;
+
+
+// // PSF Operations
+// void CUDABackend::padPSF(const ComplexData& psf, ComplexData& padded_psf) {
+//     try {
+//         // Create temporary copy for shifting
+//         ComplexData temp_psf = copyData(psf);
+//         octantFourierShift(temp_psf);
         
-        for (int z = 0; z < depth; ++z) {
-            CV_Assert(input[z].type() == CV_32F);
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    output.data[z * height * width + y * width + x][0] = static_cast<double>(input[z].at<float>(y, x));
-                    output.data[z * height * width + y * width + x][1] = 0.0;
-                }
-            }
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in convertCVMatVectorToFFTWComplex: " << e.what() << std::endl;
-    }
-}
+//         // Zero out padded PSF
+//         for (int i = 0; i < padded_psf.size.volume; ++i) {
+//             padded_psf.data[i][0] = 0.0;
+//             padded_psf.data[i][1] = 0.0;
+//         }
 
-void GPUBackend::convertFFTWComplexToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) {
-    try {
-        int width = input.size.width;
-        int height = input.size.height;
-        int depth = input.size.depth;
+//         if (psf.size.depth > padded_psf.size.depth) {
+//             std::cerr << "[ERROR] PSF has more layers than target size" << std::endl;
+//         }
+
+//         int x_offset = (padded_psf.size.width - psf.size.width) / 2;
+//         int y_offset = (padded_psf.size.height - psf.size.height) / 2;
+//         int z_offset = (padded_psf.size.depth - psf.size.depth) / 2;
+
+//         for (int z = 0; z < psf.size.depth; ++z) {
+//             for (int y = 0; y < psf.size.height; ++y) {
+//                 for (int x = 0; x < psf.size.width; ++x) {
+//                     int padded_index = ((z + z_offset) * padded_psf.size.height + (y + y_offset)) * padded_psf.size.width + (x + x_offset);
+//                     int psf_index = (z * psf.size.height + y) * psf.size.width + x;
+
+//                     padded_psf.data[padded_index][0] = temp_psf.data[psf_index][0];
+//                     padded_psf.data[padded_index][1] = temp_psf.data[psf_index][1];
+//                 }
+//             }
+//         }
+//         octantFourierShift(padded_psf);
         
-        std::vector<cv::Mat> tempOutput;
-        for (int z = 0; z < depth; ++z) {
-            cv::Mat result(height, width, CV_32F);
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int index = z * height * width + y * width + x;
-                    double real_part = input.data[index][0];
-                    double imag_part = input.data[index][1];
-                    result.at<float>(y, x) = static_cast<float>(sqrt(real_part * real_part + imag_part * imag_part));
-                }
-            }
-            tempOutput.push_back(result);
-        }
-        output = tempOutput;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in convertFFTWComplexToCVMatVector: " << e.what() << std::endl;
-    }
-}
-
-void GPUBackend::convertFFTWComplexRealToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) {
-    try {
-        int width = input.size.width;
-        int height = input.size.height;
-        int depth = input.size.depth;
-        
-        std::vector<cv::Mat> tempOutput;
-        for (int z = 0; z < depth; ++z) {
-            cv::Mat result(height, width, CV_32F);
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int index = z * height * width + y * width + x;
-                    result.at<float>(y, x) = input.data[index][0];
-                }
-            }
-            tempOutput.push_back(result);
-        }
-        output = tempOutput;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in convertFFTWComplexRealToCVMatVector: " << e.what() << std::endl;
-    }
-}
-
-void GPUBackend::convertFFTWComplexImgToCVMatVector(const FFTWData& input, std::vector<cv::Mat>& output) {
-    try {
-        int width = input.size.width;
-        int height = input.size.height;
-        int depth = input.size.depth;
-        
-        std::vector<cv::Mat> tempOutput;
-        for (int z = 0; z < depth; ++z) {
-            cv::Mat result(height, width, CV_32F);
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int index = z * height * width + y * width + x;
-                    result.at<float>(y, x) = input.data[index][1];
-                }
-            }
-            tempOutput.push_back(result);
-        }
-        output = tempOutput;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in convertFFTWComplexImgToCVMatVector: " << e.what() << std::endl;
-    }
-}
-
-// PSF Operations
-void GPUBackend::padPSF(const FFTWData& psf, FFTWData& padded_psf, const RectangleShape& target_size) {
-    try {
-        // Create temporary copy for shifting
-        FFTWData temp_psf = copyData(psf);
-        octantFourierShift(temp_psf);
-        
-        // Zero out padded PSF
-        for (int i = 0; i < padded_psf.size.volume; ++i) {
-            padded_psf.data[i][0] = 0.0;
-            padded_psf.data[i][1] = 0.0;
-        }
-
-        if (psf.size.depth > target_size.depth) {
-            std::cerr << "[ERROR] PSF has more layers than target size" << std::endl;
-        }
-
-        int x_offset = (target_size.width - psf.size.width) / 2;
-        int y_offset = (target_size.height - psf.size.height) / 2;
-        int z_offset = (target_size.depth - psf.size.depth) / 2;
-
-        for (int z = 0; z < psf.size.depth; ++z) {
-            for (int y = 0; y < psf.size.height; ++y) {
-                for (int x = 0; x < psf.size.width; ++x) {
-                    int padded_index = ((z + z_offset) * target_size.height + (y + y_offset)) * target_size.width + (x + x_offset);
-                    int psf_index = (z * psf.size.height + y) * psf.size.width + x;
-
-                    padded_psf.data[padded_index][0] = temp_psf.data[psf_index][0];
-                    padded_psf.data[padded_index][1] = temp_psf.data[psf_index][1];
-                }
-            }
-        }
-        octantFourierShift(padded_psf);
-        
-        // Clean up temporary data
-        cudaFree(temp_psf.data);
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in padPSF: " << e.what() << std::endl;
-    }
-}
+//         // Clean up temporary data
+//         cudaFree(temp_psf.data);
+//     } catch (const std::exception& e) {
+//         std::cerr << "[ERROR] Exception in padPSF: " << e.what() << std::endl;
+//     }
+// }
 
 // Specialized Functions
-void GPUBackend::calculateLaplacianOfPSF(const FFTWData& psf, FFTWData& laplacian) {
+void CUDABackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) {
     try {
         CUBE_REG::calculateLaplacianFftwComplex(psf.size.width, psf.size.height, psf.size.depth, psf.data, laplacian.data);
     } catch (const std::exception& e) {
@@ -510,7 +487,7 @@ void GPUBackend::calculateLaplacianOfPSF(const FFTWData& psf, FFTWData& laplacia
     }
 }
 
-void GPUBackend::normalizeImage(FFTWData& resultImage, double epsilon) {
+void CUDABackend::normalizeImage(ComplexData& resultImage, double epsilon) {
     try {
         CUBE_FTT::normalizeFftwComplexData(1, 1, 1, resultImage.data);
     } catch (const std::exception& e) {
@@ -518,7 +495,7 @@ void GPUBackend::normalizeImage(FFTWData& resultImage, double epsilon) {
     }
 }
 
-void GPUBackend::rescaledInverse(FFTWData& data, double cubeVolume) {
+void CUDABackend::rescaledInverse(ComplexData& data, double cubeVolume) {
     try {
         for (int i = 0; i < data.size.volume; ++i) {
             data.data[i][0] /= cubeVolume;
@@ -529,23 +506,23 @@ void GPUBackend::rescaledInverse(FFTWData& data, double cubeVolume) {
     }
 }
 
-void GPUBackend::saveInterimImages(const FFTWData& resultImage, int gridNum, int channel_z, int i) {
-    try {
-        std::vector<cv::Mat> debugImage;
-        convertFFTWComplexToCVMatVector(resultImage, debugImage);
-        for (int k = 0; k < debugImage.size(); k++) {
-            cv::normalize(debugImage[k], debugImage[k], 0, 255, cv::NORM_MINMAX);
-            cv::imwrite(
-                "../result/debug/debug_image_" + std::to_string(channel_z) + "_" + std::to_string(gridNum) + "_iter_" +
-                std::to_string(i) + "_slice_" + std::to_string(k) + ".png", debugImage[k]);
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in saveInterimImages: " << e.what() << std::endl;
-    }
-}
+// void CUDABackend::saveInterimImages(const ComplexData& resultImage, int gridNum, int channel_z, int i) {
+//     try {
+//         std::vector<cv::Mat> debugImage;
+//         convertFFTWComplexToCVMatVector(resultImage, debugImage);
+//         for (int k = 0; k < debugImage.size(); k++) {
+//             cv::normalize(debugImage[k], debugImage[k], 0, 255, cv::NORM_MINMAX);
+//             cv::imwrite(
+//                 "../result/debug/debug_image_" + std::to_string(channel_z) + "_" + std::to_string(gridNum) + "_iter_" +
+//                 std::to_string(i) + "_slice_" + std::to_string(k) + ".png", debugImage[k]);
+//         }
+//     } catch (const std::exception& e) {
+//         std::cerr << "[ERROR] Exception in saveInterimImages: " << e.what() << std::endl;
+//     }
+// }
 
 // Layer and Visualization Functions
-void GPUBackend::reorderLayers(FFTWData& data) {
+void CUDABackend::reorderLayers(ComplexData& data) {
     try {
         int width = data.size.width;
         int height = data.size.height;
@@ -553,61 +530,61 @@ void GPUBackend::reorderLayers(FFTWData& data) {
         int layerSize = width * height;
         int halfDepth = depth / 2;
         
-        fftw_complex* temp = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * data.size.volume);
+        complex* temp = (complex*) fftw_malloc(sizeof(complex) * data.size.volume);
 
         int destIndex = 0;
 
         // Copy the middle layer to the first position
-        std::memcpy(temp + destIndex * layerSize, data.data + halfDepth * layerSize, sizeof(fftw_complex) * layerSize);
+        std::memcpy(temp + destIndex * layerSize, data.data + halfDepth * layerSize, sizeof(complex) * layerSize);
         destIndex++;
 
         // Copy the layers after the middle layer
         for (int z = halfDepth + 1; z < depth; ++z) {
-            std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(fftw_complex) * layerSize);
+            std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex) * layerSize);
             destIndex++;
         }
 
         // Copy the layers before the middle layer
         for (int z = 0; z < halfDepth; ++z) {
-            std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(fftw_complex) * layerSize);
+            std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex) * layerSize);
             destIndex++;
         }
 
         // Copy reordered data back to the original array
-        std::memcpy(data.data, temp, sizeof(fftw_complex) * data.size.volume);
+        std::memcpy(data.data, temp, sizeof(complex) * data.size.volume);
         fftw_free(temp);
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in reorderLayers: " << e.what() << std::endl;
     }
 }
 
-void GPUBackend::visualizeFFT(const FFTWData& data) {
-    try {
-        int width = data.size.width;
-        int height = data.size.height;
-        int depth = data.size.depth;
+// void CUDABackend::visualizeFFT(const ComplexData& data) {
+//     try {
+//         int width = data.size.width;
+//         int height = data.size.height;
+//         int depth = data.size.depth;
         
-        Image3D i;
-        std::vector<cv::Mat> output;
-        for (int z = 0; z < depth; ++z) {
-            cv::Mat result(height, width, CV_32F);
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int index = z * height * width + y * width + x;
-                    result.at<float>(y, x) = data.data[index][0];
-                }
-            }
-            output.push_back(result);
-        }
-        i.slices = output;
-        i.show();
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in visualizeFFT: " << e.what() << std::endl;
-    }
-}
+//         Image3D i;
+//         std::vector<cv::Mat> output;
+//         for (int z = 0; z < depth; ++z) {
+//             cv::Mat result(height, width, CV_32F);
+//             for (int y = 0; y < height; ++y) {
+//                 for (int x = 0; x < width; ++x) {
+//                     int index = z * height * width + y * width + x;
+//                     result.at<float>(y, x) = data.data[index][0];
+//                 }
+//             }
+//             output.push_back(result);
+//         }
+//         i.slices = output;
+//         i.show();
+//     } catch (const std::exception& e) {
+//         std::cerr << "[ERROR] Exception in visualizeFFT: " << e.what() << std::endl;
+//     }
+// }
 
 // Gradient and TV Functions
-void GPUBackend::gradientX(const FFTWData& image, FFTWData& gradX) {
+void CUDABackend::gradientX(const ComplexData& image, ComplexData& gradX) {
     try {
         CUBE_REG::gradXFftwComplex(image.size.width, image.size.height, image.size.depth, image.data, gradX.data);
     } catch (const std::exception& e) {
@@ -615,7 +592,7 @@ void GPUBackend::gradientX(const FFTWData& image, FFTWData& gradX) {
     }
 }
 
-void GPUBackend::gradientY(const FFTWData& image, FFTWData& gradY) {
+void CUDABackend::gradientY(const ComplexData& image, ComplexData& gradY) {
     try {
         CUBE_REG::gradYFftwComplex(image.size.width, image.size.height, image.size.depth, image.data, gradY.data);
     } catch (const std::exception& e) {
@@ -623,7 +600,7 @@ void GPUBackend::gradientY(const FFTWData& image, FFTWData& gradY) {
     }
 }
 
-void GPUBackend::gradientZ(const FFTWData& image, FFTWData& gradZ) {
+void CUDABackend::gradientZ(const ComplexData& image, ComplexData& gradZ) {
     try {
         CUBE_REG::gradZFftwComplex(image.size.width, image.size.height, image.size.depth, image.data, gradZ.data);
     } catch (const std::exception& e) {
@@ -631,7 +608,7 @@ void GPUBackend::gradientZ(const FFTWData& image, FFTWData& gradZ) {
     }
 }
 
-void GPUBackend::computeTV(double lambda, const FFTWData& gx, const FFTWData& gy, const FFTWData& gz, FFTWData& tv) {
+void CUDABackend::computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) {
     try {
         CUBE_REG::computeTVFftwComplex(gx.size.width, gx.size.height, gx.size.depth, lambda, gx.data, gy.data, gz.data, tv.data);
     } catch (const std::exception& e) {
@@ -639,10 +616,14 @@ void GPUBackend::computeTV(double lambda, const FFTWData& gx, const FFTWData& gy
     }
 }
 
-void GPUBackend::normalizeTV(FFTWData& gradX, FFTWData& gradY, FFTWData& gradZ, double epsilon) {
+void CUDABackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) {
     try {
         CUBE_REG::normalizeTVFftwComplex(gradX.size.width, gradX.size.height, gradX.size.depth, gradX.data, gradY.data, gradZ.data, epsilon);
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in normalizeTV: " << e.what() << std::endl;
     }
+}
+
+extern "C" IDeconvolutionBackend* create_backend() {
+    return new CUDABackend();
 }

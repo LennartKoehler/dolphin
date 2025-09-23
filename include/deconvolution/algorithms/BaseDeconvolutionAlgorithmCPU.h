@@ -20,7 +20,7 @@ public:
 
     // Override backend-specific virtual methods
     virtual bool preprocessBackendSpecific(int channel_num, int psf_index) override;
-    virtual void algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) override;
+    virtual void algorithmBackendSpecific(int channel_num, complex* H, complex* g, complex* f) override;
     virtual bool postprocessBackendSpecific(int channel_num, int psf_index) override;
     virtual bool allocateBackendMemory(int channel_num) override;
     virtual void deallocateBackendMemory(int channel_num) override;
@@ -31,19 +31,19 @@ protected:
     // Helper functions for FFTW operations
     bool createFFTWPlans();
     void destroyFFTWPlans();
-    bool executeForwardFFT(fftw_complex* input, fftw_complex* output);
-    bool executeBackwardFFT(fftw_complex* input, fftw_complex* output);
+    bool executeForwardFFT(complex* input, complex* output);
+    bool executeBackwardFFT(complex* input, complex* output);
     bool validateFFTWPlan(fftw_plan plan);
     
     // CPU memory management
-    bool allocateCPUArray(fftw_complex*& array, size_t size);
-    void deallocateCPUArray(fftw_complex* array);
+    bool allocateCPUArray(complex*& array, size_t size);
+    void deallocateCPUArray(complex* array);
     bool manageChannelSpecificMemory(int channel_num);
     
     // Data transformation utilities
-    bool validateComplexArray(fftw_complex* array, size_t size, const std::string& array_name);
-    bool normalizeComplexArray(fftw_complex* array, size_t size, double epsilon = 1e-12);
-    bool copyComplexArray(const fftw_complex* source, fftw_complex* destination, size_t size);
+    bool validateComplexArray(complex* array, size_t size, const std::string& array_name);
+    bool normalizeComplexArray(complex* array, size_t size, double epsilon = 1e-12);
+    bool copyComplexArray(const complex* source, complex* destination, size_t size);
     
     // Error handling and diagnostics
     void logFFTWError(fftw_plan plan, const std::string& operation);
@@ -60,10 +60,10 @@ private:
     fftw_plan m_backwardPlan;
 
 
-    fftw_complex *fftwPlanMem = nullptr;
+    complex *fftwPlanMem = nullptr;
     // Memory management
-    std::vector<fftw_complex*> m_allocatedArrays;
-    std::vector<std::vector<fftw_complex*>> m_channelSpecificMemory;
+    std::vector<complex*> m_allocatedArrays;
+    std::vector<std::vector<complex*>> m_channelSpecificMemory;
     
     // Configuration flags
     bool m_fftwInitialized;

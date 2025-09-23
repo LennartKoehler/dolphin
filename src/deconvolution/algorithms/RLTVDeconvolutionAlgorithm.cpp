@@ -26,13 +26,13 @@ bool RLTVDeconvolutionAlgorithm::preprocessBackendSpecific(int channel_num, int 
     return true;
 }
 
-void RLTVDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+void RLTVDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, complex* H, complex* g, complex* f) {
     // Allocate memory for intermediate arrays using base class helper functions
-    fftw_complex *c = nullptr;
-    fftw_complex *gx = nullptr;
-    fftw_complex *gy = nullptr;
-    fftw_complex *gz = nullptr;
-    fftw_complex *tv = nullptr;
+    complex *c = nullptr;
+    complex *gx = nullptr;
+    complex *gy = nullptr;
+    complex *gz = nullptr;
+    complex *tv = nullptr;
     
     if (!allocateCPUArray(c, cubeVolume) ||
         !allocateCPUArray(gx, cubeVolume) ||
@@ -147,7 +147,7 @@ void RLTVDeconvolutionAlgorithm::cleanupBackendSpecific() {
 }
 
 // Legacy algorithm method for compatibility with existing code
-void RLTVDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+void RLTVDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, complex* H, complex* g, complex* f) {
     // Simply delegate to the new backend-specific implementation
     algorithmBackendSpecific(channel_num, H, g, f);
 }

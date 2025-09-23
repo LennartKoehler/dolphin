@@ -30,7 +30,7 @@ public:
     float getPixel(int channel, int x, int y, int z);
     bool isValid();
 
-    Hyperstack convolve(PSF psf);
+    // Hyperstack convolve(PSF psf);
 
 };
 

@@ -10,11 +10,24 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 # Include directories and libraries for FFTW, OpenCV, OpenMP, and TIFF
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include_directories(/usr/local/include)
-link_directories(/usr/local/lib)
+# link_directories(/usr/local/lib)
 find_package(OpenCV REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(TIFF REQUIRED)
-find_package(CUDAToolkit REQUIRED)
+
+
+
+# Find CUDA toolkit if available (optional)
+find_package(CUDAToolkit QUIET)
+if(CUDAToolkit_FOUND)
+    message(STATUS "CUDA toolkit found: ${CUDAToolkit_VERSION}")
+    set(CUDA_AVAILABLE TRUE)
+else()
+    message(STATUS "CUDA toolkit not found. Building CPU-only version.")
+    set(CUDA_AVAILABLE FALSE)
+endif()
+
+
 
 # IMGUI-------------------------------------------
 find_package(OpenGL REQUIRED)
@@ -106,7 +119,6 @@ set(COMMON_SOURCES
     # src/deconvolution/algorithms/BaseDeconvolutionAlgorithmCPU.cpp
     # src/deconvolution/algorithms/BaseDeconvolutionAlgorithmGPU.cpp
     # src/deconvolution/algorithms/BaseDeconvolutionAlgorithmDerived.cpp
-    src/deconvolution/backend/CPUBackend.cpp
     src/deconvolution/DeconvolutionProcessor.cpp
     src/deconvolution/DeconvolutionAlgorithmFactory.cpp
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
@@ -115,7 +127,7 @@ set(COMMON_SOURCES
     # src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
     # src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
     
-    src/utilities/UtlFFT.cpp
+    # src/utilities/UtlFFT.cpp
     src/utilities/UtlGrid.cpp
     src/utilities/UtlImage.cpp
     src/utilities/UtlIO.cpp
@@ -142,14 +154,11 @@ set(COMMON_SOURCES
 
     src/frontend/gui/SpinningDonut.cpp
 )
+add_library(dolphinlib ${COMMON_SOURCES})
 
-set(CUDA_SOURCES
-    src/deconvolution/backend/GPUBackend.cpp
-)
 # ------------------------------------------------------------
 # Build shared library containing all algorithms
 # ------------------------------------------------------------
-add_library(dolphinlib ${COMMON_SOURCES})
 
 target_link_libraries(dolphinlib
     PUBLIC
@@ -158,8 +167,7 @@ target_link_libraries(dolphinlib
         ${OpenCV_LIBS}
         ${TIFF_LIBRARIES}
         OpenMP::OpenMP_CXX
-        fftw3_threads
-        fftw3
+
 )
 
 target_include_directories(dolphinlib
@@ -178,42 +186,22 @@ target_link_libraries(dolphin
         pthread
         gomp
         stdc++fs)
+add_subdirectory(backends/cpu)
 
 # ------------------------------------------------------------
 # GPU executable (only if CUDA found)
 # ------------------------------------------------------------
-if(CUDAToolkit_FOUND)
+if(CUDA_AVAILABLE)
     enable_language(CUDA)
     message(STATUS "CUDA found, building dolphincuda with CUBE.")
-    add_subdirectory(${CMAKE_SOURCE_DIR}/lib/cube)
+    add_compile_definitions(CUDA_AVAILABLE)
+    add_subdirectory(backends/cuda)
     # Add CUBE subproject
-    add_library(cudalib ${CUDA_SOURCES})
-    target_link_libraries(cudalib
-        PUBLIC
-            CUBE
-            dolphinlib  # cudalib depends on dolphinlib headers
-            CUDA::cufft
-            CUDA::cudart
-            CUDA::cufftw
-    )
-    target_include_directories(cudalib
-        PRIVATE
-            ${CMAKE_SOURCE_DIR}/include  # Needs access to GPUBackend.h
-            ${CMAKE_SOURCE_DIR}/lib/cube/include  # Add CUBE's include directory
-      
-    )
-    target_compile_definitions(cudalib PRIVATE CUDA_AVAILABLE)
-    add_executable(dolphincuda src/main.cpp)
-    target_link_libraries(dolphincuda
-        PRIVATE
-            dolphinlib
-            cudalib
-            pthread
-            gomp
-            stdc++fs
+    # target_link_libraries(cuda_backend
+    #     PUBLIC
+    #         dolphinlib  # cudalib depends on dolphinlib headers
+    # )
 
-    )
-    target_compile_definitions(dolphincuda PRIVATE CUDA_AVAILABLE)
 else()
     message(STATUS "CUDA not found. Building only CPU version.")
 endif()

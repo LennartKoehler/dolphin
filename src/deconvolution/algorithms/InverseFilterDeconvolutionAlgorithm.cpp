@@ -20,9 +20,9 @@ bool InverseFilterDeconvolutionAlgorithm::preprocessBackendSpecific(int channel_
     return true;
 }
 
-void InverseFilterDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+void InverseFilterDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, complex* H, complex* g, complex* f) {
     // Forward FFT on image
-    fftw_complex* temp_g = nullptr;
+    complex* temp_g = nullptr;
     if (!allocateCPUArray(temp_g, cubeVolume)) {
         std::cerr << "[ERROR] Failed to allocate memory for inverse filter processing" << std::endl;
         return;
@@ -78,7 +78,7 @@ void InverseFilterDeconvolutionAlgorithm::cleanupBackendSpecific() {
 }
 
 // Legacy algorithm method for compatibility with existing code
-void InverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+void InverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, complex* H, complex* g, complex* f) {
     // Simply delegate to the new backend-specific implementation
     algorithmBackendSpecific(channel_num, H, g, f);
 }

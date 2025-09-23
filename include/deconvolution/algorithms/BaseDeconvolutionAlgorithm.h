@@ -16,7 +16,7 @@ public:
 
     virtual ~BaseDeconvolutionAlgorithm(){cleanup();}
     virtual void configure(DeconvolutionConfig config);
-    virtual void algorithm(Hyperstack& data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) = 0;
+    virtual void algorithm(Hyperstack& data, int channel_num, complex* H, complex* g, complex* f) = 0;
 
     Hyperstack deconvolve(Hyperstack& data, std::vector<PSF>& psfs);
     bool preprocess(Channel& channel, std::vector<PSF>& psfs);
@@ -40,12 +40,12 @@ protected:
     fftw_plan forwardPlan  = nullptr;
     fftw_plan backwardPlan = nullptr;
 
-    fftw_complex *fftwPlanMem = nullptr;
-    std::vector<fftw_complex*> paddedHs;
+    complex *fftwPlanMem = nullptr;
+    std::vector<complex*> paddedHs;
 #ifdef CUDA_AVAILABLE
-    fftw_complex *d_paddedH = nullptr;
-    fftw_complex *d_paddedH_2 = nullptr;
-    std::vector<fftw_complex*> d_paddedHs;
+    complex *d_paddedH = nullptr;
+    complex *d_paddedH_2 = nullptr;
+    std::vector<complex*> d_paddedHs;
 #endif
 
     // Image info

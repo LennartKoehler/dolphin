@@ -33,7 +33,7 @@ public:
 
     // Override backend-specific virtual methods
     virtual bool preprocessBackendSpecific(int channel_num, int psf_index) override;
-    virtual void algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) override;
+    virtual void algorithmBackendSpecific(int channel_num, complex* H, complex* g, complex* f) override;
     virtual bool postprocessBackendSpecific(int channel_num, int psf_index) override;
     virtual bool allocateBackendMemory(int channel_num) override;
     virtual void deallocateBackendMemory(int channel_num) override;
@@ -63,12 +63,12 @@ protected:
     // GPU memory management
     bool allocateGPUArray(cufftComplex_t*& array, size_t size);
     void deallocateGPUArray(cufftComplex_t* array);
-    bool allocateHostPinnedArray(fftw_complex*& array, size_t size);
-    void deallocateHostPinnedArray(fftw_complex* array);
+    bool allocateHostPinnedArray(complex*& array, size_t size);
+    void deallocateHostPinnedArray(complex* array);
     
     // Data transfer utilities
-    bool copyToGPU(cufftComplex_t* device_array, const fftw_complex* host_array, size_t size);
-    bool copyFromGPU(fftw_complex* host_array, const cufftComplex_t* device_array, size_t size);
+    bool copyToGPU(cufftComplex_t* device_array, const complex* host_array, size_t size);
+    bool copyFromGPU(complex* host_array, const cufftComplex_t* device_array, size_t size);
 
     // Helper methods for channel memory management
     void cleanupChannelMemory(int channel_num);
@@ -97,7 +97,7 @@ private:
     
     // GPU memory management
     std::vector<cufftComplex_t*> m_allocatedGPUArrays;
-    std::vector<fftw_complex*> m_allocatedPinnedArrays;
+    std::vector<complex*> m_allocatedPinnedArrays;
     std::vector<std::vector<cufftComplex_t*>> m_channelSpecificGPUMemory;
 
     // CUDA streams for asynchronous operations

@@ -5,7 +5,6 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/core.hpp>
 #include "UtlIO.h"
-#include "UtlFFT.h"
 #include "psf/PSF.h"
 #include <filesystem>
 #ifdef CUDA_AVAILABLE

@@ -21,13 +21,13 @@ bool RegularizedInverseFilterDeconvolutionAlgorithm::preprocessBackendSpecific(i
     return true;
 }
 
-void RegularizedInverseFilterDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+void RegularizedInverseFilterDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, complex* H, complex* g, complex* f) {
     // Allocate memory for intermediate arrays using base class helper functions
-    fftw_complex* H2 = nullptr;
-    fftw_complex* L = nullptr;
-    fftw_complex* L2 = nullptr;
-    fftw_complex* FA = nullptr;
-    fftw_complex* FP = nullptr;
+    complex* H2 = nullptr;
+    complex* L = nullptr;
+    complex* L2 = nullptr;
+    complex* FA = nullptr;
+    complex* FP = nullptr;
     
     if (!allocateCPUArray(H2, cubeVolume) ||
         !allocateCPUArray(L, cubeVolume) ||
@@ -105,7 +105,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::cleanupBackendSpecific() {
 }
 
 // Legacy algorithm method for compatibility with existing code
-void RegularizedInverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, fftw_complex* H, fftw_complex* g, fftw_complex* f) {
+void RegularizedInverseFilterDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, complex* H, complex* g, complex* f) {
     // Simply delegate to the new backend-specific implementation
     algorithmBackendSpecific(channel_num, H, g, f);
 }

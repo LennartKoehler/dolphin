@@ -4,7 +4,7 @@
     "subimageSize": 10,
     "iterations": 30,
     "epsilon": 1e-6,
-    "grid": true,
+    "grid": false,
     "lambda": 0.015,
     "borderType": 2,
     "psfSafetyBorder": 10,
