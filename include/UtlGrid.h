@@ -19,7 +19,7 @@ namespace UtlGrid {
     getMinXYZ(const std::vector<std::vector<cv::Mat>> &split_vec, int &new_size_x, int &new_size_y, int &new_size_z);
 
     //INFO borderType: cv::BORDER_REFLECT/cv::BORDER_REPLICATE/cv::BORDER_CONSTANT
-    void extendImage(std::vector<cv::Mat> &image3D, int &padding, int borderType);
+    void extendImage(std::vector<cv::Mat> &image3D, int padding, int borderType);
 
     std::vector<std::vector<cv::Mat>> splitWithoutCubePadding(std::vector<cv::Mat> &image3D, int cubeSize, int padding);
 

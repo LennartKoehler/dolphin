@@ -19,42 +19,54 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexDat
     }
 
     // Allocate memory for intermediate arrays
-    assert(backend->isOnDevice(f.data) + "PSF is not on device");
+    assert(backend->isOnDevice(f.data) && "PSF is not on device");
     ComplexData c = backend->allocateMemoryOnDevice(g.size);
-    
+    backend->memCopy(g, f);
+
     for (int n = 0; n < iterations; ++n) {
 
-        // a) First transformation:Fn = FFT(fn)
-        backend->forwardFFT(f, c);
+        // a) First transformation: Fn = FFT(fn)
+        //backend->hasNAN(f);
 
-        
+        backend->forwardFFT(f, f);
+        // backend->hasNAN(f);
+
         // Fn' = Fn * H
         backend->complexMultiplication(f, H, c);
+        //backend->hasNAN(c);
 
-        // fn' = IFFT(Fn')
-        backend->backwardFFT(c, f);
+        // fn' = IFFT(Fn') + NORMALIZE
+        backend->backwardFFT(c, c);
+        backend->scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
+        //backend->hasNAN(c);
 
-        backend->octantFourierShift(f);
+        // backend->octantFourierShift(c);
+        //backend->hasNAN(c);
 
         // b) Calculation of the Correction Factor: c = g / fn'
-        backend->complexDivision(g, f, c, complexDivisionEpsilon);
+        backend->complexDivision(g, c, c, complexDivisionEpsilon);
 
         // c) Second transformation: C = FFT(c)
-        backend->forwardFFT(c, f);
-
+        backend->forwardFFT(c, c);
 
         // C' = C * conj(H)
-        backend->complexMultiplicationWithConjugate(f, H, f);
+        backend->complexMultiplicationWithConjugate(c, H, c);
 
-        // c' = IFFT(C')
-        backend->backwardFFT(f, c);
+        // c' = IFFT(C') + NORMALIZE
+        backend->backwardFFT(c, c);
+        backend->scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
+        //backend->hasNAN(c);
 
-        backend->octantFourierShift(c);
+        // backend->octantFourierShift(c);
+        //backend->hasNAN(c);
 
-        // d) Update the estimated image: fn+1 = fn * c
-        backend->memCopy(c, f);
+        backend->backwardFFT(f, f);
+        backend->scalarMultiplication(f, 1.0 / g.size.volume, f); // Add normalization
+        //backend->hasNAN(f);
 
-
+        backend->complexMultiplication(f, c, f);
+        //backend->hasNAN(f);
+        // backend->memCopy(c, f);
     }
     backend->freeMemoryOnDevice(c);
 }

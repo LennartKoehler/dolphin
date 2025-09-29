@@ -31,26 +31,26 @@ void CUDABackend::init(const RectangleShape& shape) {
     try {
         initializeFFTPlans(shape);
         
-        // Set OpenMP to single thread for GPU operations
+        // Set OpenMP to single thread for CUDA operations
         omp_set_num_threads(1);
         
-        std::cout << "[STATUS] GPU backend initialized" << std::endl;
+        std::cout << "[STATUS] CUDA backend initialized" << std::endl;
     } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in GPU preprocessing: " << e.what() << std::endl;
+        std::cerr << "[ERROR] Exception in CUDA preprocessing: " << e.what() << std::endl;
     }
 }
 
 void CUDABackend::postprocess() {
     try {
-        // Clean up GPU resources if needed
+        // Clean up CUDA resources if needed
         destroyFFTPlans();
-        std::cout << "[STATUS] GPU backend postprocessing completed" << std::endl;
+        std::cout << "[STATUS] CUDA backend postprocessing completed" << std::endl;
     } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in GPU postprocessing: " << e.what() << std::endl;
+        std::cerr << "[ERROR] Exception in CUDA postprocessing: " << e.what() << std::endl;
     }
 }
 
-// std::unordered_map<PSFIndex, ComplexData>& CUDABackend::movePSFstoGPU(std::unordered_map<PSFIndex, ComplexData>& psfMap) {
+// std::unordered_map<PSFIndex, ComplexData>& CUDABackend::movePSFstoCUDA(std::unordered_map<PSFIndex, ComplexData>& psfMap) {
 //     try {
 //         for (auto& it : psfMap) {
 //             ComplexData& psfData = it.second;
@@ -68,7 +68,7 @@ void CUDABackend::postprocess() {
 //             }
 //         }
 //     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in movePSFstoGPU: " << e.what() << std::endl;
+//         std::cerr << "[ERROR] Exception in movePSFstoCUDA: " << e.what() << std::endl;
 //     }
 //     return psfMap;
 // }
@@ -96,7 +96,7 @@ void CUDABackend::allocateMemoryOnDevice(ComplexData& data) {
         return; // Already on device
     }
     
-    // Allocate GPU memory
+    // Allocate CUDA memory
     cudaError_t result = cudaMalloc((void**)&data.data, data.size.volume * sizeof(complex));
     if (result != cudaSuccess) {
         std::cerr << "[ERROR] CUDA malloc failed: " << cudaGetErrorString(result) << std::endl;
@@ -104,7 +104,7 @@ void CUDABackend::allocateMemoryOnDevice(ComplexData& data) {
     }
 }
 
-void CUDABackend::memCopy(ComplexData& srcData, ComplexData& destData) {
+void CUDABackend::memCopy(const ComplexData& srcData, ComplexData& destData) {
     // Ensure destination has memory allocated
     if (destData.data == nullptr) {
         allocateMemoryOnDevice(destData);

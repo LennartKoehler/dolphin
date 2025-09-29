@@ -17,7 +17,7 @@ public:
 
     // Data management
     // std::unordered_map<PSFIndex, ComplexData>& movePSFstoGPU(std::unordered_map<PSFIndex, ComplexData>& psfMap); // Updated to use FFTWData
-    void memCopy(ComplexData& srcdata, ComplexData& destdata) override;
+    void memCopy(const ComplexData& srcdata, ComplexData& destdata) override;
     void allocateMemoryOnDevice(ComplexData& data) override;
     ComplexData allocateMemoryOnDevice(const RectangleShape& shape) override;
     bool isOnDevice(void* data) override;

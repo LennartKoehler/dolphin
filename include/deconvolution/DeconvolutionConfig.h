@@ -241,7 +241,7 @@ private:
     PARAM(int, psfSafetyBorder, 10, true)\
     PARAM(bool, time, false, true)\
     PARAM(bool, saveSubimages, false, true)\
-    PARAM(std::string, backend, "cpu", true)
+    PARAM(std::string, backenddeconv, "cpu", true)
 
 class DeconvolutionConfig : public Config{
 public:

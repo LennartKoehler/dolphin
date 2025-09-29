@@ -17,12 +17,12 @@ CPUBackend::~CPUBackend() {
 
 void CPUBackend::init(const RectangleShape& shape) {
     try {
-        // if (fftw_init_threads() > 0) {
-        //     std::cout << "[STATUS] FFTW init threads" << std::endl;
-        //     fftw_plan_with_nthreads(omp_get_max_threads());
-        //     std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
-        //     fftw_make_planner_thread_safe();
-        // }
+        if (fftw_init_threads() > 0) {
+            std::cout << "[STATUS] FFTW init threads" << std::endl;
+            fftw_plan_with_nthreads(omp_get_max_threads());
+            std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
+            fftw_make_planner_thread_safe();
+        }
         initializeFFTPlans(shape);
         
         std::cout << "[STATUS] CPU backend preprocessing completed" << std::endl;
@@ -152,14 +152,58 @@ void CPUBackend::destroyFFTPlans() {
         plansInitialized = false;
     }
 }
-void CPUBackend::memCopy(ComplexData& srcData, ComplexData& destData){
+void CPUBackend::memCopy(const ComplexData& srcData, ComplexData& destData){
     std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex));
 }
+
+
+void CPUBackend::hasNAN(const ComplexData& data) {
+    int nanCount = 0, infCount = 0;
+    double minReal = std::numeric_limits<double>::max();
+    double maxReal = std::numeric_limits<double>::lowest();
+    double minImag = std::numeric_limits<double>::max();
+    double maxImag = std::numeric_limits<double>::lowest();
+    
+    for (int i = 0; i < data.size.volume; i++) {
+        double real = data.data[i][0];
+        double imag = data.data[i][1];
+        
+        // Check for NaN
+        if (std::isnan(real) || std::isnan(imag)) {
+            nanCount++;
+            if (nanCount <= 10) { // Only print first 10
+                std::cout << "NaN at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
+            }
+        }
+        
+        // Check for infinity
+        if (std::isinf(real) || std::isinf(imag)) {
+            infCount++;
+            if (infCount <= 10) {
+                std::cout << "Inf at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
+            }
+        }
+        
+        // Track min/max for valid values
+        if (std::isfinite(real)) {
+            minReal = std::min(minReal, real);
+            maxReal = std::max(maxReal, real);
+        }
+        if (std::isfinite(imag)) {
+            minImag = std::min(minImag, imag);
+            maxImag = std::max(maxImag, imag);
+        }
+    }
+    
+    std::cout << "[DEBUG] Data stats - NaN: " << nanCount << ", Inf: " << infCount << std::endl;
+    std::cout << "[DEBUG] Real range: [" << minReal << ", " << maxReal << "]" << std::endl;
+    std::cout << "[DEBUG] Imag range: [" << minImag << ", " << maxImag << "]" << std::endl;
+}
+
 // FFT Operations
 void CPUBackend::forwardFFT(const ComplexData& in, ComplexData& out) {
     try {     
-        fftw_execute_dft(forwardPlan, in.data, out.data);
-        octantFourierShift(out);
+        fftw_execute_dft(forwardPlan, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in forwardFFT: " << e.what() << std::endl;
     }
@@ -168,12 +212,24 @@ void CPUBackend::forwardFFT(const ComplexData& in, ComplexData& out) {
 void CPUBackend::backwardFFT(const ComplexData& in, ComplexData& out) {
     try {
         
-        octantFourierShift(out);
-        fftw_execute_dft(backwardPlan, in.data, out.data);
+        fftw_execute_dft(backwardPlan, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in backwardFFT: " << e.what() << std::endl;
     }
 }
+
+// void CPUBackend::normalize(ComplexData& data){
+//     double sum_i = 0;
+//     double sum_r = 0;
+//     for (int i = 0; i < data.size.volume; i++){
+//         sum_r += data.data[i][0];
+//         sum_i += data.data[i][1];
+//     }
+//     for (int i = 0; i < data.size.volume; i++){
+//         data.data[i][0] *= sum_r;
+//         data.data[i][1] *= sum_i;
+//     }
+// }
 
 // Shift Operations
 void CPUBackend::octantFourierShift(ComplexData& data) {
