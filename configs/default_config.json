@@ -1,8 +1,8 @@
 {
   "Deconvolution": {
     "algorithmName": "RichardsonLucy",
-    "subimageSize": 100,
-    "iterations": 30,
+    "subimageSize": 50,
+    "iterations": 20,
     "epsilon": 1e-6,
     "grid": true,
     "lambda": 0.015,
@@ -14,15 +14,15 @@
     },
     "time": false,
     "saveSubimages": false,
-    "backend": "cuda"
+    "backenddeconv": "cpu"
   },
   
 
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
   "psf_file_path": "",
   "psf_dir_path": "",
-  "outputDir": "result",
-
+  "outputDir": "../result",
+  "backend": "cuda",
   "deconvolution_config_path": "",
 
   "image_path": "../../../data/dolphin_test_data/bacteria.tif",

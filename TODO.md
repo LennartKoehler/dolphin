@@ -1,18 +1,18 @@
-- use my own complex datatype for both backends and throughout
-- maybe each deconvprocessor has a default cpu backend for preprocessing and then a second workerbackend
+- ask zoltan about image extension and padding, why should i pad the psf? makes sense that the cubes are padded
+
+- grid splitting and merging doesnt work, works without
+
+- should not grid images also have padding?
+
 - who should set backend type, setupconfig or deconvconfig
 
 - test refactor with rldeconv
 
 - refactor all other deconv algorithms
 
-- rename gpu backend to cuda
-
-- in deconvconfig what is subimagesize and what is cubesize in original implementation
 
 
-
-
+GUI:
 a event system which lets lower layer windows be able to ocmmunicate with higher level would be nice
 
 

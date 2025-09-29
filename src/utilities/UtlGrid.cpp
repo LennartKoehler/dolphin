@@ -110,25 +110,9 @@ void UtlGrid::getMinXYZ(const std::vector<std::vector<cv::Mat>>& split_vec,int& 
     new_size_z = minSize;
 }
 
-void UtlGrid::extendImage(std::vector<cv::Mat>& image3D, int& padding, int borderType){
+void UtlGrid::extendImage(std::vector<cv::Mat>& image3D, int padding, int borderType){
     std::vector<cv::Mat> reversedImage3D = image3D; // Kopie erstellen
     std::reverse(reversedImage3D.begin(), reversedImage3D.end()); // Kopie umkehren
-
-    // Den umgekehrten Vektor am Anfang des Originalvektors einfügen
-    if(padding > image3D.size()){
-        padding = image3D.size();
-        std::cout << "[INFO] Adjusted padding to " << padding << "(Depth)"<<std::endl;
-    }
-    if(padding > image3D[0].rows){
-        padding = image3D[0].rows;
-        std::cout << "[INFO] Adjusted padding to " << padding << "(Heigth)"<<std::endl;
-
-    }
-    if(padding > image3D[0].cols){
-        padding = image3D[0].cols;
-        std::cout << "[INFO] Adjusted padding to " << padding << "(Width)"<<std::endl;
-
-    }
 
 // Ensure we insert the correct range of elements from reversedImage3D
     if (padding > 0 && padding <= reversedImage3D.size()) {
@@ -236,6 +220,7 @@ std::vector<std::vector<cv::Mat>> UtlGrid::splitWithCubePadding(std::vector<cv::
                 std::vector<cv::Mat> cube;
 
                 for (int z = depth - cubePadding; z < depth + cubeSize + cubePadding; ++z) {
+                    // LK this adds zerobadding in z-direction if the extended image is not large enough, this should never happend, see comment below!
                     if (z >= image3D.size() || z < 0) {
                         cv::Mat emptySlice(cubeSize + 2 * cubePadding, cubeSize + 2 * cubePadding, image3D[0].type(), cv::Scalar(0));
                         cube.push_back(emptySlice);
@@ -254,7 +239,9 @@ std::vector<std::vector<cv::Mat>> UtlGrid::splitWithCubePadding(std::vector<cv::
                     int bottomBorder = (height + cubeSize + cubePadding) - heightEnd;
                     int leftBorder = widthStart - (width - cubePadding);
                     int topBorder = heightStart - (height - cubePadding);
-
+                    // LK IMPORTANT complicated, i believe if the input image is not large enough for the cubepadding then the rest is padded with 0
+                    // keep in mind that the input image already has the mirror padding, so this should never happend if the mirrorpadding is correct
+                    // if the mirrorpadding = cubpadding + cubesize then no border of zeros should ever be added
                     cv::copyMakeBorder(image3D[z](cubeSlice), paddedSlice, topBorder, bottomBorder, leftBorder, rightBorder, cv::BORDER_CONSTANT, cv::Scalar(0));
                     cube.push_back(paddedSlice);
                 }

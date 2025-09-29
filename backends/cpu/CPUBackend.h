@@ -18,12 +18,13 @@ public:
     void allocateMemoryOnDevice(ComplexData& data) override;
     ComplexData allocateMemoryOnDevice(const RectangleShape& shape) override;
     bool isOnDevice(void* data) override;
-    void memCopy(ComplexData& src, ComplexData& dest) override;
+    void memCopy(const ComplexData& src, ComplexData& dest) override;
     ComplexData copyData(const ComplexData& srcdata) override;
     ComplexData moveDataToDevice(const ComplexData& srcdata) override;
     ComplexData moveDataFromDevice(const ComplexData& srcdata) override;
     void freeMemoryOnDevice(ComplexData& data) override;
 
+    void hasNAN(const ComplexData& data) override;
     // Layer and visualization functions
     void reorderLayers(ComplexData& data) override;
     // void visualizeFFT(const ComplexData& data) override;

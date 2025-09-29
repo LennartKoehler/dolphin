@@ -29,16 +29,12 @@ void DeconvolutionConfig::registerAllParameters(){
 }
 DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     : Config(other),
-    algorithmName(other.algorithmName),
-    subimageSize(other.subimageSize),
-    iterations(other.iterations),
-    epsilon(other.epsilon),
-    grid(other.grid),
-    lambda(other.lambda),
-    borderType(other.borderType),
-    psfSafetyBorder(other.psfSafetyBorder),
+    #define PARAM(type, name, defaultValue, optional) name(other.name),
+    DECONV_PARAMS
+    #undef param
     layerPSFMap(other.layerPSFMap),
-    cubePSFMap(other.cubePSFMap){
+    cubePSFMap(other.cubePSFMap)
+    {
     registerAllParameters();
 }
 

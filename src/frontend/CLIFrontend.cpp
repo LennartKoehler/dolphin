@@ -43,7 +43,6 @@ void CLIFrontend::run() {
     }
     else if (*deconvolutionCLI) {
         handleDeconvolution();
-        // setupConfig.deconvolutionConfig = std::make_shared<DeconvolutionConfig>(deconvolutionConfig);
         DeconvolutionRequest request = generateDeconvRequest(std::make_shared<SetupConfig>(setupConfig));
         dolphin->deconvolve(request);
     }
@@ -135,7 +134,7 @@ void CLIFrontend::readCLIParametersDeconvolution() {
     cli_group->add_option("--psfSafetyBorder", deconvolutionConfig.psfSafetyBorder, "Padding around PSF [10]")->check(CLI::PositiveNumber);
     cli_group->add_option("--subimageSize", deconvolutionConfig.subimageSize, "CubeSize/EdgeLength for sub-images of grid [0] (0-auto fit to PSF)")->check(CLI::PositiveNumber);
     cli_group->add_flag("--grid", deconvolutionConfig.grid, "Image divided into sub-image cubes (grid)");
-    cli_group->add_flag("--backenddeconv", deconvolutionConfig.backend, "Type of Backend for Deconvolution ('cuda'/'cpu')");
+    cli_group->add_flag("--backenddeconv", deconvolutionConfig.backenddeconv, "Type of Backend for Deconvolution ('cuda'/'cpu')");
 }
 
 void CLIFrontend::readCLISetupConfigPath() {
@@ -176,5 +175,4 @@ DeconvolutionRequest CLIFrontend::generateDeconvRequest(std::shared_ptr<SetupCon
     request.print_info = setupConfigCopy->printInfo;
     request.output_path = setupConfigCopy->outputDir;
     return request;
-
 }

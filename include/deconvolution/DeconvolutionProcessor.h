@@ -15,7 +15,6 @@ struct CubeArrangement{
     int cubesPerZ;      // Number of cubes along Z axis
     int cubesPerLayer;  // Number of cubes per layer (cubesPerX * cubesPerY)
     int totalGridNum;   // Total number of cubes (cubesPerX * cubesPerY * cubesPerZ)
-    int cubePadding;
 
 };
 
@@ -57,12 +56,13 @@ protected:
     RangeMap<complex*> cubePreparedPSFMap;
 
     //shapes
-    RectangleShape cubeShape; // = psf padded shape
+    RectangleShape subimageShape; // before padding but after splitting
     RectangleShape psfOriginalShape;
     RectangleShape imageOriginalShape;
+    RectangleShape cubeShapePadded; // dims both subimages/images and psf are during computation
     CubeArrangement cubes;
-    int cubePadding;
 
+ 
 
     void preprocess(const Hyperstack& input, const std::vector<PSF>& psfs);
     std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, std::vector<std::vector<cv::Mat>>& gridImages);
