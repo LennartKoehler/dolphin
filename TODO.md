@@ -1,8 +1,7 @@
 - ask zoltan about image extension and padding, why should i pad the psf? makes sense that the cubes are padded
-
+- make preprocessor and postprocessor (can be namespace);
 - grid splitting and merging doesnt work, works without
 
-- should not grid images also have padding?
 
 - who should set backend type, setupconfig or deconvconfig
 

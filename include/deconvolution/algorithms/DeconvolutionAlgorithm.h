@@ -13,6 +13,6 @@ public:
    
     
 protected:
-    double complexDivisionEpsilon = 1e-6; // should be in backend ?
+    double complexDivisionEpsilon = 1e-9; // should be in backend ?
     std::shared_ptr<IDeconvolutionBackend> backend;
 };

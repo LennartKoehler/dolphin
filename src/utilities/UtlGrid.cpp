@@ -110,26 +110,9 @@ void UtlGrid::getMinXYZ(const std::vector<std::vector<cv::Mat>>& split_vec,int& 
     new_size_z = minSize;
 }
 
-void UtlGrid::extendImage(std::vector<cv::Mat>& image3D, int padding, int borderType){
-    std::vector<cv::Mat> reversedImage3D = image3D; // Kopie erstellen
-    std::reverse(reversedImage3D.begin(), reversedImage3D.end()); // Kopie umkehren
 
-// Ensure we insert the correct range of elements from reversedImage3D
-    if (padding > 0 && padding <= reversedImage3D.size()) {
-        image3D.insert(image3D.begin(), reversedImage3D.end() - padding, reversedImage3D.end());
-    }
-    image3D.insert(image3D.end(), reversedImage3D.begin(), reversedImage3D.begin() + padding);
 
-    for(auto& layer : image3D){
-        // Variablen für die Padding-Größen
-        int top = padding;     // Obere Padding-Größe
-        int bottom = padding;  // Untere Padding-Größe
-        int left = padding;    // Linke Padding-Größe
-        int right = padding;   // Rechte Padding-Größe
-        // Padding hinzufügen mit Spiegelung
-        cv::copyMakeBorder(layer, layer, top, bottom, left, right, borderType);
-    }
-}
+
 
 std::vector<std::vector<cv::Mat>> UtlGrid::splitWithoutCubePadding(std::vector<cv::Mat>& image3D, int cubeSize, int padding){
     int totalCubeNumZ = (image3D.size()/cubeSize) * (image3D[0].cols/cubeSize) * (image3D[0].rows/cubeSize);
@@ -176,10 +159,10 @@ std::vector<std::vector<cv::Mat>> UtlGrid::splitWithoutCubePadding(std::vector<c
 
                         // Pad the image slice with zeros (black padding)
                         cv::copyMakeBorder(image3D[z](cubeSlice), paddedSlice, 0, bottomBorder, 0, rightBorder, cv::BORDER_CONSTANT, cv::Scalar(0));
-                        cube.push_back(paddedSlice);
+                        image3D.push_back(paddedSlice);
                     } else {
                         // Add the slice to the cube without padding
-                        cube.push_back(image3D[z](cubeSlice));
+                        image3D.push_back(image3D[z](cubeSlice));
 
 
                     }
@@ -196,28 +179,34 @@ std::vector<std::vector<cv::Mat>> UtlGrid::splitWithoutCubePadding(std::vector<c
     return split;
 }
 
-std::vector<std::vector<cv::Mat>> UtlGrid::splitWithCubePadding(std::vector<cv::Mat>& image3D, int cubeSize, int padding, int cubePadding){
+
+
+
+
+
+std::vector<std::vector<cv::Mat>> UtlGrid::splitWithCubePadding(std::vector<cv::Mat>& image3D, int cubeSize, int imagePadding, int cubePadding){
     int totalCubeNumZ = (image3D.size() / cubeSize) * (image3D[0].cols / cubeSize) * (image3D[0].rows / cubeSize);
 // Calculate dimensions after applying padding
-    int depthWithPadding = image3D.size() - 2 * padding;
-    int heightWithPadding = image3D[0].rows - 2 * padding;
-    int widthWithPadding = image3D[0].cols - 2 * padding;
+    int depthWithPadding = image3D.size() - 2 * imagePadding;
+    int heightWithPadding = image3D[0].rows - 2 * imagePadding;
+    int widthWithPadding = image3D[0].cols - 2 * imagePadding;
 
     // Ensure dimensions are valid after padding
     if (depthWithPadding < 0 || heightWithPadding < 0 || widthWithPadding < 0) {
         throw std::invalid_argument("Padding is too large, resulting in non-positive dimensions.");
     }
     // Adjust for the case when dimension with padding equals zero
-    if (depthWithPadding == 0) depthWithPadding = padding;
-    if (heightWithPadding == 0) heightWithPadding = padding;
-    if (widthWithPadding == 0) widthWithPadding = padding;
+    if (depthWithPadding == 0) depthWithPadding = imagePadding;
+    if (heightWithPadding == 0) heightWithPadding = imagePadding;
+    if (widthWithPadding == 0) widthWithPadding = imagePadding;
 
-    std::vector<std::vector<cv::Mat>> split;
+    std::vector<std::vector<cv::Mat>> cubes;
 
-    for (int depth = padding; depth < padding + depthWithPadding; depth += cubeSize) {
-        for (int width = padding; width < padding + widthWithPadding; width += cubeSize) {
-            for (int height = padding; height < padding + heightWithPadding; height += cubeSize) {
+    for (int depth = imagePadding; depth < imagePadding + depthWithPadding; depth += cubeSize) {
+        for (int width = imagePadding; width < imagePadding + widthWithPadding; width += cubeSize) {
+            for (int height = imagePadding; height < imagePadding + heightWithPadding; height += cubeSize) {
                 std::vector<cv::Mat> cube;
+                image3D.reserve(cubeSize);
 
                 for (int z = depth - cubePadding; z < depth + cubeSize + cubePadding; ++z) {
                     // LK this adds zerobadding in z-direction if the extended image is not large enough, this should never happend, see comment below!
@@ -241,17 +230,18 @@ std::vector<std::vector<cv::Mat>> UtlGrid::splitWithCubePadding(std::vector<cv::
                     int topBorder = heightStart - (height - cubePadding);
                     // LK IMPORTANT complicated, i believe if the input image is not large enough for the cubepadding then the rest is padded with 0
                     // keep in mind that the input image already has the mirror padding, so this should never happend if the mirrorpadding is correct
-                    // if the mirrorpadding = cubpadding + cubesize then no border of zeros should ever be added
+                    // if the mirrorpadding > cubpadding then no border of zeros should ever be added
                     cv::copyMakeBorder(image3D[z](cubeSlice), paddedSlice, topBorder, bottomBorder, leftBorder, rightBorder, cv::BORDER_CONSTANT, cv::Scalar(0));
-                    cube.push_back(paddedSlice);
+
+                    image3D.push_back(paddedSlice);
                 }
 
-                split.push_back(cube);
+                cubes.push_back(cube);
             }
         }
     }
 
-    return split;
+    return cubes;
 }
 
 void UtlGrid::cropCubePadding(std::vector<std::vector<cv::Mat>>& split, int cubePadding){
@@ -327,7 +317,7 @@ std::vector<cv::Mat> UtlGrid::mergeCubes(const std::vector<std::vector<cv::Mat>>
 
                     // Merge the cube slice into the 3D image
                     cv::Mat destinationROI = image3D[z + dz](destRect);
-                    cube[dz](cubeSliceRect).copyTo(destinationROI);
+                    image3D[dz](cubeSliceRect).copyTo(destinationROI);
 
                     // Debugging: Visual check (commented out for batch testing)
                     //cv::imshow("Current Cube Slice", cube[dz](cubeSliceRect));

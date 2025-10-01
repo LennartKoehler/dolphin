@@ -1,6 +1,5 @@
 #include "deconvolution/DeconvolutionProcessor.h"
 #include "UtlImage.h"
-#include "UtlGrid.h"
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include <iostream>
@@ -8,11 +7,12 @@
 #include <omp.h>
 #include <dlfcn.h>
 #include "algorithms/TestAlgorithm.cpp"
-
+#include "deconvolution/Preprocessor.h"
+#include "deconvolution/Postprocessor.h"
 
 ImageMetaData globalmetadata;
 
-void savecubeDebug(const std::vector<cv::Mat>& cubeImage, const char* name, ImageMetaData& metaData = globalmetadata){
+void savecubeDebug(const std::vector<cv::Mat> cubeImage, const char* name, ImageMetaData metaData = globalmetadata){
     // double global_max_val_tile= 0.0;
     // double global_min_val_tile = MAXFLOAT;
     // // Global normalization of the merged volume
@@ -32,10 +32,10 @@ void savecubeDebug(const std::vector<cv::Mat>& cubeImage, const char* name, Imag
     // }
     Hyperstack cubeImageHyperstack;
     cubeImageHyperstack.metaData = metaData;
-    cubeImageHyperstack.metaData.imageWidth = 50;
-    cubeImageHyperstack.metaData.imageLength = 50;
-    cubeImageHyperstack.metaData.slices = 50;
-
+    cubeImageHyperstack.metaData.imageWidth = cubeImage[0].cols;
+    cubeImageHyperstack.metaData.imageLength = cubeImage[0].rows;
+    cubeImageHyperstack.metaData.slices = cubeImage.size();
+    // cubeImageHyperstack.metaData.bitsPerSample = 32;
 
     Image3D image3d;
     image3d.slices = cubeImage;
@@ -89,13 +89,15 @@ std::vector<cv::Mat> convertFFTWComplexToCVMatVector(const ComplexData& input) {
         
         
         for (int z = 0; z < depth; ++z) {
-            cv::Mat result(height, width, CV_32F);
+            cv::Mat result(height, width, CV_32F); // Zero-initialize
             for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < width; ++x) {
                     int index = z * height * width + y * width + x;
                     double real_part = input.data[index][0];
                     double imag_part = input.data[index][1];
                     result.at<float>(y, x) = static_cast<float>(sqrt(real_part * real_part + imag_part * imag_part));
+
+
                 }
             }
             output.push_back(result);
@@ -173,10 +175,12 @@ void loadingBar(int i, int max){
 }
 
 
+//-----------------------------------------------------------
+
 
 
 Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>& psfs){
-    globalmetadata = input.metaData;
+    // globalmetadata = input.metaData; // TESTVALUE
     preprocess(input, psfs);
     Image3D deconvolutedImage;
 
@@ -184,15 +188,10 @@ Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>
         std::vector<std::vector<cv::Mat>> cubeImages = preprocessChannel(channel);
         for (int cubeIndex = 0; cubeIndex < cubeImages.size(); cubeIndex++){
             loadingBar(cubeIndex, cubeImages.size());
-
             deconvolveSingleCube(cubeIndex, cubeImages[cubeIndex]);
-            // savecubeDebug(cubeImages[0], "testcube0");
-
-            // break;
         }
         std::vector<cv::Mat> deconvolutedChannel = postprocessChannel(input.metaData, cubeImages);
-        // Save the result
-        // TODO clean up:
+
         std::cout << "[STATUS] Saving result of channel " << std::endl;
         deconvolutedImage.slices = deconvolutedChannel;
         input.channels[channel.id].image = deconvolutedImage;
@@ -210,6 +209,7 @@ void DeconvolutionProcessor::deconvolveSingleCube(int cubeIndex, std::vector<cv:
     if (psfs.size() == 0){
         std::cout << "[INFO] using no psf for cube " + cubeIndex << std::endl;
     }
+
     for (auto psf: psfs){
         deconvolveSingleCubePSF(psf, cubeImage);
     }
@@ -242,7 +242,7 @@ void DeconvolutionProcessor::deconvolveSingleCubePSF(complex* psf, std::vector<c
 
 
 // TODO refactor
-std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& metaData, std::vector<std::vector<cv::Mat>>& cubeImages){
+std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& metaData, const std::vector<std::vector<cv::Mat>>& cubeImages){
 
     if(cubeImages.empty()){
         std::cerr << "[ERROR] No subimages processed" << std::endl;
@@ -253,7 +253,8 @@ std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& m
     if(config.saveSubimages){
 
         std::vector<std::vector<cv::Mat>> tiles(cubeImages); // Kopie erstellen
-        UtlGrid::cropCubePadding(tiles, config.psfSafetyBorder);
+
+        // Postprocessor::removePadding(tiles, config.psfSafetyBorder);
 
         double global_max_val_tile= 0.0;
         double global_min_val_tile = MAXFLOAT;
@@ -291,18 +292,21 @@ std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& m
         }
     }
     //////////////////////////////////////////////
-    if(config.grid){
-        //TODO no effect
-        //UtlGrid::adjustCubeOverlap(cubeImages,this->cubePadding);
+    int imagepadding = psfOriginalShape.width;
 
-        UtlGrid::cropCubePadding(cubeImages, (cubeShapePadded.width - subimageShape.width) / 2);
-        std::cout << "[STATUS] Merging Grid back to Image..." << std::endl;
-        result = UtlGrid::mergeCubes(cubeImages, imageOriginalShape.width, imageOriginalShape.height, imageOriginalShape.depth, subimageShape.width);
+    if(config.grid){
+        result = Postprocessor::mergeImage(
+            cubeImages,
+			subimageShape,
+            imageOriginalShape,
+            imageShapePadded,
+            cubeShapePadded);
         std::cout << "[INFO] Image size: " << result[0].rows << "x" << result[0].cols << "x" << result.size()<< std::endl;
     }else{
         result = cubeImages[0];
     }
-
+    // Postprocessor::removePadding(result, psfOriginalShape);
+    Postprocessor::cropToOriginalSize(result, imageOriginalShape);
     // Global normalization of the merged volume
     double global_max_val= 0.0;
     double global_min_val = MAXFLOAT;
@@ -327,16 +331,17 @@ void DeconvolutionProcessor::preprocess(const Hyperstack& input, const std::vect
     }
 
     setImageOriginalShape(input.channels[0]);
-    setPSFShape(psfs.front());
-    setCubeShape(imageOriginalShape, config.grid, config.subimageSize, config.psfSafetyBorder);
+    setPSFOriginalShape(psfs.front());
+    setCubeShape(imageOriginalShape, config.grid, RectangleShape(config.subimageSize, config.subimageSize, config.subimageSize));
+    addPaddingToShapes(psfOriginalShape);
     setupCubeArrangement();
    
 
-    backend_->init(subimageShape);
-    cpu_backend_->init(psfOriginalShape); // for psf preprocessing
+    backend_->init(cubeShapePadded);
+    cpu_backend_->init(cubeShapePadded); // for psf preprocessing
 
     std::shared_ptr<IDeconvolutionBackend> backendalgo = this->backend_->clone();
-    backendalgo->init(subimageShape);
+    backendalgo->init(cubeShapePadded);
     this->algorithm_->setBackend(backendalgo);
 
     preprocessPSF(psfs);
@@ -345,15 +350,20 @@ void DeconvolutionProcessor::preprocess(const Hyperstack& input, const std::vect
 
 }
 
+
+
 std::vector<std::vector<cv::Mat>> DeconvolutionProcessor::preprocessChannel(Channel& channel){
+    Preprocessor::padToShape(channel.image.slices, imageShapePadded, config.borderType);
 
     if (config.grid){
-        int imagepadding = std::min((size_t)std::min(channel.image.slices[0].rows, channel.image.slices[0].cols), channel.image.slices.size()); // (size of smallest dimension) = imagepadding (not subimage)
-        UtlGrid::extendImage(channel.image.slices, imagepadding, config.borderType);
         // savecubeDebug(channel.image.slices, "extended_image");
-        std::vector<std::vector<cv::Mat>> cubes = UtlGrid::splitWithCubePadding(channel.image.slices, subimageShape.width, imagepadding, (cubeShapePadded.width - subimageShape.width)/2);
-    //     savecubeDebug(cubes[0], "cube0");
-    //    savecubeDebug(cubes[170], "cube170");
+        std::vector<std::vector<cv::Mat>> cubes = Preprocessor::splitImage(channel.image.slices,
+            subimageShape,
+            imageOriginalShape,
+            imageShapePadded,
+            cubeShapePadded);
+        // savecubeDebug(cubes[0], "cube0");
+        //  savecubeDebug(cubes[170], "cube170");
 
         // assert(false);
         return cubes;
@@ -396,7 +406,7 @@ std::shared_ptr<IDeconvolutionBackend> DeconvolutionProcessor::loadBackend(const
 
 
 
-void DeconvolutionProcessor::setPSFShape(const PSF& psf) {
+void DeconvolutionProcessor::setPSFOriginalShape(const PSF& psf) {
     // Original PSF dimensions
     psfOriginalShape.width = psf.image.slices[0].cols;
     psfOriginalShape.height = psf.image.slices[0].rows;
@@ -416,8 +426,7 @@ void DeconvolutionProcessor::setImageOriginalShape(const Channel& channel) {
 void DeconvolutionProcessor::setCubeShape(
     const RectangleShape& imageOriginalShape,
     bool configgrid,
-    int configsubimageSize,
-    int psfPadding
+    const RectangleShape& subimageSize
 ) {
     if (!configgrid) {
         // Non-grid processing - cube equals entire image
@@ -425,54 +434,45 @@ void DeconvolutionProcessor::setCubeShape(
         subimageShape.height = imageOriginalShape.height;
         subimageShape.depth = imageOriginalShape.depth;
         subimageShape.volume = subimageShape.width * subimageShape.height * subimageShape.depth;
-        
-        cubeShapePadded.width = subimageShape.width;
-        cubeShapePadded.height = subimageShape.height;
-        cubeShapePadded.depth = subimageShape.depth;
-        cubeShapePadded.volume = cubeShapePadded.width * cubeShapePadded.height * cubeShapePadded.depth;
         std::cout << "[INFO] Processing without grid" << std::endl;
     } else {
-        subimageShape.width = std::max(configsubimageSize, psfOriginalShape.width);
-        subimageShape.height = std::max(configsubimageSize, psfOriginalShape.height);
-        subimageShape.depth = std::max(configsubimageSize, psfOriginalShape.depth);
+        subimageShape.width = std::max(subimageSize.width, psfOriginalShape.width);
+        subimageShape.height = std::max(subimageSize.height, psfOriginalShape.height);
+        subimageShape.depth = std::max(subimageSize.depth, psfOriginalShape.depth);
         subimageShape.volume = subimageShape.width * subimageShape.height * subimageShape.depth;
 
-        cubeShapePadded.width = subimageShape.width + 2 * psfPadding;
-        cubeShapePadded.height = subimageShape.height + 2 * psfPadding;
-        cubeShapePadded.depth = subimageShape.depth + 2 * psfPadding;
-        cubeShapePadded.volume = cubeShapePadded.width * cubeShapePadded.height * cubeShapePadded.depth;
     }
 
+}
+
+void DeconvolutionProcessor::addPaddingToShapes( const RectangleShape& padding){
+    cubeShapePadded = subimageShape + padding * 2;
+    imageShapePadded = imageOriginalShape + padding * 2;
 }
 
 
 
 void DeconvolutionProcessor::preprocessPSF(
-    const std::vector<PSF>& inputPSFs
+    std::vector<PSF> inputPSFs
     ) {
         assert(backend_->isInitialized() + "backend not initialized");
-        std::cout << "[STATUS] Creating FFTW plans for PSFs..." << std::endl;
-        
-       
+
+        std::cout << "[STATUS] Preprocessing PSFs" << std::endl;
         for (int i = 0; i < inputPSFs.size(); i++) {
-            std::cout << "[STATUS] Performing Fourier Transform on PSF" << i << "..." << std::endl;
             
-            // Convert PSF to FFTW complex format and execute FFT
-            ComplexData h = convertCVMatVectorToFFTWComplex(inputPSFs[i].image.slices, psfOriginalShape);
+
+            Preprocessor::padToShape(inputPSFs[i].image.slices, cubeShapePadded, 0);
+            ComplexData h = convertCVMatVectorToFFTWComplex(inputPSFs[i].image.slices, cubeShapePadded);          
+
+            cpu_backend_->octantFourierShift(h);
+
             cpu_backend_->forwardFFT(h, h);
 
-            std::cout << "[STATUS] Padding PSF" << i << "..." << std::endl;
-            
-            // Pad PSF to cube size
+            preparedpsfs.push_back(h.data);
 
-            ComplexData temp_h = cpu_backend_->allocateMemoryOnDevice(cubeShapePadded);
-            padPSF(h, temp_h);
-            preparedpsfs.push_back(temp_h.data);
-            cpu_backend_->freeMemoryOnDevice(h);
         }
         initPSFMaps(inputPSFs);
 
-        // Clean up temporary resources
 }
 
 std::vector<complex*> DeconvolutionProcessor::selectPSFsForCube(int cubeIndex) {
@@ -556,45 +556,6 @@ int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
 }
 
 
-void DeconvolutionProcessor::padPSF(const ComplexData& psf, ComplexData& padded_psf) {
-    try {
-        // Create temporary copy for shifting
-        ComplexData temp_psf = cpu_backend_->copyData(psf);
-        cpu_backend_->octantFourierShift(temp_psf);
-        // Zero out padded PSF
-        for (int i = 0; i < padded_psf.size.volume; ++i) {
-            padded_psf.data[i][0] = 0.0;
-            padded_psf.data[i][1] = 0.0;
-        }
-
-        if (psf.size.depth > padded_psf.size.depth) {
-            std::cerr << "[ERROR] PSF has more layers than target size" << std::endl;
-        }
-
-        int x_offset = (padded_psf.size.width - psf.size.width) / 2;
-        int y_offset = (padded_psf.size.height - psf.size.height) / 2;
-        int z_offset = (padded_psf.size.depth - psf.size.depth) / 2;
-
-        for (int z = 0; z < psf.size.depth; ++z) {
-            for (int y = 0; y < psf.size.height; ++y) {
-                for (int x = 0; x < psf.size.width; ++x) {
-                    int padded_index = ((z + z_offset) * padded_psf.size.height + (y + y_offset)) * padded_psf.size.width + (x + x_offset);
-                    int psf_index = (z * psf.size.height + y) * psf.size.width + x;
-
-                    padded_psf.data[padded_index][0] = temp_psf.data[psf_index][0];
-                    padded_psf.data[padded_index][1] = temp_psf.data[psf_index][1];
-                }
-            }
-        }
-
-        cpu_backend_->octantFourierShift(padded_psf);
-        
-        // Clean up temporary data
-        cpu_backend_->freeMemoryOnDevice(temp_psf);
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in padPSF: " << e.what() << std::endl;
-    }
-}
 
 
 

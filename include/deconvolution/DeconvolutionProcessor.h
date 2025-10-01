@@ -59,13 +59,14 @@ protected:
     RectangleShape subimageShape; // before padding but after splitting
     RectangleShape psfOriginalShape;
     RectangleShape imageOriginalShape;
+    RectangleShape imageShapePadded;
     RectangleShape cubeShapePadded; // dims both subimages/images and psf are during computation
     CubeArrangement cubes;
 
  
 
     void preprocess(const Hyperstack& input, const std::vector<PSF>& psfs);
-    std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, std::vector<std::vector<cv::Mat>>& gridImages);
+    std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, const std::vector<std::vector<cv::Mat>>& gridImages);
     
     // Helper functions that don't depend on execution backend
 
@@ -74,16 +75,18 @@ protected:
      * @param psfs List of PSFs to prepare
      * @return true if PSF preparation succeeded, false otherwise
      */
-    void preprocessPSF(const std::vector<PSF>& inputPSFs);
+    void preprocessPSF(std::vector<PSF> inputPSFs);
     std::vector<std::vector<cv::Mat>> preprocessChannel(Channel& channel);
 
-    void setPSFShape(const PSF& psf);
+    void setPSFOriginalShape(const PSF& psf);
     void setImageOriginalShape(const Channel& channel);
     void setCubeShape(
         const RectangleShape& imageOriginalShape,
         bool configgrid,
-        int configcubeSize,
-        int configpsfSafetyBorder
+        const RectangleShape& subimageSize
+    );
+    void addPaddingToShapes(
+        const RectangleShape& padding
     );
 
     /**

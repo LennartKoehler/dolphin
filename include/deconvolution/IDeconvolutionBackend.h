@@ -7,13 +7,8 @@
 #include <typeinfo>
 #include <opencv2/core/mat.hpp>
 #include "complexType.h"
+#include "RectangleShape.h"
 
-struct RectangleShape{
-    int width;
-    int height;
-    int depth;
-    int volume;
-};
 struct ComplexData{
     complex* data;
     RectangleShape size;
