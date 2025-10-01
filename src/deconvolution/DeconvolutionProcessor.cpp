@@ -337,7 +337,6 @@ void DeconvolutionProcessor::preprocess(const Hyperstack& input, const std::vect
     setupCubeArrangement();
    
 
-    backend_->init(cubeShapePadded);
     cpu_backend_->init(cubeShapePadded); // for psf preprocessing
 
     std::shared_ptr<IDeconvolutionBackend> backendalgo = this->backend_->clone();
@@ -377,7 +376,6 @@ void DeconvolutionProcessor::configure(DeconvolutionConfig config) {
     this->config = config;
     DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
     this->algorithm_ = fact.create(config);
-    // this->algorithm_ = std::make_unique<TestAlgorithm>();
     this->backend_ = loadBackend(config.backenddeconv);
     this->cpu_backend_ = loadBackend("cpu");
 
@@ -446,8 +444,24 @@ void DeconvolutionProcessor::setCubeShape(
 }
 
 void DeconvolutionProcessor::addPaddingToShapes( const RectangleShape& padding){
-    cubeShapePadded = subimageShape + padding * 2;
-    imageShapePadded = imageOriginalShape + padding * 2;
+    // auto nextPowerOf2 = [](int n) -> int {
+    //     if (n <= 1) return 1;
+    //     n--;
+    //     n |= n >> 1;
+    //     n |= n >> 2;
+    //     n |= n >> 4;
+    //     n |= n >> 8;
+    //     n |= n >> 16;
+    //     return n + 1;
+    // };
+    // RectangleShape tempCubeShape = subimageShape + padding;
+    // cubeShapePadded.width = nextPowerOf2(tempCubeShape.width);
+    // cubeShapePadded.height = nextPowerOf2(tempCubeShape.height);
+    // cubeShapePadded.depth = nextPowerOf2(tempCubeShape.depth);
+    // cubeShapePadded.volume = cubeShapePadded.width * cubeShapePadded.height * cubeShapePadded.depth;
+    
+    cubeShapePadded = subimageShape + padding + (-1);
+    imageShapePadded = imageOriginalShape + padding + (-1);
 }
 
 
@@ -455,7 +469,7 @@ void DeconvolutionProcessor::addPaddingToShapes( const RectangleShape& padding){
 void DeconvolutionProcessor::preprocessPSF(
     std::vector<PSF> inputPSFs
     ) {
-        assert(backend_->isInitialized() + "backend not initialized");
+        assert(cpu_backend_->isInitialized() + "backend not initialized");
 
         std::cout << "[STATUS] Preprocessing PSFs" << std::endl;
         for (int i = 0; i < inputPSFs.size(); i++) {

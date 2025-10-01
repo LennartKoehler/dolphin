@@ -4,15 +4,11 @@
 #include <memory>
 #include <iostream>
 
-class RLADDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
+class TestAlgorithm : public DeconvolutionAlgorithm {
 public:
     void deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) override;
     void configure(const DeconvolutionConfig& config) override;
     std::unique_ptr<DeconvolutionAlgorithm> clone() const override;
 
-private:
-    int iterations;
-    int dampingDecrease; //0=exp, 1=lin
-    double alpha;
-    double beta;
 };
+

@@ -14,8 +14,7 @@ namespace Preprocessor{
     void expandToMinSize(std::vector<cv::Mat>& image, const RectangleShape& minSize);
 
 
-    void padToShape(std::vector<cv::Mat>& image3D, const RectangleShape& padding, int borderType);
-
+    void padToShape(std::vector<cv::Mat>& image3D, const RectangleShape& targetShape, int borderType);
 
 
 }

@@ -1,6 +1,6 @@
 {
   "Deconvolution": {
-    "algorithmName": "RichardsonLucy",
+    "algorithmName": "TestAlgorithm",
     "subimageSize": 40,
     "iterations": 15,
     "epsilon": 1e-6,
@@ -12,8 +12,8 @@
       ":": ["ID1234"]
     },
     "time": false,
-    "saveSubimages": false,
-    "backenddeconv": "cpu"
+    "saveSubimages": false, 
+    "backenddeconv": "cuda"
   },
   
 

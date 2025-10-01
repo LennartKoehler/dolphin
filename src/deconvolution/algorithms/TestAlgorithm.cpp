@@ -1,12 +1,10 @@
-#include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/TestAlgorithm.h"
 
 
 
-class TestAlgorithm : public DeconvolutionAlgorithm{
-void configure(const DeconvolutionConfig& config) override {}
-void deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) override {
+void TestAlgorithm::configure(const DeconvolutionConfig& config){}
+void TestAlgorithm::deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f){
     backend->memCopy(g, f);
     // backend->hasNAN(f);
 }
-std::unique_ptr<DeconvolutionAlgorithm> clone() const override {return std::make_unique<TestAlgorithm>();}
-};
+std::unique_ptr<DeconvolutionAlgorithm> TestAlgorithm::clone() const{return std::make_unique<TestAlgorithm>();}

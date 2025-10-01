@@ -2,13 +2,14 @@
 #include <stdexcept>
 #include <opencv2/core.hpp>
 
-std::vector<std::vector<cv::Mat>> Preprocessor::splitImage(std::vector<cv::Mat>& image,
+std::vector<std::vector<cv::Mat>> Preprocessor::splitImage(
+    std::vector<cv::Mat>& image,
     const RectangleShape& subimageShape,
     const RectangleShape& imageOriginalShape,
     const RectangleShape& imageShapePadded,
     const RectangleShape& cubeShapePadded) {
 
-    assert(imageShapePadded > cubeShapePadded && "[ERROR] subimage has to be smaller than image");   
+    assert(imageOriginalShape > subimageShape &&  "[ERROR] subimage has to be smaller than image");   
 
     // Calculate image padding from actual image dimensions vs imageShapePadded
     RectangleShape imagePadding = (imageShapePadded - imageOriginalShape) / 2;
@@ -189,6 +190,8 @@ void Preprocessor::padToShape(std::vector<cv::Mat>& image3D, const RectangleShap
         }
     }
 }
+
+
 
 void Preprocessor::expandToMinSize(std::vector<cv::Mat>& image, const RectangleShape& minSize) {
     if (image.empty()) return;

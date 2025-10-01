@@ -43,7 +43,7 @@ public:
 
 protected:
     std::shared_ptr<IDeconvolutionBackend> cpu_backend_;
-    std::shared_ptr<IDeconvolutionBackend> backend_; // should this be shared?
+    std::shared_ptr<IDeconvolutionBackend> backend_; //TODO never initialized
     std::shared_ptr<DeconvolutionAlgorithm> algorithm_;
 
     DeconvolutionConfig config;
@@ -103,9 +103,7 @@ private:
     void initPSFMaps(const std::vector<PSF>& psfs);
     std::shared_ptr<IDeconvolutionBackend> loadBackend(const std::string& backendName);
     void setupCubeArrangement();
-    bool validateImageAndPsfSizes();
     int getLayerIndex(int cubeIndex, int cubesPerLayer);
-    void padPSF(const ComplexData& psf, ComplexData& padded_psf);
 
 
     bool configured = false;
