@@ -1,13 +1,12 @@
 {
   "Deconvolution": {
     "algorithmName": "RichardsonLucy",
-    "subimageSize": 50,
-    "iterations": 20,
+    "subimageSize": 40,
+    "iterations": 15,
     "epsilon": 1e-6,
     "grid": true,
     "lambda": 0.015,
     "borderType": 2,
-    "psfSafetyBorder": 10,
     "cubePSFMap": [],
     "layerPSFMap": {
       ":": ["ID1234"]

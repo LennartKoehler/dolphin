@@ -119,9 +119,12 @@ set(COMMON_SOURCES
     # src/deconvolution/algorithms/BaseDeconvolutionAlgorithmCPU.cpp
     # src/deconvolution/algorithms/BaseDeconvolutionAlgorithmGPU.cpp
     # src/deconvolution/algorithms/BaseDeconvolutionAlgorithmDerived.cpp
-    src/deconvolution/DeconvolutionProcessor.cpp
     src/deconvolution/DeconvolutionAlgorithmFactory.cpp
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
+    src/deconvolution/Preprocessor.cpp
+    src/deconvolution/Postprocessor.cpp
+    src/deconvolution/DeconvolutionProcessor.cpp
+
     # src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
     # src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
     # src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp

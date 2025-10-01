@@ -76,5 +76,6 @@
     },
 "workbench.editor.enablePreview": false,
 "workbench.editor.enablePreviewFromQuickOpen": false,
-"roo-cline.diffViewAutoFocus": false
+"roo-cline.diffViewAutoFocus": false,
+    "editor.lineNumbers": "relative"
 }

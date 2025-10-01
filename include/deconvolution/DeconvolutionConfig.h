@@ -238,7 +238,6 @@ private:
     PARAM(bool, grid, false, true) \
     PARAM(double, lambda, 0.001, true) \
     PARAM(int, borderType, cv::BORDER_REFLECT, true) \
-    PARAM(int, psfSafetyBorder, 10, true)\
     PARAM(bool, time, false, true)\
     PARAM(bool, saveSubimages, false, true)\
     PARAM(std::string, backenddeconv, "cpu", true)

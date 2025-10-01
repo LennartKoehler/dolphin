@@ -11,7 +11,6 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 
 }
 
-// Legacy algorithm method for compatibility with existing code
 void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) {
     if (!backend) {
         std::cerr << "[ERROR] No backend available for Richardson-Lucy algorithm" << std::endl;
@@ -26,47 +25,35 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexDat
     for (int n = 0; n < iterations; ++n) {
 
         // a) First transformation: Fn = FFT(fn)
-        //backend->hasNAN(f);
-
         backend->forwardFFT(f, f);
-        // backend->hasNAN(f);
 
         // Fn' = Fn * H
         backend->complexMultiplication(f, H, c);
-        //backend->hasNAN(c);
 
         // fn' = IFFT(Fn') + NORMALIZE
         backend->backwardFFT(c, c);
         backend->scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
-        //backend->hasNAN(c);
 
-        // backend->octantFourierShift(c);
-        //backend->hasNAN(c);
 
         // b) Calculation of the Correction Factor: c = g / fn'
         backend->complexDivision(g, c, c, complexDivisionEpsilon);
 
-        // c) Second transformation: C = FFT(c)
+        // // c) Second transformation: C = FFT(c)
         backend->forwardFFT(c, c);
 
-        // C' = C * conj(H)
+        // // C' = C * conj(H)
         backend->complexMultiplicationWithConjugate(c, H, c);
 
-        // c' = IFFT(C') + NORMALIZE
+        // // c' = IFFT(C') + NORMALIZE
         backend->backwardFFT(c, c);
         backend->scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
-        //backend->hasNAN(c);
 
-        // backend->octantFourierShift(c);
-        //backend->hasNAN(c);
 
         backend->backwardFFT(f, f);
         backend->scalarMultiplication(f, 1.0 / g.size.volume, f); // Add normalization
-        //backend->hasNAN(f);
 
         backend->complexMultiplication(f, c, f);
-        //backend->hasNAN(f);
-        // backend->memCopy(c, f);
+ 
     }
     backend->freeMemoryOnDevice(c);
 }
