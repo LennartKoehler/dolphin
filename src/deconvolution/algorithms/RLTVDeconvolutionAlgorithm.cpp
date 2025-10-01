@@ -1,153 +1,96 @@
 #include "deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
-#include "UtlFFT.h"
 #include <iostream>
+#include <cassert>
 
-void RLTVDeconvolutionAlgorithm::configureAlgorithmSpecific(const DeconvolutionConfig& config) {
+void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Configure algorithm-specific parameters
     iterations = config.iterations;
     lambda = config.lambda;
-
-    // Output algorithm-specific configuration
+    
     std::cout << "[CONFIGURATION] Richardson-Lucy Total Variation algorithm" << std::endl;
     std::cout << "[CONFIGURATION] iterations: " << iterations << std::endl;
     std::cout << "[CONFIGURATION] lambda: " << lambda << std::endl;
 }
 
-void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Call base class configure to set up common parameters
-    BaseDeconvolutionAlgorithmCPU::configure(config);
-    
-    // Configure algorithm-specific parameters
-    configureAlgorithmSpecific(config);
-}
-
-bool RLTVDeconvolutionAlgorithm::preprocessBackendSpecific(int channel_num, int psf_index) {
-    // Richardson-Lucy TV specific preprocessing if needed
-    return true;
-}
-
-void RLTVDeconvolutionAlgorithm::algorithmBackendSpecific(int channel_num, complex* H, complex* g, complex* f) {
-    // Allocate memory for intermediate arrays using base class helper functions
-    complex *c = nullptr;
-    complex *gx = nullptr;
-    complex *gy = nullptr;
-    complex *gz = nullptr;
-    complex *tv = nullptr;
-    
-    if (!allocateCPUArray(c, cubeVolume) ||
-        !allocateCPUArray(gx, cubeVolume) ||
-        !allocateCPUArray(gy, cubeVolume) ||
-        !allocateCPUArray(gz, cubeVolume) ||
-        !allocateCPUArray(tv, cubeVolume)) {
-        std::cerr << "[ERROR] Failed to allocate memory for Richardson-Lucy TV algorithm" << std::endl;
-        
-        // Cleanup what we allocated
-        deallocateCPUArray(c);
-        deallocateCPUArray(gx);
-        deallocateCPUArray(gy);
-        deallocateCPUArray(gz);
-        deallocateCPUArray(tv);
+void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) {
+    if (!backend) {
+        std::cerr << "[ERROR] No backend available for Richardson-Lucy TV algorithm" << std::endl;
         return;
     }
+
+    // Verify inputs are on device
+    assert(backend->isOnDevice(H.data) && "PSF is not on device");
+    assert(backend->isOnDevice(g.data) && "Input image is not on device");
+    assert(backend->isOnDevice(f.data) && "Output buffer is not on device");
+
+    // Allocate memory for intermediate arrays
+    ComplexData c = backend->allocateMemoryOnDevice(g.size);
+    ComplexData gx = backend->allocateMemoryOnDevice(g.size);
+    ComplexData gy = backend->allocateMemoryOnDevice(g.size);
+    ComplexData gz = backend->allocateMemoryOnDevice(g.size);
+    ComplexData tv = backend->allocateMemoryOnDevice(g.size);
     
-    // Initialize result with input data
-    copyComplexArray(g, f, cubeVolume);
+    try {
+        // Initialize result with input data
+        backend->memCopy(g, f);
 
-    // Calculate gradients and the Total Variation (one-time computation)
-    UtlFFT::gradientX(g, gx, cubeWidth, cubeHeight, cubeDepth);
-    UtlFFT::gradientY(g, gy, cubeWidth, cubeHeight, cubeDepth);
-    UtlFFT::gradientZ(g, gz, cubeWidth, cubeHeight, cubeDepth);
-    UtlFFT::normalizeTV(gx, gy, gz, cubeWidth, cubeHeight, cubeDepth, epsilon);
-    UtlFFT::gradientX(gx, gx, cubeWidth, cubeHeight, cubeDepth);
-    UtlFFT::gradientY(gy, gy, cubeWidth, cubeHeight, cubeDepth);
-    UtlFFT::gradientZ(gz, gz, cubeWidth, cubeHeight, cubeDepth);
-    UtlFFT::computeTV(lambda, gx, gy, gz, tv, cubeWidth, cubeHeight, cubeDepth);
+        // Calculate gradients and the Total Variation (one-time computation)
+        backend->gradientX(g, gx);
+        backend->gradientY(g, gy);
+        backend->gradientZ(g, gz);
+        backend->normalizeTV(gx, gy, gz, complexDivisionEpsilon);
+        backend->gradientX(gx, gx);
+        backend->gradientY(gy, gy);  
+        backend->gradientZ(gz, gz);
+        backend->computeTV(lambda, gx, gy, gz, tv);
 
-    for (int n = 0; n < iterations; ++n) {
-        std::cout << "\r[STATUS] Channel: " << channel_num + 1 << " GridImage: " << totalGridNum
-                  << "/" << gridImages.size() << " Iteration: " << n + 1 << "/" << iterations << " ";
+        for (int n = 0; n < iterations; ++n) {
+            // a) First transformation: Fn = FFT(fn)
+            backend->forwardFFT(f, c);
 
-        // a) First transformation: Fn = FFT(fn)
-        if (!executeForwardFFT(f, c)) {
-            std::cerr << "[ERROR] Forward FFT failed in Richardson-Lucy TV algorithm" << std::endl;
-            goto cleanup;
+            // Fn' = Fn * H
+            backend->complexMultiplication(c, H, c);
+
+            // fn' = IFFT(Fn')
+            backend->backwardFFT(c, c);
+
+            // b) Calculation of the Correction Factor: c = g / fn'
+            backend->complexDivision(g, c, c, complexDivisionEpsilon);
+
+            // c) Second transformation: C = FFT(c)
+            backend->forwardFFT(c, c);
+
+            // C' = C * conj(H)
+            backend->complexMultiplicationWithConjugate(c, H, c);
+
+            // c' = IFFT(C')
+            backend->backwardFFT(c, c);
+
+            // d) Update the estimated image: fn+1' = fn * c'
+            backend->complexMultiplication(f, c, f);
+
+            // fn+1 = fn+1' * tv (apply TV regularization)
+            backend->complexMultiplication(f, tv, f);
         }
 
-        // Fn' = Fn * H
-        UtlFFT::complexMultiplication(f, H, c, cubeVolume);
-
-        // fn' = IFFT(Fn')
-        if (!executeBackwardFFT(c, f)) {
-            std::cerr << "[ERROR] Backward FFT failed in Richardson-Lucy TV algorithm" << std::endl;
-            goto cleanup;
-        }
-        UtlFFT::octantFourierShift(f, cubeWidth, cubeHeight, cubeDepth);
-
-        // b) Calculation of the Correction Factor: c = g / fn'
-        UtlFFT::complexDivision(g, f, c, cubeVolume, epsilon);
-
-        // c) Second transformation: C = FFT(c)
-        if (!executeForwardFFT(c, f)) {
-            std::cerr << "[ERROR] Forward FFT of correction factor failed" << std::endl;
-            goto cleanup;
-        }
-
-        // C' = C * conj(H)
-        UtlFFT::complexMultiplicationWithConjugate(f, H, f, cubeVolume);
-
-        // c' = IFFT(C')
-        if (!executeBackwardFFT(f, c)) {
-            std::cerr << "[ERROR] Backward FFT of correction failed" << std::endl;
-            goto cleanup;
-        }
-        UtlFFT::octantFourierShift(c, cubeWidth, cubeHeight, cubeDepth);
-
-        // d) Update the estimated image:fn+1' = fn * c
-        if (!copyComplexArray(c, f, cubeVolume)) {
-            std::cerr << "[ERROR] Failed to update result image" << std::endl;
-            goto cleanup;
-        }
-
-        // fn+1 = fn+1' * tv
-        UtlFFT::complexMultiplication(f, tv, f, cubeVolume);
-
-        // Debugging check
-        if (!validateComplexArray(f, cubeVolume, "Richardson-Lucy TV result")) {
-            std::cout << "[WARNING] Invalid array values detected in iteration " << n + 1 << std::endl;
-        }
-
-        std::flush(std::cout);
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in Richardson-Lucy TV algorithm: " << e.what() << std::endl;
     }
-    
-    // Clean up allocated arrays
-cleanup:
-    deallocateCPUArray(c);
-    deallocateCPUArray(gx);
-    deallocateCPUArray(gy);
-    deallocateCPUArray(gz);
-    deallocateCPUArray(tv);
+
+    // Clean up allocated memory
+    backend->freeMemoryOnDevice(c);
+    backend->freeMemoryOnDevice(gx);
+    backend->freeMemoryOnDevice(gy);
+    backend->freeMemoryOnDevice(gz);
+    backend->freeMemoryOnDevice(tv);
 }
 
-bool RLTVDeconvolutionAlgorithm::postprocessBackendSpecific(int channel_num, int psf_index) {
-    // Richardson-Lucy TV specific postprocessing if needed
-    return true;
-}
-
-bool RLTVDeconvolutionAlgorithm::allocateBackendMemory(int channel_num) {
-    // Allocate memory specific to Richardson-Lucy TV algorithm if needed
-    return true;
-}
-
-void RLTVDeconvolutionAlgorithm::deallocateBackendMemory(int channel_num) {
-    // Deallocate memory specific to Richardson-Lucy TV algorithm if needed
-}
-
-void RLTVDeconvolutionAlgorithm::cleanupBackendSpecific() {
-    // Cleanup specific to Richardson-Lucy TV algorithm if needed
-}
-
-// Legacy algorithm method for compatibility with existing code
-void RLTVDeconvolutionAlgorithm::algorithm(Hyperstack &data, int channel_num, complex* H, complex* g, complex* f) {
-    // Simply delegate to the new backend-specific implementation
-    algorithmBackendSpecific(channel_num, H, g, f);
+std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::clone() const {
+    auto copy = std::make_unique<RLTVDeconvolutionAlgorithm>();
+    // Copy all relevant state
+    copy->iterations = this->iterations;
+    copy->lambda = this->lambda;
+    copy->complexDivisionEpsilon = this->complexDivisionEpsilon;
+    // Don't copy backend - each thread needs its own
+    return copy;
 }

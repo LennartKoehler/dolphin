@@ -191,8 +191,7 @@ ComplexData CUDABackend::moveDataToDevice(const ComplexData& srcdata) {
 ComplexData CUDABackend::moveDataFromDevice(const ComplexData& srcdata){
     complex* temp = (complex *) fftw_malloc(sizeof(complex) * srcdata.size.volume);
     ComplexData destdata{temp, srcdata.size};
-    int test = sizeof(complex);
-    int test2 = sizeof(fftw_complex);
+
     if (srcdata.data != nullptr) {
         CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, 
                                                destdata.data, srcdata.data);

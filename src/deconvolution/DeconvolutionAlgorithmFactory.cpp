@@ -2,14 +2,14 @@
 
 // Include algorithm headers
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
-#include "deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
 #include "deconvolution/DeconvolutionConfig.h"
 
-// Uncomment these as you add more algorithms
-// #include "deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
-// #include "deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
-// #include "deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
-// #include "deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
+#include "deconvolution/algorithms/TestAlgorithm.h"
 
 #include <stdexcept>
 #include <iostream>
@@ -63,27 +63,29 @@ bool DeconvolutionAlgorithmFactory::isAlgorithmAvailable(const std::string& name
 void DeconvolutionAlgorithmFactory::registerAlgorithms() {
     std::cout << "[INFO] Registering deconvolution algorithms..." << std::endl;
     
-    // Register Richardson-Lucy algorithm
     registerAlgorithm("RichardsonLucy", []() {
         return std::make_shared<RLDeconvolutionAlgorithm>();
     });
     
-    // Register other algorithms as they become available
-    // registerAlgorithm("InverseFilter", []() {
-    //     return std::make_shared<InverseFilterDeconvolutionAlgorithm>();
-    // });
+    registerAlgorithm("InverseFilter", []() {
+        return std::make_shared<InverseFilterDeconvolutionAlgorithm>();
+    });
 
-    // registerAlgorithm("RichardsonLucyTotalVariation", []() {
-    //     return std::make_shared<RLTVDeconvolutionAlgorithm>();
-    // });
+    registerAlgorithm("RichardsonLucyTotalVariation", []() {
+        return std::make_shared<RLTVDeconvolutionAlgorithm>();
+    });
     
-    // registerAlgorithm("RegularizedInverseFilter", []() {
-    //     return std::make_shared<RegularizedInverseFilterDeconvolutionAlgorithm>();
-    // });
+    registerAlgorithm("RegularizedInverseFilter", []() {
+        return std::make_shared<RegularizedInverseFilterDeconvolutionAlgorithm>();
+    });
     
-    // registerAlgorithm("RichardsonLucywithAdaptiveDamping", []() {
-    //     return std::make_shared<RLADDeconvolutionAlgorithm>();
-    // });
+    registerAlgorithm("RichardsonLucywithAdaptiveDamping", []() {
+        return std::make_shared<RLADDeconvolutionAlgorithm>();
+    });
+
+    registerAlgorithm("TestAlgorithm", []() {
+        return std::make_shared<TestAlgorithm>();
+    });
 
     std::cout << "[INFO] Registered " << algorithms_.size() << " algorithm(s)" << std::endl;
 }

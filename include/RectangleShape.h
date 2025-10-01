@@ -24,10 +24,13 @@ struct RectangleShape{
             this->depth + other.depth);
     }
     inline RectangleShape operator/(const int value) const {
-        return RectangleShape(this->width/2, this->height/2, this->depth/2);
+        return RectangleShape(this->width/value, this->height/value, this->depth/value);
     }
     inline RectangleShape operator*(const int value) const {
-        return RectangleShape(this->width*2, this->height*2, this->depth*2);
+        return RectangleShape(this->width*value, this->height*value, this->depth*value);
+    }
+    inline RectangleShape operator+(const int value) const {
+        return RectangleShape(this->width+value, this->height+value, this->depth+value);
     }
     inline bool operator>(const RectangleShape& other) const {
         if (this->width > other.width && this->height > other.height && this->depth > other.depth) return true;

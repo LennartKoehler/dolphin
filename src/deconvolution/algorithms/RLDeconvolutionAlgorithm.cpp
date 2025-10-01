@@ -32,7 +32,7 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexDat
 
         // fn' = IFFT(Fn') + NORMALIZE
         backend->backwardFFT(c, c);
-        backend->scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
+        // backend->scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
 
 
         // b) Calculation of the Correction Factor: c = g / fn'
@@ -46,11 +46,11 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexDat
 
         // // c' = IFFT(C') + NORMALIZE
         backend->backwardFFT(c, c);
-        backend->scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
+        // backend->scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
 
 
         backend->backwardFFT(f, f);
-        backend->scalarMultiplication(f, 1.0 / g.size.volume, f); // Add normalization
+        // backend->scalarMultiplication(f, 1.0 / g.size.volume, f); // Add normalization
 
         backend->complexMultiplication(f, c, f);
  
