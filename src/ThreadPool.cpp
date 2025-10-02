@@ -2,6 +2,7 @@
 
 
 ThreadPool::ThreadPool(size_t numThreads) : stop(false) {
+    newTaskCondition = [](){return true;};
     for(size_t i = 0; i < numThreads; ++i) {
         workers.emplace_back([this] {
             for(;;) {
@@ -28,4 +29,8 @@ ThreadPool::~ThreadPool() {
     }
     condition.notify_all();
     for(std::thread &worker: workers) worker.join();
+}
+
+void ThreadPool::setCondition(std::function<bool()> condition){
+    newTaskCondition = condition;
 }

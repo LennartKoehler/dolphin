@@ -8,7 +8,7 @@
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 
 
-
+class ThreadManager;
 struct CubeArrangement{
     int cubesPerX;      // Number of cubes along X axis
     int cubesPerY;      // Number of cubes along Y axis
@@ -105,7 +105,7 @@ private:
     void setupCubeArrangement();
     int getLayerIndex(int cubeIndex, int cubesPerLayer);
 
-
+    std::unique_ptr<ThreadManager> threadManager_;
     bool configured = false;
 
 };

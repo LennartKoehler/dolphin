@@ -63,3 +63,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlg
     // Don't copy backend - each thread needs its own
     return copy;
 }
+
+size_t RegularizedInverseFilterDeconvolutionAlgorithm::getMemoryMultiplier() const {
+    return 5; // Allocates 5 additional arrays of input size (H2, L, L2, FA, FP)
+}

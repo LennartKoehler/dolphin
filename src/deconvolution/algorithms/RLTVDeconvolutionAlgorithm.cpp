@@ -94,3 +94,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::clone() cons
     // Don't copy backend - each thread needs its own
     return copy;
 }
+
+size_t RLTVDeconvolutionAlgorithm::getMemoryMultiplier() const {
+    return 5; // Allocates 5 additional arrays of input size (c, gx, gy, gz, tv)
+}

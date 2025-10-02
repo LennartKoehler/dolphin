@@ -14,6 +14,7 @@ public:
     
     // Clone method for thread safety
     std::unique_ptr<DeconvolutionAlgorithm> clone() const override;
+    size_t getMemoryMultiplier() const override;
 
 private:
     int iterations = 10;        // Number of RL iterations

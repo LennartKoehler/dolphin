@@ -9,6 +9,7 @@
 #include "algorithms/TestAlgorithm.cpp"
 #include "deconvolution/Preprocessor.h"
 #include "deconvolution/Postprocessor.h"
+#include "deconvolution/ThreadManager.h"
 
 ImageMetaData globalmetadata;
 
@@ -177,10 +178,29 @@ void loadingBar(int i, int max){
 
 //-----------------------------------------------------------
 
+static ComplexData processDeconvolution(
+    const ComplexData& psf_data,
+    const ComplexData& g_host,
+    const RectangleShape& cubeShapePadded,
+    const std::unique_ptr<DeconvolutionAlgorithm>& algorithm,
+    std::shared_ptr<IDeconvolutionBackend> backend) {
+    
+    ComplexData H_device = backend->moveDataToDevice(psf_data);
+    ComplexData g_device = backend->moveDataToDevice(g_host);
+    ComplexData f_device = backend->allocateMemoryOnDevice(cubeShapePadded);
 
+    // psf (H) is already in frequency domain
+    algorithm->deconvolve(H_device, g_device, f_device);
+    ComplexData f_host = backend->moveDataFromDevice(f_device);
+
+    backend->freeMemoryOnDevice(H_device);
+    backend->freeMemoryOnDevice(g_device);
+    backend->freeMemoryOnDevice(f_device);
+
+    return f_host;
+}
 
 Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>& psfs){
-    // globalmetadata = input.metaData; // TESTVALUE
     preprocess(input, psfs);
     Image3D deconvolutedImage;
 
@@ -188,6 +208,7 @@ Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>
         std::vector<std::vector<cv::Mat>> cubeImages = preprocessChannel(channel);
         for (int cubeIndex = 0; cubeIndex < cubeImages.size(); cubeIndex++){
             loadingBar(cubeIndex, cubeImages.size());
+            
             deconvolveSingleCube(cubeIndex, cubeImages[cubeIndex]);
         }
         std::vector<cv::Mat> deconvolutedChannel = postprocessChannel(input.metaData, cubeImages);
@@ -202,42 +223,43 @@ Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>
 }
 
 
-
-void DeconvolutionProcessor::deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage){
-
-    std::vector<complex*> psfs = selectPSFsForCube(cubeIndex);
-    if (psfs.size() == 0){
-        std::cout << "[INFO] using no psf for cube " + cubeIndex << std::endl;
-    }
-
-    for (auto psf: psfs){
-        deconvolveSingleCubePSF(psf, cubeImage);
-    }
-}
-
-
-void DeconvolutionProcessor::deconvolveSingleCubePSF(complex* psf, std::vector<cv::Mat>& cubeImage){
-
-    // Observed image
+void DeconvolutionProcessor::deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage) {
     ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage, cubeShapePadded);
+    
+    std::vector<complex*> psfs = selectPSFsForCube(cubeIndex);
+    if (psfs.size() == 0) {
+        std::cout << "[INFO] using no psf for cube " << cubeIndex << std::endl;
+        backend_->freeMemoryOnDevice(g_host);
+        return;
+    }
 
-    ComplexData H_device = backend_->moveDataToDevice({psf, cubeShapePadded});
-    ComplexData g_device = backend_->moveDataToDevice(g_host);
-    ComplexData f_device = backend_->allocateMemoryOnDevice(cubeShapePadded);
+    auto deconvolutionFunc = [cubeShapePadded = this->cubeShapePadded]
+        (const ComplexData& psf_data, 
+        const ComplexData& g_host,
+        const std::unique_ptr<DeconvolutionAlgorithm>& algorithm,
+        std::shared_ptr<IDeconvolutionBackend> backend) -> ComplexData {
+        return processDeconvolution(psf_data, g_host, cubeShapePadded, algorithm, backend);
+    };
+    // Submit all PSF processing tasks
+    std::vector<std::future<ComplexData>> futures;
+    for (auto psf : psfs) {
+        ComplexData psf_data = {psf, cubeShapePadded};
+        
+        auto future = threadManager_->registerTask(
+            psf_data, g_host, algorithm_->clone(), deconvolutionFunc);
+        futures.push_back(std::move(future));
+    }
 
-    // psf (H) is already in frequency domain
-    algorithm_->deconvolve(H_device, g_device, f_device);
-    ComplexData f_host = backend_->moveDataFromDevice(f_device);
-
-    backend_->freeMemoryOnDevice(H_device);
-    backend_->freeMemoryOnDevice(g_device);
-    backend_->freeMemoryOnDevice(f_device);
-
-    // Convert the result FFTW complex array back to OpenCV Mat vector
-    cubeImage = convertFFTWComplexToCVMatVector(f_host);
-    cpu_backend_->freeMemoryOnDevice(g_host);
-    cpu_backend_->freeMemoryOnDevice(f_host);
+    // Process results sequentially (or collect them all first)
+    for (auto& future : futures) {
+        ComplexData deconvolvedImage = future.get();
+        cubeImage = convertFFTWComplexToCVMatVector(deconvolvedImage);
+        cpu_backend_->freeMemoryOnDevice(deconvolvedImage); // Use CPU backend for cleanup
+    }
+    
+    backend_->freeMemoryOnDevice(g_host);
 }
+
 
 
 
@@ -249,6 +271,8 @@ std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& m
     }
 
     std::vector<cv::Mat> result;
+    
+    // legacy, dont know if it works
     ////////////////////////////////////////
     if(config.saveSubimages){
 
@@ -292,7 +316,6 @@ std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& m
         }
     }
     //////////////////////////////////////////////
-    int imagepadding = psfOriginalShape.width;
 
     if(config.grid){
         result = Postprocessor::mergeImage(
@@ -305,7 +328,6 @@ std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& m
     }else{
         result = cubeImages[0];
     }
-    // Postprocessor::removePadding(result, psfOriginalShape);
     Postprocessor::cropToOriginalSize(result, imageOriginalShape);
     // Global normalization of the merged volume
     double global_max_val= 0.0;
@@ -345,8 +367,6 @@ void DeconvolutionProcessor::preprocess(const Hyperstack& input, const std::vect
 
     preprocessPSF(psfs);
 
-    // algorithm_->init();
-
 }
 
 
@@ -379,7 +399,14 @@ void DeconvolutionProcessor::configure(DeconvolutionConfig config) {
     this->backend_ = loadBackend(config.backenddeconv);
     this->cpu_backend_ = loadBackend("cpu");
 
-
+    std::function<std::shared_ptr<IDeconvolutionBackend>()> addBackendFunction = [this](){
+        auto backend = loadBackend(this->config.backenddeconv);
+        backend->init(cubeShapePadded);
+        return backend;
+    };
+    size_t maxThreads = 5; //TODO where should this be defined?
+    threadManager_ = std::make_unique<ThreadManager>(maxThreads, std::move(algorithm_), addBackendFunction);
+    
     configured = true;
 }
 
@@ -474,8 +501,8 @@ void DeconvolutionProcessor::preprocessPSF(
         std::cout << "[STATUS] Preprocessing PSFs" << std::endl;
         for (int i = 0; i < inputPSFs.size(); i++) {
             
-
             Preprocessor::padToShape(inputPSFs[i].image.slices, cubeShapePadded, 0);
+
             ComplexData h = convertCVMatVectorToFFTWComplex(inputPSFs[i].image.slices, cubeShapePadded);          
 
             cpu_backend_->octantFourierShift(h);
@@ -535,7 +562,7 @@ void DeconvolutionProcessor::cleanup() {
     for (auto& psf : preparedpsfs) {
         if (psf) {
             ComplexData temp{psf, subimageShape};
-            backend_->freeMemoryOnDevice(temp);
+            cpu_backend_->freeMemoryOnDevice(temp);
             psf = nullptr;
         }
     }
