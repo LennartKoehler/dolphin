@@ -1,7 +1,10 @@
+- fix backend getMemoryUsage
+
+
 - ask zoltan about image extension and padding, why should i pad the psf? makes sense that the cubes are padded
 - grid processing in parallel
 - manage the memory, currently it will hapily go out of memory on cpu and gpu without grid processing
-
+- check if the deconvolutionalgorithms are correct
 - who should set backend type, setupconfig or deconvconfig
 
 - test refactor with rldeconv

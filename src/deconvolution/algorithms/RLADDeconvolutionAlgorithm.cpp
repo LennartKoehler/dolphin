@@ -80,3 +80,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::clone() cons
     // Don't copy backend - each thread needs its own
     return copy;
 }
+
+size_t RLADDeconvolutionAlgorithm::getMemoryMultiplier() const {
+    return 1; // Allocates 1 additional array of input size
+}

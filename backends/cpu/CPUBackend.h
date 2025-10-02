@@ -66,6 +66,9 @@ public:
     void computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) override;
     void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) override;
 
+    // Memory usage function
+    size_t getMemoryUsage() const override;
+
 private:
     void initializeFFTPlans(const RectangleShape& cube) override;
     void destroyFFTPlans();

@@ -241,7 +241,7 @@ void CPUBackend::octantFourierShift(ComplexData& data) {
         int halfHeight = height / 2;
         int halfDepth = depth / 2;
 
-        // #pragma omp parallel for collapse(3)
+        #pragma omp parallel for collapse(3)
         for (int z = 0; z < halfDepth; ++z) {
             for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < width; ++x) {
@@ -354,7 +354,7 @@ void CPUBackend::complexMultiplication(const ComplexData& a, const ComplexData& 
             return;
         }
 
-        // #pragma omp parallel for simd
+        #pragma omp parallel for simd
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];
@@ -376,7 +376,7 @@ void CPUBackend::complexDivision(const ComplexData& a, const ComplexData& b, Com
             return;
         }
 
-        // #pragma omp parallel for
+        #pragma omp parallel for
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];
@@ -437,7 +437,7 @@ void CPUBackend::complexMultiplicationWithConjugate(const ComplexData& a, const 
             return;
         }
 
-        // #pragma omp parallel for
+        #pragma omp parallel for
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];
@@ -459,7 +459,7 @@ void CPUBackend::complexDivisionStabilized(const ComplexData& a, const ComplexDa
             return;
         }
 
-        // #pragma omp parallel for
+        #pragma omp parallel for
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];
@@ -873,6 +873,27 @@ void CPUBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in normalizeTV: " << e.what() << std::endl;
     }
+}
+
+size_t CPUBackend::getMemoryUsage() const {
+    if (!plansInitialized) {
+        return 0;
+    }
+    
+    size_t totalMemory = 0;
+    
+    // FFTW plans don't directly expose their memory usage, but we can estimate
+    // based on the size of the data they operate on and plan overhead
+    
+    // Add plan overhead (rough estimate for FFTW plan structures)
+    // Each FFTW plan typically has some overhead, we'll estimate it
+    totalMemory += 2 * 2048; // 4KB overhead for forward and backward plans
+    
+    // Add some working memory that FFTW might use internally
+    // This is a conservative estimate
+    totalMemory += 1024; // 1KB working memory
+    
+    return totalMemory;
 }
 
 

@@ -623,6 +623,23 @@ void CUDABackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexDat
     }
 }
 
+size_t CUDABackend::getMemoryUsage() const {
+    if (!plansInitialized) {
+        return 0;
+    }
+    
+    size_t totalMemory = 0;
+    
+    // Add work size memory (temporary memory used for FFT plans)
+    totalMemory += workSize;
+    
+    // Add plan overhead (rough estimate for CUFFT plan structures)
+    // Each CUFFT plan typically has some overhead, we'll estimate it
+    totalMemory += 2 * 1024; // 2KB overhead for forward and backward plans
+    
+    return totalMemory;
+}
+
 extern "C" IDeconvolutionBackend* create_backend() {
     return new CUDABackend();
 }

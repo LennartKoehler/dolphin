@@ -8,3 +8,7 @@ void TestAlgorithm::deconvolve(const ComplexData& H, const ComplexData& g, Compl
     // backend->hasNAN(f);
 }
 std::unique_ptr<DeconvolutionAlgorithm> TestAlgorithm::clone() const{return std::make_unique<TestAlgorithm>();}
+
+size_t TestAlgorithm::getMemoryMultiplier() const {
+    return 0; // No additional memory allocation
+}

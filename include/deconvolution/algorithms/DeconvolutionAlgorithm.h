@@ -10,7 +10,8 @@ public:
     virtual void deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) = 0;
     void setBackend(std::shared_ptr<IDeconvolutionBackend> backend){this->backend = backend;}
     virtual std::unique_ptr<DeconvolutionAlgorithm> clone() const = 0;
-   
+    virtual size_t getMemoryUsage() const = 0;
+    virtual size_t getMemoryMultiplier() const = 0;
     
 protected:
     double complexDivisionEpsilon = 1e-9; // should be in backend ?

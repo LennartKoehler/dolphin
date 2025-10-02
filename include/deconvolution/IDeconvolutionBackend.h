@@ -33,6 +33,7 @@ public:
     virtual void init(const RectangleShape& shape) = 0;
     virtual void postprocess() = 0;
     virtual std::shared_ptr<IDeconvolutionBackend> clone() const = 0;
+    virtual size_t getMemoryUsage() const = 0;
 
     // Data management - provide default implementations
     virtual void allocateMemoryOnDevice(ComplexData& data) {
