@@ -16,7 +16,6 @@ public:
     std::shared_ptr<IDeconvolutionBackend> clone() const override;
 
     // Data management
-    // std::unordered_map<PSFIndex, ComplexData>& movePSFstoGPU(std::unordered_map<PSFIndex, ComplexData>& psfMap); // Updated to use FFTWData
     void memCopy(const ComplexData& srcdata, ComplexData& destdata) override;
     void allocateMemoryOnDevice(ComplexData& data) override;
     ComplexData allocateMemoryOnDevice(const RectangleShape& shape) override;
@@ -36,8 +35,7 @@ public:
     // void convertFFTWComplexRealToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
     // void convertFFTWComplexImgToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
 
-    // PSF and FFT functions
-    // void padPSF(const ComplexData& psf, ComplexData& padded_psf) override;
+    // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) override;
     void backwardFFT(const ComplexData& in, ComplexData& out) override;
 
@@ -68,7 +66,9 @@ public:
     void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) override;
 
     // Memory usage function
-    size_t getMemoryUsage() const override;
+    size_t getWorkSize() const override;
+    RectangleShape getWorkShape() const override;
+    size_t getAvailableMemory() override;
 
 private:
     void initializeFFTPlans(const RectangleShape& cube) override;
@@ -77,4 +77,5 @@ private:
     cufftHandle forwardPlan;
     cufftHandle backwardPlan;
     size_t workSize;
+    RectangleShape workShape;
 };

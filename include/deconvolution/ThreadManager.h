@@ -1,24 +1,25 @@
 #pragma once
-#include "ThreadPool.h"
+
 #include "IDeconvolutionBackend.h"
 #include "algorithms/DeconvolutionAlgorithm.h"
-
+#include "ThreadPool.h"
 
 class ThreadManager{
 public:
     ThreadManager(size_t maxNumThreads, std::unique_ptr<DeconvolutionAlgorithm> algorithmPrototype, std::shared_ptr<IDeconvolutionBackend> backendPrototype);
     
     std::future<ComplexData> registerTask(
-        const ComplexData& psf,
-        const ComplexData& image,
-        std::function<ComplexData(const ComplexData&, const ComplexData&, const std::unique_ptr<DeconvolutionAlgorithm>&, std::shared_ptr<IDeconvolutionBackend>)> func);
+        std::vector<ComplexData>& psfs,
+        ComplexData& image,
+        std::function<ComplexData(std::vector<ComplexData>&, ComplexData&, std::unique_ptr<DeconvolutionAlgorithm>&, std::shared_ptr<IDeconvolutionBackend>)> func);
 
 private:
-    size_t getAvailableMemory();
     std::shared_ptr<IDeconvolutionBackend> getBackend();
     void returnBackend(std::shared_ptr<IDeconvolutionBackend> backend);
-    void populate();
-    
+    void populate(size_t numberThreads);
+    void addBackend(std::shared_ptr<IDeconvolutionBackend> backend);
+    size_t getNumberThreads(size_t maxNumberThreads);
+
     std::shared_ptr<IDeconvolutionBackend> backendPrototype_;
     std::unique_ptr<DeconvolutionAlgorithm> algorithmPrototype_;
     std::vector<std::shared_ptr<IDeconvolutionBackend>> unusedBackends;

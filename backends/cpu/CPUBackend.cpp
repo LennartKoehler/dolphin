@@ -7,8 +7,6 @@
 
 
 CPUBackend::CPUBackend() {
-    // Initialize FFTW with threading support
-    std::cout << "[STATUS] Initializing CPU backend" << std::endl;
 }
 
 CPUBackend::~CPUBackend() {
@@ -17,17 +15,18 @@ CPUBackend::~CPUBackend() {
 
 void CPUBackend::init(const RectangleShape& shape) {
     try {
-        if (fftw_init_threads() > 0) {
-            std::cout << "[STATUS] FFTW init threads" << std::endl;
-            fftw_plan_with_nthreads(omp_get_max_threads());
-            std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
-            fftw_make_planner_thread_safe();
-        }
+        // if (fftw_init_threads() > 0) {
+        //     // std::cout << "[STATUS] FFTW init threads" << std::endl;
+        //     fftw_plan_with_nthreads(1);
+        //     // fftw_plan_with_nthreads(omp_get_max_threads());
+        //     // std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
+        //     // fftw_make_planner_thread_safe();
+        // }
         initializeFFTPlans(shape);
-        
-        std::cout << "[STATUS] CPU backend preprocessing completed" << std::endl;
+        std::cout << "[STATUS] CPU backend initialized" << std::endl;
+
     } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in CPU preprocessing: " << e.what() << std::endl;
+        std::cerr << "[ERROR] Exception in CPU initialization: " << e.what() << std::endl;
     }
 }
 
@@ -43,26 +42,15 @@ void CPUBackend::postprocess() {
 
 std::shared_ptr<IDeconvolutionBackend> CPUBackend::clone() const{
     auto copy = std::make_unique<CPUBackend>();
+    copy->workShape = this->workShape;
+    copy->workSize = this->workSize;
+    copy->init(getWorkShape());
     return copy;
     
 }
 
 
-// std::unordered_map<PSFIndex, ComplexData>& CPUBackend::movePSFstoCPU(std::unordered_map<PSFIndex, ComplexData>& psfMap) {
-//     try {
-//         for (auto& it : psfMap) {
-//             ComplexData& psfData = it.second;
-            
-//             // For CPU backend, data is already on "device" (CPU memory)
-//             if (psfData.data == nullptr) {
-//                 std::cerr << "[WARNING] PSF data is null" << std::endl;
-//             }
-//         }
-//     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in movePSFstoCPU: " << e.what() << std::endl;
-//     }
-//     return psfMap;
-// }
+
 
 bool CPUBackend::isOnDevice(void* ptr) {
     // For CPU backend, all valid pointers are "on device"
@@ -78,6 +66,8 @@ void CPUBackend::allocateMemoryOnDevice(ComplexData& data) {
     if (data.data == nullptr) {
         std::cerr << "[ERROR] FFTW malloc failed" << std::endl;
     }
+    data.device = DeviceID::CPU;
+
 }
 
 ComplexData CPUBackend::allocateMemoryOnDevice(const RectangleShape& shape) {
@@ -88,19 +78,21 @@ ComplexData CPUBackend::allocateMemoryOnDevice(const RectangleShape& shape) {
     if (result.data == nullptr) {
         std::cerr << "[ERROR] FFTW malloc failed" << std::endl;
     }
-    
+    result.device = DeviceID::CPU;
     return result;
 }
 
 ComplexData CPUBackend::moveDataToDevice(const ComplexData& srcdata) {
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
     std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
+    result.device = DeviceID::CPU;
     return result;
 }
 
 ComplexData CPUBackend::moveDataFromDevice(const ComplexData& srcdata) {
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
     std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
+    result.device = DeviceID::HOST;
     return result;
 }
 
@@ -109,6 +101,7 @@ ComplexData CPUBackend::copyData(const ComplexData& srcdata) {
     if (srcdata.data != nullptr && destdata.data != nullptr) {
         std::memcpy(destdata.data, srcdata.data, srcdata.size.volume * sizeof(complex));
     }
+    destdata.device = DeviceID::HOST;
     return destdata;
 }
 
@@ -122,7 +115,9 @@ void CPUBackend::initializeFFTPlans(const RectangleShape& cube) {
     
     try {
         // Allocate temporary memory for plan creation
-        complex* temp = (complex*)fftw_malloc(sizeof(complex) * cube.volume);
+        workShape = cube;
+        workSize = sizeof(complex) * cube.volume;
+        complex* temp = (complex*)fftw_malloc(workSize);
         
         // Create forward FFT plan
         this->forwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width, 
@@ -131,7 +126,7 @@ void CPUBackend::initializeFFTPlans(const RectangleShape& cube) {
         // Create backward FFT plan
         this->backwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width,
                                              temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
-        
+            
         fftw_free(temp);
         plansInitialized = true;
     } catch (const std::exception& e) {
@@ -241,7 +236,7 @@ void CPUBackend::octantFourierShift(ComplexData& data) {
         int halfHeight = height / 2;
         int halfDepth = depth / 2;
 
-        #pragma omp parallel for collapse(3)
+        //#pragma omp parallel for collapse(3)
         for (int z = 0; z < halfDepth; ++z) {
             for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < width; ++x) {
@@ -354,7 +349,7 @@ void CPUBackend::complexMultiplication(const ComplexData& a, const ComplexData& 
             return;
         }
 
-        #pragma omp parallel for simd
+        //#pragma omp parallel for simd
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];
@@ -376,7 +371,7 @@ void CPUBackend::complexDivision(const ComplexData& a, const ComplexData& b, Com
             return;
         }
 
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];
@@ -437,7 +432,7 @@ void CPUBackend::complexMultiplicationWithConjugate(const ComplexData& a, const 
             return;
         }
 
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];
@@ -459,7 +454,7 @@ void CPUBackend::complexDivisionStabilized(const ComplexData& a, const ComplexDa
             return;
         }
 
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (int i = 0; i < a.size.volume; ++i) {
             double real_a = a.data[i][0];
             double imag_a = a.data[i][1];
@@ -875,27 +870,38 @@ void CPUBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData
     }
 }
 
-size_t CPUBackend::getMemoryUsage() const {
+size_t CPUBackend::getWorkSize() const {
     if (!plansInitialized) {
         return 0;
     }
-    
-    size_t totalMemory = 0;
-    
-    // FFTW plans don't directly expose their memory usage, but we can estimate
-    // based on the size of the data they operate on and plan overhead
-    
-    // Add plan overhead (rough estimate for FFTW plan structures)
-    // Each FFTW plan typically has some overhead, we'll estimate it
-    totalMemory += 2 * 2048; // 4KB overhead for forward and backward plans
-    
-    // Add some working memory that FFTW might use internally
-    // This is a conservative estimate
-    totalMemory += 1024; // 1KB working memory
-    
-    return totalMemory;
+    return workSize;
 }
 
+RectangleShape CPUBackend::getWorkShape() const{
+    return workShape;
+}
+
+size_t CPUBackend::getAvailableMemory() {
+    // For CPU backend, return available system memory
+    size_t memory;
+    #ifdef __linux__
+        #include <unistd.h>
+        long pagesize = sysconf(_SC_PAGESIZE);
+        long pages = sysconf(_SC_AVPHYS_PAGES);
+        if (pagesize > 0 && pages > 0) {
+            memory = static_cast<size_t>(pagesize) * static_cast<size_t>(pages);
+        }
+    #elif _WIN32
+        #include <windows.h>
+        MEMORYSTATUSEX status;
+        status.dwLength = sizeof(status);
+        GlobalMemoryStatusEx(&status);
+        memory = static_cast<size_t>(status.ullAvailPhys);
+    #endif
+    assert(memory != 0 && "[ERROR] Something went wrong while trying to get available memory");
+    return memory;
+    
+}
 
 extern "C" IDeconvolutionBackend* create_backend() {
     return new CPUBackend();

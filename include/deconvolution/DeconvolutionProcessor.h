@@ -6,9 +6,9 @@
 #include "IDeconvolutionBackend.h"
 #include "DeconvolutionAlgorithmFactory.h"
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "deconvolution/ThreadManager.h"
 
 
-class ThreadManager;
 struct CubeArrangement{
     int cubesPerX;      // Number of cubes along X axis
     int cubesPerY;      // Number of cubes along Y axis
@@ -51,9 +51,9 @@ protected:
 
 
     //multiple psfs
-    std::vector<complex*> preparedpsfs;
-    RangeMap<complex*> layerPreparedPSFMap;
-    RangeMap<complex*> cubePreparedPSFMap;
+    std::vector<ComplexData> preparedpsfs;
+    RangeMap<ComplexData> layerPreparedPSFMap;
+    RangeMap<ComplexData> cubePreparedPSFMap;
 
     //shapes
     RectangleShape subimageShape; // before padding but after splitting
@@ -65,16 +65,9 @@ protected:
 
  
 
-    void preprocess(const Hyperstack& input, const std::vector<PSF>& psfs);
+    void init(const Hyperstack& input, const std::vector<PSF>& psfs);
     std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, const std::vector<std::vector<cv::Mat>>& gridImages);
     
-    // Helper functions that don't depend on execution backend
-
-    /**
-     * @brief Prepare PSF for processing - performs FFT and padding
-     * @param psfs List of PSFs to prepare
-     * @return true if PSF preparation succeeded, false otherwise
-     */
     void preprocessPSF(std::vector<PSF> inputPSFs);
     std::vector<std::vector<cv::Mat>> preprocessChannel(Channel& channel);
 
@@ -85,25 +78,18 @@ protected:
         bool configgrid,
         const RectangleShape& subimageSize
     );
-    void addPaddingToShapes(
-        const RectangleShape& padding
-    );
+    void addPaddingToShapes(const RectangleShape& padding);
 
-    /**
-     * @brief Select appropriate PSF for current grid image based on layer and cube mappings
-     * @param gridImageIndex Index of current grid image
-     * @return Pointer to selected PSF's padded FFTW complex array
-     */
-    std::vector<complex*> selectPSFsForCube(int cubeIndex);
+    const std::vector<ComplexData> selectPSFsForCube(int cubeIndex);
 
 
 private:
-    void deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage);
-    void deconvolveSingleCubePSF(complex* psf, std::vector<cv::Mat>& cubeImage);
+    std::future<ComplexData> deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage);
     void initPSFMaps(const std::vector<PSF>& psfs);
     std::shared_ptr<IDeconvolutionBackend> loadBackend(const std::string& backendName);
     void setupCubeArrangement();
     int getLayerIndex(int cubeIndex, int cubesPerLayer);
+    void parallelDeconvolution(std::vector<std::vector<cv::Mat>>& cubeImages);
 
     std::unique_ptr<ThreadManager> threadManager_;
     bool configured = false;

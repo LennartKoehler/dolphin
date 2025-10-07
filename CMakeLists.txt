@@ -118,6 +118,7 @@ set(COMMON_SOURCES
     src/deconvolution/Preprocessor.cpp
     src/deconvolution/Postprocessor.cpp
     src/deconvolution/DeconvolutionProcessor.cpp
+    src/deconvolution/ThreadManager.cpp
 
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
