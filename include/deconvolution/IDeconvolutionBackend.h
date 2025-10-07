@@ -7,12 +7,8 @@
 #include <typeinfo>
 #include <opencv2/core/mat.hpp>
 #include "complexType.h"
-#include "RectangleShape.h"
 
-struct ComplexData{
-    complex* data;
-    RectangleShape size;
-};
+
 struct InputData{
     ComplexData H;
     ComplexData g;
@@ -33,7 +29,8 @@ public:
     virtual void init(const RectangleShape& shape) = 0;
     virtual void postprocess() = 0;
     virtual std::shared_ptr<IDeconvolutionBackend> clone() const = 0;
-    virtual size_t getMemoryUsage() const = 0;
+    virtual size_t getWorkSize() const = 0;
+    virtual RectangleShape getWorkShape() const = 0;
 
     // Data management - provide default implementations
     virtual void allocateMemoryOnDevice(ComplexData& data) {
@@ -164,6 +161,11 @@ public:
     }
 
     virtual bool isInitialized(){ return plansInitialized; }
+    
+    // Memory information
+    virtual size_t getAvailableMemory() {
+        NOT_IMPLEMENTED(getAvailableMemory);
+    }
 
 protected:
     bool plansInitialized = false;

@@ -8,12 +8,13 @@ ThreadPool::ThreadPool(size_t numThreads) : stop(false) {
             for(;;) {
                 std::function<void()> task;
                 {
-                    std::unique_lock<std::mutex> lock(queue_mutex);
+                    std::unique_lock<std::mutex> lock(tasks_mutex);
                     condition.wait(lock, [this]{ return stop || !tasks.empty(); });
                     if(stop && tasks.empty()) return;
                     task = std::move(tasks.front());
                     tasks.pop();
                 }
+                queueSpace.notify_one();
                 task();
             }
         });
@@ -24,7 +25,7 @@ ThreadPool::ThreadPool(size_t numThreads) : stop(false) {
     
 ThreadPool::~ThreadPool() {
     {
-        std::unique_lock<std::mutex> lock(queue_mutex);
+        std::unique_lock<std::mutex> lock(tasks_mutex);
         stop = true;
     }
     condition.notify_all();

@@ -23,6 +23,9 @@ CUDABackend::~CUDABackend() {
 
 std::shared_ptr<IDeconvolutionBackend> CUDABackend::clone() const{
     auto copy = std::make_unique<CUDABackend>();
+    copy->workShape = this->workShape;
+    copy->workSize = this->workSize;
+    copy->init(getWorkShape());
     return copy;
     
 }
@@ -49,29 +52,6 @@ void CUDABackend::postprocess() {
         std::cerr << "[ERROR] Exception in CUDA postprocessing: " << e.what() << std::endl;
     }
 }
-
-// std::unordered_map<PSFIndex, ComplexData>& CUDABackend::movePSFstoCUDA(std::unordered_map<PSFIndex, ComplexData>& psfMap) {
-//     try {
-//         for (auto& it : psfMap) {
-//             ComplexData& psfData = it.second;
-            
-//             if (!isOnDevice(psfData.data)) {
-//                 complex* d_temp_h;
-//                 cudaError_t cudaStatus = cudaMalloc((void**)&d_temp_h, psfData.size.volume * sizeof(complex));
-//                 if (cudaStatus != cudaSuccess) {
-//                     std::cerr << "[ERROR] CUDA malloc failed for PSF" << std::endl;
-//                     continue;
-//                 }
-                
-//                 CUBE_UTL_COPY::copyDataFromHostToDevice(psfData.size.width, psfData.size.height, psfData.size.depth, d_temp_h, psfData.data);
-//                 psfData.data = d_temp_h;
-//             }
-//         }
-//     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in movePSFstoCUDA: " << e.what() << std::endl;
-//     }
-//     return psfMap;
-// }
 
 bool CUDABackend::isOnDevice(void* ptr) {
     if (ptr == nullptr) return false;
@@ -102,6 +82,8 @@ void CUDABackend::allocateMemoryOnDevice(ComplexData& data) {
         std::cerr << "[ERROR] CUDA malloc failed: " << cudaGetErrorString(result) << std::endl;
         data.data = nullptr;
     }
+    data.device = DeviceID::CUDA;
+
 }
 
 void CUDABackend::memCopy(const ComplexData& srcData, ComplexData& destData) {
@@ -163,6 +145,8 @@ void CUDABackend::memCopy(const ComplexData& srcData, ComplexData& destData) {
     if (result != cudaSuccess) {
         std::cerr << "[ERROR] cudaMemcpy3D failed: " << cudaGetErrorString(result) << std::endl;
     }
+    destData.device = DeviceID::CUDA;
+
 }
 
 ComplexData CUDABackend::allocateMemoryOnDevice(const RectangleShape& shape) {
@@ -175,7 +159,8 @@ ComplexData CUDABackend::allocateMemoryOnDevice(const RectangleShape& shape) {
         std::cerr << "[ERROR] CUDA malloc failed: " << cudaGetErrorString(cudaResult) << std::endl;
         result.data = nullptr;
     }
-    
+    result.device = DeviceID::CUDA;
+   
     return result;
 }
 
@@ -185,6 +170,8 @@ ComplexData CUDABackend::moveDataToDevice(const ComplexData& srcdata) {
         CUBE_UTL_COPY::copyDataFromHostToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth, 
                                                destdata.data, srcdata.data);
     }
+    destdata.device = DeviceID::CUDA;
+
     return destdata;
 }
 
@@ -196,6 +183,8 @@ ComplexData CUDABackend::moveDataFromDevice(const ComplexData& srcdata){
         CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, 
                                                destdata.data, srcdata.data);
     }
+    destdata.device = DeviceID::CUDA;
+
     return destdata;
 }
 
@@ -205,6 +194,8 @@ ComplexData CUDABackend::copyData(const ComplexData& srcdata) {
         CUBE_UTL_COPY::copyDataFromDeviceToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
                                                  destdata.data, srcdata.data);
     }
+    destdata.device = DeviceID::CUDA;
+
     return destdata;
 }
 
@@ -218,7 +209,7 @@ void CUDABackend::initializeFFTPlans(const RectangleShape& cube) {
     
     try {
         // Allocate temporary memory for plan creation
-
+        workShape = cube;
         workSize = sizeof(complex) * cube.volume;
         // Create forward FFT plan
         cufftCreate(&this->forwardPlan);
@@ -229,7 +220,7 @@ void CUDABackend::initializeFFTPlans(const RectangleShape& cube) {
         cufftCreate(&this->backwardPlan);
         cufftMakePlan3d(this->backwardPlan, cube.depth, cube.height, cube.width, CUFFT_Z2Z, &workSize);
 
-        
+        workSize = sizeof(complex) * cube.volume; 
         plansInitialized = true;
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in FFT plan initialization: " << e.what() << std::endl;
@@ -623,21 +614,26 @@ void CUDABackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexDat
     }
 }
 
-size_t CUDABackend::getMemoryUsage() const {
+size_t CUDABackend::getWorkSize() const {
     if (!plansInitialized) {
         return 0;
     }
+    return workSize;
+}
+
+RectangleShape CUDABackend::getWorkShape() const {
+    return workShape;
+}
+
+size_t CUDABackend::getAvailableMemory() {
+    // For CUDA backend, return available GPU memory
+    cudaError_t cudaStatus;
     
-    size_t totalMemory = 0;
+    size_t freeMem, totalMem;
+    cudaStatus = cudaMemGetInfo(&freeMem, &totalMem);
     
-    // Add work size memory (temporary memory used for FFT plans)
-    totalMemory += workSize;
-    
-    // Add plan overhead (rough estimate for CUFFT plan structures)
-    // Each CUFFT plan typically has some overhead, we'll estimate it
-    totalMemory += 2 * 1024; // 2KB overhead for forward and backward plans
-    
-    return totalMemory;
+    return freeMem;
+
 }
 
 extern "C" IDeconvolutionBackend* create_backend() {

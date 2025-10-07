@@ -1,10 +1,10 @@
 {
   "Deconvolution": {
-    "algorithmName": "TestAlgorithm",
+    "algorithmName": "RichardsonLucy",
     "subimageSize": 40,
-    "iterations": 15,
+    "iterations": 20,
     "epsilon": 1e-6,
-    "grid": true,
+    "grid": false,
     "lambda": 0.015,
     "borderType": 2,
     "cubePSFMap": [],

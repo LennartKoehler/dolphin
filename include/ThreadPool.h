@@ -1,4 +1,4 @@
-// Add ThreadPool utility class
+#pragma once
 #include <thread>
 #include <queue>
 #include <mutex>
@@ -20,7 +20,7 @@ public:
         
         std::future<return_type> res = task->get_future();
         {
-            std::unique_lock<std::mutex> lock(queue_mutex);
+            std::unique_lock<std::mutex> lock(tasks_mutex);
             // wait until queue has space
             queueSpace.wait(lock, [this] {
                 return stop || newTaskCondition();
@@ -35,18 +35,15 @@ public:
     
     ~ThreadPool();
     void setCondition(std::function<bool()> condition);
-    bool hasSpace() const { return tasks.size() < maxQueueSize;};
-    bool isEmpty() const { return tasks.empty();};
-    size_t queueSize() const { return tasks.size();};
-
+    size_t queueSize(){ return tasks.size(); } // remember you have to lock the tasks_mutex
 private:
     std::vector<std::thread> workers;
     std::queue<std::function<void()>> tasks;
-    std::mutex queue_mutex;
+    std::mutex tasks_mutex;
     std::condition_variable condition;
     std::condition_variable queueSpace;
     bool stop;
-    size_t maxQueueSize;
+
 
     std::function<bool()> newTaskCondition;
 };

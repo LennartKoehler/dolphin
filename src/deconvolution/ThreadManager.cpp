@@ -2,30 +2,39 @@
 
 
 
-
-ThreadManager::ThreadManager(size_t maxNumberThreads, std::unique_ptr<DeconvolutionAlgorithm> algorithmPrototype, std::function<std::shared_ptr<IDeconvolutionBackend>()> createBackendFunction)
-    : createBackendFunction_(createBackendFunction),
+ThreadManager::ThreadManager(size_t maxNumberThreads, std::unique_ptr<DeconvolutionAlgorithm> algorithmPrototype, std::shared_ptr<IDeconvolutionBackend> backendPrototype)
+    : backendPrototype_(backendPrototype),
     algorithmPrototype_(std::move(algorithmPrototype)){
-    threadpool = std::make_unique<ThreadPool>(maxNumberThreads);
-    populate();
+    size_t numberThreads = getNumberThreads(maxNumberThreads);
+    threadpool = std::make_unique<ThreadPool>(numberThreads);
+    
+    size_t threadPoolQueueSize = 300;
+    ThreadPool* pool_ptr = threadpool.get();
+    threadpool->setCondition([pool_ptr, threadPoolQueueSize]() -> bool {
+        // std::cerr << pool_ptr->queueSize() << std::endl;
+        return pool_ptr->queueSize() < threadPoolQueueSize;
+     });
+    populate(numberThreads);
 }
 
 std::future<ComplexData> ThreadManager::registerTask(
-    const ComplexData& psf,
-    const ComplexData& image,
-    std::function<ComplexData(const ComplexData&, const ComplexData&, const std::unique_ptr<DeconvolutionAlgorithm>&, std::shared_ptr<IDeconvolutionBackend>)> func){
+    std::vector<ComplexData>& psfs,
+    ComplexData& image,
+    std::function<ComplexData(std::vector<ComplexData>&, ComplexData&, std::unique_ptr<DeconvolutionAlgorithm>&, std::shared_ptr<IDeconvolutionBackend>)> func){
         
         std::unique_ptr<DeconvolutionAlgorithm> algorithm = algorithmPrototype_->clone();
 
-        return threadpool->enqueue([this, func, psf, image, algorithm = std::move(algorithm)]() mutable {
+        return threadpool->enqueue([this, func, psfs, image, algorithm = std::move(algorithm)]() mutable {
             // Acquire backend when task actually runs
             std::shared_ptr<IDeconvolutionBackend> backend = getBackend();
+            algorithm->setBackend(backend);
+
             if (!backend) {
                 throw std::runtime_error("No backend available");
             }
             
             try {
-                ComplexData result = func(psf, image, algorithm, backend);
+                ComplexData result = func(psfs, image, algorithm, backend);
                 returnBackend(backend);
                 return result;
             } catch (...) {
@@ -61,7 +70,24 @@ void ThreadManager::returnBackend(std::shared_ptr<IDeconvolutionBackend> backend
     }
 }
 
-void ThreadManager::populate(){
-    size_t memoryPerThread = algorithmPrototype_->getMemoryUsage();
-    // TODO: Implement populate method logic
+size_t ThreadManager::getNumberThreads(size_t maxNumberThreads){
+    assert(backendPrototype_->isInitialized() && "[ERROR] ThreadManager: Backend must be initialized");
+
+    size_t memoryPerCube = backendPrototype_->getWorkSize();
+    size_t memoryMultiplier = algorithmPrototype_->getMemoryMultiplier();
+    size_t memoryPerThread = memoryPerCube * (2 + memoryMultiplier); // * 2 for forward and backward fft plan;
+    size_t availableMemory = backendPrototype_->getAvailableMemory();
+
+    size_t numberThreads = availableMemory / memoryPerThread;
+    return std::min(numberThreads, maxNumberThreads);
+
 }
+
+void ThreadManager::populate(size_t numberThreads){
+    assert(backendPrototype_->isInitialized() && "[ERROR] ThreadManager: Backend must be initialized");
+    for (int i = 0; i < numberThreads; i++){
+       unusedBackends.emplace_back(backendPrototype_->clone());
+    }
+
+}
+
