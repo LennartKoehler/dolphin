@@ -13,7 +13,7 @@ PSFGenerationService::PSFGenerationService()
     : initialized_(false),
       logger_([](const std::string& msg) { std::cout << "[PSF_SERVICE] " << msg << std::endl; }),
       error_handler_([](const std::string& msg) { std::cerr << "[PSF_ERROR] " << msg << std::endl; }),
-      thread_pool_(std::make_unique<ThreadPool>(std::thread::hardware_concurrency()))
+      thread_pool_(std::make_unique<ThreadPool>(1))
 {
     // Initialize supported PSF types
     supported_types_ = {"Gaussian", "GibsonLanni", "BornWolf"};
@@ -281,7 +281,7 @@ std::string PSFGenerationService::getExecutableDirectory() {
     try {
         // Get the path of the current executable
         std::filesystem::path execPath = std::filesystem::canonical("/proc/self/exe");
-        return execPath.parent_path().string();
+        return execPath.parent_path().parent_path().string();
     } catch (const std::exception& e) {
         // Fallback to current working directory
         return std::filesystem::current_path().string();

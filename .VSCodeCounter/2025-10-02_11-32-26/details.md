@@ -142,7 +142,7 @@ Total : 432 files,  228832 codes, 31312 comments, 48540 blanks, all 308684 lines
 | [include/deconvolution/IDeconvolutionBackend.h](/include/deconvolution/IDeconvolutionBackend.h) | C++ | 122 | 11 | 38 | 171 |
 | [include/deconvolution/Postprocessor.h](/include/deconvolution/Postprocessor.h) | C++ | 15 | 0 | 7 | 22 |
 | [include/deconvolution/Preprocessor.h](/include/deconvolution/Preprocessor.h) | C++ | 14 | 0 | 6 | 20 |
-| [include/deconvolution/ThreadManager.h](/include/deconvolution/ThreadManager.h) | C++ | 15 | 0 | 6 | 21 |
+| [include/deconvolution/DeconvolutionBackendThreadManager.h](/include/deconvolution/DeconvolutionBackendThreadManager.h) | C++ | 15 | 0 | 6 | 21 |
 | [include/deconvolution/algorithms/DeconvolutionAlgorithm.h](/include/deconvolution/algorithms/DeconvolutionAlgorithm.h) | C++ | 14 | 1 | 3 | 18 |
 | [include/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h](/include/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h) | C++ | 13 | 2 | 7 | 22 |
 | [include/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h](/include/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h) | C++ | 15 | 0 | 3 | 18 |
@@ -401,7 +401,7 @@ Total : 432 files,  228832 codes, 31312 comments, 48540 blanks, all 308684 lines
 | [src/deconvolution/DeconvolutionProcessor.cpp](/src/deconvolution/DeconvolutionProcessor.cpp) | C++ | 387 | 94 | 138 | 619 |
 | [src/deconvolution/Postprocessor.cpp](/src/deconvolution/Postprocessor.cpp) | C++ | 102 | 21 | 29 | 152 |
 | [src/deconvolution/Preprocessor.cpp](/src/deconvolution/Preprocessor.cpp) | C++ | 152 | 35 | 46 | 233 |
-| [src/deconvolution/ThreadManager.cpp](/src/deconvolution/ThreadManager.cpp) | C++ | 4 | 0 | 3 | 7 |
+| [src/deconvolution/DeconvolutionBackendThreadManager.cpp](/src/deconvolution/DeconvolutionBackendThreadManager.cpp) | C++ | 4 | 0 | 3 | 7 |
 | [src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp](/src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp) | C++ | 30 | 12 | 13 | 55 |
 | [src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp](/src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp) | C++ | 49 | 15 | 19 | 83 |
 | [src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp](/src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp) | C++ | 34 | 14 | 23 | 71 |

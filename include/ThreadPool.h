@@ -26,7 +26,7 @@ public:
                 return stop || newTaskCondition();
             });
 
-            if (stop) throw std::runtime_error("ThreadManager stopped");
+            if (stop) throw std::runtime_error("DeconvolutionBackendThreadManager stopped");
             tasks.emplace([task](){ (*task)(); });
         }
         condition.notify_one();

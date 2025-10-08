@@ -82,5 +82,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::clone() cons
 }
 
 size_t RLADDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 1; // Allocates 1 additional array of input size
+    return 4; // Allocates 1 additional array of input size + 3 input copies
 }

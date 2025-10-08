@@ -1,7 +1,7 @@
 {
   "Deconvolution": {
     "algorithmName": "RichardsonLucy",
-    "subimageSize": 40,
+    "subimageSize": 80,
     "iterations": 20,
     "epsilon": 1e-6,
     "grid": false,
@@ -20,7 +20,7 @@
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
   "psf_file_path": "",
   "psf_dir_path": "",
-  "outputDir": "../result",
+  "outputDir": "../results",
   "backend": "cuda",
   "deconvolution_config_path": "",
 

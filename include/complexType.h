@@ -37,7 +37,10 @@ struct RectangleShape{
         if (this->width > other.width && this->height > other.height && this->depth > other.depth) return true;
         else return false;
     }
-
+    inline bool operator>=(const RectangleShape& other) const {
+        if (this->width >= other.width && this->height >= other.height && this->depth >= other.depth) return true;
+        else return false;
+    }
 };
 
 typedef double complex[2];

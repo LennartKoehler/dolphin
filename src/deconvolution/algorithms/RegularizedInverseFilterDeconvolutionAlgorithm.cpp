@@ -65,5 +65,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlg
 }
 
 size_t RegularizedInverseFilterDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 5; // Allocates 5 additional arrays of input size (H2, L, L2, FA, FP)
+    return 8; // Allocates 5 additional arrays of input size (H2, L, L2, FA, FP) + 3 input copies
 }

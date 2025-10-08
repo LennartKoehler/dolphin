@@ -1,0 +1,16 @@
+{
+    "ID": "",
+    "modelName": "Gaussian",
+    "sizeX": 20,
+    "sizeY": 20,
+    "sizeZ": 10,
+    "resAxial[nm]": 200.0,
+    "resLateral[nm]": 200.0,
+    "NA": 1.0,
+    "qualityFactor": 1.0,
+    "sigmaX": 10.0,
+    "sigmaY": 10.0,
+    "sigmaZ": 10.0,
+    "nanometerScale": 1e-09,
+    "pixelScaling": 1e-06
+}
