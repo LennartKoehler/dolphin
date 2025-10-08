@@ -9,7 +9,7 @@ DeconvolutionService::DeconvolutionService()
     : initialized_(false),
       logger_([](const std::string& msg) { std::cout << "[DECONV_SERVICE] " << msg << std::endl; }),
       error_handler_([](const std::string& msg) { std::cerr << "[DECONV_ERROR] " << msg << std::endl; }),
-      thread_pool_(std::make_unique<ThreadPool>(std::thread::hardware_concurrency())),
+      thread_pool_(std::make_unique<ThreadPool>(1)),
       deconvolutionProcessor(std::make_unique<DeconvolutionProcessor>()){}
 
 DeconvolutionService::~DeconvolutionService() {

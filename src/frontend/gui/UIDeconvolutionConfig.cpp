@@ -30,18 +30,13 @@ void UIDeconvolutionConfig::setDeconvolutionConfigParameters(std::shared_ptr<Dec
         // Processing parameters
         {"Grid Processing", ParameterType::Bool, &deconvolutionConfig->grid, 0.0, 1.0},
         {"Subimage Size", ParameterType::Int, &deconvolutionConfig->subimageSize, 0, 10000},
-        // {"PSF Safety Border", ParameterType::Int, &deconvolutionConfig->psfSafetyBorder, 0, 1000},
         {"Border Type", ParameterType::Int, &deconvolutionConfig->borderType, 0, 5},
         
-        // Output/behavior parameters
-        // {"Show Timing", ParameterType::Bool, &deconvolutionConfig->time, 0.0, 1.0},
-        // {"GPU Type", ParameterType::String, &deconvolutionConfig->gpu, 0.0, 0.0},
-        // {"Save Subimages", ParameterType::Bool, &deconvolutionConfig->saveSubimages, 0.0, 1.0},
 
-        // Vector parameters (if you want to display them)
-        // Note: These might need special handling depending on your UI framework
-        // {"Second PSF Layers", ParameterType::IntVector, &deconvolutionConfig->secondpsflayers, 0.0, 0.0},
-        // {"Second PSF Cubes", ParameterType::IntVector, &deconvolutionConfig->secondpsfcubes, 0.0, 0.0},
+
+        // not supported in gui yet
+        // {"Second PSF Layers", ParameterType::Map, &deconvolutionConfig->layerPSFMap, 0.0, 0.0},
+        // {"Second PSF Cubes", ParameterType::Map, &deconvolutionConfig->cubePSFMap, 0.0, 0.0},
     };
     parameters.insert(parameters.end(), runtimeParams.begin(), runtimeParams.end());
 }

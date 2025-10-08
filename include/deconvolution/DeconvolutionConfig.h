@@ -37,6 +37,7 @@ public:
     RangeMap() = default;
     RangeMap(const RangeMap& other) : ranges(other.ranges) {}
 
+    bool empty() { return ranges.empty(); }
     void addRange(int start, int end, T value) {
         // Find if there's an existing range that matches exactly
         for (auto& range : ranges) {
@@ -246,19 +247,7 @@ class DeconvolutionConfig : public Config{
 public:
     DeconvolutionConfig();
     DeconvolutionConfig(const DeconvolutionConfig& other);
-    // std::string algorithmName = "RichardsonLucyTotalVariation";
-    // int subimageSize = 0; //sub-image size (edge)
-    // int iterations = 10;
-    // double epsilon = 1e-6;
-    // bool grid = false;
-    // double lambda = 0.001;
-    // int borderType = cv::BORDER_REFLECT;
-    // int psfSafetyBorder = 10;
-    // std::vector<int> secondpsflayers = {};
-    // std::vector<int> secondpsfcubes = {};
-    // bool time; // for compatibility with deconv implementation, these dont belong here
-    // bool saveSubimages;
-    // std::string gpu = "";
+
     #define PARAM(type, name, defaultValue, optional) type name = defaultValue;
     DECONV_PARAMS
     #undef PARAM

@@ -54,5 +54,5 @@ std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::clo
 }
 
 size_t InverseFilterDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 1; // Allocates 1 additional array of input size
+    return 4; // Allocates 1 additional array of input size + 3 input copies
 }

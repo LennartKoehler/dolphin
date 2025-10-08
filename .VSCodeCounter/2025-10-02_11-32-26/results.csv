@@ -130,7 +130,7 @@
 "/home/lennart-k-hler/projects/dolphin/include/deconvolution/IDeconvolutionBackend.h", "C++", 0, 122, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 38, 171
 "/home/lennart-k-hler/projects/dolphin/include/deconvolution/Postprocessor.h", "C++", 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 22
 "/home/lennart-k-hler/projects/dolphin/include/deconvolution/Preprocessor.h", "C++", 0, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 20
-"/home/lennart-k-hler/projects/dolphin/include/deconvolution/ThreadManager.h", "C++", 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 21
+"/home/lennart-k-hler/projects/dolphin/include/deconvolution/DeconvolutionBackendThreadManager.h", "C++", 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 21
 "/home/lennart-k-hler/projects/dolphin/include/deconvolution/algorithms/DeconvolutionAlgorithm.h", "C++", 0, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 18
 "/home/lennart-k-hler/projects/dolphin/include/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h", "C++", 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 7, 22
 "/home/lennart-k-hler/projects/dolphin/include/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h", "C++", 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 18
@@ -389,7 +389,7 @@
 "/home/lennart-k-hler/projects/dolphin/src/deconvolution/DeconvolutionProcessor.cpp", "C++", 0, 387, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 94, 138, 619
 "/home/lennart-k-hler/projects/dolphin/src/deconvolution/Postprocessor.cpp", "C++", 0, 102, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 29, 152
 "/home/lennart-k-hler/projects/dolphin/src/deconvolution/Preprocessor.cpp", "C++", 0, 152, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 35, 46, 233
-"/home/lennart-k-hler/projects/dolphin/src/deconvolution/ThreadManager.cpp", "C++", 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 7
+"/home/lennart-k-hler/projects/dolphin/src/deconvolution/DeconvolutionBackendThreadManager.cpp", "C++", 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 7
 "/home/lennart-k-hler/projects/dolphin/src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp", "C++", 0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 13, 55
 "/home/lennart-k-hler/projects/dolphin/src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp", "C++", 0, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 19, 83
 "/home/lennart-k-hler/projects/dolphin/src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp", "C++", 0, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 23, 71
