@@ -9,7 +9,7 @@ std::vector<std::vector<cv::Mat>> Preprocessor::splitImage(
     const RectangleShape& imageShapePadded,
     const RectangleShape& cubeShapePadded) {
 
-    assert(imageOriginalShape > subimageShape &&  "[ERROR] subimage has to be smaller than image");   
+    assert(imageOriginalShape >= subimageShape &&  "[ERROR] subimage has to be smaller than image");   
 
     // Calculate image padding from actual image dimensions vs imageShapePadded
     RectangleShape imagePadding = (imageShapePadded - imageOriginalShape) / 2;

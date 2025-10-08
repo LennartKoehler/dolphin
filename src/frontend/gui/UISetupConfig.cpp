@@ -17,8 +17,8 @@ std::shared_ptr<SetupConfig> UISetupConfig::getConfig(){
 
 
 void UISetupConfig::setSetupConfigParameters(std::shared_ptr<SetupConfig> setupConfig){
-    static std::vector<std::string> gpuTypes{"cuda", "cpu"};
-    static StringSelectionHelper gpuHelper{&setupConfig->backend, &gpuTypes};
+    static std::vector<std::string> backendTypes{"cuda", "cpu"};
+    static StringSelectionHelper backendHelper{&setupConfig->backend, &backendTypes};
 
     std::vector<ParameterDescription> runtimeParams = {
         // Application selection
@@ -27,7 +27,7 @@ void UISetupConfig::setSetupConfigParameters(std::shared_ptr<SetupConfig> setupC
         // File paths - these might need special UI handling for file selection
         {"Image Path", ParameterType::FilePath, &setupConfig->imagePath, 0.0, 0.0},
 
-        {"GPU Type", ParameterType::VectorString, &gpuHelper, 0.0, 0.0},
+        {"Backend", ParameterType::VectorString, &backendHelper, 0.0, 0.0},
         
         // Boolean flags
         {"Show Time", ParameterType::Bool, &setupConfig->time, 0.0, 1.0},

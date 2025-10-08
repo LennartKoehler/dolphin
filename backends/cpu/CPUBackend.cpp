@@ -30,6 +30,15 @@ void CPUBackend::init(const RectangleShape& shape) {
     }
 }
 
+void CPUBackend::setWorkShape(const RectangleShape& shape) {
+    // Update work shape and size without recreating FFT plans
+
+    workShape = shape;
+    workSize = sizeof(complex) * shape.volume;
+    std::cout << "[STATUS] CPU backend work shape updated" << std::endl;
+    shapeInitialized_ = true;
+}
+
 void CPUBackend::postprocess() {
     try {
         destroyFFTPlans();
@@ -41,6 +50,8 @@ void CPUBackend::postprocess() {
 }
 
 std::shared_ptr<IDeconvolutionBackend> CPUBackend::clone() const{
+    assert(this->shapeInitialized_ && "[ERROR] CPUBackend: shape must be initialized in order to clone");
+
     auto copy = std::make_unique<CPUBackend>();
     copy->workShape = this->workShape;
     copy->workSize = this->workSize;
@@ -107,15 +118,13 @@ ComplexData CPUBackend::copyData(const ComplexData& srcdata) {
 
 void CPUBackend::freeMemoryOnDevice(ComplexData& data){
     fftw_free(data.data);
-} // since we just move data we dont have to free it
-// on gpu we have to free because it copied not moved
+} 
 
 void CPUBackend::initializeFFTPlans(const RectangleShape& cube) {
-    if (plansInitialized) return;
+    if (plansInitialized_) return;
     
     try {
         // Allocate temporary memory for plan creation
-        workShape = cube;
         workSize = sizeof(complex) * cube.volume;
         complex* temp = (complex*)fftw_malloc(workSize);
         
@@ -128,14 +137,15 @@ void CPUBackend::initializeFFTPlans(const RectangleShape& cube) {
                                              temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
             
         fftw_free(temp);
-        plansInitialized = true;
+        setWorkShape(cube);
+        plansInitialized_ = true;
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in FFT plan initialization: " << e.what() << std::endl;
     }
 }
 
 void CPUBackend::destroyFFTPlans() {
-    if (plansInitialized) {
+    if (plansInitialized_) {
         if (forwardPlan) {
             fftw_destroy_plan(forwardPlan);
             forwardPlan = nullptr;
@@ -144,7 +154,7 @@ void CPUBackend::destroyFFTPlans() {
             fftw_destroy_plan(backwardPlan);
             backwardPlan = nullptr;
         }
-        plansInitialized = false;
+        plansInitialized_ = false;
     }
 }
 void CPUBackend::memCopy(const ComplexData& srcData, ComplexData& destData){
@@ -871,9 +881,6 @@ void CPUBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData
 }
 
 size_t CPUBackend::getWorkSize() const {
-    if (!plansInitialized) {
-        return 0;
-    }
     return workSize;
 }
 
@@ -901,6 +908,10 @@ size_t CPUBackend::getAvailableMemory() {
     assert(memory != 0 && "[ERROR] Something went wrong while trying to get available memory");
     return memory;
     
+}
+
+size_t CPUBackend::getMemoryMultiplier() const {
+    return 2; //forward and backward fftw plan
 }
 
 extern "C" IDeconvolutionBackend* create_backend() {

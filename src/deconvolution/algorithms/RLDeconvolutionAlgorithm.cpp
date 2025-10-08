@@ -70,5 +70,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RLDeconvolutionAlgorithm::clone() const 
 }
 
 size_t RLDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 1; // Allocates 1 additional array of input size
+    return 4; // Allocates 1 additional array of input size + 3 input copies
 }

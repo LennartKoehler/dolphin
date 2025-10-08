@@ -45,7 +45,6 @@ void savecubeDebug(const std::vector<cv::Mat> cubeImage, const char* name, Image
     cubeImageHyperstack.saveAsTifFile("../result/"+std::string(name)+".tif");
 }
 
-//temp
 
 
 // Conversion Functions
@@ -108,51 +107,7 @@ std::vector<cv::Mat> convertFFTWComplexToCVMatVector(const ComplexData& input) {
     return output;
 }
 
-void convertFFTWComplexRealToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) {
-    try {
-        int width = input.size.width;
-        int height = input.size.height;
-        int depth = input.size.depth;
-        
-        std::vector<cv::Mat> tempOutput;
-        for (int z = 0; z < depth; ++z) {
-            cv::Mat result(height, width, CV_32F);
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int index = z * height * width + y * width + x;
-                    result.at<float>(y, x) = input.data[index][0];
-                }
-            }
-            tempOutput.push_back(result);
-        }
-        output = tempOutput;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in convertFFTWComplexRealToCVMatVector: " << e.what() << std::endl;
-    }
-}
 
-void convertFFTWComplexImgToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) {
-    try {
-        int width = input.size.width;
-        int height = input.size.height;
-        int depth = input.size.depth;
-        
-        std::vector<cv::Mat> tempOutput;
-        for (int z = 0; z < depth; ++z) {
-            cv::Mat result(height, width, CV_32F);
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int index = z * height * width + y * width + x;
-                    result.at<float>(y, x) = input.data[index][1];
-                }
-            }
-            tempOutput.push_back(result);
-        }
-        output = tempOutput;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in convertFFTWComplexImgToCVMatVector: " << e.what() << std::endl;
-    }
-}
 
 
 void loadingBar(int i, int max){
@@ -230,116 +185,126 @@ void DeconvolutionProcessor::parallelDeconvolution(std::vector<std::vector<cv::M
 
     // Thread-safe queue for completed tasks
     std::queue<Task> completedTasks;
-    std::mutex queueMutex;
+    std::mutex completedTasksMutex;
     std::condition_variable taskAvailable;
     std::atomic<int> tasksSubmitted(0);
     bool allTasksSubmitted = false;
-    
-    // Mutex for thread-safe cubeImages access
-    std::mutex cubeImagesMutex;
 
     // Store running tasks
     std::vector<Task> runningTasks;
-    std::mutex runningMutex;
+    std::mutex runningTasksMutex;
+    std::atomic<int> processedCount;
+    std::mutex progressMutex;
+    // Create a thread pool for our tasks
+   
+        
+    for (int cubeIndex = 0; cubeIndex < cubeImages.size(); ++cubeIndex) {
+        // Launch deconvolution task (this already runs asynchronously)
+        auto future = deconvolveSingleCube(cubeIndex, cubeImages[cubeIndex]);
 
-    // Producer thread (submits tasks)
-    std::thread producerThread([&]() {
-        for (int cubeIndex = 0; cubeIndex < cubeImages.size(); cubeIndex++) {
-            auto future = deconvolveSingleCube(cubeIndex, cubeImages[cubeIndex]);
-            
-            {
-                std::lock_guard<std::mutex> lock(runningMutex);
-                runningTasks.emplace_back(Task{cubeIndex, std::move(future)});
-            }
-            
-            tasksSubmitted++;
-        }
-        allTasksSubmitted = true;
-    });
+        // Spawn a continuation task in the same thread pool
+        threadPool->enqueue([&, cubeIndex, f = std::move(future)]() mutable {
+            try {
+                // Wait for the deconvolution result
+                ComplexData deconvolvedImage = f.get();
 
-    // Monitor thread (checks for completed tasks)
-    std::thread monitorThread([&]() {
-        while (!allTasksSubmitted || !runningTasks.empty()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            
-            std::lock_guard<std::mutex> runLock(runningMutex);
-            auto it = runningTasks.begin();
-            
-            while (it != runningTasks.end()) {
-                if (it->future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-                    // Task is completed, move to completed queue
-                    {
-                        std::lock_guard<std::mutex> queueLock(queueMutex);
-                        completedTasks.push(std::move(*it));
-                        std::cout << "[DEBUG] Task " << it->cubeIndex << " completed, queue size: " 
-                                  << completedTasks.size() << std::endl;
-                    }
-                    taskAvailable.notify_one();
-                    it = runningTasks.erase(it);
-                } else {
-                    ++it;
-                }
-            }
-        }
-    });
-
-    // Consumer thread (writer)
-    std::thread consumerThread([&]() {
-        int processedCount = 0;
-        while (processedCount < cubeImages.size()) {
-            Task task;
-            bool hasTask = false;
-
-            // Wait for a task to be available
-            {
-                std::unique_lock<std::mutex> lock(queueMutex);
-
-
-                taskAvailable.wait(lock, [&] { 
-                    return !completedTasks.empty() || 
-                           (allTasksSubmitted && processedCount >= tasksSubmitted.load()); 
-                });
-
-                if (!completedTasks.empty()) {
-                    task = std::move(completedTasks.front());
-                    completedTasks.pop();
-                    hasTask = true;
-                }
-            }
-
-            if (hasTask) {
-                loadingBar(processedCount++, cubeImages.size());
-                
-                // Process result
-                ComplexData deconvolvedImage = task.future.get();
-                std::cout << "[DEBUG] Writing result to cubeImages[" << task.cubeIndex << "]" << std::endl;
-                
-                // Thread-safe assignment to cubeImages
-                {
-                    std::lock_guard<std::mutex> lock(cubeImagesMutex);
-                    cubeImages[task.cubeIndex] = convertFFTWComplexToCVMatVector(deconvolvedImage);
-                }
-                
+                // Consume the result
+                cubeImages[cubeIndex] = convertFFTWComplexToCVMatVector(deconvolvedImage);
                 backend_->freeMemoryOnDevice(deconvolvedImage);
-                
-                
-                // Log queue status
+
+                // Optional: update progress
                 {
-                    std::lock_guard<std::mutex> lock(queueMutex);
-                    std::cout << "[DEBUG] Queue length: " << completedTasks.size() << std::endl;
+                    std::lock_guard<std::mutex> lock(progressMutex);
+                    loadingBar(++processedCount, cubeImages.size());
                 }
+            } catch (const std::exception& e) {
+                std::lock_guard<std::mutex> lock(progressMutex);
+                std::cerr << "Error in cube " << cubeIndex << ": " << e.what() << std::endl;
             }
-        }
-    });
+        });
+    }
+    // Producer task
+    // auto producerFuture = threadPool->enqueue([&]() {
+    //     for (int cubeIndex = 0; cubeIndex < cubeImages.size(); cubeIndex++) {
+    //         auto future = deconvolveSingleCube(cubeIndex, cubeImages[cubeIndex]);
+            
+    //         {
+    //             std::lock_guard<std::mutex> lock(runningTasksMutex);
+    //             runningTasks.emplace_back(Task{cubeIndex, std::move(future)});
+    //         }
+            
+    //         tasksSubmitted++;
+    //     }
+    //     allTasksSubmitted = true;
+    // });
+
+    // // Monitor task
+    // auto monitorFuture = threadPool->enqueue([&]() {
+    //     while (!allTasksSubmitted || !runningTasks.empty()) {
+    //         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            
+    //         std::lock_guard<std::mutex> runLock(runningTasksMutex);
+    //         auto it = runningTasks.begin();
+            
+    //         while (it != runningTasks.end()) {
+    //             if (it->future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+    //                 // Task is completed, move to completed queue
+    //                 {
+    //                     std::lock_guard<std::mutex> queueLock(completedTasksMutex);
+    //                     completedTasks.push(std::move(*it));
+    //                 }
+    //                 taskAvailable.notify_one();
+    //                 it = runningTasks.erase(it);
+    //             } else {
+    //                 ++it;
+    //             }
+    //         }
+    //     }
+    // });
+
+    // // Consumer task
+    // auto consumerFuture = threadPool->enqueue([&]() {
+    //     int processedCount = 0;
+    //     while (processedCount < cubeImages.size()) {
+    //         Task task;
+    //         bool hasTask = false;
+
+    //         // Wait for a task to be available
+    //         {
+    //             std::unique_lock<std::mutex> lock(completedTasksMutex);
 
 
+    //             taskAvailable.wait(lock, [&] { 
+    //                 return !completedTasks.empty() || 
+    //                        (allTasksSubmitted && processedCount >= tasksSubmitted.load()); 
+    //             });
 
-    producerThread.join();
-    monitorThread.join();
-    consumerThread.join();
+    //             if (!completedTasks.empty()) {
+    //                 task = std::move(completedTasks.front());
+    //                 completedTasks.pop();
+    //                 hasTask = true;
+    //             }
+    //         }
+
+    //         if (hasTask) {
+    //             loadingBar(processedCount++, cubeImages.size());
+    //             ComplexData deconvolvedImage = task.future.get();
+    //             cubeImages[task.cubeIndex] = convertFFTWComplexToCVMatVector(deconvolvedImage);
+    //             backend_->freeMemoryOnDevice(deconvolvedImage);
+                 
+    //         }
+    //     }
+    // });
+
+    // Wait for all tasks to complete
+    // producerFuture.get();   // Wait for producer to finish
+    // monitorFuture.get();    // Wait for monitor to finish  
+    // consumerFuture.get();   // Wait for consumer to finish
 }
 
 std::future<ComplexData> DeconvolutionProcessor::deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage) {
+
+    // copy operations
     ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage, cubeShapePadded);
     ComplexData g_device = backend_->moveDataToDevice(g_host);
     cpu_backend_->freeMemoryOnDevice(g_host);
@@ -351,22 +316,25 @@ std::future<ComplexData> DeconvolutionProcessor::deconvolveSingleCube(int cubeIn
     }
 
 
+
+
     if (psfs.size() == 0) {
         std::cout << "[INFO] using no psf for cube " << cubeIndex << std::endl;
         backend_->freeMemoryOnDevice(g_host);
     }
 
-    auto deconvolutionFunc = [cubeShapePadded = this->cubeShapePadded]
-        (std::vector<ComplexData>& psfs_device, 
-        ComplexData& g_device,
-        const std::unique_ptr<DeconvolutionAlgorithm>& algorithm,
-        std::shared_ptr<IDeconvolutionBackend> backend) -> ComplexData {
-        return processDeconvolution(psfs_device, g_device, cubeShapePadded, algorithm, backend);
-    };    
+    // auto deconvolutionFunc = [cubeShapePadded = this->cubeShapePadded]
+    //     (std::vector<ComplexData>& psfs_device, 
+    //     ComplexData& g_device,
+    //     const std::unique_ptr<DeconvolutionAlgorithm>& algorithm,
+    //     std::shared_ptr<IDeconvolutionBackend> backend) -> ComplexData {
+    // };   
+    std::future<ComplexData> future = threadPool->enqueue([psfs_device, g_device, workSize = cubeShapePadded, algorithm = std::move(algorithm_->clone()), backend = backend_]() mutable { 
+        return processDeconvolution(psfs_device, g_device, workSize, algorithm, backend);
+    });
         
-    std::future<ComplexData> future = threadManager_->registerTask(
-        psfs_device, g_device, deconvolutionFunc);
-    // need to pass all of this as nonconst, because the thread itself has to delete these even if its on cpu, how do i manage this?
+    // std::future<ComplexData> future = deconvolutionBackendThreadManager->registerTask(
+    //     psfs_device, g_device, deconvolutionFunc);
 
     return future;
  
@@ -466,20 +434,19 @@ void DeconvolutionProcessor::init(const Hyperstack& input, const std::vector<PSF
 
     setImageOriginalShape(input.channels[0]);
     setPSFOriginalShape(psfs.front());
-    setCubeShape(imageOriginalShape, config.grid, RectangleShape(config.subimageSize, config.subimageSize, config.subimageSize));
+    setSubimageShape(imageOriginalShape, config.grid, config.subimageSize);
     addPaddingToShapes(psfOriginalShape);
     setupCubeArrangement();
    
 
     cpu_backend_->init(cubeShapePadded); // for psf preprocessing
 
-    backend_->init(cubeShapePadded);
+    backend_->setWorkShape(cubeShapePadded); // not initialized, only used for copying, not fftw
 
-    this->algorithm_->setBackend(backend_);
-
-    size_t maxThreads = 11; //TODO where should this be defined?
-
-    threadManager_ = std::make_unique<ThreadManager>(maxThreads, algorithm_->clone(), backend_);
+    size_t maxThreads = 10; //TODO where should this be defined?
+    threadPool = std::make_shared<ThreadPool>(maxThreads);
+    size_t numberWorkerThreads = getNumberThreads(maxThreads);
+    // deconvolutionBackendThreadManager = std::make_unique<DeconvolutionBackendThreadManager>(threadPool, numberWorkerThreads, algorithm_->clone(), backend_);
     preprocessPSF(psfs);
 
 }
@@ -550,10 +517,10 @@ void DeconvolutionProcessor::setImageOriginalShape(const Channel& channel) {
     imageOriginalShape.volume = imageOriginalShape.width * imageOriginalShape.height * imageOriginalShape.depth;
 }
 
-void DeconvolutionProcessor::setCubeShape(
+void DeconvolutionProcessor::setSubimageShape(
     const RectangleShape& imageOriginalShape,
     bool configgrid,
-    const RectangleShape& subimageSize
+    int subimageSize 
 ) {
     if (!configgrid) {
         // Non-grid processing - cube equals entire image
@@ -563,9 +530,9 @@ void DeconvolutionProcessor::setCubeShape(
         subimageShape.volume = subimageShape.width * subimageShape.height * subimageShape.depth;
         std::cout << "[INFO] Processing without grid" << std::endl;
     } else {
-        subimageShape.width = std::max(subimageSize.width, psfOriginalShape.width);
-        subimageShape.height = std::max(subimageSize.height, psfOriginalShape.height);
-        subimageShape.depth = std::max(subimageSize.depth, psfOriginalShape.depth);
+        subimageShape.width = std::min(subimageSize, imageOriginalShape.width);
+        subimageShape.height = std::min(subimageSize, imageOriginalShape.height);
+        subimageShape.depth = std::min(subimageSize, imageOriginalShape.depth);
         subimageShape.volume = subimageShape.width * subimageShape.height * subimageShape.depth;
 
     }
@@ -600,6 +567,7 @@ void DeconvolutionProcessor::preprocessPSF(
             preparedpsfs.push_back(h);
 
         }
+        
         initPSFMaps(inputPSFs);
 
 }
@@ -667,6 +635,10 @@ void DeconvolutionProcessor::cleanup() {
 // basically using the raw psf and raw ranges to map to the prepared psfs
 // refactor
 void DeconvolutionProcessor::initPSFMaps(const std::vector<PSF>& psfs){
+    if (config.layerPSFMap.empty() && config.cubePSFMap.empty()){
+        layerPreparedPSFMap.addRange(0, -1, preparedpsfs[0]); // failsafe
+        return;
+    }
     for (const auto& range : config.layerPSFMap) {
         for (int psfindex = 0; psfindex < psfs.size(); psfindex++) {
             std::string ID = psfs[psfindex].ID;
@@ -684,6 +656,68 @@ int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
     return static_cast<int>(std::ceil(static_cast<double>((cubeIndex)) / cubesPerLayer));
 }
 
+size_t DeconvolutionProcessor::getNumberThreads(size_t maxNumberThreads){
+    assert(backend_->isInitialized() && "[ERROR] DeconvolutionBackendThreadManager: Backend must be initialized");
 
 
+    size_t memoryPerCube = sizeof(complex) * cubeShapePadded.volume; 
+    size_t backendMemoryMultiplier = backend_->getMemoryMultiplier();
+    size_t algorithmMemoryMultiplier = algorithm_->getMemoryMultiplier();
+    size_t memoryPerThread = memoryPerCube * (backendMemoryMultiplier + algorithmMemoryMultiplier); // * 2 for forward and backward fft plan, * 3 for inputimage, psf, outputimage (backend already includes 3 input copies)
+    size_t availableMemory = backend_->getAvailableMemory();
 
+    size_t possibleNumberThreads = availableMemory / memoryPerThread;
+    size_t numberThreads = std::min(possibleNumberThreads, maxNumberThreads);
+
+    if (numberThreads < 1){
+        throw;
+    }
+    return numberThreads; 
+}
+// unused
+
+// void convertFFTWComplexRealToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) {
+//     try {
+//         int width = input.size.width;
+//         int height = input.size.height;
+//         int depth = input.size.depth;
+        
+//         std::vector<cv::Mat> tempOutput;
+//         for (int z = 0; z < depth; ++z) {
+//             cv::Mat result(height, width, CV_32F);
+//             for (int y = 0; y < height; ++y) {
+//                 for (int x = 0; x < width; ++x) {
+//                     int index = z * height * width + y * width + x;
+//                     result.at<float>(y, x) = input.data[index][0];
+//                 }
+//             }
+//             tempOutput.push_back(result);
+//         }
+//         output = tempOutput;
+//     } catch (const std::exception& e) {
+//         std::cerr << "[ERROR] Exception in convertFFTWComplexRealToCVMatVector: " << e.what() << std::endl;
+//     }
+// }
+
+// void convertFFTWComplexImgToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) {
+//     try {
+//         int width = input.size.width;
+//         int height = input.size.height;
+//         int depth = input.size.depth;
+        
+//         std::vector<cv::Mat> tempOutput;
+//         for (int z = 0; z < depth; ++z) {
+//             cv::Mat result(height, width, CV_32F);
+//             for (int y = 0; y < height; ++y) {
+//                 for (int x = 0; x < width; ++x) {
+//                     int index = z * height * width + y * width + x;
+//                     result.at<float>(y, x) = input.data[index][1];
+//                 }
+//             }
+//             tempOutput.push_back(result);
+//         }
+//         output = tempOutput;
+//     } catch (const std::exception& e) {
+//         std::cerr << "[ERROR] Exception in convertFFTWComplexImgToCVMatVector: " << e.what() << std::endl;
+//     }
+// }

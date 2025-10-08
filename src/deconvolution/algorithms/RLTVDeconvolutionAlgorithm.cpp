@@ -96,5 +96,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::clone() cons
 }
 
 size_t RLTVDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 5; // Allocates 5 additional arrays of input size (c, gx, gy, gz, tv)
+    return 8; // Allocates 5 additional arrays of input size (c, gx, gy, gz, tv) + 3 input copies
 }

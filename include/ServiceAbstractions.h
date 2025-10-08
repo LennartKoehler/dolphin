@@ -126,7 +126,7 @@ public:
     bool show_example = false;
     bool print_info = false;
     // int num_threads = 1;
-    std::string output_path = "../result/deconv.tif";
+    std::string output_path = "../results/deconv.tif";
     
     
 private:

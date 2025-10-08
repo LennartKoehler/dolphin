@@ -10,6 +10,7 @@ public:
 
     // Core processing functions
     void init(const RectangleShape& shape) override;
+    void setWorkShape(const RectangleShape& shape) override;
     void postprocess() override;
     virtual std::shared_ptr<IDeconvolutionBackend> clone() const override ;
 
@@ -68,6 +69,7 @@ public:
     size_t getWorkSize() const override;
     RectangleShape getWorkShape() const override;
     size_t getAvailableMemory() override;
+    size_t getMemoryMultiplier() const override;
 
 
 private:

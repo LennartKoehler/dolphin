@@ -6,7 +6,7 @@
 #include "IDeconvolutionBackend.h"
 #include "DeconvolutionAlgorithmFactory.h"
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
-#include "deconvolution/ThreadManager.h"
+#include "deconvolution/DeconvolutionBackendThreadManager.h"
 
 
 struct CubeArrangement{
@@ -73,10 +73,10 @@ protected:
 
     void setPSFOriginalShape(const PSF& psf);
     void setImageOriginalShape(const Channel& channel);
-    void setCubeShape(
+    void setSubimageShape(
         const RectangleShape& imageOriginalShape,
         bool configgrid,
-        const RectangleShape& subimageSize
+        int subimageSize 
     );
     void addPaddingToShapes(const RectangleShape& padding);
 
@@ -90,8 +90,11 @@ private:
     void setupCubeArrangement();
     int getLayerIndex(int cubeIndex, int cubesPerLayer);
     void parallelDeconvolution(std::vector<std::vector<cv::Mat>>& cubeImages);
+    size_t getNumberThreads(size_t maxNumberThreads);
 
-    std::unique_ptr<ThreadManager> threadManager_;
+    std::shared_ptr<ThreadPool> threadPool;
+    std::unique_ptr<DeconvolutionBackendThreadManager> deconvolutionBackendThreadManager;
+    size_t numberThreads;
     bool configured = false;
 
 };

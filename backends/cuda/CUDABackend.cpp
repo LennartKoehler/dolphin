@@ -22,6 +22,7 @@ CUDABackend::~CUDABackend() {
 }
 
 std::shared_ptr<IDeconvolutionBackend> CUDABackend::clone() const{
+    assert(this->shapeInitialized_ && "[ERROR] CUDABackend: shape must be initialized in order to clone");
     auto copy = std::make_unique<CUDABackend>();
     copy->workShape = this->workShape;
     copy->workSize = this->workSize;
@@ -41,6 +42,14 @@ void CUDABackend::init(const RectangleShape& shape) {
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in CUDA preprocessing: " << e.what() << std::endl;
     }
+}
+
+void CUDABackend::setWorkShape(const RectangleShape& shape) {
+    // Update work shape and size without recreating FFT plans
+    workShape = shape;
+    workSize = sizeof(complex) * shape.volume;
+    std::cout << "[STATUS] CUDA backend work shape updated" << std::endl;
+    shapeInitialized_ = true;
 }
 
 void CUDABackend::postprocess() {
@@ -205,11 +214,10 @@ void CUDABackend::freeMemoryOnDevice(ComplexData& srcdata){
 }
 
 void CUDABackend::initializeFFTPlans(const RectangleShape& cube) {
-    if (plansInitialized) return;
+    if (plansInitialized_) return;
     
     try {
         // Allocate temporary memory for plan creation
-        workShape = cube;
         workSize = sizeof(complex) * cube.volume;
         // Create forward FFT plan
         cufftCreate(&this->forwardPlan);
@@ -220,15 +228,15 @@ void CUDABackend::initializeFFTPlans(const RectangleShape& cube) {
         cufftCreate(&this->backwardPlan);
         cufftMakePlan3d(this->backwardPlan, cube.depth, cube.height, cube.width, CUFFT_Z2Z, &workSize);
 
-        workSize = sizeof(complex) * cube.volume; 
-        plansInitialized = true;
-    } catch (const std::exception& e) {
+        setWorkShape(cube);
+        plansInitialized_ = true;
+     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in FFT plan initialization: " << e.what() << std::endl;
     }
 }
 
 void CUDABackend::destroyFFTPlans() {
-    if (plansInitialized) {
+    if (plansInitialized_) {
         if (forwardPlan) {
             cufftDestroy(forwardPlan);
             forwardPlan = CUFFT_PLAN_NULL;
@@ -237,7 +245,7 @@ void CUDABackend::destroyFFTPlans() {
             cufftDestroy(backwardPlan);
             backwardPlan = CUFFT_PLAN_NULL;
         }
-        plansInitialized = false;
+        plansInitialized_ = false;
     }
 }
 
@@ -615,9 +623,6 @@ void CUDABackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexDat
 }
 
 size_t CUDABackend::getWorkSize() const {
-    if (!plansInitialized) {
-        return 0;
-    }
     return workSize;
 }
 
@@ -634,6 +639,10 @@ size_t CUDABackend::getAvailableMemory() {
     
     return freeMem;
 
+}
+
+size_t CUDABackend::getMemoryMultiplier() const {
+    return 2; // forward and backward fftw plan
 }
 
 extern "C" IDeconvolutionBackend* create_backend() {

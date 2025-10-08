@@ -26,7 +26,7 @@
             "name": "Debug dolphin config",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${command:cmake.launchTargetPath}", // your built binary
+            "program": "${command:cmake.launchTargetPath}",
             "args": [
                 "deconvolution",
                 "-c", "../configs/default_config.json"
@@ -49,6 +49,17 @@
                 "ignoreFailures": true
             }
             ]
-        }
+        },
+        {
+            "name": "Debug dolphin GUI",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb"
+        },
     ]
 }

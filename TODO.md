@@ -1,21 +1,24 @@
-- fix backend getMemoryUsage
+- check memory usage implementation
+- maybe there should only be one threadpool, and everywhere new threads are started they simply enqueue a function and the available thread will then manage that
+- implement cubepsfmap, do we even need it?
 
+- make subimagesize a rectangleshape or make it if subimage size > originalimagesize to cap to that
+
+- fftw plans could be passed around the backends, this seperates state from functionality
 
 - ask zoltan about image extension and padding, why should i pad the psf? makes sense that the cubes are padded
-- grid processing in parallel
 - manage the memory, currently it will hapily go out of memory on cpu and gpu without grid processing
 - check if the deconvolutionalgorithms are correct
-- who should set backend type, setupconfig or deconvconfig
 
-- test refactor with rldeconv
 
-- refactor all other deconv algorithms
+
+
+
 
 
 
 GUI:
 a event system which lets lower layer windows be able to ocmmunicate with higher level would be nice
-
 
 
 
