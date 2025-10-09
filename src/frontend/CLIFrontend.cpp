@@ -132,6 +132,7 @@ void CLIFrontend::readCLIParametersDeconvolution() {
     cli_group->add_option("--lambda", deconvolutionConfig.lambda, "Lambda regularization parameter [1e-2] (for 'rif' and 'rltv')");
     cli_group->add_option("--borderType", deconvolutionConfig.borderType, "Border for extended image [2](0-constant, 1-replicate, 2-reflecting)")->check(CLI::PositiveNumber);
     cli_group->add_option("--subimageSize", deconvolutionConfig.subimageSize, "CubeSize/EdgeLength for sub-images of grid [0] (0-auto fit to PSF)")->check(CLI::PositiveNumber);
+    cli_group->add_option("--nThreads", deconvolutionConfig.nThreads, "Number of threads to use for deconvolution")->check(CLI::PositiveNumber);
     cli_group->add_flag("--grid", deconvolutionConfig.grid, "Image divided into sub-image cubes (grid)");
     cli_group->add_flag("--backenddeconv", deconvolutionConfig.backenddeconv, "Type of Backend for Deconvolution ('cuda'/'cpu')");
 }

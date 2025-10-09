@@ -21,15 +21,6 @@ CUDABackend::~CUDABackend() {
     destroyFFTPlans();
 }
 
-std::shared_ptr<IDeconvolutionBackend> CUDABackend::clone() const{
-    assert(this->shapeInitialized_ && "[ERROR] CUDABackend: shape must be initialized in order to clone");
-    auto copy = std::make_unique<CUDABackend>();
-    copy->workShape = this->workShape;
-    copy->workSize = this->workSize;
-    copy->init(getWorkShape());
-    return copy;
-    
-}
 
 void CUDABackend::init(const RectangleShape& shape) {
     try {
@@ -44,15 +35,8 @@ void CUDABackend::init(const RectangleShape& shape) {
     }
 }
 
-void CUDABackend::setWorkShape(const RectangleShape& shape) {
-    // Update work shape and size without recreating FFT plans
-    workShape = shape;
-    workSize = sizeof(complex) * shape.volume;
-    std::cout << "[STATUS] CUDA backend work shape updated" << std::endl;
-    shapeInitialized_ = true;
-}
 
-void CUDABackend::postprocess() {
+void CUDABackend::cleanup() {
     try {
         // Clean up CUDA resources if needed
         destroyFFTPlans();
@@ -214,28 +198,29 @@ void CUDABackend::freeMemoryOnDevice(ComplexData& srcdata){
 }
 
 void CUDABackend::initializeFFTPlans(const RectangleShape& cube) {
+    std::unique_lock<std::mutex> lock(backendMutex);
     if (plansInitialized_) return;
     
     try {
         // Allocate temporary memory for plan creation
-        workSize = sizeof(complex) * cube.volume;
+        size_t tempSize = sizeof(complex) * cube.volume;
         // Create forward FFT plan
         cufftCreate(&this->forwardPlan);
-        cufftMakePlan3d(this->forwardPlan, cube.depth, cube.height, cube.width, CUFFT_Z2Z, &workSize);
+        cufftMakePlan3d(this->forwardPlan, cube.depth, cube.height, cube.width, CUFFT_Z2Z, &tempSize);
 
         
         // Create backward FFT plan
         cufftCreate(&this->backwardPlan);
-        cufftMakePlan3d(this->backwardPlan, cube.depth, cube.height, cube.width, CUFFT_Z2Z, &workSize);
+        cufftMakePlan3d(this->backwardPlan, cube.depth, cube.height, cube.width, CUFFT_Z2Z, &tempSize);
 
-        setWorkShape(cube);
-        plansInitialized_ = true;
      } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in FFT plan initialization: " << e.what() << std::endl;
     }
 }
 
 void CUDABackend::destroyFFTPlans() {
+    std::unique_lock<std::mutex> lock(backendMutex);
+
     if (plansInitialized_) {
         if (forwardPlan) {
             cufftDestroy(forwardPlan);
@@ -435,46 +420,7 @@ void CUDABackend::complexDivisionStabilized(const ComplexData& a, const ComplexD
 
 
 
-// // PSF Operations
-// void CUDABackend::padPSF(const ComplexData& psf, ComplexData& padded_psf) {
-//     try {
-//         // Create temporary copy for shifting
-//         ComplexData temp_psf = copyData(psf);
-//         octantFourierShift(temp_psf);
-        
-//         // Zero out padded PSF
-//         for (int i = 0; i < padded_psf.size.volume; ++i) {
-//             padded_psf.data[i][0] = 0.0;
-//             padded_psf.data[i][1] = 0.0;
-//         }
 
-//         if (psf.size.depth > padded_psf.size.depth) {
-//             std::cerr << "[ERROR] PSF has more layers than target size" << std::endl;
-//         }
-
-//         int x_offset = (padded_psf.size.width - psf.size.width) / 2;
-//         int y_offset = (padded_psf.size.height - psf.size.height) / 2;
-//         int z_offset = (padded_psf.size.depth - psf.size.depth) / 2;
-
-//         for (int z = 0; z < psf.size.depth; ++z) {
-//             for (int y = 0; y < psf.size.height; ++y) {
-//                 for (int x = 0; x < psf.size.width; ++x) {
-//                     int padded_index = ((z + z_offset) * padded_psf.size.height + (y + y_offset)) * padded_psf.size.width + (x + x_offset);
-//                     int psf_index = (z * psf.size.height + y) * psf.size.width + x;
-
-//                     padded_psf.data[padded_index][0] = temp_psf.data[psf_index][0];
-//                     padded_psf.data[padded_index][1] = temp_psf.data[psf_index][1];
-//                 }
-//             }
-//         }
-//         octantFourierShift(padded_psf);
-        
-//         // Clean up temporary data
-//         cudaFree(temp_psf.data);
-//     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in padPSF: " << e.what() << std::endl;
-//     }
-// }
 
 // Specialized Functions
 void CUDABackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) {
@@ -504,20 +450,7 @@ void CUDABackend::rescaledInverse(ComplexData& data, double cubeVolume) {
     }
 }
 
-// void CUDABackend::saveInterimImages(const ComplexData& resultImage, int gridNum, int channel_z, int i) {
-//     try {
-//         std::vector<cv::Mat> debugImage;
-//         convertFFTWComplexToCVMatVector(resultImage, debugImage);
-//         for (int k = 0; k < debugImage.size(); k++) {
-//             cv::normalize(debugImage[k], debugImage[k], 0, 255, cv::NORM_MINMAX);
-//             cv::imwrite(
-//                 "../result/debug/debug_image_" + std::to_string(channel_z) + "_" + std::to_string(gridNum) + "_iter_" +
-//                 std::to_string(i) + "_slice_" + std::to_string(k) + ".png", debugImage[k]);
-//         }
-//     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in saveInterimImages: " << e.what() << std::endl;
-//     }
-// }
+
 
 // Layer and Visualization Functions
 void CUDABackend::reorderLayers(ComplexData& data) {
@@ -622,16 +555,10 @@ void CUDABackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexDat
     }
 }
 
-size_t CUDABackend::getWorkSize() const {
-    return workSize;
-}
-
-RectangleShape CUDABackend::getWorkShape() const {
-    return workShape;
-}
 
 size_t CUDABackend::getAvailableMemory() {
     // For CUDA backend, return available GPU memory
+    std::unique_lock<std::mutex> lock(backendMutex);
     cudaError_t cudaStatus;
     
     size_t freeMem, totalMem;
@@ -640,11 +567,6 @@ size_t CUDABackend::getAvailableMemory() {
     return freeMem;
 
 }
-
-size_t CUDABackend::getMemoryMultiplier() const {
-    return 2; // forward and backward fftw plan
-}
-
 extern "C" IDeconvolutionBackend* create_backend() {
     return new CUDABackend();
 }

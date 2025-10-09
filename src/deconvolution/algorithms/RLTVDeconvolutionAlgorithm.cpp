@@ -85,7 +85,7 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexD
     backend->freeMemoryOnDevice(tv);
 }
 
-std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::clone() const {
+std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecific() const {
     auto copy = std::make_unique<RLTVDeconvolutionAlgorithm>();
     // Copy all relevant state
     copy->iterations = this->iterations;

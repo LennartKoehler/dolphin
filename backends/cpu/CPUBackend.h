@@ -10,9 +10,7 @@ public:
 
     // Core processing functions
     void init(const RectangleShape& shape) override;
-    void setWorkShape(const RectangleShape& shape) override;
-    void postprocess() override;
-    virtual std::shared_ptr<IDeconvolutionBackend> clone() const override ;
+    void cleanup() override;
 
     // Data management
     void allocateMemoryOnDevice(ComplexData& data) override;
@@ -66,10 +64,8 @@ public:
     void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) override;
 
     // Memory usage function
-    size_t getWorkSize() const override;
-    RectangleShape getWorkShape() const override;
+
     size_t getAvailableMemory() override;
-    size_t getMemoryMultiplier() const override;
 
 
 private:
@@ -78,6 +74,5 @@ private:
 
     fftw_plan forwardPlan;
     fftw_plan backwardPlan;
-    size_t workSize;
-    RectangleShape workShape;
+
 };

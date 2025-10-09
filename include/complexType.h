@@ -12,8 +12,33 @@ struct RectangleShape{
         : width(width),
         height(height),
         depth(depth){
-            volume = width * height * depth;
+           updateVolume(); 
         }
+    inline void updateVolume(){
+        volume = width * height * depth;
+    }
+    inline void clamp(const RectangleShape& maxSize){
+        this->width = std::min(this->width, maxSize.width);
+        this->height = std::min(this->height, maxSize.height);
+        this->depth = std::min(this->depth, maxSize.depth);
+        this->volume = width * height * depth;
+    }
+    std::array<int*, 3> getDimensionsAscending()
+    {
+        // Create an array of pointers to members
+        std::array<int*, 3> dims = { &width, &height, &depth };
+
+        // Sort pointers based on the values they point to
+        std::sort(dims.begin(), dims.end(),
+            [](const int* a, const int* b) {
+                return *a < *b;  // ascending order
+            });
+
+        return dims;
+    }
+    inline bool operator!=(const RectangleShape& other){
+        return (this->height != other.height || this->width != other.width || this->depth != other.depth || this->volume != other.volume);
+    }
     inline RectangleShape operator-(const RectangleShape& other) const {
         return RectangleShape(this->width - other.width,
             this->height - other.height,
@@ -28,6 +53,9 @@ struct RectangleShape{
         return RectangleShape(this->width/value, this->height/value, this->depth/value);
     }
     inline RectangleShape operator*(const int value) const {
+        return RectangleShape(this->width*value, this->height*value, this->depth*value);
+    }
+    inline RectangleShape operator*(const double value) const {
         return RectangleShape(this->width*value, this->height*value, this->depth*value);
     }
     inline RectangleShape operator+(const int value) const {
