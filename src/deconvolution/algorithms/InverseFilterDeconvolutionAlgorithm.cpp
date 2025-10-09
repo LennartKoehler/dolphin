@@ -45,7 +45,7 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const
     backend->freeMemoryOnDevice(temp_g);
 }
 
-std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::clone() const {
+std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::cloneSpecific() const {
     auto copy = std::make_unique<InverseFilterDeconvolutionAlgorithm>();
     // Copy all relevant state
     copy->epsilon = this->epsilon;

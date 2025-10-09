@@ -61,7 +61,7 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexDat
 
 
 
-std::unique_ptr<DeconvolutionAlgorithm> RLDeconvolutionAlgorithm::clone() const {
+std::unique_ptr<DeconvolutionAlgorithm> RLDeconvolutionAlgorithm::cloneSpecific() const {
     auto copy = std::make_unique<RLDeconvolutionAlgorithm>();
     // Copy all relevant state
     copy->iterations = this->iterations;

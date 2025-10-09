@@ -241,7 +241,8 @@ private:
     PARAM(int, borderType, cv::BORDER_REFLECT, true) \
     PARAM(bool, time, false, true)\
     PARAM(bool, saveSubimages, false, true)\
-    PARAM(std::string, backenddeconv, "cpu", true)
+    PARAM(std::string, backenddeconv, "cpu", true)\
+    PARAM(int, nThreads, 1, false)
 
 class DeconvolutionConfig : public Config{
 public:
