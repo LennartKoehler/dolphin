@@ -31,7 +31,7 @@ void UIDeconvolutionConfig::setDeconvolutionConfigParameters(std::shared_ptr<Dec
         {"Grid Processing", ParameterType::Bool, &deconvolutionConfig->grid, 0.0, 1.0},
         {"Subimage Size", ParameterType::Int, &deconvolutionConfig->subimageSize, 0, 10000},
         {"Border Type", ParameterType::Int, &deconvolutionConfig->borderType, 0, 5},
-        
+        {"Number Threads", ParameterType::Int, &deconvolutionConfig->nThreads, 0, 100}, 
 
 
         // not supported in gui yet

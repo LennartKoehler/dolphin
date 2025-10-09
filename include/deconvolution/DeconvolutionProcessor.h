@@ -6,8 +6,7 @@
 #include "IDeconvolutionBackend.h"
 #include "DeconvolutionAlgorithmFactory.h"
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
-#include "deconvolution/DeconvolutionBackendThreadManager.h"
-
+#include "ThreadPool.h"
 
 struct CubeArrangement{
     int cubesPerX;      // Number of cubes along X axis
@@ -39,15 +38,49 @@ public:
     void cleanup();
 
 
-    virtual void configure(DeconvolutionConfig config);
+    virtual void configure(const DeconvolutionConfig config);
 
-protected:
-    std::shared_ptr<IDeconvolutionBackend> cpu_backend_;
-    std::shared_ptr<IDeconvolutionBackend> backend_; //TODO never initialized
-    std::shared_ptr<DeconvolutionAlgorithm> algorithm_;
+
+private:
+ 
+
+    void init(const Hyperstack& input, const std::vector<PSF>& psfs);
+    std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, const std::vector<std::vector<cv::Mat>>& gridImages);
+    
+    void preprocessPSF(std::vector<PSF> inputPSFs);
+    std::vector<std::vector<cv::Mat>> preprocessChannel(Channel& channel);
+
+    void setPSFOriginalShape(const PSF& psf);
+    void setImageOriginalShape(const Channel& channel);
+    void setWorkShapes(
+        const RectangleShape& imageOriginalShape,
+        const RectangleShape& padding,
+        size_t subimageSize);
+
+    const std::vector<ComplexData> selectPSFsForCube(int cubeIndex);
+
+
+    void deconvolveSingleCube(
+        std::shared_ptr<IDeconvolutionBackend> backend,
+        std::unique_ptr<DeconvolutionAlgorithm> algorithm,
+        std::vector<cv::Mat>& cubeImage,
+        const RectangleShape& workShape,
+        const std::vector<ComplexData>& psfs_host);
+
+    void initPSFMaps(const std::vector<PSF>& psfs);
+    std::shared_ptr<IDeconvolutionBackend> loadBackend(const std::string& backendName);
+    void setupCubeArrangement();
+    int getLayerIndex(int cubeIndex, int cubesPerLayer);
+    void parallelDeconvolution(std::vector<std::vector<cv::Mat>>& cubeImages);
+    size_t getMemoryPerCube(size_t maxNumberThreads);
+
+
 
     DeconvolutionConfig config;
 
+    std::shared_ptr<IDeconvolutionBackend> cpu_backend_;
+    std::shared_ptr<IDeconvolutionBackend> backend_;
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm_;
 
 
     //multiple psfs
@@ -63,48 +96,13 @@ protected:
     RectangleShape cubeShapePadded; // dims both subimages/images and psf are during computation
     CubeArrangement cubes;
 
- 
-
-    void init(const Hyperstack& input, const std::vector<PSF>& psfs);
-    std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, const std::vector<std::vector<cv::Mat>>& gridImages);
-    
-    void preprocessPSF(std::vector<PSF> inputPSFs);
-    std::vector<std::vector<cv::Mat>> preprocessChannel(Channel& channel);
-
-    void setPSFOriginalShape(const PSF& psf);
-    void setImageOriginalShape(const Channel& channel);
-    void setSubimageShape(
-        const RectangleShape& imageOriginalShape,
-        bool configgrid,
-        int subimageSize 
-    );
-    void addPaddingToShapes(const RectangleShape& padding);
-
-    const std::vector<ComplexData> selectPSFsForCube(int cubeIndex);
-
-
-private:
-    std::future<ComplexData> deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage);
-    void initPSFMaps(const std::vector<PSF>& psfs);
-    std::shared_ptr<IDeconvolutionBackend> loadBackend(const std::string& backendName);
-    void setupCubeArrangement();
-    int getLayerIndex(int cubeIndex, int cubesPerLayer);
-    void parallelDeconvolution(std::vector<std::vector<cv::Mat>>& cubeImages);
-    size_t getNumberThreads(size_t maxNumberThreads);
-
+    //multithreading
     std::shared_ptr<ThreadPool> threadPool;
-    std::unique_ptr<DeconvolutionBackendThreadManager> deconvolutionBackendThreadManager;
     size_t numberThreads;
+
     bool configured = false;
 
 };
 
 
 
-// class DeconvolutionProcessorParallel : public DeconvolutionProcessor{
-//     virtual void deconvolveSingleCubePSF(complex* psf, std::vector<cv::Mat>& cubeImage) override;
-//     std::shared_ptr<IDeconvolutionBackend> getThreadLocalBackend();
-
-//     thread_local static std::shared_ptr<IDeconvolutionBackend> thread_backend_;
-
-// };

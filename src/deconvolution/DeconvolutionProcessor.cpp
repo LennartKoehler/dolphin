@@ -132,27 +132,7 @@ void loadingBar(int i, int max){
 
 //-----------------------------------------------------------
 
-static ComplexData processDeconvolution(
-    std::vector<ComplexData>& psfs_device,
-    ComplexData& g_device,
-    const RectangleShape& cubeShapePadded,
-    const std::unique_ptr<DeconvolutionAlgorithm>& algorithm,
-    std::shared_ptr<IDeconvolutionBackend> backend) {
-    
-    ComplexData f_device = backend->allocateMemoryOnDevice(cubeShapePadded);
 
-    for (ComplexData& psf : psfs_device){
-        algorithm->deconvolve(psf, g_device, f_device);
-        backend->freeMemoryOnDevice(psf);
-
-    }
-    ComplexData f_host = backend->moveDataFromDevice(f_device);
-
-    backend->freeMemoryOnDevice(g_device);
-    backend->freeMemoryOnDevice(f_device);
-
-    return f_host;
-}
 
 
 
@@ -160,6 +140,7 @@ static ComplexData processDeconvolution(
 Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>& psfs){
     init(input, psfs);
     Image3D deconvolutedImage;
+    std::cout << "[STATUS] Starting deconvolution" << std::endl;
 
     for (auto& channel : input.channels){
         std::vector<std::vector<cv::Mat>> cubeImages = preprocessChannel(channel);
@@ -178,166 +159,93 @@ Hyperstack DeconvolutionProcessor::run(Hyperstack& input, const std::vector<PSF>
 
 
 void DeconvolutionProcessor::parallelDeconvolution(std::vector<std::vector<cv::Mat>>& cubeImages) {
-    struct Task {
-        int cubeIndex;
-        std::future<ComplexData> future;
-    };
+    std::vector<std::future<void>> runningTasks;
+    std::atomic<int> processedCount(0);
+    std::mutex queueMutex;
+    std::condition_variable queueSpace;
+    std::mutex loadingBarMutex;
 
-    // Thread-safe queue for completed tasks
-    std::queue<Task> completedTasks;
-    std::mutex completedTasksMutex;
-    std::condition_variable taskAvailable;
-    std::atomic<int> tasksSubmitted(0);
-    bool allTasksSubmitted = false;
+    const int maxNumberWorkerThreads = numberThreads;
+    std::atomic<int> numberCubes(cubeImages.size());
 
-    // Store running tasks
-    std::vector<Task> runningTasks;
-    std::mutex runningTasksMutex;
-    std::atomic<int> processedCount;
-    std::mutex progressMutex;
-    // Create a thread pool for our tasks
-   
-        
-    for (int cubeIndex = 0; cubeIndex < cubeImages.size(); ++cubeIndex) {
-        // Launch deconvolution task (this already runs asynchronously)
-        auto future = deconvolveSingleCube(cubeIndex, cubeImages[cubeIndex]);
+    for (int cubeIndex = 0; cubeIndex < numberCubes; ++cubeIndex) {
+        // Wait if too many tasks are running
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
+            queueSpace.wait(lock, [&runningTasks, maxNumberWorkerThreads] {
+                // Clean up any completed tasks
+                runningTasks.erase(
+                    std::remove_if(
+                        runningTasks.begin(), runningTasks.end(),
+                        [](std::future<void>& f) {
+                            return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+                        }),
+                    runningTasks.end()
+                );
+                return static_cast<int>(runningTasks.size()) < maxNumberWorkerThreads;
+            });
+        }
 
-        // Spawn a continuation task in the same thread pool
-        threadPool->enqueue([&, cubeIndex, f = std::move(future)]() mutable {
-            try {
-                // Wait for the deconvolution result
-                ComplexData deconvolvedImage = f.get();
+        // Launch deconvolution asynchronously
+        std::vector<ComplexData> psfs = selectPSFsForCube(cubeIndex); //although psfs have a pointer to the actual data that is shared among the threads it should be safe as they are only read
+        runningTasks.push_back(threadPool->enqueue([&, cubeIndex, psfs]() {
+            deconvolveSingleCube(
+                backend_,
+                algorithm_->clone(),
+                cubeImages[cubeIndex],
+                cubeShapePadded,
+                psfs);
 
-                // Consume the result
-                cubeImages[cubeIndex] = convertFFTWComplexToCVMatVector(deconvolvedImage);
-                backend_->freeMemoryOnDevice(deconvolvedImage);
+            {
+                std::unique_lock<std::mutex> loack(loadingBarMutex);
+                loadingBar(++processedCount, numberCubes);
 
-                // Optional: update progress
-                {
-                    std::lock_guard<std::mutex> lock(progressMutex);
-                    loadingBar(++processedCount, cubeImages.size());
-                }
-            } catch (const std::exception& e) {
-                std::lock_guard<std::mutex> lock(progressMutex);
-                std::cerr << "Error in cube " << cubeIndex << ": " << e.what() << std::endl;
             }
-        });
+            queueSpace.notify_one(); // Signal that one thread is done
+        }));
     }
-    // Producer task
-    // auto producerFuture = threadPool->enqueue([&]() {
-    //     for (int cubeIndex = 0; cubeIndex < cubeImages.size(); cubeIndex++) {
-    //         auto future = deconvolveSingleCube(cubeIndex, cubeImages[cubeIndex]);
-            
-    //         {
-    //             std::lock_guard<std::mutex> lock(runningTasksMutex);
-    //             runningTasks.emplace_back(Task{cubeIndex, std::move(future)});
-    //         }
-            
-    //         tasksSubmitted++;
-    //     }
-    //     allTasksSubmitted = true;
-    // });
 
-    // // Monitor task
-    // auto monitorFuture = threadPool->enqueue([&]() {
-    //     while (!allTasksSubmitted || !runningTasks.empty()) {
-    //         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            
-    //         std::lock_guard<std::mutex> runLock(runningTasksMutex);
-    //         auto it = runningTasks.begin();
-            
-    //         while (it != runningTasks.end()) {
-    //             if (it->future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-    //                 // Task is completed, move to completed queue
-    //                 {
-    //                     std::lock_guard<std::mutex> queueLock(completedTasksMutex);
-    //                     completedTasks.push(std::move(*it));
-    //                 }
-    //                 taskAvailable.notify_one();
-    //                 it = runningTasks.erase(it);
-    //             } else {
-    //                 ++it;
-    //             }
-    //         }
-    //     }
-    // });
-
-    // // Consumer task
-    // auto consumerFuture = threadPool->enqueue([&]() {
-    //     int processedCount = 0;
-    //     while (processedCount < cubeImages.size()) {
-    //         Task task;
-    //         bool hasTask = false;
-
-    //         // Wait for a task to be available
-    //         {
-    //             std::unique_lock<std::mutex> lock(completedTasksMutex);
-
-
-    //             taskAvailable.wait(lock, [&] { 
-    //                 return !completedTasks.empty() || 
-    //                        (allTasksSubmitted && processedCount >= tasksSubmitted.load()); 
-    //             });
-
-    //             if (!completedTasks.empty()) {
-    //                 task = std::move(completedTasks.front());
-    //                 completedTasks.pop();
-    //                 hasTask = true;
-    //             }
-    //         }
-
-    //         if (hasTask) {
-    //             loadingBar(processedCount++, cubeImages.size());
-    //             ComplexData deconvolvedImage = task.future.get();
-    //             cubeImages[task.cubeIndex] = convertFFTWComplexToCVMatVector(deconvolvedImage);
-    //             backend_->freeMemoryOnDevice(deconvolvedImage);
-                 
-    //         }
-    //     }
-    // });
-
-    // Wait for all tasks to complete
-    // producerFuture.get();   // Wait for producer to finish
-    // monitorFuture.get();    // Wait for monitor to finish  
-    // consumerFuture.get();   // Wait for consumer to finish
+    // Wait for all remaining tasks to finish
+    for (auto& f : runningTasks)
+        f.get();
 }
 
-std::future<ComplexData> DeconvolutionProcessor::deconvolveSingleCube(int cubeIndex, std::vector<cv::Mat>& cubeImage) {
+void DeconvolutionProcessor::deconvolveSingleCube(
+    std::shared_ptr<IDeconvolutionBackend> backend,
+    std::unique_ptr<DeconvolutionAlgorithm> algorithm,
+    std::vector<cv::Mat>& cubeImage,
+    const RectangleShape& workShape,
+    const std::vector<ComplexData>& psfs_host) {
 
-    // copy operations
-    ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage, cubeShapePadded);
-    ComplexData g_device = backend_->moveDataToDevice(g_host);
+
+    ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage, workShape);
+    ComplexData g_device = backend->moveDataToDevice(g_host);
     cpu_backend_->freeMemoryOnDevice(g_host);
 
-    const std::vector<ComplexData> psfs = selectPSFsForCube(cubeIndex);
-    std::vector<ComplexData> psfs_device;
-    for ( const auto psf : psfs){
-        psfs_device.emplace_back(backend_->moveDataToDevice(psf));
+
+
+    if (psfs_host.size() == 0) {
+        backend->freeMemoryOnDevice(g_device);
+        throw;
     }
+    ComplexData f_device = backend->allocateMemoryOnDevice(cubeShapePadded);
 
-
-
-
-    if (psfs.size() == 0) {
-        std::cout << "[INFO] using no psf for cube " << cubeIndex << std::endl;
-        backend_->freeMemoryOnDevice(g_host);
-    }
-
-    // auto deconvolutionFunc = [cubeShapePadded = this->cubeShapePadded]
-    //     (std::vector<ComplexData>& psfs_device, 
-    //     ComplexData& g_device,
-    //     const std::unique_ptr<DeconvolutionAlgorithm>& algorithm,
-    //     std::shared_ptr<IDeconvolutionBackend> backend) -> ComplexData {
-    // };   
-    std::future<ComplexData> future = threadPool->enqueue([psfs_device, g_device, workSize = cubeShapePadded, algorithm = std::move(algorithm_->clone()), backend = backend_]() mutable { 
-        return processDeconvolution(psfs_device, g_device, workSize, algorithm, backend);
-    });
+    for (const auto psf : psfs_host){
+        ComplexData psf_device = backend->moveDataToDevice(psf);
+        algorithm->deconvolve(psf_device, g_device, f_device);
+        backend->freeMemoryOnDevice(psf_device);
         
-    // std::future<ComplexData> future = deconvolutionBackendThreadManager->registerTask(
-    //     psfs_device, g_device, deconvolutionFunc);
 
-    return future;
- 
+    }
+    ComplexData f_host = backend->moveDataFromDevice(f_device);
+
+    backend->freeMemoryOnDevice(g_device);
+    backend->freeMemoryOnDevice(f_device);
+
+
+
+    cubeImage = convertFFTWComplexToCVMatVector(f_host);
+    backend->freeMemoryOnDevice(f_host);
 }
 
 
@@ -397,7 +305,7 @@ std::vector<cv::Mat> DeconvolutionProcessor::postprocessChannel(ImageMetaData& m
     }
     //////////////////////////////////////////////
 
-    if(config.grid){
+     if (imageShapePadded != cubeShapePadded){
         result = Postprocessor::mergeImage(
             cubeImages,
 			subimageShape,
@@ -431,22 +339,18 @@ void DeconvolutionProcessor::init(const Hyperstack& input, const std::vector<PSF
     if (!configured){
         std::__throw_runtime_error("Processor not configured");
     }
+    size_t memoryPerCube = getMemoryPerCube(numberThreads);
 
     setImageOriginalShape(input.channels[0]);
     setPSFOriginalShape(psfs.front());
-    setSubimageShape(imageOriginalShape, config.grid, config.subimageSize);
-    addPaddingToShapes(psfOriginalShape);
+    setWorkShapes(imageOriginalShape, psfOriginalShape, memoryPerCube);
     setupCubeArrangement();
    
-
+    backend_->init(cubeShapePadded);
     cpu_backend_->init(cubeShapePadded); // for psf preprocessing
+    algorithm_->setBackend(backend_);
 
-    backend_->setWorkShape(cubeShapePadded); // not initialized, only used for copying, not fftw
 
-    size_t maxThreads = 10; //TODO where should this be defined?
-    threadPool = std::make_shared<ThreadPool>(maxThreads);
-    size_t numberWorkerThreads = getNumberThreads(maxThreads);
-    // deconvolutionBackendThreadManager = std::make_unique<DeconvolutionBackendThreadManager>(threadPool, numberWorkerThreads, algorithm_->clone(), backend_);
     preprocessPSF(psfs);
 
 }
@@ -454,9 +358,10 @@ void DeconvolutionProcessor::init(const Hyperstack& input, const std::vector<PSF
 
 
 std::vector<std::vector<cv::Mat>> DeconvolutionProcessor::preprocessChannel(Channel& channel){
+    
     Preprocessor::padToShape(channel.image.slices, imageShapePadded, config.borderType);
 
-    if (config.grid){
+    if (imageShapePadded != cubeShapePadded){
         std::vector<std::vector<cv::Mat>> cubes = Preprocessor::splitImage(channel.image.slices,
             subimageShape,
             imageOriginalShape,
@@ -470,13 +375,16 @@ std::vector<std::vector<cv::Mat>> DeconvolutionProcessor::preprocessChannel(Chan
     }
 }
 
-void DeconvolutionProcessor::configure(DeconvolutionConfig config) {
+void DeconvolutionProcessor::configure(const DeconvolutionConfig config) {
     this->config = config;
     DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
     this->algorithm_ = fact.create(config);
     this->backend_ = loadBackend(config.backenddeconv);
     this->cpu_backend_ = loadBackend("cpu");
-    
+
+    numberThreads = config.backenddeconv == "cuda" ? 1 : config.nThreads; // TODO change
+    threadPool = std::make_shared<ThreadPool>(numberThreads);
+
     configured = true;
 }
 
@@ -517,53 +425,66 @@ void DeconvolutionProcessor::setImageOriginalShape(const Channel& channel) {
     imageOriginalShape.volume = imageOriginalShape.width * imageOriginalShape.height * imageOriginalShape.depth;
 }
 
-void DeconvolutionProcessor::setSubimageShape(
+void DeconvolutionProcessor::setWorkShapes(
     const RectangleShape& imageOriginalShape,
-    bool configgrid,
-    int subimageSize 
+    const RectangleShape& padding,
+    size_t memoryPerCube
 ) {
-    if (!configgrid) {
-        // Non-grid processing - cube equals entire image
-        subimageShape.width = imageOriginalShape.width;
-        subimageShape.height = imageOriginalShape.height;
-        subimageShape.depth = imageOriginalShape.depth;
-        subimageShape.volume = subimageShape.width * subimageShape.height * subimageShape.depth;
-        std::cout << "[INFO] Processing without grid" << std::endl;
-    } else {
-        subimageShape.width = std::min(subimageSize, imageOriginalShape.width);
-        subimageShape.height = std::min(subimageSize, imageOriginalShape.height);
-        subimageShape.depth = std::min(subimageSize, imageOriginalShape.depth);
-        subimageShape.volume = subimageShape.width * subimageShape.height * subimageShape.depth;
+    // this function determines the shape into which the input image is cut
+    // current strategy is to only slice the largest dimension while leaving the smaller two dimensions the same shape
+    // the constraints are that all threads should be used but it all needs to fit on the available memory
+    // due to padding it is most optimal (smallest 3dshape) to have all dimensions the same size as this reduces the increase in volume caused by padding
+    // but this is difficult as we want to have all threads have a similar workload aswell as reducing the overhead of each thread having to read/write more than once
+    // ideally we have number of cubes (all dim same length) of equal size equal to number of threads
+    // there are different strategies to split the original image but this is just what I went with
+    // it is useful to keep all cubes the same dimensionality as the psfs then only need to be transformed once into that shape and the fftw plans can be reused
 
-    }
+    imageShapePadded = imageOriginalShape + padding;
+
+    size_t maxMemCubeVolume = memoryPerCube / sizeof(complex); // cut into pieces so that they still fit on memory
+
+    subimageShape = imageOriginalShape;
+    std::array<int*, 3> sortedDimensionsSubimage = subimageShape.getDimensionsAscending();
+    size_t maxThreadcubeLargestDim = (*sortedDimensionsSubimage[2] + numberThreads -1) / numberThreads; // ceiling divide
+
+    RectangleShape tempPadded = imageOriginalShape + padding;
+    std::array<int*, 3> sortedDimensionsPadded = tempPadded.getDimensionsAscending();
+    size_t maxMemCubeLargestDim = maxMemCubeVolume / (*sortedDimensionsPadded[0] * *sortedDimensionsPadded[1]);
+
+    *sortedDimensionsSubimage[2] = std::min(maxMemCubeLargestDim, maxThreadcubeLargestDim);
+    assert(*sortedDimensionsSubimage[2] != 0 && "[ERROR] setWorkShapes: not enough memory to fit a single slice of the image");
+
+
+    subimageShape.updateVolume();
+    cubeShapePadded = subimageShape + padding;
+    // TODO could also start halfing the other dimension until it fits
+    // idea: always half the largest dimension until:
+    //      number of cubes = number of threads && size of cubes fits on memory
+
+    // size_t cubeVolume = std::min(memCubeVolume, threadCubeVolume);
+    // double scaleFactor = std::cbrt( static_cast<double>(cubeVolume) / imageShapePadded.volume);
+    // subimageShape = imageOriginalShape * scaleFactor;
+    // subimageShape.clamp(imageOriginalShape);
+
+    // cubeShapePadded = subimageShape + padding;
 
 }
 
-void DeconvolutionProcessor::addPaddingToShapes( const RectangleShape& padding){
-
-    
-    cubeShapePadded = subimageShape + padding + (-1);
-    imageShapePadded = imageOriginalShape + padding + (-1);
-}
 
 
 
 void DeconvolutionProcessor::preprocessPSF(
     std::vector<PSF> inputPSFs
     ) {
-        assert(cpu_backend_->isInitialized() + "backend not initialized");
+        assert(cpu_backend_->plansInitialized() + "backend not initialized");
 
         std::cout << "[STATUS] Preprocessing PSFs" << std::endl;
         for (int i = 0; i < inputPSFs.size(); i++) {
             
             Preprocessor::padToShape(inputPSFs[i].image.slices, cubeShapePadded, 0);
-
             ComplexData h = convertCVMatVectorToFFTWComplex(inputPSFs[i].image.slices, cubeShapePadded);          
-
             cpu_backend_->octantFourierShift(h);
-
             cpu_backend_->forwardFFT(h, h);
-
             preparedpsfs.push_back(h);
 
         }
@@ -656,23 +577,16 @@ int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
     return static_cast<int>(std::ceil(static_cast<double>((cubeIndex)) / cubesPerLayer));
 }
 
-size_t DeconvolutionProcessor::getNumberThreads(size_t maxNumberThreads){
-    assert(backend_->isInitialized() && "[ERROR] DeconvolutionBackendThreadManager: Backend must be initialized");
+size_t DeconvolutionProcessor::getMemoryPerCube(size_t maxNumberThreads){
 
+    size_t algorithmMemoryMultiplier = algorithm_->getMemoryMultiplier(); // how many copies of a cube does each algorithm have
+    size_t memoryBuffer = 1e9;
+    size_t availableMemory = backend_->getAvailableMemory() - memoryBuffer;
+    size_t memoryPerThread = availableMemory / maxNumberThreads;
+    size_t memoryPerCube = memoryPerThread / algorithmMemoryMultiplier;
+    return memoryPerCube;
 
-    size_t memoryPerCube = sizeof(complex) * cubeShapePadded.volume; 
-    size_t backendMemoryMultiplier = backend_->getMemoryMultiplier();
-    size_t algorithmMemoryMultiplier = algorithm_->getMemoryMultiplier();
-    size_t memoryPerThread = memoryPerCube * (backendMemoryMultiplier + algorithmMemoryMultiplier); // * 2 for forward and backward fft plan, * 3 for inputimage, psf, outputimage (backend already includes 3 input copies)
-    size_t availableMemory = backend_->getAvailableMemory();
-
-    size_t possibleNumberThreads = availableMemory / memoryPerThread;
-    size_t numberThreads = std::min(possibleNumberThreads, maxNumberThreads);
-
-    if (numberThreads < 1){
-        throw;
-    }
-    return numberThreads; 
+    
 }
 // unused
 

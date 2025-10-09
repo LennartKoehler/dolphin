@@ -70,7 +70,7 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexD
     backend->freeMemoryOnDevice(c);
 }
 
-std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::clone() const {
+std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::cloneSpecific() const {
     auto copy = std::make_unique<RLADDeconvolutionAlgorithm>();
     // Copy all relevant state
     copy->iterations = this->iterations;

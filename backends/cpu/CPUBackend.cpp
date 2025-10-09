@@ -15,13 +15,7 @@ CPUBackend::~CPUBackend() {
 
 void CPUBackend::init(const RectangleShape& shape) {
     try {
-        // if (fftw_init_threads() > 0) {
-        //     // std::cout << "[STATUS] FFTW init threads" << std::endl;
-        //     fftw_plan_with_nthreads(1);
-        //     // fftw_plan_with_nthreads(omp_get_max_threads());
-        //     // std::cout << "[INFO] Available threads: " << omp_get_max_threads() << std::endl;
-        //     // fftw_make_planner_thread_safe();
-        // }
+
         initializeFFTPlans(shape);
         std::cout << "[STATUS] CPU backend initialized" << std::endl;
 
@@ -30,34 +24,14 @@ void CPUBackend::init(const RectangleShape& shape) {
     }
 }
 
-void CPUBackend::setWorkShape(const RectangleShape& shape) {
-    // Update work shape and size without recreating FFT plans
 
-    workShape = shape;
-    workSize = sizeof(complex) * shape.volume;
-    std::cout << "[STATUS] CPU backend work shape updated" << std::endl;
-    shapeInitialized_ = true;
-}
-
-void CPUBackend::postprocess() {
+void CPUBackend::cleanup() {
     try {
         destroyFFTPlans();
-        fftw_cleanup_threads();
         std::cout << "[STATUS] CPU backend postprocessing completed" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in CPU postprocessing: " << e.what() << std::endl;
     }
-}
-
-std::shared_ptr<IDeconvolutionBackend> CPUBackend::clone() const{
-    assert(this->shapeInitialized_ && "[ERROR] CPUBackend: shape must be initialized in order to clone");
-
-    auto copy = std::make_unique<CPUBackend>();
-    copy->workShape = this->workShape;
-    copy->workSize = this->workSize;
-    copy->init(getWorkShape());
-    return copy;
-    
 }
 
 
@@ -121,30 +95,29 @@ void CPUBackend::freeMemoryOnDevice(ComplexData& data){
 } 
 
 void CPUBackend::initializeFFTPlans(const RectangleShape& cube) {
+    std::unique_lock<std::mutex>lock(backendMutex);
     if (plansInitialized_) return;
     
     try {
         // Allocate temporary memory for plan creation
-        workSize = sizeof(complex) * cube.volume;
-        complex* temp = (complex*)fftw_malloc(workSize);
+        complex* temp = (complex*)fftw_malloc(sizeof(complex) * cube.volume);
         
         // Create forward FFT plan
-        this->forwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width, 
+        this->forwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width,
                                             temp, temp, FFTW_FORWARD, FFTW_MEASURE);
-        
+       
         // Create backward FFT plan
         this->backwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width,
                                              temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
             
         fftw_free(temp);
-        setWorkShape(cube);
-        plansInitialized_ = true;
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in FFT plan initialization: " << e.what() << std::endl;
     }
 }
 
 void CPUBackend::destroyFFTPlans() {
+    std::unique_lock<std::mutex> lock(backendMutex);
     if (plansInitialized_) {
         if (forwardPlan) {
             fftw_destroy_plan(forwardPlan);
@@ -223,18 +196,7 @@ void CPUBackend::backwardFFT(const ComplexData& in, ComplexData& out) {
     }
 }
 
-// void CPUBackend::normalize(ComplexData& data){
-//     double sum_i = 0;
-//     double sum_r = 0;
-//     for (int i = 0; i < data.size.volume; i++){
-//         sum_r += data.data[i][0];
-//         sum_i += data.data[i][1];
-//     }
-//     for (int i = 0; i < data.size.volume; i++){
-//         data.data[i][0] *= sum_r;
-//         data.data[i][1] *= sum_i;
-//     }
-// }
+
 
 // Shift Operations
 void CPUBackend::octantFourierShift(ComplexData& data) {
@@ -481,138 +443,8 @@ void CPUBackend::complexDivisionStabilized(const ComplexData& a, const ComplexDa
     }
 }
 
-// // Conversion Functions
-// void CPUBackend::readCVMat(const std::vector<cv::Mat>& input, ComplexData& output) {
-//     try {
-//         int width = output.size.width;
-//         int height = output.size.height;
-//         int depth = output.size.depth;
-        
-//         for (int z = 0; z < depth; ++z) {
-//             CV_Assert(input[z].type() == CV_32F);
-//             for (int y = 0; y < height; ++y) {
-//                 for (int x = 0; x < width; ++x) {
-//                     output.data[z * height * width + y * width + x][0] = static_cast<double>(input[z].at<float>(y, x));
-//                     output.data[z * height * width + y * width + x][1] = 0.0;
-//                 }
-//             }
-//         }
-//     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in convertCVMatVectorToFFTWComplex: " << e.what() << std::endl;
-//     }
-// }
 
-// void CPUBackend::convertFFTWComplexToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) {
-//     try {
-//         int width = input.size.width;
-//         int height = input.size.height;
-//         int depth = input.size.depth;
-        
-//         std::vector<cv::Mat> tempOutput;
-//         for (int z = 0; z < depth; ++z) {
-//             cv::Mat result(height, width, CV_32F);
-//             for (int y = 0; y < height; ++y) {
-//                 for (int x = 0; x < width; ++x) {
-//                     int index = z * height * width + y * width + x;
-//                     double real_part = input.data[index][0];
-//                     double imag_part = input.data[index][1];
-//                     result.at<float>(y, x) = static_cast<float>(sqrt(real_part * real_part + imag_part * imag_part));
-//                 }
-//             }
-//             tempOutput.push_back(result);
-//         }
-//         output = tempOutput;
-//     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in convertFFTWComplexToCVMatVector: " << e.what() << std::endl;
-//     }
-// }
 
-// void CPUBackend::convertFFTWComplexRealToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) {
-//     try {
-//         int width = input.size.width;
-//         int height = input.size.height;
-//         int depth = input.size.depth;
-        
-//         std::vector<cv::Mat> tempOutput;
-//         for (int z = 0; z < depth; ++z) {
-//             cv::Mat result(height, width, CV_32F);
-//             for (int y = 0; y < height; ++y) {
-//                 for (int x = 0; x < width; ++x) {
-//                     int index = z * height * width + y * width + x;
-//                     result.at<float>(y, x) = input.data[index][0];
-//                 }
-//             }
-//             tempOutput.push_back(result);
-//         }
-//         output = tempOutput;
-//     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in convertFFTWComplexRealToCVMatVector: " << e.what() << std::endl;
-//     }
-// }
-
-// void CPUBackend::convertFFTWComplexImgToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) {
-//     try {
-//         int width = input.size.width;
-//         int height = input.size.height;
-//         int depth = input.size.depth;
-        
-//         std::vector<cv::Mat> tempOutput;
-//         for (int z = 0; z < depth; ++z) {
-//             cv::Mat result(height, width, CV_32F);
-//             for (int y = 0; y < height; ++y) {
-//                 for (int x = 0; x < width; ++x) {
-//                     int index = z * height * width + y * width + x;
-//                     result.at<float>(y, x) = input.data[index][1];
-//                 }
-//             }
-//             tempOutput.push_back(result);
-//         }
-//         output = tempOutput;
-//     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in convertFFTWComplexImgToCVMatVector: " << e.what() << std::endl;
-//     }
-// }
-
-// PSF Operations
-// void CPUBackend::padPSF(const ComplexData& psf, ComplexData& padded_psf) {
-//     try {
-//         // Create temporary copy for shifting
-//         ComplexData temp_psf = copyData(psf);
-//         octantFourierShift(temp_psf);
-        
-//         // Zero out padded PSF
-//         for (int i = 0; i < padded_psf.size.volume; ++i) {
-//             padded_psf.data[i][0] = 0.0;
-//             padded_psf.data[i][1] = 0.0;
-//         }
-
-//         if (psf.size.depth > padded_psf.size.depth) {
-//             std::cerr << "[ERROR] PSF has more layers than target size" << std::endl;
-//         }
-
-//         int x_offset = (padded_psf.size.width - psf.size.width) / 2;
-//         int y_offset = (padded_psf.size.height - psf.size.height) / 2;
-//         int z_offset = (padded_psf.size.depth - psf.size.depth) / 2;
-
-//         for (int z = 0; z < psf.size.depth; ++z) {
-//             for (int y = 0; y < psf.size.height; ++y) {
-//                 for (int x = 0; x < psf.size.width; ++x) {
-//                     int padded_index = ((z + z_offset) * padded_psf.size.height + (y + y_offset)) * padded_psf.size.width + (x + x_offset);
-//                     int psf_index = (z * psf.size.height + y) * psf.size.width + x;
-
-//                     padded_psf.data[padded_index][0] = temp_psf.data[psf_index][0];
-//                     padded_psf.data[padded_index][1] = temp_psf.data[psf_index][1];
-//                 }
-//             }
-//         }
-//         octantFourierShift(padded_psf);
-        
-//         // Clean up temporary data
-//         fftw_free(temp_psf.data);
-//     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in padPSF: " << e.what() << std::endl;
-//     }
-// }
 
 // Specialized Functions
 void CPUBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) {
@@ -668,20 +500,7 @@ void CPUBackend::rescaledInverse(ComplexData& data, double cubeVolume) {
     }
 }
 
-// void CPUBackend::saveInterimImages(const ComplexData& resultImage, int gridNum, int channel_z, int i) {
-//     try {
-//         std::vector<cv::Mat> debugImage;
-//         convertFFTWComplexToCVMatVector(resultImage, debugImage);
-//         for (int k = 0; k < debugImage.size(); k++) {
-//             cv::normalize(debugImage[k], debugImage[k], 0, 255, cv::NORM_MINMAX);
-//             cv::imwrite(
-//                 "../result/debug/debug_image_" + std::to_string(channel_z) + "_" + std::to_string(gridNum) + "_iter_" +
-//                 std::to_string(i) + "_slice_" + std::to_string(k) + ".png", debugImage[k]);
-//         }
-//     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in saveInterimImages: " << e.what() << std::endl;
-//     }
-// }
+
 
 // Layer and Visualization Functions
 void CPUBackend::reorderLayers(ComplexData& data) {
@@ -720,30 +539,6 @@ void CPUBackend::reorderLayers(ComplexData& data) {
     }
 }
 
-// void CPUBackend::visualizeFFT(const ComplexData& data) {
-//     try {
-//         int width = data.size.width;
-//         int height = data.size.height;
-//         int depth = data.size.depth;
-        
-//         Image3D i;
-//         std::vector<cv::Mat> output;
-//         for (int z = 0; z < depth; ++z) {
-//             cv::Mat result(height, width, CV_32F);
-//             for (int y = 0; y < height; ++y) {
-//                 for (int x = 0; x < width; ++x) {
-//                     int index = z * height * width + y * width + x;
-//                     result.at<float>(y, x) = data.data[index][0];
-//                 }
-//             }
-//             output.push_back(result);
-//         }
-//         i.slices = output;
-//         i.show();
-//     } catch (const std::exception& e) {
-//         std::cerr << "[ERROR] Exception in visualizeFFT: " << e.what() << std::endl;
-//     }
-// }
 
 // Gradient and TV Functions
 void CPUBackend::gradientX(const ComplexData& image, ComplexData& gradX) {
@@ -880,16 +675,10 @@ void CPUBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData
     }
 }
 
-size_t CPUBackend::getWorkSize() const {
-    return workSize;
-}
-
-RectangleShape CPUBackend::getWorkShape() const{
-    return workShape;
-}
 
 size_t CPUBackend::getAvailableMemory() {
     // For CPU backend, return available system memory
+    std::unique_lock<std::mutex>lock(backendMutex);
     size_t memory;
     #ifdef __linux__
         #include <unistd.h>
@@ -910,9 +699,7 @@ size_t CPUBackend::getAvailableMemory() {
     
 }
 
-size_t CPUBackend::getMemoryMultiplier() const {
-    return 2; //forward and backward fftw plan
-}
+
 
 extern "C" IDeconvolutionBackend* create_backend() {
     return new CPUBackend();

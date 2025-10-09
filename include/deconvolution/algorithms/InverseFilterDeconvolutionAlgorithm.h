@@ -12,11 +12,10 @@ public:
     void configure(const DeconvolutionConfig& config) override;
     void deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) override;
     
-    // Clone method for thread safety
-    std::unique_ptr<DeconvolutionAlgorithm> clone() const override;
     size_t getMemoryMultiplier() const override;
 
 private:
+    std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
     double epsilon = 1e-6;  // Stabilization parameter for division
 };
 

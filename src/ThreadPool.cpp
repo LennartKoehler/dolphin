@@ -1,5 +1,5 @@
 #include "ThreadPool.h"
-
+#include <iostream>
 
 ThreadPool::ThreadPool(size_t numThreads) : stop(false) {
     newTaskCondition = [](){return true;};

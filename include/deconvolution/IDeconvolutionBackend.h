@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <typeinfo>
 #include <opencv2/core/mat.hpp>
+#include <mutex>
 #include "complexType.h"
 
 
@@ -19,7 +20,7 @@ struct InputData{
 #define NOT_IMPLEMENTED(func_name) \
     throw std::runtime_error(std::string(#func_name) + " not implemented in " + typeid(*this).name())
 
-// should split into memory management and fftw backend?
+// be sure that implementations of this are threadsafe
 class IDeconvolutionBackend{
 public:
     IDeconvolutionBackend() = default;
@@ -27,12 +28,7 @@ public:
 
     // Core functions - still pure virtual (must implement)
     virtual void init(const RectangleShape& shape) = 0;
-    virtual void setWorkShape(const RectangleShape& shape) = 0;
-    virtual void postprocess() = 0;
-    virtual std::shared_ptr<IDeconvolutionBackend> clone() const = 0;
-    virtual size_t getWorkSize() const = 0;
-    virtual RectangleShape getWorkShape() const = 0;
-    virtual size_t getMemoryMultiplier() const = 0;
+    virtual void cleanup() = 0;
 
     // Data management - provide default implementations
     virtual void allocateMemoryOnDevice(ComplexData& data) {
@@ -162,8 +158,11 @@ public:
         NOT_IMPLEMENTED(normalizeTV);
     }
 
-    virtual bool isInitialized(){ return shapeInitialized_; }
-    virtual bool plansInitialized(){ return plansInitialized_; }
+
+    virtual bool plansInitialized(){ 
+        std::unique_lock lock(backendMutex);
+        return plansInitialized_; }
+
     // Memory information
     virtual size_t getAvailableMemory() {
         NOT_IMPLEMENTED(getAvailableMemory);
@@ -171,7 +170,7 @@ public:
 
 protected:
     bool plansInitialized_ = false;
-    bool shapeInitialized_ = false;
+    std::mutex backendMutex;
 };
 
 #undef NOT_IMPLEMENTED

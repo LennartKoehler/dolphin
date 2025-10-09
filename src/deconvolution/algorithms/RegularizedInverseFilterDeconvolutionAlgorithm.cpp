@@ -56,7 +56,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     backend->freeMemoryOnDevice(FP);
 }
 
-std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlgorithm::clone() const {
+std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlgorithm::cloneSpecific() const {
     auto copy = std::make_unique<RegularizedInverseFilterDeconvolutionAlgorithm>();
     // Copy all relevant state
     copy->lambda = this->lambda;

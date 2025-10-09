@@ -8,24 +8,9 @@ void DeconvolutionConfig::registerAllParameters(){
     #define PARAM(type, name, defaultValue, optional) registerParameter(#name, name, optional);
     DECONV_PARAMS
     #undef PARAM
-    // Register all deconvolution parameters
-    // registerParameter("algorithmName", algorithmName, !optional);  // Required
-    // registerParameter("subimageSize", subimageSize, optional);
-    // registerParameter("iterations", iterations, optional);
-    // registerParameter("epsilon", epsilon, optional);
-    // registerParameter("grid", grid, optional);
-    // registerParameter("lambda", lambda, optional);
-    // registerParameter("borderType", borderType, optional);
-    // registerParameter("psfSafetyBorder", psfSafetyBorder, optional);
-    registerRangeMap("layerPSFMap", layerPSFMap, false);
-    registerRangeMap("cubePSFMap", cubePSFMap, false);
-    
 
-    
-    // Commented out parameters - add if needed
-    // registerParameter("time", time, optional);
-    // registerParameter("saveSubimages", saveSubimages, optional);
-    // registerParameter("gpu", gpu, optional);
+    registerRangeMap("layerPSFMap", layerPSFMap, false);
+    registerRangeMap("cubePSFMap", cubePSFMap, false); 
 }
 DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     : Config(other),
