@@ -1,37 +1,31 @@
 #pragma once
-#include "deconvolution/IDeconvolutionBackend.h"
+#include "backend/IDeconvolutionBackend.h"
+#include "backend/IBackendMemoryManager.h"
 #include <fftw3.h>
 
-
-class CPUBackend : public IDeconvolutionBackend{
+class CPUBackendMemoryManager : public IBackendMemoryManager{
 public:
-    CPUBackend();
-    ~CPUBackend() override;
+    // Data management
+    void memCopy(const ComplexData& srcdata, ComplexData& destdata) override;
+    void allocateMemoryOnDevice(ComplexData& data) override;
+    ComplexData allocateMemoryOnDevice(const RectangleShape& shape) override;
+    bool isOnDevice(void* data) override;
+    ComplexData copyData(const ComplexData& srcdata) override;
+    ComplexData moveDataToDevice(const ComplexData& srcdata) override; // for cpu these are copy operations
+    ComplexData moveDataFromDevice(const ComplexData& srcdata) override; // for cpu these are copy operations
+    void freeMemoryOnDevice(ComplexData& data) override;
+    size_t getAvailableMemory() override; 
+
+};
+
+class CPUDeconvolutionBackend : public IDeconvolutionBackend{
+public:
+    CPUDeconvolutionBackend();
+    ~CPUDeconvolutionBackend() override;
 
     // Core processing functions
     void init(const RectangleShape& shape) override;
     void cleanup() override;
-
-    // Data management
-    void allocateMemoryOnDevice(ComplexData& data) override;
-    ComplexData allocateMemoryOnDevice(const RectangleShape& shape) override;
-    bool isOnDevice(void* data) override;
-    void memCopy(const ComplexData& src, ComplexData& dest) override;
-    ComplexData copyData(const ComplexData& srcdata) override;
-    ComplexData moveDataToDevice(const ComplexData& srcdata) override;
-    ComplexData moveDataFromDevice(const ComplexData& srcdata) override;
-    void freeMemoryOnDevice(ComplexData& data) override;
-
-    void hasNAN(const ComplexData& data) override;
-    // Layer and visualization functions
-    void reorderLayers(ComplexData& data) override;
-    // void visualizeFFT(const ComplexData& data) override;
-
-    // Conversion functions
-    // void readCVMat(const std::vector<cv::Mat>& input, ComplexData& output) override;
-    // void convertFFTWComplexToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
-    // void convertFFTWComplexRealToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
-    // void convertFFTWComplexImgToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
 
     // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) override;
@@ -40,7 +34,6 @@ public:
     // Shift functions
     void octantFourierShift(ComplexData& data) override;
     void inverseQuadrantShift(ComplexData& data) override;
-    void quadrantShiftMat(cv::Mat& magI) override;
 
     // Complex arithmetic functions
     void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) override;
@@ -54,7 +47,12 @@ public:
     void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) override;
     void normalizeImage(ComplexData& resultImage, double epsilon) override;
     void rescaledInverse(ComplexData& data, double cubeVolume) override;
-    // void saveInterimImages(const ComplexData& resultImage, int gridNum, int channel_z, int i) override;
+
+    // Debug functions
+    void hasNAN(const ComplexData& data) override;
+
+    // Layer and visualization functions
+    void reorderLayers(ComplexData& data) override;
 
     // Gradient and TV functions
     void gradientX(const ComplexData& image, ComplexData& gradX) override;
@@ -63,16 +61,10 @@ public:
     void computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) override;
     void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) override;
 
-    // Memory usage function
-
-    size_t getAvailableMemory() override;
-
 
 private:
-    void initializeFFTPlans(const RectangleShape& cube) override;
+    void initializeFFTPlans(const RectangleShape& cube);
     void destroyFFTPlans();
-
     fftw_plan forwardPlan;
     fftw_plan backwardPlan;
-
 };

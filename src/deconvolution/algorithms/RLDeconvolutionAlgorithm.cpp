@@ -55,7 +55,7 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexDat
         backend->complexMultiplication(f, c, f);
  
     }
-    backend->freeMemoryOnDevice(c);
+    // backend->freeMemoryOnDevice(c); // dont need because it is managed within complexdatas destructor
 }
 
 

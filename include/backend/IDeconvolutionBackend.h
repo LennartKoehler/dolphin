@@ -1,20 +1,13 @@
 #pragma once
 
 #include <string>
-#include <vector>
-#include <complex>
 #include <stdexcept>
-#include <typeinfo>
-#include <opencv2/core/mat.hpp>
 #include <mutex>
-#include "complexType.h"
+#include "ComplexData.h"
 
 
-struct InputData{
-    ComplexData H;
-    ComplexData g;
-    ComplexData f;
-};
+
+
 
 // Helper macro for cleaner not-implemented exceptions
 #define NOT_IMPLEMENTED(func_name) \
@@ -29,42 +22,9 @@ public:
     // Core functions - still pure virtual (must implement)
     virtual void init(const RectangleShape& shape) = 0;
     virtual void cleanup() = 0;
-
-    // Data management - provide default implementations
-    virtual void allocateMemoryOnDevice(ComplexData& data) {
-        NOT_IMPLEMENTED(allocateMemoryOnDevice);
-    }
     
     virtual void initializeFFTPlans(const RectangleShape& cube) {
         NOT_IMPLEMENTED(initializeFFTPlans);
-    }
-    
-    virtual bool isOnDevice(void* data) {
-        NOT_IMPLEMENTED(isOnDevice);
-    }
-    
-    virtual ComplexData moveDataToDevice(const ComplexData& srcdata) {
-        NOT_IMPLEMENTED(moveDataToDevice);
-    }
-    
-    virtual ComplexData moveDataFromDevice(const ComplexData& srcdata) {
-        NOT_IMPLEMENTED(moveDataFromDevice);
-    }
-    
-    virtual void memCopy(const ComplexData& srcData, ComplexData& destdata) {
-        NOT_IMPLEMENTED(memCopy);
-    }
-    
-    virtual ComplexData copyData(const ComplexData& srcdata) {
-        NOT_IMPLEMENTED(copyData);
-    }
-    
-    virtual ComplexData allocateMemoryOnDevice(const RectangleShape& shape) {
-        NOT_IMPLEMENTED(allocateMemoryOnDevice);
-    }
-    
-    virtual void freeMemoryOnDevice(ComplexData& data) {
-        NOT_IMPLEMENTED(freeMemoryOnDevice);
     }
 
     // Debug functions
@@ -95,10 +55,6 @@ public:
         NOT_IMPLEMENTED(inverseQuadrantShift);
     }
     
-    virtual void quadrantShiftMat(cv::Mat& magI) {
-        NOT_IMPLEMENTED(quadrantShiftMat);
-    }
-
     // Complex arithmetic operations
     virtual void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) {
         NOT_IMPLEMENTED(complexMultiplication);
@@ -163,10 +119,7 @@ public:
         std::unique_lock lock(backendMutex);
         return plansInitialized_; }
 
-    // Memory information
-    virtual size_t getAvailableMemory() {
-        NOT_IMPLEMENTED(getAvailableMemory);
-    }
+
 
 protected:
     bool plansInitialized_ = false;

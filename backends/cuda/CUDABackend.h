@@ -1,19 +1,12 @@
 #pragma once
-#include "deconvolution/IDeconvolutionBackend.h"
+#include "backend/IDeconvolutionBackend.h"
+#include "backend/IBackendMemoryManager.h"
 #include <cufftw.h>
 #include <CUBE.h>
 #include <cuda_runtime.h>
 
-
-class CUDABackend : public IDeconvolutionBackend{
+class CUDABackendMemoryManager : public IBackendMemoryManager{
 public:
-    CUDABackend();
-    ~CUDABackend() override;
-
-    // Core processing functions
-    void init(const RectangleShape& shape) override;
-    void cleanup() override;
-
     // Data management
     void memCopy(const ComplexData& srcdata, ComplexData& destdata) override;
     void allocateMemoryOnDevice(ComplexData& data) override;
@@ -23,16 +16,18 @@ public:
     ComplexData moveDataToDevice(const ComplexData& srcdata) override; // for gpu these are copy operations
     ComplexData moveDataFromDevice(const ComplexData& srcdata) override; // for gpu these are copy operations
     void freeMemoryOnDevice(ComplexData& data) override;
+    size_t getAvailableMemory() override; 
 
-    // Layer and visualization functions
-    void reorderLayers(ComplexData& data) override;
-    // void visualizeFFT(const ComplexData& data) override;
+};
 
-    // Conversion functions
-    // void readCVMat(const std::vector<cv::Mat>& input, ComplexData& output) override;
-    // void convertFFTWComplexToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
-    // void convertFFTWComplexRealToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
-    // void convertFFTWComplexImgToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
+class CUDADeconvolutionBackend : public IDeconvolutionBackend{
+public:
+    CUDADeconvolutionBackend();
+    ~CUDADeconvolutionBackend() override;
+
+    // Core processing functions
+    void init(const RectangleShape& shape) override;
+    void cleanup() override;
 
     // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) override;
@@ -41,7 +36,6 @@ public:
     // Shift functions
     void octantFourierShift(ComplexData& data) override;
     void inverseQuadrantShift(ComplexData& data) override;
-    void quadrantShiftMat(cv::Mat& magI) override;
 
     // Complex arithmetic functions
     void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) override;
@@ -64,8 +58,17 @@ public:
     void computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) override;
     void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) override;
 
-    // Memory usage function
-    size_t getAvailableMemory() override;
+    // Layer and visualization functions
+    // void reorderLayers(ComplexData& data) override;
+    // void visualizeFFT(const ComplexData& data) override;
+
+    // Conversion functions
+    // void readCVMat(const std::vector<cv::Mat>& input, ComplexData& output) override;
+    // void convertFFTWComplexToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
+    // void convertFFTWComplexRealToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
+    // void convertFFTWComplexImgToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
+
+
 
 private:
     void initializeFFTPlans(const RectangleShape& cube);

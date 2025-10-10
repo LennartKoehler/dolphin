@@ -4,28 +4,127 @@
 #include <algorithm>
 #include <sstream>
 #include <cmath>
+#include <cstring>
+#include <cassert>
 
-
-CPUBackend::CPUBackend() {
+#define FFTW_CHECK(plan, operation) { \
+    if (plan == nullptr) { \
+        throw std::runtime_error(std::string("FFTW error: ") + operation + " - plan creation failed"); \
+    } \
 }
 
-CPUBackend::~CPUBackend() {
+#define FFTW_MALLOC_CHECK(ptr, size) { \
+    if (ptr == nullptr) { \
+        throw std::runtime_error(std::string("FFTW malloc failed for size: ") + std::to_string(size)); \
+    } \
+}
+
+#define NULL_PTR_CHECK(ptr, context) { \
+    if (ptr == nullptr) { \
+        throw std::runtime_error(std::string("Null pointer in ") + context); \
+    } \
+}
+
+// CPUBackendMemoryManager implementation
+bool CPUBackendMemoryManager::isOnDevice(void* ptr) {
+    // For CPU backend, all valid pointers are "on device"
+    return ptr != nullptr;
+}
+
+void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) {
+    if (data.data != nullptr) {
+        return; // Already allocated
+    }
+    
+    data.data = (complex*)fftw_malloc(sizeof(complex) * data.size.volume);
+    FFTW_MALLOC_CHECK(data.data, sizeof(complex) * data.size.volume);
+    data.backend = this;
+}
+
+ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const RectangleShape& shape) {
+    ComplexData result{this, (complex*)fftw_malloc(sizeof(complex) * shape.volume), shape}; 
+    FFTW_MALLOC_CHECK(result.data, sizeof(complex) * shape.volume);
+    return result;
+}
+
+ComplexData CPUBackendMemoryManager::moveDataToDevice(const ComplexData& srcdata) {
+    NULL_PTR_CHECK(srcdata.data, "moveDataToDevice - source data");
+    ComplexData result = allocateMemoryOnDevice(srcdata.size);
+    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
+    return result;
+}
+
+ComplexData CPUBackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata) {
+    NULL_PTR_CHECK(srcdata.data, "moveDataFromDevice - source data");
+    ComplexData result = allocateMemoryOnDevice(srcdata.size);
+    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
+    return result;
+}
+
+ComplexData CPUBackendMemoryManager::copyData(const ComplexData& srcdata) {
+    NULL_PTR_CHECK(srcdata.data, "copyData - source data");
+    ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
+    std::memcpy(destdata.data, srcdata.data, srcdata.size.volume * sizeof(complex));
+    return destdata;
+}
+
+void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData){
+    NULL_PTR_CHECK(srcData.data, "memCopy - source data");
+    NULL_PTR_CHECK(destData.data, "memCopy - destination data");
+    if (srcData.size.volume != destData.size.volume) {
+        throw std::runtime_error("Size mismatch in memCopy");
+    }
+    std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex));
+}
+
+void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data){
+    NULL_PTR_CHECK(data.data, "freeMemoryOnDevice - data pointer");
+    fftw_free(data.data);
+    data.data = nullptr;
+} 
+
+size_t CPUBackendMemoryManager::getAvailableMemory() {
+    // For CPU backend, return available system memory
+    std::unique_lock<std::mutex>lock(backendMutex);
+    size_t memory;
+    #ifdef __linux__
+        #include <unistd.h>
+        long pagesize = sysconf(_SC_PAGESIZE);
+        long pages = sysconf(_SC_AVPHYS_PAGES);
+        if (pagesize > 0 && pages > 0) {
+            memory = static_cast<size_t>(pagesize) * static_cast<size_t>(pages);
+        }
+    #elif _WIN32
+        #include <windows.h>
+        MEMORYSTATUSEX status;
+        status.dwLength = sizeof(status);
+        GlobalMemoryStatusEx(&status);
+        memory = static_cast<size_t>(status.ullAvailPhys);
+    #endif
+    assert(memory != 0 && "[ERROR] Something went wrong while trying to get available memory");
+    return memory;
+}
+
+
+// #####################################################################################################
+// CPUDeconvolutionBackend implementation
+CPUDeconvolutionBackend::CPUDeconvolutionBackend() {
+}
+
+CPUDeconvolutionBackend::~CPUDeconvolutionBackend() {
     destroyFFTPlans();
 }
 
-void CPUBackend::init(const RectangleShape& shape) {
+void CPUDeconvolutionBackend::init(const RectangleShape& shape) {
     try {
-
         initializeFFTPlans(shape);
         std::cout << "[STATUS] CPU backend initialized" << std::endl;
-
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in CPU initialization: " << e.what() << std::endl;
     }
 }
 
-
-void CPUBackend::cleanup() {
+void CPUDeconvolutionBackend::cleanup() {
     try {
         destroyFFTPlans();
         std::cout << "[STATUS] CPU backend postprocessing completed" << std::endl;
@@ -34,89 +133,33 @@ void CPUBackend::cleanup() {
     }
 }
 
-
-
-
-bool CPUBackend::isOnDevice(void* ptr) {
-    // For CPU backend, all valid pointers are "on device"
-    return ptr != nullptr;
-}
-
-void CPUBackend::allocateMemoryOnDevice(ComplexData& data) {
-    if (data.data != nullptr) {
-        return; // Already allocated
-    }
-    
-    data.data = (complex*)fftw_malloc(sizeof(complex) * data.size.volume);
-    if (data.data == nullptr) {
-        std::cerr << "[ERROR] FFTW malloc failed" << std::endl;
-    }
-    data.device = DeviceID::CPU;
-
-}
-
-ComplexData CPUBackend::allocateMemoryOnDevice(const RectangleShape& shape) {
-    ComplexData result;
-    result.size = shape;
-    result.data = (complex*)fftw_malloc(sizeof(complex) * shape.volume);
-    
-    if (result.data == nullptr) {
-        std::cerr << "[ERROR] FFTW malloc failed" << std::endl;
-    }
-    result.device = DeviceID::CPU;
-    return result;
-}
-
-ComplexData CPUBackend::moveDataToDevice(const ComplexData& srcdata) {
-    ComplexData result = allocateMemoryOnDevice(srcdata.size);
-    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
-    result.device = DeviceID::CPU;
-    return result;
-}
-
-ComplexData CPUBackend::moveDataFromDevice(const ComplexData& srcdata) {
-    ComplexData result = allocateMemoryOnDevice(srcdata.size);
-    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
-    result.device = DeviceID::HOST;
-    return result;
-}
-
-ComplexData CPUBackend::copyData(const ComplexData& srcdata) {
-    ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
-    if (srcdata.data != nullptr && destdata.data != nullptr) {
-        std::memcpy(destdata.data, srcdata.data, srcdata.size.volume * sizeof(complex));
-    }
-    destdata.device = DeviceID::HOST;
-    return destdata;
-}
-
-void CPUBackend::freeMemoryOnDevice(ComplexData& data){
-    fftw_free(data.data);
-} 
-
-void CPUBackend::initializeFFTPlans(const RectangleShape& cube) {
+void CPUDeconvolutionBackend::initializeFFTPlans(const RectangleShape& cube) {
     std::unique_lock<std::mutex>lock(backendMutex);
     if (plansInitialized_) return;
     
     try {
         // Allocate temporary memory for plan creation
         complex* temp = (complex*)fftw_malloc(sizeof(complex) * cube.volume);
+        FFTW_MALLOC_CHECK(temp, sizeof(complex) * cube.volume);
         
         // Create forward FFT plan
         this->forwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width,
                                             temp, temp, FFTW_FORWARD, FFTW_MEASURE);
+        FFTW_CHECK(this->forwardPlan, "Forward FFT plan creation");
        
         // Create backward FFT plan
         this->backwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width,
                                              temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
+        FFTW_CHECK(this->backwardPlan, "Backward FFT plan creation");
             
         fftw_free(temp);
+        plansInitialized_ = true;
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in FFT plan initialization: " << e.what() << std::endl;
     }
 }
 
-void CPUBackend::destroyFFTPlans() {
+void CPUDeconvolutionBackend::destroyFFTPlans() {
     std::unique_lock<std::mutex> lock(backendMutex);
     if (plansInitialized_) {
         if (forwardPlan) {
@@ -130,76 +173,34 @@ void CPUBackend::destroyFFTPlans() {
         plansInitialized_ = false;
     }
 }
-void CPUBackend::memCopy(const ComplexData& srcData, ComplexData& destData){
-    std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex));
-}
-
-
-void CPUBackend::hasNAN(const ComplexData& data) {
-    int nanCount = 0, infCount = 0;
-    double minReal = std::numeric_limits<double>::max();
-    double maxReal = std::numeric_limits<double>::lowest();
-    double minImag = std::numeric_limits<double>::max();
-    double maxImag = std::numeric_limits<double>::lowest();
-    
-    for (int i = 0; i < data.size.volume; i++) {
-        double real = data.data[i][0];
-        double imag = data.data[i][1];
-        
-        // Check for NaN
-        if (std::isnan(real) || std::isnan(imag)) {
-            nanCount++;
-            if (nanCount <= 10) { // Only print first 10
-                std::cout << "NaN at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
-            }
-        }
-        
-        // Check for infinity
-        if (std::isinf(real) || std::isinf(imag)) {
-            infCount++;
-            if (infCount <= 10) {
-                std::cout << "Inf at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
-            }
-        }
-        
-        // Track min/max for valid values
-        if (std::isfinite(real)) {
-            minReal = std::min(minReal, real);
-            maxReal = std::max(maxReal, real);
-        }
-        if (std::isfinite(imag)) {
-            minImag = std::min(minImag, imag);
-            maxImag = std::max(maxImag, imag);
-        }
-    }
-    
-    std::cout << "[DEBUG] Data stats - NaN: " << nanCount << ", Inf: " << infCount << std::endl;
-    std::cout << "[DEBUG] Real range: [" << minReal << ", " << maxReal << "]" << std::endl;
-    std::cout << "[DEBUG] Imag range: [" << minImag << ", " << maxImag << "]" << std::endl;
-}
 
 // FFT Operations
-void CPUBackend::forwardFFT(const ComplexData& in, ComplexData& out) {
-    try {     
+void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) {
+    try {
+        NULL_PTR_CHECK(forwardPlan, "forwardFFT - FFT plan");
+        NULL_PTR_CHECK(in.data, "forwardFFT - input data");
+        NULL_PTR_CHECK(out.data, "forwardFFT - output data");
         fftw_execute_dft(forwardPlan, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in forwardFFT: " << e.what() << std::endl;
+        throw;
     }
 }
 
-void CPUBackend::backwardFFT(const ComplexData& in, ComplexData& out) {
+void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) {
     try {
-        
+        NULL_PTR_CHECK(backwardPlan, "backwardFFT - FFT plan");
+        NULL_PTR_CHECK(in.data, "backwardFFT - input data");
+        NULL_PTR_CHECK(out.data, "backwardFFT - output data");
         fftw_execute_dft(backwardPlan, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in backwardFFT: " << e.what() << std::endl;
+        throw;
     }
 }
 
-
-
 // Shift Operations
-void CPUBackend::octantFourierShift(ComplexData& data) {
+void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) {
     try {
         int width = data.size.width;
         int height = data.size.height;
@@ -229,7 +230,7 @@ void CPUBackend::octantFourierShift(ComplexData& data) {
     }
 }
 
-void CPUBackend::inverseQuadrantShift(ComplexData& data) {
+void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) {
     try {
         int width = data.size.width;
         int height = data.size.height;
@@ -290,35 +291,14 @@ void CPUBackend::inverseQuadrantShift(ComplexData& data) {
     }
 }
 
-void CPUBackend::quadrantShiftMat(cv::Mat& magI) {
-    try {
-        int cx = magI.cols / 2;
-        int cy = magI.rows / 2;
-
-        cv::Mat q0(magI, cv::Rect(0, 0, cx, cy));   // Top-Left
-        cv::Mat q1(magI, cv::Rect(cx, 0, cx, cy));  // Top-Right
-        cv::Mat q2(magI, cv::Rect(0, cy, cx, cy));  // Bottom-Left
-        cv::Mat q3(magI, cv::Rect(cx, cy, cx, cy)); // Bottom-Right
-
-        cv::Mat tmp;
-        q0.copyTo(tmp);
-        q3.copyTo(q0);
-        tmp.copyTo(q3);
-
-        q1.copyTo(tmp);
-        q2.copyTo(q1);
-        tmp.copyTo(q2);
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in quadrantShiftMat: " << e.what() << std::endl;
-    }
-}
-
 // Complex Arithmetic Operations
-void CPUBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) {
     try {
+        NULL_PTR_CHECK(a.data, "complexMultiplication - input a");
+        NULL_PTR_CHECK(b.data, "complexMultiplication - input b");
+        NULL_PTR_CHECK(result.data, "complexMultiplication - result");
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
-            std::cerr << "[ERROR] Size mismatch in complexMultiplication" << std::endl;
-            return;
+            throw std::runtime_error("Size mismatch in complexMultiplication");
         }
 
         //#pragma omp parallel for simd
@@ -336,11 +316,13 @@ void CPUBackend::complexMultiplication(const ComplexData& a, const ComplexData& 
     }
 }
 
-void CPUBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
+void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
     try {
+        NULL_PTR_CHECK(a.data, "complexDivision - input a");
+        NULL_PTR_CHECK(b.data, "complexDivision - input b");
+        NULL_PTR_CHECK(result.data, "complexDivision - result");
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
-            std::cerr << "[ERROR] Size mismatch in complexDivision" << std::endl;
-            return;
+            throw std::runtime_error("Size mismatch in complexDivision");
         }
 
         //#pragma omp parallel for
@@ -365,11 +347,13 @@ void CPUBackend::complexDivision(const ComplexData& a, const ComplexData& b, Com
     }
 }
 
-void CPUBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) {
     try {
+        NULL_PTR_CHECK(a.data, "complexAddition - input a");
+        NULL_PTR_CHECK(b.data, "complexAddition - input b");
+        NULL_PTR_CHECK(result.data, "complexAddition - result");
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
-            std::cerr << "[ERROR] Size mismatch in complexAddition" << std::endl;
-            return;
+            throw std::runtime_error("Size mismatch in complexAddition");
         }
 
         for (int i = 0; i < a.size.volume; ++i) {
@@ -381,11 +365,12 @@ void CPUBackend::complexAddition(const ComplexData& a, const ComplexData& b, Com
     }
 }
 
-void CPUBackend::scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) {
+void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) {
     try {
+        NULL_PTR_CHECK(a.data, "scalarMultiplication - input a");
+        NULL_PTR_CHECK(result.data, "scalarMultiplication - result");
         if (a.size.volume != result.size.volume) {
-            std::cerr << "[ERROR] Size mismatch in scalarMultiplication" << std::endl;
-            return;
+            throw std::runtime_error("Size mismatch in scalarMultiplication");
         }
 
         for (int i = 0; i < a.size.volume; ++i) {
@@ -397,11 +382,13 @@ void CPUBackend::scalarMultiplication(const ComplexData& a, double scalar, Compl
     }
 }
 
-void CPUBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) {
     try {
+        NULL_PTR_CHECK(a.data, "complexMultiplicationWithConjugate - input a");
+        NULL_PTR_CHECK(b.data, "complexMultiplicationWithConjugate - input b");
+        NULL_PTR_CHECK(result.data, "complexMultiplicationWithConjugate - result");
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
-            std::cerr << "[ERROR] Size mismatch in complexMultiplicationWithConjugate" << std::endl;
-            return;
+            throw std::runtime_error("Size mismatch in complexMultiplicationWithConjugate");
         }
 
         //#pragma omp parallel for
@@ -419,11 +406,13 @@ void CPUBackend::complexMultiplicationWithConjugate(const ComplexData& a, const 
     }
 }
 
-void CPUBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
+void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
     try {
+        NULL_PTR_CHECK(a.data, "complexDivisionStabilized - input a");
+        NULL_PTR_CHECK(b.data, "complexDivisionStabilized - input b");
+        NULL_PTR_CHECK(result.data, "complexDivisionStabilized - result");
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
-            std::cerr << "[ERROR] Size mismatch in complexDivisionStabilized" << std::endl;
-            return;
+            throw std::runtime_error("Size mismatch in complexDivisionStabilized");
         }
 
         //#pragma omp parallel for
@@ -443,11 +432,8 @@ void CPUBackend::complexDivisionStabilized(const ComplexData& a, const ComplexDa
     }
 }
 
-
-
-
 // Specialized Functions
-void CPUBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) {
+void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) {
     try {
         int width = psf.size.width;
         int height = psf.size.height;
@@ -473,7 +459,7 @@ void CPUBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& la
     }
 }
 
-void CPUBackend::normalizeImage(ComplexData& resultImage, double epsilon) {
+void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double epsilon) {
     try {
         double max_val = 0.0, max_val2 = 0.0;
         for (int j = 0; j < resultImage.size.volume; j++) {
@@ -489,7 +475,7 @@ void CPUBackend::normalizeImage(ComplexData& resultImage, double epsilon) {
     }
 }
 
-void CPUBackend::rescaledInverse(ComplexData& data, double cubeVolume) {
+void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolume) {
     try {
         for (int i = 0; i < data.size.volume; ++i) {
             data.data[i][0] /= cubeVolume;
@@ -500,10 +486,52 @@ void CPUBackend::rescaledInverse(ComplexData& data, double cubeVolume) {
     }
 }
 
-
+// Debug functions
+void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) {
+    int nanCount = 0, infCount = 0;
+    double minReal = std::numeric_limits<double>::max();
+    double maxReal = std::numeric_limits<double>::lowest();
+    double minImag = std::numeric_limits<double>::max();
+    double maxImag = std::numeric_limits<double>::lowest();
+    
+    for (int i = 0; i < data.size.volume; i++) {
+        double real = data.data[i][0];
+        double imag = data.data[i][1];
+        
+        // Check for NaN
+        if (std::isnan(real) || std::isnan(imag)) {
+            nanCount++;
+            if (nanCount <= 10) { // Only print first 10
+                std::cout << "NaN at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
+            }
+        }
+        
+        // Check for infinity
+        if (std::isinf(real) || std::isinf(imag)) {
+            infCount++;
+            if (infCount <= 10) {
+                std::cout << "Inf at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
+            }
+        }
+        
+        // Track min/max for valid values
+        if (std::isfinite(real)) {
+            minReal = std::min(minReal, real);
+            maxReal = std::max(maxReal, real);
+        }
+        if (std::isfinite(imag)) {
+            minImag = std::min(minImag, imag);
+            maxImag = std::max(maxImag, imag);
+        }
+    }
+    
+    std::cout << "[DEBUG] Data stats - NaN: " << nanCount << ", Inf: " << infCount << std::endl;
+    std::cout << "[DEBUG] Real range: [" << minReal << ", " << maxReal << "]" << std::endl;
+    std::cout << "[DEBUG] Imag range: [" << minImag << ", " << maxImag << "]" << std::endl;
+}
 
 // Layer and Visualization Functions
-void CPUBackend::reorderLayers(ComplexData& data) {
+void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) {
     try {
         int width = data.size.width;
         int height = data.size.height;
@@ -512,6 +540,7 @@ void CPUBackend::reorderLayers(ComplexData& data) {
         int halfDepth = depth / 2;
         
         complex* temp = (complex*)fftw_malloc(sizeof(complex) * data.size.volume);
+        FFTW_MALLOC_CHECK(temp, sizeof(complex) * data.size.volume);
 
         int destIndex = 0;
 
@@ -539,9 +568,8 @@ void CPUBackend::reorderLayers(ComplexData& data) {
     }
 }
 
-
 // Gradient and TV Functions
-void CPUBackend::gradientX(const ComplexData& image, ComplexData& gradX) {
+void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) {
     try {
         int width = image.size.width;
         int height = image.size.height;
@@ -567,7 +595,7 @@ void CPUBackend::gradientX(const ComplexData& image, ComplexData& gradX) {
     }
 }
 
-void CPUBackend::gradientY(const ComplexData& image, ComplexData& gradY) {
+void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) {
     try {
         int width = image.size.width;
         int height = image.size.height;
@@ -595,7 +623,7 @@ void CPUBackend::gradientY(const ComplexData& image, ComplexData& gradY) {
     }
 }
 
-void CPUBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) {
+void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) {
     try {
         int width = image.size.width;
         int height = image.size.height;
@@ -625,7 +653,7 @@ void CPUBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) {
     }
 }
 
-void CPUBackend::computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) {
+void CPUDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) {
     try {
         int nxy = gx.size.width * gx.size.height;
 
@@ -646,7 +674,7 @@ void CPUBackend::computeTV(double lambda, const ComplexData& gx, const ComplexDa
     }
 }
 
-void CPUBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) {
+void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) {
     try {
         int nxy = gradX.size.width * gradX.size.height;
 
@@ -675,32 +703,10 @@ void CPUBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData
     }
 }
 
-
-size_t CPUBackend::getAvailableMemory() {
-    // For CPU backend, return available system memory
-    std::unique_lock<std::mutex>lock(backendMutex);
-    size_t memory;
-    #ifdef __linux__
-        #include <unistd.h>
-        long pagesize = sysconf(_SC_PAGESIZE);
-        long pages = sysconf(_SC_AVPHYS_PAGES);
-        if (pagesize > 0 && pages > 0) {
-            memory = static_cast<size_t>(pagesize) * static_cast<size_t>(pages);
-        }
-    #elif _WIN32
-        #include <windows.h>
-        MEMORYSTATUSEX status;
-        status.dwLength = sizeof(status);
-        GlobalMemoryStatusEx(&status);
-        memory = static_cast<size_t>(status.ullAvailPhys);
-    #endif
-    assert(memory != 0 && "[ERROR] Something went wrong while trying to get available memory");
-    return memory;
-    
+extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
+    return new CPUDeconvolutionBackend();
 }
 
-
-
-extern "C" IDeconvolutionBackend* create_backend() {
-    return new CPUBackend();
+extern "C" IBackendMemoryManager* createBackendMemoryManager() {
+    return new CPUBackendMemoryManager();
 }

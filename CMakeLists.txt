@@ -87,6 +87,10 @@ include_directories(
 # Collect sources
 # ------------------------------------------------------------
 
+set(BACKEND_SOURCES
+    src/backend/ComplexData.cpp)
+add_library(backendlib ${BACKEND_SOURCES})
+
 
 set(COMMON_SOURCES
     src/Dolphin.cpp
@@ -95,7 +99,8 @@ set(COMMON_SOURCES
     src/PSFGenerationService.cpp
     src/DeconvolutionService.cpp
     src/ThreadPool.cpp
-
+    # src/backend/ComplexData.cpp
+    
     src/hyperstack/HyperstackImage.cpp
     src/hyperstack/Image3D.cpp
     src/hyperstack/ImageMetaData.cpp
@@ -111,7 +116,6 @@ set(COMMON_SOURCES
     src/psf/configs/PSFConfig.cpp
     src/psf/configs/GibsonLanniPSFConfig.cpp
     src/psf/configs/GaussianPSFConfig.cpp
-
 
     src/deconvolution/DeconvolutionConfig.cpp
     src/deconvolution/DeconvolutionAlgorithmFactory.cpp
@@ -154,7 +158,6 @@ set(COMMON_SOURCES
     src/frontend/gui/SpinningDonut.cpp
 )
 add_library(dolphinlib ${COMMON_SOURCES})
-
 # ------------------------------------------------------------
 # Build shared library containing all algorithms
 # ------------------------------------------------------------
@@ -182,9 +185,11 @@ add_executable(dolphin src/main.cpp)
 target_link_libraries(dolphin
     PRIVATE
         dolphinlib
+        backendlib
         pthread
         gomp
         stdc++fs)
+
 add_subdirectory(backends/cpu)
 
 # ------------------------------------------------------------

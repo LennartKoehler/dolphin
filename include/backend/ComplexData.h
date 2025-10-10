@@ -1,5 +1,8 @@
 #pragma once
+#include <array>
+#include <algorithm>
 
+class IBackendMemoryManager;
 
 struct RectangleShape{
     int width;
@@ -73,13 +76,21 @@ struct RectangleShape{
 
 typedef double complex[2];
 
-enum class DeviceID{
-    HOST,
-    CUDA,
-    CPU
-};
-struct ComplexData{
+
+class ComplexData{
+public:
     complex* data;
     RectangleShape size;
-    DeviceID device; // mainly for debugging
+    IBackendMemoryManager* backend;
+
+    // Take ownership of pre-allocated memory
+    ComplexData(IBackendMemoryManager* b, complex* data, RectangleShape size) : backend(b), size(size), data(data){};
+    ComplexData(const ComplexData& other) = delete;
+    ComplexData& operator=(const ComplexData& other) = delete;
+
+
+    ComplexData(ComplexData&& other) noexcept
+     : data(other.data), backend(other.backend){
+        other.data = nullptr;
+     };
 };

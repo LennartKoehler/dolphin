@@ -3,7 +3,6 @@
 #include "DeconvolutionConfig.h"
 #include "HyperstackImage.h"
 #include "psf/PSF.h"
-#include "IDeconvolutionBackend.h"
 #include "DeconvolutionAlgorithmFactory.h"
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "ThreadPool.h"
@@ -16,6 +15,8 @@ struct CubeArrangement{
     int totalGridNum;   // Total number of cubes (cubesPerX * cubesPerY * cubesPerZ)
 
 };
+
+class IBackend;
 
 /**
  * Abstract base class for deconvolution algorithms that separates common,
@@ -43,12 +44,18 @@ public:
 
 private:
  
-
     void init(const Hyperstack& input, const std::vector<PSF>& psfs);
-    std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, const std::vector<std::vector<cv::Mat>>& gridImages);
-    
-    void preprocessPSF(std::vector<PSF> inputPSFs);
+    void parallelDeconvolution(std::vector<std::vector<cv::Mat>>& cubeImages);
+    void deconvolveSingleCube(
+        std::shared_ptr<IBackend> backend,
+        std::unique_ptr<DeconvolutionAlgorithm> algorithm,
+        std::vector<cv::Mat>& cubeImage,
+        const RectangleShape& workShape,
+        const std::vector<ComplexData>& psfs_host);
+
     std::vector<std::vector<cv::Mat>> preprocessChannel(Channel& channel);
+
+    std::vector<cv::Mat> postprocessChannel(ImageMetaData& metaData, const std::vector<std::vector<cv::Mat>>& gridImages);
 
     void setPSFOriginalShape(const PSF& psf);
     void setImageOriginalShape(const Channel& channel);
@@ -56,30 +63,26 @@ private:
         const RectangleShape& imageOriginalShape,
         const RectangleShape& padding,
         size_t subimageSize);
-
-    const std::vector<ComplexData> selectPSFsForCube(int cubeIndex);
-
-
-    void deconvolveSingleCube(
-        std::shared_ptr<IDeconvolutionBackend> backend,
-        std::unique_ptr<DeconvolutionAlgorithm> algorithm,
-        std::vector<cv::Mat>& cubeImage,
-        const RectangleShape& workShape,
-        const std::vector<ComplexData>& psfs_host);
-
-    void initPSFMaps(const std::vector<PSF>& psfs);
-    std::shared_ptr<IDeconvolutionBackend> loadBackend(const std::string& backendName);
+    size_t getMemoryPerCube(size_t maxNumberThreads); 
     void setupCubeArrangement();
+
+    void preprocessPSF(std::vector<PSF> inputPSFs);
+    const std::vector<ComplexData> selectPSFsForCube(int cubeIndex);
+    void initPSFMaps(const std::vector<PSF>& psfs);
     int getLayerIndex(int cubeIndex, int cubesPerLayer);
-    void parallelDeconvolution(std::vector<std::vector<cv::Mat>>& cubeImages);
-    size_t getMemoryPerCube(size_t maxNumberThreads);
+
+
+    std::shared_ptr<IBackend> loadBackend(const std::string& backendName);
+ 
+    ComplexData convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, const RectangleShape& shape);
+    std::vector<cv::Mat> convertFFTWComplexToCVMatVector(const ComplexData& input);
 
 
 
     DeconvolutionConfig config;
 
-    std::shared_ptr<IDeconvolutionBackend> cpu_backend_;
-    std::shared_ptr<IDeconvolutionBackend> backend_;
+    std::shared_ptr<IBackend> cpu_backend_;
+    std::shared_ptr<IBackend> backend_;
     std::shared_ptr<DeconvolutionAlgorithm> algorithm_;
 
 
