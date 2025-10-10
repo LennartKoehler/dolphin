@@ -1,7 +1,7 @@
 #pragma once
 #include "../DeconvolutionConfig.h"
-#include "complexType.h"
-#include "deconvolution/IDeconvolutionBackend.h"
+#include "backend/ComplexData.h"
+#include "backend/IDeconvolutionBackend.h"
 
 class DeconvolutionAlgorithm{
 public:

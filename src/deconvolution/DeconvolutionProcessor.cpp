@@ -5,10 +5,10 @@
 #include <iostream>
 #include <opencv2/imgproc.hpp>
 #include <omp.h>
-#include <dlfcn.h>
 #include "algorithms/TestAlgorithm.cpp"
 #include "deconvolution/Preprocessor.h"
 #include "deconvolution/Postprocessor.h"
+#include "backend/BackendFactory.h"
 
 ImageMetaData globalmetadata;
 
@@ -43,68 +43,6 @@ void savecubeDebug(const std::vector<cv::Mat> cubeImage, const char* name, Image
     channel.image = image3d;
     cubeImageHyperstack.channels.push_back(channel);
     cubeImageHyperstack.saveAsTifFile("../result/"+std::string(name)+".tif");
-}
-
-
-
-// Conversion Functions
-ComplexData convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, const RectangleShape& shape) {
-    ComplexData result;
-
-    try {
-        result.size = shape;
-        result.data = (complex*)malloc(sizeof(complex) * shape.volume);
-
-        if (result.data == nullptr) {
-            std::cerr << "[ERROR] FFTW malloc failed" << std::endl;
-        }
-    
-        int width = shape.width;
-        int height = shape.height;
-        int depth = shape.depth;
-        
-        for (int z = 0; z < depth; ++z) {
-            CV_Assert(input[z].type() == CV_32F);
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    result.data[z * height * width + y * width + x][0] = static_cast<double>(input[z].at<float>(y, x));
-                    result.data[z * height * width + y * width + x][1] = 0.0;
-                }
-            }
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in convertCVMatVectorToFFTWComplex: " << e.what() << std::endl;
-    }
-    return result;
-}
-
-std::vector<cv::Mat> convertFFTWComplexToCVMatVector(const ComplexData& input) {
-    
-    std::vector<cv::Mat> output;
-    try {
-        int width = input.size.width;
-        int height = input.size.height;
-        int depth = input.size.depth;
-        
-        
-        for (int z = 0; z < depth; ++z) {
-            cv::Mat result(height, width, CV_32F); // Zero-initialize
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int index = z * height * width + y * width + x;
-                    double real_part = input.data[index][0];
-                    double imag_part = input.data[index][1];
-                    result.at<float>(y, x) = static_cast<float>(sqrt(real_part * real_part + imag_part * imag_part));
-
-
-                }
-            }
-            output.push_back(result);
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in convertFFTWComplexToCVMatVector: " << e.what() << std::endl;
-    }
-    return output;
 }
 
 
@@ -211,7 +149,7 @@ void DeconvolutionProcessor::parallelDeconvolution(std::vector<std::vector<cv::M
 }
 
 void DeconvolutionProcessor::deconvolveSingleCube(
-    std::shared_ptr<IDeconvolutionBackend> backend,
+    std::shared_ptr<IBackend> backend,
     std::unique_ptr<DeconvolutionAlgorithm> algorithm,
     std::vector<cv::Mat>& cubeImage,
     const RectangleShape& workShape,
@@ -219,33 +157,31 @@ void DeconvolutionProcessor::deconvolveSingleCube(
 
 
     ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage, workShape);
-    ComplexData g_device = backend->moveDataToDevice(g_host);
-    cpu_backend_->freeMemoryOnDevice(g_host);
+    ComplexData g_device = backend->memoryManager->moveDataToDevice(g_host);
+    cpu_backend_->memoryManager->freeMemoryOnDevice(g_host);
 
 
 
     if (psfs_host.size() == 0) {
-        backend->freeMemoryOnDevice(g_device);
+        backend->memoryManager->freeMemoryOnDevice(g_device);
         throw;
     }
-    ComplexData f_device = backend->allocateMemoryOnDevice(cubeShapePadded);
+    ComplexData f_device = backend->memoryManager->allocateMemoryOnDevice(cubeShapePadded);
 
     for (const auto psf : psfs_host){
-        ComplexData psf_device = backend->moveDataToDevice(psf);
-        algorithm->deconvolve(psf_device, g_device, f_device);
-        backend->freeMemoryOnDevice(psf_device);
-        
+        ComplexData psf_device = backend->memoryManager->moveDataToDevice(psf);
+        algorithm->deconvolve(psf_device, g_device, f_device);        
 
     }
-    ComplexData f_host = backend->moveDataFromDevice(f_device);
+    ComplexData f_host = backend->memoryManager->moveDataFromDevice(f_device);
 
-    backend->freeMemoryOnDevice(g_device);
-    backend->freeMemoryOnDevice(f_device);
+    backend->memoryManager->freeMemoryOnDevice(g_device);
+    backend->memoryManager->freeMemoryOnDevice(f_device);
 
 
 
     cubeImage = convertFFTWComplexToCVMatVector(f_host);
-    backend->freeMemoryOnDevice(f_host);
+    backend->memoryManager->freeMemoryOnDevice(f_host);
 }
 
 
@@ -390,21 +326,8 @@ void DeconvolutionProcessor::configure(const DeconvolutionConfig config) {
 
 
 // because fftw3 and cufftw define the same api names they are loaded like this
-std::shared_ptr<IDeconvolutionBackend> DeconvolutionProcessor::loadBackend(const std::string& backendName){
+std::shared_ptr<IBackend> DeconvolutionProcessor::loadBackend(const std::string& backendName){
 
-    std::string libpath = std::string("backends/") + backendName + "/lib" + backendName + "_backend.so";
-    void* handle = dlopen(libpath.c_str(), RTLD_NOW | RTLD_LOCAL);
-    if (!handle) {
-        const char* err = dlerror();
-        std::cerr << "dlopen failed: " << (err ? err : "unknown error") << std::endl;
-        throw std::runtime_error(err ? err : "dlopen failed");    }
-
-    using create_fn = IDeconvolutionBackend*();
-    auto create_backend = reinterpret_cast<create_fn*>(dlsym(handle, "create_backend"));
-    if (!create_backend) {
-        throw std::runtime_error(dlerror());
-    }
-    return std::shared_ptr<IDeconvolutionBackend>(create_backend());
 }
 
 
@@ -476,14 +399,14 @@ void DeconvolutionProcessor::setWorkShapes(
 void DeconvolutionProcessor::preprocessPSF(
     std::vector<PSF> inputPSFs
     ) {
-        assert(cpu_backend_->plansInitialized() + "backend not initialized");
+        assert(cpu_backend_->deconvManager->plansInitialized() + "backend not initialized");
 
         std::cout << "[STATUS] Preprocessing PSFs" << std::endl;
         for (int i = 0; i < inputPSFs.size(); i++) {
             
             Preprocessor::padToShape(inputPSFs[i].image.slices, cubeShapePadded, 0);
             ComplexData h = convertCVMatVectorToFFTWComplex(inputPSFs[i].image.slices, cubeShapePadded);          
-            cpu_backend_->octantFourierShift(h);
+            cpu_backend_->deconvManager->octantFourierShift(h);
             cpu_backend_->forwardFFT(h, h);
             preparedpsfs.push_back(h);
 
@@ -515,18 +438,12 @@ const std::vector<ComplexData> DeconvolutionProcessor::selectPSFsForCube(int cub
 
 
 void DeconvolutionProcessor::setupCubeArrangement() {
-    if (!config.grid) {
-        cubes.cubesPerX = 1;
-        cubes.cubesPerY = 1;
-        cubes.cubesPerZ = 1;
-        cubes.cubesPerLayer = 1;
-    } else {
-        cubes.cubesPerX = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.width) / subimageShape.width));
-        cubes.cubesPerY = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.height) / subimageShape.height));
-        cubes.cubesPerZ = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.depth) / subimageShape.depth));
-        cubes.cubesPerLayer = cubes.cubesPerX * cubes.cubesPerY;
-    }
-    
+
+    cubes.cubesPerX = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.width) / subimageShape.width));
+    cubes.cubesPerY = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.height) / subimageShape.height));
+    cubes.cubesPerZ = static_cast<int>(std::ceil(static_cast<double>(imageOriginalShape.depth) / subimageShape.depth));
+    cubes.cubesPerLayer = cubes.cubesPerX * cubes.cubesPerY;
+
     cubes.totalGridNum = cubes.cubesPerX * cubes.cubesPerY * cubes.cubesPerZ;
 }
 
@@ -580,7 +497,7 @@ int DeconvolutionProcessor::getLayerIndex(int cubeIndex, int cubesPerLayer){
 size_t DeconvolutionProcessor::getMemoryPerCube(size_t maxNumberThreads){
 
     size_t algorithmMemoryMultiplier = algorithm_->getMemoryMultiplier(); // how many copies of a cube does each algorithm have
-    size_t memoryBuffer = 1e9;
+    size_t memoryBuffer = 3e9; // TESTVALUE
     size_t availableMemory = backend_->getAvailableMemory() - memoryBuffer;
     size_t memoryPerThread = availableMemory / maxNumberThreads;
     size_t memoryPerCube = memoryPerThread / algorithmMemoryMultiplier;
@@ -588,6 +505,64 @@ size_t DeconvolutionProcessor::getMemoryPerCube(size_t maxNumberThreads){
 
     
 }
+
+
+
+// Conversion Functions
+ComplexData DeconvolutionProcessor::convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, const RectangleShape& shape) {
+    ComplexData result = cpu_backend_->allocateMemoryOnDevice(shape);
+
+    try {
+        int width = shape.width;
+        int height = shape.height;
+        int depth = shape.depth;
+        
+        for (int z = 0; z < depth; ++z) {
+            CV_Assert(input[z].type() == CV_32F);
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    result.data[z * height * width + y * width + x][0] = static_cast<double>(input[z].at<float>(y, x));
+                    result.data[z * height * width + y * width + x][1] = 0.0;
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in convertCVMatVectorToFFTWComplex: " << e.what() << std::endl;
+    }
+    return result;
+}
+
+std::vector<cv::Mat> DeconvolutionProcessor::convertFFTWComplexToCVMatVector(const ComplexData& input) {
+    
+    std::vector<cv::Mat> output;
+    try {
+        int width = input.size.width;
+        int height = input.size.height;
+        int depth = input.size.depth;
+        
+        
+        for (int z = 0; z < depth; ++z) {
+            cv::Mat result(height, width, CV_32F); // Zero-initialize
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int index = z * height * width + y * width + x;
+                    double real_part = input.data[index][0];
+                    double imag_part = input.data[index][1];
+                    result.at<float>(y, x) = static_cast<float>(sqrt(real_part * real_part + imag_part * imag_part));
+
+
+                }
+            }
+            output.push_back(result);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in convertFFTWComplexToCVMatVector: " << e.what() << std::endl;
+    }
+    return output;
+}
+
+
+
 // unused
 
 // void convertFFTWComplexRealToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) {

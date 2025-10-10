@@ -13,7 +13,7 @@
     },
     "time": false,
     "saveSubimages": false, 
-    "backenddeconv": "cpu",
+    "backenddeconv": "cuda",
     "nThreads": 8
   },
   
