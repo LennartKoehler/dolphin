@@ -30,6 +30,7 @@ target_link_libraries(cpu_backend PRIVATE
     ${FFTW3_LIB}
     ${FFTW3_THREADS_LIB}
     OpenMP::OpenMP_CXX
+    backendlib
 )
 
 # Set proper output name

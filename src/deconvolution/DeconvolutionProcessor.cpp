@@ -108,24 +108,24 @@ void DeconvolutionProcessor::parallelDeconvolution(std::vector<std::vector<cv::M
 
     for (int cubeIndex = 0; cubeIndex < numberCubes; ++cubeIndex) {
         // Wait if too many tasks are running
-        {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            queueSpace.wait(lock, [&runningTasks, maxNumberWorkerThreads] {
-                // Clean up any completed tasks
-                runningTasks.erase(
-                    std::remove_if(
-                        runningTasks.begin(), runningTasks.end(),
-                        [](std::future<void>& f) {
-                            return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
-                        }),
-                    runningTasks.end()
-                );
-                return static_cast<int>(runningTasks.size()) < maxNumberWorkerThreads;
-            });
-        }
+        // {
+        //     std::unique_lock<std::mutex> lock(queueMutex);
+        //     queueSpace.wait(lock, [&runningTasks, maxNumberWorkerThreads] {
+        //         // Clean up any completed tasks
+        //         runningTasks.erase(
+        //             std::remove_if(
+        //                 runningTasks.begin(), runningTasks.end(),
+        //                 [](std::future<void>& f) {
+        //                     return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+        //                 }),
+        //             runningTasks.end()
+        //         );
+        //         return static_cast<int>(runningTasks.size()) < maxNumberWorkerThreads;
+        //     });
+        // }
 
-        // Launch deconvolution asynchronously
-        std::vector<ComplexData> psfs = selectPSFsForCube(cubeIndex); //although psfs have a pointer to the actual data that is shared among the threads it should be safe as they are only read
+        // Launch deconvolution asynchronously, no real memory copies as all is passed by reference or pointer
+        std::vector<const ComplexData*> psfs = selectPSFsForCube(cubeIndex); 
         runningTasks.push_back(threadPool->enqueue([&, cubeIndex, psfs]() {
             deconvolveSingleCube(
                 backend_,
@@ -153,35 +153,23 @@ void DeconvolutionProcessor::deconvolveSingleCube(
     std::unique_ptr<DeconvolutionAlgorithm> algorithm,
     std::vector<cv::Mat>& cubeImage,
     const RectangleShape& workShape,
-    const std::vector<ComplexData>& psfs_host) {
+    const std::vector<const ComplexData*>& psfs_device) {
 
 
     ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage, workShape);
-    ComplexData g_device = backend->memoryManager->moveDataToDevice(g_host);
-    cpu_backend_->memoryManager->freeMemoryOnDevice(g_host);
+    ComplexData g_device = backend->getMemoryManager().copyDataToDevice(g_host);
+    cpu_backend_->getMemoryManager().freeMemoryOnDevice(g_host);
 
 
 
-    if (psfs_host.size() == 0) {
-        backend->memoryManager->freeMemoryOnDevice(g_device);
-        throw;
-    }
-    ComplexData f_device = backend->memoryManager->allocateMemoryOnDevice(cubeShapePadded);
+    ComplexData f_device = backend->getMemoryManager().allocateMemoryOnDevice(cubeShapePadded);
 
-    for (const auto psf : psfs_host){
-        ComplexData psf_device = backend->memoryManager->moveDataToDevice(psf);
-        algorithm->deconvolve(psf_device, g_device, f_device);        
+    for (const auto* psf_device : psfs_device){
+        algorithm->deconvolve(*psf_device, g_device, f_device);
 
     }
-    ComplexData f_host = backend->memoryManager->moveDataFromDevice(f_device);
-
-    backend->memoryManager->freeMemoryOnDevice(g_device);
-    backend->memoryManager->freeMemoryOnDevice(f_device);
-
-
-
+    ComplexData f_host = backend->getMemoryManager().moveDataFromDevice(f_device, cpu_backend_->getMemoryManager());
     cubeImage = convertFFTWComplexToCVMatVector(f_host);
-    backend->memoryManager->freeMemoryOnDevice(f_host);
 }
 
 
@@ -282,8 +270,8 @@ void DeconvolutionProcessor::init(const Hyperstack& input, const std::vector<PSF
     setWorkShapes(imageOriginalShape, psfOriginalShape, memoryPerCube);
     setupCubeArrangement();
    
-    backend_->init(cubeShapePadded);
-    cpu_backend_->init(cubeShapePadded); // for psf preprocessing
+    backend_->mutableDeconvManager().init(cubeShapePadded);
+    cpu_backend_->mutableDeconvManager().init(cubeShapePadded); // for psf preprocessing
     algorithm_->setBackend(backend_);
 
 
@@ -327,7 +315,8 @@ void DeconvolutionProcessor::configure(const DeconvolutionConfig config) {
 
 // because fftw3 and cufftw define the same api names they are loaded like this
 std::shared_ptr<IBackend> DeconvolutionProcessor::loadBackend(const std::string& backendName){
-
+    BackendFactory& bf = BackendFactory::getInstance();
+    return bf.create(backendName);
 }
 
 
@@ -399,16 +388,16 @@ void DeconvolutionProcessor::setWorkShapes(
 void DeconvolutionProcessor::preprocessPSF(
     std::vector<PSF> inputPSFs
     ) {
-        assert(cpu_backend_->deconvManager->plansInitialized() + "backend not initialized");
+        assert(cpu_backend_->getDeconvManager().plansInitialized() + "backend not initialized");
 
         std::cout << "[STATUS] Preprocessing PSFs" << std::endl;
         for (int i = 0; i < inputPSFs.size(); i++) {
             
             Preprocessor::padToShape(inputPSFs[i].image.slices, cubeShapePadded, 0);
-            ComplexData h = convertCVMatVectorToFFTWComplex(inputPSFs[i].image.slices, cubeShapePadded);          
-            cpu_backend_->deconvManager->octantFourierShift(h);
-            cpu_backend_->forwardFFT(h, h);
-            preparedpsfs.push_back(h);
+            ComplexData h = convertCVMatVectorToFFTWComplex(inputPSFs[i].image.slices, cubeShapePadded);
+            cpu_backend_->getDeconvManager().octantFourierShift(h);
+            cpu_backend_->getDeconvManager().forwardFFT(h, h);
+            preparedpsfs.push_back(std::move(h));
 
         }
         
@@ -416,20 +405,16 @@ void DeconvolutionProcessor::preprocessPSF(
 
 }
 
-const std::vector<ComplexData> DeconvolutionProcessor::selectPSFsForCube(int cubeIndex) {
+const std::vector<const ComplexData*> DeconvolutionProcessor::selectPSFsForCube(int cubeIndex) {
     int layerIndex = getLayerIndex(cubeIndex, cubes.cubesPerLayer);
 
-    std::vector<ComplexData> psfs;
+    std::vector<const ComplexData*> psfs;
     
-    std::vector<ComplexData> layerPSFs = layerPreparedPSFMap.get(layerIndex);
-    if (!layerPSFs.empty()) {
-        psfs.insert(psfs.end(), layerPSFs.begin(), layerPSFs.end());
-    }
+    std::vector<const ComplexData*> layerPSFs = layerPreparedPSFMap.getPointers(layerIndex);
+    psfs.insert(psfs.end(), layerPSFs.begin(), layerPSFs.end());
     
-    std::vector<ComplexData> cubePSFs = cubePreparedPSFMap.get(cubeIndex);
-    if (!cubePSFs.empty()) {
-        psfs.insert(psfs.end(), cubePSFs.begin(), cubePSFs.end());
-    }
+    std::vector<const ComplexData*> cubePSFs = cubePreparedPSFMap.getPointers(cubeIndex);
+    psfs.insert(psfs.end(), cubePSFs.begin(), cubePSFs.end());
 
     return psfs;
 
@@ -456,7 +441,7 @@ void DeconvolutionProcessor::cleanup() {
     // Clean up PSFs
     for (auto& psf : preparedpsfs) {
         if (psf.data) {
-            cpu_backend_->freeMemoryOnDevice(psf);
+            cpu_backend_->getMemoryManager().freeMemoryOnDevice(psf);
             psf.data = nullptr;
         }
     }
@@ -482,7 +467,8 @@ void DeconvolutionProcessor::initPSFMaps(const std::vector<PSF>& psfs){
             std::string ID = psfs[psfindex].ID;
             for (const std::string& mapID : range.get()){
                 if (ID == mapID){
-                    layerPreparedPSFMap.addRange(range.start, range.end, preparedpsfs[psfindex]);
+                    ComplexData psfs_host = preparedpsfs[psfindex];
+                    layerPreparedPSFMap.addRange(range.start, range.end, std::move(backend_->getMemoryManager().copyDataToDevice(psfs_host)));
                 }
             }
         }
@@ -498,7 +484,7 @@ size_t DeconvolutionProcessor::getMemoryPerCube(size_t maxNumberThreads){
 
     size_t algorithmMemoryMultiplier = algorithm_->getMemoryMultiplier(); // how many copies of a cube does each algorithm have
     size_t memoryBuffer = 3e9; // TESTVALUE
-    size_t availableMemory = backend_->getAvailableMemory() - memoryBuffer;
+    size_t availableMemory = backend_->mutableMemoryManager().getAvailableMemory() - memoryBuffer;
     size_t memoryPerThread = availableMemory / maxNumberThreads;
     size_t memoryPerCube = memoryPerThread / algorithmMemoryMultiplier;
     return memoryPerCube;
@@ -510,7 +496,7 @@ size_t DeconvolutionProcessor::getMemoryPerCube(size_t maxNumberThreads){
 
 // Conversion Functions
 ComplexData DeconvolutionProcessor::convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, const RectangleShape& shape) {
-    ComplexData result = cpu_backend_->allocateMemoryOnDevice(shape);
+    ComplexData result = cpu_backend_->getMemoryManager().allocateMemoryOnDevice(shape);
 
     try {
         int width = shape.width;

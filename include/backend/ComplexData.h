@@ -81,16 +81,14 @@ class ComplexData{
 public:
     complex* data;
     RectangleShape size;
-    IBackendMemoryManager* backend;
+    const IBackendMemoryManager* backend;
 
     // Take ownership of pre-allocated memory
-    ComplexData(IBackendMemoryManager* b, complex* data, RectangleShape size) : backend(b), size(size), data(data){};
-    ComplexData(const ComplexData& other) = delete;
-    ComplexData& operator=(const ComplexData& other) = delete;
+    ComplexData(const IBackendMemoryManager* b, complex* data, RectangleShape size);
+    ~ComplexData();
+    ComplexData(const ComplexData& other);
+    ComplexData& operator=(const ComplexData& other);
 
 
-    ComplexData(ComplexData&& other) noexcept
-     : data(other.data), backend(other.backend){
-        other.data = nullptr;
-     };
+    ComplexData(ComplexData&& other) noexcept;
 };

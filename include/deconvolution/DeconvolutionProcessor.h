@@ -51,7 +51,7 @@ private:
         std::unique_ptr<DeconvolutionAlgorithm> algorithm,
         std::vector<cv::Mat>& cubeImage,
         const RectangleShape& workShape,
-        const std::vector<ComplexData>& psfs_host);
+        const std::vector<const ComplexData*>& psfs_host);
 
     std::vector<std::vector<cv::Mat>> preprocessChannel(Channel& channel);
 
@@ -67,7 +67,7 @@ private:
     void setupCubeArrangement();
 
     void preprocessPSF(std::vector<PSF> inputPSFs);
-    const std::vector<ComplexData> selectPSFsForCube(int cubeIndex);
+    const std::vector<const ComplexData*> selectPSFsForCube(int cubeIndex);
     void initPSFMaps(const std::vector<PSF>& psfs);
     int getLayerIndex(int cubeIndex, int cubesPerLayer);
 
@@ -88,8 +88,8 @@ private:
 
     //multiple psfs
     std::vector<ComplexData> preparedpsfs;
-    RangeMap<ComplexData> layerPreparedPSFMap;
-    RangeMap<ComplexData> cubePreparedPSFMap;
+    RangeMap<ComplexData> layerPreparedPSFMap; // on backend device
+    RangeMap<ComplexData> cubePreparedPSFMap; // on backend device
 
     //shapes
     RectangleShape subimageShape; // before padding but after splitting

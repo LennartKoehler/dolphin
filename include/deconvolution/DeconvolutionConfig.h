@@ -18,7 +18,7 @@ public:
         std::vector<T> values;
         
         Range(int s, int e, T value) : start(s), end(e) {
-            values.push_back(value);
+            values.push_back(std::forward<T>(value));
         }
         
         bool contains(int index) const {
@@ -42,13 +42,13 @@ public:
         // Find if there's an existing range that matches exactly
         for (auto& range : ranges) {
             if (range.start == start && range.end == end) {
-                range.values.push_back(value);
+                range.values.push_back(std::forward<T>(value));
                 return;
             }
         }
         
         // Create new range
-        ranges.emplace_back(start, end, value);
+        ranges.emplace_back(start, end, std::forward<T>(value));
     }
 
     std::vector<T> get(int index) const {
@@ -57,6 +57,21 @@ public:
         for (const auto& range : ranges) {
             if (range.contains(index)) {
                 result.insert(result.end(), range.values.begin(), range.values.end());
+            }
+        }
+        
+        return result;
+    }
+
+    // Get pointers to the values without copying
+    std::vector<const T*> getPointers(int index) const {
+        std::vector<const T*> result;
+        
+        for (const auto& range : ranges) {
+            if (range.contains(index)) {
+                for (const auto& value : range.values) {
+                    result.push_back(&value);
+                }
             }
         }
         

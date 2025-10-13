@@ -2,7 +2,7 @@
 
 
 
-DeconvolutionBackendThreadManager::DeconvolutionBackendThreadManager(std::shared_ptr<ThreadPool> threadPool, size_t numberThreads, std::unique_ptr<DeconvolutionAlgorithm> algorithmPrototype, std::shared_ptr<IDeconvolutionBackend> backendPrototype)
+DeconvolutionBackendThreadManager::DeconvolutionBackendThreadManager(std::shared_ptr<ThreadPool> threadPool, size_t numberThreads, std::unique_ptr<DeconvolutionAlgorithm> algorithmPrototype, std::shared_ptr<IBackend> backendPrototype)
     : threadpool(threadPool),
     backendPrototype_(backendPrototype),
     algorithmPrototype_(std::move(algorithmPrototype)){
@@ -19,13 +19,13 @@ DeconvolutionBackendThreadManager::DeconvolutionBackendThreadManager(std::shared
 std::future<ComplexData> DeconvolutionBackendThreadManager::registerTask(
     std::vector<ComplexData>& psfs,
     ComplexData& image,
-    std::function<ComplexData(std::vector<ComplexData>&, ComplexData&, std::unique_ptr<DeconvolutionAlgorithm>&, std::shared_ptr<IDeconvolutionBackend>)> func){
-        
+    std::function<ComplexData(std::vector<ComplexData>&, ComplexData&, std::unique_ptr<DeconvolutionAlgorithm>&, std::shared_ptr<IBackend>)> func){
+
         std::unique_ptr<DeconvolutionAlgorithm> algorithm = algorithmPrototype_->clone();
 
         return threadpool->enqueue([this, func, psfs, image, algorithm = std::move(algorithm)]() mutable {
             // Acquire backend when task actually runs
-            std::shared_ptr<IDeconvolutionBackend> backend = getBackend();
+            std::shared_ptr<IBackend> backend = getBackend();
             algorithm->setBackend(backend);
 
             if (!backend) {
@@ -44,7 +44,7 @@ std::future<ComplexData> DeconvolutionBackendThreadManager::registerTask(
         });
     }
 
-std::shared_ptr<IDeconvolutionBackend> DeconvolutionBackendThreadManager::getBackend() {
+std::shared_ptr<IBackend> DeconvolutionBackendThreadManager::getBackend() {
     std::lock_guard<std::mutex> lock(backend_mutex);
     
     if (unusedBackends.empty()) {
@@ -59,7 +59,7 @@ std::shared_ptr<IDeconvolutionBackend> DeconvolutionBackendThreadManager::getBac
     return backend;
 }
 
-void DeconvolutionBackendThreadManager::returnBackend(std::shared_ptr<IDeconvolutionBackend> backend) {
+void DeconvolutionBackendThreadManager::returnBackend(std::shared_ptr<IBackend> backend) {
     std::lock_guard<std::mutex> lock(backend_mutex);
     
     auto it = std::find(usedBackends.begin(), usedBackends.end(), backend);
