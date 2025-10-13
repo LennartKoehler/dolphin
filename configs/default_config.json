@@ -13,15 +13,15 @@
     },
     "time": false,
     "saveSubimages": false, 
-    "backenddeconv": "cuda",
-    "nThreads": 8
+    "backenddeconv": "cpu",
+    "nThreads": 5 
   },
   
 
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
   "psf_file_path": "",
   "psf_dir_path": "",
-  "outputDir": "../results",
+  "outputDir": "../../results",
   "backend": "cuda",
   "deconvolution_config_path": "",
 

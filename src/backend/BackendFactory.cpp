@@ -13,14 +13,14 @@ std::shared_ptr<IBackend> BackendFactory::create(std::string backendName) {
     if (!create_backend_deconv) {
         throw std::runtime_error(dlerror());
     }
-    std::shared_ptr<IDeconvolutionBackend> deconv = std::make_shared<IDeconvolutionBackend>(create_backend_deconv());
+    std::shared_ptr<IDeconvolutionBackend> deconv = std::shared_ptr<IDeconvolutionBackend>(create_backend_deconv());
 
     using create_memory_fn = IBackendMemoryManager*();
     auto create_backend_memory = reinterpret_cast<create_memory_fn*>(dlsym(handle, "createBackendMemoryManager"));
     if (!create_backend_memory) {
         throw std::runtime_error(dlerror());
     }
-    std::shared_ptr<IBackendMemoryManager> memory = std::make_shared<IBackendMemoryManager>(create_backend_memory());
+    std::shared_ptr<IBackendMemoryManager> memory = std::shared_ptr<IBackendMemoryManager>(create_backend_memory());
     
     // Note: You'll need to determine the DeviceType based on backendName
     DeviceType deviceType = DeviceType::CPU; // Default, should be determined from backendName
@@ -28,7 +28,7 @@ std::shared_ptr<IBackend> BackendFactory::create(std::string backendName) {
         deviceType = DeviceType::CUDA;
     }
     
-    return std::make_shared<IBackend>(deviceType, deconv, memory);
+    return std::shared_ptr<IBackend>(new IBackend(deviceType, deconv, memory));
 }
 
 BackendFactory& BackendFactory::getInstance() {

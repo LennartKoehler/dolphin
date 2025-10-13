@@ -19,9 +19,9 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexD
     }
 
     // Allocate memory for intermediate arrays
-    assert(backend->isOnDevice(f.data) && "PSF is not on device");
-    ComplexData c = backend->allocateMemoryOnDevice(g.size);
-    backend->memCopy(g, f);
+    assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
+    ComplexData c = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
+    backend->getMemoryManager().memCopy(g, f);
 
     for (int n = 0; n < iterations; ++n) {
         // Calculate damping factor
@@ -35,39 +35,39 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexD
         std::cout << "\r[STATUS] Iteration: " << n + 1 << "/" << iterations << " ";
 
         // a) First transformation: Fn = FFT(fn)
-        backend->forwardFFT(f, f);
+        backend->getDeconvManager().forwardFFT(f, f);
 
         // Fn' = Fn * H
-        backend->complexMultiplication(f, H, c);
+        backend->getDeconvManager().complexMultiplication(f, H, c);
 
         // fn' = IFFT(Fn') + NORMALIZE
-        backend->backwardFFT(c, c);
+        backend->getDeconvManager().backwardFFT(c, c);
 
         // b) Calculation of the Correction Factor: c = g / fn'
-        backend->complexDivision(g, c, c, complexDivisionEpsilon);
+        backend->getDeconvManager().complexDivision(g, c, c, complexDivisionEpsilon);
 
         // c) Second transformation: C = FFT(c)
-        backend->forwardFFT(c, c);
+        backend->getDeconvManager().forwardFFT(c, c);
 
         // C' = C * conj(H)
-        backend->complexMultiplicationWithConjugate(c, H, c);
+        backend->getDeconvManager().complexMultiplicationWithConjugate(c, H, c);
 
         // c' = IFFT(C') + NORMALIZE
-        backend->backwardFFT(c, c);
+        backend->getDeconvManager().backwardFFT(c, c);
 
         // d) Update the estimated image:
-        backend->backwardFFT(f, f);
+        backend->getDeconvManager().backwardFFT(f, f);
 
         // Apply adaptive damping: c = c * a
-        backend->scalarMultiplication(c, a, c);
+        backend->getDeconvManager().scalarMultiplication(c, a, c);
 
         // fn+1' = fn * c
-        backend->complexMultiplication(f, c, f);
+        backend->getDeconvManager().complexMultiplication(f, c, f);
         
         std::flush(std::cout);
     }
     
-    backend->freeMemoryOnDevice(c);
+    backend->getMemoryManager().freeMemoryOnDevice(c);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::cloneSpecific() const {

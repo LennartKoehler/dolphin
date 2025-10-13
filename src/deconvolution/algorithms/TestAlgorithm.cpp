@@ -4,8 +4,8 @@
 
 void TestAlgorithm::configure(const DeconvolutionConfig& config){}
 void TestAlgorithm::deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f){
-    backend->memCopy(g, f);
-    // backend->hasNAN(f);
+    backend->getMemoryManager().memCopy(g, f);
+    // backend->getDeconvManager().hasNAN(f);
 }
 std::unique_ptr<DeconvolutionAlgorithm> TestAlgorithm::cloneSpecific() const{return std::make_unique<TestAlgorithm>();}
 

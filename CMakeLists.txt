@@ -100,6 +100,7 @@ set(COMMON_SOURCES
     src/DeconvolutionService.cpp
     src/ThreadPool.cpp
     # src/backend/ComplexData.cpp
+    src/backend/BackendFactory.cpp
     
     src/hyperstack/HyperstackImage.cpp
     src/hyperstack/Image3D.cpp

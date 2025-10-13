@@ -23,14 +23,24 @@
 
 
 
-bool CUDABackendMemoryManager::isOnDevice(void* ptr) {
+extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
+    return new CUDADeconvolutionBackend();
+}
+
+extern "C" IBackendMemoryManager* createBackendMemoryManager() {
+    return new CUDABackendMemoryManager();
+}
+
+
+
+bool CUDABackendMemoryManager::isOnDevice(void* ptr) const {
     if (ptr == nullptr) return false;
     
     cudaPointerAttributes attributes;
     cudaError_t result = cudaPointerGetAttributes(&attributes, ptr);
     
     if (result == cudaSuccess) {
-        return (attributes.type == cudaMemoryTypeDevice || 
+        return (attributes.type == cudaMemoryTypeDevice ||
                 attributes.type == cudaMemoryTypeManaged);
     } else if (result == cudaErrorInvalidValue) {
         cudaGetLastError(); // Clear the error
@@ -41,7 +51,7 @@ bool CUDABackendMemoryManager::isOnDevice(void* ptr) {
     }
 }
 
-void CUDABackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) {
+void CUDABackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     if (data.data != nullptr && isOnDevice(data.data)) {
         return; // Already on device
     }
@@ -52,7 +62,7 @@ void CUDABackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) {
 
 }
 
-void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) {
+void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
     // Ensure destination has memory allocated
     if (destData.data == nullptr) {
         allocateMemoryOnDevice(destData);
@@ -112,16 +122,16 @@ void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& 
 
 }
 
-ComplexData CUDABackendMemoryManager::allocateMemoryOnDevice(const RectangleShape& shape) {
+ComplexData CUDABackendMemoryManager::allocateMemoryOnDevice(const RectangleShape& shape) const {
     ComplexData result{this, nullptr, shape};
     CUDA_CHECK(cudaMalloc((void**)&result.data, shape.volume * sizeof(complex)));
     return result;
 }
 
-ComplexData CUDABackendMemoryManager::moveDataToDevice(const ComplexData& srcdata) {
+ComplexData CUDABackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
     ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
     if (srcdata.data != nullptr) {
-        CUBE_UTL_COPY::copyDataFromHostToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth, 
+        CUBE_UTL_COPY::copyDataFromHostToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
                                                destdata.data, srcdata.data);
     }
     destdata.backend = this;
@@ -129,17 +139,25 @@ ComplexData CUDABackendMemoryManager::moveDataToDevice(const ComplexData& srcdat
     return destdata;
 }
 
-ComplexData CUDABackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata){
-    complex* temp = (complex *) fftw_malloc(sizeof(complex) * srcdata.size.volume);
-    ComplexData destdata{this, temp, srcdata.size};
-    if (srcdata.data != nullptr) {
-        CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, 
-                                               destdata.data, srcdata.data);
+ComplexData CUDABackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const {
+    complex* temp;
+    if (&destBackend == this){
+        return srcdata;
     }
-    return destdata;
+    else{
+
+        temp = (complex*) fftw_malloc(sizeof(complex) * srcdata.size.volume);
+
+        if (srcdata.data != nullptr){
+            CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, temp, srcdata.data);
+        }
+    }
+
+    ComplexData destdata{&destBackend, temp, srcdata.size};
+    return destBackend.copyDataToDevice(destdata);
 }
 
-ComplexData CUDABackendMemoryManager::copyData(const ComplexData& srcdata) {
+ComplexData CUDABackendMemoryManager::copyData(const ComplexData& srcdata) const {
     ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
     if (srcdata.data != nullptr) {
         CUBE_UTL_COPY::copyDataFromDeviceToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
@@ -148,13 +166,13 @@ ComplexData CUDABackendMemoryManager::copyData(const ComplexData& srcdata) {
     return destdata;
 }
 
-void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata){
+void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
     assert((srcdata.data != nullptr) + "trying to free gpu memory that is a nullptr");
     CUDA_CHECK(cudaFree(srcdata.data));
     srcdata.data = nullptr;
 }
 
-size_t CUDABackendMemoryManager::getAvailableMemory() {
+size_t CUDABackendMemoryManager::getAvailableMemory() const {
     // For CUDA backend, return available GPU memory
     std::unique_lock<std::mutex> lock(backendMutex);
     
@@ -181,7 +199,7 @@ CUDADeconvolutionBackend::~CUDADeconvolutionBackend() {
 }
 
 
-void CUDADeconvolutionBackend::init(const RectangleShape& shape) {
+void CUDADeconvolutionBackend::init(const RectangleShape& shape){
     try {
         initializeFFTPlans(shape);
         
@@ -192,7 +210,7 @@ void CUDADeconvolutionBackend::init(const RectangleShape& shape) {
 }
 
 
-void CUDADeconvolutionBackend::cleanup() {
+void CUDADeconvolutionBackend::cleanup(){
     try {
         // Clean up CUDA resources if needed
         destroyFFTPlans();
@@ -202,7 +220,7 @@ void CUDADeconvolutionBackend::cleanup() {
     }
 }
 
-void CUDADeconvolutionBackend::initializeFFTPlans(const RectangleShape& cube) {
+void CUDADeconvolutionBackend::initializeFFTPlans(const RectangleShape& cube){
     std::unique_lock<std::mutex> lock(backendMutex);
     if (plansInitialized_) return;
     
@@ -224,7 +242,7 @@ void CUDADeconvolutionBackend::initializeFFTPlans(const RectangleShape& cube) {
     }
 }
 
-void CUDADeconvolutionBackend::destroyFFTPlans() {
+void CUDADeconvolutionBackend::destroyFFTPlans(){
     std::unique_lock<std::mutex> lock(backendMutex);
 
     if (plansInitialized_) {
@@ -241,18 +259,18 @@ void CUDADeconvolutionBackend::destroyFFTPlans() {
 }
 
 // FFT Operations
-void CUDADeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) {
+void CUDADeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
     CUFFT_CHECK(cufftExecZ2Z(this->forwardPlan, reinterpret_cast<cufftDoubleComplex*>(in.data), reinterpret_cast<cufftDoubleComplex*>(out.data), FFTW_FORWARD));
 
 }
 
-void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) {
+void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
     CUFFT_CHECK(cufftExecZ2Z(this->backwardPlan, reinterpret_cast<cufftDoubleComplex*>(in.data), reinterpret_cast<cufftDoubleComplex*>(out.data), FFTW_BACKWARD));
 
 }
 
 // Shift Operations
-void CUDADeconvolutionBackend::octantFourierShift(ComplexData& data) {
+void CUDADeconvolutionBackend::octantFourierShift(ComplexData& data) const {
     try {
         CUBE_FTT::octantFourierShiftFftwComplex(data.size.width, data.size.height, data.size.depth, data.data);
     } catch (const std::exception& e) {
@@ -260,7 +278,7 @@ void CUDADeconvolutionBackend::octantFourierShift(ComplexData& data) {
     }
 }
 
-void CUDADeconvolutionBackend::inverseQuadrantShift(ComplexData& data) {
+void CUDADeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
     try {
         int width = data.size.width;
         int height = data.size.height;
@@ -346,7 +364,7 @@ void CUDADeconvolutionBackend::inverseQuadrantShift(ComplexData& data) {
 // }
 
 // Complex Arithmetic Operations
-void CUDADeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+void CUDADeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     try {
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in complexMultiplication" << std::endl;
@@ -358,7 +376,7 @@ void CUDADeconvolutionBackend::complexMultiplication(const ComplexData& a, const
     }
 }
 
-void CUDADeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
+void CUDADeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
     try {
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in complexDivision" << std::endl;
@@ -370,7 +388,7 @@ void CUDADeconvolutionBackend::complexDivision(const ComplexData& a, const Compl
     }
 }
 
-void CUDADeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+void CUDADeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     try {
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in complexAddition" << std::endl;
@@ -385,7 +403,7 @@ void CUDADeconvolutionBackend::complexAddition(const ComplexData& a, const Compl
     }
 }
 
-void CUDADeconvolutionBackend::scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) {
+void CUDADeconvolutionBackend::scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) const {
     try {
         if (a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in scalarMultiplication" << std::endl;
@@ -400,7 +418,7 @@ void CUDADeconvolutionBackend::scalarMultiplication(const ComplexData& a, double
     }
 }
 
-void CUDADeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+void CUDADeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     try {
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in complexMultiplicationWithConjugate" << std::endl;
@@ -412,7 +430,7 @@ void CUDADeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexD
     }
 }
 
-void CUDADeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
+void CUDADeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
     try {
         if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
             std::cerr << "[ERROR] Size mismatch in complexDivisionStabilized" << std::endl;
@@ -429,7 +447,16 @@ void CUDADeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, c
 
 
 // Specialized Functions
-void CUDADeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) {
+void CUDADeconvolutionBackend::hasNAN(const ComplexData& data) const {
+    try {
+        // Implementation would go here
+        std::cout << "[DEBUG] hasNAN called on CUDA backend" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in hasNAN: " << e.what() << std::endl;
+    }
+}
+
+void CUDADeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
     try {
         CUBE_REG::calculateLaplacianFftwComplex(psf.size.width, psf.size.height, psf.size.depth, psf.data, laplacian.data);
     } catch (const std::exception& e) {
@@ -437,7 +464,7 @@ void CUDADeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, C
     }
 }
 
-void CUDADeconvolutionBackend::normalizeImage(ComplexData& resultImage, double epsilon) {
+void CUDADeconvolutionBackend::normalizeImage(ComplexData& resultImage, double epsilon) const {
     try {
         CUBE_FTT::normalizeFftwComplexData(1, 1, 1, resultImage.data);
     } catch (const std::exception& e) {
@@ -445,7 +472,7 @@ void CUDADeconvolutionBackend::normalizeImage(ComplexData& resultImage, double e
     }
 }
 
-void CUDADeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolume) {
+void CUDADeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolume) const {
     try {
         for (int i = 0; i < data.size.volume; ++i) {
             data.data[i][0] /= cubeVolume;
@@ -521,7 +548,7 @@ void CUDADeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVol
 // }
 
 // Gradient and TV Functions
-void CUDADeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) {
+void CUDADeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
     try {
         CUBE_REG::gradXFftwComplex(image.size.width, image.size.height, image.size.depth, image.data, gradX.data);
     } catch (const std::exception& e) {
@@ -529,7 +556,7 @@ void CUDADeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& 
     }
 }
 
-void CUDADeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) {
+void CUDADeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
     try {
         CUBE_REG::gradYFftwComplex(image.size.width, image.size.height, image.size.depth, image.data, gradY.data);
     } catch (const std::exception& e) {
@@ -537,7 +564,7 @@ void CUDADeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& 
     }
 }
 
-void CUDADeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) {
+void CUDADeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
     try {
         CUBE_REG::gradZFftwComplex(image.size.width, image.size.height, image.size.depth, image.data, gradZ.data);
     } catch (const std::exception& e) {
@@ -545,7 +572,7 @@ void CUDADeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& 
     }
 }
 
-void CUDADeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) {
+void CUDADeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
     try {
         CUBE_REG::computeTVFftwComplex(gx.size.width, gx.size.height, gx.size.depth, lambda, gx.data, gy.data, gz.data, tv.data);
     } catch (const std::exception& e) {
@@ -553,7 +580,7 @@ void CUDADeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, c
     }
 }
 
-void CUDADeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) {
+void CUDADeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) const {
     try {
         CUBE_REG::normalizeTVFftwComplex(gradX.size.width, gradX.size.height, gradX.size.depth, gradX.data, gradY.data, gradZ.data, epsilon);
     } catch (const std::exception& e) {
@@ -562,11 +589,3 @@ void CUDADeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& grad
 }
 
 
-
-extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
-    return new CUDADeconvolutionBackend();
-}
-
-extern "C" IBackendMemoryManager* createBackendMemoryManager() {
-    return new CUDABackendMemoryManager();
-}
