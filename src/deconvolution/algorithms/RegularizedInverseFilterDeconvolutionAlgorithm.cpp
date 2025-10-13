@@ -16,44 +16,44 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     }
 
     // Allocate memory for intermediate arrays
-    assert(backend->isOnDevice(f.data) && "PSF is not on device");
-    ComplexData H2 = backend->allocateMemoryOnDevice(H.size);
-    ComplexData L = backend->allocateMemoryOnDevice(H.size);
-    ComplexData L2 = backend->allocateMemoryOnDevice(H.size);
-    ComplexData FA = backend->allocateMemoryOnDevice(H.size);
-    ComplexData FP = backend->allocateMemoryOnDevice(H.size);
+    assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
+    ComplexData H2 = backend->getMemoryManager().allocateMemoryOnDevice(H.size);
+    ComplexData L = backend->getMemoryManager().allocateMemoryOnDevice(H.size);
+    ComplexData L2 = backend->getMemoryManager().allocateMemoryOnDevice(H.size);
+    ComplexData FA = backend->getMemoryManager().allocateMemoryOnDevice(H.size);
+    ComplexData FP = backend->getMemoryManager().allocateMemoryOnDevice(H.size);
 
-    backend->memCopy(g, f); 
+    backend->getMemoryManager().memCopy(g, f);
     try {
         // Forward FFT on image
-        backend->forwardFFT(f, f);
+        backend->getDeconvManager().forwardFFT(f, f);
 
         // H*H
-        backend->complexMultiplication(H, H, H2);
+        backend->getDeconvManager().complexMultiplication(H, H, H2);
         
         // Laplacian L
-        backend->calculateLaplacianOfPSF(H, L);
-        backend->complexMultiplication(L, L, L2);
-        backend->scalarMultiplication(L2, lambda, L2);
+        backend->getDeconvManager().calculateLaplacianOfPSF(H, L);
+        backend->getDeconvManager().complexMultiplication(L, L, L2);
+        backend->getDeconvManager().scalarMultiplication(L2, lambda, L2);
 
-        backend->complexAddition(H2, L2, FA);
-        backend->complexDivisionStabilized(H, FA, FP, complexDivisionEpsilon);
-        backend->complexMultiplication(f, FP, f);
+        backend->getDeconvManager().complexAddition(H2, L2, FA);
+        backend->getDeconvManager().complexDivisionStabilized(H, FA, FP, complexDivisionEpsilon);
+        backend->getDeconvManager().complexMultiplication(f, FP, f);
 
         // Inverse FFT
-        backend->backwardFFT(f, f);
-        backend->octantFourierShift(f);
+        backend->getDeconvManager().backwardFFT(f, f);
+        backend->getDeconvManager().octantFourierShift(f);
         
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in regularized inverse filter algorithm: " << e.what() << std::endl;
     }
     
     // Cleanup allocated arrays
-    backend->freeMemoryOnDevice(H2);
-    backend->freeMemoryOnDevice(L);
-    backend->freeMemoryOnDevice(L2);
-    backend->freeMemoryOnDevice(FA);
-    backend->freeMemoryOnDevice(FP);
+    backend->getMemoryManager().freeMemoryOnDevice(H2);
+    backend->getMemoryManager().freeMemoryOnDevice(L);
+    backend->getMemoryManager().freeMemoryOnDevice(L2);
+    backend->getMemoryManager().freeMemoryOnDevice(FA);
+    backend->getMemoryManager().freeMemoryOnDevice(FP);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlgorithm::cloneSpecific() const {

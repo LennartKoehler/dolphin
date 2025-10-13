@@ -18,44 +18,44 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexDat
     }
 
     // Allocate memory for intermediate arrays
-    assert(backend->isOnDevice(f.data) && "PSF is not on device");
-    ComplexData c = backend->allocateMemoryOnDevice(g.size);
-    backend->memCopy(g, f);
+    assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
+    ComplexData c = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
+    backend->getMemoryManager().memCopy(g, f);
 
     for (int n = 0; n < iterations; ++n) {
 
         // a) First transformation: Fn = FFT(fn)
-        backend->forwardFFT(f, f);
+        backend->getDeconvManager().forwardFFT(f, f);
 
         // Fn' = Fn * H
-        backend->complexMultiplication(f, H, c);
+        backend->getDeconvManager().complexMultiplication(f, H, c);
 
         // fn' = IFFT(Fn') + NORMALIZE
-        backend->backwardFFT(c, c);
-        // backend->scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
+        backend->getDeconvManager().backwardFFT(c, c);
+        // backend->getDeconvManager().scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
 
 
         // b) Calculation of the Correction Factor: c = g / fn'
-        backend->complexDivision(g, c, c, complexDivisionEpsilon);
+        backend->getDeconvManager().complexDivision(g, c, c, complexDivisionEpsilon);
 
         // // c) Second transformation: C = FFT(c)
-        backend->forwardFFT(c, c);
+        backend->getDeconvManager().forwardFFT(c, c);
 
         // // C' = C * conj(H)
-        backend->complexMultiplicationWithConjugate(c, H, c);
+        backend->getDeconvManager().complexMultiplicationWithConjugate(c, H, c);
 
         // // c' = IFFT(C') + NORMALIZE
-        backend->backwardFFT(c, c);
-        // backend->scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
+        backend->getDeconvManager().backwardFFT(c, c);
+        // backend->getDeconvManager().scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
 
 
-        backend->backwardFFT(f, f);
-        // backend->scalarMultiplication(f, 1.0 / g.size.volume, f); // Add normalization
+        backend->getDeconvManager().backwardFFT(f, f);
+        // backend->getDeconvManager().scalarMultiplication(f, 1.0 / g.size.volume, f); // Add normalization
 
-        backend->complexMultiplication(f, c, f);
+        backend->getDeconvManager().complexMultiplication(f, c, f);
  
     }
-    // backend->freeMemoryOnDevice(c); // dont need because it is managed within complexdatas destructor
+    // backend->getMemoryManager().freeMemoryOnDevice(c); // dont need because it is managed within complexdatas destructor
 }
 
 

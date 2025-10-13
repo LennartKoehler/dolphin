@@ -11,44 +11,48 @@
 class IBackendMemoryManager{
 public:
     // Data management - provide default implementations
-    virtual void allocateMemoryOnDevice(ComplexData& data) {
+    IBackendMemoryManager() = default;
+    virtual ~IBackendMemoryManager() = default;
+
+    virtual void allocateMemoryOnDevice(ComplexData& data) const {
         NOT_IMPLEMENTED(allocateMemoryOnDevice);
     }
 
-    virtual bool isOnDevice(void* data) {
+    virtual bool isOnDevice(void* data) const {
         NOT_IMPLEMENTED(isOnDevice);
     }
-    
-    virtual ComplexData moveDataToDevice(const ComplexData& srcdata) {
-        NOT_IMPLEMENTED(moveDataToDevice);
+    // ipnut always cpudata
+    virtual ComplexData copyDataToDevice(const ComplexData& srcdata) const {
+        NOT_IMPLEMENTED(copyDataToDevice);
     }
     
-    virtual ComplexData moveDataFromDevice(const ComplexData& srcdata) {
+    // move data to cpu and then run destBackend.copyDataToDevice
+    virtual ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const {
         NOT_IMPLEMENTED(moveDataFromDevice);
     }
     
-    virtual void memCopy(const ComplexData& srcData, ComplexData& destdata) {
+    virtual void memCopy(const ComplexData& srcData, ComplexData& destdata) const {
         NOT_IMPLEMENTED(memCopy);
     }
     
-    virtual ComplexData copyData(const ComplexData& srcdata) {
+    virtual ComplexData copyData(const ComplexData& srcdata) const {
         NOT_IMPLEMENTED(copyData);
     }
     
-    virtual ComplexData allocateMemoryOnDevice(const RectangleShape& shape) {
+    virtual ComplexData allocateMemoryOnDevice(const RectangleShape& shape) const {
         NOT_IMPLEMENTED(allocateMemoryOnDevice);
     }
     
-    virtual void freeMemoryOnDevice(ComplexData& data) {
+    virtual void freeMemoryOnDevice(ComplexData& data) const {
         NOT_IMPLEMENTED(freeMemoryOnDevice);
     }
 
-    virtual size_t getAvailableMemory() {
+    virtual size_t getAvailableMemory() const {
         NOT_IMPLEMENTED(getAvailableMemory);
     }
 
 protected:
-    std::mutex backendMutex;
+    mutable std::mutex backendMutex;
 
 };
 #undef NOT_IMPLEMENTED

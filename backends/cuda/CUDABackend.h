@@ -8,15 +8,15 @@
 class CUDABackendMemoryManager : public IBackendMemoryManager{
 public:
     // Data management
-    void memCopy(const ComplexData& srcdata, ComplexData& destdata) override;
-    void allocateMemoryOnDevice(ComplexData& data) override;
-    ComplexData allocateMemoryOnDevice(const RectangleShape& shape) override;
-    bool isOnDevice(void* data) override;
-    ComplexData copyData(const ComplexData& srcdata) override;
-    ComplexData moveDataToDevice(const ComplexData& srcdata) override; // for gpu these are copy operations
-    ComplexData moveDataFromDevice(const ComplexData& srcdata) override; // for gpu these are copy operations
-    void freeMemoryOnDevice(ComplexData& data) override;
-    size_t getAvailableMemory() override; 
+    void memCopy(const ComplexData& srcdata, ComplexData& destdata) const override;
+    void allocateMemoryOnDevice(ComplexData& data) const override;
+    ComplexData allocateMemoryOnDevice(const RectangleShape& shape) const override;
+    bool isOnDevice(void* data) const override;
+    ComplexData copyData(const ComplexData& srcdata) const override;
+    ComplexData copyDataToDevice(const ComplexData& srcdata) const override; // for gpu these are copy operations
+    ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const override; // for gpu these are copy operations
+    void freeMemoryOnDevice(ComplexData& data) const override;
+    size_t getAvailableMemory() const override;
 
 };
 
@@ -30,33 +30,33 @@ public:
     void cleanup() override;
 
     // FFT functions
-    void forwardFFT(const ComplexData& in, ComplexData& out) override;
-    void backwardFFT(const ComplexData& in, ComplexData& out) override;
+    void forwardFFT(const ComplexData& in, ComplexData& out) const override;
+    void backwardFFT(const ComplexData& in, ComplexData& out) const override;
 
     // Shift functions
-    void octantFourierShift(ComplexData& data) override;
-    void inverseQuadrantShift(ComplexData& data) override;
+    void octantFourierShift(ComplexData& data) const override;
+    void inverseQuadrantShift(ComplexData& data) const override;
 
     // Complex arithmetic functions
-    void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) override;
-    void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) override;
-    void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) override;
-    void scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) override;
-    void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) override;
-    void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) override;
+    void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
+    void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const override;
+    void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
+    void scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) const override;
+    void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
+    void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const override;
 
     // Specialized functions
-    void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) override;
-    void normalizeImage(ComplexData& resultImage, double epsilon) override;
-    void rescaledInverse(ComplexData& data, double cubeVolume) override;
-    // void saveInterimImages(const ComplexData& resultImage, int gridNum, int channel_z, int i) override;
+    void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const override;
+    void normalizeImage(ComplexData& resultImage, double epsilon) const override;
+    void rescaledInverse(ComplexData& data, double cubeVolume) const override;
+    // void saveInterimImages(const ComplexData& resultImage, int gridNum, int channel_z, int i) const override;
 
     // Gradient and TV functions
-    void gradientX(const ComplexData& image, ComplexData& gradX) override;
-    void gradientY(const ComplexData& image, ComplexData& gradY) override;
-    void gradientZ(const ComplexData& image, ComplexData& gradZ) override;
-    void computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) override;
-    void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) override;
+    void gradientX(const ComplexData& image, ComplexData& gradX) const override;
+    void gradientY(const ComplexData& image, ComplexData& gradY) const override;
+    void gradientZ(const ComplexData& image, ComplexData& gradZ) const override;
+    void computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const override;
+    void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) const override;
 
     // Layer and visualization functions
     // void reorderLayers(ComplexData& data) override;
@@ -67,6 +67,7 @@ public:
     // void convertFFTWComplexToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
     // void convertFFTWComplexRealToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
     // void convertFFTWComplexImgToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
+   void hasNAN(const ComplexData& data) const override;
 
 
 

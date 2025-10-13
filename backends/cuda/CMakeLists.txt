@@ -19,7 +19,9 @@ target_link_libraries(cuda_backend PRIVATE
     CUDA::cufft
     CUDA::cufftw
     OpenMP::OpenMP_CXX
+    backendlib
 )
+
 
 set_target_properties(cuda_backend PROPERTIES OUTPUT_NAME "cuda_backend")
 

@@ -23,99 +23,96 @@ public:
     virtual void init(const RectangleShape& shape) = 0;
     virtual void cleanup() = 0;
     
-    virtual void initializeFFTPlans(const RectangleShape& cube) {
-        NOT_IMPLEMENTED(initializeFFTPlans);
-    }
 
     // Debug functions
-    virtual void hasNAN(const ComplexData& data){
+    virtual void hasNAN(const ComplexData& data) const {
         NOT_IMPLEMENTED(hasNAN);
     }
 
     // Data manipulation
-    virtual void reorderLayers(ComplexData& data) {
+    virtual void reorderLayers(ComplexData& data) const {
         NOT_IMPLEMENTED(reorderLayers);
     }
 
     // FFT functions
-    virtual void forwardFFT(const ComplexData& in, ComplexData& out) {
+    virtual void forwardFFT(const ComplexData& in, ComplexData& out) const {
         NOT_IMPLEMENTED(forwardFFT);
     }
     
-    virtual void backwardFFT(const ComplexData& in, ComplexData& out) {
+    virtual void backwardFFT(const ComplexData& in, ComplexData& out) const {
         NOT_IMPLEMENTED(backwardFFT);
     }
 
     // Shift operations
-    virtual void octantFourierShift(ComplexData& data) {
+    virtual void octantFourierShift(ComplexData& data) const {
         NOT_IMPLEMENTED(octantFourierShift);
     }
     
-    virtual void inverseQuadrantShift(ComplexData& data) {
+    virtual void inverseQuadrantShift(ComplexData& data) const {
         NOT_IMPLEMENTED(inverseQuadrantShift);
     }
     
     // Complex arithmetic operations
-    virtual void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+    virtual void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
         NOT_IMPLEMENTED(complexMultiplication);
     }
     
-    virtual void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
+    virtual void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
         NOT_IMPLEMENTED(complexDivision);
     }
     
-    virtual void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+    virtual void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
         NOT_IMPLEMENTED(complexAddition);
     }
     
-    virtual void scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) {
+    virtual void scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) const {
         NOT_IMPLEMENTED(scalarMultiplication);
     }
     
-    virtual void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+    virtual void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
         NOT_IMPLEMENTED(complexMultiplicationWithConjugate);
     }
     
-    virtual void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
+    virtual void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
         NOT_IMPLEMENTED(complexDivisionStabilized);
     }
 
     // Advanced operations
-    virtual void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) {
+    virtual void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
         NOT_IMPLEMENTED(calculateLaplacianOfPSF);
     }
 
-    virtual void normalizeImage(ComplexData& resultImage, double epsilon) {
+    virtual void normalizeImage(ComplexData& resultImage, double epsilon) const {
         NOT_IMPLEMENTED(normalizeImage);
     }
     
-    virtual void rescaledInverse(ComplexData& data, double cubeVolume) {
+    virtual void rescaledInverse(ComplexData& data, double cubeVolume) const {
         NOT_IMPLEMENTED(rescaledInverse);
     }
 
     // Gradient operations
-    virtual void gradientX(const ComplexData& image, ComplexData& gradX) {
+    virtual void gradientX(const ComplexData& image, ComplexData& gradX) const {
         NOT_IMPLEMENTED(gradientX);
     }
     
-    virtual void gradientY(const ComplexData& image, ComplexData& gradY) {
+    virtual void gradientY(const ComplexData& image, ComplexData& gradY) const {
         NOT_IMPLEMENTED(gradientY);
     }
     
-    virtual void gradientZ(const ComplexData& image, ComplexData& gradZ) {
+    virtual void gradientZ(const ComplexData& image, ComplexData& gradZ) const {
         NOT_IMPLEMENTED(gradientZ);
     }
     
-    virtual void computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) {
+    virtual void computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
         NOT_IMPLEMENTED(computeTV);
     }
     
-    virtual void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) {
+    virtual void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) const {
         NOT_IMPLEMENTED(normalizeTV);
     }
 
 
-    virtual bool plansInitialized(){ 
+    virtual bool plansInitialized() const { 
         std::unique_lock lock(backendMutex);
         return plansInitialized_; }
 
@@ -123,7 +120,7 @@ public:
 
 protected:
     bool plansInitialized_ = false;
-    std::mutex backendMutex;
+    mutable std::mutex backendMutex;
 };
 
 #undef NOT_IMPLEMENTED

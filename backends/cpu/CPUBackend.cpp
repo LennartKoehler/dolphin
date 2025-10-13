@@ -7,6 +7,11 @@
 #include <cstring>
 #include <cassert>
 
+#ifdef __linux__
+#include <unistd.h>
+#endif
+
+
 #define FFTW_CHECK(plan, operation) { \
     if (plan == nullptr) { \
         throw std::runtime_error(std::string("FFTW error: ") + operation + " - plan creation failed"); \
@@ -25,13 +30,14 @@
     } \
 }
 
+
 // CPUBackendMemoryManager implementation
-bool CPUBackendMemoryManager::isOnDevice(void* ptr) {
+bool CPUBackendMemoryManager::isOnDevice(void* ptr) const {
     // For CPU backend, all valid pointers are "on device"
     return ptr != nullptr;
 }
 
-void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) {
+void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     if (data.data != nullptr) {
         return; // Already allocated
     }
@@ -41,34 +47,38 @@ void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) {
     data.backend = this;
 }
 
-ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const RectangleShape& shape) {
-    ComplexData result{this, (complex*)fftw_malloc(sizeof(complex) * shape.volume), shape}; 
+ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const RectangleShape& shape) const {
+    ComplexData result{this, (complex*)fftw_malloc(sizeof(complex) * shape.volume), shape};
     FFTW_MALLOC_CHECK(result.data, sizeof(complex) * shape.volume);
     return result;
 }
 
-ComplexData CPUBackendMemoryManager::moveDataToDevice(const ComplexData& srcdata) {
-    NULL_PTR_CHECK(srcdata.data, "moveDataToDevice - source data");
+ComplexData CPUBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
+    NULL_PTR_CHECK(srcdata.data, "copyDataToDevice - source data");
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
     std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
     return result;
 }
 
-ComplexData CPUBackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata) {
+ComplexData CPUBackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const {
     NULL_PTR_CHECK(srcdata.data, "moveDataFromDevice - source data");
-    ComplexData result = allocateMemoryOnDevice(srcdata.size);
-    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
-    return result;
+    if (&destBackend == this){
+        return srcdata;
+    }
+    else{
+        return destBackend.copyDataToDevice(srcdata);
+    }
+
 }
 
-ComplexData CPUBackendMemoryManager::copyData(const ComplexData& srcdata) {
+ComplexData CPUBackendMemoryManager::copyData(const ComplexData& srcdata) const {
     NULL_PTR_CHECK(srcdata.data, "copyData - source data");
     ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
     std::memcpy(destdata.data, srcdata.data, srcdata.size.volume * sizeof(complex));
     return destdata;
 }
 
-void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData){
+void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
     NULL_PTR_CHECK(srcData.data, "memCopy - source data");
     NULL_PTR_CHECK(destData.data, "memCopy - destination data");
     if (srcData.size.volume != destData.size.volume) {
@@ -77,18 +87,17 @@ void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& d
     std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex));
 }
 
-void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data){
+void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     NULL_PTR_CHECK(data.data, "freeMemoryOnDevice - data pointer");
     fftw_free(data.data);
     data.data = nullptr;
-} 
+}
 
-size_t CPUBackendMemoryManager::getAvailableMemory() {
+size_t CPUBackendMemoryManager::getAvailableMemory() const {
     // For CPU backend, return available system memory
     std::unique_lock<std::mutex>lock(backendMutex);
     size_t memory;
     #ifdef __linux__
-        #include <unistd.h>
         long pagesize = sysconf(_SC_PAGESIZE);
         long pages = sysconf(_SC_AVPHYS_PAGES);
         if (pagesize > 0 && pages > 0) {
@@ -114,9 +123,17 @@ CPUDeconvolutionBackend::CPUDeconvolutionBackend() {
 CPUDeconvolutionBackend::~CPUDeconvolutionBackend() {
     destroyFFTPlans();
 }
+static bool initialized = false;
 
 void CPUDeconvolutionBackend::init(const RectangleShape& shape) {
+
     try {
+        if(! initialized){ // TODO fix this
+            fftw_init_threads();
+            fftw_plan_with_nthreads(1);
+            initialized = true;
+        }
+
         initializeFFTPlans(shape);
         std::cout << "[STATUS] CPU backend initialized" << std::endl;
     } catch (const std::exception& e) {
@@ -175,7 +192,7 @@ void CPUDeconvolutionBackend::destroyFFTPlans() {
 }
 
 // FFT Operations
-void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) {
+void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
     try {
         NULL_PTR_CHECK(forwardPlan, "forwardFFT - FFT plan");
         NULL_PTR_CHECK(in.data, "forwardFFT - input data");
@@ -187,7 +204,7 @@ void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out
     }
 }
 
-void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) {
+void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
     try {
         NULL_PTR_CHECK(backwardPlan, "backwardFFT - FFT plan");
         NULL_PTR_CHECK(in.data, "backwardFFT - input data");
@@ -200,7 +217,7 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& ou
 }
 
 // Shift Operations
-void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) {
+void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
     try {
         int width = data.size.width;
         int height = data.size.height;
@@ -214,8 +231,8 @@ void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) {
             for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < width; ++x) {
                     int idx1 = z * height * width + y * width + x;
-                    int idx2 = ((z + halfDepth) % depth) * height * width + 
-                              ((y + halfHeight) % height) * width + 
+                    int idx2 = ((z + halfDepth) % depth) * height * width +
+                              ((y + halfHeight) % height) * width +
                               ((x + halfWidth) % width);
 
                     if (idx1 != idx2) {
@@ -230,7 +247,7 @@ void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) {
     }
 }
 
-void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) {
+void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
     try {
         int width = data.size.width;
         int height = data.size.height;
@@ -292,7 +309,7 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) {
 }
 
 // Complex Arithmetic Operations
-void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     try {
         NULL_PTR_CHECK(a.data, "complexMultiplication - input a");
         NULL_PTR_CHECK(b.data, "complexMultiplication - input b");
@@ -316,7 +333,7 @@ void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const 
     }
 }
 
-void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
+void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
     try {
         NULL_PTR_CHECK(a.data, "complexDivision - input a");
         NULL_PTR_CHECK(b.data, "complexDivision - input b");
@@ -347,7 +364,7 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
     }
 }
 
-void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     try {
         NULL_PTR_CHECK(a.data, "complexAddition - input a");
         NULL_PTR_CHECK(b.data, "complexAddition - input b");
@@ -365,7 +382,7 @@ void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const Comple
     }
 }
 
-void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) {
+void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) const {
     try {
         NULL_PTR_CHECK(a.data, "scalarMultiplication - input a");
         NULL_PTR_CHECK(result.data, "scalarMultiplication - result");
@@ -382,7 +399,7 @@ void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, double 
     }
 }
 
-void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) {
+void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     try {
         NULL_PTR_CHECK(a.data, "complexMultiplicationWithConjugate - input a");
         NULL_PTR_CHECK(b.data, "complexMultiplicationWithConjugate - input b");
@@ -406,7 +423,7 @@ void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexDa
     }
 }
 
-void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) {
+void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
     try {
         NULL_PTR_CHECK(a.data, "complexDivisionStabilized - input a");
         NULL_PTR_CHECK(b.data, "complexDivisionStabilized - input b");
@@ -433,7 +450,7 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
 }
 
 // Specialized Functions
-void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) {
+void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
     try {
         int width = psf.size.width;
         int height = psf.size.height;
@@ -459,7 +476,7 @@ void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, Co
     }
 }
 
-void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double epsilon) {
+void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double epsilon) const {
     try {
         double max_val = 0.0, max_val2 = 0.0;
         for (int j = 0; j < resultImage.size.volume; j++) {
@@ -475,7 +492,7 @@ void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double ep
     }
 }
 
-void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolume) {
+void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolume) const {
     try {
         for (int i = 0; i < data.size.volume; ++i) {
             data.data[i][0] /= cubeVolume;
@@ -487,7 +504,7 @@ void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolu
 }
 
 // Debug functions
-void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) {
+void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
     int nanCount = 0, infCount = 0;
     double minReal = std::numeric_limits<double>::max();
     double maxReal = std::numeric_limits<double>::lowest();
@@ -531,7 +548,7 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) {
 }
 
 // Layer and Visualization Functions
-void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) {
+void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
     try {
         int width = data.size.width;
         int height = data.size.height;
@@ -569,7 +586,7 @@ void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) {
 }
 
 // Gradient and TV Functions
-void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) {
+void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
     try {
         int width = image.size.width;
         int height = image.size.height;
@@ -595,7 +612,7 @@ void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& g
     }
 }
 
-void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) {
+void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
     try {
         int width = image.size.width;
         int height = image.size.height;
@@ -623,7 +640,7 @@ void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& g
     }
 }
 
-void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) {
+void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
     try {
         int width = image.size.width;
         int height = image.size.height;
@@ -653,7 +670,7 @@ void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& g
     }
 }
 
-void CPUDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) {
+void CPUDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
     try {
         int nxy = gx.size.width * gx.size.height;
 
@@ -674,7 +691,7 @@ void CPUDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, co
     }
 }
 
-void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) {
+void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) const {
     try {
         int nxy = gradX.size.width * gradX.size.height;
 

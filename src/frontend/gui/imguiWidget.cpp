@@ -172,7 +172,7 @@ void imguiFileExplorer::display(const ParameterDescription& p){
         fileDialog.Open();
     fileDialog.Display();
     ImGui::SameLine();
-    ImGui::Text(p.name.c_str());
+    ImGui::Text("%s", p.name.c_str());
     
     if(fileDialog.HasSelected())
     {

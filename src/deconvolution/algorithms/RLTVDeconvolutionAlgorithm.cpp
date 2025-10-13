@@ -19,58 +19,58 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexD
     }
 
     // Verify inputs are on device
-    assert(backend->isOnDevice(H.data) && "PSF is not on device");
-    assert(backend->isOnDevice(g.data) && "Input image is not on device");
-    assert(backend->isOnDevice(f.data) && "Output buffer is not on device");
+    assert(backend->getMemoryManager().isOnDevice(H.data) && "PSF is not on device");
+    assert(backend->getMemoryManager().isOnDevice(g.data) && "Input image is not on device");
+    assert(backend->getMemoryManager().isOnDevice(f.data) && "Output buffer is not on device");
 
     // Allocate memory for intermediate arrays
-    ComplexData c = backend->allocateMemoryOnDevice(g.size);
-    ComplexData gx = backend->allocateMemoryOnDevice(g.size);
-    ComplexData gy = backend->allocateMemoryOnDevice(g.size);
-    ComplexData gz = backend->allocateMemoryOnDevice(g.size);
-    ComplexData tv = backend->allocateMemoryOnDevice(g.size);
+    ComplexData c = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
+    ComplexData gx = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
+    ComplexData gy = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
+    ComplexData gz = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
+    ComplexData tv = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
     
     try {
         // Initialize result with input data
-        backend->memCopy(g, f);
+        backend->getMemoryManager().memCopy(g, f);
 
         // Calculate gradients and the Total Variation (one-time computation)
-        backend->gradientX(g, gx);
-        backend->gradientY(g, gy);
-        backend->gradientZ(g, gz);
-        backend->normalizeTV(gx, gy, gz, complexDivisionEpsilon);
-        backend->gradientX(gx, gx);
-        backend->gradientY(gy, gy);  
-        backend->gradientZ(gz, gz);
-        backend->computeTV(lambda, gx, gy, gz, tv);
+        backend->getDeconvManager().gradientX(g, gx);
+        backend->getDeconvManager().gradientY(g, gy);
+        backend->getDeconvManager().gradientZ(g, gz);
+        backend->getDeconvManager().normalizeTV(gx, gy, gz, complexDivisionEpsilon);
+        backend->getDeconvManager().gradientX(gx, gx);
+        backend->getDeconvManager().gradientY(gy, gy);
+        backend->getDeconvManager().gradientZ(gz, gz);
+        backend->getDeconvManager().computeTV(lambda, gx, gy, gz, tv);
 
         for (int n = 0; n < iterations; ++n) {
             // a) First transformation: Fn = FFT(fn)
-            backend->forwardFFT(f, c);
+            backend->getDeconvManager().forwardFFT(f, c);
 
             // Fn' = Fn * H
-            backend->complexMultiplication(c, H, c);
+            backend->getDeconvManager().complexMultiplication(c, H, c);
 
             // fn' = IFFT(Fn')
-            backend->backwardFFT(c, c);
+            backend->getDeconvManager().backwardFFT(c, c);
 
             // b) Calculation of the Correction Factor: c = g / fn'
-            backend->complexDivision(g, c, c, complexDivisionEpsilon);
+            backend->getDeconvManager().complexDivision(g, c, c, complexDivisionEpsilon);
 
             // c) Second transformation: C = FFT(c)
-            backend->forwardFFT(c, c);
+            backend->getDeconvManager().forwardFFT(c, c);
 
             // C' = C * conj(H)
-            backend->complexMultiplicationWithConjugate(c, H, c);
+            backend->getDeconvManager().complexMultiplicationWithConjugate(c, H, c);
 
             // c' = IFFT(C')
-            backend->backwardFFT(c, c);
+            backend->getDeconvManager().backwardFFT(c, c);
 
             // d) Update the estimated image: fn+1' = fn * c'
-            backend->complexMultiplication(f, c, f);
+            backend->getDeconvManager().complexMultiplication(f, c, f);
 
             // fn+1 = fn+1' * tv (apply TV regularization)
-            backend->complexMultiplication(f, tv, f);
+            backend->getDeconvManager().complexMultiplication(f, tv, f);
         }
 
     } catch (const std::exception& e) {
@@ -78,11 +78,11 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexD
     }
 
     // Clean up allocated memory
-    backend->freeMemoryOnDevice(c);
-    backend->freeMemoryOnDevice(gx);
-    backend->freeMemoryOnDevice(gy);
-    backend->freeMemoryOnDevice(gz);
-    backend->freeMemoryOnDevice(tv);
+    backend->getMemoryManager().freeMemoryOnDevice(c);
+    backend->getMemoryManager().freeMemoryOnDevice(gx);
+    backend->getMemoryManager().freeMemoryOnDevice(gy);
+    backend->getMemoryManager().freeMemoryOnDevice(gz);
+    backend->getMemoryManager().freeMemoryOnDevice(tv);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecific() const {
