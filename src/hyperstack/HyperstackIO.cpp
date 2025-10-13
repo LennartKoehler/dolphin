@@ -30,8 +30,8 @@ bool Hyperstack::readFromTifFile(const char *filename) {
     int dataType = 0; //calculated
     float xResolution, yResolution = 0.0f;
     std::vector<cv::Mat> layers;
-
-    //Reading File
+    
+     //Reading File
     TIFFSetWarningHandler(UtlIO::customTifWarningHandler);
     TIFF* tifOriginalFile = TIFFOpen(filename, "r");
     UtlIO::extractData(tifOriginalFile, name, description, filename, linChannels, slices, imageWidth, imageLength, resolutionUnit, xResolution, yResolution, samplesPerPixel, photometricInterpretation, bitsPerSample, frameCount, planarConfig, totalImages);

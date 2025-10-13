@@ -498,52 +498,46 @@ size_t DeconvolutionProcessor::getMemoryPerCube(size_t maxNumberThreads){
 ComplexData DeconvolutionProcessor::convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, const RectangleShape& shape) {
     ComplexData result = cpu_backend_->getMemoryManager().allocateMemoryOnDevice(shape);
 
-    try {
-        int width = shape.width;
-        int height = shape.height;
-        int depth = shape.depth;
-        
-        for (int z = 0; z < depth; ++z) {
-            CV_Assert(input[z].type() == CV_32F);
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    result.data[z * height * width + y * width + x][0] = static_cast<double>(input[z].at<float>(y, x));
-                    result.data[z * height * width + y * width + x][1] = 0.0;
-                }
+    int width = shape.width;
+    int height = shape.height;
+    int depth = shape.depth;
+    
+    for (int z = 0; z < depth; ++z) {
+        CV_Assert(input[z].type() == CV_32F);
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                result.data[z * height * width + y * width + x][0] = static_cast<double>(input[z].at<float>(y, x));
+                result.data[z * height * width + y * width + x][1] = 0.0;
             }
         }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in convertCVMatVectorToFFTWComplex: " << e.what() << std::endl;
     }
+
     return result;
 }
 
 std::vector<cv::Mat> DeconvolutionProcessor::convertFFTWComplexToCVMatVector(const ComplexData& input) {
     
     std::vector<cv::Mat> output;
-    try {
-        int width = input.size.width;
-        int height = input.size.height;
-        int depth = input.size.depth;
-        
-        
-        for (int z = 0; z < depth; ++z) {
-            cv::Mat result(height, width, CV_32F); // Zero-initialize
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int index = z * height * width + y * width + x;
-                    double real_part = input.data[index][0];
-                    double imag_part = input.data[index][1];
-                    result.at<float>(y, x) = static_cast<float>(sqrt(real_part * real_part + imag_part * imag_part));
+    int width = input.size.width;
+    int height = input.size.height;
+    int depth = input.size.depth;
+    
+    
+    for (int z = 0; z < depth; ++z) {
+        cv::Mat result(height, width, CV_32F); // Zero-initialize
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int index = z * height * width + y * width + x;
+                double real_part = input.data[index][0];
+                double imag_part = input.data[index][1];
+                result.at<float>(y, x) = static_cast<float>(sqrt(real_part * real_part + imag_part * imag_part));
 
 
-                }
             }
-            output.push_back(result);
         }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in convertFFTWComplexToCVMatVector: " << e.what() << std::endl;
+        output.push_back(result);
     }
+
     return output;
 }
 

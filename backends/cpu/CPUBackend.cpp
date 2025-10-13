@@ -33,18 +33,28 @@
 
 // CPUBackendMemoryManager implementation
 bool CPUBackendMemoryManager::isOnDevice(void* ptr) const {
-    // For CPU backend, all valid pointers are "on device"
-    return ptr != nullptr;
+    try {
+        // For CPU backend, all valid pointers are "on device"
+        return ptr != nullptr;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in isOnDevice: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
+    }
 }
 
 void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
-    if (data.data != nullptr) {
-        return; // Already allocated
+    try {
+        if (data.data != nullptr) {
+            return; // Already allocated
+        }
+        
+        data.data = (complex*)fftw_malloc(sizeof(complex) * data.size.volume);
+        FFTW_MALLOC_CHECK(data.data, sizeof(complex) * data.size.volume);
+        data.backend = this;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in allocateMemoryOnDevice: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
-    
-    data.data = (complex*)fftw_malloc(sizeof(complex) * data.size.volume);
-    FFTW_MALLOC_CHECK(data.data, sizeof(complex) * data.size.volume);
-    data.backend = this;
 }
 
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const RectangleShape& shape) const {
@@ -54,7 +64,7 @@ ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const RectangleShape
 }
 
 ComplexData CPUBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
-    NULL_PTR_CHECK(srcdata.data, "copyDataToDevice - source data");
+    NULL_PTR_CHECK(srcdata.data, "moveDataToDevice - source data");
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
     std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
     return result;
@@ -66,9 +76,9 @@ ComplexData CPUBackendMemoryManager::moveDataFromDevice(const ComplexData& srcda
         return srcdata;
     }
     else{
+        // For cross-backend transfer, use the destination backend's copy method
         return destBackend.copyDataToDevice(srcdata);
     }
-
 }
 
 ComplexData CPUBackendMemoryManager::copyData(const ComplexData& srcdata) const {
@@ -88,30 +98,43 @@ void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& d
 }
 
 void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
-    NULL_PTR_CHECK(data.data, "freeMemoryOnDevice - data pointer");
-    fftw_free(data.data);
-    data.data = nullptr;
+    try {
+        NULL_PTR_CHECK(data.data, "freeMemoryOnDevice - data pointer");
+        fftw_free(data.data);
+        data.data = nullptr;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in freeMemoryOnDevice: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
+    }
 }
 
 size_t CPUBackendMemoryManager::getAvailableMemory() const {
-    // For CPU backend, return available system memory
-    std::unique_lock<std::mutex>lock(backendMutex);
-    size_t memory;
-    #ifdef __linux__
-        long pagesize = sysconf(_SC_PAGESIZE);
-        long pages = sysconf(_SC_AVPHYS_PAGES);
-        if (pagesize > 0 && pages > 0) {
-            memory = static_cast<size_t>(pagesize) * static_cast<size_t>(pages);
+    try {
+        // For CPU backend, return available system memory
+        std::unique_lock<std::mutex>lock(backendMutex);
+        size_t memory = 0;
+        #ifdef __linux__
+            long pagesize = sysconf(_SC_PAGESIZE);
+            long pages = sysconf(_SC_AVPHYS_PAGES);
+            if (pagesize > 0 && pages > 0) {
+                memory = static_cast<size_t>(pagesize) * static_cast<size_t>(pages);
+            }
+        #elif _WIN32
+            #include <windows.h>
+            MEMORYSTATUSEX status;
+            status.dwLength = sizeof(status);
+            GlobalMemoryStatusEx(&status);
+            memory = static_cast<size_t>(status.ullAvailPhys);
+        #endif
+        
+        if (memory == 0) {
+            throw std::runtime_error("Failed to get available memory");
         }
-    #elif _WIN32
-        #include <windows.h>
-        MEMORYSTATUSEX status;
-        status.dwLength = sizeof(status);
-        GlobalMemoryStatusEx(&status);
-        memory = static_cast<size_t>(status.ullAvailPhys);
-    #endif
-    assert(memory != 0 && "[ERROR] Something went wrong while trying to get available memory");
-    return memory;
+        return memory;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in getAvailableMemory: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
+    }
 }
 
 
@@ -121,12 +144,16 @@ CPUDeconvolutionBackend::CPUDeconvolutionBackend() {
 }
 
 CPUDeconvolutionBackend::~CPUDeconvolutionBackend() {
-    destroyFFTPlans();
+    try {
+        destroyFFTPlans();
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in CPUDeconvolutionBackend destructor: " << e.what() << std::endl;
+        // Note: Cannot re-throw from destructor as it may cause std::terminate
+    }
 }
 static bool initialized = false;
 
 void CPUDeconvolutionBackend::init(const RectangleShape& shape) {
-
     try {
         if(! initialized){ // TODO fix this
             fftw_init_threads();
@@ -138,6 +165,7 @@ void CPUDeconvolutionBackend::init(const RectangleShape& shape) {
         std::cout << "[STATUS] CPU backend initialized" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in CPU initialization: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -147,6 +175,7 @@ void CPUDeconvolutionBackend::cleanup() {
         std::cout << "[STATUS] CPU backend postprocessing completed" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in CPU postprocessing: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -173,21 +202,27 @@ void CPUDeconvolutionBackend::initializeFFTPlans(const RectangleShape& cube) {
         plansInitialized_ = true;
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in FFT plan initialization: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
 void CPUDeconvolutionBackend::destroyFFTPlans() {
-    std::unique_lock<std::mutex> lock(backendMutex);
-    if (plansInitialized_) {
-        if (forwardPlan) {
-            fftw_destroy_plan(forwardPlan);
-            forwardPlan = nullptr;
+    try {
+        std::unique_lock<std::mutex> lock(backendMutex);
+        if (plansInitialized_) {
+            if (forwardPlan) {
+                fftw_destroy_plan(forwardPlan);
+                forwardPlan = nullptr;
+            }
+            if (backwardPlan) {
+                fftw_destroy_plan(backwardPlan);
+                backwardPlan = nullptr;
+            }
+            plansInitialized_ = false;
         }
-        if (backwardPlan) {
-            fftw_destroy_plan(backwardPlan);
-            backwardPlan = nullptr;
-        }
-        plansInitialized_ = false;
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception in destroyFFTPlans: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -244,6 +279,7 @@ void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in octantFourierShift: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -305,6 +341,7 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in inverseQuadrantShift: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -330,6 +367,7 @@ void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const 
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in complexMultiplication: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -361,6 +399,7 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in complexDivision: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -379,6 +418,7 @@ void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const Comple
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in complexAddition: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -396,6 +436,7 @@ void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, double 
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in scalarMultiplication: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -420,6 +461,7 @@ void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexDa
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in complexMultiplicationWithConjugate: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -446,6 +488,7 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in complexDivisionStabilized: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -473,6 +516,7 @@ void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, Co
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in calculateLaplacianOfPSF: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -489,6 +533,7 @@ void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double ep
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in normalizeImage: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -500,6 +545,7 @@ void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolu
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in rescaledInverse: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -582,6 +628,7 @@ void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
         fftw_free(temp);
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in reorderLayers: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -609,6 +656,7 @@ void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& g
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in gradientX: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -637,6 +685,7 @@ void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& g
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in gradientY: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -667,6 +716,7 @@ void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& g
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in gradientZ: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -688,6 +738,7 @@ void CPUDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, co
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in computeTV: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
@@ -717,6 +768,7 @@ void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY
         }
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Exception in normalizeTV: " << e.what() << std::endl;
+        throw; // Re-throw to propagate the exception
     }
 }
 
