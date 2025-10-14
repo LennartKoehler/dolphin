@@ -30,59 +30,49 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexD
     ComplexData gz = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
     ComplexData tv = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
     
-    try {
-        // Initialize result with input data
-        backend->getMemoryManager().memCopy(g, f);
+    // Initialize result with input data
+    backend->getMemoryManager().memCopy(g, f);
 
-        // Calculate gradients and the Total Variation (one-time computation)
-        backend->getDeconvManager().gradientX(g, gx);
-        backend->getDeconvManager().gradientY(g, gy);
-        backend->getDeconvManager().gradientZ(g, gz);
-        backend->getDeconvManager().normalizeTV(gx, gy, gz, complexDivisionEpsilon);
-        backend->getDeconvManager().gradientX(gx, gx);
-        backend->getDeconvManager().gradientY(gy, gy);
-        backend->getDeconvManager().gradientZ(gz, gz);
-        backend->getDeconvManager().computeTV(lambda, gx, gy, gz, tv);
+    // Calculate gradients and the Total Variation (one-time computation)
+    backend->getDeconvManager().gradientX(g, gx);
+    backend->getDeconvManager().gradientY(g, gy);
+    backend->getDeconvManager().gradientZ(g, gz);
+    backend->getDeconvManager().normalizeTV(gx, gy, gz, complexDivisionEpsilon);
+    backend->getDeconvManager().gradientX(gx, gx);
+    backend->getDeconvManager().gradientY(gy, gy);
+    backend->getDeconvManager().gradientZ(gz, gz);
+    backend->getDeconvManager().computeTV(lambda, gx, gy, gz, tv);
 
-        for (int n = 0; n < iterations; ++n) {
-            // a) First transformation: Fn = FFT(fn)
-            backend->getDeconvManager().forwardFFT(f, c);
+    for (int n = 0; n < iterations; ++n) {
+        // a) First transformation: Fn = FFT(fn)
+        backend->getDeconvManager().forwardFFT(f, c);
 
-            // Fn' = Fn * H
-            backend->getDeconvManager().complexMultiplication(c, H, c);
+        // Fn' = Fn * H
+        backend->getDeconvManager().complexMultiplication(c, H, c);
 
-            // fn' = IFFT(Fn')
-            backend->getDeconvManager().backwardFFT(c, c);
+        // fn' = IFFT(Fn')
+        backend->getDeconvManager().backwardFFT(c, c);
 
-            // b) Calculation of the Correction Factor: c = g / fn'
-            backend->getDeconvManager().complexDivision(g, c, c, complexDivisionEpsilon);
+        // b) Calculation of the Correction Factor: c = g / fn'
+        backend->getDeconvManager().complexDivision(g, c, c, complexDivisionEpsilon);
 
-            // c) Second transformation: C = FFT(c)
-            backend->getDeconvManager().forwardFFT(c, c);
+        // c) Second transformation: C = FFT(c)
+        backend->getDeconvManager().forwardFFT(c, c);
 
-            // C' = C * conj(H)
-            backend->getDeconvManager().complexMultiplicationWithConjugate(c, H, c);
+        // C' = C * conj(H)
+        backend->getDeconvManager().complexMultiplicationWithConjugate(c, H, c);
 
-            // c' = IFFT(C')
-            backend->getDeconvManager().backwardFFT(c, c);
+        // c' = IFFT(C')
+        backend->getDeconvManager().backwardFFT(c, c);
 
-            // d) Update the estimated image: fn+1' = fn * c'
-            backend->getDeconvManager().complexMultiplication(f, c, f);
+        // d) Update the estimated image: fn+1' = fn * c'
+        backend->getDeconvManager().complexMultiplication(f, c, f);
 
-            // fn+1 = fn+1' * tv (apply TV regularization)
-            backend->getDeconvManager().complexMultiplication(f, tv, f);
-        }
-
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in Richardson-Lucy TV algorithm: " << e.what() << std::endl;
+        // fn+1 = fn+1' * tv (apply TV regularization)
+        backend->getDeconvManager().complexMultiplication(f, tv, f);
     }
 
-    // Clean up allocated memory
-    backend->getMemoryManager().freeMemoryOnDevice(c);
-    backend->getMemoryManager().freeMemoryOnDevice(gx);
-    backend->getMemoryManager().freeMemoryOnDevice(gy);
-    backend->getMemoryManager().freeMemoryOnDevice(gz);
-    backend->getMemoryManager().freeMemoryOnDevice(tv);
+
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecific() const {

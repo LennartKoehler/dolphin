@@ -2,6 +2,7 @@
 #include "UtlImage.h"
 #include "UtlGrid.h"
 #include "UtlFFT.h"
+#include "backend/Exceptions.h"
 #include <opencv2/core.hpp>
 #include <iostream>
 #include <opencv2/imgproc.hpp>
@@ -19,7 +20,7 @@
 
 using namespace std;
 
-// Helper macro for CUDA error checking
+// Helper macro for CUDA error checking (legacy interface)
 #define CUDA_CHECK(call) \
     do { \
         cudaError_t err = call; \
@@ -30,7 +31,7 @@ using namespace std;
         } \
     } while(0)
 
-// Helper macro for CUFFT error checking
+// Helper macro for CUFFT error checking (legacy interface)
 #define CUFFT_CHECK(call) \
     do { \
         cufftResult_t err = call; \
@@ -39,6 +40,29 @@ using namespace std;
             return false; \
         } \
     } while(0)
+
+// Unified error checking macros (preferred interface)
+#define CUDA_UNIFIED_CHECK(call, operation) { \
+    cudaError_t err = call; \
+    if (err != cudaSuccess) { \
+        throw dolphin::backend::BackendException( \
+            std::string("CUDA error: ") + cudaGetErrorString(err), \
+            "CUDA", \
+            operation \
+        ); \
+    } \
+}
+
+#define CUFFT_UNIFIED_CHECK(call, operation) { \
+    cufftResult_t res = call; \
+    if (res != CUFFT_SUCCESS) { \
+        throw dolphin::backend::BackendException( \
+            "cuFFT error code: " + std::to_string(res), \
+            "CUDA", \
+            operation \
+        ); \
+    } \
+}
 
 BaseDeconvolutionAlgorithmGPU::BaseDeconvolutionAlgorithmGPU() 
     : m_forwardPlan(nullptr)

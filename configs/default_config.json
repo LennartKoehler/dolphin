@@ -13,19 +13,19 @@
     },
     "time": false,
     "saveSubimages": false, 
-    "backenddeconv": "cpu",
-    "nThreads": 5 
+    "backenddeconv": "cuda",
+    "nThreads": 1 
   },
   
 
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
   "psf_file_path": "",
   "psf_dir_path": "",
-  "outputDir": "../../results",
+  "outputDir": "~/data/dolphin_results",
   "backend": "cuda",
   "deconvolution_config_path": "",
 
-  "image_path": "../../../data/dolphin_test_data/bacteria.tif",
+  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
   
   "info": false,
   "showExampleLayers": false,

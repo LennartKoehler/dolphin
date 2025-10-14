@@ -6,72 +6,75 @@
 #include <cmath>
 #include <cstring>
 #include <cassert>
-
+#include "backend/Exceptions.h"
 #ifdef __linux__
 #include <unistd.h>
 #endif
 
 
-#define FFTW_CHECK(plan, operation) { \
-    if (plan == nullptr) { \
-        throw std::runtime_error(std::string("FFTW error: ") + operation + " - plan creation failed"); \
+// Unified FFTW error check macro
+#define FFTW_UNIFIED_CHECK(fftw_result, operation) { \
+    if ((fftw_result) == nullptr) { \
+        throw dolphin::backend::BackendException( \
+            "FFTW operation failed", \
+            "CPU", \
+            operation \
+        ); \
+    } \
+}
+// Unified FFTW malloc error check macro
+#define FFTW_MALLOC_UNIFIED_CHECK(ptr, size, operation) { \
+    if ((ptr) == nullptr) { \
+        throw dolphin::backend::MemoryException( \
+            "FFTW memory allocation failed", \
+            "CPU", \
+            size, \
+            operation \
+        ); \
     } \
 }
 
-#define FFTW_MALLOC_CHECK(ptr, size) { \
-    if (ptr == nullptr) { \
-        throw std::runtime_error(std::string("FFTW malloc failed for size: ") + std::to_string(size)); \
-    } \
+
+
+extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
+    return new CPUDeconvolutionBackend();
 }
 
-#define NULL_PTR_CHECK(ptr, context) { \
-    if (ptr == nullptr) { \
-        throw std::runtime_error(std::string("Null pointer in ") + context); \
-    } \
+extern "C" IBackendMemoryManager* createBackendMemoryManager() {
+    return new CPUBackendMemoryManager();
 }
-
 
 // CPUBackendMemoryManager implementation
 bool CPUBackendMemoryManager::isOnDevice(void* ptr) const {
-    try {
-        // For CPU backend, all valid pointers are "on device"
-        return ptr != nullptr;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in isOnDevice: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
-    }
+    // For CPU backend, all valid pointers are "on device"
+    return ptr != nullptr;
 }
-
 void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
-    try {
-        if (data.data != nullptr) {
-            return; // Already allocated
-        }
-        
-        data.data = (complex*)fftw_malloc(sizeof(complex) * data.size.volume);
-        FFTW_MALLOC_CHECK(data.data, sizeof(complex) * data.size.volume);
-        data.backend = this;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in allocateMemoryOnDevice: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+    if (data.data != nullptr) {
+        return; // Already allocated
     }
+    
+    size_t requested_size = sizeof(complex) * data.size.volume;
+    data.data = (complex*)fftw_malloc(requested_size);
+    MEMORY_ALLOC_CHECK(data.data, requested_size, "CPU", "allocateMemoryOnDevice");
+    data.backend = this;
 }
 
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const RectangleShape& shape) const {
-    ComplexData result{this, (complex*)fftw_malloc(sizeof(complex) * shape.volume), shape};
-    FFTW_MALLOC_CHECK(result.data, sizeof(complex) * shape.volume);
+    ComplexData result{this, nullptr, shape};
+    allocateMemoryOnDevice(result);
     return result;
 }
 
 ComplexData CPUBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
-    NULL_PTR_CHECK(srcdata.data, "moveDataToDevice - source data");
+    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data");
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
     std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
     return result;
 }
 
 ComplexData CPUBackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const {
-    NULL_PTR_CHECK(srcdata.data, "moveDataFromDevice - source data");
+    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "moveDataFromDevice - source data");
     if (&destBackend == this){
         return srcdata;
     }
@@ -82,30 +85,24 @@ ComplexData CPUBackendMemoryManager::moveDataFromDevice(const ComplexData& srcda
 }
 
 ComplexData CPUBackendMemoryManager::copyData(const ComplexData& srcdata) const {
-    NULL_PTR_CHECK(srcdata.data, "copyData - source data");
+    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "copyData - source data");
     ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
-    std::memcpy(destdata.data, srcdata.data, srcdata.size.volume * sizeof(complex));
+    memCopy(srcdata, destdata);
     return destdata;
 }
 
 void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
-    NULL_PTR_CHECK(srcData.data, "memCopy - source data");
-    NULL_PTR_CHECK(destData.data, "memCopy - destination data");
-    if (srcData.size.volume != destData.size.volume) {
-        throw std::runtime_error("Size mismatch in memCopy");
-    }
+    BACKEND_CHECK(srcData.data != nullptr, "Source data pointer is null", "CPU", "memCopy - source data");
+    BACKEND_CHECK(destData.data != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data");
+    BACKEND_CHECK(destData.size.volume == srcData.size.volume, "Source and destination must have same size", "CPU", "memCopy");
     std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex));
 }
 
 void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
-    try {
-        NULL_PTR_CHECK(data.data, "freeMemoryOnDevice - data pointer");
-        fftw_free(data.data);
-        data.data = nullptr;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in freeMemoryOnDevice: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
-    }
+    BACKEND_CHECK(data.data != nullptr, "Data pointer is null", "CPU", "freeMemoryOnDevice - data pointer");
+    fftw_free(data.data);
+    data.data = nullptr;
+
 }
 
 size_t CPUBackendMemoryManager::getAvailableMemory() const {
@@ -144,408 +141,310 @@ CPUDeconvolutionBackend::CPUDeconvolutionBackend() {
 }
 
 CPUDeconvolutionBackend::~CPUDeconvolutionBackend() {
-    try {
-        destroyFFTPlans();
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in CPUDeconvolutionBackend destructor: " << e.what() << std::endl;
-        // Note: Cannot re-throw from destructor as it may cause std::terminate
-    }
+    destroyFFTPlans();
 }
 static bool initialized = false;
 
 void CPUDeconvolutionBackend::init(const RectangleShape& shape) {
-    try {
-        if(! initialized){ // TODO fix this
-            fftw_init_threads();
-            fftw_plan_with_nthreads(1);
-            initialized = true;
-        }
-
-        initializeFFTPlans(shape);
-        std::cout << "[STATUS] CPU backend initialized" << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in CPU initialization: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+    if(! initialized){ // TODO fix this
+        fftw_init_threads();
+        fftw_plan_with_nthreads(1);
+        initialized = true;
     }
+
+    initializeFFTPlans(shape);
+    std::cout << "[STATUS] CPU backend initialized" << std::endl;
 }
 
 void CPUDeconvolutionBackend::cleanup() {
-    try {
-        destroyFFTPlans();
-        std::cout << "[STATUS] CPU backend postprocessing completed" << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in CPU postprocessing: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
-    }
+    destroyFFTPlans();
+    std::cout << "[STATUS] CPU backend postprocessing completed" << std::endl;
 }
 
 void CPUDeconvolutionBackend::initializeFFTPlans(const RectangleShape& cube) {
     std::unique_lock<std::mutex>lock(backendMutex);
     if (plansInitialized_) return;
     
-    try {
-        // Allocate temporary memory for plan creation
-        complex* temp = (complex*)fftw_malloc(sizeof(complex) * cube.volume);
-        FFTW_MALLOC_CHECK(temp, sizeof(complex) * cube.volume);
+    // Allocate temporary memory for plan creation
+    complex* temp = nullptr;
+    try{
+        temp = (complex*)fftw_malloc(sizeof(complex) * cube.volume);
+        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex) * cube.volume, "initializeFFTPlans");
         
         // Create forward FFT plan
         this->forwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width,
                                             temp, temp, FFTW_FORWARD, FFTW_MEASURE);
-        FFTW_CHECK(this->forwardPlan, "Forward FFT plan creation");
-       
+        FFTW_UNIFIED_CHECK(this->forwardPlan, "initializeFFTPlans - forward plan");
+    
         // Create backward FFT plan
         this->backwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width,
-                                             temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
-        FFTW_CHECK(this->backwardPlan, "Backward FFT plan creation");
-            
+                                            temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
+        FFTW_UNIFIED_CHECK(this->backwardPlan, "initializeFFTPlans - backward plan");
+        
         fftw_free(temp);
         plansInitialized_ = true;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in FFT plan initialization: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
     }
+    catch (...){
+        if (temp != nullptr){
+            fftw_free(temp);
+        }
+        throw;
+    }
+
 }
 
 void CPUDeconvolutionBackend::destroyFFTPlans() {
-    try {
-        std::unique_lock<std::mutex> lock(backendMutex);
-        if (plansInitialized_) {
-            if (forwardPlan) {
-                fftw_destroy_plan(forwardPlan);
-                forwardPlan = nullptr;
-            }
-            if (backwardPlan) {
-                fftw_destroy_plan(backwardPlan);
-                backwardPlan = nullptr;
-            }
-            plansInitialized_ = false;
+    std::unique_lock<std::mutex> lock(backendMutex);
+    if (plansInitialized_) {
+        if (forwardPlan) {
+            fftw_destroy_plan(forwardPlan);
+            forwardPlan = nullptr;
         }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in destroyFFTPlans: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+        if (backwardPlan) {
+            fftw_destroy_plan(backwardPlan);
+            backwardPlan = nullptr;
+        }
+        plansInitialized_ = false;
     }
 }
 
 // FFT Operations
 void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
-    try {
-        NULL_PTR_CHECK(forwardPlan, "forwardFFT - FFT plan");
-        NULL_PTR_CHECK(in.data, "forwardFFT - input data");
-        NULL_PTR_CHECK(out.data, "forwardFFT - output data");
-        fftw_execute_dft(forwardPlan, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in forwardFFT: " << e.what() << std::endl;
-        throw;
-    }
+    BACKEND_CHECK(forwardPlan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
+    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
+    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
+    fftw_execute_dft(forwardPlan, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
 }
 
 void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
-    try {
-        NULL_PTR_CHECK(backwardPlan, "backwardFFT - FFT plan");
-        NULL_PTR_CHECK(in.data, "backwardFFT - input data");
-        NULL_PTR_CHECK(out.data, "backwardFFT - output data");
-        fftw_execute_dft(backwardPlan, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in backwardFFT: " << e.what() << std::endl;
-        throw;
-    }
+    BACKEND_CHECK(backwardPlan != nullptr, "Backward FFT plan is null", "CPU", "backwardFFT - FFT plan");
+    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
+    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
+    fftw_execute_dft(backwardPlan, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
 }
 
 // Shift Operations
 void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
-    try {
-        int width = data.size.width;
-        int height = data.size.height;
-        int depth = data.size.depth;
-        int halfWidth = width / 2;
-        int halfHeight = height / 2;
-        int halfDepth = depth / 2;
+    int width = data.size.width;
+    int height = data.size.height;
+    int depth = data.size.depth;
+    int halfWidth = width / 2;
+    int halfHeight = height / 2;
+    int halfDepth = depth / 2;
 
-        //#pragma omp parallel for collapse(3)
-        for (int z = 0; z < halfDepth; ++z) {
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int idx1 = z * height * width + y * width + x;
-                    int idx2 = ((z + halfDepth) % depth) * height * width +
-                              ((y + halfHeight) % height) * width +
-                              ((x + halfWidth) % width);
+    //#pragma omp parallel for collapse(3)
+    for (int z = 0; z < halfDepth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int idx1 = z * height * width + y * width + x;
+                int idx2 = ((z + halfDepth) % depth) * height * width +
+                          ((y + halfHeight) % height) * width +
+                          ((x + halfWidth) % width);
 
-                    if (idx1 != idx2) {
-                        std::swap(data.data[idx1][0], data.data[idx2][0]);
-                        std::swap(data.data[idx1][1], data.data[idx2][1]);
-                    }
+                if (idx1 != idx2) {
+                    std::swap(data.data[idx1][0], data.data[idx2][0]);
+                    std::swap(data.data[idx1][1], data.data[idx2][1]);
                 }
             }
         }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in octantFourierShift: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
     }
 }
 
 void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
-    try {
-        int width = data.size.width;
-        int height = data.size.height;
-        int depth = data.size.depth;
-        int halfWidth = width / 2;
-        int halfHeight = height / 2;
-        int halfDepth = depth / 2;
+    int width = data.size.width;
+    int height = data.size.height;
+    int depth = data.size.depth;
+    int halfWidth = width / 2;
+    int halfHeight = height / 2;
+    int halfDepth = depth / 2;
 
-        for (int z = 0; z < halfDepth; ++z) {
-            for (int y = 0; y < halfHeight; ++y) {
-                for (int x = 0; x < halfWidth; ++x) {
-                    int idx1 = z * height * width + y * width + x;
-                    int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x + halfWidth);
+    for (int z = 0; z < halfDepth; ++z) {
+        for (int y = 0; y < halfHeight; ++y) {
+            for (int x = 0; x < halfWidth; ++x) {
+                int idx1 = z * height * width + y * width + x;
+                int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x + halfWidth);
 
-                    std::swap(data.data[idx1][0], data.data[idx2][0]);
-                    std::swap(data.data[idx1][1], data.data[idx2][1]);
-                }
+                std::swap(data.data[idx1][0], data.data[idx2][0]);
+                std::swap(data.data[idx1][1], data.data[idx2][1]);
             }
         }
+    }
 
-        for (int z = 0; z < halfDepth; ++z) {
-            for (int y = 0; y < halfHeight; ++y) {
-                for (int x = halfWidth; x < width; ++x) {
-                    int idx1 = z * height * width + y * width + x;
-                    int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x - halfWidth);
+    for (int z = 0; z < halfDepth; ++z) {
+        for (int y = 0; y < halfHeight; ++y) {
+            for (int x = halfWidth; x < width; ++x) {
+                int idx1 = z * height * width + y * width + x;
+                int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x - halfWidth);
 
-                    std::swap(data.data[idx1][0], data.data[idx2][0]);
-                    std::swap(data.data[idx1][1], data.data[idx2][1]);
-                }
+                std::swap(data.data[idx1][0], data.data[idx2][0]);
+                std::swap(data.data[idx1][1], data.data[idx2][1]);
             }
         }
+    }
 
-        for (int z = 0; z < halfDepth; ++z) {
-            for (int y = halfHeight; y < height; ++y) {
-                for (int x = 0; x < halfWidth; ++x) {
-                    int idx1 = z * height * width + y * width + x;
-                    int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x + halfWidth);
+    for (int z = 0; z < halfDepth; ++z) {
+        for (int y = halfHeight; y < height; ++y) {
+            for (int x = 0; x < halfWidth; ++x) {
+                int idx1 = z * height * width + y * width + x;
+                int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x + halfWidth);
 
-                    std::swap(data.data[idx1][0], data.data[idx2][0]);
-                    std::swap(data.data[idx1][1], data.data[idx2][1]);
-                }
+                std::swap(data.data[idx1][0], data.data[idx2][0]);
+                std::swap(data.data[idx1][1], data.data[idx2][1]);
             }
         }
+    }
 
-        for (int z = 0; z < halfDepth; ++z) {
-            for (int y = halfHeight; y < height; ++y) {
-                for (int x = halfWidth; x < width; ++x) {
-                    int idx1 = z * height * width + y * width + x;
-                    int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x - halfWidth);
+    for (int z = 0; z < halfDepth; ++z) {
+        for (int y = halfHeight; y < height; ++y) {
+            for (int x = halfWidth; x < width; ++x) {
+                int idx1 = z * height * width + y * width + x;
+                int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x - halfWidth);
 
-                    std::swap(data.data[idx1][0], data.data[idx2][0]);
-                    std::swap(data.data[idx1][1], data.data[idx2][1]);
-                }
+                std::swap(data.data[idx1][0], data.data[idx2][0]);
+                std::swap(data.data[idx1][1], data.data[idx2][1]);
             }
         }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in inverseQuadrantShift: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
     }
 }
 
 // Complex Arithmetic Operations
 void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    try {
-        NULL_PTR_CHECK(a.data, "complexMultiplication - input a");
-        NULL_PTR_CHECK(b.data, "complexMultiplication - input b");
-        NULL_PTR_CHECK(result.data, "complexMultiplication - result");
-        if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
-            throw std::runtime_error("Size mismatch in complexMultiplication");
-        }
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
 
-        //#pragma omp parallel for simd
-        for (int i = 0; i < a.size.volume; ++i) {
-            double real_a = a.data[i][0];
-            double imag_a = a.data[i][1];
-            double real_b = b.data[i][0];
-            double imag_b = b.data[i][1];
+    //#pragma omp parallel for simd
+    for (int i = 0; i < a.size.volume; ++i) {
+        double real_a = a.data[i][0];
+        double imag_a = a.data[i][1];
+        double real_b = b.data[i][0];
+        double imag_b = b.data[i][1];
 
-            result.data[i][0] = real_a * real_b - imag_a * imag_b;
-            result.data[i][1] = real_a * imag_b + imag_a * real_b;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in complexMultiplication: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+        result.data[i][0] = real_a * real_b - imag_a * imag_b;
+        result.data[i][1] = real_a * imag_b + imag_a * real_b;
     }
 }
 
 void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
-    try {
-        NULL_PTR_CHECK(a.data, "complexDivision - input a");
-        NULL_PTR_CHECK(b.data, "complexDivision - input b");
-        NULL_PTR_CHECK(result.data, "complexDivision - result");
-        if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
-            throw std::runtime_error("Size mismatch in complexDivision");
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
+
+    //#pragma omp parallel for
+    for (int i = 0; i < a.size.volume; ++i) {
+        double real_a = a.data[i][0];
+        double imag_a = a.data[i][1];
+        double real_b = b.data[i][0];
+        double imag_b = b.data[i][1];
+
+        double denominator = real_b * real_b + imag_b * imag_b;
+
+        if (denominator < epsilon) {
+            result.data[i][0] = 0.0;
+            result.data[i][1] = 0.0;
+        } else {
+            result.data[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
+            result.data[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
         }
-
-        //#pragma omp parallel for
-        for (int i = 0; i < a.size.volume; ++i) {
-            double real_a = a.data[i][0];
-            double imag_a = a.data[i][1];
-            double real_b = b.data[i][0];
-            double imag_b = b.data[i][1];
-
-            double denominator = real_b * real_b + imag_b * imag_b;
-
-            if (denominator < epsilon) {
-                result.data[i][0] = 0.0;
-                result.data[i][1] = 0.0;
-            } else {
-                result.data[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
-                result.data[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
-            }
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in complexDivision: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
     }
 }
 
 void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    try {
-        NULL_PTR_CHECK(a.data, "complexAddition - input a");
-        NULL_PTR_CHECK(b.data, "complexAddition - input b");
-        NULL_PTR_CHECK(result.data, "complexAddition - result");
-        if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
-            throw std::runtime_error("Size mismatch in complexAddition");
-        }
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexAddition - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexAddition - result");
 
-        for (int i = 0; i < a.size.volume; ++i) {
-            result.data[i][0] = a.data[i][0] + b.data[i][0];
-            result.data[i][1] = a.data[i][1] + b.data[i][1];
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in complexAddition: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+    for (int i = 0; i < a.size.volume; ++i) {
+        result.data[i][0] = a.data[i][0] + b.data[i][0];
+        result.data[i][1] = a.data[i][1] + b.data[i][1];
     }
 }
 
 void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) const {
-    try {
-        NULL_PTR_CHECK(a.data, "scalarMultiplication - input a");
-        NULL_PTR_CHECK(result.data, "scalarMultiplication - result");
-        if (a.size.volume != result.size.volume) {
-            throw std::runtime_error("Size mismatch in scalarMultiplication");
-        }
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
 
-        for (int i = 0; i < a.size.volume; ++i) {
-            result.data[i][0] = a.data[i][0] * scalar;
-            result.data[i][1] = a.data[i][1] * scalar;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in scalarMultiplication: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+    for (int i = 0; i < a.size.volume; ++i) {
+        result.data[i][0] = a.data[i][0] * scalar;
+        result.data[i][1] = a.data[i][1] * scalar;
     }
 }
 
 void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    try {
-        NULL_PTR_CHECK(a.data, "complexMultiplicationWithConjugate - input a");
-        NULL_PTR_CHECK(b.data, "complexMultiplicationWithConjugate - input b");
-        NULL_PTR_CHECK(result.data, "complexMultiplicationWithConjugate - result");
-        if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
-            throw std::runtime_error("Size mismatch in complexMultiplicationWithConjugate");
-        }
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexMultiplicationWithConjugate - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplicationWithConjugate - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result");
 
-        //#pragma omp parallel for
-        for (int i = 0; i < a.size.volume; ++i) {
-            double real_a = a.data[i][0];
-            double imag_a = a.data[i][1];
-            double real_b = b.data[i][0];
-            double imag_b = -b.data[i][1];  // Conjugate
+    //#pragma omp parallel for
+    for (int i = 0; i < a.size.volume; ++i) {
+        double real_a = a.data[i][0];
+        double imag_a = a.data[i][1];
+        double real_b = b.data[i][0];
+        double imag_b = -b.data[i][1];  // Conjugate
 
-            result.data[i][0] = real_a * real_b - imag_a * imag_b;
-            result.data[i][1] = real_a * imag_b + imag_a * real_b;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in complexMultiplicationWithConjugate: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+        result.data[i][0] = real_a * real_b - imag_a * imag_b;
+        result.data[i][1] = real_a * imag_b + imag_a * real_b;
     }
 }
 
 void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
-    try {
-        NULL_PTR_CHECK(a.data, "complexDivisionStabilized - input a");
-        NULL_PTR_CHECK(b.data, "complexDivisionStabilized - input b");
-        NULL_PTR_CHECK(result.data, "complexDivisionStabilized - result");
-        if (a.size.volume != b.size.volume || a.size.volume != result.size.volume) {
-            throw std::runtime_error("Size mismatch in complexDivisionStabilized");
-        }
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexDivisionStabilized - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexDivisionStabilized - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result");
 
-        //#pragma omp parallel for
-        for (int i = 0; i < a.size.volume; ++i) {
-            double real_a = a.data[i][0];
-            double imag_a = a.data[i][1];
-            double real_b = b.data[i][0];
-            double imag_b = b.data[i][1];
+    //#pragma omp parallel for
+    for (int i = 0; i < a.size.volume; ++i) {
+        double real_a = a.data[i][0];
+        double imag_a = a.data[i][1];
+        double real_b = b.data[i][0];
+        double imag_b = b.data[i][1];
 
-            double mag = std::max(epsilon, real_b * real_b + imag_b * imag_b);
+        double mag = std::max(epsilon, real_b * real_b + imag_b * imag_b);
 
-            result.data[i][0] = (real_a * real_b + imag_a * imag_b) / mag;
-            result.data[i][1] = (imag_a * real_b - real_a * imag_b) / mag;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in complexDivisionStabilized: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+        result.data[i][0] = (real_a * real_b + imag_a * imag_b) / mag;
+        result.data[i][1] = (imag_a * real_b - real_a * imag_b) / mag;
     }
 }
 
 // Specialized Functions
 void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
-    try {
-        int width = psf.size.width;
-        int height = psf.size.height;
-        int depth = psf.size.depth;
+    int width = psf.size.width;
+    int height = psf.size.height;
+    int depth = psf.size.depth;
 
-        for (int z = 0; z < depth; ++z) {
-            float wz = 2 * M_PI * z / depth;
-            for (int y = 0; y < height; ++y) {
-                float wy = 2 * M_PI * y / height;
-                for (int x = 0; x < width; ++x) {
-                    float wx = 2 * M_PI * x / width;
-                    float laplacian_value = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
+    for (int z = 0; z < depth; ++z) {
+        float wz = 2 * M_PI * z / depth;
+        for (int y = 0; y < height; ++y) {
+            float wy = 2 * M_PI * y / height;
+            for (int x = 0; x < width; ++x) {
+                float wx = 2 * M_PI * x / width;
+                float laplacian_value = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
 
-                    int index = (z * height + y) * width + x;
+                int index = (z * height + y) * width + x;
 
-                    laplacian.data[index][0] = psf.data[index][0] * laplacian_value;
-                    laplacian.data[index][1] = psf.data[index][1] * laplacian_value;
-                }
+                laplacian.data[index][0] = psf.data[index][0] * laplacian_value;
+                laplacian.data[index][1] = psf.data[index][1] * laplacian_value;
             }
         }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in calculateLaplacianOfPSF: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
     }
 }
 
 void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double epsilon) const {
-    try {
-        double max_val = 0.0, max_val2 = 0.0;
-        for (int j = 0; j < resultImage.size.volume; j++) {
-            max_val = std::max(max_val, resultImage.data[j][0]);
-            max_val2 = std::max(max_val2, resultImage.data[j][1]);
-        }
-        for (int j = 0; j < resultImage.size.volume; j++) {
-            resultImage.data[j][0] /= (max_val + epsilon);
-            resultImage.data[j][1] /= (max_val2 + epsilon);
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in normalizeImage: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+    double max_val = 0.0, max_val2 = 0.0;
+    for (int j = 0; j < resultImage.size.volume; j++) {
+        max_val = std::max(max_val, resultImage.data[j][0]);
+        max_val2 = std::max(max_val2, resultImage.data[j][1]);
+    }
+    for (int j = 0; j < resultImage.size.volume; j++) {
+        resultImage.data[j][0] /= (max_val + epsilon);
+        resultImage.data[j][1] /= (max_val2 + epsilon);
     }
 }
 
 void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolume) const {
-    try {
-        for (int i = 0; i < data.size.volume; ++i) {
-            data.data[i][0] /= cubeVolume;
-            data.data[i][1] /= cubeVolume;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in rescaledInverse: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+    for (int i = 0; i < data.size.volume; ++i) {
+        data.data[i][0] /= cubeVolume;
+        data.data[i][1] /= cubeVolume;
     }
 }
 
@@ -595,187 +494,150 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
 
 // Layer and Visualization Functions
 void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
-    try {
-        int width = data.size.width;
-        int height = data.size.height;
-        int depth = data.size.depth;
-        int layerSize = width * height;
-        int halfDepth = depth / 2;
-        
-        complex* temp = (complex*)fftw_malloc(sizeof(complex) * data.size.volume);
-        FFTW_MALLOC_CHECK(temp, sizeof(complex) * data.size.volume);
+    int width = data.size.width;
+    int height = data.size.height;
+    int depth = data.size.depth;
+    int layerSize = width * height;
+    int halfDepth = depth / 2;
+    
+    complex* temp = (complex*)fftw_malloc(sizeof(complex) * data.size.volume);
+    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex) * data.size.volume, "reorderLayers");
 
-        int destIndex = 0;
+    int destIndex = 0;
 
-        // Copy the middle layer to the first position
-        std::memcpy(temp + destIndex * layerSize, data.data + halfDepth * layerSize, sizeof(complex) * layerSize);
+    // Copy the middle layer to the first position
+    std::memcpy(temp + destIndex * layerSize, data.data + halfDepth * layerSize, sizeof(complex) * layerSize);
+    destIndex++;
+
+    // Copy the layers after the middle layer
+    for (int z = halfDepth + 1; z < depth; ++z) {
+        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex) * layerSize);
         destIndex++;
-
-        // Copy the layers after the middle layer
-        for (int z = halfDepth + 1; z < depth; ++z) {
-            std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex) * layerSize);
-            destIndex++;
-        }
-
-        // Copy the layers before the middle layer
-        for (int z = 0; z < halfDepth; ++z) {
-            std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex) * layerSize);
-            destIndex++;
-        }
-
-        // Copy reordered data back to the original array
-        std::memcpy(data.data, temp, sizeof(complex) * data.size.volume);
-        fftw_free(temp);
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in reorderLayers: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
     }
+
+    // Copy the layers before the middle layer
+    for (int z = 0; z < halfDepth; ++z) {
+        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex) * layerSize);
+        destIndex++;
+    }
+
+    // Copy reordered data back to the original array
+    std::memcpy(data.data, temp, sizeof(complex) * data.size.volume);
+    fftw_free(temp);
 }
 
 // Gradient and TV Functions
 void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
-    try {
-        int width = image.size.width;
-        int height = image.size.height;
-        int depth = image.size.depth;
-        
-        for (int z = 0; z < depth; ++z) {
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width - 1; ++x) {
-                    int index = z * height * width + y * width + x;
-                    int nextIndex = index + 1;
+    int width = image.size.width;
+    int height = image.size.height;
+    int depth = image.size.depth;
+    
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width - 1; ++x) {
+                int index = z * height * width + y * width + x;
+                int nextIndex = index + 1;
 
-                    gradX.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                    gradX.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
-                }
-
-                int lastIndex = z * height * width + y * width + (width - 1);
-                gradX.data[lastIndex][0] = 0.0;
-                gradX.data[lastIndex][1] = 0.0;
+                gradX.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                gradX.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
             }
+
+            int lastIndex = z * height * width + y * width + (width - 1);
+            gradX.data[lastIndex][0] = 0.0;
+            gradX.data[lastIndex][1] = 0.0;
         }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in gradientX: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
     }
 }
 
 void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
-    try {
-        int width = image.size.width;
-        int height = image.size.height;
-        int depth = image.size.depth;
-        
-        for (int z = 0; z < depth; ++z) {
-            for (int y = 0; y < height - 1; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int index = z * height * width + y * width + x;
-                    int nextIndex = index + width;
-
-                    gradY.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                    gradY.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
-                }
-            }
-
+    int width = image.size.width;
+    int height = image.size.height;
+    int depth = image.size.depth;
+    
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height - 1; ++y) {
             for (int x = 0; x < width; ++x) {
-                int lastIndex = z * height * width + (height - 1) * width + x;
-                gradY.data[lastIndex][0] = 0.0;
-                gradY.data[lastIndex][1] = 0.0;
+                int index = z * height * width + y * width + x;
+                int nextIndex = index + width;
+
+                gradY.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                gradY.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
             }
         }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in gradientY: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+
+        for (int x = 0; x < width; ++x) {
+            int lastIndex = z * height * width + (height - 1) * width + x;
+            gradY.data[lastIndex][0] = 0.0;
+            gradY.data[lastIndex][1] = 0.0;
+        }
     }
 }
 
 void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
-    try {
-        int width = image.size.width;
-        int height = image.size.height;
-        int depth = image.size.depth;
-        
-        for (int z = 0; z < depth - 1; ++z) {
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int index = z * height * width + y * width + x;
-                    int nextIndex = index + height * width;
-
-                    gradZ.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                    gradZ.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
-                }
-            }
-        }
-
+    int width = image.size.width;
+    int height = image.size.height;
+    int depth = image.size.depth;
+    
+    for (int z = 0; z < depth - 1; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
-                int lastIndex = (depth - 1) * height * width + y * width + x;
-                gradZ.data[lastIndex][0] = 0.0;
-                gradZ.data[lastIndex][1] = 0.0;
+                int index = z * height * width + y * width + x;
+                int nextIndex = index + height * width;
+
+                gradZ.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                gradZ.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
             }
         }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in gradientZ: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
+    }
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            int lastIndex = (depth - 1) * height * width + y * width + x;
+            gradZ.data[lastIndex][0] = 0.0;
+            gradZ.data[lastIndex][1] = 0.0;
+        }
     }
 }
 
 void CPUDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
-    try {
-        int nxy = gx.size.width * gx.size.height;
+    int nxy = gx.size.width * gx.size.height;
 
-        for (int z = 0; z < gx.size.depth; ++z) {
-            for (int i = 0; i < nxy; ++i) {
-                int index = z * nxy + i;
+    for (int z = 0; z < gx.size.depth; ++z) {
+        for (int i = 0; i < nxy; ++i) {
+            int index = z * nxy + i;
 
-                double dx = gx.data[index][0];
-                double dy = gy.data[index][0];
-                double dz = gz.data[index][0];
+            double dx = gx.data[index][0];
+            double dy = gy.data[index][0];
+            double dz = gz.data[index][0];
 
-                tv.data[index][0] = static_cast<float>(1.0 / ((dx + dy + dz) * lambda + 1.0));
-                tv.data[index][1] = 1.0;
-            }
+            tv.data[index][0] = static_cast<float>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+            tv.data[index][1] = 1.0;
         }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in computeTV: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
     }
 }
 
 void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) const {
-    try {
-        int nxy = gradX.size.width * gradX.size.height;
+    int nxy = gradX.size.width * gradX.size.height;
 
-        for (int z = 0; z < gradX.size.depth; ++z) {
-            for (int i = 0; i < nxy; ++i) {
-                int index = z * nxy + i;
+    for (int z = 0; z < gradX.size.depth; ++z) {
+        for (int i = 0; i < nxy; ++i) {
+            int index = z * nxy + i;
 
-                double norm = std::sqrt(
-                    gradX.data[index][0] * gradX.data[index][0] + gradX.data[index][1] * gradX.data[index][1] +
-                    gradY.data[index][0] * gradY.data[index][0] + gradY.data[index][1] * gradY.data[index][1] +
-                    gradZ.data[index][0] * gradZ.data[index][0] + gradZ.data[index][1] * gradZ.data[index][1]
-                );
+            double norm = std::sqrt(
+                gradX.data[index][0] * gradX.data[index][0] + gradX.data[index][1] * gradX.data[index][1] +
+                gradY.data[index][0] * gradY.data[index][0] + gradY.data[index][1] * gradY.data[index][1] +
+                gradZ.data[index][0] * gradZ.data[index][0] + gradZ.data[index][1] * gradZ.data[index][1]
+            );
 
-                norm = std::max(norm, epsilon);
+            norm = std::max(norm, epsilon);
 
-                gradX.data[index][0] /= norm;
-                gradX.data[index][1] /= norm;
-                gradY.data[index][0] /= norm;
-                gradY.data[index][1] /= norm;
-                gradZ.data[index][0] /= norm;
-                gradZ.data[index][1] /= norm;
-            }
+            gradX.data[index][0] /= norm;
+            gradX.data[index][1] /= norm;
+            gradY.data[index][0] /= norm;
+            gradY.data[index][1] /= norm;
+            gradZ.data[index][0] /= norm;
+            gradZ.data[index][1] /= norm;
         }
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in normalizeTV: " << e.what() << std::endl;
-        throw; // Re-throw to propagate the exception
     }
 }
 
-extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
-    return new CPUDeconvolutionBackend();
-}
-
-extern "C" IBackendMemoryManager* createBackendMemoryManager() {
-    return new CPUBackendMemoryManager();
-}

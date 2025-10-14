@@ -94,10 +94,14 @@ json PSFManager::loadJSONFile(const std::string& filePath){
         throw std::runtime_error("Failed to open configuration file: " + filePath);
     }
     
-    std::cout << "[STATUS] " << filePath << " successfully read" << std::endl;
 
     json jsonFile;
-    file >> jsonFile;
+    try{
+        file >> jsonFile;
+    }
+    catch (const std::exception& e){
+        throw std::runtime_error("PSFManager failed to read json");
+    }
     return jsonFile;
 }
 

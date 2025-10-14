@@ -32,7 +32,6 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexD
             a = alpha - beta * n;
         }
 
-        std::cout << "\r[STATUS] Iteration: " << n + 1 << "/" << iterations << " ";
 
         // a) First transformation: Fn = FFT(fn)
         backend->getDeconvManager().forwardFFT(f, f);
@@ -64,10 +63,8 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexD
         // fn+1' = fn * c
         backend->getDeconvManager().complexMultiplication(f, c, f);
         
-        std::flush(std::cout);
     }
     
-    backend->getMemoryManager().freeMemoryOnDevice(c);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::cloneSpecific() const {

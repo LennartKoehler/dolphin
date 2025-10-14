@@ -14,13 +14,7 @@ ThreadPool::ThreadPool(size_t numThreads) : stop(false) {
                     task = std::move(tasks.front());
                     tasks.pop();
                 }
-                try{
-                    task();
-                }
-                catch(const std::exception& e){
-                    std::cerr << "[ERROR] in task of threadpool, enqueueing again. Error message: " << e.what() << std::endl;
-                    enqueue([task]() { task(); });
-                }
+                task();
                 queueSpace.notify_one();
 
             }
