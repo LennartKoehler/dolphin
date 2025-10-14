@@ -67,7 +67,10 @@ int main() {
 
         //octantFourierShiftCufftComplex(N,N,N, d_c);
         //octantFourierShiftCufftComplex(N,N,N, d_c);
-        complexElementwiseMatMulCufftComplex(N, N, N, d_c, d_c, d_c);
+        cudaError_t err = complexElementwiseMatMulCufftComplex(N, N, N, d_c, d_c, d_c);
+        if (err != cudaSuccess) {
+            std::cerr << "[ERROR] complexElementwiseMatMulCufftComplex failed: " << cudaGetErrorString(err) << std::endl;
+        }
 
         convertCufftToFftwComplexOnHost(N,N,N, h_c, d_c);
 
@@ -105,7 +108,10 @@ int main() {
        // convertFftwToCufftComplexOnDevice(N,N,N,h_b, d_cub);
         convertFftwToCufftComplexOnDevice(N,N,N,h_c, d_cuc);
         //convertFftwToCufftComplexOnDevice(N,N,N,h_d, d_cud);
-padCufftMat(N,N,N,2*N,2*N,2*N, d_cuc, d_cud);
+cudaError_t err = padCufftMat(N,N,N,2*N,2*N,2*N, d_cuc, d_cud);
+if (err != cudaSuccess) {
+    std::cerr << "[ERROR] padCufftMat failed: " << cudaGetErrorString(err) << std::endl;
+}
         // All opertions within the iterations loop
         //complexElementwiseMatDivCufftComplex(N, d_cua, d_cub, d_cuc);
         //deviceTestKernel(N, d_cua, d_cub, d_cuc);
@@ -123,7 +129,10 @@ padCufftMat(N,N,N,2*N,2*N,2*N, d_cuc, d_cud);
     //complexElementwiseMatDivCufftComplex(N,N,N, d_cua, d_cub, d_cuc, 1e-6);
     //complexElementwiseMatDivNaiveCufftComplex(N,N,N, d_cua, d_cub, d_cud);
 
-        //cufftInverse(N,N,N,d_cuc,d_cuc, plan);
+        //cudaError_t err = cufftInverse(N,N,N,d_cuc,d_cuc, plan);
+        //if (err != cudaSuccess) {
+        //    std::cerr << "[ERROR] cufftInverse failed: " << cudaGetErrorString(err) << std::endl;
+        //}
        // gradZCufftComplex(N,N,N, d_cuc, d_cuc);
     //complexElementwiseMatDivCufftComplex(N, d_cua, d_cub, d_cuc);
         convertCufftToFftwComplexOnHost(2*N,2*N,2*N,h_d, d_cud);
@@ -199,7 +208,10 @@ padCufftMat(N,N,N,2*N,2*N,2*N, d_cuc, d_cud);
       }
 
     // Calculate FFT
-     cufftForward(d, d, plan3);
+     cudaError_t err = cufftForward(d, d, plan3);
+     if (err != cudaSuccess) {
+         std::cerr << "[ERROR] cufftForward failed: " << cudaGetErrorString(err) << std::endl;
+     }
     double end3 = omp_get_wtime();
     std::cout << "[TIME][" << (end3 - start3) * 1000 << " cuFFT ms]" << std::endl;;
     // Device-Pointer
@@ -214,10 +226,16 @@ padCufftMat(N,N,N,2*N,2*N,2*N, d_cuc, d_cud);
     copyDataFromHostToDevice(N,N,N,d_a, h_a);
     copyDataFromHostToDevice(N,N,N,d_b, h_b);
 
-    complexMatMulFftwComplex(N,N,N, d_a, d_b, d_a, "cuda");
+    err = complexMatMulFftwComplex(N,N,N, d_a, d_b, d_a, "cuda");
+    if (err != cudaSuccess) {
+        std::cerr << "[ERROR] complexMatMulFftwComplex failed: " << cudaGetErrorString(err) << std::endl;
+    }
     // Copy Data back from GPU to CPU
     copyDataFromDeviceToHost(N,N,N,h_c, d_c);
-    complexElementwiseMatMulCufftComplex(N,N,N, d, d, d);
+    err = complexElementwiseMatMulCufftComplex(N,N,N, d, d, d);
+    if (err != cudaSuccess) {
+        std::cerr << "[ERROR] complexElementwiseMatMulCufftComplex failed: " << cudaGetErrorString(err) << std::endl;
+    }
 
     cudaFree(d_output);
     return 0;

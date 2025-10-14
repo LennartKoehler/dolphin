@@ -15,7 +15,7 @@ include_directories(include)
 
 find_package(OpenMP REQUIRED)
 find_package(OpenCV)
-
+find_package(CUDAToolkit REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 # Define source files
 set(CPP_SOURCES

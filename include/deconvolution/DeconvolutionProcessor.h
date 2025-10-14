@@ -72,7 +72,6 @@ private:
     int getLayerIndex(int cubeIndex, int cubesPerLayer);
 
 
-    std::shared_ptr<IBackend> loadBackend(const std::string& backendName);
  
     ComplexData convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, const RectangleShape& shape);
     std::vector<cv::Mat> convertFFTWComplexToCVMatVector(const ComplexData& input);
@@ -81,7 +80,7 @@ private:
 
     DeconvolutionConfig config;
 
-    std::shared_ptr<IBackend> cpu_backend_;
+    std::shared_ptr<IBackendMemoryManager> cpuMemoryManager;
     std::shared_ptr<IBackend> backend_;
     std::shared_ptr<DeconvolutionAlgorithm> algorithm_;
 

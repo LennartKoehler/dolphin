@@ -21,28 +21,23 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const
     // Allocate temporary memory for computation
     ComplexData temp_g = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
 
-    try {
-        // Copy input data to working array
-        backend->getMemoryManager().memCopy(g, temp_g);
 
-        // Forward FFT on image
-        backend->getDeconvManager().forwardFFT(temp_g, temp_g);
+    // Copy input data to working array
+    backend->getMemoryManager().memCopy(g, temp_g);
 
-        // Division in frequency domain: F = G / H (with stabilization)
-        backend->getDeconvManager().complexDivision(temp_g, H, f, epsilon);
+    // Forward FFT on image
+    backend->getDeconvManager().forwardFFT(temp_g, temp_g);
 
-        // Inverse FFT to get result
-        backend->getDeconvManager().backwardFFT(f, f);
+    // Division in frequency domain: F = G / H (with stabilization)
+    backend->getDeconvManager().complexDivision(temp_g, H, f, epsilon);
 
-        // Optional: Apply normalization if needed
-        // backend->getDeconvManager().scalarMultiplication(f, 1.0 / g.size.volume, f);
+    // Inverse FFT to get result
+    backend->getDeconvManager().backwardFFT(f, f);
 
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in inverse filter algorithm: " << e.what() << std::endl;
-    }
+    // Optional: Apply normalization if needed
+    // backend->getDeconvManager().scalarMultiplication(f, 1.0 / g.size.volume, f);
 
-    // Clean up allocated memory
-    backend->getMemoryManager().freeMemoryOnDevice(temp_g);
+
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::cloneSpecific() const {

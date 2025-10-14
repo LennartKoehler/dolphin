@@ -13,7 +13,11 @@
 
 namespace CUBE_MAT {
     // Normal Matrix Multiplication
-    void complexMatMulFftwComplexCPU(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+    cudaError_t complexMatMulFftwComplexCPU(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         double start = omp_get_wtime();
 
         // Iterate over the 3D matrix
@@ -48,8 +52,14 @@ namespace CUBE_MAT {
 
         double end = omp_get_wtime();
         DEBUG_LOG("[TIME][" << (end - start) * 1000 << " ms] MatMul in Cpp");
+        
+        return cudaSuccess;
     }
-    void complexMatMulFftwComplexOmpCPU(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+    cudaError_t complexMatMulFftwComplexOmpCPU(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         double start = omp_get_wtime();
 
         // Use OpenMP to parallelize the 3D matrix multiplication
@@ -86,8 +96,14 @@ namespace CUBE_MAT {
         double end = omp_get_wtime();
         DEBUG_LOG("[TIME][" << (end - start) * 1000 << " ms] MatMul in Cpp with Omp ("
                   << omp_get_max_threads() << " Threads)");
+        
+        return cudaSuccess;
     }
-    void complexMatMulFftwComplexCUDA(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+    cudaError_t complexMatMulFftwComplexCUDA(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -110,14 +126,20 @@ namespace CUBE_MAT {
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] MatMul in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return cudaSuccess;
     }
-    void complexMatMulCuComplexCUDA(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
+    cudaError_t complexMatMulCuComplexCUDA(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -143,7 +165,7 @@ namespace CUBE_MAT {
         // Check for any CUDA errors
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         // Calculate and print the time elapsed
@@ -152,22 +174,32 @@ namespace CUBE_MAT {
         DEBUG_LOG("[TIME][" << milliseconds << " ms] MatMul in CUDA (cuComplex) ("
                   << threadsPerBlock.x * threadsPerBlock.y * threadsPerBlock.z << "x"
                   << blocksPerGrid.x * blocksPerGrid.y * blocksPerGrid.z << ")");
+        
+        return cudaSuccess;
     }
-    void complexMatMulFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, const char* type) {
+    cudaError_t complexMatMulFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, const char* type) {
+        if (!A || !B || !C || !type) {
+            return cudaErrorInvalidValue;
+        }
+        
         if (strcmp(type, "cpp") == 0) {
-            complexMatMulFftwComplexCPU(Nx, Ny, Nz, A, B, C);
+            return complexMatMulFftwComplexCPU(Nx, Ny, Nz, A, B, C);
         }else if (strcmp(type, "omp") == 0) {
-            complexMatMulFftwComplexOmpCPU(Nx, Ny, Nz, A, B, C);
+            return complexMatMulFftwComplexOmpCPU(Nx, Ny, Nz, A, B, C);
         }else if (strcmp(type, "cuda") == 0) {
-            complexMatMulFftwComplexCUDA(Nx, Ny, Nz, A, B, C);
+            return complexMatMulFftwComplexCUDA(Nx, Ny, Nz, A, B, C);
         }
         else {
-            fprintf(stderr, "Unknown operation type %s\n", type);
+            return cudaErrorInvalidValue;
         }
     }
 
     // Elementwise Matrix Multiplication/Division (always GPU)
-    void complexElementwiseMatMulCuComplex(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
+    cudaError_t complexElementwiseMatMulCuComplex(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -188,14 +220,20 @@ namespace CUBE_MAT {
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return cudaSuccess;
     }
-    void complexElementwiseMatMulCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+    cudaError_t complexElementwiseMatMulCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -218,15 +256,20 @@ namespace CUBE_MAT {
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (cufftComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
-
+        
+        return cudaSuccess;
     }
-    void complexElementwiseMatMulFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+    cudaError_t complexElementwiseMatMulFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -236,25 +279,29 @@ namespace CUBE_MAT {
         dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
                            (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
                            (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        cudaError_t err = cudaGetLastError();
 
         cudaEventRecord(start);
 
         complexElementwiseMatMulFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+
         cudaDeviceSynchronize();
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
-        cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void complexElementwiseMatMulConjugateCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C)  {
+    cudaError_t complexElementwiseMatMulConjugateCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C)  {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -275,14 +322,20 @@ namespace CUBE_MAT {
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul conjugated in CUDA (cufftComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return cudaSuccess;
     }
-    void complexElementwiseMatMulConjugateFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C)  {
+    cudaError_t complexElementwiseMatMulConjugateFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C)  {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -303,14 +356,20 @@ namespace CUBE_MAT {
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul conjugated in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return cudaSuccess;
     }
-    void complexElementwiseMatDivCuComplex(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
+    cudaError_t complexElementwiseMatDivCuComplex(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -331,14 +390,20 @@ namespace CUBE_MAT {
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return cudaSuccess;
     }
-    void complexElementwiseMatDivCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
+    cudaError_t complexElementwiseMatDivCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -359,14 +424,20 @@ namespace CUBE_MAT {
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return cudaSuccess;
     }
-    void complexElementwiseMatDivFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon) {
+    cudaError_t complexElementwiseMatDivFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -387,17 +458,22 @@ namespace CUBE_MAT {
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
-
+        
+        return cudaSuccess;
     }
 
 
-    void complexElementwiseMatDivNaiveCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+    cudaError_t complexElementwiseMatDivNaiveCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -418,14 +494,20 @@ namespace CUBE_MAT {
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise naive MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return cudaSuccess;
     }
-    void complexElementwiseMatDivStabilizedCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon){
+    cudaError_t complexElementwiseMatDivStabilizedCufftComplex(int Nx, int Ny, int Nz, cufftComplex* A, cufftComplex* B, cufftComplex* C, double epsilon){
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -446,14 +528,20 @@ namespace CUBE_MAT {
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise stabilized MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return cudaSuccess;
     }
-    void complexElementwiseMatDivStabilizedFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon){
+    cudaError_t complexElementwiseMatDivStabilizedFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon){
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -474,18 +562,24 @@ namespace CUBE_MAT {
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+            return err;
         }
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise stabilized MatDiv in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return cudaSuccess;
     }
 }
 
 namespace CUBE_REG {
     // Regularization
-    void calculateLaplacianCufftComplex(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft) {
+    cudaError_t calculateLaplacianCufftComplex(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft) {
+        if (!Afft || !laplacianfft) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -505,15 +599,17 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void gradXCufftComplex(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradX) {
+    cudaError_t gradXCufftComplex(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradX) {
+        if (!image || !gradX) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -533,15 +629,17 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientX in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void gradYCufftComplex(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradY) {
+    cudaError_t gradYCufftComplex(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradY) {
+        if (!image || !gradY) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -561,15 +659,17 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientY in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void gradZCufftComplex(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradZ) {
+    cudaError_t gradZCufftComplex(int Nx, int Ny, int Nz, cufftComplex* image, cufftComplex* gradZ) {
+        if (!image || !gradZ) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -589,15 +689,17 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientZ in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void computeTVCufftComplex(int Nx, int Ny, int Nz, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv) {
+    cudaError_t computeTVCufftComplex(int Nx, int Ny, int Nz, double lambda, cufftComplex* gx, cufftComplex* gy, cufftComplex* gz, cufftComplex* tv) {
+        if (!gx || !gy || !gz || !tv) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -617,15 +719,17 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void normalizeTVCufftComplex(int Nx, int Ny, int Nz, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon) {
+    cudaError_t normalizeTVCufftComplex(int Nx, int Ny, int Nz, cufftComplex* gradX, cufftComplex* gradY, cufftComplex* gradZ, double epsilon) {
+        if (!gradX || !gradY || !gradZ) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -645,15 +749,17 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] normalizing Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void calculateLaplacianFftwComplex(int Nx, int Ny, int Nz, fftw_complex* Afft, fftw_complex* laplacianfft) {
+    cudaError_t calculateLaplacianFftwComplex(int Nx, int Ny, int Nz, fftw_complex* Afft, fftw_complex* laplacianfft) {
+        if (!Afft || !laplacianfft) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -673,15 +779,17 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void gradXFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradX) {
+    cudaError_t gradXFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradX) {
+        if (!image || !gradX) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -701,15 +809,17 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientX in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void gradYFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradY) {
+    cudaError_t gradYFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradY) {
+        if (!image || !gradY) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -729,15 +839,17 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientY in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void gradZFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradZ) {
+    cudaError_t gradZFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradZ) {
+        if (!image || !gradZ) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -757,15 +869,17 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientZ in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void computeTVFftwComplex(int Nx, int Ny, int Nz, double lambda, fftw_complex *gx, fftw_complex *gy, fftw_complex *gz, fftw_complex *tv) {
+    cudaError_t computeTVFftwComplex(int Nx, int Ny, int Nz, double lambda, fftw_complex *gx, fftw_complex *gy, fftw_complex *gz, fftw_complex *tv) {
+        if (!gx || !gy || !gz || !tv) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -785,15 +899,17 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
-    void normalizeTVFftwComplex(int Nx, int Ny, int Nz, fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, double epsilon) {
+    cudaError_t normalizeTVFftwComplex(int Nx, int Ny, int Nz, fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, double epsilon) {
+        if (!gradX || !gradY || !gradZ) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -813,19 +929,21 @@ namespace CUBE_REG {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] normalizing Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
 }
 
 namespace CUBE_TILED {
     // Tiled Memory in GPU
-    void calculateLaplacianCufftComplexTiled(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft) {
+    cudaError_t calculateLaplacianCufftComplexTiled(int Nx, int Ny, int Nz, cufftComplex* Afft, cufftComplex* laplacianfft) {
+        if (!Afft || !laplacianfft) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -845,19 +963,21 @@ namespace CUBE_TILED {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA tiled with shared mem (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
 }
 
 namespace CUBE_FTT {
     // FFT
-    void cufftForward(cufftComplex* input, cufftComplex* output, cufftHandle plan) {
+    cudaError_t cufftForward(cufftComplex* input, cufftComplex* output, cufftHandle plan) {
+        if (!input || !output || !plan) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -871,21 +991,18 @@ namespace CUBE_FTT {
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
-        if (result != CUFFT_SUCCESS) {
-            std::cerr << "[ERROR] forward fft: " << result << std::endl;
-            return;
-        }
-
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] Forward FFT in cuFFT");
+        
+        return err; 
     }
-    void cufftInverse(int Nx, int Ny, int Nz, cufftComplex* input, cufftComplex* output, cufftHandle plan) {
+    cudaError_t cufftInverse(int Nx, int Ny, int Nz, cufftComplex* input, cufftComplex* output, cufftHandle plan) {
+        if (!input || !output || !plan) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -904,23 +1021,20 @@ namespace CUBE_FTT {
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
-        if (result != CUFFT_SUCCESS) {
-            std::cerr << "[ERROR] inverse fft: " << result << std::endl;
-            return;
-        }
-
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] Inverse FFT in cuFFT");
+        
+        return err;
     }
 
     // Fourier Shift, Padding and Normalization
-    void octantFourierShiftFftwComplexCPU(int Nx, int Ny, int Nz, fftw_complex* data) {
+    cudaError_t octantFourierShiftFftwComplexCPU(int Nx, int Ny, int Nz, fftw_complex* data) {
+        if (!data) {
+            return cudaErrorInvalidValue;
+        }
+
         int width = Nx;
         int height = Ny;
         int depth = Nz;
@@ -959,8 +1073,14 @@ namespace CUBE_FTT {
         float time = duration.count();
 
         DEBUG_LOG("[TIME]["<<time/1000000<<" ms] Octant(Fourier)Shift in CPP");
+        
+        return cudaSuccess;
     }
-    void octantFourierShiftFftwComplex(int Nx, int Ny, int Nz, fftw_complex* data) {
+    cudaError_t octantFourierShiftFftwComplex(int Nx, int Ny, int Nz, fftw_complex* data) {
+        if (!data) {
+            return cudaErrorInvalidValue;
+        }
+
         //size_t freeMem, totalMem;
         //cudaMemGetInfo(&freeMem, &totalMem);
         //std::cout << "Free memory: " << freeMem << " Total memory: " << totalMem << std::endl;
@@ -981,23 +1101,23 @@ namespace CUBE_FTT {
 
         octantFourierShiftFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, data);
         cudaError_t errp = cudaPeekAtLastError();
-        if (errp != cudaSuccess) {
-            std::cerr << "Fourier shift kernel launch error: " << cudaGetErrorString(errp) << std::endl;
-        }
+        
         cudaDeviceSynchronize();
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] Octant(Fouriere)Shift in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return (errp == cudaSuccess) ? err : errp;
     }
-    void octantFourierShiftCufftComplex(int Nx, int Ny, int Nz, cufftComplex* data) {
+    cudaError_t octantFourierShiftCufftComplex(int Nx, int Ny, int Nz, cufftComplex* data) {
+        if (!data) {
+            return cudaErrorInvalidValue;
+        }
+
         //size_t freeMem, totalMem;
         //cudaMemGetInfo(&freeMem, &totalMem);
         //std::cout << "Free memory: " << freeMem << " Total memory: " << totalMem << std::endl;
@@ -1018,28 +1138,28 @@ namespace CUBE_FTT {
 
         octantFourierShiftCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, data);
         cudaError_t errp = cudaPeekAtLastError();
-        if (errp != cudaSuccess) {
-            std::cerr << "Fourier shift kernel launch error: " << cudaGetErrorString(errp) << std::endl;
-        }
+        
         cudaDeviceSynchronize();
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] Octant(Fouriere)Shift in CUDA (cufftComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return (errp == cudaSuccess) ? err : errp;
     }
-    void padFftwMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, fftw_complex* oldMat, fftw_complex* newMat)
+    cudaError_t padFftwMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, fftw_complex* oldMat, fftw_complex* newMat)
     {
+        if (!oldMat || !newMat) {
+            return cudaErrorInvalidValue;
+        }
+        
         auto start = std::chrono::high_resolution_clock::now();
         // Sicherheitsprüfung: Neue Dimensionen müssen größer oder gleich den alten sein
         if (newNx < oldNx || newNy < oldNy || newNz < oldNz) {
-            throw std::invalid_argument("New dimensions have to be equal or bigger than old ones.");
+            return cudaErrorInvalidValue;
         }
 
         // Offset für Padding (Startkoordinaten der alten Matrix in der neuen Matrix)
@@ -1079,12 +1199,14 @@ namespace CUBE_FTT {
         float time = duration.count();
 
         DEBUG_LOG("[TIME]["<<time/1000000<<" ms] padded FftwComplex Mat in CPP");
+        
+        return cudaSuccess;
     }
-    void padCufftMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, cufftComplex* d_oldMat, cufftComplex* d_newMat)
+    cudaError_t padCufftMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, cufftComplex* d_oldMat, cufftComplex* d_newMat)
     {
         // Sicherheitsprüfung: Neue Dimensionen müssen größer oder gleich den alten sein
         if (newNx < oldNx || newNy < oldNy || newNz < oldNz) {
-            throw std::invalid_argument("New dimensions have to be equal or bigger than old ones.");
+            return cudaErrorInvalidValue;
         }
 
         // Offset berechnen
@@ -1115,14 +1237,17 @@ namespace CUBE_FTT {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            throw std::runtime_error(cudaGetErrorString(err));
-        }
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] padded CufftComplex Mat in CUDA ("<<blockDim.x*blockDim.y*blockDim.z<<"x"<<gridDim.x*gridDim.y*gridDim.z<<")");
+        
+        return err;
     }
-    void normalizeFftwComplexData(int Nx, int Ny, int Nz, fftw_complex* d_data) {
+    cudaError_t normalizeFftwComplexData(int Nx, int Ny, int Nz, fftw_complex* d_data) {
+        if (!d_data) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -1135,28 +1260,27 @@ namespace CUBE_FTT {
 
         normalizeFftwComplexDataGlobal<<<num_blocks, block_size>>>(Nx, Ny, Nz, d_data);
         cudaError_t errp = cudaPeekAtLastError();
-        if (errp != cudaSuccess) {
-            std::cerr << "Normalize FFT data kernel launch error: " << cudaGetErrorString(errp) << std::endl;
-        }
+        
         cudaDeviceSynchronize();
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] Normalizing FFT data in CUDA (fftw_complex) ("<<block_size*num_blocks<< " Threads)");
-
+        
+        return (errp == cudaSuccess) ? err : errp;
     }
 }
 
 namespace CUBE_DEVICE_KERNEL {
     // Testing __device__ kernels
-    void deviceTestKernel(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
+    cudaError_t deviceTestKernel(int Nx, int Ny, int Nz, cuComplex* A, cuComplex* B, cuComplex* C) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -1176,13 +1300,11 @@ namespace CUBE_DEVICE_KERNEL {
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-        }
-
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] Device kernel(s) finished ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        
+        return err;
     }
 }
 
