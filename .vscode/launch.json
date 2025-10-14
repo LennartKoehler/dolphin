@@ -32,6 +32,7 @@
                 "-c", "../configs/default_config.json"
 
             ],
+            "additionalSOLibSearchPath": "${workspaceFolder}/lib/cube/**",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build",
             "environment": [],

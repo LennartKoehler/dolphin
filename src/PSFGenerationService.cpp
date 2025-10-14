@@ -220,7 +220,7 @@ std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(std::shar
         std::string error_msg = "Failed to create PSF from config: " + std::string(e.what());
         logMessage(error_msg);
         handleError(error_msg);
-        throw std::runtime_error(error_msg);
+        throw;
     }
 }
 

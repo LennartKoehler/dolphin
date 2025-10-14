@@ -24,36 +24,25 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     ComplexData FP = backend->getMemoryManager().allocateMemoryOnDevice(H.size);
 
     backend->getMemoryManager().memCopy(g, f);
-    try {
-        // Forward FFT on image
-        backend->getDeconvManager().forwardFFT(f, f);
+    // Forward FFT on image
+    backend->getDeconvManager().forwardFFT(f, f);
 
-        // H*H
-        backend->getDeconvManager().complexMultiplication(H, H, H2);
-        
-        // Laplacian L
-        backend->getDeconvManager().calculateLaplacianOfPSF(H, L);
-        backend->getDeconvManager().complexMultiplication(L, L, L2);
-        backend->getDeconvManager().scalarMultiplication(L2, lambda, L2);
-
-        backend->getDeconvManager().complexAddition(H2, L2, FA);
-        backend->getDeconvManager().complexDivisionStabilized(H, FA, FP, complexDivisionEpsilon);
-        backend->getDeconvManager().complexMultiplication(f, FP, f);
-
-        // Inverse FFT
-        backend->getDeconvManager().backwardFFT(f, f);
-        backend->getDeconvManager().octantFourierShift(f);
-        
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in regularized inverse filter algorithm: " << e.what() << std::endl;
-    }
+    // H*H
+    backend->getDeconvManager().complexMultiplication(H, H, H2);
     
-    // Cleanup allocated arrays
-    backend->getMemoryManager().freeMemoryOnDevice(H2);
-    backend->getMemoryManager().freeMemoryOnDevice(L);
-    backend->getMemoryManager().freeMemoryOnDevice(L2);
-    backend->getMemoryManager().freeMemoryOnDevice(FA);
-    backend->getMemoryManager().freeMemoryOnDevice(FP);
+    // Laplacian L
+    backend->getDeconvManager().calculateLaplacianOfPSF(H, L);
+    backend->getDeconvManager().complexMultiplication(L, L, L2);
+    backend->getDeconvManager().scalarMultiplication(L2, lambda, L2);
+
+    backend->getDeconvManager().complexAddition(H2, L2, FA);
+    backend->getDeconvManager().complexDivisionStabilized(H, FA, FP, complexDivisionEpsilon);
+    backend->getDeconvManager().complexMultiplication(f, FP, f);
+
+    // Inverse FFT
+    backend->getDeconvManager().backwardFFT(f, f);
+    backend->getDeconvManager().octantFourierShift(f);   
+
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlgorithm::cloneSpecific() const {
