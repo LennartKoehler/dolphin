@@ -13,8 +13,9 @@
     },
     "time": false,
     "saveSubimages": false, 
-    "backenddeconv": "cuda",
-    "nThreads": 1 
+    "backenddeconv": "cpu",
+    "nThreads": 5,
+    "maxMemGB": 3
   },
   
 

@@ -9,22 +9,22 @@ public:
     std::string getName() const override;
 
 
-    double convertSigma(double sigma);
-    double convertResolution(double resolution);
+    float convertSigma(float sigma);
+    float convertResolution(float resolution);
 
 
-
-    double sigmaX = 10;
-    double sigmaY = 10;
-    double sigmaZ = 10;
-    double qualityFactor = 1.0; // 1.0 for perfect a perfect image, larger if the image is blurry and therefore the psd should be too
-    double pixelScaling = 1e-6; //TODO should this be here? or in main config?
-    double nanometerScale = 1e-9;
+    float sigmaX = 10;
+    float sigmaY = 10;
+    float sigmaZ = 10;
+    float qualityFactor = 1.0; // 1.0 for perfect a perfect image, larger if the image is blurry and therefore the psd should be too
+    float pixelScaling = 1e-6; //TODO should this be here? or in main config?
+    float nanometerScale = 1e-9;
     std::vector<int> psfLayers = {}; //sub-image layers for PSF
     std::vector<int> psfCubes = {}; //sub-images for PSF
 
 
 
 private:
-    virtual void registerAllParameters() override;
+    void registerAllParameters();
+
 };

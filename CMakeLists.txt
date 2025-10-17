@@ -137,17 +137,12 @@ set(COMMON_SOURCES
     src/utilities/UtlIO.cpp
 
     src/frontend/CLIFrontend.cpp
-    src/frontend/SetupConfig.cpp
     src/frontend/gui/imguiWidget.cpp
     src/frontend/gui/DefaultGUIStyleConfig.cpp
     src/frontend/gui/GUIFrontend.cpp
-    src/frontend/gui/UISetupConfig.cpp
-    src/frontend/gui/UIConfig.cpp
-    src/frontend/gui/UIDeconvolutionConfig.cpp
+    src/frontend/SetupConfig.cpp
 
-    # src/frontend/gui/uipsf/UIPSFConfig.cpp
-    src/frontend/gui/uipsf/UIConfigPSFGaussian.cpp
-    src/frontend/gui/uipsf/UIConfigPSFGibsonLanni.cpp
+
 
     src/frontend/gui/windows/SpecificWindows.cpp
     src/frontend/gui/windows/MainWindow.cpp

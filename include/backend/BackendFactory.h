@@ -2,6 +2,8 @@
 #include <memory>
 #include <string>
 #include <stdexcept>
+#include <map>
+#include <functional>
 #include "IDeconvolutionBackend.h"
 #include "IBackendMemoryManager.h"
 #include <dlfcn.h>
@@ -46,15 +48,27 @@ public:
 
 class BackendFactory {
 public:
-    static std::shared_ptr<IBackend> create(std::string backendName);
-    static std::shared_ptr<IBackendMemoryManager> createMemManager(std::string backendName);
-    static std::shared_ptr<IDeconvolutionBackend> createDeconvBackend(std::string backendName);
+    using BackendCreator = std::function<std::shared_ptr<IBackend>()>;
+
+    static std::shared_ptr<IBackend> create(const std::string& backendName);
+    static std::shared_ptr<IBackendMemoryManager> createMemManager(const std::string& backendName);
+    static std::shared_ptr<IDeconvolutionBackend> createDeconvBackend(const std::string& backendName);
 
     static BackendFactory& getInstance();
+
+    std::vector<std::string> getAvailableBackends() const;
+    bool isBackendAvailable(const std::string& name) const;
+
+    void registerBackend(const std::string& name, BackendCreator creator);
 
 private:
     BackendFactory() = default;
     ~BackendFactory() = default;
     BackendFactory(const BackendFactory&) = delete;
     BackendFactory& operator=(const BackendFactory&) = delete;
+
+    void registerBackends();
+
+    std::map<std::string, BackendCreator> backends_;
+    bool initialized_ = false;
 };

@@ -10,7 +10,7 @@ class DefaultGUIStyleConfig : public GUIStyleConfig{
 public:
     DefaultGUIStyleConfig();
 
-    void drawParameter(const ParameterDescription& param) override;
+    void drawParameter(const ConfigParameter& param) override;
 
 private:
     void registerDisplays();

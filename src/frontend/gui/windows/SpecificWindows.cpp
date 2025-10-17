@@ -2,10 +2,10 @@
 #include "frontend/gui/windows/FunctionContent.h"
 #include "frontend/gui/GUIFrontend.h"
 
-#include "frontend/gui/uipsf/UIConfigPSFGaussian.h"
-#include "frontend/gui/uipsf/UIConfigPSFGibsonLanni.h"
-#include "frontend/gui/UIDeconvolutionConfig.h"
-#include "frontend/gui/UISetupConfig.h"
+#include "psf/configs/GaussianPSFConfig.h"
+#include "psf/configs/GibsonLanniPSFConfig.h"
+#include "deconvolution/DeconvolutionConfig.h"
+#include "frontend/SetupConfig.h"
 
 #include "imgui.h"
 
@@ -16,10 +16,10 @@ PSFMainWindow::PSFMainWindow(GUIFrontend* guiFrontend, int width, int height, st
     Window(width, height, name){
 
 
-        std::shared_ptr<UIConfigPSFGaussian> gauss = std::make_shared<UIConfigPSFGaussian>();
+        std::shared_ptr<GaussianPSFConfig> gauss = std::make_shared<GaussianPSFConfig>();
         std::shared_ptr<ConfigWindow> gausswindow = std::make_shared<ConfigWindow>(width, height, "Gaussian PSF", gauss);
 
-        std::shared_ptr<UIConfigPSFGibsonLanni> gibsonlanni = std::make_shared<UIConfigPSFGibsonLanni>();
+        std::shared_ptr<GibsonLanniPSFConfig> gibsonlanni = std::make_shared<GibsonLanniPSFConfig>();
         std::shared_ptr<ConfigWindow> gibsonlanniwindow = std::make_shared<ConfigWindow>(width, height, "GibsonLanni PSF", gibsonlanni);
 
         addChild(gausswindow);
@@ -28,8 +28,7 @@ PSFMainWindow::PSFMainWindow(GUIFrontend* guiFrontend, int width, int height, st
         // Create separate buttons for each PSF type
         std::shared_ptr<ButtonContent> gaussButton = std::make_shared<ButtonContent>("Generate Gaussian PSF", 
             [this, guiFrontend, gauss, gausswindow]() {
-                auto config = gauss->getConfig();
-                std::unique_ptr<PSFGenerationResult> result = guiFrontend->generatePSF(config);
+                std::unique_ptr<PSFGenerationResult> result = guiFrontend->generatePSF(gauss);
                 this->psfPath = result->generated_path;
                 gausswindow->deactivate();
                 showPSFWindow = true;
@@ -38,8 +37,7 @@ PSFMainWindow::PSFMainWindow(GUIFrontend* guiFrontend, int width, int height, st
 
         std::shared_ptr<ButtonContent> gibsonButton = std::make_shared<ButtonContent>("Generate Gibson-Lanni PSF", 
             [this, guiFrontend, gibsonlanni, gibsonlanniwindow]() {
-                auto config = gibsonlanni->getConfig();
-                std::unique_ptr<PSFGenerationResult> result = guiFrontend->generatePSF(config);
+                std::unique_ptr<PSFGenerationResult> result = guiFrontend->generatePSF(gibsonlanni);
                 this->psfPath = result->generated_path;
                 gibsonlanniwindow->deactivate();
                 showPSFWindow = true;
@@ -85,11 +83,11 @@ void PSFMainWindow::content(){
 DeconvolutionMainWindow::DeconvolutionMainWindow(GUIFrontend* guiFrontend, int width, int height, std::string name)
     : guiFrontend(guiFrontend),
     Window(width, height, name){
-        std::shared_ptr<UIDeconvolutionConfig> deconv = std::make_shared<UIDeconvolutionConfig>();
+        std::shared_ptr<DeconvolutionConfig> deconv = std::make_shared<DeconvolutionConfig>();
         std::shared_ptr<ConfigContent> deconvwindow = std::make_shared<ConfigContent>("Deconvolution Config", deconv);
         deconvwindow->activate();
 
-        std::shared_ptr<UISetupConfig> setup = std::make_shared<UISetupConfig>();
+        std::shared_ptr<SetupConfig> setup = std::make_shared<SetupConfig>();
         std::shared_ptr<ConfigContent> setupwindow = std::make_shared<ConfigContent>("Setup Config", setup);
         setupwindow->activate();
 
@@ -97,13 +95,11 @@ DeconvolutionMainWindow::DeconvolutionMainWindow(GUIFrontend* guiFrontend, int w
 
         std::shared_ptr<ButtonContent> startDeconvolutionButton = std::make_shared<ButtonContent>("Start Deconvolution", 
             [guiFrontend, setup, deconv, psfconfigwindow]() {
-                auto setupconfig = setup->getConfig();
-                auto deconvconfig = deconv->getConfig();
-                if (setupconfig->psfFilePath.empty() && !psfconfigwindow->psfPath.empty()){
-                    setupconfig->psfFilePath = psfconfigwindow->psfPath;
+                if (setup->psfFilePath.empty() && !psfconfigwindow->psfPath.empty()){
+                    setup->psfFilePath = psfconfigwindow->psfPath;
                 }
-                setupconfig->deconvolutionConfig = deconvconfig;
-                guiFrontend->deconvolve(setupconfig);
+                setup->deconvolutionConfig = deconv;
+                guiFrontend->deconvolve(setup);
             });
         startDeconvolutionButton->activate();
 

@@ -120,7 +120,7 @@ namespace CUBE_MAT {
 
         complexMatMulFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
 
-        cudaDeviceSynchronize();
+        
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
@@ -157,7 +157,7 @@ namespace CUBE_MAT {
         complexMatMulCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
 
         // Synchronize the device and check for errors after kernel execution
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -213,7 +213,7 @@ namespace CUBE_MAT {
         cudaEventRecord(start);
 
         complexElementwiseMatMulCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -249,7 +249,7 @@ namespace CUBE_MAT {
 
 
         complexElementwiseMatMulCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -285,7 +285,7 @@ namespace CUBE_MAT {
 
         complexElementwiseMatMulFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
 
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -315,7 +315,7 @@ namespace CUBE_MAT {
         cudaEventRecord(start);
 
         complexElementwiseMatMulConjugateCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -349,7 +349,7 @@ namespace CUBE_MAT {
         cudaEventRecord(start);
 
         complexElementwiseMatMulConjugateFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -383,7 +383,7 @@ namespace CUBE_MAT {
         cudaEventRecord(start);
 
         complexElementwiseMatDivCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -417,7 +417,7 @@ namespace CUBE_MAT {
         cudaEventRecord(start);
 
         complexElementwiseMatDivCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C, epsilon);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -451,7 +451,7 @@ namespace CUBE_MAT {
         cudaEventRecord(start);
 
         complexElementwiseMatDivFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C, epsilon);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -487,7 +487,7 @@ namespace CUBE_MAT {
         cudaEventRecord(start);
 
         complexElementwiseMatDivNaiveCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -521,7 +521,7 @@ namespace CUBE_MAT {
         cudaEventRecord(start);
 
         complexElementwiseMatDivStabilizedCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C, epsilon);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -555,7 +555,7 @@ namespace CUBE_MAT {
         cudaEventRecord(start);
 
         complexElementwiseMatDivStabilizedFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C, epsilon);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -593,7 +593,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         calculateLaplacianCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, Afft, laplacianfft);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -623,7 +623,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         gradientXCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradX);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -653,7 +653,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         gradientYCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradY);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -683,7 +683,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         gradientZCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradZ);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -713,7 +713,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         computeTVCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, lambda, gx, gy, gz, tv);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -743,7 +743,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         normalizeTVCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, gradX, gradY, gradZ, epsilon);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -773,7 +773,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         calculateLaplacianFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, Afft, laplacianfft);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -803,7 +803,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         gradientXFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradX);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -833,7 +833,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         gradientYFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradY);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -863,7 +863,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         gradientZFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradZ);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -893,7 +893,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         computeTVFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, lambda, gx, gy, gz, tv);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -923,7 +923,7 @@ namespace CUBE_REG {
         cudaEventRecord(start);
 
         normalizeTVFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, gradX, gradY, gradZ, epsilon);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -957,7 +957,7 @@ namespace CUBE_TILED {
         cudaEventRecord(start);
 
         calculateLaplacianCufftComplexTiledGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, Afft, laplacianfft);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -986,7 +986,7 @@ namespace CUBE_FTT {
         cudaEventRecord(start);
 
         result = cufftExecC2C(plan, input, output, CUFFT_FORWARD);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -1017,7 +1017,7 @@ namespace CUBE_FTT {
 
         normalizeComplexData<<<num_blocks, block_size>>>(Nx, Ny, Nz, output);
 
-        cudaDeviceSynchronize();
+        
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
@@ -1102,7 +1102,7 @@ namespace CUBE_FTT {
         octantFourierShiftFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, data);
         cudaError_t errp = cudaPeekAtLastError();
         
-        cudaDeviceSynchronize();
+        
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
@@ -1139,7 +1139,7 @@ namespace CUBE_FTT {
         octantFourierShiftCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, data);
         cudaError_t errp = cudaPeekAtLastError();
         
-        cudaDeviceSynchronize();
+        
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
@@ -1232,7 +1232,7 @@ namespace CUBE_FTT {
             d_oldMat, d_newMat,
             offsetX, offsetY, offsetZ);
 
-        cudaDeviceSynchronize();
+        
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
@@ -1261,7 +1261,7 @@ namespace CUBE_FTT {
         normalizeFftwComplexDataGlobal<<<num_blocks, block_size>>>(Nx, Ny, Nz, d_data);
         cudaError_t errp = cudaPeekAtLastError();
         
-        cudaDeviceSynchronize();
+        
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
@@ -1294,7 +1294,7 @@ namespace CUBE_DEVICE_KERNEL {
         cudaEventRecord(start);
 
         deviceTestKernelGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
-        cudaDeviceSynchronize();
+        
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);

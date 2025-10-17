@@ -4,7 +4,8 @@
 #include <opencv2/core/base.hpp>
 #include <vector>
 #include "Config.h"
-
+#include "DeconvolutionAlgorithmFactory.h"
+#include "../backend/BackendFactory.h"
 #include <map>
 #include <memory>
 
@@ -246,37 +247,39 @@ private:
 };
 
 
-#define DECONV_PARAMS \
-    PARAM(std::string, algorithmName, "RichardsonLucyTotalVariation", false) \
-    PARAM(int, subimageSize, 0, true) \
-    PARAM(int, iterations, 10, true) \
-    PARAM(double, epsilon, 1e-6, true) \
-    PARAM(bool, grid, false, true) \
-    PARAM(double, lambda, 0.001, true) \
-    PARAM(int, borderType, cv::BORDER_REFLECT, true) \
-    PARAM(bool, time, false, true)\
-    PARAM(bool, saveSubimages, false, true)\
-    PARAM(std::string, backenddeconv, "cpu", true)\
-    PARAM(int, nThreads, 1, false)
+
 
 class DeconvolutionConfig : public Config{
 public:
     DeconvolutionConfig();
     DeconvolutionConfig(const DeconvolutionConfig& other);
 
-    #define PARAM(type, name, defaultValue, optional) type name = defaultValue;
-    DECONV_PARAMS
-    #undef PARAM
+    // Use the struct for parameters
+    std::string algorithmName = "RichardsonLucyTotalVariation";
+    int subimageSize = 0;
+    int iterations = 10;
+    float epsilon = 1e-6;
+    bool grid = false;
+    float lambda = 0.001;
+    int borderType = cv::BORDER_REFLECT;
+    bool time = false;
+    bool saveSubimages = false;
+    std::string backenddeconv = "cpu";
+    int nThreads = 1;
+    float maxMemGB = 0;
+    bool verbose = false;
 
     RangeMap<std::string> cubePSFMap;
     RangeMap<std::string> layerPSFMap;
 
-    // bool loadFromJSON(const json& jsonData) override;
+
+
+
+    virtual bool loadFromJSON(const json& jsonData) override;
+    virtual json writeToJSON() override;
 
 private:
-    void registerRangeMap(const std::string& jsonTag, RangeMap<std::string>& field, bool optional);
-
-    virtual void registerAllParameters() override;
+    void registerAllParameters();
 };
 
 
