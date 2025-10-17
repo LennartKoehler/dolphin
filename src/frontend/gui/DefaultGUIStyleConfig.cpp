@@ -16,7 +16,7 @@ DefaultGUIStyleConfig::DefaultGUIStyleConfig(){
     registerDisplays();
 }
 
-void DefaultGUIStyleConfig::drawParameter(const ParameterDescription& param){
+void DefaultGUIStyleConfig::drawParameter(const ConfigParameter& param){
     // Create a unique key for this parameter
     int cacheKey = param.ID;
     
@@ -37,9 +37,9 @@ void DefaultGUIStyleConfig::drawParameter(const ParameterDescription& param){
 }
 
 void DefaultGUIStyleConfig::registerDisplays(){
-    widgetFactory[ParameterType::Int] = []() { return std::make_unique<imguiSliderInt>(); };
+    widgetFactory[ParameterType::Int] = []() { return std::make_unique<imguiInputInt>(); };
     widgetFactory[ParameterType::String] = []() { return std::make_unique<imguiInputString>(); };
-    widgetFactory[ParameterType::Double] = []() { return std::make_unique<imguiSliderDouble>(); };
+    widgetFactory[ParameterType::Float] = []() { return std::make_unique<imguiInputFloat>(); };
     widgetFactory[ParameterType::Bool] = []() { return std::make_unique<imguiCheckbox>(); };
     widgetFactory[ParameterType::VectorInt] = []() { return std::make_unique<imguiVectorInt>(); };
     widgetFactory[ParameterType::VectorString] = []() { return std::make_unique<imguiStringSelection>(); };

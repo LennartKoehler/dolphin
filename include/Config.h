@@ -7,75 +7,100 @@
 using json = nlohmann::json;
 using ordered_json = nlohmann::ordered_json;
 
-
-struct ReadWriteHelper {
-    std::string jsonTag;
-    std::function<void(const json&)> reader;
-    std::function<void(ordered_json&)> writer;
+enum class ParameterType{
+ Float, Int, String, VectorInt, Bool, VectorString, FilePath, RangeMap, DeconvolutionConfig
 };
 
+class ParameterIDGenerator {
+public:
+    static int getNextID() {
+        static int currentID = 0;
+        return ++currentID;
+    }
+};
+
+
+
+struct ConfigParameter{
+    ParameterType type;
+    void* value;
+    const char* name;
+    bool optional;
+    const char* jsonTag;
+    const char* cliFlag;
+    const char* cliDesc;
+    bool cliRequired;
+    bool hasRange;
+    double minVal;
+    double maxVal;
+    void* selection;
+    int ID = ParameterIDGenerator::getNextID();
+
+};
+
+
+// The idea of everything inheriting from this config, is that the child registers all its parameters with everything there is to it
+// Each parameter should directly provide everything there ever is to know about it
+// Then whereever its used, like in the frontend, they can be accessed through the visitParams. Whichs provides an option for specialtypes with SpecialVisistor
+// This way I should only have to edit the config i want to change (like add a parameter) and all frontends and whatever directly know what to do with it
+// and the parameter can directly be used in the code (unless its a new ParameterType). Although a nice idea this makes the use of visitParams a bit weird
+// and not typesafe (void*)
+
 class Config{
+    using ParamVisitor = std::function<void(ConfigParameter)>;
+
 public:
     Config() = default;
 
-    // IMPORTANT: in any derived class always run the copy constructor of parent so that at the end this is run:
-    Config(const Config& other){
-        parameters.clear();
-    }
 
-
-    virtual bool loadFromJSON(const json& jsonData) {
-        for (auto& param : parameters) {
-            try {
-                param.reader(jsonData);
-            } catch (const std::exception& e) {
-                std::cerr << "Failed to load " << param.jsonTag << ": " << e.what() << std::endl;
-                return false;
-            }
+    virtual bool loadFromJSON(const json& jsonData){
+        bool success = true;
+        try{
+            visitParams([&jsonData]<typename T>(T& value, ConfigParameter& param) {
+                if (jsonData.contains(param.jsonTag)) {
+                    value = jsonData.at(param.jsonTag).get<T>();
+                }
+            });
         }
-        return true;
-    }
-
-    virtual ordered_json writeToJSON() {
-        ordered_json result;
-        for (auto& param : parameters) {
-            param.writer(result);
+        catch (const std::exception){
+            std::cout << "Error in reading config from json" << std::endl;
+            success = false;
         }
-        return result;
+
+        return success;
+    }
+    virtual json writeToJSON(){
+        json jsonData;
+        visitParams([&jsonData]<typename T>(T& value, ConfigParameter& param) {
+            if (!param.value)
+                return;
+            jsonData[param.jsonTag] = value;
+
+        });
+
+        return jsonData;
     }
 
-    virtual void printValues(){
-        json temp = writeToJSON(); // does this work?
-        temp.dump();
+    void printValues(){
+        visitParams([]<typename T>(T& value, ConfigParameter& param){
+            std::cout << param.name << ": " << value << std::endl;
+        });
     }
+
+    template<typename Visitor>
+    void visitParams(Visitor&& visitor){
+        visitParams(std::forward<Visitor>(visitor), [](ConfigParameter&){return false;});
+    }
+
+    template<typename Visitor>
+    void visitParams(Visitor&& visitor, std::function<bool(ConfigParameter&)> specialVisitor){
+        for (auto& param: parameters){
+            visitParamValue(param, std::forward<Visitor>(visitor), specialVisitor);
+        }
+    };
 
 protected:
-    virtual void registerAllParameters() = 0;
 
-
-
-    template<typename T>
-    void registerParameter(const std::string& jsonTag, T& field, bool isOptional) {
-        ReadWriteHelper param;
-        param.jsonTag = jsonTag;
-        
-        // Reader lambda
-        param.reader = [&field, jsonTag, isOptional](const json& jsonData) {
-            if (jsonData.contains(jsonTag)) {
-                field = jsonData.at(jsonTag).get<T>();
-            }
-            else if(!isOptional){
-                throw std::runtime_error("[ERROR] Missing required parameter: " + jsonTag);
-            }
-        };
-        
-        // Writer lambda
-        param.writer = [&field, jsonTag](ordered_json& jsonData) {
-            jsonData[jsonTag] = field;
-        };
-        
-        parameters.push_back(std::move(param));
-    }
 
 
     static json loadJSONFile(const std::string& filePath) {
@@ -90,7 +115,32 @@ protected:
     }
 
 
+    template<typename Visitor>
+    bool visitParamValue(ConfigParameter& param, Visitor&& visitor, std::function<bool(ConfigParameter&)> specialVisitor) {
+        bool handled = specialVisitor(param);
+        if (!handled){
 
-    std::vector<ReadWriteHelper> parameters;
+            switch (param.type) {
+                case ParameterType::Int:
+                    visitor.template operator()<int>(*reinterpret_cast<int*>(param.value), param);
+                    break;
+                case ParameterType::Float:
+                    visitor.template operator()<float>(*reinterpret_cast<float*>(param.value), param);
+                    break;
+                case ParameterType::Bool:
+                    visitor.template operator()<bool>(*reinterpret_cast<bool*>(param.value), param);
+                    break;
+                case ParameterType::String:
+                case ParameterType::FilePath:
+                case ParameterType::VectorString:
+                    visitor.template operator()<std::string>(*reinterpret_cast<std::string*>(param.value), param);
+                    break;
 
+            }
+        }
+        return handled;
+    }
+
+    std::vector<ConfigParameter> parameters;
+    std::vector<ConfigParameter>& getParameters() { return parameters;};
 };

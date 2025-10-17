@@ -10,35 +10,45 @@ class imguiWidget{
 public:
     imguiWidget() = default;
     virtual ~imguiWidget(){}
-    virtual void display(const ParameterDescription& p) = 0;
-    void operator() (const ParameterDescription& p);
+    virtual void display(const ConfigParameter& p) = 0;
+    void operator() (const ConfigParameter& p);
 
 };
 
 
 class imguiSliderDouble : public imguiWidget{
 public:
-    void display(const ParameterDescription& p) override;
+    void display(const ConfigParameter& p) override;
 };
 
 class imguiSliderInt : public imguiWidget {
 public:
-    void display(const ParameterDescription& p) override;
+    void display(const ConfigParameter& p) override;
+};
+
+class imguiInputInt: public imguiWidget{
+public:
+    void display(const ConfigParameter& p) override;
+};
+
+class imguiInputFloat: public imguiWidget{
+public:
+    void display(const ConfigParameter& p) override;
 };
 
 class imguiInputString : public imguiWidget {
 public:
-    void display(const ParameterDescription& p) override;
+    void display(const ConfigParameter& p) override;
 };
 
 class imguiCheckbox : public imguiWidget {
 public:
-    void display(const ParameterDescription& p) override;
+    void display(const ConfigParameter& p) override;
 };
 
 class imguiVectorInt : public imguiWidget {
 public:
-    void display(const ParameterDescription& p) override;
+    void display(const ConfigParameter& p) override;
 
 private:
     std::vector<int>* values = nullptr;
@@ -49,14 +59,9 @@ private:
     void removeElement(int index);
 };
 
-struct StringSelectionHelper{
-    std::string* field;
-    std::vector<std::string>* selection;
-};
-
 class imguiStringSelection : public imguiWidget {
 public:    
-    void display(const ParameterDescription& p) override;
+    void display(const ConfigParameter& p) override;
 
 private:
     std::vector<std::string> options;
@@ -66,7 +71,8 @@ private:
 
 class imguiFileExplorer : public imguiWidget{
 public:
-    void display(const ParameterDescription& p) override;
+    // imguiFileExplorer() : fileDialog(ImGuiFileBrowserFlags_OpenFile) {}
+    void display(const ConfigParameter& p) override;
 
 private:
     ImGui::FileBrowser fileDialog;

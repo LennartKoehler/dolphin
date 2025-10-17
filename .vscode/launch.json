@@ -10,8 +10,9 @@
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}", // your built binary
             "args": [
+                "deconvolution",
                 "-i", "~/data/dolphin_test_data/bacteria.tif",
-                "-p", "../configs/default_psf_config_gibsonlanni.json",
+                "--psf_config_path", "../configs/default_psf_config_gibsonlanni.json",
                 "-a", "RichardsonLucyTotalVariation",
                 "--iterations", "50",
 

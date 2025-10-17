@@ -1,5 +1,7 @@
 #include "frontend/CLIFrontend.h"
 #include <sys/stat.h>
+#include <type_traits>
+#include <cstring>
 #include "Dolphin.h"
 
 CLIFrontend::CLIFrontend(Dolphin* dolphin, int argc, char** argv)
@@ -54,18 +56,18 @@ void CLIFrontend::run() {
 
 void CLIFrontend::psfgenerator() {
     // Define PSF generator options
-    CLI::Option_group* psf_group = psfCLI->add_option_group("PSF Options", "PSF generation options");
+    CLI::Option_group* psf_group = psfCLI->add_option_group("PSF Options", "PSF generation options"); // TESTVALUE uncomment
     psf_group->add_option("-p", setupConfig.psfConfigPath, "Input PSF Config file")->required();
     psf_group->add_option("-d", setupConfig.outputDir, "Output directory");
 }
 
 void CLIFrontend::deconvolution() {
     // Define deconvolution options (but don't parse here)
-    readCLISetupConfigPath();    
-    readCLIParameters();         
-    readCLIParametersPSF();      
-    readCLIParametersDeconvolution(); 
-    // Remove parseCLI() call from here!
+    readCLISetupConfigPath();
+    readCLIParameters();
+    // readCLIParametersPSF();
+    readCLIParametersDeconvolution();
+
 }
 
 // New helper methods
@@ -101,19 +103,36 @@ void CLIFrontend::handleDeconvolution() {
 
 void CLIFrontend::readCLIParameters() {
     cli_group = deconvolutionCLI->add_option_group("CLI", "Commandline options");
+   
+    setupConfig.visitParams([this]<typename T>(T& value, ConfigParameter& param){
+        if (param.type == ParameterType::Bool){
+            cli_group->add_flag(param.cliFlag, value, param.cliDesc);
+        }
+        else{
+            auto opt = cli_group->add_option(param.cliFlag, value, param.cliDesc);
+                // Mark as required if specified
+            if (param.cliRequired) {
+                opt->required();
+            }
+            
+            // Apply positive number check for parameters with min values >= 0
+            if (param.hasRange && param.minVal >= 0.0) {
+                opt->check(CLI::PositiveNumber);
+            }
+        }
+    });
+    // // Remove ->required() - CLI11 will only check this if deconvolution subcommand is used
+    // cli_group->add_option("-i,--image", setupConfig.imagePath, "Input image Path")->required();
     
-    // Remove ->required() - CLI11 will only check this if deconvolution subcommand is used
-    cli_group->add_option("-i,--image", setupConfig.imagePath, "Input image Path")->required();
-    
-    // Optional parameters
-    cli_group->add_option("-d", setupConfig.outputDir, "Output directory");
-    cli_group->add_option("--backend", setupConfig.backend, "Type of Backend ('cuda'/'cpu')");
-    cli_group->add_flag("--savepsf", setupConfig.savePsf, "Save used PSF");
-    cli_group->add_flag("--time", setupConfig.time, "Show duration active");
-    cli_group->add_flag("--seperate", setupConfig.sep, "Save as TIF directory, each layer as single file");
-    cli_group->add_flag("--info", setupConfig.printInfo, "Prints info about input Image");
-    cli_group->add_flag("--showExampleLayers", setupConfig.showExampleLayers, "Shows a layer of loaded image and PSF)");
-    cli_group->add_flag("--saveSubimages", setupConfig.saveSubimages, "Saves subimages seperate as file");
+    // // Optional parameters
+    // cli_group->add_option("-d", setupConfig.outputDir, "Output directory");
+    // cli_group->add_option("--backend", setupConfig.backend, "Type of Backend ('cuda'/'cpu')");
+    // cli_group->add_flag("--savepsf", setupConfig.savePsf, "Save used PSF");
+    // cli_group->add_flag("--time", setupConfig.time, "Show duration active");
+    // cli_group->add_flag("--seperate", setupConfig.sep, "Save as TIF directory, each layer as single file");
+    // cli_group->add_flag("--info", setupConfig.printInfo, "Prints info about input Image");
+    // cli_group->add_flag("--showExampleLayers", setupConfig.showExampleLayers, "Shows a layer of loaded image and PSF)");
+    // cli_group->add_flag("--saveSubimages", setupConfig.saveSubimages, "Saves subimages seperate as file");
     
     // Set up exclusions
     if (configGroup) {
@@ -123,18 +142,24 @@ void CLIFrontend::readCLIParameters() {
 }
 
 void CLIFrontend::readCLIParametersDeconvolution() {
-    // Remove ->required() - CLI11 handles this automatically for subcommands
-    cli_group->add_option("-a,--algorithm", deconvolutionConfig.algorithmName, "Algorithm selection ('rl'/'rltv'/'rif'/'inverse')")->required();
-    
-    // Rest of options...
-    cli_group->add_option("--epsilon", deconvolutionConfig.epsilon, "Epsilon [1e-6] (for Complex Division)")->check(CLI::PositiveNumber);
-    cli_group->add_option("--iterations", deconvolutionConfig.iterations, "Iterations [10] (for 'rl' and 'rltv')")->check(CLI::PositiveNumber);
-    cli_group->add_option("--lambda", deconvolutionConfig.lambda, "Lambda regularization parameter [1e-2] (for 'rif' and 'rltv')");
-    cli_group->add_option("--borderType", deconvolutionConfig.borderType, "Border for extended image [2](0-constant, 1-replicate, 2-reflecting)")->check(CLI::PositiveNumber);
-    cli_group->add_option("--subimageSize", deconvolutionConfig.subimageSize, "CubeSize/EdgeLength for sub-images of grid [0] (0-auto fit to PSF)")->check(CLI::PositiveNumber);
-    cli_group->add_option("--nThreads", deconvolutionConfig.nThreads, "Number of threads to use for deconvolution")->check(CLI::PositiveNumber);
-    cli_group->add_flag("--grid", deconvolutionConfig.grid, "Image divided into sub-image cubes (grid)");
-    cli_group->add_flag("--backenddeconv", deconvolutionConfig.backenddeconv, "Type of Backend for Deconvolution ('cuda'/'cpu')");
+    // Use visitParams to iterate through all deconvolution parameters and create CLI options
+    deconvolutionConfig.visitParams([this]<typename T>(T& value, ConfigParameter& param) {
+        if (param.type == ParameterType::Bool){
+            cli_group->add_flag(param.cliFlag, value, param.cliDesc);
+        }
+        else{
+            auto opt = cli_group->add_option(param.cliFlag, value, param.cliDesc);
+                // Mark as required if specified
+            if (param.cliRequired) {
+                opt->required();
+            }
+            
+            // Apply positive number check for parameters with min values >= 0
+            if (param.hasRange && param.minVal >= 0.0) {
+                opt->check(CLI::PositiveNumber);
+            }
+        }
+    });
 }
 
 void CLIFrontend::readCLISetupConfigPath() {
@@ -147,12 +172,13 @@ void CLIFrontend::readCLISetupConfigPath() {
 }
 
 
-void CLIFrontend::readCLIParametersPSF(){
+// void CLIFrontend::readCLIParametersPSF(){
 
-    cli_group->add_option("-p,--psf", setupConfig.psfFilePath, "Input PSF path(s) or 'synthetic'");
-    cli_group->add_option("--psfDirectory", setupConfig.psfDirPath, "Input PSF path(s) or 'synthetic'");
-    cli_group->add_option("--psfConfig", setupConfig.psfConfigPath, "Input PSF Config file");
-}
+//     cli_group->add_option("-p,--psf", setupConfig.psfFilePath, "Input PSF path(s) or 'synthetic'");
+//     cli_group->add_option("--psfDirectory", setupConfig.psfDirPath, "Input PSF path(s) or 'synthetic'");
+//     cli_group->add_option("--psfConfig", setupConfig.psfConfigPath, "Input PSF Config file");
+// }
+
 
 
 PSFGenerationRequest CLIFrontend::generatePSFRequest(const std::string& configPath){
