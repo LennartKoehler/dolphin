@@ -43,19 +43,13 @@ std::shared_ptr<PSFConfig> PSFConfig::createFromJSON(const json& jsonData){
 }
 
 void PSFConfig::registerAllParameters(){
-    bool optional = true;
-    
-    // Basic PSF dimensions (required)
-    registerParameter("ID", ID, !optional);
-    registerParameter("modelName", psfModelName, !optional);
-    registerParameter("sizeX", sizeX, !optional);
-    registerParameter("sizeY", sizeY, !optional);
-    registerParameter("sizeZ", sizeZ, !optional);
-    registerParameter("resAxial[nm]", resAxial_nm, !optional);
-    registerParameter("resLateral[nm]", resLateral_nm, !optional);
-    registerParameter("NA", NA, !optional);
-    
-    
-    // Additional parameters that might be optional
-    // Add any other PSF-specific parameters here
+    // Base PSF parameters
+    // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
+    parameters.push_back({ParameterType::Int, &sizeX, "sizeX", false, "sizeX", "--sizeX", "PSF size X", false, true, 1, 1024, nullptr});
+    parameters.push_back({ParameterType::Int, &sizeY, "sizeY", false, "sizeY", "--sizeY", "PSF size Y", false, true, 1, 1024, nullptr});
+    parameters.push_back({ParameterType::Int, &sizeZ, "sizeZ", false, "sizeZ", "--sizeZ", "PSF size Z", false, true, 1, 512, nullptr});
+    parameters.push_back({ParameterType::Float, &NA, "NA", false, "NA", "--NA", "Numerical aperture", false, true, 0.1, 2.0, nullptr});
+    parameters.push_back({ParameterType::Float, &resLateral_nm, "resLateral_nm", false, "resLateral_nm", "--resLateral_nm", "Lateral resolution in nm", false, true, 10.0, 500.0, nullptr});
+    parameters.push_back({ParameterType::Float, &resAxial_nm, "resAxial_nm", false, "resAxial_nm", "--resAxial_nm", "Axial resolution in nm", false, true, 50.0, 2000.0, nullptr});
+    parameters.push_back({ParameterType::String, &ID, "ID", true, "ID", "--ID", "PSF identifier", false, false, 0.0, 0.0, nullptr});
 }

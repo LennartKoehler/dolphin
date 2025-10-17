@@ -7,6 +7,6 @@
 
 
 // void ConfigWindow::content(){
-//     config->showParameters(style);
+//     config->showConfigParameters(style);
 // }
 

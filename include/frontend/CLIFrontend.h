@@ -34,6 +34,7 @@ private:
     void readCLIParameters();
     void readCLIParametersPSF();
     void readCLIParametersDeconvolution();
+    void readCLIParametersSetupConfig();
     void handlePSFGeneration();
     void handleDeconvolution();
 

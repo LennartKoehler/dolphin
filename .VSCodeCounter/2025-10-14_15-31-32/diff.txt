@@ -1,0 +1,157 @@
+Date : 2025-10-14 15:31:32
+Directory : /home/lennart-k-hler/projects/dolphin
+Total : 87 files,  516 codes, -190 comments, 156 blanks, all 482 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| JSON       |         25 |        192 |          0 |          1 |        193 |
+| C++        |         46 |        183 |       -200 |         91 |         74 |
+| CUDA C++   |          1 |         68 |          0 |         54 |        122 |
+| CMake      |         10 |         43 |          0 |         10 |         53 |
+| Makefile   |          1 |         43 |         10 |         15 |         68 |
+| TypeScript |          1 |          2 |          0 |          1 |          3 |
+| Markdown   |          2 |          0 |          0 |        -10 |        -10 |
+| Ini        |          1 |        -15 |          0 |         -6 |        -21 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++-------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                    | files      | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                       |         87 |        516 |       -190 |        156 |        482 |
+| . (Files)                                                                                                               |          3 |          6 |          0 |        -10 |         -4 |
+| backends                                                                                                                |          6 |       -135 |       -200 |         -6 |       -341 |
+| backends/cpu                                                                                                            |          3 |        -41 |       -178 |        -22 |       -241 |
+| backends/cuda                                                                                                           |          3 |        -94 |        -22 |         16 |       -100 |
+| build                                                                                                                   |         33 |        255 |         10 |         21 |        286 |
+| build (Files)                                                                                                           |          3 |         40 |         10 |          9 |         59 |
+| build/.cmake                                                                                                            |         23 |        179 |          0 |          1 |        180 |
+| build/.cmake/api                                                                                                        |         23 |        179 |          0 |          1 |        180 |
+| build/.cmake/api/v1                                                                                                     |         23 |        179 |          0 |          1 |        180 |
+| build/.cmake/api/v1/reply                                                                                               |         23 |        179 |          0 |          1 |        180 |
+| build/CMakeFiles                                                                                                        |          7 |         36 |          0 |         11 |         47 |
+| build/CMakeFiles (Files)                                                                                                |          1 |          1 |          0 |          0 |          1 |
+| build/CMakeFiles/backendlib.dir                                                                                         |          4 |         32 |          0 |         11 |         43 |
+| build/CMakeFiles/dolphinlib.dir                                                                                         |          2 |          3 |          0 |          0 |          3 |
+| configs                                                                                                                 |          1 |          1 |          0 |          0 |          1 |
+| examples                                                                                                                |          1 |         28 |          9 |         10 |         47 |
+| include                                                                                                                 |         20 |        165 |        -18 |         40 |        187 |
+| include (Files)                                                                                                         |          4 |        -42 |         -1 |         -5 |        -48 |
+| include/backend                                                                                                         |          5 |        312 |         23 |         86 |        421 |
+| include/deconvolution                                                                                                   |         11 |       -105 |        -40 |        -41 |       -186 |
+| include/deconvolution (Files)                                                                                           |          4 |       -119 |        -38 |        -40 |       -197 |
+| include/deconvolution/algorithms                                                                                        |          7 |         14 |         -2 |         -1 |         11 |
+| legacy                                                                                                                  |          3 |        100 |          4 |         30 |        134 |
+| legacy (Files)                                                                                                          |          2 |         79 |          3 |         28 |        110 |
+| legacy/unused                                                                                                           |          1 |         21 |          1 |          2 |         24 |
+| lib                                                                                                                     |          4 |         79 |          9 |         53 |        141 |
+| lib/cube                                                                                                                |          4 |         79 |          9 |         53 |        141 |
+| lib/cube (Files)                                                                                                        |          1 |          1 |          0 |         -1 |          0 |
+| lib/cube/include                                                                                                        |          1 |          1 |          0 |          0 |          1 |
+| lib/cube/src                                                                                                            |          2 |         77 |          9 |         54 |        140 |
+| src                                                                                                                     |         16 |         17 |         -4 |         18 |         31 |
+| src (Files)                                                                                                             |          3 |          5 |          0 |          0 |          5 |
+| src/backend                                                                                                             |          2 |         70 |          3 |         17 |         90 |
+| src/deconvolution                                                                                                       |          9 |        -60 |         -1 |          1 |        -60 |
+| src/deconvolution (Files)                                                                                               |          3 |        -51 |          1 |         -4 |        -54 |
+| src/deconvolution/algorithms                                                                                            |          6 |         -9 |         -2 |          5 |         -6 |
+| src/frontend                                                                                                            |          2 |          2 |         -6 |          0 |         -4 |
+| src/frontend (Files)                                                                                                    |          1 |          1 |          0 |          0 |          1 |
+| src/frontend/gui                                                                                                        |          1 |          1 |         -6 |          0 |         -5 |
++-------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                                                                                | language   | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| /home/lennart-k-hler/projects/dolphin/CMakeLists.txt                                                                    | CMake      |          6 |          0 |          0 |          6 |
+| /home/lennart-k-hler/projects/dolphin/README_dev.md                                                                     | Markdown   |          8 |          0 |          0 |          8 |
+| /home/lennart-k-hler/projects/dolphin/TODO.md                                                                           | Markdown   |         -8 |          0 |        -10 |        -18 |
+| /home/lennart-k-hler/projects/dolphin/backends/cpu/CMakeLists.txt                                                       | CMake      |          1 |          0 |          0 |          1 |
+| /home/lennart-k-hler/projects/dolphin/backends/cpu/CPUBackend.cpp                                                       | C++        |        -45 |       -170 |        -22 |       -237 |
+| /home/lennart-k-hler/projects/dolphin/backends/cpu/CPUBackend.h                                                         | C++        |          3 |         -8 |          0 |         -5 |
+| /home/lennart-k-hler/projects/dolphin/backends/cuda/CMakeLists.txt                                                      | CMake      |          1 |          0 |          1 |          2 |
+| /home/lennart-k-hler/projects/dolphin/backends/cuda/CUDABackend.cpp                                                     | C++        |        -97 |        -21 |         13 |       -105 |
+| /home/lennart-k-hler/projects/dolphin/backends/cuda/CUDABackend.h                                                       | C++        |          2 |         -1 |          2 |          3 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/cache-v2-d5676415438519c025b0.json                      | JSON       |      3,839 |          0 |          1 |      3,840 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/cache-v2-f4fa587d059c9e4d5e7a.json                      | JSON       |     -3,839 |          0 |         -1 |     -3,840 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/cmakeFiles-v1-2506b16d0ea5eeff6166.json                 | JSON       |        444 |          0 |          1 |        445 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/cmakeFiles-v1-4cc205a9fb6c1a8ec484.json                 | JSON       |       -429 |          0 |         -1 |       -430 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/codemodel-v2-04bf2255868ecc90e74a.json                  | JSON       |        202 |          0 |          1 |        203 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/codemodel-v2-ce6666eb84419e2312d2.json                  | JSON       |       -193 |          0 |         -1 |       -194 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/index-2025-10-02T07-32-33-0498.json                     | JSON       |       -132 |          0 |         -1 |       -133 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/index-2025-10-14T12-11-54-0683.json                     | JSON       |        132 |          0 |          1 |        133 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-CUBE-Debug-15e190072a85188360dd.json             | JSON       |        402 |          0 |          1 |        403 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-CUBE-Debug-176658ca7faeaa4c739c.json             | JSON       |       -402 |          0 |         -1 |       -403 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-backendlib-Debug-6566de112071780eb842.json       | JSON       |        117 |          0 |          1 |        118 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cpu_backend-Debug-55e5c256c481736ea780.json      | JSON       |       -172 |          0 |         -1 |       -173 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cpu_backend-Debug-d0bc37f3892c3ad99acd.json      | JSON       |        184 |          0 |          1 |        185 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cuda_backend-Debug-63690b4a3685a64fb028.json     | JSON       |       -314 |          0 |         -1 |       -315 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cuda_backend-Debug-e075bf1ee1a304c6c8a0.json     | JSON       |        323 |          0 |          1 |        324 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-dolphin-Debug-8081bc74c459b5b78bf5.json          | JSON       |        401 |          0 |          1 |        402 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-dolphin-Debug-f3534103293058f1a090.json          | JSON       |       -392 |          0 |         -1 |       -393 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-dolphinlib-Debug-d8c1ae96fd03915a5e2b.json       | JSON       |       -556 |          0 |         -1 |       -557 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-dolphinlib-Debug-df92e881f86710f6b214.json       | JSON       |        564 |          0 |          1 |        565 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-imgui_lib-Debug-10cc2d11926981f69cef.json        | JSON       |       -180 |          0 |         -1 |       -181 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-imgui_lib-Debug-2a225024450bc706d21a.json        | JSON       |        180 |          0 |          1 |        181 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-implot3d_lib-Debug-56e6fe81174efbd158d4.json     | JSON       |       -162 |          0 |         -1 |       -163 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-implot3d_lib-Debug-d17e06329df9cfd5a732.json     | JSON       |        162 |          0 |          1 |        163 |
+| /home/lennart-k-hler/projects/dolphin/build/CMakeFiles/Makefile.cmake                                                   | CMake      |          1 |          0 |          0 |          1 |
+| /home/lennart-k-hler/projects/dolphin/build/CMakeFiles/backendlib.dir/DependInfo.cmake                                  | CMake      |         17 |          0 |          7 |         24 |
+| /home/lennart-k-hler/projects/dolphin/build/CMakeFiles/backendlib.dir/cmake_clean.cmake                                 | CMake      |         10 |          0 |          2 |         12 |
+| /home/lennart-k-hler/projects/dolphin/build/CMakeFiles/backendlib.dir/cmake_clean_target.cmake                          | CMake      |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/CMakeFiles/backendlib.dir/compiler_depend.ts                                | TypeScript |          2 |          0 |          1 |          3 |
+| /home/lennart-k-hler/projects/dolphin/build/CMakeFiles/dolphinlib.dir/DependInfo.cmake                                  | CMake      |          1 |          0 |          0 |          1 |
+| /home/lennart-k-hler/projects/dolphin/build/CMakeFiles/dolphinlib.dir/cmake_clean.cmake                                 | CMake      |          2 |          0 |          0 |          2 |
+| /home/lennart-k-hler/projects/dolphin/build/Makefile                                                                    | Makefile   |         43 |         10 |         15 |         68 |
+| /home/lennart-k-hler/projects/dolphin/build/compile_commands.json                                                       | JSON       |         12 |          0 |          0 |         12 |
+| /home/lennart-k-hler/projects/dolphin/build/imgui.ini                                                                   | Ini        |        -15 |          0 |         -6 |        -21 |
+| /home/lennart-k-hler/projects/dolphin/configs/default_config.json                                                       | JSON       |          1 |          0 |          0 |          1 |
+| /home/lennart-k-hler/projects/dolphin/examples/memory_exception_example.cpp                                             | C++        |         28 |          9 |         10 |         47 |
+| /home/lennart-k-hler/projects/dolphin/include/Dolphin.h                                                                 | C++        |         -1 |          0 |          0 |         -1 |
+| /home/lennart-k-hler/projects/dolphin/include/RectangleShape.h                                                          | C++        |        -37 |          0 |         -3 |        -40 |
+| /home/lennart-k-hler/projects/dolphin/include/ThreadPool.h                                                              | C++        |         -2 |         -1 |          0 |         -3 |
+| /home/lennart-k-hler/projects/dolphin/include/backend/BackendFactory.h                                                  | C++        |         46 |          2 |         13 |         61 |
+| /home/lennart-k-hler/projects/dolphin/include/backend/ComplexData.h                                                     | C++        |         80 |          3 |         11 |         94 |
+| /home/lennart-k-hler/projects/dolphin/include/backend/Exceptions.h                                                      | C++        |         63 |          4 |         15 |         82 |
+| /home/lennart-k-hler/projects/dolphin/include/backend/IBackendMemoryManager.h                                           | C++        |         42 |          4 |         12 |         58 |
+| /home/lennart-k-hler/projects/dolphin/include/backend/IDeconvolutionBackend.h                                           | C++        |         81 |         10 |         35 |        126 |
+| /home/lennart-k-hler/projects/dolphin/include/complexType.h                                                             | C++        |         -2 |          0 |         -2 |         -4 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/DeconvolutionBackendThreadManager.h                         | C++        |        -15 |          0 |         -6 |        -21 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/DeconvolutionConfig.h                                       | C++        |         13 |        -12 |          4 |          5 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/DeconvolutionProcessor.h                                    | C++        |          5 |        -15 |          0 |        -10 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/IDeconvolutionBackend.h                                     | C++        |       -122 |        -11 |        -38 |       -171 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/algorithms/DeconvolutionAlgorithm.h                         | C++        |          7 |          0 |          1 |          8 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h            | C++        |          1 |         -1 |          0 |          0 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h                     | C++        |          1 |          0 |          0 |          1 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/algorithms/RLDeconvolutionAlgorithm.h                       | C++        |          1 |          0 |         -3 |         -2 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h                     | C++        |          1 |         -1 |          0 |          0 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h | C++        |          1 |          0 |          0 |          1 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/algorithms/TestAlgorithm.h                                  | C++        |          2 |          0 |          1 |          3 |
+| /home/lennart-k-hler/projects/dolphin/legacy/DeconvolutionBackendThreadManager.cpp                                      | C++        |         57 |          3 |         22 |         82 |
+| /home/lennart-k-hler/projects/dolphin/legacy/DeconvolutionBackendThreadManager.h                                        | C++        |         22 |          0 |          6 |         28 |
+| /home/lennart-k-hler/projects/dolphin/legacy/unused/BaseDeconvolutionAlgorithmGPU.cpp                                   | C++        |         21 |          1 |          2 |         24 |
+| /home/lennart-k-hler/projects/dolphin/lib/cube/CMakeLists.txt                                                           | CMake      |          1 |          0 |         -1 |          0 |
+| /home/lennart-k-hler/projects/dolphin/lib/cube/include/operations.h                                                     | C++        |          1 |          0 |          0 |          1 |
+| /home/lennart-k-hler/projects/dolphin/lib/cube/src/main.cpp                                                             | C++        |          9 |          9 |          0 |         18 |
+| /home/lennart-k-hler/projects/dolphin/lib/cube/src/operations.cu                                                        | CUDA C++   |         68 |          0 |         54 |        122 |
+| /home/lennart-k-hler/projects/dolphin/src/DeconvolutionService.cpp                                                      | C++        |         -1 |          0 |          0 |         -1 |
+| /home/lennart-k-hler/projects/dolphin/src/PSFManager.cpp                                                                | C++        |          4 |          0 |          0 |          4 |
+| /home/lennart-k-hler/projects/dolphin/src/ThreadPool.cpp                                                                | C++        |          2 |          0 |          0 |          2 |
+| /home/lennart-k-hler/projects/dolphin/src/backend/BackendFactory.cpp                                                    | C++        |         38 |          0 |          9 |         47 |
+| /home/lennart-k-hler/projects/dolphin/src/backend/ComplexData.cpp                                                       | C++        |         32 |          3 |          8 |         43 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/DeconvolutionBackendThreadManager.cpp                           | C++        |         -4 |          0 |         -3 |         -7 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/DeconvolutionConfig.cpp                                         | C++        |          0 |        -13 |         -2 |        -15 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/DeconvolutionProcessor.cpp                                      | C++        |        -47 |         14 |          1 |        -32 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp              | C++        |         -2 |         -1 |          2 |         -1 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp                       | C++        |          0 |          0 |          1 |          1 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp                         | C++        |          2 |          1 |          0 |          3 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp                       | C++        |         -6 |         -1 |          1 |         -6 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp   | C++        |         -6 |         -1 |          0 |         -7 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/algorithms/TestAlgorithm.cpp                                    | C++        |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/src/frontend/CLIFrontend.cpp                                                      | C++        |          1 |          0 |          0 |          1 |
+| /home/lennart-k-hler/projects/dolphin/src/frontend/gui/UIDeconvolutionConfig.cpp                                        | C++        |          1 |         -6 |          0 |         -5 |
+| Total                                                                                                                   |            |        516 |       -190 |        156 |        482 |
++-------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+

@@ -80,58 +80,39 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
     return *this;
 }
 
+bool SetupConfig::loadFromJSON(const json& jsonData){
+    bool success = Config::loadFromJSON(jsonData);
 
-void SetupConfig::registerDeconvolution(){
-    if (deconvolutionConfig == nullptr){
+    if (jsonData.contains("Deconvolution")){
+        deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
+        deconvolutionConfig->loadFromJSON(jsonData);
+    }
+    else{
+
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
     }
-    ReadWriteHelper param;
-    std::string jsonTag = "Deconvolution";
-    param.jsonTag = jsonTag;
-    param.reader = [this, jsonTag](const json& jsonData) {
-        if (jsonData.contains(jsonTag)) {
-            this->deconvolutionConfig->loadFromJSON(jsonData.at(jsonTag));
-        }
-        else {
-            this->deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
-            std::cout << "[INFO] No deconvolution parameters found, running with default parameters" << std::endl;
-        }
-    };
-    
-    // Writer lambda
-    param.writer = [this, jsonTag](ordered_json& jsonData) {
-        jsonData[jsonTag] = this->deconvolutionConfig->writeToJSON();
-    };
-    
-    parameters.push_back(std::move(param));
+ 
+    return success;
+
 }
 
-void SetupConfig::registerAllParameters(){
-    bool optional = true;
-    
-    
-    // Register all parameters
-    // Required fields
-    registerParameter("seperate", sep, !optional);
-    registerParameter("time", time, !optional);
-    registerParameter("savePsf", savePsf, !optional);
-    registerParameter("showExampleLayers", showExampleLayers, !optional);
-    registerParameter("info", printInfo, !optional);
-    registerParameter("image_path", imagePath, !optional);
-    registerParameter("outputDir", outputDir, optional);
-    
-    // Optional path configurations
-    registerParameter("psf_config_path", psfConfigPath, optional);
-    registerParameter("psf_file_path", psfFilePath, optional);
-    registerParameter("psf_dir_path", psfDirPath, optional);
-    
-    // Optional fields
-    registerParameter("saveSubimages", saveSubimages, optional);
-    registerParameter("backend", backend, optional);
-    
-    // Arrays (if needed)
-    // registerParameter("layers", layers, optional);
-    // registerParameter("subimages", subimages, optional);
-    registerDeconvolution();
 
+void SetupConfig::registerAllParameters(){
+    // Register each parameter as a ConfigParameter struct
+    // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
+    parameters.push_back({ParameterType::Bool, &sep, "sep", false, "sep", "--sep", "Save layer separate", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Bool, &time, "time", false, "time", "--time", "Show duration", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Bool, &savePsf, "savePsf", false, "savePsf", "--savePsf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Bool, &showExampleLayers, "showExampleLayers", false, "showExampleLayers", "--showExampleLayers", "Show example layers", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Bool, &printInfo, "info", false, "info", "--info", "Print info about input image", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &imagePath, "image_path", false, "image_path", "-i,--image_path", "Input image path", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &outputDir, "outputDir", true, "outputDir", "--outputDir", "Output directory", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &psfConfigPath, "psf_config_path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &psfFilePath, "psf_file_path", true, "psf_file_path", "--psf_file_path", "PSF file path", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::DeconvolutionConfig, &deconvolutionConfig, "Deconvolution", true, "DeconConfig", "--deconvConfig", "Deconv Config", false, false, 0.0, 0.0, nullptr});
+
+    // parameters.push_back({ParameterType::Bool, &saveSubimages, "saveSubimages", true, "saveSubimages", "--saveSubimages", "Save subimages separate", false, false, 0.0, 0.0, nullptr});
+    // parameters.push_back({ParameterType::String, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
+    
 }

@@ -32,22 +32,25 @@ GaussianPSFConfig::GaussianPSFConfig(const GaussianPSFConfig& other)
 }
 
 
-double GaussianPSFConfig::convertResolution(double resolution_nm){
+float GaussianPSFConfig::convertResolution(float resolution_nm){
     return convertSigma(resolution_nm * nanometerScale / pixelScaling);
 }
 
-double GaussianPSFConfig::convertSigma(double sigma){
+float GaussianPSFConfig::convertSigma(float sigma){
     return sigma * qualityFactor;
 }
 
 void GaussianPSFConfig::registerAllParameters(){
-    bool optional = true;
+     
+    // Gaussian-specific parameters
+    // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
+    getParameters().push_back({ParameterType::Float, &qualityFactor, "qualityFactor", true, "qualityFactor", "--qualityFactor", "Quality factor", false, true, 0.1, 10.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &sigmaX, "sigmaX", true, "sigmaX", "--sigmaX", "Sigma X", false, true, 0.1, 100.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &sigmaY, "sigmaY", true, "sigmaY", "--sigmaY", "Sigma Y", false, true, 0.1, 100.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &sigmaZ, "sigmaZ", true, "sigmaZ", "--sigmaZ", "Sigma Z", false, true, 0.1, 100.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &nanometerScale, "nanometerScale", true, "nanometerScale", "--nanometerScale", "Nanometer scale", false, true, 1e-9, 1e-6, nullptr});
+    getParameters().push_back({ParameterType::Float, &pixelScaling, "pixelScaling", true, "pixelScaling", "--pixelScaling", "Pixel scaling", false, true, 1e-9, 1e-4, nullptr});
     
-    // Register Gaussian-specific parameters
-    registerParameter("qualityFactor", qualityFactor, optional);
-    registerParameter("sigmaX", sigmaX, optional);  // Optional because can be calculated from resolution
-    registerParameter("sigmaY", sigmaY, optional);
-    registerParameter("sigmaZ", sigmaZ, optional);
-    registerParameter("nanometerScale", nanometerScale, optional);
-    registerParameter("pixelScaling", pixelScaling, optional);
+    // Handle vector parameters separately since they're not directly supported by ConfigParameter
+    // These will need special handling in loadFromJSON and writeToJSON methods
 }

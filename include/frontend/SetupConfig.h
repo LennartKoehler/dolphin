@@ -10,8 +10,8 @@ public:
     SetupConfig(const SetupConfig& other);
     SetupConfig& operator=(const SetupConfig& other);
 
+    bool loadFromJSON(const json& jsonData) override;
     static SetupConfig createFromJSONFile(const std::string& path);
-
 
     // Arguments
     std::string imagePath;
@@ -32,8 +32,9 @@ public:
     std::shared_ptr<DeconvolutionConfig> deconvolutionConfig;
 
 private:
-    void registerDeconvolution();
-    virtual void registerAllParameters() override;
+
+    virtual void registerAllParameters();
+
 
 };
 

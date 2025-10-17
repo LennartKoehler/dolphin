@@ -113,7 +113,7 @@ void DeconvolutionProcessor::parallelDeconvolution(std::vector<std::vector<cv::M
     std::atomic<int> numberCubes(cubeImages.size());
 
     for (int cubeIndex = 0; cubeIndex < numberCubes; ++cubeIndex) {
-        // Wait if too many tasks are running
+        // Wait if too many tasks are running LK dont need because there is basically no memory allocation per task, almost all passed by reference
         // {
         //     std::unique_lock<std::mutex> lock(queueMutex);
         //     queueFull.wait(lock, [&runningTasks, maxNumberWorkerThreads] {
@@ -301,7 +301,7 @@ void DeconvolutionProcessor::configure(const DeconvolutionConfig config) {
     BackendFactory& bf = BackendFactory::getInstance();
 
     this->backend_ = bf.create(config.backenddeconv);
-    this->cpuMemoryManager= bf.createMemManager("cpu");
+    this->cpuMemoryManager= bf.createMemManager(config.backenddeconv);
 
     numberThreads = config.backenddeconv == "cuda" ? 1 : config.nThreads; // TODO change
     threadPool = std::make_shared<ThreadPool>(numberThreads);

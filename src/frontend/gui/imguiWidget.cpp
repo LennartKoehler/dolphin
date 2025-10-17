@@ -13,55 +13,66 @@
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
 
-void imguiWidget::operator() (const ParameterDescription& param){
+void imguiWidget::operator() (const ConfigParameter& param){
     display(param);
 }
 
 
-void imguiSliderDouble::display(const ParameterDescription& p){
-    ImGui::InputDouble(
-        p.name.c_str(),
-        static_cast<double*>(p.ptr)
-        // &p.minVal,
-        // &p.maxVal
+void imguiSliderDouble::display(const ConfigParameter& p){
+    ImGui::SliderScalar(
+        p.name,
+        ImGuiDataType_Double,
+        static_cast<double*>(p.value),
+        &p.minVal,
+        &p.maxVal
     );
 }
 
-void imguiSliderInt::display(const ParameterDescription& p) {
-    ImGui::InputInt(
-        p.name.c_str(),
-        static_cast<int*>(p.ptr)
-        // static_cast<int>(p.minVal),
-        // static_cast<int>(p.maxVal)
+void imguiSliderInt::display(const ConfigParameter& p) {
+    ImGui::SliderInt(
+        p.name,
+        static_cast<int*>(p.value),
+        static_cast<int>(p.minVal),
+        static_cast<int>(p.maxVal)
     );
 }
 
-void imguiInputString::display(const ParameterDescription& p) {
-    auto strPtr = static_cast<std::string*>(p.ptr);
+void imguiInputInt::display(const ConfigParameter& p){
+    ImGui::InputInt(p.name, static_cast<int*>(p.value));
+}
+
+void imguiInputFloat::display(const ConfigParameter& p){
+    ImGui::InputFloat(p.name, static_cast<float*>(p.value));
+}
+
+
+
+void imguiInputString::display(const ConfigParameter& p) {
+    auto strPtr = static_cast<std::string*>(p.value);
     char buffer[256];
     std::snprintf(buffer, sizeof(buffer), "%s", strPtr->c_str());
 
-    if (ImGui::InputText(p.name.c_str(), buffer, sizeof(buffer))) {
+    if (ImGui::InputText(p.name, buffer, sizeof(buffer))) {
         *strPtr = buffer; // copy back to std::string if edited
     }
 }
 
-void imguiCheckbox::display(const ParameterDescription& p) {
+void imguiCheckbox::display(const ConfigParameter& p) {
     ImGui::Checkbox(
-        p.name.c_str(),
-        static_cast<bool*>(p.ptr)
+        p.name,
+        static_cast<bool*>(p.value)
     );
 }
 
 
-void imguiVectorInt::display(const ParameterDescription& p){
-    values = static_cast<std::vector<int>*>(p.ptr);
+void imguiVectorInt::display(const ConfigParameter& p){
+    values = static_cast<std::vector<int>*>(p.value);
     ImGui::Dummy(ImVec2(0.0f, 20.0f));
 
-    ImGui::Text("%s:", p.name.c_str());
+    ImGui::Text("%s:", p.name);
     // ImGui::Separator();
     
-    ImGui::PushID(p.name.c_str());
+    ImGui::PushID(p.name);
     // Display existing elements
     for (size_t i = 0; i < values->size(); ++i) {
         int id = static_cast<int>(i);
@@ -125,8 +136,8 @@ void imguiVectorInt::removeElement(int index) {
 }
 
 // In imguiWidget.cpp - add this implementation
-void imguiStringSelection::display(const ParameterDescription& p) {
-    auto strPtr = static_cast<StringSelectionHelper*>(p.ptr);
+void imguiStringSelection::display(const ConfigParameter& p) {
+    auto strPtr = static_cast<SelectionHelper<std::string>*>(p.value);
 
     std::string* field = strPtr->field;
     std::vector<std::string>* options = strPtr->selection;
@@ -146,18 +157,19 @@ void imguiStringSelection::display(const ParameterDescription& p) {
     }
     
     // Display combo box
-    if (ImGui::Combo(p.name.c_str(), &currentSelection, items.data(), static_cast<int>(items.size()))) {
+    if (ImGui::Combo(p.name, &currentSelection, items.data(), static_cast<int>(items.size()))) {
         // Update the string when selection changes
         if (currentSelection >= 0 && currentSelection < static_cast<int>(options->size())) {
             *field = (*options)[currentSelection];
         }
     }
+    delete strPtr;
 }
 
 
-void imguiFileExplorer::display(const ParameterDescription& p){
+void imguiFileExplorer::display(const ConfigParameter& p){
     fileDialog.SetTitle(p.name);
-    ImGui::PushID(p.name.c_str());
+    ImGui::PushID(p.name);
     
     if (selected.empty()){
         buttonName = "Open...";
@@ -172,12 +184,12 @@ void imguiFileExplorer::display(const ParameterDescription& p){
         fileDialog.Open();
     fileDialog.Display();
     ImGui::SameLine();
-    ImGui::Text("%s", p.name.c_str());
+    ImGui::Text("%s", p.name);
     
     if(fileDialog.HasSelected())
     {
         selected = fileDialog.GetSelected().string();
-        *static_cast<std::string*>(p.ptr) = selected;
+        *static_cast<std::string*>(p.value) = selected;
         // std::cout << "Selected filename" <<  << std::endl;
         fileDialog.ClearSelected();
     }
