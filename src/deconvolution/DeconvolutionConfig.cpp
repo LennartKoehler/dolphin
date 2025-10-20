@@ -10,11 +10,8 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     subimageSize(other.subimageSize),
     iterations(other.iterations),
     epsilon(other.epsilon),
-    grid(other.grid),
     lambda(other.lambda),
     borderType(other.borderType),
-    time(other.time),
-    saveSubimages(other.saveSubimages),
     backenddeconv(other.backenddeconv),
     nThreads(other.nThreads),
     maxMemGB(other.maxMemGB),
@@ -61,13 +58,13 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::Int, &subimageSize, "subimageSize", true, "subimageSize", "--subimageSize", "CubeSize/EdgeLength", false, true, 0.0, 10000.0, nullptr});
     parameters.push_back({ParameterType::Int, &iterations, "iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
     parameters.push_back({ParameterType::Float, &epsilon, "epsilon", true, "epsilon", "--epsilon", "Epsilon", false, true, 1e-12, 1e-3, nullptr});
-    parameters.push_back({ParameterType::Bool, &grid, "grid", true, "grid", "--grid", "Grid processing", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Float, &lambda, "lambda", true, "lambda", "--lambda", "Lambda regularization", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Int, &borderType, "borderType", true, "borderType", "--borderType", "Border type", false, true, 0.0, 5.0, nullptr});
     parameters.push_back({ParameterType::VectorString, &backenddeconv, "backenddeconv", true, "backenddeconv", "--backenddeconv", "Backend type", false, false, 0.0, 0.0, backendOptionsVoid});
     parameters.push_back({ParameterType::Int, &nThreads, "nThreads", false, "nThreads", "--nThreads", "Number of threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Float, &maxMemGB, "maxMemGB", false, "maxMemGB", "--maxMemGB", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Bool, &verbose, "verbose", true, "verbose", "--verbose", "Enable verbose", false, false, 0.0, 1.0, nullptr});
+
     // Note: RangeMap parameters are not yet supported in the base Config parameter system
 }
 

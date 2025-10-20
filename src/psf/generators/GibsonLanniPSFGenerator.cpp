@@ -74,7 +74,7 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
 
     for (int z = 0; z < config->sizeZ; z++){
         GibsonLanniPSFConfig config = *(this->config);
-        config.ti_nm = config.ti0_nm + config.resAxial_nm * (z - (config.sizeZ - 1.0) / 2.0);
+        config.ti_nm = config.ti0_nm + config.pixelSizeAxial_nm * (z - (config.sizeZ - 1.0) / 2.0);
         tempSphereLayers.emplace_back(threadPool->enqueue([this, config](){
             return SinglePlanePSF(config);
         })); 
@@ -96,8 +96,8 @@ cv::Mat GibsonLanniPSFGenerator::SinglePlanePSF(const GibsonLanniPSFConfig& conf
     int OVER_SAMPLING = config.OVER_SAMPLING;
     double NA = config.NA;
     double lambda_nm = config.lambda_nm;
-    double resLateral_nm = config.resLateral_nm;
-    double resAxial = config.resAxial_nm;
+    double pixelSizeLateral_nm = config.pixelSizeLateral_nm;
+    double pixelSizeAxial = config.pixelSizeAxial_nm;
 
     
     // The center of the image in units of [pixels]
@@ -119,12 +119,12 @@ cv::Mat GibsonLanniPSFGenerator::SinglePlanePSF(const GibsonLanniPSFConfig& conf
     double a = 0.0;
     double b = std::min(1.0, config.ns / NA);
     int integrationAccuracy = config.accuracy;
-    double integrationTolerance = 1E-1;
+        double integrationTolerance = 1E-1;
 
     for (size_t n = 0; n < r.size(); n++) { // get kirchhoffdiffraction for specific radius
 
         r[n] = static_cast<double>(n) / static_cast<double>(OVER_SAMPLING);
-        GibsonLanniIntegrand integrand(config, r[n] * resLateral_nm);
+        GibsonLanniIntegrand integrand(config, r[n] * pixelSizeLateral_nm);
         h[n] = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
     }
     

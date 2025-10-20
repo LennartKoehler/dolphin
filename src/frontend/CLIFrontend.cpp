@@ -58,13 +58,13 @@ void CLIFrontend::psfgenerator() {
     // Define PSF generator options
     CLI::Option_group* psf_group = psfCLI->add_option_group("PSF Options", "PSF generation options"); // TESTVALUE uncomment
     psf_group->add_option("-p", setupConfig.psfConfigPath, "Input PSF Config file")->required();
-    psf_group->add_option("-d", setupConfig.outputDir, "Output directory");
+    psf_group->add_option("-d", setupConfig.outputDir, "Output directory"); // TODO change
 }
 
 void CLIFrontend::deconvolution() {
     // Define deconvolution options (but don't parse here)
     readCLISetupConfigPath();
-    readCLIParameters();
+    readSetupConfigParameters();
     // readCLIParametersPSF();
     readCLIParametersDeconvolution();
 
@@ -101,7 +101,7 @@ void CLIFrontend::handleDeconvolution() {
 
 
 
-void CLIFrontend::readCLIParameters() {
+void CLIFrontend::readSetupConfigParameters() {
     cli_group = deconvolutionCLI->add_option_group("CLI", "Commandline options");
    
     setupConfig.visitParams([this]<typename T>(T& value, ConfigParameter& param){
@@ -172,12 +172,7 @@ void CLIFrontend::readCLISetupConfigPath() {
 }
 
 
-// void CLIFrontend::readCLIParametersPSF(){
 
-//     cli_group->add_option("-p,--psf", setupConfig.psfFilePath, "Input PSF path(s) or 'synthetic'");
-//     cli_group->add_option("--psfDirectory", setupConfig.psfDirPath, "Input PSF path(s) or 'synthetic'");
-//     cli_group->add_option("--psfConfig", setupConfig.psfConfigPath, "Input PSF Config file");
-// }
 
 
 

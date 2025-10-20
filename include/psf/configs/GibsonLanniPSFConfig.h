@@ -47,6 +47,12 @@ public:
     /** Axial position of the particle. */
     float particleAxialPosition_nm = 1000.0;
 
+    /** Pixel size in axial direction. */
+    float pixelSizeAxial_nm = 100.0;
+
+    /** Pixel size in lateral direction. */
+    float pixelSizeLateral_nm = 100.0;
+
     
 private:
     void registerAllParameters();
