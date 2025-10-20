@@ -135,35 +135,32 @@ void imguiVectorInt::removeElement(int index) {
     }
 }
 
-// In imguiWidget.cpp - add this implementation
 void imguiStringSelection::display(const ConfigParameter& p) {
-    auto strPtr = static_cast<SelectionHelper<std::string>*>(p.value);
 
-    std::string* field = strPtr->field;
-    std::vector<std::string>* options = strPtr->selection;
+    std::string* field = static_cast<std::string*>(p.value);
+    options = *static_cast<std::vector<std::string>*>(p.selection);
 
     // Find current selection index
-    auto it = std::find(options->begin(), options->end(), *field);
-    if (it != options->end()) {
-        currentSelection = static_cast<int>(std::distance(options->begin(), it));
+    auto it = std::find(options.begin(), options.end(), *field);
+    if (it != options.end()) {
+        currentSelection = static_cast<int>(std::distance(options.begin(), it));
     } else {
         currentSelection = 0; // Default to first option if not found
     }
     
     // Create array of const char* for ImGui::Combo
     std::vector<const char*> items;
-    for (const auto& option : *options) {
+    for (const auto& option : options) {
         items.push_back(option.c_str());
     }
     
     // Display combo box
     if (ImGui::Combo(p.name, &currentSelection, items.data(), static_cast<int>(items.size()))) {
         // Update the string when selection changes
-        if (currentSelection >= 0 && currentSelection < static_cast<int>(options->size())) {
-            *field = (*options)[currentSelection];
+        if (currentSelection >= 0 && currentSelection < static_cast<int>(options.size())) {
+            *field = (options)[currentSelection];
         }
     }
-    delete strPtr;
 }
 
 

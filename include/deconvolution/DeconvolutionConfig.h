@@ -259,16 +259,12 @@ public:
     int subimageSize = 0;
     int iterations = 10;
     float epsilon = 1e-6;
-    bool grid = false;
     float lambda = 0.001;
     int borderType = cv::BORDER_REFLECT;
-    bool time = false;
-    bool saveSubimages = false;
     std::string backenddeconv = "cpu";
     int nThreads = 1;
     float maxMemGB = 0;
     bool verbose = false;
-
     RangeMap<std::string> cubePSFMap;
     RangeMap<std::string> layerPSFMap;
 

@@ -10,11 +10,8 @@
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}", // your built binary
             "args": [
-                "deconvolution",
-                "-i", "~/data/dolphin_test_data/bacteria.tif",
-                "--psf_config_path", "../configs/default_psf_config_gibsonlanni.json",
-                "-a", "RichardsonLucyTotalVariation",
-                "--iterations", "50",
+                "psfgenerator",
+                "-p", "../configs/default_psf_config_gibsonlanni.json",
 
             ],
             "stopAtEntry": false,
@@ -31,6 +28,35 @@
             "args": [
                 "deconvolution",
                 "-c", "../configs/default_config.json"
+
+            ],
+            "additionalSOLibSearchPath": "${workspaceFolder}/lib/cube/**",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+            {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            },
+            {
+                "description": "Disassemble in intel syntax",
+                "text": "-gdb-set disassembly-flavor intel",
+                "ignoreFailures": true
+            }
+            ]
+        },
+       {
+            "name": "Debug dolphin config psfgenerator",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "args": [
+                "psfgenerator",
+                "-p", "../configs/default_psf_config_gibsonlanni.json"
 
             ],
             "additionalSOLibSearchPath": "${workspaceFolder}/lib/cube/**",

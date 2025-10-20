@@ -31,16 +31,8 @@ static void showConfigParameters(Config& config, std::shared_ptr<GUIStyleConfig>
     config.visitParams(
         [style]<typename T>(T& value, ConfigParameter& param){},
         [style](ConfigParameter& param){
-            if (param.type == ParameterType::VectorString){
-                SelectionHelper<std::string>* helper = new SelectionHelper<std::string>();
-                helper->field = reinterpret_cast<std::string*>(param.value);
-                helper->selection = reinterpret_cast<std::vector<std::string>*>(param.selection);
-                param.value = reinterpret_cast<void*>(helper);
-                style->drawParameter(param);
-            }
-            else{
-                style->drawParameter(param);
-            }
+
+            style->drawParameter(param);
             return true;
         });
 
