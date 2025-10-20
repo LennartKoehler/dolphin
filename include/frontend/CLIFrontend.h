@@ -31,7 +31,7 @@ private:
 
     bool parseCLI();
     void readCLISetupConfigPath();
-    void readCLIParameters();
+    void readSetupConfigParameters();
     void readCLIParametersPSF();
     void readCLIParametersDeconvolution();
     void readCLIParametersSetupConfig();

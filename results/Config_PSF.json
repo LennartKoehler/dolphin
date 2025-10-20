@@ -1,8 +1,8 @@
 {
     "ID": "",
     "NA": 1.0,
-    "nanometerScale": 1e-09,
-    "pixelScaling": 1e-06,
+    "nanometerScale": 9.999999717180685e-10,
+    "pixelScaling": 9.999999974752427e-07,
     "qualityFactor": 1.0,
     "resAxial_nm": 200.0,
     "resLateral_nm": 200.0,

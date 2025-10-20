@@ -31,8 +31,6 @@ void DefaultGUIStyleConfig::drawParameter(const ConfigParameter& param){
     // Use the cached widget
     if (auto& widget = widgetCache[cacheKey]) {
         widget->display(param);
-    } else {
-        ImGui::Text("No widget for type!");
     }
 }
 
