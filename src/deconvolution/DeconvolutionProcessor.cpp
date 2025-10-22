@@ -1,3 +1,16 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #include "deconvolution/DeconvolutionProcessor.h"
 #include "UtlImage.h"
 #include <opencv2/opencv.hpp>
@@ -266,7 +279,8 @@ void DeconvolutionProcessor::init(const Hyperstack& input, const std::vector<PSF
     setWorkShapes(imageOriginalShape, psfOriginalShape, memoryPerCube);
     setupCubeArrangement();
    
-    backend_->mutableDeconvManager().init(cubeShapePadded);
+    int threadsForBackendInit = this->config.nThreads - 1;
+    backend_->mutableDeconvManager().init(cubeShapePadded, threadsForBackendInit);
     algorithm_->setBackend(backend_);
 
     preprocessPSF(psfs);

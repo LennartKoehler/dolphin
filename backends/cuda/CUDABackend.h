@@ -77,4 +77,5 @@ private:
     void destroyFFTPlans();
     cufftHandle forwardPlan;
     cufftHandle backwardPlan;
+    int numThreads_ = 1; // For CPU fallback operations if needed
 };
