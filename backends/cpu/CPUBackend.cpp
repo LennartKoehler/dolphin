@@ -148,7 +148,7 @@ static bool initialized = false;
 void CPUDeconvolutionBackend::init(const RectangleShape& shape) {
     if(! initialized){ // TODO fix this
         fftw_init_threads();
-        fftw_plan_with_nthreads(1);
+        fftw_plan_with_nthreads(1); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
         initialized = true;
     }
 
@@ -157,6 +157,7 @@ void CPUDeconvolutionBackend::init(const RectangleShape& shape) {
 }
 
 void CPUDeconvolutionBackend::cleanup() {
+    fftw_cleanup_threads();
     destroyFFTPlans();
     std::cout << "[STATUS] CPU backend postprocessing completed" << std::endl;
 }
