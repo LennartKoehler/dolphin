@@ -219,7 +219,6 @@ CUDADeconvolutionBackend::~CUDADeconvolutionBackend() {
 void CUDADeconvolutionBackend::init(const RectangleShape& shape){
     initializeFFTPlans(shape);
     
-    std::cout << "[STATUS] CUDA backend initialized" << std::endl;
 }
 
 
