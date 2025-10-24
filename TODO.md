@@ -19,7 +19,7 @@
 questions to ask:
 
 
-- do we need a flag for padding dimensions -> with padding smaller than psf there would be grid artifacts due to cyclic deconv
+- do we need a flag for padding dimensions -> with padding smaller than psf there would be grid artifacts due to cyclic convolution
 
 
 - psfs for different regions of the image:

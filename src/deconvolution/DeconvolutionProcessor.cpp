@@ -24,40 +24,39 @@ See the LICENSE file provided with the code for the full license.
 #include "backend/BackendFactory.h"
 #include "backend/Exceptions.h"
 
-ImageMetaData globalmetadata;
 
-void savecubeDebug(const std::vector<cv::Mat> cubeImage, const char* name, ImageMetaData metaData = globalmetadata){
-    // double global_max_val_tile= 0.0;
-    // double global_min_val_tile = MAXFLOAT;
-    // // Global normalization of the merged volume
-    // for (const auto& slice : cubeImage) {
-    //     cv::threshold(slice, slice, 0, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
-    //     double min_val, max_val;
-    //     cv::minMaxLoc(slice, &min_val, &max_val);
-    //     global_max_val_tile = std::max(global_max_val_tile, max_val);
-    //     global_min_val_tile = std::min(global_min_val_tile, min_val);
-    //     }
+// void savecubeDebug(const std::vector<cv::Mat> cubeImage, const char* name, ImageMetaData metaData = globalmetadata){
+//     // double global_max_val_tile= 0.0;
+//     // double global_min_val_tile = MAXFLOAT;
+//     // // Global normalization of the merged volume
+//     // for (const auto& slice : cubeImage) {
+//     //     cv::threshold(slice, slice, 0, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
+//     //     double min_val, max_val;
+//     //     cv::minMaxLoc(slice, &min_val, &max_val);
+//     //     global_max_val_tile = std::max(global_max_val_tile, max_val);
+//     //     global_min_val_tile = std::min(global_min_val_tile, min_val);
+//     //     }
     
-    // // Global normalization of the merged volume
+//     // // Global normalization of the merged volume
 
-    // for (auto& slice : cubeImage) {
-    //     slice.convertTo(slice, CV_32F, 1.0 / (global_max_val_tile - global_min_val_tile), -global_min_val_tile * (1 / (global_max_val_tile - global_min_val_tile)));  // Add epsilon to avoid division by zero
-    //     cv::threshold(slice, slice, 0.0005, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
-    // }
-    Hyperstack cubeImageHyperstack;
-    cubeImageHyperstack.metaData = metaData;
-    cubeImageHyperstack.metaData.imageWidth = cubeImage[0].cols;
-    cubeImageHyperstack.metaData.imageLength = cubeImage[0].rows;
-    cubeImageHyperstack.metaData.slices = cubeImage.size();
-    // cubeImageHyperstack.metaData.bitsPerSample = 32;
+//     // for (auto& slice : cubeImage) {
+//     //     slice.convertTo(slice, CV_32F, 1.0 / (global_max_val_tile - global_min_val_tile), -global_min_val_tile * (1 / (global_max_val_tile - global_min_val_tile)));  // Add epsilon to avoid division by zero
+//     //     cv::threshold(slice, slice, 0.0005, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
+//     // }
+//     Hyperstack cubeImageHyperstack;
+//     cubeImageHyperstack.metaData = metaData;
+//     cubeImageHyperstack.metaData.imageWidth = cubeImage[0].cols;
+//     cubeImageHyperstack.metaData.imageLength = cubeImage[0].rows;
+//     cubeImageHyperstack.metaData.slices = cubeImage.size();
+//     // cubeImageHyperstack.metaData.bitsPerSample = 32;
 
-    Image3D image3d;
-    image3d.slices = cubeImage;
-    Channel channel;
-    channel.image = image3d;
-    cubeImageHyperstack.channels.push_back(channel);
-    cubeImageHyperstack.saveAsTifFile("../result/"+std::string(name)+".tif");
-}
+//     Image3D image3d;
+//     image3d.slices = cubeImage;
+//     Channel channel;
+//     channel.image = image3d;
+//     cubeImageHyperstack.channels.push_back(channel);
+//     cubeImageHyperstack.saveAsTifFile("../result/"+std::string(name)+".tif");
+// }
 
 
 
@@ -279,8 +278,7 @@ void DeconvolutionProcessor::init(const Hyperstack& input, const std::vector<PSF
     setWorkShapes(imageOriginalShape, psfOriginalShape, memoryPerCube);
     setupCubeArrangement();
    
-    int threadsForBackendInit = this->config.nThreads - 1;
-    backend_->mutableDeconvManager().init(cubeShapePadded, threadsForBackendInit);
+    backend_->mutableDeconvManager().init(cubeShapePadded);
     algorithm_->setBackend(backend_);
 
     preprocessPSF(psfs);

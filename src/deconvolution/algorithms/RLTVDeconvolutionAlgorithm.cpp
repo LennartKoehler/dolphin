@@ -25,7 +25,7 @@ void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     std::cout << "[CONFIGURATION] lambda: " << lambda << std::endl;
 }
 
-void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) {
+void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
         std::cerr << "[ERROR] No backend available for Richardson-Lucy TV algorithm" << std::endl;
         return;
