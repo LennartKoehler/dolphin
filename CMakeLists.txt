@@ -16,6 +16,19 @@ find_package(OpenMP REQUIRED)
 find_package(TIFF REQUIRED)
 
 
+# Compiler flags for Valgrind-safe build
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(
+        -O0             # Disable optimizations
+        -g              # Debug symbols
+        -march=x86-64   # Only baseline instructions
+        -mno-avx        # Disable AVX
+        -mno-avx2       # Disable AVX2
+        -mno-fma        # Disable FMA
+        -Wall           # Enable warnings
+        -Wextra
+    )
+endif()
 
 # Find CUDA toolkit if available (optional)
 find_package(CUDAToolkit QUIET)
@@ -109,7 +122,6 @@ set(COMMON_SOURCES
     src/hyperstack/HyperstackMetaData.cpp
 
     src/psf/PSF.cpp
-    src/psf/generators/SimpleGaussianPSFGeneratorAlgorithm.cpp
     src/psf/generators/GaussianPSFGenerator.cpp
     src/psf/generators/BornWolfModel.cpp
     src/psf/generators/GibsonLanniPSFGenerator.cpp

@@ -24,7 +24,7 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 
 }
 
-void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) {
+void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
         std::cerr << "[ERROR] No backend available for Richardson-Lucy algorithm" << std::endl;
         return;

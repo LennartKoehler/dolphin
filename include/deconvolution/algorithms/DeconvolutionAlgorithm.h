@@ -8,7 +8,7 @@ public:
     DeconvolutionAlgorithm() = default;
     virtual void configure(const DeconvolutionConfig& config) = 0;
     // it is assumed that the input of convolve is already located on the backend device
-    virtual void deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) = 0;
+    virtual void deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) = 0;
     void setBackend(std::shared_ptr<IBackend> backend){this->backend = backend;}
     inline std::unique_ptr<DeconvolutionAlgorithm> clone() const{
         std::unique_ptr<DeconvolutionAlgorithm> clone = cloneSpecific();

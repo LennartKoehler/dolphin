@@ -18,6 +18,7 @@ public:
 	cv::Mat SinglePlanePSF(const GibsonLanniPSFConfig& config) const; // gibson lanni equation for one z-slice
 
 private:
+	void initBesselHelper() const;
 	std::unique_ptr<NumericalIntegrator> numericalIntegrator;
     std::shared_ptr<GibsonLanniPSFConfig> config;
 
@@ -32,5 +33,7 @@ public:
 private:
 	const GibsonLanniPSFConfig& config;
 	const double r;
+	double k0;
+	double k0NAr;
 };
 

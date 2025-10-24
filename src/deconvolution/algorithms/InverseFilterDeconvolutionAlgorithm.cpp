@@ -20,7 +20,7 @@ void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& c
     epsilon = config.epsilon;  // Assuming epsilon is in the config
 }
 
-void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) {
+void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
         std::cerr << "[ERROR] No backend available for Inverse Filter algorithm" << std::endl;
         return;
@@ -31,18 +31,13 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const
     assert(backend->getMemoryManager().isOnDevice(g.data) && "Input image is not on device");
     assert(backend->getMemoryManager().isOnDevice(f.data) && "Output buffer is not on device");
 
-    // Allocate temporary memory for computation
-    ComplexData temp_g = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
 
-
-    // Copy input data to working array
-    backend->getMemoryManager().memCopy(g, temp_g);
 
     // Forward FFT on image
-    backend->getDeconvManager().forwardFFT(temp_g, temp_g);
+    backend->getDeconvManager().forwardFFT(g, g);
 
     // Division in frequency domain: F = G / H (with stabilization)
-    backend->getDeconvManager().complexDivision(temp_g, H, f, epsilon);
+    backend->getDeconvManager().complexDivision(g, H, f, epsilon);
 
     // Inverse FFT to get result
     backend->getDeconvManager().backwardFFT(f, f);

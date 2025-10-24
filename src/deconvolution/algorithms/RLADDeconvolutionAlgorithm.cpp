@@ -25,7 +25,7 @@ void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     beta = 0.01;         // Fixed as in original
 }
 
-void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) {
+void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
         std::cerr << "[ERROR] No backend available for RLAD algorithm" << std::endl;
         return;
