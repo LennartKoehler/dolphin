@@ -59,6 +59,7 @@ See the LICENSE file provided with the code for the full license.
 #include "psf/generators/GibsonLanniPSFGenerator.h"
 #include "psf/configs/GibsonLanniPSFConfig.h"
 #include "ThreadPool.h"
+#include "psf/generators/BesselHelper.h"
 
 GibsonLanniPSFGenerator::GibsonLanniPSFGenerator(std::unique_ptr<NumericalIntegrator> integrator)
     : numericalIntegrator(std::move(integrator)){}
@@ -78,11 +79,33 @@ void GibsonLanniPSFGenerator::setConfig(const std::shared_ptr<const PSFConfig> c
 }
 
 
+void GibsonLanniPSFGenerator::initBesselHelper() const {
+    assert (config != nullptr && "Config not initialized");
+    
+    BesselHelper& besselHelper = BesselHelper::instance();
+    double nx = config->sizeX;
+    double ny = config->sizeY;
+    // The center of the image in units of [pixels]
+    double x0 = (nx - 1) / 2.0;
+    double y0 = (ny - 1) / 2.0;
+    
+    double k0 = 2.0 * M_PI / config->lambda_nm;
+    int maxRadius = static_cast<int>(std::round(std::sqrt((nx - x0) * (nx - x0) + (ny - y0) * (ny - y0)))) + 1;
+
+    double max_k0NAr = k0 * config->NA * maxRadius * config->pixelSizeLateral_nm;
+    double maxRho = std::min(float(1), config->ns / config->NA);
+
+    double maxValue = max_k0NAr * maxRho;
+    double dx = 0.01;
+    besselHelper.init(0, maxValue, dx);
+}
+
 PSF GibsonLanniPSFGenerator::generatePSF() const {
     std::vector<cv::Mat> sphereLayers;
     std::vector<std::future<cv::Mat>> tempSphereLayers;
     sphereLayers.reserve(config->sizeZ);
 
+    initBesselHelper();
 
 
     for (int z = 0; z < config->sizeZ; z++){
@@ -165,12 +188,16 @@ cv::Mat GibsonLanniPSFGenerator::SinglePlanePSF(const GibsonLanniPSFConfig& conf
 
 
 GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r)
-    : config(config), r(r) {}
+    : config(config), r(r) {
+        k0 = 2.0 * M_PI / config.lambda_nm;
+        k0NAr = k0 * config.NA * r;        
+    }
 
 std::array<double, 2> GibsonLanniIntegrand::operator()(double rho) const {
     std::array<double, 2> I = {0.0, 0.0};
-    double k0 = 2.0 * M_PI / config.lambda_nm;
-    double BesselValue = std::cyl_bessel_j(0, k0 * config.NA * r * rho);
+    
+    const BesselHelper& besselHelper = BesselHelper::instance();
+    double BesselValue = besselHelper.get(k0NAr * rho);
 
     if ((config.NA * rho / config.ns) > 1.0)
         std::cout << "Warning: NA*rho/ns > 1, (ns,NA,rho)=(" 

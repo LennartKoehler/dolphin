@@ -10,7 +10,7 @@ public:
 
     // Main algorithm interface
     void configure(const DeconvolutionConfig& config) override;
-    void deconvolve(const ComplexData& H, const ComplexData& g, ComplexData& f) override;
+    void deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) override;
     
     size_t getMemoryMultiplier() const override;
 
