@@ -3,7 +3,7 @@
 #include <vector>
 #include <opencv2/core/mat.hpp>
 #include "backend/ComplexData.h"
-
+#include "deconvolution/ImageMap.h"
 
 namespace Postprocessor{
     std::vector<cv::Mat> mergeImage(
@@ -15,7 +15,13 @@ namespace Postprocessor{
     );
 
 
-
+    void insertCubeInImage(
+        std::vector<cv::Mat>& cube,
+        std::vector<cv::Mat>& image,
+        BoxCoord destBox,
+        RectangleShape padding
+    );
+    
     void removePadding(std::vector<cv::Mat>& image, const RectangleShape& padding);
     void cropToOriginalSize(std::vector<cv::Mat>& image, const RectangleShape& originalSize);
 

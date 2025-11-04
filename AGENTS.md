@@ -52,7 +52,7 @@ No formal test suite exists. Use test data in configs/default_config.json path.
 
 ### Memory Management
 - Uses `std::shared_ptr` extensively for PSFs and algorithms
-- PSFManager handles PSF lifecycle - prefer using its factory methods
+- PSFCreator handles PSF lifecycle - prefer using its factory methods
 - Hyperstack data structures use channels for multi-dimensional image data
 
 ### GPU Support Architecture

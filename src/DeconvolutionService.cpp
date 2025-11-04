@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "DeconvolutionService.h"
-#include "PSFManager.h"
+#include "PSFCreator.h"
 #include "deconvolution/DeconvolutionProcessor.h"
 #include <chrono>
 #include <fstream>
@@ -103,7 +103,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         // Create PSFs
         std::vector<PSF> psfs = createPSFsFromSetup(setupConfig);
         if (request.getPSFConfig() != nullptr){
-            psfs.push_back(PSFManager::generatePSFFromPSFConfig(request.getPSFConfig(), thread_pool_.get()));
+            psfs.push_back(PSFCreator::generatePSFFromPSFConfig(request.getPSFConfig(), thread_pool_.get()));
         }
         if (psfs.empty()) {
             return createResult(false, "No valid PSFs provided",
@@ -114,7 +114,10 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         
         deconvolutionProcessor->configure(*(deconvConfig.get()));
 
-        Hyperstack result = deconvolutionProcessor->run(*hyperstack, psfs);
+        ImageMap<std::shared_ptr<PSF>> psfMap;
+        psfMap.add(BoxCoord{0,0,0,10,10,10}, std::vector<std::shared_ptr<PSF>>{std::make_shared<PSF>(psfs[0])}); // TESTVALUE
+
+        Hyperstack result = deconvolutionProcessor->run(*hyperstack, psfMap);
         
         // Handle saving
         std::string output_path = request.output_path;
@@ -289,16 +292,16 @@ std::vector<PSF> DeconvolutionService::createPSFsFromSetup(
     std::vector<PSF> psfs;
 
     if (!setupConfig->psfConfigPath.empty()){
-        std::shared_ptr<PSFConfig> config = PSFManager::generatePSFConfigFromConfigPath(setupConfig->psfConfigPath);
-        psfs.push_back(PSFManager::generatePSFFromPSFConfig(config, thread_pool_.get()));
+        std::shared_ptr<PSFConfig> config = PSFCreator::generatePSFConfigFromConfigPath(setupConfig->psfConfigPath);
+        psfs.push_back(PSFCreator::generatePSFFromPSFConfig(config, thread_pool_.get()));
     }
     if (!setupConfig->psfFilePath.empty()){
-        psfs.push_back(PSFManager::readPSFFromFilePath(setupConfig->psfFilePath));
+        psfs.push_back(PSFCreator::readPSFFromFilePath(setupConfig->psfFilePath));
     }
     if (!setupConfig->psfDirPath.empty()){
-        std::vector<std::shared_ptr<PSFConfig>> psfconfigs = PSFManager::generatePSFsFromDir(setupConfig->psfDirPath);
+        std::vector<std::shared_ptr<PSFConfig>> psfconfigs = PSFCreator::generatePSFsFromDir(setupConfig->psfDirPath);
         for (auto psfconfig : psfconfigs){
-            psfs.push_back(PSFManager::generatePSFFromPSFConfig(psfconfig, thread_pool_.get()));
+            psfs.push_back(PSFCreator::generatePSFFromPSFConfig(psfconfig, thread_pool_.get()));
         }
     }
     return psfs;

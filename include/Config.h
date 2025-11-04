@@ -75,8 +75,8 @@ public:
                 }
             });
         }
-        catch (const std::exception){
-            std::cout << "Error in reading config from json" << std::endl;
+        catch (const std::exception& e){
+            std::cout << "Error in reading config from json: " << e.what() << std::endl;
             success = false;
         }
 

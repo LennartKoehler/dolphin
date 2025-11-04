@@ -95,8 +95,9 @@ void GibsonLanniPSFGenerator::initBesselHelper() const {
     double max_k0NAr = k0 * config->NA * maxRadius * config->pixelSizeLateral_nm;
     double maxRho = std::min(float(1), config->ns / config->NA);
 
-    double maxValue = max_k0NAr * maxRho;
-    double dx = 0.01;
+    double maxValue = max_k0NAr * maxRho; // TODO IMPORTANT is maxvalue just sizeX or sizeY?
+    double dx = 0.1;
+
     besselHelper.init(0, maxValue, dx);
 }
 
@@ -106,7 +107,6 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
     sphereLayers.reserve(config->sizeZ);
 
     initBesselHelper();
-
 
     for (int z = 0; z < config->sizeZ; z++){
         GibsonLanniPSFConfig config = *(this->config);
@@ -133,7 +133,7 @@ cv::Mat GibsonLanniPSFGenerator::SinglePlanePSF(const GibsonLanniPSFConfig& conf
     double NA = config.NA;
     double lambda_nm = config.lambda_nm;
     double pixelSizeLateral_nm = config.pixelSizeLateral_nm;
-    double pixelSizeAxial = config.pixelSizeAxial_nm;
+    double pixelSizeAxial_nm = config.pixelSizeAxial_nm;
 
     
     // The center of the image in units of [pixels]

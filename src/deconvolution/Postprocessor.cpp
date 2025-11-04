@@ -15,6 +15,25 @@ See the LICENSE file provided with the code for the full license.
 #include <stdexcept>
 #include <functional>
 
+void Postprocessor::insertCubeInImage(
+    std::vector<cv::Mat>& cube,
+    std::vector<cv::Mat>& image,
+    BoxCoord srcBox,
+    RectangleShape padding
+){
+
+    for (int zCube = static_cast<int>(padding.depth/2); zCube < srcBox.depth + static_cast<int>(padding.depth/2); zCube++){
+        cv::Rect roi(static_cast<int>(padding.width/2), static_cast<int>(padding.height/2), srcBox.width, srcBox.height);
+        cv::Mat srcSlice = cube[zCube](roi);
+        // Define where it goes in the big image
+        cv::Rect dstRoi(srcBox.x, srcBox.y,srcBox.width,srcBox.height);
+
+        srcSlice.copyTo(image[srcBox.z + zCube](dstRoi));
+    }
+
+
+}
+
 std::vector<cv::Mat> Postprocessor::mergeImage(
     const std::vector<std::vector<cv::Mat>>& cubes,
     const RectangleShape& subimageShape,
@@ -43,7 +62,7 @@ std::vector<cv::Mat> Postprocessor::mergeImage(
 
     int cubeIndex = 0;
 
-    // Triple nested loop to iterate through all cube positions (same order as splitImage)
+    // Triple nested loop to iterate through all cube positions (same order as splitImageHomogeneous)
     for (int d = 0; d < cubesInDepth; ++d) {
         for (int w = 0; w < cubesInWidth; ++w) {
             for (int h = 0; h < cubesInHeight; ++h) {

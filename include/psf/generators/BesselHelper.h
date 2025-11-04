@@ -3,6 +3,7 @@
 #include <cmath>
 #include <algorithm>
 
+// precomputed the bessel function to be reused later -> speedup, but more memory usage (~1MB)
 class BesselHelper {
 public:
     inline static BesselHelper& instance() {
@@ -10,7 +11,7 @@ public:
         return helper;
     }
 
-    void init(int minVal, int maxVal, double dxVal) {
+    void init(double minVal, double maxVal, double dxVal) {
         min = minVal;
         max = maxVal;
         dx = dxVal;
@@ -22,8 +23,9 @@ public:
     }
 
     double get(double x) const {
+        assert(besselValues.size() != 0 && "BesselHelper not initliazed");
         int index = static_cast<int>((x - min) / dx);
-        index = std::clamp(index, 0, static_cast<int>(besselValues.size() - 1));
+        assert(index < besselValues.size() -1 && index >= 0 && "Index to large or small");
         return besselValues[index];
     }
 
@@ -36,8 +38,8 @@ private:
     BesselHelper() = default;
 
     std::vector<double> besselValues;
-    int max;
-    int min;
+    double max;
+    double min;
     double dx;
 
 };

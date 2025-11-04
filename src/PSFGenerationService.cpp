@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "PSFGenerationService.h"
-#include "PSFManager.h"
+#include "PSFCreator.h"
 #include "psf/PSFGeneratorFactory.h"
 #include "psf/configs/GaussianPSFConfig.h"
 #include "psf/configs/GibsonLanniPSFConfig.h"
@@ -26,7 +26,7 @@ PSFGenerationService::PSFGenerationService()
     : initialized_(false),
       logger_([](const std::string& msg) { std::cout << "[PSF_SERVICE] " << msg << std::endl; }),
       error_handler_([](const std::string& msg) { std::cerr << "[PSF_ERROR] " << msg << std::endl; }),
-      thread_pool_(std::make_unique<ThreadPool>(1))
+      thread_pool_(std::make_unique<ThreadPool>(8))
 {
     // Initialize supported PSF types
     supported_types_ = {"Gaussian", "GibsonLanni", "BornWolf"};
@@ -228,7 +228,7 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::createResult(
 std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(std::shared_ptr<PSFConfig> psfConfig) {
     try {
         logMessage("Creating PSF from config using PSFConfig");
-        return std::make_unique<PSF>(PSFManager::generatePSFFromPSFConfig(psfConfig, thread_pool_.get()));
+        return std::make_unique<PSF>(PSFCreator::generatePSFFromPSFConfig(psfConfig, thread_pool_.get()));
     } catch (const std::exception& e) {
         std::string error_msg = "Failed to create PSF from config: " + std::string(e.what());
         logMessage(error_msg);
@@ -239,9 +239,9 @@ std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(std::shar
 
 std::unique_ptr<PSF> PSFGenerationService::createPSFFromFilePathInternal(const std::string& path) {
     try {
-        logMessage("Creating PSF from file path using PSFManager: " + path);
-        std::shared_ptr<PSFConfig> config = PSFManager::generatePSFConfigFromConfigPath(path);
-        return std::make_unique<PSF>(PSFManager::generatePSFFromPSFConfig(config, thread_pool_.get()));
+        logMessage("Creating PSF from file path using PSFCreator: " + path);
+        std::shared_ptr<PSFConfig> config = PSFCreator::generatePSFConfigFromConfigPath(path);
+        return std::make_unique<PSF>(PSFCreator::generatePSFFromPSFConfig(config, thread_pool_.get()));
         
     } catch (const std::exception& e) {
 

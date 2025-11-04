@@ -2,6 +2,7 @@
 #include "backend/IDeconvolutionBackend.h"
 #include "backend/IBackendMemoryManager.h"
 #include <fftw3.h>
+#include <map>
 
 class CPUBackendMemoryManager : public IBackendMemoryManager{
 public:
@@ -24,7 +25,7 @@ public:
     ~CPUDeconvolutionBackend() override;
 
     // Core processing functions
-    void init(const RectangleShape& shape) override;
+    void init() override;
     void cleanup() override;
 
     // FFT functions
@@ -63,8 +64,17 @@ public:
 
 
 private:
+    struct FFTPlanPair {
+        fftw_plan forward;
+        fftw_plan backward;
+        FFTPlanPair() : forward(nullptr), backward(nullptr) {}
+    };
+    
     void initializeFFTPlans(const RectangleShape& cube);
     void destroyFFTPlans();
-    fftw_plan forwardPlan;
-    fftw_plan backwardPlan;
+    FFTPlanPair* getPlanPair(const RectangleShape& shape);
+    
+    std::map<RectangleShape, FFTPlanPair> planMap;
+    mutable std::mutex backendMutex;
+
 };
