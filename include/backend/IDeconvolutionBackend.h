@@ -19,7 +19,10 @@ See the LICENSE file provided with the code for the full license.
 #include "ComplexData.h"
 
 
-
+// currently the backends implement lazy initialization of the fftw plans, the user should be careful of the input shapes
+// as initialization of plans takes very long, so usually its best to stick to 1 shape or as little as possible, to most profit from reusing plans
+// the lazy initialization should however enable one thread to init a new plan for the shape it needs and all other threads to keep using initialized threads
+// so that not all threads have to wait for the initialization of all plans. The init of plans is singlethreaded as i understand it
 
 
 // Helper macro for cleaner not-implemented exceptions
@@ -33,7 +36,7 @@ public:
     virtual ~IDeconvolutionBackend(){};
 
     // Core functions - still pure virtual (must implement)
-    virtual void init(const RectangleShape& shape) = 0;
+    virtual void init() = 0;
     virtual void cleanup() = 0;
     
 
@@ -125,15 +128,6 @@ public:
     }
 
 
-    virtual bool plansInitialized() const { 
-        std::unique_lock lock(backendMutex);
-        return plansInitialized_; }
-
-
-
-protected:
-    bool plansInitialized_ = false;
-    mutable std::mutex backendMutex;
 };
 
 #undef NOT_IMPLEMENTED

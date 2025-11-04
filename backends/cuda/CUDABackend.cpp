@@ -216,9 +216,8 @@ CUDADeconvolutionBackend::~CUDADeconvolutionBackend() {
 }
 
 
-void CUDADeconvolutionBackend::init(const RectangleShape& shape){
-    initializeFFTPlans(shape);
-    
+void CUDADeconvolutionBackend::init(){
+    std::cout << "[STATUS] CUDA backend initialized for lazy plan creation" << std::endl;
 }
 
 
@@ -228,49 +227,96 @@ void CUDADeconvolutionBackend::cleanup(){
     std::cout << "[STATUS] CUDA backend postprocessing completed" << std::endl;
 }
 
-void CUDADeconvolutionBackend::initializeFFTPlans(const RectangleShape& cube){
-    std::unique_lock<std::mutex> lock(backendMutex);
-    if (plansInitialized_) return;
+void CUDADeconvolutionBackend::initializeFFTPlans(const RectangleShape& shape){
     
+    // Check if plan already exists for this shape (double-check pattern)
+    if (planMap.find(shape) != planMap.end()) {
+        return; // Plan already exists
+    }
+
     // Allocate temporary memory for plan creation
-    size_t tempSize = sizeof(complex) * cube.volume;
+    size_t tempSize = sizeof(complex) * shape.volume;
+    
+    CUFFTPlanPair& planPair = planMap[shape];
+    
     // Create forward FFT plan
-    CUFFT_CHECK(cufftCreate(&this->forwardPlan), "initializeFFTPlans - forward plan creation");
-    CUFFT_CHECK(cufftMakePlan3d(this->forwardPlan, cube.depth, cube.height, cube.width, CUFFT_Z2Z, &tempSize), "initializeFFTPlans - forward plan setup");
+    CUFFT_CHECK(cufftCreate(&planPair.forward), "initializeFFTPlans - forward plan creation");
+    CUFFT_CHECK(cufftMakePlan3d(planPair.forward, shape.depth, shape.height, shape.width, CUFFT_Z2Z, &tempSize), "initializeFFTPlans - forward plan setup");
 
     
     // Create backward FFT plan
-    CUFFT_CHECK(cufftCreate(&this->backwardPlan), "initializeFFTPlans - backward plan creation");
-    CUFFT_CHECK(cufftMakePlan3d(this->backwardPlan, cube.depth, cube.height, cube.width, CUFFT_Z2Z, &tempSize), "initializeFFTPlans - backward plan setup");
+    CUFFT_CHECK(cufftCreate(&planPair.backward), "initializeFFTPlans - backward plan creation");
+    CUFFT_CHECK(cufftMakePlan3d(planPair.backward, shape.depth, shape.height, shape.width, CUFFT_Z2Z, &tempSize), "initializeFFTPlans - backward plan setup");
 
-    plansInitialized_ = true;
+    std::cout << "[DEBUG] Successfully created cuFFT plans for shape: " 
+              << shape.width << "x" << shape.height << "x" << shape.depth << std::endl;
 }
 
 void CUDADeconvolutionBackend::destroyFFTPlans(){
     std::unique_lock<std::mutex> lock(backendMutex);
 
-    if (plansInitialized_) {
-        if (forwardPlan) {
-            CUFFT_CHECK(cufftDestroy(forwardPlan), "destroyFFTPlans - forward plan");
-            forwardPlan = CUFFT_PLAN_NULL;
+    for (auto& pair : planMap) {
+        if (pair.second.forward != CUFFT_PLAN_NULL) {
+            CUFFT_CHECK(cufftDestroy(pair.second.forward), "destroyFFTPlans - forward plan");
+            pair.second.forward = CUFFT_PLAN_NULL;
         }
-        if (backwardPlan) {
-            CUFFT_CHECK(cufftDestroy(backwardPlan), "destroyFFTPlans - backward plan");
-            backwardPlan = CUFFT_PLAN_NULL;
+        if (pair.second.backward != CUFFT_PLAN_NULL) {
+            CUFFT_CHECK(cufftDestroy(pair.second.backward), "destroyFFTPlans - backward plan");
+            pair.second.backward = CUFFT_PLAN_NULL;
         }
-        plansInitialized_ = false;
     }
+    planMap.clear();
+}
+
+CUDADeconvolutionBackend::CUFFTPlanPair* CUDADeconvolutionBackend::getPlanPair(const RectangleShape& shape) {
+    auto it = planMap.find(shape);
+    if (it != planMap.end()) {
+        return &it->second;
+    }
+    return nullptr;
 }
 
 // FFT Operations
 void CUDADeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
-    CUFFT_CHECK(cufftExecZ2Z(this->forwardPlan, reinterpret_cast<cufftDoubleComplex*>(in.data), reinterpret_cast<cufftDoubleComplex*>(out.data), FFTW_FORWARD), "forwardFFT");
-
+    // First, try to get existing plan (fast path, no lock)
+    auto* planPair = const_cast<CUDADeconvolutionBackend*>(this)->getPlanPair(in.size);
+    
+    // If plan doesn't exist, create it (slow path, with lock)
+    if (planPair == nullptr) {
+        std::unique_lock<std::mutex> lock(const_cast<CUDADeconvolutionBackend*>(this)->backendMutex);
+        // Double-check pattern: another thread might have created it while we waited for the lock
+        planPair = const_cast<CUDADeconvolutionBackend*>(this)->getPlanPair(in.size);
+        if (planPair == nullptr) {
+            const_cast<CUDADeconvolutionBackend*>(this)->initializeFFTPlans(in.size);
+            planPair = const_cast<CUDADeconvolutionBackend*>(this)->getPlanPair(in.size);
+        }
+    }
+    
+    BACKEND_CHECK(planPair != nullptr, "Failed to create cuFFT plan for shape", "CUDA", "forwardFFT - plan creation");
+    BACKEND_CHECK(planPair->forward != CUFFT_PLAN_NULL, "Forward cuFFT plan is null", "CUDA", "forwardFFT - cuFFT plan");
+    
+    CUFFT_CHECK(cufftExecZ2Z(planPair->forward, reinterpret_cast<cufftDoubleComplex*>(in.data), reinterpret_cast<cufftDoubleComplex*>(out.data), FFTW_FORWARD), "forwardFFT");
 }
 
 void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
-    CUFFT_CHECK(cufftExecZ2Z(this->backwardPlan, reinterpret_cast<cufftDoubleComplex*>(in.data), reinterpret_cast<cufftDoubleComplex*>(out.data), FFTW_BACKWARD), "backwardFFT");
-
+    // First, try to get existing plan (fast path, no lock)
+    auto* planPair = const_cast<CUDADeconvolutionBackend*>(this)->getPlanPair(in.size);
+    
+    // If plan doesn't exist, create it (slow path, with lock)
+    if (planPair == nullptr) {
+        std::unique_lock<std::mutex> lock(const_cast<CUDADeconvolutionBackend*>(this)->backendMutex);
+        // Double-check pattern: another thread might have created it while we waited for the lock
+        planPair = const_cast<CUDADeconvolutionBackend*>(this)->getPlanPair(in.size);
+        if (planPair == nullptr) {
+            const_cast<CUDADeconvolutionBackend*>(this)->initializeFFTPlans(in.size);
+            planPair = const_cast<CUDADeconvolutionBackend*>(this)->getPlanPair(in.size);
+        }
+    }
+    
+    BACKEND_CHECK(planPair != nullptr, "Failed to create cuFFT plan for shape", "CUDA", "backwardFFT - plan creation");
+    BACKEND_CHECK(planPair->backward != CUFFT_PLAN_NULL, "Backward cuFFT plan is null", "CUDA", "backwardFFT - cuFFT plan");
+    
+    CUFFT_CHECK(cufftExecZ2Z(planPair->backward, reinterpret_cast<cufftDoubleComplex*>(in.data), reinterpret_cast<cufftDoubleComplex*>(out.data), FFTW_BACKWARD), "backwardFFT");
 }
 
 // Shift Operations

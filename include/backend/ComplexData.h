@@ -16,7 +16,6 @@ See the LICENSE file provided with the code for the full license.
 #include <algorithm>
 
 class IBackendMemoryManager;
-
 struct RectangleShape{
     int width;
     int height;
@@ -84,6 +83,11 @@ struct RectangleShape{
     inline bool operator>=(const RectangleShape& other) const {
         if (this->width >= other.width && this->height >= other.height && this->depth >= other.depth) return true;
         else return false;
+    }
+    inline bool operator<(const RectangleShape& other) const {
+        if (this->width != other.width) return this->width < other.width;
+        if (this->height != other.height) return this->height < other.height;
+        return this->depth < other.depth;
     }
 };
 

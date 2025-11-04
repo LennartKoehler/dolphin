@@ -4,6 +4,7 @@
 #include <cufftw.h>
 #include <CUBE.h>
 #include <cuda_runtime.h>
+#include <map>
 
 class CUDABackendMemoryManager : public IBackendMemoryManager{
 public:
@@ -26,7 +27,7 @@ public:
     ~CUDADeconvolutionBackend() override;
 
     // Core processing functions
-    void init(const RectangleShape& shape) override;
+    void init() override;
     void cleanup() override;
 
     // FFT functions
@@ -72,10 +73,18 @@ public:
 
 
 private:
+    struct CUFFTPlanPair {
+        cufftHandle forward;
+        cufftHandle backward;
+        CUFFTPlanPair() : forward(CUFFT_PLAN_NULL), backward(CUFFT_PLAN_NULL) {}
+    };
+    
     void initializeFFTPlans(const RectangleShape& cube);
-    // Helper functions
     void destroyFFTPlans();
-    cufftHandle forwardPlan;
-    cufftHandle backwardPlan;
+    CUFFTPlanPair* getPlanPair(const RectangleShape& shape);
+    
+    std::map<RectangleShape, CUFFTPlanPair> planMap;
     int numThreads_ = 1; // For CPU fallback operations if needed
+    mutable std::mutex backendMutex;
+
 };

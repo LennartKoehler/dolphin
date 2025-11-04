@@ -145,15 +145,14 @@ CPUDeconvolutionBackend::~CPUDeconvolutionBackend() {
 }
 static bool initialized = false;
 
-void CPUDeconvolutionBackend::init(const RectangleShape& shape) {
+void CPUDeconvolutionBackend::init() {
     if(! initialized){ // TODO fix this
         fftw_init_threads();
         fftw_plan_with_nthreads(1); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
         initialized = true;
     }
 
-    initializeFFTPlans(shape);
-    std::cout << "[STATUS] CPU backend initialized" << std::endl;
+    std::cout << "[STATUS] CPU backend initialized for lazy plan creation" << std::endl;
 }
 
 void CPUDeconvolutionBackend::cleanup() {
@@ -162,28 +161,36 @@ void CPUDeconvolutionBackend::cleanup() {
     std::cout << "[STATUS] CPU backend postprocessing completed" << std::endl;
 }
 
-void CPUDeconvolutionBackend::initializeFFTPlans(const RectangleShape& cube) {
-    std::unique_lock<std::mutex>lock(backendMutex);
-    if (plansInitialized_) return;
+void CPUDeconvolutionBackend::initializeFFTPlans(const RectangleShape& shape) {
+    // This method assumes the mutex is already locked by the caller
+    
+    // Check if plan already exists for this shape (double-check pattern)
+    if (planMap.find(shape) != planMap.end()) {
+        return; // Plan already exists
+    }
     
     // Allocate temporary memory for plan creation
     complex* temp = nullptr;
     try{
-        temp = (complex*)fftw_malloc(sizeof(complex) * cube.volume);
-        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex) * cube.volume, "initializeFFTPlans");
+        temp = (complex*)fftw_malloc(sizeof(complex) * shape.volume);
+        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex) * shape.volume, "initializeFFTPlans");
+        
+        FFTPlanPair& planPair = planMap[shape];
         
         // Create forward FFT plan
-        this->forwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width,
-                                            temp, temp, FFTW_FORWARD, FFTW_MEASURE);
-        FFTW_UNIFIED_CHECK(this->forwardPlan, "initializeFFTPlans - forward plan");
+        planPair.forward = fftw_plan_dft_3d(shape.depth, shape.height, shape.width,
+                                           temp, temp, FFTW_FORWARD, FFTW_MEASURE);
+        FFTW_UNIFIED_CHECK(planPair.forward, "initializeFFTPlans - forward plan");
     
-        // Create backward FFT plan
-        this->backwardPlan = fftw_plan_dft_3d(cube.depth, cube.height, cube.width,
+        // Create backward FFT plan  
+        planPair.backward = fftw_plan_dft_3d(shape.depth, shape.height, shape.width,
                                             temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
-        FFTW_UNIFIED_CHECK(this->backwardPlan, "initializeFFTPlans - backward plan");
+        FFTW_UNIFIED_CHECK(planPair.backward, "initializeFFTPlans - backward plan");
         
         fftw_free(temp);
-        plansInitialized_ = true;
+        
+        std::cout << "[DEBUG] Successfully created FFTW plans for shape: " 
+                  << shape.width << "x" << shape.height << "x" << shape.depth << std::endl;
     }
     catch (...){
         if (temp != nullptr){
@@ -191,37 +198,78 @@ void CPUDeconvolutionBackend::initializeFFTPlans(const RectangleShape& cube) {
         }
         throw;
     }
-
 }
 
 void CPUDeconvolutionBackend::destroyFFTPlans() {
     std::unique_lock<std::mutex> lock(backendMutex);
-    if (plansInitialized_) {
-        if (forwardPlan) {
-            fftw_destroy_plan(forwardPlan);
-            forwardPlan = nullptr;
+    for (auto& pair : planMap) {
+        if (pair.second.forward) {
+            fftw_destroy_plan(pair.second.forward);
+            pair.second.forward = nullptr;
         }
-        if (backwardPlan) {
-            fftw_destroy_plan(backwardPlan);
-            backwardPlan = nullptr;
+        if (pair.second.backward) {
+            fftw_destroy_plan(pair.second.backward);
+            pair.second.backward = nullptr;
         }
-        plansInitialized_ = false;
     }
+    planMap.clear();
+}
+
+CPUDeconvolutionBackend::FFTPlanPair* CPUDeconvolutionBackend::getPlanPair(const RectangleShape& shape) {
+    auto it = planMap.find(shape);
+    if (it != planMap.end()) {
+        return &it->second;
+    }
+    return nullptr;
 }
 
 // FFT Operations
 void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
-    BACKEND_CHECK(forwardPlan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
-    fftw_execute_dft(forwardPlan, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
+    
+    // First, try to get existing plan (fast path, no lock)
+    auto* planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+    
+    // If plan doesn't exist, create it (slow path, with lock)
+    if (planPair == nullptr) {
+        std::unique_lock<std::mutex> lock(const_cast<CPUDeconvolutionBackend*>(this)->backendMutex);
+        // Double-check pattern: another thread might have created it while we waited for the lock
+        planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+        if (planPair == nullptr) {
+            const_cast<CPUDeconvolutionBackend*>(this)->initializeFFTPlans(in.size);
+            planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+        }
+    }
+    
+    BACKEND_CHECK(planPair != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
+    BACKEND_CHECK(planPair->forward != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
+    
+    fftw_execute_dft(planPair->forward, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
 }
 
 void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
-    BACKEND_CHECK(backwardPlan != nullptr, "Backward FFT plan is null", "CPU", "backwardFFT - FFT plan");
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
-    fftw_execute_dft(backwardPlan, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
+    
+    // First, try to get existing plan (fast path, no lock)
+    auto* planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+    
+    // If plan doesn't exist, create it (slow path, with lock)
+    if (planPair == nullptr) {
+        std::unique_lock<std::mutex> lock(const_cast<CPUDeconvolutionBackend*>(this)->backendMutex);
+        // Double-check pattern: another thread might have created it while we waited for the lock
+        planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+        if (planPair == nullptr) {
+            const_cast<CPUDeconvolutionBackend*>(this)->initializeFFTPlans(in.size);
+            planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+        }
+    }
+    
+    BACKEND_CHECK(planPair != nullptr, "Failed to create FFT plan for shape", "CPU", "backwardFFT - plan creation");
+    BACKEND_CHECK(planPair->backward != nullptr, "Backward FFT plan is null", "CPU", "backwardFFT - FFT plan");
+    
+    fftw_execute_dft(planPair->backward, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
 }
 
 // Shift Operations

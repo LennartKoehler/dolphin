@@ -12,14 +12,14 @@ See the LICENSE file provided with the code for the full license.
 */
 
 
-#include "PSFManager.h"
+#include "PSFCreator.h"
 #include "psf/PSFGeneratorFactory.h"
 #include <fstream>
 #include <cassert>
 
 
 
-std::shared_ptr<PSFConfig> PSFManager::generatePSFConfigFromConfigPath(const std::string& psfConfigPath){
+std::shared_ptr<PSFConfig> PSFCreator::generatePSFConfigFromConfigPath(const std::string& psfConfigPath){
     if (!isJSONFile(psfConfigPath)){
         throw std::runtime_error("PSF Config file is not a JSON file: " + psfConfigPath);
     }
@@ -29,13 +29,13 @@ std::shared_ptr<PSFConfig> PSFManager::generatePSFConfigFromConfigPath(const std
     return psfConfig;
 }
 
-PSF PSFManager::readPSFFromFilePath(const std::string& psfFilePath){
+PSF PSFCreator::readPSFFromFilePath(const std::string& psfFilePath){
     PSF psf;
     psf.readFromTifFile(psfFilePath.c_str());
     return psf;
 }
 
-PSF PSFManager::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, ThreadPool* threadPool){
+PSF PSFCreator::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, ThreadPool* threadPool){
 
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(psfConfig);
@@ -46,7 +46,7 @@ PSF PSFManager::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, T
     
 }
 
-std::vector<std::shared_ptr<PSFConfig>> PSFManager::generatePSFsFromDir(const std::string& psfDirPath){
+std::vector<std::shared_ptr<PSFConfig>> PSFCreator::generatePSFsFromDir(const std::string& psfDirPath){
     std::vector<std::shared_ptr<PSFConfig>> psfs;
     
     try {
@@ -98,11 +98,11 @@ std::vector<std::shared_ptr<PSFConfig>> PSFManager::generatePSFsFromDir(const st
     
     return psfs;
 }
-bool PSFManager::isJSONFile(const std::string& path) {
+bool PSFCreator::isJSONFile(const std::string& path) {
     return path.substr(path.find_last_of(".") + 1) == "json";
 }
 
-json PSFManager::loadJSONFile(const std::string& filePath){
+json PSFCreator::loadJSONFile(const std::string& filePath){
     std::ifstream file(filePath);
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open configuration file: " + filePath);
@@ -114,14 +114,14 @@ json PSFManager::loadJSONFile(const std::string& filePath){
         file >> jsonFile;
     }
     catch (const std::exception& e){
-        throw std::runtime_error("PSFManager failed to read json");
+        throw std::runtime_error("PSFCreator failed to read json");
     }
     return jsonFile;
 }
 
 
 
-// PSFPackage PSFManager::generatePackageFromPSFConfig(std::shared_ptr<PSFConfig> config){
+// PSFPackage PSFCreator::generatePackageFromPSFConfig(std::shared_ptr<PSFConfig> config){
 //     PSFPackage package;
 //     package.psfLayerVec.push_back(config->psfLayerVec);
 //     package.psfCubeVec.push_back(config->psfCubeVec);
@@ -131,7 +131,7 @@ json PSFManager::loadJSONFile(const std::string& filePath){
 
 
 
-// PSFPackage PSFManager::generatePackage(const std::string& psfConfigPath){ 
+// PSFPackage PSFCreator::generatePackage(const std::string& psfConfigPath){
 //     PSFPackage psfpackage;    
 //     if (isJSONFile(psfConfigPath)) {
 //         json configJson = loadJSONFile(psfConfigPath);
@@ -149,7 +149,7 @@ json PSFManager::loadJSONFile(const std::string& filePath){
 //     return psfpackage;
 // }
 
-// PSFPackage PSFManager::fromFilePath(const std::string& psfPath){
+// PSFPackage PSFCreator::fromFilePath(const std::string& psfPath){
 //     PSFPackage psfpackage;
 //     PSF psftmp;
 //     if (psfPath.substr(psfPath.find_last_of(".") + 1) == "tif" || psfPath.substr(psfPath.find_last_of(".") + 1) == "tiff" || psfPath.substr(psfPath.find_last_of(".") + 1) == "ometif") {
@@ -165,7 +165,7 @@ json PSFManager::loadJSONFile(const std::string& filePath){
 
 
 
-// PSFPackage PSFManager::fromConfig(const json& configJson) {
+// PSFPackage PSFCreator::fromConfig(const json& configJson) {
 //     PSFPackage psfpackage;
 
 //     // // LK TODO i dont know what psfcubevec and layervec are and where they should be processed. the deconvolution algorithms rely on them. are they needed to create the psfs? do they need to be apart of PSFConfig?
@@ -187,7 +187,7 @@ json PSFManager::loadJSONFile(const std::string& filePath){
 
 
 // //TODO
-// PSFPackage PSFManager::fromDirPath(const std::string& psfDirPath) {
+// PSFPackage PSFCreator::fromDirPath(const std::string& psfDirPath) {
 //     for (const auto& element : psfDirPath) {
 //         // if (element.is_string()) {
 //         //     std::string elementStr = element.get<std::string>();
@@ -198,7 +198,7 @@ json PSFManager::loadJSONFile(const std::string& filePath){
 
 
 
-// void PSFManager::PSFDimensionCheck(const PSFPackage& psfpackage){
+// void PSFCreator::PSFDimensionCheck(const PSFPackage& psfpackage){
 //     int firstPsfX = psfpackage.psfs[0].image.slices[0].cols;
 //     int firstPsfY = psfpackage.psfs[0].image.slices[0].rows;
 //     int firstPsfZ = psfpackage.psfs[0].image.slices.size();
