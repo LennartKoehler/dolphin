@@ -61,9 +61,7 @@ DeconvolutionProcessor::DeconvolutionProcessor(){
     RectangleShape shape,
     std::shared_ptr<PSF>& inputPSF
     ) -> ComplexData* {
-
-        std::cout << "[STATUS] Preprocessing PSFs" << std::endl;
-            
+       
         Preprocessor::padToShape(inputPSF->image.slices, shape, 0);
         ComplexData h = convertCVMatVectorToFFTWComplex(inputPSF->image.slices, shape);
         ComplexData h_device = backend_->getMemoryManager().copyDataToDevice(h);
@@ -75,61 +73,48 @@ DeconvolutionProcessor::DeconvolutionProcessor(){
 }
 
 
-Hyperstack DeconvolutionProcessor::run(Hyperstack& input, ImageMap<std::shared_ptr<PSF>>& psfs){
-    init(input, psfs);
+Hyperstack DeconvolutionProcessor::run(const Hyperstack& image, const std::vector<PSF>& inputPSFS, DeconvolutionStrategy& strategy){
+    setImageOriginalShape(image.channels[0]);
+
+    Hyperstack inputCopy(image); // copy to not edit in place, the inputcopy is used to be padded and then used for reading
+    Hyperstack result(image); // to get the correct shape so i can later paste the result in the corresponding position
     Image3D deconvolutedImage;
+
+
+    ImageMap<std::vector<std::shared_ptr<PSF>>> psfStrategy = strategy.getStrategy(
+        inputPSFS,
+		imageOriginalShape,
+		image.channels.size(),
+		config,
+		backend_,
+		algorithm_);
+
+    init(image, psfStrategy);
+
+
     std::cout << "[STATUS] Starting deconvolution" << std::endl;
 
-    for (auto& channel : input.channels){
-        Preprocessor::padToShape(channel.image.slices, imageShapePadded, config.borderType); // pad to largest psf, should be the easiest
-
-        parallelDeconvolution(channel.image.slices, psfs);
-        postprocessChannel(input.metaData, channel.image.slices);
+    for (int i = 0; i < image.channels.size(); i++){
+        
+        RectangleShape paddingShift = Preprocessor::padToShape(inputCopy.channels[i].image.slices, imageShapePadded, config.borderType); // pad to largest psf, should be the easiest
+        parallelDeconvolution(inputCopy.channels[i].image.slices, result.channels[i].image.slices, psfStrategy, paddingShift);
+        postprocessChannel(result.channels[i].image.slices);
 
         std::cout << "[STATUS] Saving result of channel " << std::endl;
-        deconvolutedImage.slices = channel.image.slices;
-        input.channels[channel.id].image = deconvolutedImage;
     }
 
     std::cout << "[STATUS] Deconvolution complete" << std::endl;
-    return input;
+    return result;
 }
 
-std::vector<cv::Mat> DeconvolutionProcessor::getCubeImage(const std::vector<cv::Mat>& image, BoxCoord coords, RectangleShape padding){
-    std::vector<cv::Mat> cube;
-    cube.reserve(coords.depth + 2 * padding.depth);
-    
-    // Triple nested loop to iterate through all cube positions with padding
-    for (int z = coords.z - padding.depth; z < coords.z + coords.depth + padding.depth; ++z) {
-        int actual_z = std::max(0, std::min(z, static_cast<int>(image.size()) - 1));
-        
-        cv::Mat slice(coords.height + 2 * padding.height, coords.width + 2 * padding.width, CV_32F, cv::Scalar(0));
-        
-        for (int y = coords.y - padding.height; y < coords.y + coords.height + padding.height; ++y) {
-            for (int x = coords.x - padding.width; x < coords.x + coords.width + padding.width; ++x) {
-                int actual_x = std::max(0, std::min(x, image[actual_z].cols - 1));
-                int actual_y = std::max(0, std::min(y, image[actual_z].rows - 1));
-                
-                int cube_x = x - (coords.x - padding.width);
-                int cube_y = y - (coords.y - padding.height);
-                
-                slice.at<float>(cube_y, cube_x) = image[actual_z].at<float>(actual_y, actual_x);
-            }
-        }
-        cube.push_back(slice);
-    }
-    
-    return cube;
-}
 
-RectangleShape DeconvolutionProcessor::getCubePadding(BoxCoord box){
-    return RectangleShape(static_cast<int>(box.width/2), static_cast<int>(box.height/2), static_cast<int>(box.depth/2));
-}
 
 
 void DeconvolutionProcessor::parallelDeconvolution(
-        std::vector<cv::Mat>& image,
-        ImageMap<std::shared_ptr<PSF>>& psfMap) {
+        const std::vector<cv::Mat>& inputImagePadded,
+        std::vector<cv::Mat>& outputImage,
+        const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfMap,
+        const RectangleShape& imagePaddingShift) {
 
     std::vector<std::future<void>> runningTasks;
     std::atomic<int> processedCount(0);
@@ -148,47 +133,28 @@ void DeconvolutionProcessor::parallelDeconvolution(
     std::atomic<int> numberCubes(psfMap.size());
 
     for (int cubeIndex = 0; cubeIndex < numberCubes; ++cubeIndex) {
-        // Wait if too many tasks are running LK dont need because there is basically no memory allocation per task, almost all passed by reference
-        // {
-        //     std::unique_lock<std::mutex> lock(queueMutex);
-        //     queueFull.wait(lock, [&runningTasks, maxNumberWorkerThreads] {
-        //         // Clean up any completed tasks
-        //         runningTasks.erase(
-        //             std::remove_if(
-        //                 runningTasks.begin(), runningTasks.end(),
-        //                 [](std::future<void>& f) {
-        //                     return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
-        //                 }),
-        //             runningTasks.end()
-        //         );
-        //         return static_cast<int>(runningTasks.size()) < maxNumberWorkerThreads;
-        //     });
-        // }
 
-        // Launch deconvolution asynchronously, no real memory copies as all is passed by reference or pointer
+        const BoxEntryPair<std::vector<std::shared_ptr<PSF>>> psfs = psfMap.get(cubeIndex);
 
-        // std::vector<const ComplexData*> psfs = selectPSFsForCube(cubeIndex);
-        BoxEntryPair psfs = psfMap.get(cubeIndex);
-        RectangleShape padding = getCubePadding(psfs.box);
+        BoxCoord srcBox = psfs.box;
+        RectangleShape padding = getCubePadding(psfs.entry);
+        RectangleShape workShape = srcBox.dimensions + padding * 2;
 
-        std::vector<cv::Mat> cubeImage = getCubeImage(image, psfs.box, padding);
-
-        RectangleShape workShape = RectangleShape(psfs.box.width, psfs.box.height, psfs.box.depth) + padding * 2;
+        std::vector<cv::Mat> cubeImage = getCubeImage(inputImagePadded, srcBox, padding, imagePaddingShift);
+        
         std::vector<const ComplexData*> preprocessedPSFs;
         for (auto& psf : psfs.entry){
             preprocessedPSFs.emplace_back(psfPreprocessor.getPreprocessedPSF(workShape, psf));
         }
-
-        // Capture values by copy/move to avoid unnecessary copies while maintaining mutability
-        BoxCoord srcBox = psfs.box;
-
+ 
         auto task = [this, cubeIndex, 
                      cubeImage = std::move(cubeImage), 
                      preprocessedPSFs = std::move(preprocessedPSFs), 
                      srcBox = std::move(srcBox), 
                      workShape = std::move(workShape),
+                     padding = std::move(padding),
                      &loadingBarMutex, &writerMutex, &memoryMutex, &memoryFull, &memoryAvailable,
-                     &processedCount, &numberCubes, &image, &runningTasks]() mutable {
+                     &processedCount, &numberCubes, &outputImage, &runningTasks]() mutable {
             try{
                 deconvolveSingleCube(
                     backend_,
@@ -199,11 +165,10 @@ void DeconvolutionProcessor::parallelDeconvolution(
                 {
                     std::unique_lock<std::mutex> lock(loadingBarMutex);
                     loadingBar(++processedCount, numberCubes);
-
                 }
                 {
                     std::unique_lock<std::mutex> lock(writerMutex);
-                    Postprocessor::insertCubeInImage(cubeImage, image, srcBox, workShape);
+                    Postprocessor::insertCubeInImage(cubeImage, outputImage, srcBox, padding);
                 }
                 {
                     std::unique_lock<std::mutex> lock(memoryMutex);
@@ -274,9 +239,64 @@ void DeconvolutionProcessor::deconvolveSingleCube(
 }
 
 
+// TODOmove to preprocessor
+std::vector<cv::Mat> DeconvolutionProcessor::getCubeImage(const std::vector<cv::Mat>& paddedImage, const BoxCoord& coords, const RectangleShape& cubePadding, const RectangleShape& imagePaddingShift){
+    // remember that coords is for the original image, not the padded Image, so it has to be shifted, so the paddingShift member variable can be used
+    assert(coords.x >= 0 && coords.y >= 0 && coords.z >= 0 && "getCubeImage source Box coordinates must be non-negative");
+    assert(coords.x + coords.dimensions.width <= paddedImage[0].cols && "getCubeImage cube extends beyond image width");
+    assert(coords.y + coords.dimensions.height <= paddedImage[0].rows && "getCubeImage cube extends beyond image height");
+    assert(coords.z + coords.dimensions.depth <= static_cast<int>(paddedImage.size()) && "getCubeImage cube extends beyond image depth");
+    assert(imagePaddingShift >= cubePadding && "getCubeImage too little image padding");
+
+    std::vector<cv::Mat> cube;
+    cube.reserve(coords.dimensions.depth + 2 * cubePadding.depth);
+    
+    // Triple nested loop to iterate through all cube positions with padding
+    int xImage = coords.x + imagePaddingShift.width - cubePadding.width;
+    int yImage = coords.y + imagePaddingShift.height - cubePadding.height;
 
 
-void DeconvolutionProcessor::postprocessChannel(ImageMetaData& metaData, std::vector<cv::Mat>& image){
+    for (int zCube = 0; zCube < coords.dimensions.depth + 2 * cubePadding.depth; ++zCube) {
+        
+
+        // Define the ROI in the source image
+        cv::Rect imageROI(xImage, yImage, coords.dimensions.width + 2 * cubePadding.width, coords.dimensions.height + 2 * cubePadding.height);
+        int zImage = zCube + coords.z + imagePaddingShift.depth - cubePadding.depth;
+        cv::Mat slice(coords.dimensions.height + 2 * cubePadding.height, coords.dimensions.width + 2 * cubePadding.width, CV_32F, cv::Scalar(0));
+
+        // Copy from the source image ROI to the entire slice
+        paddedImage[zImage](imageROI).copyTo(slice);
+
+        cube.push_back(std::move(slice));
+    }
+    
+    return cube;
+}
+
+RectangleShape DeconvolutionProcessor::getCubePadding(const std::vector<std::shared_ptr<PSF>> psfs){
+    RectangleShape maxPsfShape{0, 0, 0};
+    
+    // Find the largest PSF dimensions
+    for (const auto& psf : psfs) {
+        int psfWidth = psf->image.slices[0].cols;
+        int psfHeight = psf->image.slices[0].rows;
+        int psfDepth = static_cast<int>(psf->image.slices.size());
+        
+        maxPsfShape.width = std::max(maxPsfShape.width, psfWidth);
+        maxPsfShape.height = std::max(maxPsfShape.height, psfHeight);
+        maxPsfShape.depth = std::max(maxPsfShape.depth, psfDepth);
+    }
+    
+    // Return half of the largest PSF dimensions
+    return RectangleShape(
+        static_cast<int>(maxPsfShape.width / 2),
+        static_cast<int>(maxPsfShape.height / 2),
+        static_cast<int>(maxPsfShape.depth / 2)
+    );
+}
+
+
+void DeconvolutionProcessor::postprocessChannel(std::vector<cv::Mat>& image){
 
 
     Postprocessor::cropToOriginalSize(image, imageOriginalShape);
@@ -297,21 +317,15 @@ void DeconvolutionProcessor::postprocessChannel(ImageMetaData& metaData, std::ve
     }
 }
 
-void DeconvolutionProcessor::init(const Hyperstack& input, ImageMap<std::shared_ptr<PSF>>& psfs){
+void DeconvolutionProcessor::init(const Hyperstack& input, const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfs){
     if (!configured){
         std::__throw_runtime_error("Processor not configured");
     }
-    // size_t memoryPerCube = getMemoryPerCube(numberThreads);
 
-    setImageOriginalShape(input.channels[0]);
-    // setPSFOriginalShape(psfs.front()); // TODO for multiple psfs this would have to be the largest psf to get the proper padding
     setImageShapePadded(psfs);
-    // setWorkShapes(imageOriginalShape, psfOriginalShape, memoryPerCube);
-    // setupCubeArrangement();
    
     algorithm_->setBackend(backend_);
 
-    // preprocessPSFs(psfs, psfIDMap);
 
 }
 
@@ -327,6 +341,7 @@ void DeconvolutionProcessor::configure(const DeconvolutionConfig config) {
     BackendFactory& bf = BackendFactory::getInstance();
 
     this->backend_ = bf.create(config.backenddeconv);
+    this->backend_->mutableMemoryManager().setMemoryLimit(config.maxMem_GB * 1e9);
     this->cpuMemoryManager= bf.createMemManager(config.backenddeconv);
 
     numberThreads = config.backenddeconv == "cuda" ? 1 : config.nThreads; // TODO change
@@ -349,12 +364,12 @@ void DeconvolutionProcessor::setImageOriginalShape(const Channel& channel) {
 }
 
 
-void DeconvolutionProcessor::setImageShapePadded(const ImageMap<std::shared_ptr<PSF>>& psfs){
-    RectangleShape padding = getPadding(psfs);
+void DeconvolutionProcessor::setImageShapePadded(const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfs){
+    RectangleShape padding = getImagePadding(psfs);
     imageShapePadded = imageOriginalShape + padding;
 }
 
-RectangleShape DeconvolutionProcessor::getPadding(const ImageMap<std::shared_ptr<PSF>>& psfs){
+RectangleShape DeconvolutionProcessor::getImagePadding(const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfs){ // pad to largest psf
     RectangleShape padding{0,0,0};
     RectangleShape currentEntry;
     for (auto& it : psfs){
@@ -377,6 +392,11 @@ RectangleShape DeconvolutionProcessor::getPadding(const ImageMap<std::shared_ptr
 }
 
 
+size_t DeconvolutionProcessor::memoryForShape(const RectangleShape& shape){
+    size_t algorithmMemoryMultiplier = algorithm_->getMemoryMultiplier(); // how many copies of a cube does each algorithm have
+    size_t memory = sizeof(complex) * shape.volume * algorithmMemoryMultiplier;
+    return memory;
+}
 
 // Conversion Functions
 ComplexData DeconvolutionProcessor::convertCVMatVectorToFFTWComplex(
@@ -429,50 +449,7 @@ std::vector<cv::Mat> DeconvolutionProcessor::convertFFTWComplexToCVMatVector(con
 }
 
 
-// void DeconvolutionProcessor::setWorkShapes(
-//     const RectangleShape& imageOriginalShape,
-//     const RectangleShape& padding,
-//     size_t memoryPerCube
-// ) {
-//     // this function determines the shape into which the input image is cut
-//     // current strategy is to only slice the largest dimension while leaving the smaller two dimensions the same shape
-//     // the constraints are that all threads should be used but it all needs to fit on the available memory
-//     // due to padding it is most optimal (smallest 3dshape) to have all dimensions the same size as this reduces the increase in volume caused by padding
-//     // but this is difficult as we want to have all threads have a similar workload aswell as reducing the overhead of each thread having to read/write more than once
-//     // ideally we have number of cubes (all dim same length) of equal size equal to number of threads
-//     // there are different strategies to split the original image but this is just what I went with
-//     // it is useful to keep all cubes the same dimensionality as the psfs then only need to be transformed once into that shape and the fftw plans can be reused
 
-//     imageShapePadded = imageOriginalShape + padding;
-
-//     size_t maxMemCubeVolume = memoryPerCube / sizeof(complex); // cut into pieces so that they still fit on memory
-
-//     subimageShape = imageOriginalShape;
-//     std::array<int*, 3> sortedDimensionsSubimage = subimageShape.getDimensionsAscending();
-//     size_t maxThreadcubeLargestDim = (*sortedDimensionsSubimage[2] + numberThreads -1) / numberThreads; // ceiling divide
-
-//     RectangleShape tempPadded = imageOriginalShape + padding;
-//     std::array<int*, 3> sortedDimensionsPadded = tempPadded.getDimensionsAscending();
-//     size_t maxMemCubeLargestDim = maxMemCubeVolume / (*sortedDimensionsPadded[0] * *sortedDimensionsPadded[1]);
-
-//     *sortedDimensionsSubimage[2] = std::min(maxMemCubeLargestDim, maxThreadcubeLargestDim);
-//     assert(*sortedDimensionsSubimage[2] != 0 && "[ERROR] setWorkShapes: not enough memory to fit a single slice of the image");
-
-
-//     subimageShape.updateVolume();
-//     cubeShapePadded = subimageShape + padding;
-//     // TODO could also start halfing the other dimension until it fits
-//     // idea: always half the largest dimension until:
-//     //      number of cubes = number of threads && size of cubes fits on memory
-
-//     // size_t cubeVolume = std::min(memCubeVolume, threadCubeVolume);
-//     // double scaleFactor = std::cbrt( static_cast<double>(cubeVolume) / imageShapePadded.volume);
-//     // subimageShape = imageOriginalShape * scaleFactor;
-//     // subimageShape.clamp(imageOriginalShape);
-
-//     // cubeShapePadded = subimageShape + padding;
-
-// }
 
 
 
@@ -499,6 +476,7 @@ std::vector<cv::Mat> DeconvolutionProcessor::convertFFTWComplexToCVMatVector(con
 
     
 // }
+
 
 
 

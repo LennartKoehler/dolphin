@@ -16,72 +16,6 @@ See the LICENSE file provided with the code for the full license.
 #include <opencv2/core.hpp>
 
 
-std::vector<BoxCoord> Preprocessor::splitImageHomogeneous(
-    const RectangleShape& subimageShape,
-    const RectangleShape& imageOriginalShape 
-){
-    std::vector<BoxCoord> cubePositions;
-    // Calculate number of cubes in each dimension
-    int cubesInDepth = (imageOriginalShape.depth + subimageShape.depth - 1) / subimageShape.depth;
-    int cubesInWidth = (imageOriginalShape.width + subimageShape.width - 1) / subimageShape.width;
-    int cubesInHeight = (imageOriginalShape.height + subimageShape.height - 1) / subimageShape.height;
-    
-    // Calculate total number of cubes
-    int totalCubes = cubesInDepth * cubesInWidth * cubesInHeight;
-    cubePositions.reserve(totalCubes);
-
-    assert(imageOriginalShape >= subimageShape &&  "[ERROR] subimage has to be smaller than image");   
-    for (int d = 0; d < cubesInDepth; ++d) {
-        for (int w = 0; w < cubesInWidth; ++w) {
-            for (int h = 0; h < cubesInHeight; ++h) {
-                
-                // Calculate current position in original image coordinates
-                RectangleShape currentPos(
-                    w * subimageShape.width,
-                    h * subimageShape.height,
-                    d * subimageShape.depth
-                );
-
-                // Calculate remaining size for this cube
-                RectangleShape remainingSize(
-                    std::min(subimageShape.width, imageOriginalShape.width - w * subimageShape.width),
-                    std::min(subimageShape.height, imageOriginalShape.height - h * subimageShape.height),
-                    std::min(subimageShape.depth, imageOriginalShape.depth - d * subimageShape.depth)
-                );
-
-                // Skip if no remaining size (shouldn't happen with proper calculation)
-                if (remainingSize.depth <= 0 || remainingSize.width <= 0 || remainingSize.height <= 0) {
-                    continue;
-                }
-
-                // Determine actual cube positions - use overlap for boundary cubes
-                RectangleShape actualPos = currentPos;
-                
-                // If this would be the last cube and doesn't fit completely, shift it back to create overlap
-                if (remainingSize.depth < subimageShape.depth && remainingSize.depth > 0) {
-                    actualPos.depth = currentPos.depth - (subimageShape.depth - remainingSize.depth);
-                }
-                if (remainingSize.width < subimageShape.width && remainingSize.width > 0) {
-                    actualPos.width = currentPos.width - (subimageShape.width - remainingSize.width);
-                }
-                if (remainingSize.height < subimageShape.height && remainingSize.height > 0) {
-                    actualPos.height = currentPos.height - (subimageShape.height - remainingSize.height);
-                }
-                BoxCoord cube;
-                cube.x = actualPos.width;
-                cube.y = actualPos.height;
-                cube.z = actualPos.depth;
-                cube.width = subimageShape.width;
-                cube.height = subimageShape.height;
-                cube.depth = subimageShape.depth;
-                cubePositions.push_back(std::move(cube));
-            }
-        }
-    }
-
-    return cubePositions;
-}
-
 std::vector<std::vector<cv::Mat>> Preprocessor::splitImageHomogeneous(
     std::vector<cv::Mat>& image,
     const RectangleShape& subimageShape,
@@ -189,8 +123,8 @@ std::vector<std::vector<cv::Mat>> Preprocessor::splitImageHomogeneous(
 
 
 
-void Preprocessor::padToShape(std::vector<cv::Mat>& image3D, const RectangleShape& targetShape, int borderType){
-    if (image3D.empty()) return;
+RectangleShape Preprocessor::padToShape(std::vector<cv::Mat>& image3D, const RectangleShape& targetShape, int borderType){
+    if (image3D.empty()) return RectangleShape{0,0,0};
     
     int currentDepth = image3D.size();
     int currentHeight = image3D[0].rows;
@@ -201,15 +135,18 @@ void Preprocessor::padToShape(std::vector<cv::Mat>& image3D, const RectangleShap
     int totalHeightPadding = targetShape.height - currentHeight;
     int totalWidthPadding = targetShape.width - currentWidth;
     
+    int depthPaddingBefore;
+    int heightPaddingTop;
+    int widthPaddingLeft;
     // If no padding needed, return early
     if (totalDepthPadding <= 0 && totalHeightPadding <= 0 && totalWidthPadding <= 0) {
-        return;
+        return RectangleShape{0,0,0};
     }
     
     // Handle depth padding (3D)
     if (totalDepthPadding > 0) {
         // Distribute padding: put extra padding at the end if odd
-        int depthPaddingBefore = totalDepthPadding / 2;
+        depthPaddingBefore = totalDepthPadding / 2;
         int depthPaddingAfter = totalDepthPadding - depthPaddingBefore;
         
         std::vector<cv::Mat> paddingBefore, paddingAfter;
@@ -257,9 +194,9 @@ void Preprocessor::padToShape(std::vector<cv::Mat>& image3D, const RectangleShap
     
     // Handle 2D padding (width/height) - OpenCV automatically handles continuous reflection
     if (totalHeightPadding > 0 || totalWidthPadding > 0) {
-        int heightPaddingTop = totalHeightPadding / 2;
+        heightPaddingTop = totalHeightPadding / 2;
         int heightPaddingBottom = totalHeightPadding - heightPaddingTop;
-        int widthPaddingLeft = totalWidthPadding / 2;
+        widthPaddingLeft = totalWidthPadding / 2;
         int widthPaddingRight = totalWidthPadding - widthPaddingLeft;
         
         for (auto& layer : image3D) {
@@ -269,6 +206,7 @@ void Preprocessor::padToShape(std::vector<cv::Mat>& image3D, const RectangleShap
                              borderType);
         }
     }
+    return RectangleShape{widthPaddingLeft, heightPaddingTop, depthPaddingBefore};
 }
 
 

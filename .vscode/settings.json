@@ -73,9 +73,5 @@
         "typeinfo": "cpp",
         "valarray": "cpp",
         "variant": "cpp"
-    },
-"workbench.editor.enablePreview": false,
-"workbench.editor.enablePreviewFromQuickOpen": false,
-"roo-cline.diffViewAutoFocus": false,
-    "editor.lineNumbers": "relative"
+    }
 }

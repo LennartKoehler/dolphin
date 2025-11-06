@@ -276,7 +276,7 @@ public:
     int borderType = cv::BORDER_REFLECT;
     std::string backenddeconv = "cpu";
     int nThreads = 1;
-    float maxMemGB = 0;
+    float maxMem_GB = 0;
     bool verbose = false;
     RangeMap<std::string> cubePSFMap;
     RangeMap<std::string> layerPSFMap;

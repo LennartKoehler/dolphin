@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #include "DeconvolutionService.h"
 #include "PSFCreator.h"
 #include "deconvolution/DeconvolutionProcessor.h"
+#include "deconvolution/deconvolutionStrategies/HomogeneousCubesStrategy.h"
 #include <chrono>
 #include <fstream>
 #include "UtlIO.h"
@@ -114,10 +115,8 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         
         deconvolutionProcessor->configure(*(deconvConfig.get()));
 
-        ImageMap<std::shared_ptr<PSF>> psfMap;
-        psfMap.add(BoxCoord{0,0,0,10,10,10}, std::vector<std::shared_ptr<PSF>>{std::make_shared<PSF>(psfs[0])}); // TESTVALUE
-
-        Hyperstack result = deconvolutionProcessor->run(*hyperstack, psfMap);
+        HomogeneousCubesStrategy strategy;
+        Hyperstack result = deconvolutionProcessor->run(*hyperstack, psfs, strategy);
         
         // Handle saving
         std::string output_path = request.output_path;

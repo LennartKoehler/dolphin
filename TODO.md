@@ -1,3 +1,24 @@
+- make the DeconvolutionProcessor take a deconvolutionStrategy instead of the imagemap directly
+    -> deconvolutionStrategy is then an object that is passed from frontend to backend, and can take modifications the entire way
+    -> it saves the psfs and perhaps other data, can then be more modified by the deconvolutionprocessor, e.g. using infor from the backend to optimize the cubes more
+    -> and then finally it gives the actual strategy used for deconvolution
+    -> it functions more of as a "builder" that is modified along the way, taking input from frontned (e.g. gui) but also backend (e.g. algorithmNumberMultiplier)
+    -> and it holds the promise that at the end it can provide an imagemap which is what is then used by the deconvolutionprocessor
+
+- gpubackend should now also support multithreading (cuda streams) as the cubes are no longer only for performance, make the homogeneouscube
+
+- make the maps for pre and postprocessing which indicate where each value comes from, dont actually copy though, as this is unneccessary. Then integrate these maps into the fftw_cvMat conversion, where a copy is inevitable -> LK do i actually care that much about there copies?
+
+
+
+
+
+
+
+
+
+
+
 
 
 

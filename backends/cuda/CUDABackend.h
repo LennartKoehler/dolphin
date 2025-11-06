@@ -5,9 +5,17 @@
 #include <CUBE.h>
 #include <cuda_runtime.h>
 #include <map>
+#include <condition_variable>
 
 class CUDABackendMemoryManager : public IBackendMemoryManager{
 public:
+    // Constructor
+    CUDABackendMemoryManager();
+    ~CUDABackendMemoryManager();
+    
+    // Memory management initialization
+    void setMemoryLimit(size_t maxMemorySize = 0) override;
+    
     // Data management
     void memCopy(const ComplexData& srcdata, ComplexData& destdata) const override;
     void allocateMemoryOnDevice(ComplexData& data) const override;
@@ -19,6 +27,15 @@ public:
     void freeMemoryOnDevice(ComplexData& data) const override;
     size_t getAvailableMemory() const override;
 
+private:
+    // Memory management
+    mutable size_t maxMemorySize;
+    mutable size_t totalUsedMemory;
+    mutable std::mutex memoryMutex;
+    mutable std::condition_variable memoryCondition;
+    
+    // Helper method to wait for memory availability
+    void waitForMemory(size_t requiredSize) const;
 };
 
 class CUDADeconvolutionBackend : public IDeconvolutionBackend{

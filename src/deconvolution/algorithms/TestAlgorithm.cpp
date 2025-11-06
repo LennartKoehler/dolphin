@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 void TestAlgorithm::configure(const DeconvolutionConfig& config){}
 void TestAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f){
     backend->getMemoryManager().memCopy(g, f);
+    backend->getDeconvManager().forwardFFT(f,f);
     // backend->getDeconvManager().hasNAN(f);
 }
 std::unique_ptr<DeconvolutionAlgorithm> TestAlgorithm::cloneSpecific() const{return std::make_unique<TestAlgorithm>();}

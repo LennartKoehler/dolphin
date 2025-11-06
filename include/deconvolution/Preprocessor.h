@@ -36,12 +36,13 @@ public:
         preprocessingFunction = std::move(func);
     }
 
-    const ComplexData* getPreprocessedPSF(RectangleShape& shape, std::shared_ptr<PSF>& psf) {
+    const ComplexData* getPreprocessedPSF(RectangleShape& shape, const std::shared_ptr<PSF>& psf) {
         Key key{shape, psf->ID};
 
         auto it = preprocessedPSFs.find(key);
         if (it == preprocessedPSFs.end()) {
-            ComplexData* rawPtr = preprocessingFunction(shape, psf); 
+            std::shared_ptr<PSF> psfCopy = std::make_shared<PSF>(*psf);
+            ComplexData* rawPtr = preprocessingFunction(shape, psfCopy); 
             // take ownership
             auto [insertedIt, _] = preprocessedPSFs.emplace(
                 std::move(key), std::unique_ptr<ComplexData>(rawPtr)
@@ -57,9 +58,7 @@ private:
 
 };
 namespace Preprocessor{
-    std::vector<BoxCoord> splitImageHomogeneous(
-        const RectangleShape& subimageShape,
-        const RectangleShape& imageOriginalShape);
+
 
     std::vector<std::vector<cv::Mat>> splitImageHomogeneous(
         std::vector<cv::Mat>& image,
@@ -71,7 +70,7 @@ namespace Preprocessor{
     void expandToMinSize(std::vector<cv::Mat>& image, const RectangleShape& minSize);
 
 
-    void padToShape(std::vector<cv::Mat>& image3D, const RectangleShape& targetShape, int borderType);
+    RectangleShape padToShape(std::vector<cv::Mat>& image3D, const RectangleShape& targetShape, int borderType);
 
 
 }
