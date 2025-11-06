@@ -42,7 +42,25 @@ extern "C" IBackendMemoryManager* createBackendMemoryManager() {
     return new CUDABackendMemoryManager();
 }
 
+// CUDABackendMemoryManager implementation
+CUDABackendMemoryManager::CUDABackendMemoryManager()
+    : maxMemorySize(getAvailableMemory()), totalUsedMemory(0) {
+}
 
+CUDABackendMemoryManager::~CUDABackendMemoryManager() {
+    // No cleanup needed for simple memory tracking
+}
+
+void CUDABackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
+    this->maxMemorySize = maxMemorySize;
+}
+
+void CUDABackendMemoryManager::waitForMemory(size_t requiredSize) const {
+    std::unique_lock<std::mutex> lock(memoryMutex);
+    memoryCondition.wait(lock, [this, requiredSize]() {
+        return maxMemorySize == 0 || (totalUsedMemory + requiredSize) <= maxMemorySize;
+    });
+}
 
 bool CUDABackendMemoryManager::isOnDevice(void* ptr) const {
     if (ptr == nullptr) return false;
@@ -134,12 +152,21 @@ void CUDABackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     
     // Allocate CUDA memory with unified exception handling
     size_t requested_size = data.size.volume * sizeof(complex);
+    
+    // Wait for memory if max memory limit is set
+    waitForMemory(requested_size);
+    
     void* devicePtr = nullptr;
     cudaError_t err = cudaMalloc(&devicePtr, requested_size);
     if (err != cudaSuccess){
         MEMORY_ALLOC_CHECK(data.data, requested_size, "CUDA", "allocateMemoryOnDevice");
     }
     data.data = static_cast<complex*>(devicePtr);
+    
+    // Update memory tracking
+    std::unique_lock<std::mutex> lock(memoryMutex);
+    totalUsedMemory += requested_size;
+    
     data.backend = this;
 }
 
@@ -183,8 +210,17 @@ ComplexData CUDABackendMemoryManager::copyData(const ComplexData& srcdata) const
 
 void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
     BACKEND_CHECK(srcdata.data != nullptr, "Attempting to free null pointer", "CUDA", "freeMemoryOnDevice");
+    size_t requested_size = srcdata.size.volume * sizeof(complex);
     cudaError_t err = cudaFree(srcdata.data);
     CUDA_CHECK(err, "freeMemoryOnDevice");
+    
+    // Update memory tracking
+    std::unique_lock<std::mutex> lock(memoryMutex);
+    totalUsedMemory = std::max(totalUsedMemory - requested_size, static_cast<size_t>(0));
+    
+    // Notify waiting threads that memory is now available
+    memoryCondition.notify_all();
+    
     srcdata.data = nullptr;
 }
 

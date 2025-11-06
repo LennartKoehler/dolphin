@@ -21,11 +21,17 @@ See the LICENSE file provided with the code for the full license.
 #include "ThreadPool.h"
 #include "ImageMap.h"
 #include "Preprocessor.h"
-
+#include "deconvolutionStrategies/DeconvolutionStrategy.h"
 
 
 class IBackend;
 
+struct DeconvolutionCubeTask{
+    BoxCoord originalImageLocation;
+    BoxCoord cubeLocation;
+    std::vector<cv::Mat> cube;
+    std::vector<const ComplexData*> preprocessedpsfs;
+};
 /**
  * Abstract base class for deconvolution algorithms that separates common,
  * execution-agnostic functionality from backend-specific operations.
@@ -39,9 +45,12 @@ class IBackend;
  * Backend-specific operations are left as pure virtual methods to be
  * implemented by concrete algorithm classes (CPU, GPU, etc.).
  */
+
 class DeconvolutionProcessor{
 public:
-    Hyperstack run(Hyperstack& input, ImageMap<std::shared_ptr<PSF>>& psfMap); // careful, this edits input inplace
+    // it is up to the client to make the psfMapp efficient, e.g. by using the appropriate cubeSize, and using as little different cube sizes as possible
+    // the deconvolutionprocessor simply processes the input
+    Hyperstack run(const Hyperstack& image, const std::vector<PSF>& psfs, DeconvolutionStrategy& strategy);
 
     DeconvolutionProcessor();
 
@@ -51,8 +60,8 @@ public:
 
 private:
  
-    void init(const Hyperstack& input, ImageMap<std::shared_ptr<PSF>>& psfs);
-    void parallelDeconvolution(std::vector<cv::Mat>& image, ImageMap<std::shared_ptr<PSF>>& psfMap);
+    void init(const Hyperstack& input, const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfs);
+    void parallelDeconvolution(const std::vector<cv::Mat>& image, std::vector<cv::Mat>& output, const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfMap, const RectangleShape& paddingShift);
     void deconvolveSingleCube(
         std::shared_ptr<IBackend> backend,
         std::unique_ptr<DeconvolutionAlgorithm> algorithm,
@@ -61,18 +70,20 @@ private:
         const std::vector<const ComplexData*> psfs_host);
 
 
-    void postprocessChannel(ImageMetaData& metaData, std::vector<cv::Mat>& image);
-    RectangleShape getCubePadding(BoxCoord box);
+    void postprocessChannel(std::vector<cv::Mat>& image);
+    RectangleShape getCubePadding(const std::vector<std::shared_ptr<PSF>> psfs);
 
     void setImageOriginalShape(const Channel& channel);
-    void setImageShapePadded(const ImageMap<std::shared_ptr<PSF>>& psfs);
-    RectangleShape getPadding(const ImageMap<std::shared_ptr<PSF>>& psfs);
+    void setImageShapePadded(const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfs);
+    RectangleShape getImagePadding(const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfs);
 
 
 
-    std::vector<cv::Mat> getCubeImage(const std::vector<cv::Mat>& image, BoxCoord box, RectangleShape workShape);
+    std::vector<cv::Mat> getCubeImage(const std::vector<cv::Mat>& image, const BoxCoord& srcbox, const RectangleShape& padding, const RectangleShape& imagePaddingShift);
 
  
+    size_t memoryForShape(const RectangleShape& shape);
+
     ComplexData convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, const RectangleShape& shape);
     std::vector<cv::Mat> convertFFTWComplexToCVMatVector(const ComplexData& input);
 

@@ -21,6 +21,7 @@ See the LICENSE file provided with the code for the full license.
 #include <functional>
 #include "../lib/nlohmann/json.hpp"
 #include "HyperstackImage.h"
+#include "deconvolution/ImageMap.h"
 #include <future>
 
 using json = nlohmann::json;
@@ -132,7 +133,6 @@ public:
 
     void setPSFConfig(std::shared_ptr<PSFConfig> config) { psf_config_ = config; }
     std::shared_ptr<PSFConfig> getPSFConfig() const { return psf_config_; }
-
 
     bool save_separate = false;
     bool save_subimages = false;

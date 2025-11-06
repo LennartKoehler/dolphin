@@ -26,6 +26,11 @@ public:
     // Data management - provide default implementations
     IBackendMemoryManager() = default;
     virtual ~IBackendMemoryManager() = default;
+    
+    // Memory management initialization
+    virtual void setMemoryLimit(size_t maxMemorySize = 0) {
+        NOT_IMPLEMENTED(setMemoryLimit);
+    }
 
     virtual void allocateMemoryOnDevice(ComplexData& data) const {
         NOT_IMPLEMENTED(allocateMemoryOnDevice);

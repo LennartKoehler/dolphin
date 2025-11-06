@@ -1,6 +1,6 @@
 {
   "Deconvolution": {
-    "algorithmName": "RichardsonLucy",
+    "algorithmName": "RichardsonLucyTotalVariation",
     "subimageSize": 500,
     "iterations": 20,
     "epsilon": 1e-6,
@@ -15,14 +15,14 @@
     "saveSubimages": false, 
     "backenddeconv": "cpu",
     "nThreads": 5,
-    "maxMemGB": 3
+    "maxMem_GB": 3
   },
   
 
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
   "psf_file_path": "",
   "psf_dir_path": "",
-  "outputDir": "~/data/dolphin_results",
+  "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   "backend": "cuda",
   "deconvolution_config_path": "",
 

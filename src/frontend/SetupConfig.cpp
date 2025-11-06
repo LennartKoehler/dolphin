@@ -98,7 +98,7 @@ bool SetupConfig::loadFromJSON(const json& jsonData){
 
     if (jsonData.contains("Deconvolution")){
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
-        deconvolutionConfig->loadFromJSON(jsonData);
+        deconvolutionConfig->loadFromJSON(jsonData["Deconvolution"]);
     }
     else{
 

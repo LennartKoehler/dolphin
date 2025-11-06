@@ -45,18 +45,48 @@ extern "C" IBackendMemoryManager* createBackendMemoryManager() {
 }
 
 // CPUBackendMemoryManager implementation
+CPUBackendMemoryManager::CPUBackendMemoryManager()
+    : maxMemorySize(getAvailableMemory()), totalUsedMemory(0) {
+}
+
+CPUBackendMemoryManager::~CPUBackendMemoryManager() {
+    // No cleanup needed for simple memory tracking
+}
+
+void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
+    this->maxMemorySize = maxMemorySize;
+}
+
+void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
+    std::unique_lock<std::mutex> lock(memoryMutex);
+    memoryCondition.wait(lock, [this, requiredSize]() {
+        return maxMemorySize == 0 || (totalUsedMemory + requiredSize) <= maxMemorySize;
+    });
+}
+
+// CPUBackendMemoryManager implementation
 bool CPUBackendMemoryManager::isOnDevice(void* ptr) const {
     // For CPU backend, all valid pointers are "on device"
     return ptr != nullptr;
 }
+
 void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     if (data.data != nullptr) {
         return; // Already allocated
     }
     
     size_t requested_size = sizeof(complex) * data.size.volume;
+    
+    // Wait for memory if max memory limit is set
+    waitForMemory(requested_size);
+    
     data.data = (complex*)fftw_malloc(requested_size);
     MEMORY_ALLOC_CHECK(data.data, requested_size, "CPU", "allocateMemoryOnDevice");
+    
+    // Update memory tracking
+    std::unique_lock<std::mutex> lock(memoryMutex);
+    totalUsedMemory += requested_size;
+    
     data.backend = this;
 }
 
@@ -100,9 +130,17 @@ void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& d
 
 void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     BACKEND_CHECK(data.data != nullptr, "Data pointer is null", "CPU", "freeMemoryOnDevice - data pointer");
+    size_t requested_size = sizeof(complex) * data.size.volume;
     fftw_free(data.data);
+    
+    // Update memory tracking
+    std::unique_lock<std::mutex> lock(memoryMutex);
+    totalUsedMemory = std::max(totalUsedMemory - requested_size, static_cast<size_t>(0));
+    
+    // Notify waiting threads that memory is now available
+    memoryCondition.notify_all();
+    
     data.data = nullptr;
-
 }
 
 size_t CPUBackendMemoryManager::getAvailableMemory() const {

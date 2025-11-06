@@ -4,17 +4,18 @@
 #include <unordered_map>
 #include <stdexcept>
 #include "psf/PSF.h"
+#include "backend/ComplexData.h"
 
 struct BoxCoord {
     int x, y, z;
-    int width, height, depth;
+    RectangleShape dimensions;
 };
 template<typename entryType>
 struct BoxEntryPair {
     BoxCoord box;
-    std::vector<entryType> entry;
+    entryType entry;
     
-    BoxEntryPair(BoxCoord b, std::vector<entryType> p) 
+    BoxEntryPair(BoxCoord b, entryType p) 
         : box(b), entry(std::move(p)) {}
 };
 
@@ -26,11 +27,11 @@ private:
 
 public:
     // Add mapping with any PSF type (ID string or actual PSF object)
-    void add(const BoxCoord& box, const std::vector<entryType>& entry) {
-        entries_.emplace_back(box, entry);
-    }
 
-    BoxEntryPair<entryType>& get(int index){
+    void add(BoxCoord box, entryType entry) {
+        entries_.emplace_back(std::move(box), std::move(entry));
+    }
+    const BoxEntryPair<entryType>& get(int index) const {
         assert(index < size() && "BoxEntryPair out of range");
         return entries_[index];
     }
