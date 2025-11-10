@@ -44,7 +44,8 @@ public:
     void init() override;
     void cleanup() override;
 
-    // FFT functions
+    void initializePlan(const RectangleShape& cube) override;
+     // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;
 
@@ -86,8 +87,8 @@ private:
         FFTPlanPair() : forward(nullptr), backward(nullptr) {}
     };
     
-    void initializeFFTPlans(const RectangleShape& cube);
-    void destroyFFTPlans();
+   void destroyFFTPlans();
+
     FFTPlanPair* getPlanPair(const RectangleShape& shape);
     
     std::map<RectangleShape, FFTPlanPair> planMap;

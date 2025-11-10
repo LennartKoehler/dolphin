@@ -56,7 +56,11 @@ void CUDABackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
 }
 
 void CUDABackendMemoryManager::waitForMemory(size_t requiredSize) const {
+
     std::unique_lock<std::mutex> lock(memoryMutex);
+    if ((totalUsedMemory + requiredSize) > maxMemorySize){
+        std::cerr << "CUDABackend out  memory, waiting for memory to free up" << std::endl;
+    }
     memoryCondition.wait(lock, [this, requiredSize]() {
         return maxMemorySize == 0 || (totalUsedMemory + requiredSize) <= maxMemorySize;
     });
@@ -182,21 +186,18 @@ ComplexData CUDABackendMemoryManager::copyDataToDevice(const ComplexData& srcdat
 }
 
 ComplexData CUDABackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const {
-    complex* temp;
     if (&destBackend == this){
         return srcdata;
     }
-    else{
+ 
+    ComplexData destdata = destBackend.allocateMemoryOnDevice(srcdata.size);
 
-        temp = (complex*) fftw_malloc(sizeof(complex) * srcdata.size.volume);
-
-        if (srcdata.data != nullptr){
-            CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, temp, srcdata.data);
-        }
+    if (srcdata.data != nullptr){
+        CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, destdata.data, srcdata.data);
+    
     }
 
-    ComplexData destdata{&destBackend, temp, srcdata.size};
-    return destBackend.copyDataToDevice(destdata);
+    return destdata;
 }
 
 ComplexData CUDABackendMemoryManager::copyData(const ComplexData& srcdata) const {
@@ -216,8 +217,12 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
     
     // Update memory tracking
     std::unique_lock<std::mutex> lock(memoryMutex);
-    totalUsedMemory = std::max(totalUsedMemory - requested_size, static_cast<size_t>(0));
-    
+    if( totalUsedMemory < requested_size){
+        totalUsedMemory = static_cast<size_t>(0); // this should never happen
+    }
+    else{
+        totalUsedMemory = totalUsedMemory - requested_size;
+    }
     // Notify waiting threads that memory is now available
     memoryCondition.notify_all();
     
@@ -263,7 +268,7 @@ void CUDADeconvolutionBackend::cleanup(){
     std::cout << "[STATUS] CUDA backend postprocessing completed" << std::endl;
 }
 
-void CUDADeconvolutionBackend::initializeFFTPlans(const RectangleShape& shape){
+void CUDADeconvolutionBackend::initializePlan(const RectangleShape& shape){
     
     // Check if plan already exists for this shape (double-check pattern)
     if (planMap.find(shape) != planMap.end()) {
@@ -276,13 +281,13 @@ void CUDADeconvolutionBackend::initializeFFTPlans(const RectangleShape& shape){
     CUFFTPlanPair& planPair = planMap[shape];
     
     // Create forward FFT plan
-    CUFFT_CHECK(cufftCreate(&planPair.forward), "initializeFFTPlans - forward plan creation");
-    CUFFT_CHECK(cufftMakePlan3d(planPair.forward, shape.depth, shape.height, shape.width, CUFFT_Z2Z, &tempSize), "initializeFFTPlans - forward plan setup");
+    CUFFT_CHECK(cufftCreate(&planPair.forward), "initializePlan - forward plan creation");
+    CUFFT_CHECK(cufftMakePlan3d(planPair.forward, shape.depth, shape.height, shape.width, CUFFT_Z2Z, &tempSize), "initializePlan - forward plan setup");
 
     
     // Create backward FFT plan
-    CUFFT_CHECK(cufftCreate(&planPair.backward), "initializeFFTPlans - backward plan creation");
-    CUFFT_CHECK(cufftMakePlan3d(planPair.backward, shape.depth, shape.height, shape.width, CUFFT_Z2Z, &tempSize), "initializeFFTPlans - backward plan setup");
+    CUFFT_CHECK(cufftCreate(&planPair.backward), "initializePlan - backward plan creation");
+    CUFFT_CHECK(cufftMakePlan3d(planPair.backward, shape.depth, shape.height, shape.width, CUFFT_Z2Z, &tempSize), "initializePlan - backward plan setup");
 
     std::cout << "[DEBUG] Successfully created cuFFT plans for shape: " 
               << shape.width << "x" << shape.height << "x" << shape.depth << std::endl;
@@ -323,7 +328,7 @@ void CUDADeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& ou
         // Double-check pattern: another thread might have created it while we waited for the lock
         planPair = const_cast<CUDADeconvolutionBackend*>(this)->getPlanPair(in.size);
         if (planPair == nullptr) {
-            const_cast<CUDADeconvolutionBackend*>(this)->initializeFFTPlans(in.size);
+            const_cast<CUDADeconvolutionBackend*>(this)->initializePlan(in.size);
             planPair = const_cast<CUDADeconvolutionBackend*>(this)->getPlanPair(in.size);
         }
     }
@@ -344,7 +349,7 @@ void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& o
         // Double-check pattern: another thread might have created it while we waited for the lock
         planPair = const_cast<CUDADeconvolutionBackend*>(this)->getPlanPair(in.size);
         if (planPair == nullptr) {
-            const_cast<CUDADeconvolutionBackend*>(this)->initializeFFTPlans(in.size);
+            const_cast<CUDADeconvolutionBackend*>(this)->initializePlan(in.size);
             planPair = const_cast<CUDADeconvolutionBackend*>(this)->getPlanPair(in.size);
         }
     }

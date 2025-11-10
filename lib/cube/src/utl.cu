@@ -243,7 +243,7 @@ namespace CUBE_UTL_COPY {
 
         cudaMemcpy(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyHostToDevice);
 
-        cudaDeviceSynchronize();
+        
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
@@ -264,7 +264,7 @@ namespace CUBE_UTL_COPY {
         cudaEventRecord(start);
 
         cudaMemcpy(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToHost);
-        cudaDeviceSynchronize();
+        
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
@@ -284,7 +284,7 @@ namespace CUBE_UTL_COPY {
         cudaEventRecord(start);
 
         cudaMemcpy(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToDevice);
-        cudaDeviceSynchronize();
+        
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
@@ -317,7 +317,7 @@ namespace CUBE_UTL_CONVERT {
                       (Nz + blockSize.z - 1) / blockSize.z);  // Grid-Größe
 
         fftwToCuComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, cuArr, fftwArrDevice);
-        cudaDeviceSynchronize();
+        
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
             std::cerr << "CUDA error at convertFFTWToCuComplex: " << cudaGetErrorString(err) << std::endl;
@@ -345,7 +345,7 @@ namespace CUBE_UTL_CONVERT {
 
         fftwToCufftComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, cuArr, fftwArrDevice);
 
-        cudaDeviceSynchronize();
+        
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
             std::cerr << "CUDA error at convertFFTWToCuComplex: " << cudaGetErrorString(err) << std::endl;
@@ -372,7 +372,7 @@ namespace CUBE_UTL_CONVERT {
                       (Nz + blockSize.z - 1) / blockSize.z);  // Grid-Größe
 
         cuToFftwComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, fftwArrDevice, cuArr);
-        cudaDeviceSynchronize();
+        
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
             std::cerr << "CUDA error at convertCuComplexToFFTW: " << cudaGetErrorString(err) << std::endl;
@@ -399,7 +399,7 @@ namespace CUBE_UTL_CONVERT {
                       (Nz + blockSize.z - 1) / blockSize.z);  // Grid-Größe
 
         cufftToFftwComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, fftwArrDevice, cuArr);
-        cudaDeviceSynchronize();
+        
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
             std::cerr << "CUDA error at convertCuComplexToFFTW: " << cudaGetErrorString(err) << std::endl;

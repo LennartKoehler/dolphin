@@ -36,7 +36,9 @@ target_link_libraries(cpu_backend PRIVATE
 # Set proper output name
 set_target_properties(cpu_backend PROPERTIES OUTPUT_NAME "cpu_backend")
 
-# Optionally, specify library output directory
+# Specify library output directory
 set_target_properties(cpu_backend PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/backends/cpu
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/backends/cpu
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/backends/cpu
 )

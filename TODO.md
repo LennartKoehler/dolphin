@@ -1,24 +1,23 @@
-- make the DeconvolutionProcessor take a deconvolutionStrategy instead of the imagemap directly
-    -> deconvolutionStrategy is then an object that is passed from frontend to backend, and can take modifications the entire way
-    -> it saves the psfs and perhaps other data, can then be more modified by the deconvolutionprocessor, e.g. using infor from the backend to optimize the cubes more
-    -> and then finally it gives the actual strategy used for deconvolution
-    -> it functions more of as a "builder" that is modified along the way, taking input from frontned (e.g. gui) but also backend (e.g. algorithmNumberMultiplier)
-    -> and it holds the promise that at the end it can provide an imagemap which is what is then used by the deconvolutionprocessor
+thoughts about making cudabackend faster for multiple smaller cubes:
+    - nvidia nsight-sys indicates that for fft even small cubes completely occupy the gpu -> further investigate if true
+        -> if so then the singlestreamed nature of how the cuda backend currently works can be kept
+        -> simple kernel like mult might could however become a significant overhead, as they prob dont utilize the gpu much
 
-- gpubackend should now also support multithreading (cuda streams) as the cubes are no longer only for performance, make the homogeneouscube
+    - think about running cpu threads seperate of cuda stream, so perhaps copy operations or other preparations can be made while gpu is running
+        then the gpu can be utilized 100% of the time
+
+    - sort ImageMap<psf> by shape (~box size). Then in cudabackend, alunch seperate streams using different cufftplans for each unique shape. Once a stream is done with that shape it can take a new shape that requires help (either a shape that noone is taking care of or a shape that has many more cubes)
+
+    - gpubackend should now also support multithreading (cuda streams) as the cubes are no longer only for performance, make the homogeneouscube
+
+
+
+
+
+
+
 
 - make the maps for pre and postprocessing which indicate where each value comes from, dont actually copy though, as this is unneccessary. Then integrate these maps into the fftw_cvMat conversion, where a copy is inevitable -> LK do i actually care that much about there copies?
-
-
-
-
-
-
-
-
-
-
-
 
 
 

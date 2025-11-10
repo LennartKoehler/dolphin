@@ -101,6 +101,7 @@ public:
     const IBackendMemoryManager* backend;
 
     // Take ownership of pre-allocated memory
+    ComplexData() = default;
     ComplexData(const IBackendMemoryManager* b, complex* data, RectangleShape size);
     ~ComplexData();
     ComplexData(const ComplexData& other);

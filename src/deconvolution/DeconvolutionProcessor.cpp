@@ -57,9 +57,9 @@ void loadingBar(int i, int max){
 
 DeconvolutionProcessor::DeconvolutionProcessor(){
     
-    std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>&)> psfPreprocessFunction = [&](
+    std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>)> psfPreprocessFunction = [&](
     RectangleShape shape,
-    std::shared_ptr<PSF>& inputPSF
+    std::shared_ptr<PSF> inputPSF
     ) -> ComplexData* {
        
         Preprocessor::padToShape(inputPSF->image.slices, shape, 0);
@@ -78,7 +78,7 @@ Hyperstack DeconvolutionProcessor::run(const Hyperstack& image, const std::vecto
 
     Hyperstack inputCopy(image); // copy to not edit in place, the inputcopy is used to be padded and then used for reading
     Hyperstack result(image); // to get the correct shape so i can later paste the result in the corresponding position
-    Image3D deconvolutedImage;
+    // i need both because cubes might overlap, so i cant write in place
 
 
     ImageMap<std::vector<std::shared_ptr<PSF>>> psfStrategy = strategy.getStrategy(
@@ -109,7 +109,7 @@ Hyperstack DeconvolutionProcessor::run(const Hyperstack& image, const std::vecto
 
 
 
-
+// TODO this function is a mess
 void DeconvolutionProcessor::parallelDeconvolution(
         const std::vector<cv::Mat>& inputImagePadded,
         std::vector<cv::Mat>& outputImage,
@@ -342,7 +342,7 @@ void DeconvolutionProcessor::configure(const DeconvolutionConfig config) {
 
     this->backend_ = bf.create(config.backenddeconv);
     this->backend_->mutableMemoryManager().setMemoryLimit(config.maxMem_GB * 1e9);
-    this->cpuMemoryManager= bf.createMemManager(config.backenddeconv);
+    this->cpuMemoryManager= bf.createMemManager("cpu");
 
     numberThreads = config.backenddeconv == "cuda" ? 1 : config.nThreads; // TODO change
     threadPool = std::make_shared<ThreadPool>(numberThreads);

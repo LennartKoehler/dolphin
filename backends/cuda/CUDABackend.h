@@ -47,6 +47,8 @@ public:
     void init() override;
     void cleanup() override;
 
+    void initializePlan(const RectangleShape& cube) override;
+
     // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;
@@ -96,7 +98,7 @@ private:
         CUFFTPlanPair() : forward(CUFFT_PLAN_NULL), backward(CUFFT_PLAN_NULL) {}
     };
     
-    void initializeFFTPlans(const RectangleShape& cube);
+private:
     void destroyFFTPlans();
     CUFFTPlanPair* getPlanPair(const RectangleShape& shape);
     
