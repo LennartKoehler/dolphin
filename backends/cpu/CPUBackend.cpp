@@ -59,6 +59,9 @@ void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
 
 void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
     std::unique_lock<std::mutex> lock(memoryMutex);
+    if ((totalUsedMemory + requiredSize) > maxMemorySize){
+        std::cerr << "CPUBackend out  memory, waiting for memory to free up" << std::endl;
+    }
     memoryCondition.wait(lock, [this, requiredSize]() {
         return maxMemorySize == 0 || (totalUsedMemory + requiredSize) <= maxMemorySize;
     });
@@ -110,6 +113,7 @@ ComplexData CPUBackendMemoryManager::moveDataFromDevice(const ComplexData& srcda
     }
     else{
         // For cross-backend transfer, use the destination backend's copy method
+        // since cpubackend is the "default" it is simple, be careful how this works for other backends though
         return destBackend.copyDataToDevice(srcdata);
     }
 }
@@ -135,7 +139,12 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     
     // Update memory tracking
     std::unique_lock<std::mutex> lock(memoryMutex);
-    totalUsedMemory = std::max(totalUsedMemory - requested_size, static_cast<size_t>(0));
+    if( totalUsedMemory < requested_size){
+        totalUsedMemory = static_cast<size_t>(0); // this should never happen
+    }
+    else{
+        totalUsedMemory = totalUsedMemory - requested_size;
+    }
     
     // Notify waiting threads that memory is now available
     memoryCondition.notify_all();
@@ -199,7 +208,7 @@ void CPUDeconvolutionBackend::cleanup() {
     std::cout << "[STATUS] CPU backend postprocessing completed" << std::endl;
 }
 
-void CPUDeconvolutionBackend::initializeFFTPlans(const RectangleShape& shape) {
+void CPUDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
     // This method assumes the mutex is already locked by the caller
     
     // Check if plan already exists for this shape (double-check pattern)
@@ -211,19 +220,19 @@ void CPUDeconvolutionBackend::initializeFFTPlans(const RectangleShape& shape) {
     complex* temp = nullptr;
     try{
         temp = (complex*)fftw_malloc(sizeof(complex) * shape.volume);
-        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex) * shape.volume, "initializeFFTPlans");
+        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex) * shape.volume, "initializePlan");
         
         FFTPlanPair& planPair = planMap[shape];
         
         // Create forward FFT plan
         planPair.forward = fftw_plan_dft_3d(shape.depth, shape.height, shape.width,
                                            temp, temp, FFTW_FORWARD, FFTW_MEASURE);
-        FFTW_UNIFIED_CHECK(planPair.forward, "initializeFFTPlans - forward plan");
+        FFTW_UNIFIED_CHECK(planPair.forward, "initializePlan - forward plan");
     
         // Create backward FFT plan  
         planPair.backward = fftw_plan_dft_3d(shape.depth, shape.height, shape.width,
                                             temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
-        FFTW_UNIFIED_CHECK(planPair.backward, "initializeFFTPlans - backward plan");
+        FFTW_UNIFIED_CHECK(planPair.backward, "initializePlan - backward plan");
         
         fftw_free(temp);
         
@@ -275,7 +284,7 @@ void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out
         // Double-check pattern: another thread might have created it while we waited for the lock
         planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
         if (planPair == nullptr) {
-            const_cast<CPUDeconvolutionBackend*>(this)->initializeFFTPlans(in.size);
+            const_cast<CPUDeconvolutionBackend*>(this)->initializePlan(in.size);
             planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
         }
     }
@@ -299,7 +308,7 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& ou
         // Double-check pattern: another thread might have created it while we waited for the lock
         planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
         if (planPair == nullptr) {
-            const_cast<CPUDeconvolutionBackend*>(this)->initializeFFTPlans(in.size);
+            const_cast<CPUDeconvolutionBackend*>(this)->initializePlan(in.size);
             planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
         }
     }

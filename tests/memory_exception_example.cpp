@@ -1,4 +1,4 @@
-#include "include/backend/Exceptions.h"
+#include "../include/backend/Exceptions.h"
 #include <iostream>
 
 // Example function that demonstrates unified exception handling
@@ -35,13 +35,4 @@ void exampleMemoryOperation() {
         // Handle other types of exceptions
         std::cerr << "General exception: " << e.what() << std::endl;
     }
-}
-
-int main() {
-    std::cout << "Testing unified memory exception handling..." << std::endl;
-    
-    // This will demonstrate the unified exception handling
-    exampleMemoryOperation();
-    
-    return 0;
 }

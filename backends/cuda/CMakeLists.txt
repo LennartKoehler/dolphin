@@ -23,7 +23,12 @@ target_link_libraries(cuda_backend PRIVATE
 )
 
 
-set_target_properties(cuda_backend PROPERTIES OUTPUT_NAME "cuda_backend")
+set_target_properties(cuda_backend PROPERTIES
+    OUTPUT_NAME "cuda_backend"
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/backends/cuda
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/backends/cuda
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/backends/cuda
+)
 
 
 

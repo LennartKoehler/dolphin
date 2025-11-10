@@ -32,11 +32,11 @@ public:
     };
     PSFPreprocessor() = default;
 
-    void setPreprocessingFunction(std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>&)> func) {
+    void setPreprocessingFunction(std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>)> func) {
         preprocessingFunction = std::move(func);
     }
 
-    const ComplexData* getPreprocessedPSF(RectangleShape& shape, const std::shared_ptr<PSF>& psf) {
+    const ComplexData* getPreprocessedPSF(RectangleShape& shape, const std::shared_ptr<PSF> psf) {
         Key key{shape, psf->ID};
 
         auto it = preprocessedPSFs.find(key);
@@ -53,7 +53,7 @@ public:
         }
     }
 private:
-    std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>&)> preprocessingFunction;
+    std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>)> preprocessingFunction;
     std::unordered_map<Key, std::unique_ptr<ComplexData>, KeyHash, KeyEqual> preprocessedPSFs;
 
 };

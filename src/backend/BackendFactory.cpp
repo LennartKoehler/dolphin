@@ -44,13 +44,16 @@ std::shared_ptr<IBackendMemoryManager> BackendFactory::createMemManager(const st
     void* handle = dlopen(libpath.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!handle) {
         const char* err = dlerror();
-        throw std::runtime_error(err ? err : "dlopen failed");
+        std::cerr << "[WARNING] Could not load backend library '" << backendName << "': " << (err ? err : "dlopen failed") << std::endl;
+        return nullptr;
     }
 
     using create_memory_fn = IBackendMemoryManager*();
     auto create_backend_memory = reinterpret_cast<create_memory_fn*>(dlsym(handle, "createBackendMemoryManager"));
     if (!create_backend_memory) {
-        throw std::runtime_error(dlerror());
+        std::cerr << "[WARNING] Could not find createBackendMemoryManager symbol in backend library '" << backendName << "'" << std::endl;
+        dlclose(handle);
+        return nullptr;
     }
     
     return std::shared_ptr<IBackendMemoryManager>(create_backend_memory());
@@ -61,13 +64,16 @@ std::shared_ptr<IDeconvolutionBackend> BackendFactory::createDeconvBackend(const
     void* handle = dlopen(libpath.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!handle) {
         const char* err = dlerror();
-        throw std::runtime_error(err ? err : "dlopen failed");
+        std::cerr << "[WARNING] Could not load backend library '" << backendName << "': " << (err ? err : "dlopen failed") << std::endl;
+        return nullptr;
     }
 
     using create_deconv_fn = IDeconvolutionBackend*();
     auto create_backend_deconv = reinterpret_cast<create_deconv_fn*>(dlsym(handle, "createDeconvolutionBackend"));
     if (!create_backend_deconv) {
-        throw std::runtime_error(dlerror());
+        std::cerr << "[WARNING] Could not find createDeconvolutionBackend symbol in backend library '" << backendName << "'" << std::endl;
+        dlclose(handle);
+        return nullptr;
     }
     
     return std::shared_ptr<IDeconvolutionBackend>(create_backend_deconv());

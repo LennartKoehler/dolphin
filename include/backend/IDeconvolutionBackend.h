@@ -39,6 +39,9 @@ public:
     virtual void init() = 0;
     virtual void cleanup() = 0;
     
+    // FFT plan management
+    virtual void initializePlan(const RectangleShape& cube) = 0;
+    
 
     // Debug functions
     virtual void hasNAN(const ComplexData& data) const {

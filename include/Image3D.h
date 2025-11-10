@@ -18,7 +18,14 @@ See the LICENSE file provided with the code for the full license.
 
 class Image3D {
 public:
-
+    Image3D() = default;
+    Image3D(const Image3D& other){
+        // Deep copy each slice
+        slices.reserve(other.slices.size());
+        for (const auto& slice : other.slices) {
+            slices.push_back(slice.clone()); // Deep copy using clone()
+        }
+    }
     std::vector<cv::Mat> slices;
     float getPixel(int x, int y, int z);
     bool showSlice(int z);
