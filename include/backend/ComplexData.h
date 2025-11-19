@@ -51,8 +51,8 @@ struct RectangleShape{
 
         return dims;
     }
-    inline bool operator!=(const RectangleShape& other){
-        return (this->height != other.height || this->width != other.width || this->depth != other.depth || this->volume != other.volume);
+    inline bool operator!=(const RectangleShape& other) const {
+        return (this->width != other.width || this->height != other.height || this->depth != other.depth);
     }
     inline RectangleShape operator-(const RectangleShape& other) const {
         return RectangleShape(this->width - other.width,

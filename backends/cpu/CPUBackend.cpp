@@ -36,6 +36,9 @@
 
 
 
+// Static member definition
+MemoryTracking CPUBackendMemoryManager::memory;
+
 extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
     return new CPUDeconvolutionBackend();
 }
@@ -44,26 +47,35 @@ extern "C" IBackendMemoryManager* createBackendMemoryManager() {
     return new CPUBackendMemoryManager();
 }
 
+extern "C" IBackend* createBackend(){
+    return CPUBackend::create();
+}
+
 // CPUBackendMemoryManager implementation
-CPUBackendMemoryManager::CPUBackendMemoryManager()
-    : maxMemorySize(getAvailableMemory()), totalUsedMemory(0) {
+CPUBackendMemoryManager::CPUBackendMemoryManager(){
+    // Initialize memory tracking if not already done
+    std::unique_lock<std::mutex> lock(memory.memoryMutex);
+    if (memory.maxMemorySize == 0) {
+        memory.maxMemorySize = getAvailableMemory();
+    }
 }
 
 CPUBackendMemoryManager::~CPUBackendMemoryManager() {
-    // No cleanup needed for simple memory tracking
+
 }
 
 void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
-    this->maxMemorySize = maxMemorySize;
+    std::unique_lock<std::mutex> lock(memory.memoryMutex);
+    memory.maxMemorySize = maxMemorySize;
 }
 
 void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
-    std::unique_lock<std::mutex> lock(memoryMutex);
-    if ((totalUsedMemory + requiredSize) > maxMemorySize){
-        std::cerr << "CPUBackend out  memory, waiting for memory to free up" << std::endl;
+    std::unique_lock<std::mutex> lock(memory.memoryMutex);
+    if ((memory.totalUsedMemory + requiredSize) > memory.maxMemorySize){
+        std::cerr << "CPUBackend out of memory, waiting for memory to free up" << std::endl;
     }
-    memoryCondition.wait(lock, [this, requiredSize]() {
-        return maxMemorySize == 0 || (totalUsedMemory + requiredSize) <= maxMemorySize;
+    memory.memoryCondition.wait(lock, [this, requiredSize]() {
+        return memory.maxMemorySize == 0 || (memory.totalUsedMemory + requiredSize) <= memory.maxMemorySize;
     });
 }
 
@@ -87,8 +99,10 @@ void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     MEMORY_ALLOC_CHECK(data.data, requested_size, "CPU", "allocateMemoryOnDevice");
     
     // Update memory tracking
-    std::unique_lock<std::mutex> lock(memoryMutex);
-    totalUsedMemory += requested_size;
+    {
+        std::unique_lock<std::mutex> lock(memory.memoryMutex);
+        memory.totalUsedMemory += requested_size;
+    }
     
     data.backend = this;
 }
@@ -125,6 +139,8 @@ ComplexData CPUBackendMemoryManager::copyData(const ComplexData& srcdata) const 
     return destdata;
 }
 
+
+
 void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
     BACKEND_CHECK(srcData.data != nullptr, "Source data pointer is null", "CPU", "memCopy - source data");
     BACKEND_CHECK(destData.data != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data");
@@ -138,16 +154,16 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     fftw_free(data.data);
     
     // Update memory tracking
-    std::unique_lock<std::mutex> lock(memoryMutex);
-    if( totalUsedMemory < requested_size){
-        totalUsedMemory = static_cast<size_t>(0); // this should never happen
+    {
+        std::unique_lock<std::mutex> lock(memory.memoryMutex);
+        if (memory.totalUsedMemory < requested_size) {
+            memory.totalUsedMemory = static_cast<size_t>(0); // this should never happen
+        } else {
+            memory.totalUsedMemory -= requested_size;
+        }
+        // Notify waiting threads that memory is now available
+        memory.memoryCondition.notify_all();
     }
-    else{
-        totalUsedMemory = totalUsedMemory - requested_size;
-    }
-    
-    // Notify waiting threads that memory is now available
-    memoryCondition.notify_all();
     
     data.data = nullptr;
 }
@@ -155,7 +171,6 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
 size_t CPUBackendMemoryManager::getAvailableMemory() const {
     try {
         // For CPU backend, return available system memory
-        std::unique_lock<std::mutex>lock(backendMutex);
         size_t memory = 0;
         #ifdef __linux__
             long pagesize = sysconf(_SC_PAGESIZE);
@@ -190,15 +205,19 @@ CPUDeconvolutionBackend::CPUDeconvolutionBackend() {
 CPUDeconvolutionBackend::~CPUDeconvolutionBackend() {
     destroyFFTPlans();
 }
-static bool initialized = false;
 
-void CPUDeconvolutionBackend::init() {
-    if(! initialized){ // TODO fix this
+void CPUDeconvolutionBackend::initializeGlobal() {
+    static bool globalInitialized = false;
+    if (!globalInitialized){
         fftw_init_threads();
         fftw_plan_with_nthreads(1); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
-        initialized = true;
+        std::cout << "[STATUS] CPU global initialization done" << std::endl;
+        globalInitialized = true;
     }
+}
 
+void CPUDeconvolutionBackend::init() {
+    initializeGlobal();
     std::cout << "[STATUS] CPU backend initialized for lazy plan creation" << std::endl;
 }
 
@@ -711,6 +730,8 @@ void CPUDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, co
         }
     }
 }
+
+
 
 void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) const {
     int nxy = gradX.size.width * gradX.size.height;

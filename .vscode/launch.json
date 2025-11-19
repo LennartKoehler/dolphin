@@ -49,6 +49,31 @@
             }
             ]
         },
+        {
+          "name": "(ctest) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "additionalSOLibSearchPath": "${workspaceFolder}/lib/cube/**",
+            "stopAtEntry": false,
+            "environment": [],
+            "cwd": "${cmake.testWorkingDirectory}",
+            "program": "${cmake.testProgram}",
+            "args": [ "${cmake.testArgs}"],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+            {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            },
+            {
+                "description": "Disassemble in intel syntax",
+                "text": "-gdb-set disassembly-flavor intel",
+                "ignoreFailures": true
+            }
+            ]
+        },
        {
             "name": "Debug dolphin config psfgenerator",
             "type": "cppdbg",
@@ -89,5 +114,7 @@
             "externalConsole": false,
             "MIMode": "gdb"
         },
+
+
     ]
 }

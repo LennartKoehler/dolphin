@@ -12,7 +12,6 @@ public:
     void setBackend(std::shared_ptr<IBackend> backend){this->backend = backend;}
     inline std::unique_ptr<DeconvolutionAlgorithm> clone() const{
         std::unique_ptr<DeconvolutionAlgorithm> clone = cloneSpecific();
-        clone->setBackend(this->backend);
         return clone;
     }
     virtual size_t getMemoryMultiplier() const = 0;

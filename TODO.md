@@ -1,3 +1,9 @@
+
+cudamemory manager needs the same stream as deconvolutionmanager for streamlines copy operations and async memcopy and memallocations. Curently memcopy is blocking the entire gpu
+does the memorymanager mutex slow down parallel streams siginificantly?
+
+
+
 thoughts about making cudabackend faster for multiple smaller cubes:
     - nvidia nsight-sys indicates that for fft even small cubes completely occupy the gpu -> further investigate if true
         -> if so then the singlestreamed nature of how the cuda backend currently works can be kept

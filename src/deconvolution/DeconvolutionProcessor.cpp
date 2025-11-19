@@ -126,14 +126,12 @@ void DeconvolutionProcessor::parallelDeconvolution(
     std::condition_variable memoryFull;
     bool memoryAvailable = true;
 
-    // std::mutex queueMutex;
-    // std::condition_variable queueFull;
-    // const int maxNumberWorkerThreads = numberThreads;
-
     std::atomic<int> numberCubes(psfMap.size());
 
     for (int cubeIndex = 0; cubeIndex < numberCubes; ++cubeIndex) {
-
+        // if (cubeIndex == 50){
+        //     break;//TESTVALUE
+        // }
         const BoxEntryPair<std::vector<std::shared_ptr<PSF>>> psfs = psfMap.get(cubeIndex);
 
         BoxCoord srcBox = psfs.box;
@@ -156,12 +154,25 @@ void DeconvolutionProcessor::parallelDeconvolution(
                      &loadingBarMutex, &writerMutex, &memoryMutex, &memoryFull, &memoryAvailable,
                      &processedCount, &numberCubes, &outputImage, &runningTasks]() mutable {
             try{
+                std::shared_ptr<IBackend> threadbackend = backend_->onNewThread();
+
+
+                std::unique_ptr<DeconvolutionAlgorithm> algorithm = algorithm_->clone();
+                algorithm->setBackend(threadbackend);
+
+                // Add debug logging to validate backend object
+                if (!threadbackend) {
+                    std::cerr << "[CRITICAL ERROR] Thread backend is null!" << std::endl;
+                    throw std::runtime_error("Thread backend is null");
+                }
                 deconvolveSingleCube(
-                    backend_,
-                    algorithm_->clone(),
+                    threadbackend,
+                    std::move(algorithm),
                     cubeImage,
                     workShape,
                     preprocessedPSFs);
+                threadbackend->sync();
+                threadbackend->releaseBackend(); // TODO do i run this here
                 {
                     std::unique_lock<std::mutex> lock(loadingBarMutex);
                     loadingBar(++processedCount, numberCubes);
@@ -344,7 +355,8 @@ void DeconvolutionProcessor::configure(const DeconvolutionConfig config) {
     this->backend_->mutableMemoryManager().setMemoryLimit(config.maxMem_GB * 1e9);
     this->cpuMemoryManager= bf.createMemManager("cpu");
 
-    numberThreads = config.backenddeconv == "cuda" ? 1 : config.nThreads; // TODO change
+    numberThreads = config.nThreads;
+    // numberThreads = config.backenddeconv == "cuda" ? 1 : config.nThreads; // TODO change
     threadPool = std::make_shared<ThreadPool>(numberThreads);
 
     configured = true;

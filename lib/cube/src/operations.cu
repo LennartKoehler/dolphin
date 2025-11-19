@@ -11,6 +11,21 @@
 #define DEBUG_LOG(msg) // Nichts tun
 #endif
 
+// Global CUDA kernel configuration
+namespace {
+    // Global thread block configuration
+    const dim3 GLOBAL_THREADS_PER_BLOCK(4, 8, 8);
+    
+    // Helper function to compute blocks per grid
+    inline dim3 computeBlocksPerGrid(int Nx, int Ny, int Nz) {
+        return dim3(
+            (Nx + GLOBAL_THREADS_PER_BLOCK.x - 1) / GLOBAL_THREADS_PER_BLOCK.x,
+            (Ny + GLOBAL_THREADS_PER_BLOCK.y - 1) / GLOBAL_THREADS_PER_BLOCK.y,
+            (Nz + GLOBAL_THREADS_PER_BLOCK.z - 1) / GLOBAL_THREADS_PER_BLOCK.z
+        );
+    }
+}
+
 namespace CUBE_MAT {
     // Normal Matrix Multiplication
     cudaError_t complexMatMulFftwComplexCPU(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
@@ -108,17 +123,12 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
-
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        complexMatMulFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+        complexMatMulFftwComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, A, B, C);
 
         
         cudaEventRecord(stop);
@@ -131,7 +141,7 @@ namespace CUBE_MAT {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] MatMul in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] MatMul in CUDA (fftw_complex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return cudaSuccess;
     }
@@ -144,17 +154,14 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D for Nx * Ny * Nz matrix stored in a 1D array
-        dim3 threadsPerBlock(10, 10, 10); // Optimal for testing, adjust for your hardware
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         // Start the event for timing
         cudaEventRecord(start);
 
         // Launch the kernel
-        complexMatMulCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+        complexMatMulCuComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, A, B, C);
 
         // Synchronize the device and check for errors after kernel execution
         
@@ -172,7 +179,7 @@ namespace CUBE_MAT {
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms] MatMul in CUDA (cuComplex) ("
-                  << threadsPerBlock.x * threadsPerBlock.y * threadsPerBlock.z << "x"
+                  << GLOBAL_THREADS_PER_BLOCK.x * GLOBAL_THREADS_PER_BLOCK.y * GLOBAL_THREADS_PER_BLOCK.z << "x"
                   << blocksPerGrid.x * blocksPerGrid.y * blocksPerGrid.z << ")");
         
         return cudaSuccess;
@@ -204,15 +211,12 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        complexElementwiseMatMulCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+        complexElementwiseMatMulCuComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, A, B, C);
         
 
         cudaEventRecord(stop);
@@ -225,7 +229,7 @@ namespace CUBE_MAT {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return cudaSuccess;
     }
@@ -238,17 +242,14 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
 
 
-        complexElementwiseMatMulCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+        complexElementwiseMatMulCufftComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, A, B, C);
         
 
         cudaEventRecord(stop);
@@ -261,11 +262,11 @@ namespace CUBE_MAT {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (cufftComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (cufftComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return cudaSuccess;
     }
-    cudaError_t complexElementwiseMatMulFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C) {
+    cudaError_t complexElementwiseMatMulFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -274,26 +275,23 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
         cudaError_t err = cudaGetLastError();
 
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
 
-        complexElementwiseMatMulFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+        complexElementwiseMatMulFftwComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C);
 
         
 
-        cudaEventRecord(stop);
+        cudaEventRecord(stop, stream);
         cudaEventSynchronize(stop);
 
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA (fftw_complex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
@@ -306,15 +304,12 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        complexElementwiseMatMulConjugateCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+        complexElementwiseMatMulConjugateCufftComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, A, B, C);
         
 
         cudaEventRecord(stop);
@@ -327,11 +322,11 @@ namespace CUBE_MAT {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul conjugated in CUDA (cufftComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul conjugated in CUDA (cufftComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return cudaSuccess;
     }
-    cudaError_t complexElementwiseMatMulConjugateFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C)  {
+    cudaError_t complexElementwiseMatMulConjugateFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, cudaStream_t stream)  {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -340,18 +335,15 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
 
-        complexElementwiseMatMulConjugateFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+        complexElementwiseMatMulConjugateFftwComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C);
         
 
-        cudaEventRecord(stop);
+        cudaEventRecord(stop, stream);
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
@@ -361,7 +353,7 @@ namespace CUBE_MAT {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul conjugated in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul conjugated in CUDA (fftw_complex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return cudaSuccess;
     }
@@ -374,15 +366,12 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        complexElementwiseMatDivCuComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+        complexElementwiseMatDivCuComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, A, B, C);
         
 
         cudaEventRecord(stop);
@@ -395,7 +384,7 @@ namespace CUBE_MAT {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return cudaSuccess;
     }
@@ -408,15 +397,12 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        complexElementwiseMatDivCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C, epsilon);
+        complexElementwiseMatDivCufftComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, A, B, C, epsilon);
         
 
         cudaEventRecord(stop);
@@ -429,11 +415,11 @@ namespace CUBE_MAT {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return cudaSuccess;
     }
-    cudaError_t complexElementwiseMatDivFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon) {
+    cudaError_t complexElementwiseMatDivFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -442,18 +428,15 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
 
-        complexElementwiseMatDivFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C, epsilon);
+        complexElementwiseMatDivFftwComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C, epsilon);
         
 
-        cudaEventRecord(stop);
+        cudaEventRecord(stop, stream);
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
@@ -463,7 +446,7 @@ namespace CUBE_MAT {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA (fftw_complex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return cudaSuccess;
     }
@@ -478,15 +461,12 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        complexElementwiseMatDivNaiveCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
+        complexElementwiseMatDivNaiveCufftComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, A, B, C);
         
 
         cudaEventRecord(stop);
@@ -499,7 +479,7 @@ namespace CUBE_MAT {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise naive MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise naive MatDiv in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return cudaSuccess;
     }
@@ -512,15 +492,12 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        complexElementwiseMatDivStabilizedCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C, epsilon);
+        complexElementwiseMatDivStabilizedCufftComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, A, B, C, epsilon);
         
 
         cudaEventRecord(stop);
@@ -533,11 +510,11 @@ namespace CUBE_MAT {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise stabilized MatDiv in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise stabilized MatDiv in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return cudaSuccess;
     }
-    cudaError_t complexElementwiseMatDivStabilizedFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon){
+    cudaError_t complexElementwiseMatDivStabilizedFftwComplex(int Nx, int Ny, int Nz, fftw_complex* A, fftw_complex* B, fftw_complex* C, double epsilon, cudaStream_t stream){
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -546,18 +523,15 @@ namespace CUBE_MAT {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
 
-        complexElementwiseMatDivStabilizedFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C, epsilon);
+        complexElementwiseMatDivStabilizedFftwComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C, epsilon);
         
 
-        cudaEventRecord(stop);
+        cudaEventRecord(stop, stream);
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
@@ -567,7 +541,7 @@ namespace CUBE_MAT {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise stabilized MatDiv in CUDA (fftw_complex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise stabilized MatDiv in CUDA (fftw_complex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return cudaSuccess;
     }
@@ -584,15 +558,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        calculateLaplacianCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, Afft, laplacianfft);
+        calculateLaplacianCufftComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, Afft, laplacianfft);
         
 
         cudaEventRecord(stop);
@@ -601,7 +572,7 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
@@ -614,15 +585,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        gradientXCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradX);
+        gradientXCufftComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, image, gradX);
         
 
         cudaEventRecord(stop);
@@ -631,7 +599,7 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientX in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientX in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
@@ -644,15 +612,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        gradientYCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradY);
+        gradientYCufftComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, image, gradY);
         
 
         cudaEventRecord(stop);
@@ -661,7 +626,7 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientY in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientY in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
@@ -674,15 +639,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        gradientZCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradZ);
+        gradientZCufftComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, image, gradZ);
         
 
         cudaEventRecord(stop);
@@ -691,7 +653,7 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientZ in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientZ in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
@@ -704,15 +666,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        computeTVCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, lambda, gx, gy, gz, tv);
+        computeTVCufftComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, lambda, gx, gy, gz, tv);
         
 
         cudaEventRecord(stop);
@@ -721,7 +680,7 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Total Variation in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
@@ -734,15 +693,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        normalizeTVCufftComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, gradX, gradY, gradZ, epsilon);
+        normalizeTVCufftComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, gradX, gradY, gradZ, epsilon);
         
 
         cudaEventRecord(stop);
@@ -751,11 +707,11 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] normalizing Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] normalizing Total Variation in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
-    cudaError_t calculateLaplacianFftwComplex(int Nx, int Ny, int Nz, fftw_complex* Afft, fftw_complex* laplacianfft) {
+    cudaError_t calculateLaplacianFftwComplex(int Nx, int Ny, int Nz, fftw_complex* Afft, fftw_complex* laplacianfft, cudaStream_t stream) {
         if (!Afft || !laplacianfft) {
             return cudaErrorInvalidValue;
         }
@@ -764,15 +720,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        calculateLaplacianFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, Afft, laplacianfft);
+        calculateLaplacianFftwComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, Afft, laplacianfft);
         
 
         cudaEventRecord(stop);
@@ -781,11 +734,11 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
-    cudaError_t gradXFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradX) {
+    cudaError_t gradXFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradX, cudaStream_t stream) {
         if (!image || !gradX) {
             return cudaErrorInvalidValue;
         }
@@ -794,15 +747,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        gradientXFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradX);
+        gradientXFftwComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradX);
         
 
         cudaEventRecord(stop);
@@ -811,11 +761,11 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientX in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientX in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
-    cudaError_t gradYFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradY) {
+    cudaError_t gradYFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradY, cudaStream_t stream) {
         if (!image || !gradY) {
             return cudaErrorInvalidValue;
         }
@@ -824,15 +774,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        gradientYFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradY);
+        gradientYFftwComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradY);
         
 
         cudaEventRecord(stop);
@@ -841,11 +788,11 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientY in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientY in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
-    cudaError_t gradZFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradZ) {
+    cudaError_t gradZFftwComplex(int Nx, int Ny, int Nz, fftw_complex* image, fftw_complex* gradZ, cudaStream_t stream) {
         if (!image || !gradZ) {
             return cudaErrorInvalidValue;
         }
@@ -854,15 +801,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        gradientZFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, image, gradZ);
+        gradientZFftwComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradZ);
         
 
         cudaEventRecord(stop);
@@ -871,11 +815,11 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientZ in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientZ in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
-    cudaError_t computeTVFftwComplex(int Nx, int Ny, int Nz, double lambda, fftw_complex *gx, fftw_complex *gy, fftw_complex *gz, fftw_complex *tv) {
+    cudaError_t computeTVFftwComplex(int Nx, int Ny, int Nz, double lambda, fftw_complex *gx, fftw_complex *gy, fftw_complex *gz, fftw_complex *tv, cudaStream_t stream) {
         if (!gx || !gy || !gz || !tv) {
             return cudaErrorInvalidValue;
         }
@@ -884,15 +828,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        computeTVFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, lambda, gx, gy, gz, tv);
+        computeTVFftwComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, lambda, gx, gy, gz, tv);
         
 
         cudaEventRecord(stop);
@@ -901,11 +842,11 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Total Variation in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
-    cudaError_t normalizeTVFftwComplex(int Nx, int Ny, int Nz, fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, double epsilon) {
+    cudaError_t normalizeTVFftwComplex(int Nx, int Ny, int Nz, fftw_complex* gradX, fftw_complex* gradY, fftw_complex* gradZ, double epsilon, cudaStream_t stream) {
         if (!gradX || !gradY || !gradZ) {
             return cudaErrorInvalidValue;
         }
@@ -914,15 +855,12 @@ namespace CUBE_REG {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        normalizeTVFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, gradX, gradY, gradZ, epsilon);
+        normalizeTVFftwComplexGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, gradX, gradY, gradZ, epsilon);
         
 
         cudaEventRecord(stop);
@@ -931,7 +869,7 @@ namespace CUBE_REG {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] normalizing Total Variation in CUDA (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] normalizing Total Variation in CUDA (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
@@ -948,15 +886,12 @@ namespace CUBE_TILED {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
         cudaEventRecord(start);
 
-        calculateLaplacianCufftComplexTiledGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, Afft, laplacianfft);
+        calculateLaplacianCufftComplexTiledGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, Afft, laplacianfft);
         
 
         cudaEventRecord(stop);
@@ -965,69 +900,69 @@ namespace CUBE_TILED {
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA tiled with shared mem (cuComplex) ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA tiled with shared mem (cuComplex) ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
         
         return err;
     }
 }
 
 namespace CUBE_FTT {
-    // FFT
-    cudaError_t cufftForward(cufftComplex* input, cufftComplex* output, cufftHandle plan) {
-        if (!input || !output || !plan) {
-            return cudaErrorInvalidValue;
-        }
+//     // FFT
+//     cudaError_t cufftForward(cufftComplex* input, cufftComplex* output, cufftHandle plan) {
+//         if (!input || !output || !plan) {
+//             return cudaErrorInvalidValue;
+//         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
-        cufftResult result;
+//         cudaEvent_t start, stop;
+//         cudaEventCreate(&start);
+//         cudaEventCreate(&stop);
+//         cufftResult result;
 
-        cudaEventRecord(start);
+//         cudaEventRecord(start);
 
-        result = cufftExecC2C(plan, input, output, CUFFT_FORWARD);
+//         result = cufftExecC2C(plan, input, output, CUFFT_FORWARD);
         
 
-        cudaEventRecord(stop);
-        cudaEventSynchronize(stop);
+//         cudaEventRecord(stop);
+//         cudaEventSynchronize(stop);
 
-        cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] Forward FFT in cuFFT");
+//         cudaError_t err = cudaGetLastError();
+//         float milliseconds = 0;
+//         cudaEventElapsedTime(&milliseconds, start, stop);
+//         DEBUG_LOG("[TIME][" << milliseconds << " ms] Forward FFT in cuFFT");
         
-        return err; 
-    }
-    cudaError_t cufftInverse(int Nx, int Ny, int Nz, cufftComplex* input, cufftComplex* output, cufftHandle plan) {
-        if (!input || !output || !plan) {
-            return cudaErrorInvalidValue;
-        }
+//         return err; 
+//     }
+//     cudaError_t cufftInverse(int Nx, int Ny, int Nz, cufftComplex* input, cufftComplex* output, cufftHandle plan) {
+//         if (!input || !output || !plan) {
+//             return cudaErrorInvalidValue;
+//         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
-        cufftResult result;
+//         cudaEvent_t start, stop;
+//         cudaEventCreate(&start);
+//         cudaEventCreate(&stop);
+//         cufftResult result;
 
-        cudaEventRecord(start);
+//         cudaEventRecord(start);
 
-        result = cufftExecC2C(plan, input, output, CUFFT_INVERSE);
-        int num_elements = Nx * Ny * Nz;  // Beispiel: Gesamtzahl der Elemente
-        int block_size = 256;  // Blockgröße (kann angepasst werden)
-        int num_blocks = (num_elements + block_size - 1) / block_size;  // Berechne die Anzahl der Blöcke
+//         result = cufftExecC2C(plan, input, output, CUFFT_INVERSE);
+//         int num_elements = Nx * Ny * Nz;  // Beispiel: Gesamtzahl der Elemente
+//         int block_size = 256;  // Blockgröße (kann angepasst werden)
+//         int num_blocks = (num_elements + block_size - 1) / block_size;  // Berechne die Anzahl der Blöcke
 
-        normalizeComplexData<<<num_blocks, block_size>>>(Nx, Ny, Nz, output);
+//         normalizeComplexData<<<num_blocks, block_size>>>(Nx, Ny, Nz, output);
 
         
-        cudaEventRecord(stop);
-        cudaEventSynchronize(stop);
+//         cudaEventRecord(stop);
+//         cudaEventSynchronize(stop);
 
-        cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] Inverse FFT in cuFFT");
+//         cudaError_t err = cudaGetLastError();
+//         float milliseconds = 0;
+//         cudaEventElapsedTime(&milliseconds, start, stop);
+//         DEBUG_LOG("[TIME][" << milliseconds << " ms] Inverse FFT in cuFFT");
         
-        return err;
-    }
+//         return err;
+//     }
 
     // Fourier Shift, Padding and Normalization
     cudaError_t octantFourierShiftFftwComplexCPU(int Nx, int Ny, int Nz, fftw_complex* data) {
@@ -1076,7 +1011,7 @@ namespace CUBE_FTT {
         
         return cudaSuccess;
     }
-    cudaError_t octantFourierShiftFftwComplex(int Nx, int Ny, int Nz, fftw_complex* data) {
+    cudaError_t octantFourierShiftFftwComplex(int Nx, int Ny, int Nz, fftw_complex* data, cudaStream_t stream) {
         if (!data) {
             return cudaErrorInvalidValue;
         }
@@ -1097,13 +1032,13 @@ namespace CUBE_FTT {
                            (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
 
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
 
-        octantFourierShiftFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, data);
+        octantFourierShiftFftwComplexGlobal<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(Nx, Ny, Nz, data);
         cudaError_t errp = cudaPeekAtLastError();
         
         
-        cudaEventRecord(stop);
+        cudaEventRecord(stop, stream);
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
@@ -1243,7 +1178,7 @@ namespace CUBE_FTT {
         
         return err;
     }
-    cudaError_t normalizeFftwComplexData(int Nx, int Ny, int Nz, fftw_complex* d_data) {
+    cudaError_t normalizeFftwComplexData(int Nx, int Ny, int Nz, fftw_complex* d_data, cudaStream_t stream) {
         if (!d_data) {
             return cudaErrorInvalidValue;
         }
@@ -1256,13 +1191,13 @@ namespace CUBE_FTT {
         int block_size = 1024;
         int num_blocks = (num_elements + block_size - 1) / block_size;
 
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
 
-        normalizeFftwComplexDataGlobal<<<num_blocks, block_size>>>(Nx, Ny, Nz, d_data);
+        normalizeFftwComplexDataGlobal<<<num_blocks, block_size, 0, stream>>>(Nx, Ny, Nz, d_data);
         cudaError_t errp = cudaPeekAtLastError();
         
         
-        cudaEventRecord(stop);
+        cudaEventRecord(stop, stream);
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();

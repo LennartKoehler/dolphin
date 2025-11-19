@@ -1,11 +1,15 @@
 #pragma once
+#include "backend/IBackend.h"
 #include "backend/IDeconvolutionBackend.h"
 #include "backend/IBackendMemoryManager.h"
 #include <cufftw.h>
 #include <CUBE.h>
 #include <cuda_runtime.h>
 #include <map>
-#include <condition_variable>
+
+
+
+
 
 class CUDABackendMemoryManager : public IBackendMemoryManager{
 public:
@@ -13,6 +17,13 @@ public:
     CUDABackendMemoryManager();
     ~CUDABackendMemoryManager();
     
+    void setStream(cudaStream_t stream){ this->stream = stream;}
+    // Override device type method
+    std::string getDeviceType() const noexcept override {
+        return "cuda";
+    }
+    
+    void sync() override {cudaStreamSynchronize(stream);}
     // Memory management initialization
     void setMemoryLimit(size_t maxMemorySize = 0) override;
     
@@ -26,29 +37,40 @@ public:
     ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const override; // for gpu these are copy operations
     void freeMemoryOnDevice(ComplexData& data) const override;
     size_t getAvailableMemory() const override;
-
 private:
-    // Memory management
-    mutable size_t maxMemorySize;
-    mutable size_t totalUsedMemory;
-    mutable std::mutex memoryMutex;
-    mutable std::condition_variable memoryCondition;
+
+    static MemoryTracking memory; 
+    // CUDA stream for memory operations
+    cudaStream_t stream = cudaStreamLegacy;
     
     // Helper method to wait for memory availability
     void waitForMemory(size_t requiredSize) const;
+    
+    // Static method to get memory tracking instance
+    static MemoryTracking& getMemoryTracking() { return memory; }
 };
 
 class CUDADeconvolutionBackend : public IDeconvolutionBackend{
 public:
     CUDADeconvolutionBackend();
     ~CUDADeconvolutionBackend() override;
+    
+    // Override device type method
+    std::string getDeviceType() const noexcept override {
+        return "cuda";
+    }
 
     // Core processing functions
-    void init() override;
-    void cleanup() override;
+    virtual void init() override;
+    virtual void cleanup() override;
+
+
+    void sync() override {cudaStreamSynchronize(stream);}
+    void setStream(cudaStream_t stream){ this->stream = stream;}
+    // Static initialization method
+    static void initializeGlobal();
 
     void initializePlan(const RectangleShape& cube) override;
-
     // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;
@@ -91,19 +113,180 @@ public:
 
 
 
-private:
-    struct CUFFTPlanPair {
-        cufftHandle forward;
-        cufftHandle backward;
-        CUFFTPlanPair() : forward(CUFFT_PLAN_NULL), backward(CUFFT_PLAN_NULL) {}
-    };
-    
-private:
-    void destroyFFTPlans();
-    CUFFTPlanPair* getPlanPair(const RectangleShape& shape);
-    
-    std::map<RectangleShape, CUFFTPlanPair> planMap;
-    int numThreads_ = 1; // For CPU fallback operations if needed
-    mutable std::mutex backendMutex;
 
+private:
+    
+    
+    void destroyFFTPlans();
+   
+    cufftHandle forward = CUFFT_PLAN_NULL;
+    cufftHandle backward = CUFFT_PLAN_NULL;
+    RectangleShape planSize;
+    cudaStream_t stream = cudaStreamLegacy;
+    bool initialized = false;
+
+};
+
+
+class CUDABackendManager;
+// Concrete CUDA Backend Implementation
+class CUDABackend : public IBackend {
+    friend CUDABackendManager;
+private:
+    // Constructor for external ownership (references to externally-owned components)
+    CUDABackend(IDeconvolutionBackend& deconv,
+                IBackendMemoryManager& mem)
+        : deconvBackend(deconv),
+          memoryBackend(mem),
+          owner() {}
+
+    // Constructor for self-ownership (takes ownership of both components)
+    CUDABackend(std::unique_ptr<IDeconvolutionBackend> deconv,
+                std::unique_ptr<IBackendMemoryManager> mem)
+        : deconvBackend(*deconv),
+          memoryBackend(*mem),
+          owner(std::move(deconv), std::move(mem)) {}
+
+    // Constructor for mixed ownership (takes ownership of deconv, external memory)
+    CUDABackend(std::unique_ptr<IDeconvolutionBackend> deconv,
+                IBackendMemoryManager& mem)
+        : deconvBackend(*deconv),
+          memoryBackend(mem),
+          owner(std::move(deconv)) {}
+
+    cudaStream_t stream = 0;
+    IDeconvolutionBackend& deconvBackend;
+    IBackendMemoryManager& memoryBackend;
+    Owner owner;  // Manages lifetime when this IBackend owns components
+
+    // Factory methods for different ownership models
+    
+    // Create CUDABackend with external ownership (references to externally-owned components)
+    std::shared_ptr<IBackend> createWithExternalOwnership(
+        IDeconvolutionBackend& deconv,
+        IBackendMemoryManager& mem) const override {
+        return std::shared_ptr<IBackend>(new CUDABackend(deconv, mem));
+    }
+
+    // Create CUDABackend with self-ownership (takes ownership of both components)
+    std::shared_ptr<IBackend> createWithSelfOwnership(
+        std::unique_ptr<IDeconvolutionBackend> deconv,
+        std::unique_ptr<IBackendMemoryManager> mem) const override {
+        return std::shared_ptr<IBackend>(new CUDABackend(std::move(deconv), std::move(mem)));
+    }
+
+    // Create CUDABackend with mixed ownership (takes ownership of deconv, external memory)
+    std::shared_ptr<IBackend> createWithMixedOwnership(
+        std::unique_ptr<IDeconvolutionBackend> deconv,
+        IBackendMemoryManager& mem) const override {
+        return std::shared_ptr<IBackend>(new CUDABackend(std::move(deconv), mem));
+    }
+
+public:
+    // Factory method to create CUDABackend with
+    static CUDABackend* create() {
+        auto deconv = std::make_unique<CUDADeconvolutionBackend>();
+        auto memoryManager = std::make_unique<CUDABackendMemoryManager>();
+
+        return new CUDABackend(std::move(deconv), std::move(memoryManager));
+    }
+
+    // Implementation of pure virtual methods
+    std::string getDeviceType() const noexcept override {
+        return "cuda";
+    }
+    void sync() override{
+        cudaStreamSynchronize(stream);
+    }
+
+    // Ownership query methods
+    bool ownsDeconvolutionBackend() const noexcept override {
+        return owner.ownsDeconvBackend();
+    }
+
+    bool ownsMemoryManager() const noexcept override {
+        return owner.ownsMemoryManager();
+    }
+
+    // Memory manager is available if owner has it or if we have a reference
+    bool hasMemoryManager() const noexcept override {
+        return true; // We always have a reference to memory manager
+    }
+
+    // Ownership transfer methods for both components
+    std::unique_ptr<IDeconvolutionBackend> releaseDeconvolutionBackend() override {
+        if (!ownsDeconvolutionBackend()) {
+            throw std::runtime_error("Cannot release deconvolution backend: not owned by this CUDABackend");
+        }
+        return owner.releaseDeconvBackend();
+    }
+
+    std::unique_ptr<IBackendMemoryManager> releaseMemoryManager() override {
+        if (!ownsMemoryManager()) {
+            throw std::runtime_error("Cannot release memory manager: not owned by this CUDABackend");
+        }
+        return owner.releaseMemoryManager();
+    }
+
+    // Take ownership of components
+    void takeOwnership(std::unique_ptr<IDeconvolutionBackend> deconv) override {
+        if (&(*deconv) != &deconvBackend) {
+            throw std::runtime_error("Cannot take ownership: provided deconv backend is not the one currently referenced");
+        }
+        owner.takeOwnership(std::move(deconv));
+    }
+
+    void takeOwnership(std::unique_ptr<IBackendMemoryManager> mem) override {
+        if (&(*mem) != &memoryBackend) {
+            throw std::runtime_error("Cannot take ownership: provided memory manager is not the one currently referenced");
+        }
+        owner.takeOwnership(std::move(mem));
+    }
+
+    // Memory manager access - for compatibility with shared ownership models
+    std::shared_ptr<IBackendMemoryManager> getSharedMemoryManager() const noexcept override {
+        if (ownsMemoryManager()) {
+            // Return a shared_ptr that doesn't manage the lifetime (non-owning)
+            return std::shared_ptr<IBackendMemoryManager>(&memoryBackend, [](IBackendMemoryManager*){});
+        } else {
+            // For external ownership, we can't provide a proper shared_ptr
+            return nullptr;
+        }
+    }
+
+    // Direct pointer access
+    IBackendMemoryManager* getMemoryManagerPtr() const noexcept override {
+        return &memoryBackend;
+    }
+
+    // Access to the Owner object for advanced ownership management
+    Owner& getOwner() noexcept override {
+        return owner;
+    }
+
+    const Owner& getOwner() const noexcept override {
+        return owner;
+    }
+
+    const IDeconvolutionBackend& getDeconvManager() const noexcept override {
+        return deconvBackend;
+    }
+
+    const IBackendMemoryManager& getMemoryManager() const noexcept override {
+        return memoryBackend;
+    }
+
+    // Optionally, allow non-const access if you need modification
+    IDeconvolutionBackend& mutableDeconvManager() noexcept override {
+        return deconvBackend;
+    }
+
+    IBackendMemoryManager& mutableMemoryManager() noexcept override {
+        return memoryBackend;
+    }
+
+    // Clone method - creates a new thread-specific backend
+    // The ownership model of the clone depends on the onNewThread() implementation
+    std::shared_ptr<IBackend> onNewThread() const override;
+    void releaseBackend() override;
 };

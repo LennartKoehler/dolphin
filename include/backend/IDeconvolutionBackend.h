@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include <stdexcept>
 #include <mutex>
+#include <memory>
 #include "ComplexData.h"
 
 
@@ -34,13 +35,29 @@ class IDeconvolutionBackend{
 public:
     IDeconvolutionBackend() = default;
     virtual ~IDeconvolutionBackend(){};
+    
+    /**
+     * Get the device type of this backend
+     * @return Device type string
+     */
+    virtual std::string getDeviceType() const noexcept {
+        return "unknown";
+    }
 
     // Core functions - still pure virtual (must implement)
     virtual void init() = 0;
     virtual void cleanup() = 0;
+
+    // Synchronization - default implementation for non-async backends
+    virtual void sync() {
+        // Default no-op implementation for backends that don't need synchronization
+    }
+
     
     // FFT plan management
-    virtual void initializePlan(const RectangleShape& cube) = 0;
+    virtual void initializePlan(const RectangleShape& cube){
+        NOT_IMPLEMENTED(initializePlan);
+    }
     
 
     // Debug functions
