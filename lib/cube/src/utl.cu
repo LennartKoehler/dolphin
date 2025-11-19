@@ -12,6 +12,21 @@
 #define DEBUG_LOG(msg) // Nichts tun
 #endif
 
+// Global CUDA kernel configuration
+namespace {
+    // Global thread block configuration for conversion kernels
+    const dim3 GLOBAL_THREADS_PER_BLOCK_CONVERT(16, 8, 8); // 1024 threads for conversion operations
+    
+    // Helper function to compute blocks per grid for conversion kernels
+    inline dim3 computeBlocksPerGridConvert(int Nx, int Ny, int Nz) {
+        return dim3(
+            (Nx + GLOBAL_THREADS_PER_BLOCK_CONVERT.x - 1) / GLOBAL_THREADS_PER_BLOCK_CONVERT.x,
+            (Ny + GLOBAL_THREADS_PER_BLOCK_CONVERT.y - 1) / GLOBAL_THREADS_PER_BLOCK_CONVERT.y,
+            (Nz + GLOBAL_THREADS_PER_BLOCK_CONVERT.z - 1) / GLOBAL_THREADS_PER_BLOCK_CONVERT.z
+        );
+    }
+}
+
 namespace CUBE_UTL_INFO {
     // Print information
     void printDeviceProperties() {
@@ -160,16 +175,18 @@ namespace CUBE_UTL_CHECK {
         std::cout << "Octant Fourier shift successfully validated!\n";
         return true;
     }
-    void printFftwComplexValueFromDevice(int idx, fftw_complex* fftwArr) {
+    void printFftwComplexValueFromDevice(int idx, fftw_complex* fftwArr, cudaStream_t stream) {
         fftw_complex temp_host;
-        cudaMemcpy(&temp_host, &fftwArr[idx], sizeof(fftw_complex), cudaMemcpyDeviceToHost);
+        cudaMemcpyAsync(&temp_host, &fftwArr[idx], sizeof(fftw_complex), cudaMemcpyDeviceToHost, stream);
+        cudaStreamSynchronize(stream);
         std::cout << "[CHECK] Element at index " << idx << ": "
                   << "Real: " << temp_host[0] << ", "
                   << "Imag: " << temp_host[1] << std::endl;
     }
-    void printCufftComplexValueFromDevice(int idx, cufftComplex* cuArr) {
+    void printCufftComplexValueFromDevice(int idx, cufftComplex* cuArr, cudaStream_t stream) {
         cufftComplex temp_host;
-        cudaMemcpy(&temp_host, &cuArr[idx], sizeof(cufftComplex), cudaMemcpyDeviceToHost);
+        cudaMemcpyAsync(&temp_host, &cuArr[idx], sizeof(cufftComplex), cudaMemcpyDeviceToHost, stream);
+        cudaStreamSynchronize(stream);
         std::cout << "[CHECK] Element at index " << idx << ": "
                   << "Real: " << temp_host.x << ", "
                   << "Imag: " << temp_host.y << std::endl;
@@ -235,16 +252,16 @@ namespace CUBE_UTL_INIT_MAT {
 
 namespace CUBE_UTL_COPY {
     // Copying fftw_complex datatype to GPU
-    void copyDataFromHostToDevice(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src) {
+    void copyDataFromHostToDevice(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src, cudaStream_t stream) {
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
 
-        cudaMemcpy(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyHostToDevice);
+        cudaMemcpyAsync(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyHostToDevice, stream);
 
         
-        cudaEventRecord(stop);
+        cudaEventRecord(stop, stream);
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
@@ -257,15 +274,15 @@ namespace CUBE_UTL_COPY {
         DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(fftw_complex)*Nx*Ny*Nz<<"B] Copy Data from Host to Device");
 
     }
-    void copyDataFromDeviceToHost(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src) {
+    void copyDataFromDeviceToHost(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src, cudaStream_t stream) {
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
 
-        cudaMemcpy(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToHost);
+        cudaMemcpyAsync(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToHost, stream);
         
-        cudaEventRecord(stop);
+        cudaEventRecord(stop, stream);
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
@@ -277,15 +294,15 @@ namespace CUBE_UTL_COPY {
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(fftw_complex)*Nx*Ny*Nz<<"B] Copy Data from Device to Host");
     }
-    void copyDataFromDeviceToDevice(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src) {
+    void copyDataFromDeviceToDevice(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src, cudaStream_t stream) {
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
 
-        cudaMemcpy(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToDevice);
+        cudaMemcpyAsync(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToDevice, stream);
         
-        cudaEventRecord(stop);
+        cudaEventRecord(stop, stream);
         cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
@@ -301,49 +318,45 @@ namespace CUBE_UTL_COPY {
 
 namespace CUBE_UTL_CONVERT {
     // Conversions
-    void convertFftwToCuComplexOnDevice(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cuComplex* cuArr) {
+    void convertFftwToCuComplexOnDevice(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cuComplex* cuArr, cudaStream_t stream) {
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
         fftw_complex* fftwArrDevice;
         cudaMalloc(&fftwArrDevice, Nx * Ny * Nz * sizeof(fftw_complex));
 
-        CUBE_UTL_COPY::copyDataFromHostToDevice(Nx, Ny, Nz, fftwArrDevice, fftwArr);
+        CUBE_UTL_COPY::copyDataFromHostToDevice(Nx, Ny, Nz, fftwArrDevice, fftwArr, stream);
 
-        dim3 blockSize(16, 8, 8);  // Blockgröße (optimal anpassen)
-        dim3 gridSize((Nx + blockSize.x - 1) / blockSize.x,
-                      (Ny + blockSize.y - 1) / blockSize.y,
-                      (Nz + blockSize.z - 1) / blockSize.z);  // Grid-Größe
+        // Use global kernel configuration
+        dim3 gridSize = computeBlocksPerGridConvert(Nx, Ny, Nz);
 
-        fftwToCuComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, cuArr, fftwArrDevice);
+        fftwToCuComplexKernelGlobal<<<gridSize, GLOBAL_THREADS_PER_BLOCK_CONVERT, 0, stream>>>(Nx, Ny, Nz, cuArr, fftwArrDevice);
         
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
             std::cerr << "CUDA error at convertFFTWToCuComplex: " << cudaGetErrorString(err) << std::endl;
         }
         cudaFree(fftwArrDevice);
-        cudaEventRecord(stop);
-        cudaEventSynchronize(stop);
+        cudaEventRecord(stop, stream);
+        ////cudaEventSynchronize(stop);
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<Nx * Ny * Nz * sizeof(fftw_complex)<<"B] Converting (inkl. copy) fftw_complex to cuComplex");
     }
-    void convertFftwToCufftComplexOnDevice(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cufftComplex* cuArr) {
+    void convertFftwToCufftComplexOnDevice(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cufftComplex* cuArr, cudaStream_t stream) {
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
         fftw_complex* fftwArrDevice;
         cudaMalloc(&fftwArrDevice, Nx * Ny * Nz * sizeof(fftw_complex));
-        CUBE_UTL_COPY::copyDataFromHostToDevice(Nx, Ny, Nz, fftwArrDevice, fftwArr);
+        CUBE_UTL_COPY::copyDataFromHostToDevice(Nx, Ny, Nz, fftwArrDevice, fftwArr, stream);
 
-        dim3 blockSize(16, 8, 8);  // Blockgröße (optimal anpassen)
-        dim3 gridSize((Nx + blockSize.x - 1) / blockSize.x,
-                      (Ny + blockSize.y - 1) / blockSize.y,
-                      (Nz + blockSize.z - 1) / blockSize.z);  // Grid-Größe
+        // Use global kernel configuration
+        dim3 gridSize = computeBlocksPerGridConvert(Nx, Ny, Nz);
 
-        fftwToCufftComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, cuArr, fftwArrDevice);
+        fftwToCufftComplexKernelGlobal<<<gridSize, GLOBAL_THREADS_PER_BLOCK_CONVERT, 0, stream>>>(Nx, Ny, Nz, cuArr, fftwArrDevice);
 
         
         cudaError_t err = cudaGetLastError();
@@ -352,62 +365,58 @@ namespace CUBE_UTL_CONVERT {
         }
 
         cudaFree(fftwArrDevice);
-        cudaEventRecord(stop);
-        cudaEventSynchronize(stop);
+        cudaEventRecord(stop, stream);
+        ////cudaEventSynchronize(stop);
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<Nx * Ny * Nz * sizeof(fftw_complex)<<"B] Converting (inkl. copy) fftw_complex to cufftComplex");
     }
-    void convertCuToFftwComplexOnHost(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cuComplex* cuArr) {
+    void convertCuToFftwComplexOnHost(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cuComplex* cuArr, cudaStream_t stream) {
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
         fftw_complex* fftwArrDevice;
         cudaMalloc(&fftwArrDevice, Nx * Ny * Nz * sizeof(fftw_complex));
 
-        dim3 blockSize(16, 8, 8);  // Blockgröße (optimal anpassen)
-        dim3 gridSize((Nx + blockSize.x - 1) / blockSize.x,
-                      (Ny + blockSize.y - 1) / blockSize.y,
-                      (Nz + blockSize.z - 1) / blockSize.z);  // Grid-Größe
+        // Use global kernel configuration
+        dim3 gridSize = computeBlocksPerGridConvert(Nx, Ny, Nz);
 
-        cuToFftwComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, fftwArrDevice, cuArr);
+        cuToFftwComplexKernelGlobal<<<gridSize, GLOBAL_THREADS_PER_BLOCK_CONVERT, 0, stream>>>(Nx, Ny, Nz, fftwArrDevice, cuArr);
         
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
             std::cerr << "CUDA error at convertCuComplexToFFTW: " << cudaGetErrorString(err) << std::endl;
         }
-        cudaMemcpy(fftwArr, fftwArrDevice, Nx*Ny*Nz * sizeof(fftw_complex), cudaMemcpyDeviceToHost);
+        cudaMemcpyAsync(fftwArr, fftwArrDevice, Nx*Ny*Nz * sizeof(fftw_complex), cudaMemcpyDeviceToHost, stream);
         cudaFree(fftwArrDevice);
-        cudaEventRecord(stop);
-        cudaEventSynchronize(stop);
+        cudaEventRecord(stop, stream);
+        ////cudaEventSynchronize(stop);
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<Nx * Ny* Nz * sizeof(fftw_complex)<<"B] Converting (inkl. copy) cuComplex to fftw_complex");
     }
-    void convertCufftToFftwComplexOnHost(int Nx, int Ny, int Nz, fftw_complex* fftwArr, cufftComplex* cuArr) {
+    void convertCufftToFftwComplexOnHost(int Nx, int Ny, int Nz, fftw_complex* fftwArr, cufftComplex* cuArr, cudaStream_t stream) {
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
-        cudaEventRecord(start);
+        cudaEventRecord(start, stream);
         fftw_complex* fftwArrDevice;
         cudaMalloc(&fftwArrDevice, Nx * Ny * Nz * sizeof(fftw_complex));
 
-        dim3 blockSize(16, 8, 8);  // Blockgröße (optimal anpassen)
-        dim3 gridSize((Nx + blockSize.x - 1) / blockSize.x,
-                      (Ny + blockSize.y - 1) / blockSize.y,
-                      (Nz + blockSize.z - 1) / blockSize.z);  // Grid-Größe
+        // Use global kernel configuration
+        dim3 gridSize = computeBlocksPerGridConvert(Nx, Ny, Nz);
 
-        cufftToFftwComplexKernelGlobal<<<gridSize, blockSize>>>(Nx, Ny, Nz, fftwArrDevice, cuArr);
+        cufftToFftwComplexKernelGlobal<<<gridSize, GLOBAL_THREADS_PER_BLOCK_CONVERT, 0, stream>>>(Nx, Ny, Nz, fftwArrDevice, cuArr);
         
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
             std::cerr << "CUDA error at convertCuComplexToFFTW: " << cudaGetErrorString(err) << std::endl;
         }
-        CUBE_UTL_COPY::copyDataFromDeviceToHost(Nx, Ny, Nz, fftwArr, fftwArrDevice);
+        CUBE_UTL_COPY::copyDataFromDeviceToHost(Nx, Ny, Nz, fftwArr, fftwArrDevice, stream);
         cudaFree(fftwArrDevice);
-        cudaEventRecord(stop);
-        cudaEventSynchronize(stop);
+        cudaEventRecord(stop, stream);
+        ////cudaEventSynchronize(stop);
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
         DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<Nx * Ny * Nz * sizeof(fftw_complex)<<"B] Converting (inkl. copy) cufftComplex to fftw_complex");

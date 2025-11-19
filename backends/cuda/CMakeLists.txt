@@ -4,6 +4,7 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/lib/cube ${CMAKE_BINARY_DIR}/cube/build)
 
 add_library(cuda_backend SHARED
     CUDABackend.cpp
+    CUDABackendManager.cpp
 )
 
 target_include_directories(cuda_backend PUBLIC

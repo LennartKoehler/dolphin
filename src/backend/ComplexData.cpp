@@ -13,7 +13,6 @@ See the LICENSE file provided with the code for the full license.
 
 #include "backend/ComplexData.h"
 #include "backend/IBackendMemoryManager.h"
-
 // Take ownership of pre-allocated memory
 
 ComplexData::ComplexData(const IBackendMemoryManager* b, complex* data, RectangleShape size)
@@ -21,7 +20,7 @@ ComplexData::ComplexData(const IBackendMemoryManager* b, complex* data, Rectangl
 
 ComplexData::~ComplexData() {
     if (data) {
-        try { backend->freeMemoryOnDevice(*this); } catch(...) {}
+        try { backend->freeMemoryOnDevice(*this); } catch(...) {} // most likely the backend was deleted before the complexdata was freed
     }
 }
 

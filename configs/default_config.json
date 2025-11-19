@@ -14,8 +14,8 @@
     "time": false,
     "saveSubimages": false, 
     "backenddeconv": "cuda",
-    "nThreads": 5,
-    "maxMem_GB": 3
+    "nThreads": 1,
+    "maxMem_GB": 64
   },
   
 

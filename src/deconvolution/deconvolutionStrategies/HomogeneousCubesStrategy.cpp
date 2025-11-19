@@ -63,11 +63,11 @@ ImageMap<std::vector<std::shared_ptr<PSF>>> HomogeneousCubesStrategy::getStrateg
     
     // Use the imageShape parameter
     RectangleShape imageSize = imageShape;
-
-    size_t memoryPerCube = getMemoryPerCube(config.nThreads, config.maxMem_GB * 1e9, algorithm);
-    memoryPerCube /= 100; // TESTVALUE
+    size_t t = config.nThreads;
+    // t = static_cast<size_t>(2);
+    size_t memoryPerCube = getMemoryPerCube(t, config.maxMem_GB * 1e9, algorithm);
     RectangleShape idealCubeSize = getCubeShape(memoryPerCube, config.nThreads, imageSize, psfSize);
-    std::cerr << idealCubeSize.volume << std::endl; // TESTVALUE
+    idealCubeSize = RectangleShape(100,626,46); // TESTVALUE
     std::vector<BoxCoord> cubeCoordinates = splitImageHomogeneous(idealCubeSize, imageSize);
 
     return addPSFS(cubeCoordinates, psfs);

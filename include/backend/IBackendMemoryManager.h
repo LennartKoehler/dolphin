@@ -17,15 +17,37 @@ See the LICENSE file provided with the code for the full license.
 #include <stdexcept>
 #include <mutex>
 #include "ComplexData.h"
+#include <memory>
+#include <condition_variable>
 // Helper macro for cleaner not-implemented exceptions
 #define NOT_IMPLEMENTED(func_name) \
     throw std::runtime_error(std::string(#func_name) + " not implemented in " + typeid(*this).name())
-
+struct MemoryTracking{
+    // Memory management
+    size_t maxMemorySize;
+    size_t totalUsedMemory;
+    std::mutex memoryMutex;
+    std::condition_variable memoryCondition;
+    MemoryTracking() : maxMemorySize(0), totalUsedMemory(0) {}
+};
 class IBackendMemoryManager{
 public:
     // Data management - provide default implementations
     IBackendMemoryManager() = default;
     virtual ~IBackendMemoryManager() = default;
+    
+    /**
+     * Get the device type of this memory manager
+     * @return Device type string
+     */
+    virtual std::string getDeviceType() const noexcept {
+        return "unknown";
+    }
+    
+    // Synchronization - default implementation for non-async backends
+    virtual void sync() {
+        // Default no-op implementation for backends that don't need synchronization
+    }
     
     // Memory management initialization
     virtual void setMemoryLimit(size_t maxMemorySize = 0) {
@@ -56,7 +78,8 @@ public:
     virtual ComplexData copyData(const ComplexData& srcdata) const {
         NOT_IMPLEMENTED(copyData);
     }
-    
+
+   
     virtual ComplexData allocateMemoryOnDevice(const RectangleShape& shape) const {
         NOT_IMPLEMENTED(allocateMemoryOnDevice);
     }
@@ -68,6 +91,8 @@ public:
     virtual size_t getAvailableMemory() const {
         NOT_IMPLEMENTED(getAvailableMemory);
     }
+
+
 
 protected:
     mutable std::mutex backendMutex;

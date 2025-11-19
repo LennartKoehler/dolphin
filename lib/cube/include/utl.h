@@ -17,8 +17,8 @@ namespace CUBE_UTL_CHECK {
     void checkUniformity(int Nx, int Ny, int Nz,fftw_complex* mat);
     void displayHeatmap(int Nx, int Ny, int Nz,const fftw_complex* data);
     bool checkOctantFourierShift(int Nx, int Ny, int Nz, fftw_complex* original, fftw_complex* shifted);
-    void printFftwComplexValueFromDevice(int idx, fftw_complex* fftwArr);
-    void printCufftComplexValueFromDevice(int idx, cufftComplex* cuArr);
+    void printFftwComplexValueFromDevice(int idx, fftw_complex* fftwArr, cudaStream_t stream = 0);
+    void printCufftComplexValueFromDevice(int idx, cufftComplex* cuArr, cudaStream_t stream = 0);
 }
 
 namespace CUBE_UTL_INIT_MAT {
@@ -29,14 +29,14 @@ namespace CUBE_UTL_INIT_MAT {
 }
 
 namespace CUBE_UTL_COPY {
-    void copyDataFromHostToDevice(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src);
-    void copyDataFromDeviceToHost(int Nx, int Ny, int Nz, fftw_complex* dest, fftw_complex* src);
-    void copyDataFromDeviceToDevice(int Nx, int Ny, int Nz, fftw_complex* dest, fftw_complex* src);
+    void copyDataFromHostToDevice(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src, cudaStream_t stream = 0);
+    void copyDataFromDeviceToHost(int Nx, int Ny, int Nz, fftw_complex* dest, fftw_complex* src, cudaStream_t stream = 0);
+    void copyDataFromDeviceToDevice(int Nx, int Ny, int Nz, fftw_complex* dest, fftw_complex* src, cudaStream_t stream = 0);
 }
 
 namespace CUBE_UTL_CONVERT {
-    void convertFftwToCuComplexOnDevice(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cuComplex* cuArr);
-    void convertCuToFftwComplexOnHost(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cuComplex* cuArr);
-    void convertFftwToCufftComplexOnDevice(int Nx, int Ny, int Nz, fftw_complex* fftwArr, cufftComplex* cuArr);
-    void convertCufftToFftwComplexOnHost(int Nx, int Ny, int Nz, fftw_complex* fftwArr, cufftComplex* cuArr);
+    void convertFftwToCuComplexOnDevice(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cuComplex* cuArr, cudaStream_t stream = 0);
+    void convertCuToFftwComplexOnHost(int Nx, int Ny, int Nz,fftw_complex* fftwArr, cuComplex* cuArr, cudaStream_t stream = 0);
+    void convertFftwToCufftComplexOnDevice(int Nx, int Ny, int Nz, fftw_complex* fftwArr, cufftComplex* cuArr, cudaStream_t stream = 0);
+    void convertCufftToFftwComplexOnHost(int Nx, int Ny, int Nz, fftw_complex* fftwArr, cufftComplex* cuArr, cudaStream_t stream = 0);
 }

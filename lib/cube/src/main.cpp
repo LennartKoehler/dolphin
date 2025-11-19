@@ -206,14 +206,14 @@ if (err != cudaSuccess) {
     if (result != CUFFT_SUCCESS) {
     std::cerr << "[ERROR] error while creating FFT-Plan: " << result << std::endl;
       }
-
+    cudaError_t err;
     // Calculate FFT
-     cudaError_t err = cufftForward(d, d, plan3);
-     if (err != cudaSuccess) {
-         std::cerr << "[ERROR] cufftForward failed: " << cudaGetErrorString(err) << std::endl;
-     }
-    double end3 = omp_get_wtime();
-    std::cout << "[TIME][" << (end3 - start3) * 1000 << " cuFFT ms]" << std::endl;;
+    //  cudaError_t err = cufftForward(d, d, plan3);
+    //  if (err != cudaSuccess) {
+    //      std::cerr << "[ERROR] cufftForward failed: " << cudaGetErrorString(err) << std::endl;
+    //  }
+    // double end3 = omp_get_wtime();
+    // std::cout << "[TIME][" << (end3 - start3) * 1000 << " cuFFT ms]" << std::endl;;
     // Device-Pointer
     fftw_complex *d_a, *d_b, *d_c;
     // Allocate memory on GPU
