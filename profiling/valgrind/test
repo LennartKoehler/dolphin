@@ -1,0 +1,37 @@
+[Start Dolphin]
+[PSF_SERVICE] INFO: PSF Generation Service initialized successfully
+[INFO] Registering deconvolution algorithms...
+[INFO] Registered 6 algorithm(s)
+[INFO] Registering backends...
+[INFO] Registered 2 backend(s)
+[DECONV_SERVICE] INFO: Deconvolution Service initialized successfully
+[INFO] Abstract service layer initialized successfully
+[INFO] Deconvolution mode selected
+[INFO] Configuration loaded from: ../configs/default_config.json
+[DECONV_SERVICE] INFO: Starting deconvolution with request: /home/lennart-k-hler/data/dolphin_test_data/bacteria.tif
+[INFO] Read in 46 layers
+[STATUS] Layer 0/45 in 32F converted [STATUS] Layer 1/45 in 32F converted [STATUS] Layer 2/45 in 32F converted [STATUS] Layer 3/45 in 32F converted [STATUS] Layer 4/45 in 32F converted [STATUS] Layer 5/45 in 32F converted [STATUS] Layer 6/45 in 32F converted [STATUS] Layer 7/45 in 32F converted [STATUS] Layer 8/45 in 32F converted [STATUS] Layer 9/45 in 32F converted [STATUS] Layer 10/45 in 32F converted [STATUS] Layer 11/45 in 32F converted [STATUS] Layer 12/45 in 32F converted [STATUS] Layer 13/45 in 32F converted [STATUS] Layer 14/45 in 32F converted [STATUS] Layer 15/45 in 32F converted [STATUS] Layer 16/45 in 32F converted [STATUS] Layer 17/45 in 32F converted [STATUS] Layer 18/45 in 32F converted [STATUS] Layer 19/45 in 32F converted [STATUS] Layer 20/45 in 32F converted [STATUS] Layer 21/45 in 32F converted [STATUS] Layer 22/45 in 32F converted [STATUS] Layer 23/45 in 32F converted [STATUS] Layer 24/45 in 32F converted [STATUS] Layer 25/45 in 32F converted [STATUS] Layer 26/45 in 32F converted [STATUS] Layer 27/45 in 32F converted [STATUS] Layer 28/45 in 32F converted [STATUS] Layer 29/45 in 32F converted [STATUS] Layer 30/45 in 32F converted [STATUS] Layer 31/45 in 32F converted [STATUS] Layer 32/45 in 32F converted [STATUS] Layer 33/45 in 32F converted [STATUS] Layer 34/45 in 32F converted [STATUS] Layer 35/45 in 32F converted [STATUS] Layer 36/45 in 32F converted [STATUS] Layer 37/45 in 32F converted [STATUS] Layer 38/45 in 32F converted [STATUS] Layer 39/45 in 32F converted [STATUS] Layer 40/45 in 32F converted [STATUS] Layer 41/45 in 32F converted [STATUS] Layer 42/45 in 32F converted [STATUS] Layer 43/45 in 32F converted [STATUS] Layer 44/45 in 32F converted [STATUS] Layer 45/45 in 32F converted 0.029595
+[INFO] /home/lennart-k-hler/data/dolphin_test_data/bacteria.tif converted to multichannel
+[INFO] Read in metadata successful
+sizeX: 20
+sizeY: 20
+sizeZ: 40
+NA: 1.2
+resLateral_nm: 200
+resAxial_nm: 200
+ID: ID1234
+qualityFactor: 1
+sigmaX: 10
+sigmaY: 10
+sigmaZ: 10
+nanometerScale: 1e-09
+pixelScaling: 1e-06
+[CONFIGURATION] Richardson-Lucy Total Variation algorithm
+[CONFIGURATION] iterations: 20
+[CONFIGURATION] lambda: 0.015
+[STATUS] Starting deconvolution
+[DEBUG] Successfully created FFTW plans for shape: 256x128x64
+[STATUS] Saving result of channel 
+[STATUS] Deconvolution complete
+[DECONV_SERVICE] INFO: Deconvolution result saved to: /home/lennart-k-hler/data/dolphin_results/deconv_bacteria.tif
+[End Dolphin]

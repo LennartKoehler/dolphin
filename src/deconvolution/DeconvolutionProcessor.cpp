@@ -57,16 +57,17 @@ void loadingBar(int i, int max){
 
 DeconvolutionProcessor::DeconvolutionProcessor(){
     
-    std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>)> psfPreprocessFunction = [&](
+    std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
     RectangleShape shape,
-    std::shared_ptr<PSF> inputPSF
+    std::shared_ptr<PSF> inputPSF,
+    std::shared_ptr<IBackend> backend
     ) -> ComplexData* {
        
         Preprocessor::padToShape(inputPSF->image.slices, shape, 0);
         ComplexData h = convertCVMatVectorToFFTWComplex(inputPSF->image.slices, shape);
-        ComplexData h_device = backend_->getMemoryManager().copyDataToDevice(h);
-        backend_->getDeconvManager().octantFourierShift(h_device);
-        backend_->getDeconvManager().forwardFFT(h_device, h_device);
+        ComplexData h_device = backend->getMemoryManager().copyDataToDevice(h);
+        backend->getDeconvManager().octantFourierShift(h_device);
+        backend->getDeconvManager().forwardFFT(h_device, h_device);
         return new ComplexData(std::move(h_device));
     };
     psfPreprocessor.setPreprocessingFunction(psfPreprocessFunction);
@@ -88,7 +89,8 @@ Hyperstack DeconvolutionProcessor::run(const Hyperstack& image, const std::vecto
 		config,
 		backend_,
 		algorithm_);
-
+    
+    psfStrategy.sortByDimensions(); // this sorts by rectangleShape, so that fft plans can be destroyed when new dimension is needed, because the old dimension wont be needed as its sorted
     init(image, psfStrategy);
 
 
@@ -132,30 +134,30 @@ void DeconvolutionProcessor::parallelDeconvolution(
         // if (cubeIndex == 50){
         //     break;//TESTVALUE
         // }
-        const BoxEntryPair<std::vector<std::shared_ptr<PSF>>> psfs = psfMap.get(cubeIndex);
 
-        BoxCoord srcBox = psfs.box;
-        RectangleShape padding = getCubePadding(psfs.entry);
-        RectangleShape workShape = srcBox.dimensions + padding * 2;
-
-        std::vector<cv::Mat> cubeImage = getCubeImage(inputImagePadded, srcBox, padding, imagePaddingShift);
         
-        std::vector<const ComplexData*> preprocessedPSFs;
-        for (auto& psf : psfs.entry){
-            preprocessedPSFs.emplace_back(psfPreprocessor.getPreprocessedPSF(workShape, psf));
-        }
- 
+        // std::this_thread::sleep_for(std::chrono::milliseconds(2000)); // TESTVALUE this offsets each thread, so that there is no gap in gpu usage
         auto task = [this, cubeIndex, 
-                     cubeImage = std::move(cubeImage), 
-                     preprocessedPSFs = std::move(preprocessedPSFs), 
-                     srcBox = std::move(srcBox), 
-                     workShape = std::move(workShape),
-                     padding = std::move(padding),
+                     psfMap = std::move(psfMap),
+                     inputImagePadded = std::move(inputImagePadded),
+                     imagePaddingShift = std::move(imagePaddingShift),
                      &loadingBarMutex, &writerMutex, &memoryMutex, &memoryFull, &memoryAvailable,
                      &processedCount, &numberCubes, &outputImage, &runningTasks]() mutable {
             try{
                 std::shared_ptr<IBackend> threadbackend = backend_->onNewThread();
 
+                const BoxEntryPair<std::vector<std::shared_ptr<PSF>>> psfs = psfMap.get(cubeIndex);
+
+                BoxCoord srcBox = psfs.box;
+                RectangleShape padding = getCubePadding(psfs.entry);
+                RectangleShape workShape = srcBox.dimensions + padding * 2;
+
+                std::vector<cv::Mat> cubeImage = getCubeImage(inputImagePadded, srcBox, padding, imagePaddingShift);
+                
+                std::vector<const ComplexData*> preprocessedPSFs;
+                for (auto& psf : psfs.entry){
+                    preprocessedPSFs.emplace_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, threadbackend));
+                }
 
                 std::unique_ptr<DeconvolutionAlgorithm> algorithm = algorithm_->clone();
                 algorithm->setBackend(threadbackend);

@@ -3,7 +3,6 @@
 #include <stdexcept>
 #include "CUDABackend.h"
 #include "backend/Exceptions.h"
-#include <chrono>
 CUDABackendManager& CUDABackendManager::getInstance() {
     static CUDABackendManager instance;
     return instance;
@@ -22,7 +21,6 @@ void CUDABackendManager::initializeGlobalCUDA() {
 
 
 std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(500)); // TESTVALUE this offsets each thread by one second, so that there is no gap in gpu usage
     initializeGlobalCUDA();
     cudaStream_t stream = createStream();
     cudaSetDevice(0);

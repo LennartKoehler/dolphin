@@ -9,6 +9,8 @@ set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 # Include directories and libraries for FFTW, OpenCV, OpenMP, and TIFF
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+
 include_directories(/usr/local/include)
 # link_directories(/usr/local/lib)
 find_package(OpenCV REQUIRED)
@@ -29,7 +31,7 @@ find_package(TIFF REQUIRED)
 #         -Wextra
 #     )
 # endif()
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 # Find CUDA toolkit if available (optional)
 find_package(CUDAToolkit QUIET)
 if(CUDAToolkit_FOUND)
@@ -222,11 +224,17 @@ endif()
 
 option(ENABLE_TESTS "Enable tests" ON)
 if (${ENABLE_TESTS})
-    enable_testing()
-    # Ensure backends are built before tests
+     # Ensure backends are built before tests
     # add_subdirectory(backends/cpu)
     # if(CUDA_AVAILABLE)
     #     add_subdirectory(backends/cuda)
     # endif()
+    set(CMAKE_CTEST_ARGUMENTS "--verbose")
+
+
+    enable_testing()
     add_subdirectory(tests)
+
+
+
 endif()

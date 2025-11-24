@@ -26,8 +26,16 @@ private:
     std::vector<BoxEntryPair<entryType>> entries_;
 
 public:
-    // Add mapping with any PSF type (ID string or actual PSF object)
 
+    void sortByDimensions() {
+        std::sort(entries_.begin(), entries_.end(),
+            [](auto& a, auto& b) {
+                const auto& da = a.box.dimensions;
+                const auto& db = b.box.dimensions;
+                return da < db;
+            }
+        );
+    }
     void add(BoxCoord box, entryType entry) {
         entries_.emplace_back(std::move(box), std::move(entry));
     }

@@ -1,3 +1,4 @@
+operations between cuda memcopy are cuda and cpu read/write operations
 cube sizes must be power of 2 so that fft is fast. if e.g. size is prime then fft is 10x slower
 CUDA:
    not actually worth to investigate any speedup or graph implementation, there is no overhead problem, its just the cufft kernel that takes very long
