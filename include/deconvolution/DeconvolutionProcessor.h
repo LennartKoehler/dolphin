@@ -64,10 +64,10 @@ private:
     void parallelDeconvolution(const std::vector<cv::Mat>& image, std::vector<cv::Mat>& output, const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfMap, const RectangleShape& paddingShift);
     void deconvolveSingleCube(
         std::shared_ptr<IBackend> backend,
-        std::unique_ptr<DeconvolutionAlgorithm> algorithm,
+        std::shared_ptr<DeconvolutionAlgorithm> algorithm,
         std::vector<cv::Mat>& cubeImage,
         const RectangleShape& workShape,
-        const std::vector<const ComplexData*> psfs_host);
+        const BoxEntryPair<std::vector<std::shared_ptr<PSF>>>& psfs_host);
 
 
     void postprocessChannel(std::vector<cv::Mat>& image);
@@ -106,7 +106,8 @@ private:
 
 
     //multithreading
-    std::shared_ptr<ThreadPool> threadPool;
+    std::shared_ptr<ThreadPool> workerPool;
+    std::shared_ptr<ThreadPool> readwriterPool;
     size_t numberThreads;
 
     bool configured = false;
