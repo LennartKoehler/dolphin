@@ -45,6 +45,7 @@ void loadingBar(int i, int max){
         else std::cerr << " ";
     }
     std::cerr <<  "] " << std::setw(3) << progress << "% (" 
+    
             << i << "/" << max << ")";
     std::cerr.flush();
 
@@ -57,8 +58,8 @@ void loadingBar(int i, int max){
 
 DeconvolutionProcessor::DeconvolutionProcessor(){
     
-    std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
-    RectangleShape shape,
+    std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
+    const RectangleShape shape,
     std::shared_ptr<PSF> inputPSF,
     std::shared_ptr<IBackend> backend
     ) -> ComplexData* {
@@ -136,7 +137,8 @@ void DeconvolutionProcessor::parallelDeconvolution(
         // }
 
         
-        // std::this_thread::sleep_for(std::chrono::milliseconds(2000)); // TESTVALUE this offsets each thread, so that there is no gap in gpu usage
+        // this task is run by the readwriterPool, which will then enqueue the work itself into the workerpool
+        // since there are more readwriters than workers, the workers should always be occupied with work, 
         auto task = [this, cubeIndex, 
                      psfMap = std::move(psfMap),
                      inputImagePadded = std::move(inputImagePadded),
@@ -144,48 +146,38 @@ void DeconvolutionProcessor::parallelDeconvolution(
                      &loadingBarMutex, &writerMutex, &memoryMutex, &memoryFull, &memoryAvailable,
                      &processedCount, &numberCubes, &outputImage, &runningTasks]() mutable {
             try{
-                std::shared_ptr<IBackend> threadbackend = backend_->onNewThread();
 
                 const BoxEntryPair<std::vector<std::shared_ptr<PSF>>> psfs = psfMap.get(cubeIndex);
 
                 BoxCoord srcBox = psfs.box;
                 RectangleShape padding = getCubePadding(psfs.entry);
                 RectangleShape workShape = srcBox.dimensions + padding * 2;
-
                 std::vector<cv::Mat> cubeImage = getCubeImage(inputImagePadded, srcBox, padding, imagePaddingShift);
-                
-                std::vector<const ComplexData*> preprocessedPSFs;
-                for (auto& psf : psfs.entry){
-                    preprocessedPSFs.emplace_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, threadbackend));
-                }
 
-                std::unique_ptr<DeconvolutionAlgorithm> algorithm = algorithm_->clone();
-                algorithm->setBackend(threadbackend);
 
-                // Add debug logging to validate backend object
-                if (!threadbackend) {
-                    std::cerr << "[CRITICAL ERROR] Thread backend is null!" << std::endl;
-                    throw std::runtime_error("Thread backend is null");
-                }
                 deconvolveSingleCube(
-                    threadbackend,
-                    std::move(algorithm),
+                    backend_,
+                    algorithm_,
                     cubeImage,
                     workShape,
-                    preprocessedPSFs);
-                threadbackend->sync();
-                threadbackend->releaseBackend(); // TODO do i run this here
-                {
-                    std::unique_lock<std::mutex> lock(loadingBarMutex);
-                    loadingBar(++processedCount, numberCubes);
-                }
+                    psfs);
+
+
+                // Wait for processing to complete, then insert the result
+                
                 {
                     std::unique_lock<std::mutex> lock(writerMutex);
                     Postprocessor::insertCubeInImage(cubeImage, outputImage, srcBox, padding);
                 }
+
                 {
                     std::unique_lock<std::mutex> lock(memoryMutex);
                     memoryAvailable = true;
+                }
+                {
+                    std::unique_lock<std::mutex> lock(loadingBarMutex);
+                    loadingBar(++processedCount, numberCubes);
+                    
                 }
                 // queueFull.notify_one();
                 memoryFull.notify_all(); // Signal that one thread is done and new memory might be available
@@ -201,7 +193,7 @@ void DeconvolutionProcessor::parallelDeconvolution(
                         return memoryAvailable;
                     });
                 }
-                // runningTasks.push_back(threadPool->enqueue(task));
+                // runningTasks.push_back(workerPool->enqueue(task));
             }
             catch (const dolphin::backend::BackendException& e) {
                 std::cerr << "[ERROR] Backend exception in cube " << cubeIndex << ": " 
@@ -215,7 +207,7 @@ void DeconvolutionProcessor::parallelDeconvolution(
             }
         };
 
-        runningTasks.push_back(threadPool->enqueue(task));
+        runningTasks.push_back(readwriterPool->enqueue(task));
     }
 
     // Wait for all remaining tasks to finish
@@ -224,26 +216,60 @@ void DeconvolutionProcessor::parallelDeconvolution(
 }
 
 void DeconvolutionProcessor::deconvolveSingleCube(
-    std::shared_ptr<IBackend> backend,
-    std::unique_ptr<DeconvolutionAlgorithm> algorithm,
+    std::shared_ptr<IBackend> prototypebackend,
+    std::shared_ptr<DeconvolutionAlgorithm> prototypealgorithm,
     std::vector<cv::Mat>& cubeImage,
     const RectangleShape& workShape,
-    const std::vector<const ComplexData*> psfs_device) {
+    const BoxEntryPair<std::vector<std::shared_ptr<PSF>>>& psfs_host) {
 
     ComplexData f_host{cpuMemoryManager.get(), nullptr, RectangleShape()};
-    
+
     try{
+
         ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage, workShape);
-        ComplexData g_device = backend->getMemoryManager().copyDataToDevice(g_host);
+        ComplexData g_device = prototypebackend->getMemoryManager().copyDataToDevice(g_host);
         cpuMemoryManager->freeMemoryOnDevice(g_host);
-        ComplexData f_device = backend->getMemoryManager().allocateMemoryOnDevice(workShape);
+        ComplexData f_device = prototypebackend->getMemoryManager().allocateMemoryOnDevice(workShape);
 
-        for (const auto* psf_device : psfs_device){
-            algorithm->deconvolve(*psf_device, g_device, f_device);
 
-        }
+        // on workerThread
+        std::future<void> resultDone = workerPool->enqueue([
+            this,
+            &prototypebackend,
+            &prototypealgorithm,
+            &psfs_host,
+            &workShape,
+            &g_device,
+            &f_device
+        ](){
+            std::shared_ptr<IBackend> threadbackend = prototypebackend->onNewThread();
+            
+            std::unique_ptr<DeconvolutionAlgorithm> algorithm = prototypealgorithm->clone();
+            algorithm->setBackend(threadbackend);
 
-        f_host = backend->getMemoryManager().moveDataFromDevice(f_device, *cpuMemoryManager);
+            // Add debug logging to validate backend object
+            if (!threadbackend) {
+                std::cerr << "[CRITICAL ERROR] Thread backend is null!" << std::endl;
+                throw std::runtime_error("Thread backend is null");
+            }
+            std::vector<const ComplexData*> preprocessedPSFs;
+            for (auto& psf : psfs_host.entry){
+                preprocessedPSFs.emplace_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, threadbackend));
+            }
+            
+    
+
+
+            for (const auto* psf_device : preprocessedPSFs){
+                algorithm->deconvolve(*psf_device, g_device, f_device);
+            }
+            threadbackend->sync();
+            threadbackend->releaseBackend(); // TODO do i run this here
+        });
+        resultDone.get();
+
+        // on host
+        f_host = prototypebackend->getMemoryManager().moveDataFromDevice(f_device, *cpuMemoryManager);
     }
     catch(...){
         throw; // dont overwrite image if exception
@@ -359,7 +385,8 @@ void DeconvolutionProcessor::configure(const DeconvolutionConfig config) {
 
     numberThreads = config.nThreads;
     // numberThreads = config.backenddeconv == "cuda" ? 1 : config.nThreads; // TODO change
-    threadPool = std::make_shared<ThreadPool>(numberThreads);
+    workerPool = std::make_shared<ThreadPool>(numberThreads);
+    readwriterPool = std::make_shared<ThreadPool>(numberThreads + 2);
 
     configured = true;
 }

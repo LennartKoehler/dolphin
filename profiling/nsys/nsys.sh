@@ -3,7 +3,7 @@
 # Set the directory you want to run the command from
 TARGET_DIR="build"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUTNAME="dolphin_cuda_test_no_write_no_copy_back"
+OUTNAME="dolphin_cuda_one_thread"
 # Change to that directory
 cd "$TARGET_DIR" || { echo "Failed to change directory to $TARGET_DIR"; exit 1; }
 
