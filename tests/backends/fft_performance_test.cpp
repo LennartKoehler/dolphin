@@ -168,7 +168,7 @@ void runFFTPerformanceTest(const std::string& backendName) {
             
             // Run small FFT test
             std::chrono::microseconds smallDuration{0};
-            // smallDuration = runSmallFFTTest(backendName, backend.get(), memManager.get(), cpuMemManager.get(), smallDim, numSmallFFTs, num_iterations);
+            smallDuration = runSmallFFTTest(backendName, backend.get(), memManager.get(), cpuMemManager.get(), smallDim, numSmallFFTs, num_iterations);
             
             // Calculate and display performance comparison
             std::cout << "\n--- Performance Comparison ---" << std::endl;
@@ -195,7 +195,7 @@ void runFFTPerformanceTest(const std::string& backendName) {
 }
 
 int main() {
-    std::cout << "Starting FFT Performance Tests" << std::endl;
+    std::cout << "CTEST_FULL_OUTPUT Starting FFT Performance Tests" << std::endl;
     
     // Test CPU backend
     runFFTPerformanceTest("cpu");
