@@ -19,6 +19,9 @@ public:
     std::string psfFilePath;
     std::string psfDirPath;
     std::string outputDir;
+    std::string labeledImage;
+    std::string labelPSFMap;
+    std::string strategyType = "normal";
     bool time = false; //show time
     bool sep = false; //save layer separate (TIF dir)
     bool savePsf = false; //save PSF

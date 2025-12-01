@@ -123,8 +123,82 @@ std::vector<std::vector<cv::Mat>> Preprocessor::splitImageHomogeneous(
 
 
 
-RectangleShape Preprocessor::padToShape(std::vector<cv::Mat>& image3D, const RectangleShape& targetShape, int borderType){
-    if (image3D.empty()) return RectangleShape{0,0,0};
+void Preprocessor::padImage(std::vector<cv::Mat>& image3D, const Padding& padding, int borderType){
+    
+    int currentDepth = image3D.size();
+    int currentHeight = image3D[0].rows;
+    int currentWidth = image3D[0].cols;
+    
+    
+    int depthPaddingBefore = padding.before.depth;
+    int heightPaddingTop = padding.before.height;
+    int widthPaddingLeft = padding.before.width;
+
+    
+    // Handle depth padding (3D)
+
+    // Distribute padding: put extra padding at the end if odd
+    int depthPaddingAfter = padding.after.depth;
+    
+    std::vector<cv::Mat> paddingBefore, paddingAfter;
+    
+    if (borderType == cv::BORDER_REFLECT) {
+        // if the padding is larger than the image this would otherwise be negative
+        int start = std::max(0, currentDepth - padding.before.depth);
+
+        // Before padding: reflect continuously if needed
+        for (int i = start; i < depthPaddingBefore + start; ++i) {
+            // Use modulo to continuously reflect through the image
+            int sourceIndex = i % currentDepth;
+            // For reflection, alternate between forward and backward
+            if ((i / currentDepth) % 2 != 0) {
+                // Forward direction
+                paddingBefore.push_back(image3D[sourceIndex].clone());
+            } else {
+                // Reverse direction  
+                paddingBefore.push_back(image3D[currentDepth - 1 - sourceIndex].clone());
+            }
+        }
+        
+        // After padding: reflect continuously if needed
+        for (int i = 0; i < depthPaddingAfter; ++i) {
+            int sourceIndex = i % currentDepth;
+            if ((i / currentDepth) % 2 == 0) {
+                // Start from the end, going backward
+                paddingAfter.push_back(image3D[currentDepth - 1 - sourceIndex].clone());
+            } else {
+                // Forward direction
+                paddingAfter.push_back(image3D[sourceIndex].clone());
+            }
+        }
+    }
+    else if (borderType == 0) {
+        // Zero padding
+        cv::Mat zeroMat = cv::Mat::zeros(currentHeight, currentWidth, image3D[0].type());
+        paddingBefore.assign(depthPaddingBefore, zeroMat);
+        paddingAfter.assign(depthPaddingAfter, zeroMat);
+    }
+    
+    // Insert padding
+    image3D.insert(image3D.begin(), paddingBefore.begin(), paddingBefore.end());
+    image3D.insert(image3D.end(), paddingAfter.begin(), paddingAfter.end());
+
+
+
+    int heightPaddingBottom = padding.after.height;
+    int widthPaddingRight = padding.after.width;
+    
+    for (auto& layer : image3D) {
+        cv::copyMakeBorder(layer, layer, 
+                            heightPaddingTop, heightPaddingBottom,
+                            widthPaddingLeft, widthPaddingRight, 
+                            borderType);
+    }
+}
+
+
+Padding Preprocessor::padToShape(std::vector<cv::Mat>& image3D, const RectangleShape& targetShape, int borderType){
+    assert (!image3D.empty() && "Cannot pad empty image");
     
     int currentDepth = image3D.size();
     int currentHeight = image3D[0].rows;
@@ -138,75 +212,45 @@ RectangleShape Preprocessor::padToShape(std::vector<cv::Mat>& image3D, const Rec
     int depthPaddingBefore;
     int heightPaddingTop;
     int widthPaddingLeft;
-    // If no padding needed, return early
-    if (totalDepthPadding <= 0 && totalHeightPadding <= 0 && totalWidthPadding <= 0) {
-        return RectangleShape{0,0,0};
-    }
-    
+
+    int depthPaddingAfter;
+    int heightPaddingBottom;
+    int widthPaddingRight;
+
+
+ 
     // Handle depth padding (3D)
     if (totalDepthPadding > 0) {
         // Distribute padding: put extra padding at the end if odd
         depthPaddingBefore = totalDepthPadding / 2;
-        int depthPaddingAfter = totalDepthPadding - depthPaddingBefore;
+        depthPaddingAfter = totalDepthPadding - depthPaddingBefore;
         
-        std::vector<cv::Mat> paddingBefore, paddingAfter;
         
-        if (borderType == cv::BORDER_REFLECT) {
-            // if the padding is larger than the image this would otherwise be negative
-            int start = std::max(0, currentDepth - totalDepthPadding/2);
-            // Before padding: reflect continuously if needed
-            for (int i = start; i < depthPaddingBefore + start; ++i) {
-                // Use modulo to continuously reflect through the image
-                int sourceIndex = i % currentDepth;
-                // For reflection, alternate between forward and backward
-                if ((i / currentDepth) % 2 != 0) {
-                    // Forward direction
-                    paddingBefore.push_back(image3D[sourceIndex].clone());
-                } else {
-                    // Reverse direction  
-                    paddingBefore.push_back(image3D[currentDepth - 1 - sourceIndex].clone());
-                }
-            }
-            
-            // After padding: reflect continuously if needed
-            for (int i = 0; i < depthPaddingAfter; ++i) {
-                int sourceIndex = i % currentDepth;
-                if ((i / currentDepth) % 2 == 0) {
-                    // Start from the end, going backward
-                    paddingAfter.push_back(image3D[currentDepth - 1 - sourceIndex].clone());
-                } else {
-                    // Forward direction
-                    paddingAfter.push_back(image3D[sourceIndex].clone());
-                }
-            }
-        }
-        else if (borderType == 0) {
-            // Zero padding
-            cv::Mat zeroMat = cv::Mat::zeros(currentHeight, currentWidth, image3D[0].type());
-            paddingBefore.assign(depthPaddingBefore, zeroMat);
-            paddingAfter.assign(depthPaddingAfter, zeroMat);
-        }
-        
-        // Insert padding
-        image3D.insert(image3D.begin(), paddingBefore.begin(), paddingBefore.end());
-        image3D.insert(image3D.end(), paddingAfter.begin(), paddingAfter.end());
     }
     
     // Handle 2D padding (width/height) - OpenCV automatically handles continuous reflection
     if (totalHeightPadding > 0 || totalWidthPadding > 0) {
         heightPaddingTop = totalHeightPadding / 2;
-        int heightPaddingBottom = totalHeightPadding - heightPaddingTop;
+        heightPaddingBottom = totalHeightPadding - heightPaddingTop;
         widthPaddingLeft = totalWidthPadding / 2;
-        int widthPaddingRight = totalWidthPadding - widthPaddingLeft;
-        
-        for (auto& layer : image3D) {
-            cv::copyMakeBorder(layer, layer, 
-                             heightPaddingTop, heightPaddingBottom,
-                             widthPaddingLeft, widthPaddingRight, 
-                             borderType);
-        }
+        widthPaddingRight = totalWidthPadding - widthPaddingLeft;
+
     }
-    return RectangleShape{widthPaddingLeft, heightPaddingTop, depthPaddingBefore};
+    Padding padding{
+        RectangleShape{
+            widthPaddingLeft,
+            heightPaddingTop,
+            depthPaddingBefore
+        },
+        RectangleShape{
+            widthPaddingRight,
+            heightPaddingBottom,
+            depthPaddingAfter
+        }
+    };
+
+    Preprocessor::padImage(image3D, padding, borderType);
+    return padding;
 }
 
 

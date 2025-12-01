@@ -14,23 +14,82 @@ See the LICENSE file provided with the code for the full license.
 #include "deconvolution/Postprocessor.h"
 #include <stdexcept>
 #include <functional>
+#include "HelperClasses.h"
 
 void Postprocessor::insertCubeInImage(
-    std::vector<cv::Mat>& cube,
+    PaddedImage& cube,
     std::vector<cv::Mat>& image,
-    BoxCoord srcBox,
-    RectangleShape padding
+    BoxCoord srcBox
 ){
 
-    for (int zCube = padding.depth; zCube < srcBox.dimensions.depth + padding.depth; zCube++){
-        cv::Rect roi(padding.width, padding.height, srcBox.dimensions.width, srcBox.dimensions.height);
-        cv::Mat srcSlice = cube[zCube](roi);
+    for (int zCube = cube.padding.before.depth; zCube < srcBox.dimensions.depth + cube.padding.before.depth; zCube++){
+        cv::Rect roi(cube.padding.before.width, cube.padding.before.height, srcBox.dimensions.width, srcBox.dimensions.height);
+        cv::Mat srcSlice = cube.image[zCube](roi);
         // Define where it goes in the big image
         cv::Rect dstRoi(srcBox.x, srcBox.y, srcBox.dimensions.width, srcBox.dimensions.height);
 
-        srcSlice.copyTo(image[srcBox.z + zCube - padding.depth](dstRoi));
+        srcSlice.copyTo(image[srcBox.z + zCube - cube.padding.before.depth](dstRoi));
     }
+}
 
+void Postprocessor::insertLabeledCubeInImage(
+    const PaddedImage& cube,
+    std::vector<cv::Mat>& outputImage,
+    const BoxCoord& srcBox,
+    const LabelGroup& labelgroup
+){
+    for (int zCube = cube.padding.before.depth; zCube < srcBox.dimensions.depth + cube.padding.before.depth; zCube++){
+            cv::Rect roi(cube.padding.before.width, cube.padding.before.height, srcBox.dimensions.width, srcBox.dimensions.height);
+            cv::Mat srcSlice = cube.image[zCube](roi);
+            
+            // Define where it goes in the big image
+            cv::Rect dstRoi(srcBox.x, srcBox.y, srcBox.dimensions.width, srcBox.dimensions.height);
+            
+            // Get corresponding label slice
+            int outputZ = srcBox.z + zCube - cube.padding.before.depth;
+            
+            cv::Mat mask = labelgroup.getMask(dstRoi, outputZ);
+            // Copy only where mask is true
+            srcSlice.copyTo(outputImage[outputZ](dstRoi), mask);
+        }
+    
+    
+}
+
+
+
+void Postprocessor::removePadding(std::vector<cv::Mat>& image, const Padding& padding) {
+    if (image.empty()) return;
+    
+    RectangleShape currentSize(image[0].cols, image[0].rows, image.size());
+    
+
+
+    RectangleShape cropAmount = padding.before + padding.after;
+
+    // Crop depth if needed (remove from both ends like removePadding does)
+    assert(image.size() > cropAmount.depth && "Image smaller than crop amount");
+    
+    // Remove from beginning
+    if (padding.before.depth > 0) {
+        image.erase(image.begin(), image.begin() + padding.before.depth);
+    }
+    
+    // Remove from end
+    if (padding.after.depth > 0) {
+        image.erase(image.end() - padding.after.depth, image.end());
+    }
+   
+    
+    // Crop width and height if needed (remove from all sides like removePadding does)
+    int newWidth = currentSize.width - cropAmount.width;
+    int newHeight = currentSize.height - cropAmount.height;
+    
+    for (auto& slice : image) {
+        // Crop symmetrically from all sides (like removePadding removes padding from all sides)
+        cv::Rect cropRegion(padding.before.width, padding.before.height, newWidth, newHeight);
+        slice = slice(cropRegion).clone();
+    }
 
 }
 
@@ -50,32 +109,8 @@ void Postprocessor::cropToOriginalSize(std::vector<cv::Mat>& image, const Rectan
     RectangleShape cropStart(cropAmount.width / 2, cropAmount.height / 2, cropAmount.depth / 2);
     RectangleShape cropEnd = cropAmount - cropStart;
     
-    // Crop depth if needed (remove from both ends like removePadding does)
-    if (cropAmount.depth > 0) {
-        assert(image.size() > cropAmount.depth && "Image smaller than crop amount");
-        
-        // Remove from beginning
-        if (cropStart.depth > 0) {
-            image.erase(image.begin(), image.begin() + cropStart.depth);
-        }
-        
-        // Remove from end
-        if (cropEnd.depth > 0) {
-            image.erase(image.end() - cropEnd.depth, image.end());
-        }
-    }
-    
-    // Crop width and height if needed (remove from all sides like removePadding does)
-    if (cropAmount.width > 0 || cropAmount.height > 0) {
-        int newWidth = currentSize.width - cropAmount.width;
-        int newHeight = currentSize.height - cropAmount.height;
-        
-        for (auto& slice : image) {
-            // Crop symmetrically from all sides (like removePadding removes padding from all sides)
-            cv::Rect cropRegion(cropStart.width, cropStart.height, newWidth, newHeight);
-            slice = slice(cropRegion).clone();
-        }
-    }
+    Padding padding{cropStart, cropEnd};
+    removePadding(image, padding);
 }
 
 

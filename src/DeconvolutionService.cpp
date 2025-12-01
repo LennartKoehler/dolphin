@@ -14,7 +14,9 @@ See the LICENSE file provided with the code for the full license.
 #include "DeconvolutionService.h"
 #include "PSFCreator.h"
 #include "deconvolution/DeconvolutionProcessor.h"
-#include "deconvolution/deconvolutionStrategies/HomogeneousCubesStrategy.h"
+#include "deconvolution/deconvolutionStrategies/DeconvolutionStrategy.h"
+#include "DeconvolutionStrategyFactory.h"
+#include "ThreadPool.h"
 #include <chrono>
 #include <fstream>
 #include "UtlIO.h"
@@ -23,8 +25,7 @@ DeconvolutionService::DeconvolutionService()
     : initialized_(false),
       logger_([](const std::string& msg) { std::cout << "[DECONV_SERVICE] " << msg << std::endl; }),
       error_handler_([](const std::string& msg) { std::cerr << "[DECONV_ERROR] " << msg << std::endl; }),
-      thread_pool_(std::make_unique<ThreadPool>(1)),
-      deconvolutionProcessor(std::make_unique<DeconvolutionProcessor>()){}
+      thread_pool_(std::make_unique<ThreadPool>(1)){}
 
 DeconvolutionService::~DeconvolutionService() {
     shutdown();
@@ -86,7 +87,9 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
 
         // Validate request
         if (!validateDeconvolutionRequest(request)) {
-            return createResult(false, "Invalid deconvolution request", 
+            std::string error_msg = "Invalid deconvolution request";
+            handleError(error_msg);
+            return createResult(false, error_msg, 
                               std::chrono::duration<double>::zero());
         }
 
@@ -97,7 +100,9 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         // Load hyperstack
         std::shared_ptr<Hyperstack> hyperstack = loadImage(setupConfig->imagePath);
         if (!hyperstack) {
-            return createResult(false, "Failed to load image from: " + setupConfig->imagePath,
+            std::string error_msg = "Failed to load image from: " + setupConfig->imagePath;
+            handleError(error_msg);
+            return createResult(false, error_msg,
                               std::chrono::duration<double>::zero());
         }
         
@@ -107,16 +112,26 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
             psfs.push_back(PSFCreator::generatePSFFromPSFConfig(request.getPSFConfig(), thread_pool_.get()));
         }
         if (psfs.empty()) {
-            return createResult(false, "No valid PSFs provided",
+            std::string error_msg = "No valid PSFs provided";
+            handleError(error_msg);
+            return createResult(false, error_msg,
                               std::chrono::duration<double>::zero());
         }
         
-
+        // Create deconvolution strategy using factory
+        DeconvolutionStrategyFactory& factory = DeconvolutionStrategyFactory::getInstance();
+        deconvolutionStrategy = factory.createStrategy(setupConfig);
         
-        deconvolutionProcessor->configure(*(deconvConfig.get()));
+        if (!deconvolutionStrategy) {
+            std::string error_msg = "Unsupported deconvolution type: " + deconvConfig->deconvolutionType;
+            handleError(error_msg);
+            return createResult(false, error_msg,
+                              std::chrono::duration<double>::zero());
+        }
+        
+        deconvolutionStrategy->configure(std::make_unique<DeconvolutionConfig>(*deconvConfig.get()));
 
-        HomogeneousCubesStrategy strategy;
-        Hyperstack result = deconvolutionProcessor->run(*hyperstack, psfs, strategy);
+        Hyperstack result = deconvolutionStrategy->run(*hyperstack, psfs);
         
         // Handle saving
         std::string output_path = request.output_path;
@@ -194,6 +209,11 @@ std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> DeconvolutionServ
 
 std::vector<std::string> DeconvolutionService::getSupportedAlgorithms() const {
     return supported_algorithms_;
+}
+
+std::vector<std::string> DeconvolutionService::getSupportedStrategyTypes() const {
+    DeconvolutionStrategyFactory& factory = DeconvolutionStrategyFactory::getInstance();
+    return factory.getSupportedTypes();
 }
 
 bool DeconvolutionService::validateAlgorithmConfig(const std::string& algorithm, const json& config) const {
@@ -295,7 +315,8 @@ std::vector<PSF> DeconvolutionService::createPSFsFromSetup(
         psfs.push_back(PSFCreator::generatePSFFromPSFConfig(config, thread_pool_.get()));
     }
     if (!setupConfig->psfFilePath.empty()){
-        psfs.push_back(PSFCreator::readPSFFromFilePath(setupConfig->psfFilePath));
+        std::vector<PSF> filePsfs = PSFCreator::readPSFsFromFilePath(setupConfig->psfFilePath);
+        psfs.insert(psfs.end(), filePsfs.begin(), filePsfs.end());
     }
     if (!setupConfig->psfDirPath.empty()){
         std::vector<std::shared_ptr<PSFConfig>> psfconfigs = PSFCreator::generatePSFsFromDir(setupConfig->psfDirPath);

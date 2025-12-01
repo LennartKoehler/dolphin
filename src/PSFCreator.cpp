@@ -16,7 +16,8 @@ See the LICENSE file provided with the code for the full license.
 #include "psf/PSFGeneratorFactory.h"
 #include <fstream>
 #include <cassert>
-
+#include <sstream>
+#include <filesystem>
 
 
 std::shared_ptr<PSFConfig> PSFCreator::generatePSFConfigFromConfigPath(const std::string& psfConfigPath){
@@ -29,10 +30,36 @@ std::shared_ptr<PSFConfig> PSFCreator::generatePSFConfigFromConfigPath(const std
     return psfConfig;
 }
 
-PSF PSFCreator::readPSFFromFilePath(const std::string& psfFilePath){
-    PSF psf;
-    psf.readFromTifFile(psfFilePath.c_str());
-    return psf;
+std::vector<PSF> PSFCreator::readPSFsFromFilePath(const std::string& psfFilePath){
+    std::vector<std::string> tokens;
+    std::stringstream ss(psfFilePath);
+    std::string token;
+    
+    // Split by comma and trim whitespace from each token
+    while (std::getline(ss, token, ',')) {
+        // Trim leading and trailing whitespace
+        token.erase(0, token.find_first_not_of(" \t"));
+        token.erase(token.find_last_not_of(" \t") + 1);
+        if (!token.empty()) {
+            tokens.push_back(token);
+        }
+    }
+
+    std::vector<PSF> psfs;
+    for (const auto& psffilepath : tokens){
+        PSF psf;
+        
+        // Determine if the path is a file or directory and read accordingly
+        std::string ext = psffilepath.substr(psffilepath.find_last_of(".") + 1);
+        if (ext == "tif" || ext == "tiff" || ext == "ometif") {
+            psf.readFromTifFile(psffilepath.c_str());
+        } else {
+            psf.readFromTifDir(psffilepath);
+        }
+        
+        psfs.push_back(psf);
+    }
+    return psfs;
 }
 
 PSF PSFCreator::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, ThreadPool* threadPool){

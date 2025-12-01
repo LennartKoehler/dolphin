@@ -4,7 +4,8 @@
 #include <opencv2/core/mat.hpp>
 #include "backend/ComplexData.h"
 #include "deconvolution/ImageMap.h"
-
+#include "deconvolution/deconvolutionStrategies/ComputationalPlan.h"
+class PaddedImage;
 namespace Postprocessor{
     std::vector<cv::Mat> mergeImage(
         const std::vector<std::vector<cv::Mat>>& cubes,
@@ -16,13 +17,18 @@ namespace Postprocessor{
 
 
     void insertCubeInImage(
-        std::vector<cv::Mat>& cube,
+        PaddedImage& cube,
         std::vector<cv::Mat>& image,
-        BoxCoord destBox,
-        RectangleShape padding
+        BoxCoord srcBox
     );
-    
-    void removePadding(std::vector<cv::Mat>& image, const RectangleShape& padding);
+    void insertLabeledCubeInImage(
+        const PaddedImage& cube,
+        std::vector<cv::Mat>& image,
+        const BoxCoord& srcBox,
+        const LabelGroup& labelGroup
+    );
+
+    void removePadding(std::vector<cv::Mat>& image, const Padding& padding);
     void cropToOriginalSize(std::vector<cv::Mat>& image, const RectangleShape& originalSize);
 
 }

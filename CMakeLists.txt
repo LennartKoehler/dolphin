@@ -113,6 +113,7 @@ set(COMMON_SOURCES
     src/ServiceFactory.cpp
     src/PSFGenerationService.cpp
     src/DeconvolutionService.cpp
+    src/DeconvolutionStrategyFactory.cpp
     src/ThreadPool.cpp
     # src/backend/ComplexData.cpp
     src/backend/BackendFactory.cpp
@@ -138,7 +139,9 @@ set(COMMON_SOURCES
     src/deconvolution/Postprocessor.cpp
     src/deconvolution/DeconvolutionProcessor.cpp
     
-    src/deconvolution/deconvolutionStrategies/HomogeneousCubesStrategy.cpp
+    src/deconvolution/deconvolutionStrategies/DeconvolutionStrategy.cpp
+    src/deconvolution/deconvolutionStrategies/LabeledImageDeconvolutionStrategy.cpp
+    src/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.cpp
 
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp

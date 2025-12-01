@@ -188,6 +188,15 @@ public:
         auto deconv = std::make_unique<CUDADeconvolutionBackend>();
         auto memoryManager = std::make_unique<CUDABackendMemoryManager>();
 
+        // should be on default stream or not?
+        // cudaStream_t stream;
+        // // cudaError_t err = cudaStreamCreate(&stream);
+        // cudaError_t err = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+        // if (err != cudaSuccess) {
+        //     throw std::runtime_error("Failed to create CUDA stream: " + std::string(cudaGetErrorString(err)));
+        // }
+        // deconv->setStream(stream);
+        // memoryManager->setStream(stream);
         return new CUDABackend(std::move(deconv), std::move(memoryManager));
     }
 

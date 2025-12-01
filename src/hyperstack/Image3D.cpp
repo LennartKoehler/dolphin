@@ -24,6 +24,10 @@ float Image3D::getPixel(int x, int y, int z) {
     return this->slices[z].at<float>(x,y);
 }
 
+RectangleShape Image3D::getShape()const {
+    return RectangleShape{this->slices[0].cols, this->slices[0].rows, this->slices.size()};
+}
+
 bool Image3D::showSlice(int z) {
     if (!this->slices.empty()) {
         if(z < 0 || z > size(this->slices)){

@@ -173,14 +173,15 @@ void CUDABackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     
     // Wait for memory if max memory limit is set
     waitForMemory(requested_size);
-    
+
     void* devicePtr = nullptr;
     cudaError_t err = cudaMallocAsync(&devicePtr, requested_size, stream);
     if (err != cudaSuccess){
         MEMORY_ALLOC_CHECK(data.data, requested_size, "CUDA", "allocateMemoryOnDevice");
     }
     data.data = static_cast<complex*>(devicePtr);
-    
+    cudaStreamSynchronize(stream);
+
     // Update memory tracking
     {
         std::unique_lock<std::mutex> lock(memory.memoryMutex);
@@ -230,9 +231,11 @@ ComplexData CUDABackendMemoryManager::copyData(const ComplexData& srcdata) const
 void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
     BACKEND_CHECK(srcdata.data != nullptr, "Attempting to free null pointer", "CUDA", "freeMemoryOnDevice");
     size_t requested_size = srcdata.size.volume * sizeof(complex);
+    
     cudaError_t err = cudaFreeAsync(srcdata.data, stream);
     CUDA_CHECK(err, "freeMemoryOnDevice");
-    
+    cudaStreamSynchronize(stream);
+
     // Update memory tracking
     {
         std::unique_lock<std::mutex> lock(memory.memoryMutex);
@@ -314,7 +317,6 @@ void CUDADeconvolutionBackend::initializePlan(const RectangleShape& shape){
 }
 
 void CUDADeconvolutionBackend::destroyFFTPlans(){
-    cudaStreamSynchronize(stream);
     if (forward != CUFFT_PLAN_NULL){
         CUFFT_CHECK(cufftDestroy(forward), "destroyFFTPlans - forward plan");
         forward = CUFFT_PLAN_NULL;
@@ -323,6 +325,7 @@ void CUDADeconvolutionBackend::destroyFFTPlans(){
         CUFFT_CHECK(cufftDestroy(backward), "destroyFFTPlans - forward plan");
         backward = CUFFT_PLAN_NULL;
     }
+
     planSize = RectangleShape(0,0,0);
 }
 

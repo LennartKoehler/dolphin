@@ -34,16 +34,13 @@ public:
 
     std::unique_ptr<PSFGenerationResult> generatePSF(PSFGenerationRequest request); // should prob just take the request
     std::unique_ptr<DeconvolutionResult> deconvolve(DeconvolutionRequest request);
-    std::shared_ptr<Hyperstack> convolve(const Hyperstack& image, std::shared_ptr<PSF> psf);
 
     std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(PSFGenerationRequest request);
     std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(DeconvolutionRequest request);
 
 
 private:
-
-    void setCuda();
-    
+ 
     // Service layer components (abstracted)
     ServiceFactory* service_factory_;
     std::unique_ptr<IPSFGenerationService> psf_service_;

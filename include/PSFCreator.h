@@ -27,7 +27,7 @@ class ThreadPool;
 // basically a namespace
 // this thing is a mess
 namespace PSFCreator{
-    PSF readPSFFromFilePath(const std::string& psfFilePath);
+    std::vector<PSF> readPSFsFromFilePath(const std::string& psfFilePath);
     std::shared_ptr<PSFConfig> generatePSFConfigFromConfigPath(const std::string& psfConfigPath);
     PSF generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> config, ThreadPool* threadpool);
     std::vector<std::shared_ptr<PSFConfig>> generatePSFsFromDir(const std::string& psfDirPath);

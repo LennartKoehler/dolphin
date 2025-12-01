@@ -15,7 +15,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <vector>
 #include <opencv2/core/mat.hpp>
-
+#include "HelperClasses.h"
 class Image3D {
 public:
     Image3D() = default;
@@ -27,6 +27,7 @@ public:
         }
     }
     std::vector<cv::Mat> slices;
+    RectangleShape getShape() const ;
     float getPixel(int x, int y, int z);
     bool showSlice(int z);
     bool show();
