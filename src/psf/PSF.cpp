@@ -42,7 +42,7 @@ namespace fs = std::filesystem;
 
 std::string getFilenameFromPath(const std::string& path) {
     fs::path filePath(path);
-    return filePath.filename().string();
+    return filePath.stem().string();
 }
 
 

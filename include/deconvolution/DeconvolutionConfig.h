@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <string>
+#include <sstream>
 #include <opencv2/core/base.hpp>
 #include <vector>
 #include "Config.h"
@@ -21,7 +22,7 @@ See the LICENSE file provided with the code for the full license.
 #include "../backend/BackendFactory.h"
 #include <map>
 #include <memory>
-
+#include <Image3D.h>
 
 template<typename T>
 class RangeMap {
@@ -36,6 +37,7 @@ public:
         }
         
         bool contains(int index) const {
+            if (index == start && index == end){ return true; } // for the case of not a range, but just an index
             return index >= start && (end == -1 || index < end);
         }
 
@@ -98,6 +100,24 @@ public:
 
     void clear() {
         ranges.clear();
+    }
+    
+    void loadFromString(const std::string& config) {
+        clear();
+        
+        try {
+            // First try to parse as JSON
+            json jsonObj = json::parse(config);
+            loadFromJSON(jsonObj);
+        } catch (const std::exception& e) {
+            // If JSON parsing fails, try custom range format: "start:end[value1,value2]" or "start:[value]"
+            try {
+                parseCustomRangeFormat(config);
+            } catch (const std::exception& e2) {
+                std::cerr << "[ERROR] Failed to parse string as JSON or custom format: " << e.what() << std::endl;
+                throw std::invalid_argument("Invalid string format: " + config);
+            }
+        }
     }
 
     // Load from JSON - unchanged
@@ -229,12 +249,16 @@ public:
 private:
     // Fixed parseRange function
     std::pair<int, int> parseRange(const std::string& rangeStr) const {
+        assert (!rangeStr.empty() && "Trying to parse empty string");
         size_t colonPos = rangeStr.find(':');
+        int start, end;
+
         if (colonPos == std::string::npos) {
-            throw std::invalid_argument("Invalid range format: " + rangeStr);
+            start = std::stoi(rangeStr);
+            end = std::stoi(rangeStr);
+            return {start, end};
         }
         
-        int start, end;
         
         // Handle start
         if (colonPos == 0) {
@@ -257,6 +281,90 @@ private:
         
         return {start, end};
     }
+
+    // Parse custom range format like "0:[constant_direct_0]" or "0:5[value1,value2]" 
+    // Also supports multiple ranges like "0[constant_direct_0],1[constant_direct_1]"
+    void parseCustomRangeFormat(const std::string& config) {
+        // Split by commas first to handle multiple ranges
+        std::vector<std::string> rangeBlocks;
+        std::stringstream configStream(config);
+        std::string block;
+        
+        // Parse blocks, being careful about brackets
+        size_t pos = 0;
+        while (pos < config.length()) {
+            // Find the start of the next bracket
+            size_t bracketStart = config.find('[', pos);
+            if (bracketStart == std::string::npos) {
+                break;
+            }
+            
+            // Find the matching closing bracket
+            size_t bracketEnd = config.find(']', bracketStart);
+            if (bracketEnd == std::string::npos) {
+                throw std::invalid_argument("Invalid custom range format - unmatched bracket: " + config);
+            }
+            
+            // Extract this range block (including the bracket pair)
+            std::string rangeBlock = config.substr(pos, bracketEnd - pos + 1);
+            
+            // Trim any leading comma and whitespace
+            size_t blockStart = rangeBlock.find_first_not_of(", \t");
+            if (blockStart != std::string::npos) {
+                rangeBlock = rangeBlock.substr(blockStart);
+            }
+            
+            if (!rangeBlock.empty()) {
+                rangeBlocks.push_back(rangeBlock);
+            }
+            
+            // Move position past this block
+            pos = bracketEnd + 1;
+            
+            // Skip any comma and whitespace before the next block
+            while (pos < config.length() && (config[pos] == ',' || config[pos] == ' ' || config[pos] == '\t')) {
+                pos++;
+            }
+        }
+        
+        // Process each range block
+        for (const auto& rangeBlock : rangeBlocks) {
+            parseSingleRangeBlock(rangeBlock);
+        }
+    }
+
+private:
+    // Helper function to parse a single range block like "0[constant_direct_0]"
+    void parseSingleRangeBlock(const std::string& rangeBlock) {
+        // Find the bracket positions
+        size_t bracketStart = rangeBlock.find('[');
+        size_t bracketEnd = rangeBlock.find(']');
+        
+        if (bracketStart == std::string::npos || bracketEnd == std::string::npos || bracketEnd <= bracketStart) {
+            throw std::invalid_argument("Invalid range block format: " + rangeBlock);
+        }
+        
+        // Extract range part (before '[') and values part (inside '[...]')
+        std::string rangeStr = rangeBlock.substr(0, bracketStart);
+        std::string valuesStr = rangeBlock.substr(bracketStart + 1, bracketEnd - bracketStart - 1);
+        
+        // Parse the range
+        auto [start, end] = parseRange(rangeStr);
+        
+        // Parse values (comma-separated within the brackets)
+        std::stringstream ss(valuesStr);
+        std::string value;
+        
+        while (std::getline(ss, value, ',')) {
+            // Trim whitespace
+            value.erase(0, value.find_first_not_of(" \t"));
+            value.erase(value.find_last_not_of(" \t") + 1);
+            
+            if (!value.empty()) {
+                addRange(start, end, static_cast<T>(value));
+            }
+        }
+    }
 };
 
 
@@ -278,8 +386,10 @@ public:
     int nThreads = 1;
     float maxMem_GB = 0;
     bool verbose = false;
-    RangeMap<std::string> cubePSFMap;
-    RangeMap<std::string> layerPSFMap;
+    RangeMap<std::string> cubePSFMap; // 
+    RangeMap<std::string> layerPSFMap; // currently unused
+
+    std::string deconvolutionType = "normal";
 
 
 
@@ -288,8 +398,5 @@ public:
     virtual json writeToJSON() override;
 
 private:
-    void registerAllParameters();
+    virtual void registerAllParameters();
 };
-
-
-

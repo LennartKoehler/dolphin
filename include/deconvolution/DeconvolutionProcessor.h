@@ -12,107 +12,36 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
-#include <string>
-#include "DeconvolutionConfig.h"
-#include "HyperstackImage.h"
-#include "psf/PSF.h"
-#include "DeconvolutionAlgorithmFactory.h"
-#include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
-#include "ThreadPool.h"
-#include "ImageMap.h"
-#include "Preprocessor.h"
-#include "deconvolutionStrategies/DeconvolutionStrategy.h"
+#include <future>
+#include <vector>
+#include <memory>
 
-
+class RectangleShape;
 class IBackend;
-
-struct DeconvolutionCubeTask{
-    BoxCoord originalImageLocation;
-    BoxCoord cubeLocation;
-    std::vector<cv::Mat> cube;
-    std::vector<const ComplexData*> preprocessedpsfs;
-};
-/**
- * Abstract base class for deconvolution algorithms that separates common,
- * execution-agnostic functionality from backend-specific operations.
- * 
- * - Common grid processing logic
- * - PSF mapping and selection
- * - Data structure management
- * - Main orchestration methods
- * - Platform-independent helper functions
- * 
- * Backend-specific operations are left as pure virtual methods to be
- * implemented by concrete algorithm classes (CPU, GPU, etc.).
- */
+class DeconvolutionAlgorithm;
+class ThreadPool;
+class PSF;
+class ComplexData;
+class PSFPreprocessor;
 
 class DeconvolutionProcessor{
 public:
-    // it is up to the client to make the psfMapp efficient, e.g. by using the appropriate cubeSize, and using as little different cube sizes as possible
-    // the deconvolutionprocessor simply processes the input
-    Hyperstack run(const Hyperstack& image, const std::vector<PSF>& psfs, DeconvolutionStrategy& strategy);
+    DeconvolutionProcessor() = default;
 
-    DeconvolutionProcessor();
+    void init(size_t numberThreads){ workerPool = std::make_shared<ThreadPool>(numberThreads);}
 
-
-    virtual void configure(const DeconvolutionConfig config);
+    std::future<void> deconvolveSingleCube(
+        std::shared_ptr<IBackend> backend,
+        std::shared_ptr<DeconvolutionAlgorithm> algorithm,
+        const RectangleShape& workShape,
+        const std::vector<std::shared_ptr<PSF>>& psfs_host,
+        ComplexData& g_device,
+        ComplexData& f_device,
+        PSFPreprocessor& psfpreprocessor);
 
 
 private:
- 
-    void init(const Hyperstack& input, const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfs);
-    void parallelDeconvolution(const std::vector<cv::Mat>& image, std::vector<cv::Mat>& output, const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfMap, const RectangleShape& paddingShift);
-    void deconvolveSingleCube(
-        std::shared_ptr<IBackend> backend,
-        std::shared_ptr<DeconvolutionAlgorithm> algorithm,
-        std::vector<cv::Mat>& cubeImage,
-        const RectangleShape& workShape,
-        const BoxEntryPair<std::vector<std::shared_ptr<PSF>>>& psfs_host);
-
-
-    void postprocessChannel(std::vector<cv::Mat>& image);
-    RectangleShape getCubePadding(const std::vector<std::shared_ptr<PSF>> psfs);
-
-    void setImageOriginalShape(const Channel& channel);
-    void setImageShapePadded(const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfs);
-    RectangleShape getImagePadding(const ImageMap<std::vector<std::shared_ptr<PSF>>>& psfs);
-
-
-
-    std::vector<cv::Mat> getCubeImage(const std::vector<cv::Mat>& image, const BoxCoord& srcbox, const RectangleShape& padding, const RectangleShape& imagePaddingShift);
-
- 
-    size_t memoryForShape(const RectangleShape& shape);
-
-    ComplexData convertCVMatVectorToFFTWComplex(const std::vector<cv::Mat>& input, const RectangleShape& shape);
-    std::vector<cv::Mat> convertFFTWComplexToCVMatVector(const ComplexData& input);
-
-
-
-    DeconvolutionConfig config;
-
-    std::shared_ptr<IBackendMemoryManager> cpuMemoryManager;
-    std::shared_ptr<IBackend> backend_;
-    std::shared_ptr<DeconvolutionAlgorithm> algorithm_;
-
-    PSFPreprocessor psfPreprocessor;
-
-
-
-
-    //shapes
-    RectangleShape imageOriginalShape;
-    RectangleShape imageShapePadded;
-
-
-    //multithreading
     std::shared_ptr<ThreadPool> workerPool;
-    std::shared_ptr<ThreadPool> readwriterPool;
-    size_t numberThreads;
-
-    bool configured = false;
 
 };
-
-
 

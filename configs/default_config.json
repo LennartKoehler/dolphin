@@ -14,7 +14,7 @@
     "time": false,
     "saveSubimages": false, 
     "backenddeconv": "cuda",
-    "nThreads": 1,
+    "nThreads": 2,
     "maxMem_GB": 64
   },
   
@@ -27,7 +27,7 @@
   "deconvolution_config_path": "",
 
   "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
-  
+  "strategyType": "normal", 
   "info": false,
   "showExampleLayers": false,
   "time": false,

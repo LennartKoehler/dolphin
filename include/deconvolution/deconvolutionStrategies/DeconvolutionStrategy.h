@@ -2,30 +2,75 @@
 #include "deconvolution/ImageMap.h"
 #include "deconvolution/DeconvolutionConfig.h"
 #include "HyperstackImage.h"
+#include "ComputationalPlan.h"
+#include <atomic>
 
 class DeconvolutionAlgorithm;
 class IBackend;
 
-
-// Creates the imagemap, which maps cubes of the image to a vector of speicific psfs that should be used for deconvolution of this specific cube
-// takes in all information that oculd possibly be useful for creating such a strategy, but should not actually store any data like psfs or images
-// but is rather a lightweight object that only defines how it should be processed, not really what
-
-// strategies might include one that simply is optimized for performance, e.g. deconvolve the entire image with this one psf
-//      and let the strategy decide how to create cubes to make the deconvolutionprocessor be most efficient
-// another example would be that the strategy runs a gui and lets the user define the cubes and the mapping of cube to psf. so the user decides the cubes, and some other optimization
-//      parts are hardcoded into the strategy
-class DeconvolutionStrategy{
+class DeconvolutionStrategy {
 public:
     DeconvolutionStrategy() = default;
-    virtual ~DeconvolutionStrategy(){}
-
-    virtual ImageMap<std::vector<std::shared_ptr<PSF>>> getStrategy(
-        const std::vector<PSF>& psfs,
-        const RectangleShape imageShape,
-        const int channelNumber,
-        const DeconvolutionConfig& config,
-        const std::shared_ptr<IBackend> backend,
-        const std::shared_ptr<DeconvolutionAlgorithm> algorithm) = 0;
+    virtual ~DeconvolutionStrategy() = default;
+ 
+    virtual Hyperstack run(const Hyperstack& image, const std::vector<PSF>& psfs) = 0; 
+    virtual void configure(std::unique_ptr<DeconvolutionConfig> config) = 0;
 
 };
+
+
+
+
+std::vector<BoxCoord> splitImageHomogeneous(
+    const RectangleShape& subimageShape,
+    const RectangleShape& imageOriginalShape);
+
+class LoadingBar{
+public:
+    LoadingBar() = default;
+    LoadingBar(size_t max) : max(max){}
+    void setMax(size_t max) {this->max = max;}
+    void reset() {counter.store(0);}
+    void update(){
+        std::unique_lock<std::mutex> lock(mutex);
+        // Calculate progress
+        size_t progress = (counter * 100) / max;
+        size_t barWidth = 50;
+        size_t pos = (counter * barWidth) / max;
+        
+        // Print progress bar
+        std::cerr << "\rDeconvoluting Image [ ";
+        for (int i = 0; i < barWidth; ++i) {
+            if (i < pos) std::cerr << "=";
+            else if (i == pos) std::cerr << ">";
+            else std::cerr << " ";
+        }
+        std::cerr <<  "] " << std::setw(3) << progress << "% (" 
+        
+                << counter << "/" << max << ")";
+        std::cerr.flush();
+
+    }
+    
+    void addOne(){
+        ++counter;
+        update();
+    }
+private:
+    size_t max;
+    std::atomic<size_t> counter{0};
+    std::mutex mutex;
+};
+
+
+
+
+
+
+class PaddingStrategy{
+public:
+    Padding getPadding(const RectangleShape& imageSize, const std::vector<RectangleShape>& psfSizes) const {
+        return Padding{psfSizes[0]/2, psfSizes[0]/2}; //TESTVALUE
+    }
+};
+

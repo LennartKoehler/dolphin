@@ -178,7 +178,7 @@ namespace CUBE_UTL_CHECK {
     void printFftwComplexValueFromDevice(int idx, fftw_complex* fftwArr, cudaStream_t stream) {
         fftw_complex temp_host;
         cudaMemcpyAsync(&temp_host, &fftwArr[idx], sizeof(fftw_complex), cudaMemcpyDeviceToHost, stream);
-        cudaStreamSynchronize(stream);
+        // cudaStreamSynchronize(stream);
         std::cout << "[CHECK] Element at index " << idx << ": "
                   << "Real: " << temp_host[0] << ", "
                   << "Imag: " << temp_host[1] << std::endl;
@@ -186,7 +186,7 @@ namespace CUBE_UTL_CHECK {
     void printCufftComplexValueFromDevice(int idx, cufftComplex* cuArr, cudaStream_t stream) {
         cufftComplex temp_host;
         cudaMemcpyAsync(&temp_host, &cuArr[idx], sizeof(cufftComplex), cudaMemcpyDeviceToHost, stream);
-        cudaStreamSynchronize(stream);
+        // cudaStreamSynchronize(stream);
         std::cout << "[CHECK] Element at index " << idx << ": "
                   << "Real: " << temp_host.x << ", "
                   << "Imag: " << temp_host.y << std::endl;
@@ -262,7 +262,7 @@ namespace CUBE_UTL_COPY {
 
         
         cudaEventRecord(stop, stream);
-        cudaEventSynchronize(stop);
+        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -283,7 +283,7 @@ namespace CUBE_UTL_COPY {
         cudaMemcpyAsync(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToHost, stream);
         
         cudaEventRecord(stop, stream);
-        cudaEventSynchronize(stop);
+        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -303,7 +303,7 @@ namespace CUBE_UTL_COPY {
         cudaMemcpyAsync(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToDevice, stream);
         
         cudaEventRecord(stop, stream);
-        cudaEventSynchronize(stop);
+        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {

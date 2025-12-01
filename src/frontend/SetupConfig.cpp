@@ -56,7 +56,9 @@ SetupConfig::SetupConfig(const SetupConfig& other)
     saveSubimages = other.saveSubimages;
     backend = other.backend;
     outputDir = other.outputDir;
-
+    strategyType = other.strategyType;
+    labeledImage = other.labeledImage;
+    labelPSFMap = other.labelPSFMap;
     // Deep copy the shared_ptr content
     if (other.deconvolutionConfig != nullptr) {
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
@@ -82,6 +84,9 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         saveSubimages = other.saveSubimages;
         backend = other.backend;
         outputDir = other.outputDir;
+        strategyType = other.strategyType;
+        labeledImage = other.labeledImage;
+        labelPSFMap = other.labelPSFMap;
         
         // Deep copy the shared_ptr content
         if (other.deconvolutionConfig != nullptr) {
@@ -124,7 +129,9 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::FilePath, &psfFilePath, "psf_file_path", true, "psf_file_path", "--psf_file_path", "PSF file path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::DeconvolutionConfig, &deconvolutionConfig, "Deconvolution", true, "DeconConfig", "--deconvConfig", "Deconv Config", false, false, 0.0, 0.0, nullptr});
-
+    parameters.push_back({ParameterType::String, &strategyType, "strategyType", true, "strategyType", "--strategyType", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &labeledImage, "labeledImage", true, "labeledImage", "--labeledImage", "Labeled image path", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::String, &labelPSFMap, "labelPSFMap", true, "labelPSFMap", "--labelPSFMap", "Label PSF map path", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::Bool, &saveSubimages, "saveSubimages", true, "saveSubimages", "--saveSubimages", "Save subimages separate", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::String, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
     

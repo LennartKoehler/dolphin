@@ -1,21 +1,41 @@
-overlap compute with read/write operations in the deconvolutionprocessor
-add threads and memory restrictions to psfgenerator and the corresponding conifg
-create paddingStrategy? So that it can interact with the deconvolutionstrategy, to create ideal padded cubes
-change memory management to be only in the backend, and not in the deconvolutionprocessor
-can i get around using the cpumemorymanager? somehow directly convert from cv mat to fftw?
+make the cubes completely seperate, also write to their own cubeImage, instead of inserting into the large outputImage, then they can also write in parallel. Then at end just stitch cubes together
+
+split the deconvolutionalgorithms into init and run functions. the init function then has data allocations and stores those as member variables. this way the backends can do more specific tasks. e.g. the workerthreads perhaps shouldnt do data allocations that are performed within the algorithms -> for more optimization and overlap of data transfer and processing
 
 
-thoughts about making cudabackend faster for multiple smaller cubes:
-    - nvidia nsight-sys indicates that for fft even small cubes completely occupy the gpu -> further investigate if true
-        -> if so then the singlestreamed nature of how the cuda backend currently works can be kept
-        -> simple kernel like mult might could however become a significant overhead, as they prob dont utilize the gpu much
+think about how the rangemap for labelpsfmap is loaded. create a base loading function that will read from string, then create loading functions that will read from json obj, and or json file. think about how when and where the labelpsfmap should be loaded, i think it should be used in the deconvolutionstrategyfactory, and should also be loaded there and passed to the labeleddeconvolutionstrategy there, so that other strategies know nothing about it. on the other hand, should the factory really be doing loading? can i create a reader object that will handle all of that? perhaps one that can do tif reading, json reading etc. currently reading is all over the place, e.g. psfconfigs, where are those read? they "read themselves"
 
-    - think about running cpu threads seperate of cuda stream, so perhaps copy operations or other preparations can be made while gpu is running
-        then the gpu can be utilized 100% of the time
 
-    - sort ImageMap<psf> by shape (~box size). Then in cudabackend, alunch seperate streams using different cufftplans for each unique shape. Once a stream is done with that shape it can take a new shape that requires help (either a shape that noone is taking care of or a shape that has many more cubes)
+- think about how the different strategies are run. are parameters of the setupconfig or the deconvolutionconfig responsible for deciding this?
+    so basically if setupconfig.labelPath not empty then create labeledDeconvolutionStrategy and do the labeledimagereading, perhaps the configure of labeledimagereading does the reading of the labeled image? on the other hand the setupconfig should stay at the deconvolutionservice level and not go into the deconvolutionstrategy. So maybe the deconvolutionconfig should have the path.
+    Metaquestion: how do i get the two strategies to behave the same, while one needs the extra data loaded.perhaps the deconvolutionstrategyfactory should take the setupconfig as input, and based on that decide the strategy. And then also load the labeled image and labelpsfmap itself, so the deconolutionservice can treat the strategies the same and doesnt know there are differences.
+    so the deconvolutionstrategyfactory gets the stupconfig and nothing else. Then it decides which strategy to create. if its labeleddeconv then it will read the labelpsfmap and the labelimage and pass it to the strategy (not through configure but through seperate setter function)
+    then the configure can be exactly the same between both strategies, and the setupconfig values direct the path to take in the factory
 
-    - gpubackend should now also support multithreading (cuda streams) as the cubes are no longer only for performance, make the homogeneouscube
+- think about the labelpsfmap: i want to be able to provide a map (like rangemap) which maps label to psfid. this should somehow work for config and cli.
+    do i need to be able to papss a map as string in cli or is it enough if i pass a filepath to a json which has the map? i think it should be possible to provide a map through cli: --labelPSFMap 0:5=[psfid1234, psfid5435],5:6=[...] --otherflags, this way if i only have a couple psfs, like 2 it should be possible to do this in cli. But it should also be possible to provide this within the config provided with -c aswell as as an extra parameter to cli that has a path to jsut the labelpsfmap
+
+
+deconvolutionStrategy and processor refactor:
+
+    deconvolutionstrategy has one thread pool, processor has its own worker pool, that is the divide, additionally deconvstrat should never use the backend (except to calc memory 
+        usage maybe)
+    deconvolutionstrategy runs the main loop, not processor.
+    within the loop over cubes, strategy uses its own threadpool to get the cube, then, within that threadpool launches a task in the deconvolutionprocessor
+        this will then use that thread to do some more copy operations using the backend.
+    Then when the task is done (the worker thread goes back to processor) the strategy thread which launched it takes over again and copies it back. Here it uses its own stratgey to 
+        copy back, so it might use its labels, it might not.
+    This way also when launching tasks, the labeled strategy can use its already cut out cube, and loop over all labels in that cube
+    homogeneouscubes (the literal cutting of the cubes) should just be a function or something else, not attached to the deconvolutinostrategy
+
+
+- can i do blending without the regions overlapping (much easier)
+- 
+- currently setting number threads to max will be slower than e.g. 8/12 because I assume the overhead is larger and there is no longer a benefit to having a 
+- add threads and memory restrictions to psfgenerator and the corresponding conifg
+- create paddingStrategy? So that it can interact with the deconvolutionstrategy, to create ideal padded cubes
+- change memory management to be only in the backend, and not in the deconvolutionprocessor
+- can i get around using the cpumemorymanager? somehow directly convert from cv mat to fftw?
 
 
 
@@ -36,20 +56,6 @@ thoughts about making cudabackend faster for multiple smaller cubes:
 
 
 
-
-
-coordinate based psfs:
-    - make the deconvolution take 3d coordinates for a box (so xyz and whd) which correspond to the input image, a psf, and apply the psf to those coordinates of the image. This needs to save the coordinates to the result to know where it came from
-    - the coordinates should be any size. And then later on i can decide to make them all one size to speed up fourier plans
-    - the deconvolution then takes a map of coordinates to psf. Then it just goes through that map and applies the deconvolution with the corresponding psf to that part of the image which is described by the coordinates.
-    - make the map be able to take multiple psfs, and then iterate over all
-    - then make gui which lets you choose the boxes accordingly (start off by creating a equal sized 3d grid of the image of small boxes) the user then assigns a psf to each box
-psudocode:
-    map = { box(1,5,5, 10,10,10) : [psfA], box(1,15,5, 10,10,10): [psfA,psfB]} // box (x,y,z, w,h,d)
-    for box, psflist in map:
-        for psf in psflist:
-            subimage = image[box]
-            deconvolve(subimage, psf)
 
 
 

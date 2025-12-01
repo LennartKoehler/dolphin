@@ -9,8 +9,8 @@ add_subdirectory(backends)
 
 # Original combined test (optional)
 add_executable(dolphin_tests
-    main.cpp
     memory_exception_example.cpp
+    labeledImage/tiff_generation_test.cpp
 )
 
 # Link libraries to tests
@@ -33,6 +33,32 @@ target_include_directories(dolphin_tests
 # Add original combined test to test suite
 add_test(NAME DolphinTests COMMAND dolphin_tests)
 set_tests_properties(DolphinTests PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+# Standalone TIFF generation test
+add_executable(tiff_generation_test
+    labeledImage/tiff_generation_test.cpp
+)
+
+# Link libraries to TIFF generation test
+target_link_libraries(tiff_generation_test
+    PRIVATE
+        dolphinlib
+        backendlib
+        pthread
+        gomp
+        stdc++fs
+)
+
+# Include directories for TIFF generation test
+target_include_directories(tiff_generation_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/../src
+)
+
+# Add TIFF generation test to test suite
+add_test(NAME TiffGenerationTest COMMAND tiff_generation_test)
+set_tests_properties(TiffGenerationTest PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Standalone cuFFT vs FFTW comparison test
 find_package(CUDAToolkit REQUIRED)

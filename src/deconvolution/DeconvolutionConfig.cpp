@@ -123,26 +123,59 @@ json DeconvolutionConfig::writeToJSON() {
 }
 
     
-//     // Writer lambda - captures field by reference
-//     param.writer = [&field, jsonTag](ordered_json& jsonData) {
-//         // Convert RangeMap to JSON format
-//         ordered_json rangeMapJson = ordered_json::object();
-        
-//         // Iterate through the RangeMap ranges
-//         for (const auto& range : field) {
-//             if (!range.values.empty()) {
-//                 // Convert range to string format for JSON
-//                 std::string rangeKey;
-//                 if (range.end == -1) {
-//                     rangeKey = std::to_string(range.start) + ":";
-//                 } else {
-//                     rangeKey = std::to_string(range.start) + ":" + std::to_string(range.end);
-//                 }
-//                 rangeMapJson[rangeKey] = range.values;
-//             }
+
+//------------------------------------------------
+
+
+// LabeledDeconvolutionConfig::LabeledDeconvolutionConfig() 
+//     : DeconvolutionConfig() {
+//     deconvolutionType = "labeled";
+//     // Base class already calls registerAllParameters()
+// }
+
+// LabeledDeconvolutionConfig::LabeledDeconvolutionConfig(const LabeledDeconvolutionConfig& other)
+//     : DeconvolutionConfig(other),
+//       labelPSFMap(other.labelPSFMap) {
+//     // Base class copy constructor already handles parameter registration
+// }
+
+// bool LabeledDeconvolutionConfig::loadFromJSON(const json& jsonData) {
+//     // First load base class parameters
+//     bool success = DeconvolutionConfig::loadFromJSON(jsonData);
+
+//     // Handle additional labelPSFMap parameter
+//     try {
+//         if (jsonData.contains("labelPSFMap")) {
+//             labelPSFMap.loadFromJSON(jsonData.at("labelPSFMap"));
 //         }
-        
-//         jsonData[jsonTag] = rangeMapJson;
-//     };
+//     } catch (const std::exception& e) {
+//         std::cerr << "Failed to load labelPSFMap parameter: " << e.what() << std::endl;
+//         success = false;
+//     }
     
+//     return success;
+// }
+
+// json LabeledDeconvolutionConfig::writeToJSON() {
+//     // Get base class JSON data
+//     json jsonData = DeconvolutionConfig::writeToJSON();
+    
+//     // Add labelPSFMap to JSON
+//     ordered_json labelPSFJson = ordered_json::object();
+//     for (const auto& range : labelPSFMap) {
+//         if (!range.values.empty()) {
+//             std::string rangeKey;
+//             if (range.end == -1) {
+//                 rangeKey = std::to_string(range.start) + ":";
+//             } else {
+//                 rangeKey = std::to_string(range.start) + ":" + std::to_string(range.end);
+//             }
+//             labelPSFJson[rangeKey] = range.values;
+//         }
+//     }
+//     if (!labelPSFJson.empty()) {
+//         jsonData["labelPSFMap"] = labelPSFJson;
+//     }
+    
+//     return jsonData;
 // }

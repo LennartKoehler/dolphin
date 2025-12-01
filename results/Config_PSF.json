@@ -4,12 +4,12 @@
     "nanometerScale": 9.999999717180685e-10,
     "pixelScaling": 9.999999974752427e-07,
     "qualityFactor": 1.0,
-    "resAxial_nm": 200.0,
-    "resLateral_nm": 200.0,
+    "resAxial[nm]": 200.0,
+    "resLateral[nm]": 200.0,
     "sigmaX": 10.0,
     "sigmaY": 10.0,
     "sigmaZ": 10.0,
-    "sizeX": 20,
-    "sizeY": 20,
-    "sizeZ": 10
+    "sizeX": 120,
+    "sizeY": 120,
+    "sizeZ": 60
 }

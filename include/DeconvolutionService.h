@@ -21,7 +21,7 @@ class ThreadPool;
 class Hyperstack;
 class BaseDeconvolutionAlgorithm;
 class DeconvolutionConfig;
-class DeconvolutionProcessor;
+class DeconvolutionStrategy;
 class DeconvolutionAlgorithmFactory;
 
 class DeconvolutionService : public IDeconvolutionService{
@@ -39,6 +39,8 @@ public:
 
     virtual void setProgressCallback(std::function<void(int)> callback) override;
     std::vector<std::string> getSupportedAlgorithms() const override;
+    std::vector<std::string> getSupportedStrategyTypes() const; 
+
     bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const override;
 
     void setLogger(std::function<void(const std::string&)> logger) override;
@@ -79,7 +81,7 @@ private:
     bool validateImageConfig(const json& config) const;
     
     // Algorithm management
-    std::unique_ptr<DeconvolutionProcessor> deconvolutionProcessor;
+    std::unique_ptr<DeconvolutionStrategy> deconvolutionStrategy;
 
     // PSF package management
     std::vector<PSF> createPSFsFromSetup(

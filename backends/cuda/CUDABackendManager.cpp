@@ -30,6 +30,7 @@ std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend() {
     auto* memRaw    = new CUDABackendMemoryManager();
 
     // --- Set streams before wrapping them ---
+    
     deconvRaw->setStream(stream);
     memRaw->setStream(stream);
 

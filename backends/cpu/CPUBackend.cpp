@@ -427,13 +427,17 @@ void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const 
     BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
-
+    
+    double real_a;
+    double imag_a;
+    double real_b;
+    double imag_b;    
     //#pragma omp parallel for simd
     for (int i = 0; i < a.size.volume; ++i) {
-        double real_a = a.data[i][0];
-        double imag_a = a.data[i][1];
-        double real_b = b.data[i][0];
-        double imag_b = b.data[i][1];
+        real_a = a.data[i][0];
+        imag_a = a.data[i][1];
+        real_b = b.data[i][0];
+        imag_b = b.data[i][1];
 
         result.data[i][0] = real_a * real_b - imag_a * imag_b;
         result.data[i][1] = real_a * imag_b + imag_a * real_b;

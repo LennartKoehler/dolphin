@@ -50,6 +50,35 @@
             ]
         },
         {
+            "name": "Debug dolphin labeled image",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "args": [
+                "deconvolution",
+                "-c", "../tests/labeledImage/labeled_image_test.json"
+
+            ],
+            "additionalSOLibSearchPath": "${workspaceFolder}/lib/cube/**",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+            {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            },
+            {
+                "description": "Disassemble in intel syntax",
+                "text": "-gdb-set disassembly-flavor intel",
+                "ignoreFailures": true
+            }
+            ]
+        },
+        {
           "name": "(ctest) Launch",
             "type": "cppdbg",
             "request": "launch",
