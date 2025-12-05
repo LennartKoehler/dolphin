@@ -7,7 +7,8 @@
 #include "backend/ComplexData.h"
 #include "deconvolution/ImageMap.h"
 #include "psf/PSF.h"
-
+#include "backend/IBackend.h"
+#include <iostream>
 class IBackend;
 
 class PSFPreprocessor{
@@ -32,7 +33,9 @@ public:
                    lhs.psf == rhs.psf;
         }
     };
-    PSFPreprocessor() = default;
+    PSFPreprocessor(){
+        
+    }
 
     void setPreprocessingFunction(std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend> backend)> func) {
         preprocessingFunction = std::move(func);
@@ -40,23 +43,25 @@ public:
 
     const ComplexData* getPreprocessedPSF(const RectangleShape& shape, const std::shared_ptr<PSF> psf, std::shared_ptr<IBackend> backend) {
         std::unique_lock<std::mutex> lock(mutex);
-
+        
         Key key{shape, psf->ID};
-
         auto it = preprocessedPSFs.find(key);
-        if (it == preprocessedPSFs.end()) {
-
-            std::shared_ptr<PSF> psfCopy = std::make_shared<PSF>(*psf);
-            ComplexData* rawPtr = preprocessingFunction(shape, psfCopy, backend); 
-            // take ownership
-            auto [insertedIt, _] = preprocessedPSFs.emplace(
-                std::move(key), std::unique_ptr<ComplexData>(rawPtr)
-            );
-            return rawPtr;
-        } else {
+        if (it != preprocessedPSFs.end()) {
             return it->second.get();
         }
+        
+        // PSF not found - create it
+        std::shared_ptr<PSF> psfCopy = std::make_shared<PSF>(*psf);
+        ComplexData* rawPtr = preprocessingFunction(shape, psfCopy, backend);
+        
+        // Insert into map
+        auto [insertedIt, _] = preprocessedPSFs.emplace(
+            Key{key},  // Copy the key
+            std::unique_ptr<ComplexData>(rawPtr)
+        );
+        return rawPtr;
     }
+    
 private:
     std::mutex mutex;
     std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend> backend)> preprocessingFunction;

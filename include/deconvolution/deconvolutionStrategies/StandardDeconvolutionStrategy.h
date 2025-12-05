@@ -45,7 +45,7 @@ protected:
 
     virtual PaddedImage preprocessChannel(std::vector<cv::Mat>& image, const ComputationalPlan& channelPlan);
     virtual void postprocessChannel(PaddedImage& image);
-    virtual Padding getCubePadding(const std::vector<std::shared_ptr<PSF>> psfs);
+    virtual Padding getCubePadding(const RectangleShape& image, const std::vector<PSF> psfs);
 
     virtual PaddedImage getCubeImage(const PaddedImage& image, const BoxCoord& srcbox, const Padding& cubePadding);
 
@@ -64,6 +64,7 @@ protected:
         const std::shared_ptr<IBackend> backend,
         const std::shared_ptr<DeconvolutionAlgorithm> algorithm); 
 
+
     
     size_t maxMemoryPerCube(
         size_t maxNumberThreads, 
@@ -79,8 +80,7 @@ protected:
         size_t memoryPerCube,
         size_t numberThreads,
         const RectangleShape& imageOriginalShape,
-        const std::vector<PSF>& psfs,
-        const PaddingStrategy& paddingStrat);
+        const Padding& cubePadding);
 
 
     void setPSFsAndLabel(

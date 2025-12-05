@@ -1,8 +1,7 @@
 {
   "Deconvolution": {
-    "algorithmName": "RichardsonLucyTotalVariation",
-    "subimageSize": 500,
-    "iterations": 20,
+    "algorithmName": "TestAlgorithm",
+    "iterations": 10,
     "epsilon": 1e-6,
     "grid": false,
     "lambda": 0.015,
@@ -15,8 +14,8 @@
   },
   
 
-  "psf_config_path": "../configs/default_psf_config_gaussian.json",
-  "psf_file_path": "../tests/labeledImage/test_tiff_output/constant_direct_0.tif",
+  "psf_config_path": "",
+  "psf_file_path": "../tests/labeledImage/test_tiff_output/constant_hyperstack_1.tif",
   "psf_dir_path": "",
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   "backend": "cuda",
@@ -30,9 +29,9 @@
 
   "savePsf": false,
 
-  "strategyType": "labeled",
+  "strategyType": "normal",
   "labeledImage": "/home/lennart-k-hler/data/labeledImage/EnvelopLabelOutline16bit.tif",
-  "labelPSFMap": "0[constant_direct_0], 1[ID1234]"
+  "labelPSFMap": "[ID1234], 1[constant_hyperstack_1]"
 
 
 }

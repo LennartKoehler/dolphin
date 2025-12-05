@@ -206,7 +206,9 @@ public:
     }
     void sync() override{
         cudaStreamSynchronize(stream);
+        // cudaDeviceSynchronize();
     }
+
 
     // Ownership query methods
     bool ownsDeconvolutionBackend() const noexcept override {

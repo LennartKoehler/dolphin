@@ -25,7 +25,7 @@ namespace Postprocessor{
         const PaddedImage& cube,
         std::vector<cv::Mat>& image,
         const BoxCoord& srcBox,
-        const LabelGroup& labelGroup
+        const Label& labelGroup
     );
 
     void removePadding(std::vector<cv::Mat>& image, const Padding& padding);

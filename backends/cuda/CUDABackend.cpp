@@ -154,6 +154,7 @@ void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& 
     // Execute the copy
     cudaError_t err = cudaMemcpy3DAsync(&copyParams, stream);
     CUDA_CHECK(err, "memCopy");
+    cudaStreamSynchronize(stream);
     destData.backend = this;
 }
 
@@ -199,6 +200,7 @@ ComplexData CUDABackendMemoryManager::copyDataToDevice(const ComplexData& srcdat
     }
     destdata.backend = this;
 
+    cudaStreamSynchronize(stream);
     return destdata;
 }
 
@@ -213,6 +215,7 @@ ComplexData CUDABackendMemoryManager::moveDataFromDevice(const ComplexData& srcd
         CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, destdata.data, srcdata.data, stream);
     
     }
+    cudaStreamSynchronize(stream);
 
     return destdata;
 }
@@ -223,6 +226,7 @@ ComplexData CUDABackendMemoryManager::copyData(const ComplexData& srcdata) const
         CUBE_UTL_COPY::copyDataFromDeviceToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
                                                  destdata.data, srcdata.data, stream);
     }
+    cudaStreamSynchronize(stream);
     return destdata;
 }
 
@@ -515,5 +519,6 @@ std::shared_ptr<IBackend> CUDABackend::onNewThread() const {
 }
 
 void CUDABackend::releaseBackend(){
+    sync();
     CUDABackendManager::getInstance().releaseBackendForCurrentThread(this);
 }

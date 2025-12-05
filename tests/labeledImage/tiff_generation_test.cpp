@@ -182,7 +182,7 @@ void runTiffGenerationTests() {
     std::string outputDir = "../tests/labeledImage/test_tiff_output";
     int testCases[][4] = {
         {32, 32, 20, 0},    // Small 3D volume
-        {32, 32, 20, 255},    // Z-stack with zero
+        {32, 32, 20, 1},    // Z-stack with zero
         // {128, 128, 5, 0},   // Medium 3D volume
         // {256, 256, 3, 255}  // Large 2D slices with max value
     };

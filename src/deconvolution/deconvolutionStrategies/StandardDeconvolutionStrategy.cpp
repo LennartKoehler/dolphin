@@ -24,13 +24,13 @@ StandardDeconvolutionStrategy::StandardDeconvolutionStrategy(){
     std::shared_ptr<PSF> inputPSF,
     std::shared_ptr<IBackend> backend
     ) -> ComplexData* {
-       
         Preprocessor::padToShape(inputPSF->image.slices, shape, 0);
         ComplexData h = convertCVMatVectorToFFTWComplex(inputPSF->image.slices, shape);
         ComplexData h_device = backend->getMemoryManager().copyDataToDevice(h);
         backend->getDeconvManager().octantFourierShift(h_device);
         backend->getDeconvManager().forwardFFT(h_device, h_device);
-        return new ComplexData(std::move(h_device));
+        backend->sync();
+        return new ComplexData(h_device);
     };
     psfPreprocessor.setPreprocessingFunction(psfPreprocessFunction);
 }
@@ -83,6 +83,7 @@ void StandardDeconvolutionStrategy::parallelDeconvolution(
         std::function<void()> threadtask = createTask(task, inputImagePadded, outputImage, writerMutex);
 
         runningTasks.push_back(readwriterPool->enqueue(threadtask));
+        // runningTasks.back().get();
     }
 
     // Wait for all remaining tasks to finish
@@ -90,6 +91,7 @@ void StandardDeconvolutionStrategy::parallelDeconvolution(
         f.get();
 }
 
+#include <stdlib.h>     //for using the function sleep
 std::function<void()> StandardDeconvolutionStrategy::createTask(
     const std::unique_ptr<CubeTaskDescriptor>& taskDesc,
     const PaddedImage& inputImagePadded,
@@ -102,9 +104,8 @@ std::function<void()> StandardDeconvolutionStrategy::createTask(
     }
 
     return [this, task = *standardTask, &inputImagePadded, &writerMutex, &outputImage]() {
-        
+
         RectangleShape workShape = task.srcBox.dimensions + task.requiredPadding.before + task.requiredPadding.after;
-        // PaddedImage cubeImage = getCubeImage(inputImagePadded, taskDesc.srcBox, taskDesc.requiredPadding);
 
         PaddedImage cubeImage = getCubeImage(inputImagePadded, task.srcBox, task.requiredPadding);
 
@@ -117,7 +118,8 @@ std::function<void()> StandardDeconvolutionStrategy::createTask(
         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
         cpuMemoryManager->freeMemoryOnDevice(g_host);
         ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
-
+        iobackend->sync();
+ 
         try {
             std::future<void> resultDone = processor.deconvolveSingleCube(
                 iobackend,
@@ -129,7 +131,7 @@ std::function<void()> StandardDeconvolutionStrategy::createTask(
                 psfPreprocessor);
 
             resultDone.get(); //wait for result
-            f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, *cpuMemoryManager);
+             f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, *cpuMemoryManager);
             iobackend->releaseBackend();
         }
         catch (...) {
@@ -138,6 +140,7 @@ std::function<void()> StandardDeconvolutionStrategy::createTask(
         cubeImage.image = convertFFTWComplexToCVMatVector(f_host);
         {
             std::unique_lock<std::mutex> lock(writerMutex);
+
             // deconovlutionStrategy.insertImage(cubeImage, outputImage);
             // Postprocessor::insertLabeledCubeInImage(cubeImage, outputImage, taskDesc);
             Postprocessor::insertCubeInImage(cubeImage, outputImage, task.srcBox);
@@ -185,26 +188,14 @@ PaddedImage StandardDeconvolutionStrategy::getCubeImage(const PaddedImage& padde
     return PaddedImage{std::move(cube), cubePadding};
 }
 
-Padding StandardDeconvolutionStrategy::getCubePadding(const std::vector<std::shared_ptr<PSF>> psfs){
-    RectangleShape maxPsfShape{0, 0, 0};
-    
-    // Find the largest PSF dimensions
-    for (const auto& psf : psfs) {
-        int psfWidth = psf->image.slices[0].cols;
-        int psfHeight = psf->image.slices[0].rows;
-        int psfDepth = static_cast<int>(psf->image.slices.size());
-        
-        maxPsfShape.width = std::max(maxPsfShape.width, psfWidth);
-        maxPsfShape.height = std::max(maxPsfShape.height, psfHeight);
-        maxPsfShape.depth = std::max(maxPsfShape.depth, psfDepth);
+
+Padding StandardDeconvolutionStrategy::getCubePadding(const RectangleShape& image, const std::vector<PSF> psfs){
+    std::vector<RectangleShape> psfSizes;
+    for (const auto& psf : psfs){
+        psfSizes.push_back(psf.image.getShape());
     }
-    
-    RectangleShape paddingbefore = RectangleShape(
-        static_cast<int>(maxPsfShape.width / 2),
-        static_cast<int>(maxPsfShape.height / 2),
-        static_cast<int>(maxPsfShape.depth / 2)
-    );
-    return Padding{paddingbefore, paddingbefore};
+    return paddingStrat.getPadding(image, psfSizes);
+
 }
 
 
@@ -256,7 +247,7 @@ void StandardDeconvolutionStrategy::configure(std::unique_ptr<DeconvolutionConfi
         workerThreads = numberThreads;
         ioThreads = workerThreads + 2;
     }
-
+    // ioThreads = 1; //TESTVALUE
     readwriterPool = std::make_shared<ThreadPool>(ioThreads);
     processor.init(workerThreads);
     configured = true;
@@ -358,9 +349,11 @@ ComputationalPlan StandardDeconvolutionStrategy::createComputationalPlan(
     size_t t = config.nThreads;
     // t = static_cast<size_t>(2);
     size_t memoryPerCube = maxMemoryPerCube(t, config.maxMem_GB * 1e9, algorithm);
-    RectangleShape idealCubeSize = getCubeShape(memoryPerCube, config.nThreads, imageSize, psfs, paddingStrat);
 
-    Padding cubePadding = getCubePadding(psfPointers);
+
+    Padding cubePadding = getCubePadding(imageSize, psfs);
+    RectangleShape idealCubeSize = getCubeShape(memoryPerCube, config.nThreads, imageSize, cubePadding);
+
 
     // idealCubeSize = RectangleShape(393, 313, 46);
     std::vector<BoxCoord> cubeCoordinates = splitImageHomogeneous(idealCubeSize, imageSize);
@@ -384,39 +377,7 @@ ComputationalPlan StandardDeconvolutionStrategy::createComputationalPlan(
 }
 
 
-// void StandardDeconvolutionStrategy::setPSFsAndLabel(
-//     StandardCubeTaskDescriptor& task,
-//     const std::vector<std::shared_ptr<PSF>>& psfs,
-//     const std::shared_ptr<Image3D> labelImage,
-//     const std::unordered_map<int, PSFID> psfLabelMap
-// ){
 
-//     for (auto [label, psfid] : psfLabelMap){
-//         std::vector<std::shared_ptr<PSF>> assignedPSFs;
-//         LabelGroup labelGroup(label, labelImage);
-
-//         for (const std::shared_ptr<PSF>& psf : psfs){
-//             if ( psfid == psf->ID){
-//                 assignedPSFs.push_back(psf);
-//             }
-//         }
-//         labelGroup.setPSFs(assignedPSFs);
-//     }
-// }
-
-
-// ImageMap<std::vector<std::shared_ptr<PSF>>> StandardDeconvolutionStrategy::addPSFS(std::vector<BoxCoord>& coords, const std::vector<PSF>& psfs){
-//     ImageMap<std::vector<std::shared_ptr<PSF>>> result;
-
-//     for (auto& coordinate : coords){
-//         std::vector<std::shared_ptr<PSF>> psfPointers;
-//         for (const auto& psf : psfs){
-//             psfPointers.push_back(std::make_shared<PSF>(psf));
-//         }
-//         result.add(coordinate, std::move(psfPointers));
-//     }
-//     return result;
-// }
 
 size_t StandardDeconvolutionStrategy::maxMemoryPerCube(
     size_t maxNumberThreads, 
@@ -442,19 +403,16 @@ RectangleShape StandardDeconvolutionStrategy::getCubeShape(
     size_t memoryPerCube,
     size_t numberThreads,
     const RectangleShape& imageOriginalShape,
-    const std::vector<PSF>& psfs,
-    const PaddingStrategy& paddingStrategy
+    const Padding& cubePadding
 ){
     size_t width = 128;
     size_t height = 128;
     size_t depth = 128;
-    std::vector<RectangleShape> psfSizes;
-    for (const auto& psf : psfs){
-        psfSizes.push_back(psf.image.getShape());
-    }
-    Padding padding = paddingStrategy.getPadding(imageOriginalShape, psfSizes);
-    return RectangleShape(128, 128, 64) - padding.before - padding.after;
+
+    return RectangleShape(128, 128, 64) - cubePadding.before - cubePadding.after;
 }
+
+
 
 // RectangleShape StandardDeconvolutionStrategy::getCubeShape(
 //     size_t memoryPerCube,

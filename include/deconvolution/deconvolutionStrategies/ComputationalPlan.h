@@ -11,10 +11,10 @@ enum class ExecutionStrategy {
     SEQUENTIAL
 };
 
-class LabelGroup{
+class Label{
 public:
-    LabelGroup() = default;
-    LabelGroup(int label, Image3D* labelImage) :label(label), labelImage(labelImage){}
+    Label() = default;
+    Label(int label, Image3D* labelImage) :label(label), labelImage(labelImage){}
     void setLabel(int label) {this->label = label;}
     void setLabelImage(Image3D* labelImage){ this->labelImage = labelImage;}
     void setPSFs(std::vector<std::shared_ptr<PSF>> psfs) {this->assignedPSFs = psfs;}
@@ -53,7 +53,6 @@ struct StandardCubeTaskDescriptor : public CubeTaskDescriptor{
 };
 
 struct LabeledCubeTaskDescriptor : public CubeTaskDescriptor{
-   std::vector<LabelGroup> labelGroups;
    std::string getType() const override {return "labeled";}
 
 };

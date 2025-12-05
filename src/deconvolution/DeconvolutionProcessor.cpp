@@ -36,21 +36,29 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         &f_device,
         &psfPreprocessor
     ](){
+
+
         std::shared_ptr<IBackend> threadbackend = prototypebackend->onNewThread();
         
         std::unique_ptr<DeconvolutionAlgorithm> algorithm = prototypealgorithm->clone();
         algorithm->setBackend(threadbackend);
 
         std::vector<const ComplexData*> preprocessedPSFs;
-        for (auto& psf : psfs_host){
-            preprocessedPSFs.emplace_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, threadbackend));
-        }
 
+        for (auto& psf : psfs_host){
+
+            preprocessedPSFs.push_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, threadbackend));
+            threadbackend->sync();
+        
+        }
         for (const auto* psf_device : preprocessedPSFs){
             algorithm->deconvolve(*psf_device, g_device, f_device);
+            threadbackend->sync();
         }
-        threadbackend->sync();
+        
         threadbackend->releaseBackend();
+
+
     });
     return resultDone;
 }
