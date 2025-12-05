@@ -1,4 +1,16 @@
+psfpreprocessor problem not solved for cuda, somehow two threads can still access the same psf at the same time and its invalid for one, some weird race condition here. Somehow a second thread can grab the psf before the first thread is done with creating it, if i have a sleep it works
+
+someweird padding problems, causing sufficient padding to still produce boundary conditions
+
+
+when reading image file that ends with .tif but the file doesnt acutally exist a nonintuitive error occurs
+
+
 make the cubes completely seperate, also write to their own cubeImage, instead of inserting into the large outputImage, then they can also write in parallel. Then at end just stitch cubes together
+
+
+
+think about read/write threads especially for cpu applications, they should be on same core for better data transfer.
 
 split the deconvolutionalgorithms into init and run functions. the init function then has data allocations and stores those as member variables. this way the backends can do more specific tasks. e.g. the workerthreads perhaps shouldnt do data allocations that are performed within the algorithms -> for more optimization and overlap of data transfer and processing
 

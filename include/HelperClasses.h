@@ -40,6 +40,9 @@ struct RectangleShape{
 
         return dims;
     }
+    inline bool operator==(const RectangleShape& other) const {
+        return (this->width == other.width && this->height == other.height && this->depth == other.depth);
+    }
     inline bool operator!=(const RectangleShape& other) const {
         return (this->width != other.width || this->height != other.height || this->depth != other.depth);
     }

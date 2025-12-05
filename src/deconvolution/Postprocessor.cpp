@@ -36,22 +36,23 @@ void Postprocessor::insertLabeledCubeInImage(
     const PaddedImage& cube,
     std::vector<cv::Mat>& outputImage,
     const BoxCoord& srcBox,
-    const LabelGroup& labelgroup
+    const Label& labelgroup
 ){
     for (int zCube = cube.padding.before.depth; zCube < srcBox.dimensions.depth + cube.padding.before.depth; zCube++){
-            cv::Rect roi(cube.padding.before.width, cube.padding.before.height, srcBox.dimensions.width, srcBox.dimensions.height);
-            cv::Mat srcSlice = cube.image[zCube](roi);
-            
-            // Define where it goes in the big image
-            cv::Rect dstRoi(srcBox.x, srcBox.y, srcBox.dimensions.width, srcBox.dimensions.height);
-            
-            // Get corresponding label slice
-            int outputZ = srcBox.z + zCube - cube.padding.before.depth;
-            
-            cv::Mat mask = labelgroup.getMask(dstRoi, outputZ);
-            // Copy only where mask is true
-            srcSlice.copyTo(outputImage[outputZ](dstRoi), mask);
-        }
+        cv::Rect roi(cube.padding.before.width, cube.padding.before.height, srcBox.dimensions.width, srcBox.dimensions.height);
+        cv::Mat srcSlice = cube.image[zCube](roi);
+        
+        // Define where it goes in the big image
+        cv::Rect dstRoi(srcBox.x, srcBox.y, srcBox.dimensions.width, srcBox.dimensions.height);
+        
+        // Get corresponding label slice
+        int outputZ = srcBox.z + zCube - cube.padding.before.depth;
+        
+        cv::Mat mask = labelgroup.getMask(dstRoi, outputZ);
+        // Copy only where mask is true
+        srcSlice.copyTo(outputImage[outputZ](dstRoi), mask);
+        // srcSlice.copyTo(outputImage[outputZ](dstRoi)); //TESTVALUE
+    }
     
     
 }

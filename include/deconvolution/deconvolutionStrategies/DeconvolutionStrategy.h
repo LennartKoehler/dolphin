@@ -70,7 +70,24 @@ private:
 class PaddingStrategy{
 public:
     Padding getPadding(const RectangleShape& imageSize, const std::vector<RectangleShape>& psfSizes) const {
-        return Padding{psfSizes[0]/2, psfSizes[0]/2}; //TESTVALUE
+        RectangleShape maxPsfShape{0, 0, 0};
+        
+        // Find the largest PSF dimensions
+        for (const auto& psf : psfSizes) {
+
+            
+            maxPsfShape.width = std::max(maxPsfShape.width, psf.width);
+            maxPsfShape.height = std::max(maxPsfShape.height, psf.height);
+            maxPsfShape.depth = std::max(maxPsfShape.depth, psf.depth);
+        }
+        
+        RectangleShape paddingbefore = RectangleShape(
+            static_cast<int>(maxPsfShape.width / 2),
+            static_cast<int>(maxPsfShape.height / 2),
+            static_cast<int>(maxPsfShape.depth / 2)
+        );
+        paddingbefore = RectangleShape{11,11,22}; //TESTVALUE
+        return Padding{paddingbefore, paddingbefore};
     }
 };
 

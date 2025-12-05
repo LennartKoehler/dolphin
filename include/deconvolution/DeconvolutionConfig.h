@@ -105,19 +105,19 @@ public:
     void loadFromString(const std::string& config) {
         clear();
         
-        try {
-            // First try to parse as JSON
-            json jsonObj = json::parse(config);
-            loadFromJSON(jsonObj);
-        } catch (const std::exception& e) {
+        // try {
+        //     // First try to parse as JSON
+        //     json jsonObj = json::parse(config);
+        //     loadFromJSON(jsonObj);
+        // } catch (const std::exception& e) {
             // If JSON parsing fails, try custom range format: "start:end[value1,value2]" or "start:[value]"
             try {
                 parseCustomRangeFormat(config);
             } catch (const std::exception& e2) {
-                std::cerr << "[ERROR] Failed to parse string as JSON or custom format: " << e.what() << std::endl;
+                // std::cerr << "[ERROR] Failed to parse string as JSON or custom format: " << e.what() << std::endl;
                 throw std::invalid_argument("Invalid string format: " + config);
             }
-        }
+        // }
     }
 
     // Load from JSON - unchanged

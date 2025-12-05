@@ -24,7 +24,7 @@ private:
         std::vector<cv::Mat>& outputImage,
         std::mutex& writerMutex) override ;
     
-    virtual std::vector<LabelGroup> getLabelGroups(int channelumber, const BoxCoord& roi, std::vector<std::shared_ptr<PSF>>& psfs);
+    virtual std::vector<Label> getLabelGroups(int channelumber, const BoxCoord& roi, std::vector<std::shared_ptr<PSF>>& psfs);
     std::vector<std::shared_ptr<PSF>> getPSFForLabel(int label, std::vector<std::shared_ptr<PSF>>& psfs);
 
 std::shared_ptr<Hyperstack> labelImage;

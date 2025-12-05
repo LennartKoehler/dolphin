@@ -40,9 +40,8 @@ ComputationalPlan LabeledImageDeconvolutionStrategy::createComputationalPlan(
     size_t t = config.nThreads;
     // t = static_cast<size_t>(2);
     size_t memoryPerCube = maxMemoryPerCube(t, config.maxMem_GB * 1e9, algorithm);
-    RectangleShape idealCubeSize = getCubeShape(memoryPerCube, config.nThreads, imageSize, psfs, paddingStrat);
-
-    Padding cubePadding = getCubePadding(psfPointers);
+    Padding cubePadding = getCubePadding(imageSize, psfs);
+    RectangleShape idealCubeSize = getCubeShape(memoryPerCube, config.nThreads, imageSize, cubePadding);
 
     // idealCubeSize = RectangleShape(393, 313, 46);
     std::vector<BoxCoord> cubeCoordinates = splitImageHomogeneous(idealCubeSize, imageSize);
@@ -54,7 +53,6 @@ ComputationalPlan LabeledImageDeconvolutionStrategy::createComputationalPlan(
         descriptor.taskId = static_cast<int>(i);
         descriptor.srcBox = cubeCoordinates[i];
         descriptor.channelNumber = channelNumber;
-        // descriptor.labelGroups = getLabelGroups(channelNumber, cubeCoordinates[i], psfPointers);
         descriptor.estimatedMemoryUsage = estimateMemoryUsage(idealCubeSize, algorithm);
         descriptor.requiredPadding = cubePadding;
 
@@ -65,8 +63,8 @@ ComputationalPlan LabeledImageDeconvolutionStrategy::createComputationalPlan(
     return plan;
 }
 
-std::vector<LabelGroup> LabeledImageDeconvolutionStrategy::getLabelGroups(int channelNumber, const BoxCoord& roi, std::vector<std::shared_ptr<PSF>>& psfs) {
-    std::vector<LabelGroup> labelGroups;
+std::vector<Label> LabeledImageDeconvolutionStrategy::getLabelGroups(int channelNumber, const BoxCoord& roi, std::vector<std::shared_ptr<PSF>>& psfs) {
+    std::vector<Label> labelGroups;
 
     Image3D* labelChannel = &labelImage->channels[channelNumber].image;
 
@@ -139,11 +137,11 @@ std::vector<LabelGroup> LabeledImageDeconvolutionStrategy::getLabelGroups(int ch
         }
     }
 
-    // Create LabelGroup objects for each unique label
+    // Create Label objects for each unique label
     labelGroups.reserve(uniqueLabels.size());
     for (int label : uniqueLabels) {
         // Skip background label (typically 0)
-        LabelGroup labelgroup;
+        Label labelgroup;
         labelgroup.setLabel(label);
         labelgroup.setLabelImage(labelChannel);
         labelgroup.setPSFs(getPSFForLabel(label, psfs));
@@ -179,57 +177,61 @@ std::function<void()> LabeledImageDeconvolutionStrategy::createTask(
         throw std::runtime_error("Expected LabeledCubeTaskDescriptor but got different type");
     }
 
-    return [this, task = *standardTask, &inputImagePadded, &writerMutex, &outputImage]() {
+    std::function<void()> taskfunc = [this, task = *standardTask, &inputImagePadded, &writerMutex, &outputImage]() {
         
         RectangleShape workShape = task.srcBox.dimensions + task.requiredPadding.before + task.requiredPadding.after;
         // PaddedImage cubeImage = getCubeImage(inputImagePadded, taskDesc.srcBox, taskDesc.requiredPadding);
 
         PaddedImage cubeImage = getCubeImage(inputImagePadded, task.srcBox, task.requiredPadding);
-        std::vector<LabelGroup> labelgroups = getLabelGroups(task.channelNumber, task.srcBox, psfs);
+        std::vector<Label> labelgroups = getLabelGroups(task.channelNumber, task.srcBox, psfs);
         std::shared_ptr<IBackend> iobackend = backend_->onNewThread();
+        ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage.image, workShape);
+        ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
+        cpuMemoryManager->freeMemoryOnDevice(g_host);
 
+        for (const Label& labelgroup : labelgroups){
 
-
-        for (const LabelGroup& labelgroup : labelgroups){
-
-            ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage.image, workShape);
-
-            ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
-            cpuMemoryManager->freeMemoryOnDevice(g_host);
+            ComplexData local_g_device = iobackend->getMemoryManager().copyData(g_device);
             ComplexData f_host{cpuMemoryManager.get(), nullptr, RectangleShape()};
 
             ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
             std::vector<std::shared_ptr<PSF>> psfs = labelgroup.getPSFs();
+            if (psfs.size() != 0){
+                try {
+                    std::future<void> resultDone = processor.deconvolveSingleCube(
+                        iobackend,
+                        algorithm_,
+                        workShape,
+                        psfs,
+                        local_g_device,
+                        f_device,
+                        psfPreprocessor);
 
-            try {
-                std::future<void> resultDone = processor.deconvolveSingleCube(
-                    iobackend,
-                    algorithm_,
-                    workShape,
-                    psfs,
-                    g_device,
-                    f_device,
-                    psfPreprocessor);
-
-                resultDone.get(); //wait for result
-                f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, *cpuMemoryManager);
+                    resultDone.get(); //wait for result
+                    f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, *cpuMemoryManager);
+                }
+                catch (...) {
+                    throw; // dont overwrite image if exception
+                }
+                PaddedImage resultCube;
+                resultCube.padding = cubeImage.padding;
+                resultCube.image = convertFFTWComplexToCVMatVector(f_host);
+                {
+                    std::unique_lock<std::mutex> lock(writerMutex);
+                    // deconovlutionStrategy.insertImage(cubeImage, outputImage);
+                    Postprocessor::insertLabeledCubeInImage(resultCube, outputImage, task.srcBox, labelgroup);
+                    // Postprocessor::insertCubeInImage(resultCube, outputImage, task.srcBox); //TESTVALUE
+                }
             }
-            catch (...) {
-                throw; // dont overwrite image if exception
-            }
-            cubeImage.image = convertFFTWComplexToCVMatVector(f_host);
-            {
-                std::unique_lock<std::mutex> lock(writerMutex);
-                // deconovlutionStrategy.insertImage(cubeImage, outputImage);
-                Postprocessor::insertLabeledCubeInImage(cubeImage, outputImage, task.srcBox, labelgroup);
-                // Postprocessor::insertCubeInImage(cubeImage, outputImage, task.srcBox);
-            }
+            break;
         }
 
         iobackend->releaseBackend();
 
         loadingBar.addOne();
     };
+
+    return taskfunc;
 }
 
 

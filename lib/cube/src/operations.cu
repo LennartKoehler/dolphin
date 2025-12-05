@@ -132,7 +132,7 @@ namespace CUBE_MAT {
 
         
         cudaEventRecord(stop);
-        //cudaEventSynchronize(stop);
+        cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -756,7 +756,7 @@ namespace CUBE_REG {
         
 
         cudaEventRecord(stop);
-        //cudaEventSynchronize(stop);
+        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
@@ -783,7 +783,7 @@ namespace CUBE_REG {
         
 
         cudaEventRecord(stop);
-        //cudaEventSynchronize(stop);
+        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
@@ -810,7 +810,7 @@ namespace CUBE_REG {
         
 
         cudaEventRecord(stop);
-        //cudaEventSynchronize(stop);
+        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
@@ -837,7 +837,7 @@ namespace CUBE_REG {
         
 
         cudaEventRecord(stop);
-        //cudaEventSynchronize(stop);
+        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
@@ -864,7 +864,7 @@ namespace CUBE_REG {
         
 
         cudaEventRecord(stop);
-        //cudaEventSynchronize(stop);
+        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         float milliseconds = 0;
