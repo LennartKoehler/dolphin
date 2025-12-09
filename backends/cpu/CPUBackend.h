@@ -121,56 +121,59 @@ private:
 
 };
 
+
+
 // Concrete CPU Backend Implementation
 class CPUBackend : public IBackend {
 private:
     // Constructor for external ownership (references to externally-owned components)
-    CPUBackend(IDeconvolutionBackend& deconv,
-               IBackendMemoryManager& mem)
+    CPUBackend(CPUDeconvolutionBackend& deconv,
+               CPUBackendMemoryManager& mem)
         : deconvBackend(deconv),
-          memoryBackend(mem),
-          owner() {}
+          memoryManager(mem),
+          owner(deconv, mem) {}
 
     // Constructor for self-ownership (takes ownership of both components)
-    CPUBackend(std::unique_ptr<IDeconvolutionBackend> deconv,
-               std::unique_ptr<IBackendMemoryManager> mem)
+    CPUBackend(std::unique_ptr<CPUDeconvolutionBackend> deconv,
+               std::unique_ptr<CPUBackendMemoryManager> mem)
         : deconvBackend(*deconv),
-          memoryBackend(*mem),
+          memoryManager(*mem),
           owner(std::move(deconv), std::move(mem)) {}
 
     // Constructor for mixed ownership (takes ownership of deconv, external memory)
-    CPUBackend(std::unique_ptr<IDeconvolutionBackend> deconv,
-               IBackendMemoryManager& mem)
+    CPUBackend(std::unique_ptr<CPUDeconvolutionBackend> deconv,
+               CPUBackendMemoryManager& mem)
         : deconvBackend(*deconv),
-          memoryBackend(mem),
-          owner(std::move(deconv)) {}
+          memoryManager(mem),
+          owner(std::move(deconv), mem) {}
 
-    IDeconvolutionBackend& deconvBackend;
-    IBackendMemoryManager& memoryBackend;
-    Owner owner;  // Manages lifetime when this IBackend owns components
+    CPUDeconvolutionBackend& deconvBackend;
+    CPUBackendMemoryManager& memoryManager;
+    Owner owner;  // Always uses unique_ptr, nullptr for non-owned components
 
 
-    // Factory methods for different ownership models
+
+    // Type-safe factory methods for different ownership models
     
     // Create CPUBackend with external ownership (references to externally-owned components)
-    std::shared_ptr<IBackend> createWithExternalOwnership(
-        IDeconvolutionBackend& deconv,
-        IBackendMemoryManager& mem) const override {
-        return std::shared_ptr<IBackend>(new CPUBackend(deconv, mem));
+    static std::shared_ptr<CPUBackend> createWithExternalOwnership(
+        CPUDeconvolutionBackend& deconv,
+        CPUBackendMemoryManager& mem) {
+        return std::shared_ptr<CPUBackend>(new CPUBackend(deconv, mem));
     }
 
     // Create CPUBackend with self-ownership (takes ownership of both components)
-    std::shared_ptr<IBackend> createWithSelfOwnership(
-        std::unique_ptr<IDeconvolutionBackend> deconv,
-        std::unique_ptr<IBackendMemoryManager> mem) const override {
-        return std::shared_ptr<IBackend>(new CPUBackend(std::move(deconv), std::move(mem)));
+    static std::shared_ptr<CPUBackend> createWithSelfOwnership(
+        std::unique_ptr<CPUDeconvolutionBackend> deconv,
+        std::unique_ptr<CPUBackendMemoryManager> mem) {
+        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(deconv), std::move(mem)));
     }
 
     // Create CPUBackend with mixed ownership (takes ownership of deconv, external memory)
-    std::shared_ptr<IBackend> createWithMixedOwnership(
-        std::unique_ptr<IDeconvolutionBackend> deconv,
-        IBackendMemoryManager& mem) const override {
-        return std::shared_ptr<IBackend>(new CPUBackend(std::move(deconv), mem));
+    static std::shared_ptr<CPUBackend> createWithMixedOwnership(
+        std::unique_ptr<CPUDeconvolutionBackend> deconv,
+        CPUBackendMemoryManager& mem) {
+        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(deconv), mem));
     }
 
 public:
@@ -194,6 +197,10 @@ public:
 
     bool ownsMemoryManager() const noexcept override {
         return owner.ownsMemoryManager();
+    }
+
+    void releaseBackend() override{
+        
     }
 
     // Memory manager is available if owner has it or if we have a reference
@@ -221,12 +228,18 @@ public:
         if (&(*deconv) != &deconvBackend) {
             throw std::runtime_error("Cannot take ownership: provided deconv backend is not the one currently referenced");
         }
+        if (!owner.ownsDeconvBackend()) {
+            throw std::runtime_error("Cannot take ownership: deconv backend is not owned by this CPUBackend");
+        }
         owner.takeOwnership(std::move(deconv));
     }
 
     void takeOwnership(std::unique_ptr<IBackendMemoryManager> mem) override {
-        if (&(*mem) != &memoryBackend) {
+        if (&(*mem) != &memoryManager) {
             throw std::runtime_error("Cannot take ownership: provided memory manager is not the one currently referenced");
+        }
+        if (!owner.ownsMemoryManager()) {
+            throw std::runtime_error("Cannot take ownership: memory manager is not owned by this CPUBackend");
         }
         owner.takeOwnership(std::move(mem));
     }
@@ -235,7 +248,7 @@ public:
     std::shared_ptr<IBackendMemoryManager> getSharedMemoryManager() const noexcept override {
         if (ownsMemoryManager()) {
             // Return a shared_ptr that doesn't manage the lifetime (non-owning)
-            return std::shared_ptr<IBackendMemoryManager>(&memoryBackend, [](IBackendMemoryManager*){});
+            return std::shared_ptr<IBackendMemoryManager>(&memoryManager, [](IBackendMemoryManager*){});
         } else {
             // For external ownership, we can't provide a proper shared_ptr
             return nullptr;
@@ -244,16 +257,7 @@ public:
 
     // Direct pointer access
     IBackendMemoryManager* getMemoryManagerPtr() const noexcept override {
-        return &memoryBackend;
-    }
-
-    // Access to the Owner object for advanced ownership management
-    Owner& getOwner() noexcept override {
-        return owner;
-    }
-
-    const Owner& getOwner() const noexcept override {
-        return owner;
+        return &memoryManager;
     }
 
     const IDeconvolutionBackend& getDeconvManager() const noexcept override {
@@ -261,7 +265,7 @@ public:
     }
 
     const IBackendMemoryManager& getMemoryManager() const noexcept override {
-        return memoryBackend;
+        return memoryManager;
     }
 
     // Optionally, allow non-const access if you need modification
@@ -270,13 +274,13 @@ public:
     }
 
     IBackendMemoryManager& mutableMemoryManager() noexcept override {
-        return memoryBackend;
+        return memoryManager;
     }
 
     // Clone method - creates a new thread-specific backend
     // The ownership model of the clone depends on the onNewThread() implementation
     std::shared_ptr<IBackend> onNewThread() const override {
-        return createWithExternalOwnership(deconvBackend, memoryBackend);
+        return CPUBackend::createWithExternalOwnership(deconvBackend, memoryManager);
     }
 };
 

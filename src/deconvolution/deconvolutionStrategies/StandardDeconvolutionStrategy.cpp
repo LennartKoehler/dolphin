@@ -30,7 +30,7 @@ StandardDeconvolutionStrategy::StandardDeconvolutionStrategy(){
         backend->getDeconvManager().octantFourierShift(h_device);
         backend->getDeconvManager().forwardFFT(h_device, h_device);
         backend->sync();
-        return new ComplexData(h_device);
+        return new ComplexData(std::move(h_device));
     };
     psfPreprocessor.setPreprocessingFunction(psfPreprocessFunction);
 }
@@ -44,11 +44,10 @@ Hyperstack StandardDeconvolutionStrategy::run(const Hyperstack& image, const std
 
 
     for (int i = 0; i < image.channels.size(); i++){
-        ComputationalPlan channelPlan = createComputationalPlan(i, image.channels[i].image, inputPSFS, *config, backend_, algorithm_);
-
-        PaddedImage channel = preprocessChannel(inputCopy.channels[i].image.slices, channelPlan);
+        ComputationalPlan channelPlan = createComputationalPlan(i, image.channels[i], inputPSFS, *config, backend_, algorithm_);
+        PaddedImage channel = preprocessChannel(inputCopy.channels[i], channelPlan);
         parallelDeconvolution(channel, result.channels[i].image.slices, channelPlan);
-        postprocessChannel(channel);
+        postprocessChannel(result.channels[i]);
 
         std::cout << "[STATUS] Saving result of channel " << std::endl;
     }
@@ -57,9 +56,9 @@ Hyperstack StandardDeconvolutionStrategy::run(const Hyperstack& image, const std
     return result;
 }
 
-PaddedImage StandardDeconvolutionStrategy::preprocessChannel(std::vector<cv::Mat>& input, const ComputationalPlan& channelPlan) {
-    Preprocessor::padImage(input, channelPlan.imagePadding, config->borderType); // pad to largest psf, should be the easiest
-    return PaddedImage{std::move(input), channelPlan.imagePadding};
+PaddedImage StandardDeconvolutionStrategy::preprocessChannel(Channel& input, const ComputationalPlan& channelPlan) {
+    Preprocessor::padImage(input.image.slices, channelPlan.imagePadding, config->borderType);
+    return PaddedImage{std::move(input.image.slices), channelPlan.imagePadding};
 }
 
 
@@ -138,13 +137,13 @@ std::function<void()> StandardDeconvolutionStrategy::createTask(
             throw; // dont overwrite image if exception
         }
         cubeImage.image = convertFFTWComplexToCVMatVector(f_host);
-        {
-            std::unique_lock<std::mutex> lock(writerMutex);
+        
+        // std::unique_lock<std::mutex> lock(writerMutex);
 
-            // deconovlutionStrategy.insertImage(cubeImage, outputImage);
-            // Postprocessor::insertLabeledCubeInImage(cubeImage, outputImage, taskDesc);
-            Postprocessor::insertCubeInImage(cubeImage, outputImage, task.srcBox);
-        }
+        // deconovlutionStrategy.insertImage(cubeImage, outputImage);
+        // Postprocessor::insertLabeledCubeInImage(cubeImage, outputImage, taskDesc);
+        Postprocessor::insertCubeInImage(cubeImage, outputImage, task.srcBox); // since every thread writes to nonoverlapping regions this should be threadsafe
+        
         loadingBar.addOne();
     };
 }
@@ -199,14 +198,13 @@ Padding StandardDeconvolutionStrategy::getCubePadding(const RectangleShape& imag
 }
 
 
-void StandardDeconvolutionStrategy::postprocessChannel(PaddedImage& image){
+void StandardDeconvolutionStrategy::postprocessChannel(Channel& image){
 
 
-    Postprocessor::removePadding(image.image, image.padding);
     // Global normalization of the merged volume
     double global_max_val= 0.0;
     double global_min_val = MAXFLOAT;
-    for (const auto& slice : image.image) {
+    for (const auto& slice : image.image.slices) {
         cv::threshold(slice, slice, 0, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
         double min_val, max_val;
         cv::minMaxLoc(slice, &min_val, &max_val);
@@ -214,7 +212,7 @@ void StandardDeconvolutionStrategy::postprocessChannel(PaddedImage& image){
         global_min_val = std::min(global_min_val, min_val);
     }
 
-    for (auto& slice : image.image) {
+    for (auto& slice : image.image.slices) {
         slice.convertTo(slice, CV_32F, 1.0 / (global_max_val - global_min_val), -global_min_val * (1 / (global_max_val - global_min_val)));  // Add epsilon to avoid division by zero
         cv::threshold(slice, slice, config->epsilon, 0.0, cv::THRESH_TOZERO); // Werte unter epsilon auf 0 setzen
     }
@@ -322,7 +320,7 @@ std::vector<cv::Mat> StandardDeconvolutionStrategy::convertFFTWComplexToCVMatVec
 
 ComputationalPlan StandardDeconvolutionStrategy::createComputationalPlan(
         int channelNumber,
-        const Image3D& image,
+        const Channel& image,
         const std::vector<PSF>& psfs,
         const DeconvolutionConfig& config,
         const std::shared_ptr<IBackend> backend,
@@ -331,7 +329,6 @@ ComputationalPlan StandardDeconvolutionStrategy::createComputationalPlan(
     
     // validateConfiguration(psfs, imageShape, channelNumber, config, backend, algorithm);
     ComputationalPlan plan;
-    plan.imagePadding = Padding{RectangleShape{30,30,30}, RectangleShape{30,30,30}}; //TESTVALUE //TODO
     // plan.imagePadding = getChannelPadding();
     plan.executionStrategy = ExecutionStrategy::PARALLEL;
 
@@ -344,7 +341,7 @@ ComputationalPlan StandardDeconvolutionStrategy::createComputationalPlan(
 
     
     // Use the imageShape parameter
-    RectangleShape imageSize = RectangleShape{image.slices[0].cols, image.slices[0].rows, static_cast<int>(image.slices.size())};
+    RectangleShape imageSize = RectangleShape{image.image.slices[0].cols, image.image.slices[0].rows, static_cast<int>(image.image.slices.size())};
 
     size_t t = config.nThreads;
     // t = static_cast<size_t>(2);
@@ -352,21 +349,22 @@ ComputationalPlan StandardDeconvolutionStrategy::createComputationalPlan(
 
 
     Padding cubePadding = getCubePadding(imageSize, psfs);
-    RectangleShape idealCubeSize = getCubeShape(memoryPerCube, config.nThreads, imageSize, cubePadding);
+    RectangleShape idealCubeSizeUnpadded = getCubeShape(memoryPerCube, config.nThreads, imageSize, cubePadding);
+    plan.imagePadding = getImagePadding(imageSize, idealCubeSizeUnpadded, cubePadding);
+    // idealCubeSizeUnpadded = imageSize; // TESTVALUE
 
-
-    // idealCubeSize = RectangleShape(393, 313, 46);
-    std::vector<BoxCoord> cubeCoordinates = splitImageHomogeneous(idealCubeSize, imageSize);
+    // idealCubeSizeUnpadded = RectangleShape(393, 313, 46);
+    std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = splitImageHomogeneous(idealCubeSizeUnpadded, cubePadding, imageSize);
     // Create task descriptors for each cube
 
-    plan.tasks.reserve(cubeCoordinates.size());
-    for (size_t i = 0; i < cubeCoordinates.size(); ++i) {
+    plan.tasks.reserve(cubeCoordinatesWithPadding.size());
+    for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
         StandardCubeTaskDescriptor descriptor;
         descriptor.taskId = static_cast<int>(i);
-        descriptor.srcBox = cubeCoordinates[i];
+        descriptor.srcBox = cubeCoordinatesWithPadding[i].box;
         descriptor.psfs = psfPointers;
-        descriptor.estimatedMemoryUsage = estimateMemoryUsage(idealCubeSize, algorithm);
-        descriptor.requiredPadding = cubePadding;
+        descriptor.estimatedMemoryUsage = estimateMemoryUsage(idealCubeSizeUnpadded, algorithm);
+        descriptor.requiredPadding = cubeCoordinatesWithPadding[i].padding;
         // setPSFsAndLabel(descriptor, psfPointers, labelImage, psfLabelMap);
 
         plan.tasks.push_back(std::make_unique<StandardCubeTaskDescriptor>(descriptor));
@@ -406,13 +404,29 @@ RectangleShape StandardDeconvolutionStrategy::getCubeShape(
     const Padding& cubePadding
 ){
     size_t width = 128;
-    size_t height = 128;
+    size_t height = 256;
     size_t depth = 128;
 
-    return RectangleShape(128, 128, 64) - cubePadding.before - cubePadding.after;
+    return RectangleShape(width, height, depth) - cubePadding.before - cubePadding.after;
 }
 
 
+Padding StandardDeconvolutionStrategy::getImagePadding(
+    const RectangleShape& imageSize,
+    const RectangleShape& cubeSizeUnpadded,
+    const Padding& cubePadding
+){
+    RectangleShape paddingBefore = cubePadding.before;
+    RectangleShape paddingAfter;
+
+    // pad more to right if the image is smaller than the cubesize (this could happen if the psf is larger than the image)
+    // this has to align with the function used to pad the image and basically enlarges the original image through padding
+    paddingAfter.width = std::max(cubePadding.after.width, cubeSizeUnpadded.width - imageSize.width + cubePadding.before.width);
+    paddingAfter.height = std::max(cubePadding.after.height, cubeSizeUnpadded.height - imageSize.height + cubePadding.before.height);
+    paddingAfter.depth = std::max(cubePadding.after.depth, cubeSizeUnpadded.depth - imageSize.depth + cubePadding.before.depth);
+    return Padding{paddingBefore, paddingAfter};
+
+}
 
 // RectangleShape StandardDeconvolutionStrategy::getCubeShape(
 //     size_t memoryPerCube,

@@ -1,27 +1,27 @@
 {
   "Deconvolution": {
-    "algorithmName": "TestAlgorithm",
-    "iterations": 10,
+    "algorithmName": "RichardsonLucy",
+    "iterations": 1,
     "epsilon": 1e-6,
     "grid": false,
     "lambda": 0.015,
     "borderType": 2,
     "time": false,
     "saveSubimages": false, 
-    "backenddeconv": "cuda",
-    "nThreads": 2,
+    "backenddeconv": "cpu",
+    "nThreads": 10,
     "maxMem_GB": 64
   },
   
 
-  "psf_config_path": "",
-  "psf_file_path": "../tests/labeledImage/test_tiff_output/constant_hyperstack_1.tif",
+  "psf_config_path": "../configs/default_psf_config_gaussian.json",
+  "psf_file_path": "",
   "psf_dir_path": "",
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   "backend": "cuda",
   "deconvolution_config_path": "",
 
-  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
+  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/CElegans-CY3.tif",
   "info": false,
   "showExampleLayers": false,
   "time": false,
@@ -31,7 +31,7 @@
 
   "strategyType": "normal",
   "labeledImage": "/home/lennart-k-hler/data/labeledImage/EnvelopLabelOutline16bit.tif",
-  "labelPSFMap": "[ID1234], 1[constant_hyperstack_1]"
+  "labelPSFMap": "0[ID1234], 1[PSF]"
 
 
 }

@@ -20,26 +20,15 @@ void CUDABackendManager::initializeGlobalCUDA() {
 } 
 
 
+// TODO make stream management more native, different streams in one cuda backend should not be permitted, one origin of truth
 std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend() {
     initializeGlobalCUDA();
     cudaStream_t stream = createStream();
     cudaSetDevice(0);
 
-    // --- Create derived objects as raw pointers ---
-    auto* deconvRaw = new CUDADeconvolutionBackend();
-    auto* memRaw    = new CUDABackendMemoryManager();
-
-    // --- Set streams before wrapping them ---
-    
-    deconvRaw->setStream(stream);
-    memRaw->setStream(stream);
-
-    // --- Wrap raw pointers into base-class unique_ptr ---
-    std::unique_ptr<IDeconvolutionBackend> deconv(deconvRaw);
-    std::unique_ptr<IBackendMemoryManager> mem(memRaw);
-
-    // --- Construct backend ---
-    return std::shared_ptr<CUDABackend>(new CUDABackend(std::move(deconv), std::move(mem)));
+    CUDABackend* backend = CUDABackend::create();   // --- Construct backend ---
+    backend->setStream(stream);
+    return std::shared_ptr<CUDABackend>(backend);
 }
 
 std::shared_ptr<CUDABackend> CUDABackendManager::getBackendForCurrentThread() {

@@ -12,6 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "HyperstackImage.h"
+#include "HyperstackReader.h"
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>
@@ -65,7 +66,7 @@ bool Hyperstack::readFromTifFile(const char *filename) {
     //Create Metadata
     ImageMetaData fileMetaData;
     fileMetaData.imageType = imageType;
-    fileMetaData.name = name;
+    fileMetaData.filename = name;
     fileMetaData.description = description;
     fileMetaData.imageWidth = imageWidth;
     fileMetaData.imageLength = imageLength;
@@ -96,152 +97,13 @@ bool Hyperstack::isValid(){
     return !channels.empty();
 }
 bool Hyperstack::readFromTifDir(const std::string& directoryPath) {
-    fs::path dirPath(directoryPath);
-    if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
-        std::cerr << "[ERROR] Specified path is not a directory or does not exist: " << directoryPath << std::endl;
-        return false;
+    HyperstackReader reader;
+    if (reader.readFromTifDir(directoryPath)) {
+        this->channels = reader.getChannels();
+        this->metaData = reader.getMetaData();
+        return true;
     }
-
-    //METADATA
-    std::string imageType = "";
-    std::string name = directoryPath;
-    const char* directoryName = directoryPath.c_str();
-    std::string description = "";
-    int imageWidth, imageLength = 0;
-    int frameCount = 0;
-    uint16_t resolutionUnit = 0;
-    uint16_t samplesPerPixel = 0; //num of channels
-    uint16_t bitsPerSample = 0;//bit depth
-    uint16_t photometricInterpretation = 0;
-    int linChannels = 1;//in Description (linearized channels)
-    uint16_t planarConfig = 0;
-    int totalImages = -1;
-    int slices = 0;
-    int dataType = 0; //calculated
-    float xResolution, yResolution = 0.0f;
-    std::vector<cv::Mat> layers;
-
-
-    std::vector<std::string> fileNames;
-    for (const auto& entry : fs::directory_iterator(dirPath)) {
-        if (entry.path().extension() == ".tif") {
-            fileNames.push_back(entry.path().string());
-        }
-    }
-
-    // Sort the files if necessary
-    std::sort(fileNames.begin(), fileNames.end());
-
-    // Load each image and add to the layer stack
-    bool first_image = true;
-    for (const auto& filename : fileNames) {
-        cv::Mat img = cv::imread(filename, cv::IMREAD_UNCHANGED);
-        if(first_image){
-            TIFF* tifTempFile = TIFFOpen(filename.c_str(), "r");
-            UtlIO::extractData(tifTempFile, name, description, directoryName, linChannels, slices, imageWidth, imageLength, resolutionUnit, xResolution, yResolution, samplesPerPixel, photometricInterpretation, bitsPerSample, frameCount, planarConfig, totalImages);
-        }
-        first_image = false;
-        if (img.empty()) {
-            std::cerr << "[ERROR] Failed to load image: " << filename << std::endl;
-            continue;
-        }
-
-        layers.push_back(img);
-        //TODO debug option or something
-        //std::cout << "Loaded image: " << filename << std::endl;
-    }
-
-    if (layers.empty()) {
-        std::cerr << "[ERROR] No images were loaded." << std::endl;
-        return false;
-    }
-
-    // Set attributes based on the first image
-    imageWidth = layers[0].cols;
-    imageLength = layers[0].rows;
-    // Depth based on the number of layers loaded
-    totalImages = static_cast<int>(layers.size()) - 1;
-    if(slices < 1){
-        slices = static_cast<int>(layers.size());
-    }
-    //TODO debug
-    std::cout<< "[INFO] Read in " << size(layers) << " layers"<< std::endl;
-
-    //Converting Layers to 32F
-    UtlIO::convertImageTo32F(layers, dataType, bitsPerSample);
-
-    //Creating Channel Images
-    if(linChannels > 0){
-        std::vector<std::vector<cv::Mat>> channelData(linChannels);
-        for(auto& channel : channelData){
-            //cv::Mat data = cv::Mat(imageLength, imageWidth, dataType);
-            //channel.push_back(data);
-        }
-        int c = 0;
-        int z = 0;
-        int multichannel_z = ((totalImages + 1) / linChannels);
-        bool success = false;
-        for(auto& singleLayer : layers){
-            channelData[c].push_back(singleLayer);
-            c++;
-            if(c > linChannels-1){
-                c = 0;
-                z++;
-            }
-            //c = (c > this->getChannelNum()-1) ? (c = 0, ++sigmaZ) : c;
-            if(multichannel_z == z) {
-                std::cout<<"[INFO] " << name << " converted to multichannel" << std::endl;
-                success = true;
-            }
-        }
-        if(!success){
-            std::cout << "[ERROR] "<< name << "(Layers: " << std::to_string(size(layers)) << ") could not converted to multichannel, Layers: " << std::to_string(z) << std::endl;
-        }
-
-        //create Image3D with channeldata
-        int id = 0;
-        for(auto& layers : channelData){
-            Image3D imageLayers;
-            imageLayers.slices = layers;
-            Channel channel;
-            channel.image = imageLayers;
-            channel.id = id;
-            this->channels.push_back(channel);
-            id++;
-        }
-
-    }else{
-        Image3D imageLayers;
-        imageLayers.slices = layers;
-        Channel channel;
-        channel.image = imageLayers;
-        channel.id = 0;
-        this->channels.push_back(channel);
-    }
-
-    //Create Metadata
-    ImageMetaData fileMetaData;
-    fileMetaData.imageType = imageType;
-    fileMetaData.name = name;
-    fileMetaData.description = description;
-    fileMetaData.imageWidth = imageWidth;
-    fileMetaData.imageLength = imageLength;
-    fileMetaData.frameCount = frameCount;
-    fileMetaData.resolutionUnit = resolutionUnit;
-    fileMetaData.samplesPerPixel = samplesPerPixel; //num of channels
-    fileMetaData.bitsPerSample = bitsPerSample;//bit depth
-    fileMetaData.photometricInterpretation = photometricInterpretation;
-    fileMetaData.linChannels = linChannels;//in Description (linearized channels)
-    fileMetaData.planarConfig = planarConfig;
-    fileMetaData.totalImages = totalImages;
-    fileMetaData.slices = slices;
-    fileMetaData.dataType = dataType; //calculated
-    fileMetaData.xResolution = xResolution;
-    fileMetaData.yResolution = yResolution;
-
-    this->metaData = fileMetaData;
-
-    return true;
+    return false;
 }
 
 bool Hyperstack::saveAsTifFile(const std::string &directoryPath) const {

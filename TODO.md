@@ -1,16 +1,31 @@
-psfpreprocessor problem not solved for cuda, somehow two threads can still access the same psf at the same time and its invalid for one, some weird race condition here. Somehow a second thread can grab the psf before the first thread is done with creating it, if i have a sleep it works
-
-someweird padding problems, causing sufficient padding to still produce boundary conditions
-
-
 when reading image file that ends with .tif but the file doesnt acutally exist a nonintuitive error occurs
 
 
-make the cubes completely seperate, also write to their own cubeImage, instead of inserting into the large outputImage, then they can also write in parallel. Then at end just stitch cubes together
+Reader/Writer:
+    the tasks that are run should be in order of how data is read. So dont schedule all tasks, and then just run them, as later on they might not access contiguous cubes. Rather Schedule new tasks only when old tasks are done so that they are in order of how they were created which should also be in order of how they are loaded
+
+    Think about imagePadding, if i want to cut images out of the image, the deconvstrategy epects the originalImage to already be padded. How do i pad the image without having to load everything. The coordinates of how the cubes are requested are also for a padded image, think about this. Pad individual strips if they are at the edge of the image. Think about how coordinates are translated from unpadded to padded image psf padding is just zeros, so this doesnt actually matter. 
+
+    for the reader i think it should be fine to copy the cube out of the larger strip. This cube can then be edited in place by the thread working on that cube.
+
+    reader/write for large images that dont fit on memory, streamline process. computationalplan and tasks can perhaps be created from sort of metdata of the image, then image reading/writing may be a part of the deconvolutionstrategy. Perhaps having its own reader and writer object that can also manage memory
+        basic idea:
+            read metadata of image, alls sizes etc, also read metadata of psf
+            create copmutational plan and tasks based on that data aswell as the configs
+            have a streamlined approach where perhaps one has reader and write threads, which replace current reader/writer, which actually directly read/write to the file, not just prepare data in memory.
+            These threads should also have a cube loaded that can be processed by the worker threads
+            perhaps it can be good to read multiple cubes at once from file do to their data being concurrent on disc. Perhaps for larger available memory one had more reader/writer threads which hold the cube on memory, but therefore guarantee that a cube is always available.
+            Think about which core does what, perhaps each thread should do everything, so that when the data is read it might already be on l2 cache, but i dont think that matters as data is too large.
+            Perhaps we also dont split reading/writing and processing on multiple threads, as there seems to be no use when basically everything can happen in parallel
+
+think about read/write threads especially for cpu applications, they should be on same core for better data transfer
+
+someweird padding problems, causing sufficient padding to still produce boundary conditions
+    somehow caused by padding for whatever reason, should have nothing to do with how data is read or written as when i init the result as zero the whole image is filled,
+    for some reason half of the psf on both sides id not anough although mathematically it should be
+    should also have nothing to do with normalization within the cube as i also tested that
 
 
-
-think about read/write threads especially for cpu applications, they should be on same core for better data transfer.
 
 split the deconvolutionalgorithms into init and run functions. the init function then has data allocations and stores those as member variables. this way the backends can do more specific tasks. e.g. the workerthreads perhaps shouldnt do data allocations that are performed within the algorithms -> for more optimization and overlap of data transfer and processing
 
