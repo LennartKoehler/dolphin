@@ -21,8 +21,9 @@ public:
 
 
 
-std::vector<BoxCoord> splitImageHomogeneous(
+std::vector<BoxCoordWithPadding> splitImageHomogeneous(
     const RectangleShape& subimageShape,
+    const Padding& cubePadding,
     const RectangleShape& imageOriginalShape);
 
 class LoadingBar{
@@ -86,7 +87,8 @@ public:
             static_cast<int>(maxPsfShape.height / 2),
             static_cast<int>(maxPsfShape.depth / 2)
         );
-        paddingbefore = RectangleShape{11,11,22}; //TESTVALUE
+        paddingbefore = paddingbefore + 1;
+        // paddingbefore = RectangleShape{10,10,20}; //TESTVALUE
         return Padding{paddingbefore, paddingbefore};
     }
 };

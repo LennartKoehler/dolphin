@@ -6,10 +6,10 @@
     "qualityFactor": 1.0,
     "resAxial[nm]": 200.0,
     "resLateral[nm]": 200.0,
-    "sigmaX": 10.0,
-    "sigmaY": 10.0,
-    "sigmaZ": 10.0,
-    "sizeX": 120,
-    "sizeY": 120,
-    "sizeZ": 60
+    "sigmaX": 1.0,
+    "sigmaY": 1.0,
+    "sigmaZ": 1.0,
+    "sizeX": 20,
+    "sizeY": 20,
+    "sizeZ": 10
 }

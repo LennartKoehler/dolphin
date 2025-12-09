@@ -12,7 +12,7 @@ public:
 private:
     ComputationalPlan createComputationalPlan(
         int channelNumber,
-        const Image3D& image,
+        const Channel& image,
         const std::vector<PSF>& psfs,
         const DeconvolutionConfig& config,
         const std::shared_ptr<IBackend> backend,

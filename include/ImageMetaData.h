@@ -19,8 +19,9 @@ See the LICENSE file provided with the code for the full license.
 class ImageMetaData {
 public:
     // Image Attributes
+    std::string filename;
+
     std::string imageType;
-    std::string name;
     std::string description;
     int imageWidth, imageLength = 0;
     int frameCount = 0;

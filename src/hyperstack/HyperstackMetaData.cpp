@@ -17,7 +17,7 @@ See the LICENSE file provided with the code for the full license.
 void Hyperstack::printMetadata() const {
     std::cout << "[METADATA]" << std::endl;
     std::cout << "Image Type: " << metaData.imageType << std::endl;
-    std::cout << "Name: " << metaData.name << std::endl;
+    std::cout << "Name: " << metaData.filename << std::endl;
     std::cout << "Image Width: " << metaData.imageWidth << std::endl;
     std::cout << "Image Length: " << metaData.imageLength << std::endl;
     std::cout << "Frame Count: " << metaData.frameCount << std::endl;

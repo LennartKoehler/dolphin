@@ -43,8 +43,8 @@ protected:
 
 
 
-    virtual PaddedImage preprocessChannel(std::vector<cv::Mat>& image, const ComputationalPlan& channelPlan);
-    virtual void postprocessChannel(PaddedImage& image);
+    virtual PaddedImage preprocessChannel(Channel& image, const ComputationalPlan& channelPlan);
+    virtual void postprocessChannel(Channel& image);
     virtual Padding getCubePadding(const RectangleShape& image, const std::vector<PSF> psfs);
 
     virtual PaddedImage getCubeImage(const PaddedImage& image, const BoxCoord& srcbox, const Padding& cubePadding);
@@ -58,7 +58,7 @@ protected:
     //--------------------------------------------------------------------------------------------------
     virtual ComputationalPlan createComputationalPlan(
         int channelNumber,
-        const Image3D& image,
+        const Channel& image,
         const std::vector<PSF>& psfs,
         const DeconvolutionConfig& config,
         const std::shared_ptr<IBackend> backend,
@@ -82,13 +82,12 @@ protected:
         const RectangleShape& imageOriginalShape,
         const Padding& cubePadding);
 
-
-    void setPSFsAndLabel(
-        StandardCubeTaskDescriptor& task,
-        const std::vector<std::shared_ptr<PSF>>& psfs,
-        const std::shared_ptr<Image3D> labelImage,
-        const std::unordered_map<int, PSFID> psfLabelMap
+    Padding getImagePadding(
+        const RectangleShape& imageSize,
+        const RectangleShape& cubeSize,
+        const Padding& cubePadding
     );
+
 
 
 protected:

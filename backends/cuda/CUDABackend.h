@@ -129,57 +129,57 @@ private:
 
 
 class CUDABackendManager;
+
 // Concrete CUDA Backend Implementation
 class CUDABackend : public IBackend {
     friend CUDABackendManager;
 private:
     // Constructor for external ownership (references to externally-owned components)
-    CUDABackend(IDeconvolutionBackend& deconv,
-                IBackendMemoryManager& mem)
+    CUDABackend(CUDADeconvolutionBackend& deconv,
+                CUDABackendMemoryManager& mem)
         : deconvBackend(deconv),
           memoryBackend(mem),
-          owner() {}
+          owner(deconv, mem) {}
 
     // Constructor for self-ownership (takes ownership of both components)
-    CUDABackend(std::unique_ptr<IDeconvolutionBackend> deconv,
-                std::unique_ptr<IBackendMemoryManager> mem)
+    CUDABackend(std::unique_ptr<CUDADeconvolutionBackend> deconv,
+                std::unique_ptr<CUDABackendMemoryManager> mem)
         : deconvBackend(*deconv),
           memoryBackend(*mem),
           owner(std::move(deconv), std::move(mem)) {}
 
     // Constructor for mixed ownership (takes ownership of deconv, external memory)
-    CUDABackend(std::unique_ptr<IDeconvolutionBackend> deconv,
-                IBackendMemoryManager& mem)
+    CUDABackend(std::unique_ptr<CUDADeconvolutionBackend> deconv,
+                CUDABackendMemoryManager& mem)
         : deconvBackend(*deconv),
           memoryBackend(mem),
-          owner(std::move(deconv)) {}
+          owner(std::move(deconv), mem) {}
 
-    cudaStream_t stream = 0;
-    IDeconvolutionBackend& deconvBackend;
-    IBackendMemoryManager& memoryBackend;
-    Owner owner;  // Manages lifetime when this IBackend owns components
+    CUDADeconvolutionBackend& deconvBackend;
+    CUDABackendMemoryManager& memoryBackend;
+    Owner owner;  // Specialized CUDA owner
 
-    // Factory methods for different ownership models
+    // Type-safe factory methods for different ownership models
     
     // Create CUDABackend with external ownership (references to externally-owned components)
-    std::shared_ptr<IBackend> createWithExternalOwnership(
-        IDeconvolutionBackend& deconv,
-        IBackendMemoryManager& mem) const override {
-        return std::shared_ptr<IBackend>(new CUDABackend(deconv, mem));
+    static std::shared_ptr<CUDABackend> createWithExternalOwnership(
+        CUDADeconvolutionBackend& deconv,
+        CUDABackendMemoryManager& mem) {
+        return std::shared_ptr<CUDABackend>(new CUDABackend(deconv, mem));
     }
 
     // Create CUDABackend with self-ownership (takes ownership of both components)
-    std::shared_ptr<IBackend> createWithSelfOwnership(
-        std::unique_ptr<IDeconvolutionBackend> deconv,
-        std::unique_ptr<IBackendMemoryManager> mem) const override {
-        return std::shared_ptr<IBackend>(new CUDABackend(std::move(deconv), std::move(mem)));
+    static std::shared_ptr<CUDABackend> createWithSelfOwnership(
+        std::unique_ptr<CUDADeconvolutionBackend> deconv,
+        std::unique_ptr<CUDABackendMemoryManager> mem) {
+        return std::shared_ptr<CUDABackend>(new CUDABackend(std::move(deconv), std::move(mem)));
     }
 
     // Create CUDABackend with mixed ownership (takes ownership of deconv, external memory)
-    std::shared_ptr<IBackend> createWithMixedOwnership(
-        std::unique_ptr<IDeconvolutionBackend> deconv,
-        IBackendMemoryManager& mem) const override {
-        return std::shared_ptr<IBackend>(new CUDABackend(std::move(deconv), mem));
+    static std::shared_ptr<CUDABackend> createWithMixedOwnership(
+        std::unique_ptr<CUDADeconvolutionBackend> deconv,
+        CUDABackendMemoryManager& mem) {
+        return std::shared_ptr<CUDABackend>(new CUDABackend(std::move(deconv), mem));
     }
 
 public:
@@ -188,15 +188,6 @@ public:
         auto deconv = std::make_unique<CUDADeconvolutionBackend>();
         auto memoryManager = std::make_unique<CUDABackendMemoryManager>();
 
-        // should be on default stream or not?
-        // cudaStream_t stream;
-        // // cudaError_t err = cudaStreamCreate(&stream);
-        // cudaError_t err = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-        // if (err != cudaSuccess) {
-        //     throw std::runtime_error("Failed to create CUDA stream: " + std::string(cudaGetErrorString(err)));
-        // }
-        // deconv->setStream(stream);
-        // memoryManager->setStream(stream);
         return new CUDABackend(std::move(deconv), std::move(memoryManager));
     }
 
@@ -205,8 +196,13 @@ public:
         return "cuda";
     }
     void sync() override{
-        cudaStreamSynchronize(stream);
-        // cudaDeviceSynchronize();
+        deconvBackend.sync();
+        memoryBackend.sync(); 
+    }
+
+    void setStream(cudaStream_t stream){
+        deconvBackend.setStream(stream);
+        memoryBackend.setStream(stream);
     }
 
 
@@ -244,12 +240,18 @@ public:
         if (&(*deconv) != &deconvBackend) {
             throw std::runtime_error("Cannot take ownership: provided deconv backend is not the one currently referenced");
         }
+        if (!owner.ownsDeconvBackend()) {
+            throw std::runtime_error("Cannot take ownership: deconv backend is not owned by this CUDABackend");
+        }
         owner.takeOwnership(std::move(deconv));
     }
 
     void takeOwnership(std::unique_ptr<IBackendMemoryManager> mem) override {
         if (&(*mem) != &memoryBackend) {
             throw std::runtime_error("Cannot take ownership: provided memory manager is not the one currently referenced");
+        }
+        if (!owner.ownsMemoryManager()) {
+            throw std::runtime_error("Cannot take ownership: memory manager is not owned by this CUDABackend");
         }
         owner.takeOwnership(std::move(mem));
     }
@@ -268,15 +270,6 @@ public:
     // Direct pointer access
     IBackendMemoryManager* getMemoryManagerPtr() const noexcept override {
         return &memoryBackend;
-    }
-
-    // Access to the Owner object for advanced ownership management
-    Owner& getOwner() noexcept override {
-        return owner;
-    }
-
-    const Owner& getOwner() const noexcept override {
-        return owner;
     }
 
     const IDeconvolutionBackend& getDeconvManager() const noexcept override {

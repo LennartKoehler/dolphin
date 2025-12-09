@@ -205,7 +205,7 @@ void runTiffGenerationTests() {
     // Test with Hyperstack
     std::cout << "\n--- Testing Hyperstack TIFF Writing ---" << std::endl;
     for (int i = 0; i < numTestCases; ++i) {
-        std::string filePath = outputDir + "constant_hyperstack_" + std::to_string(i) + ".tif";
+        std::string filePath = outputDir + "/constant_hyperstack_" + std::to_string(i) + ".tif";
         int size[3] = {testCases[i][0], testCases[i][1], testCases[i][2]};
         float value = testCases[i][3];
         

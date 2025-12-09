@@ -13,7 +13,7 @@ void LabeledImageDeconvolutionStrategy::setLabelPSFMap(const RangeMap<std::strin
 
 ComputationalPlan LabeledImageDeconvolutionStrategy::createComputationalPlan(
     int channelNumber,
-    const Image3D& image,
+    const Channel& image,
     const std::vector<PSF>& psfs,
     const DeconvolutionConfig& config,
     const std::shared_ptr<IBackend> backend,
@@ -22,7 +22,6 @@ ComputationalPlan LabeledImageDeconvolutionStrategy::createComputationalPlan(
 
     // validateConfiguration(psfs, imageShape, channelNumber, config, backend, algorithm);
     ComputationalPlan plan;
-    plan.imagePadding = Padding{ RectangleShape{30,30,30}, RectangleShape{30,30,30} }; //TESTVALUE
     // plan.imagePadding = getChannelPadding();
     plan.executionStrategy = ExecutionStrategy::PARALLEL;
 
@@ -35,26 +34,25 @@ ComputationalPlan LabeledImageDeconvolutionStrategy::createComputationalPlan(
     this->psfs = psfPointers;
 
     // Use the imageShape parameter
-    RectangleShape imageSize = RectangleShape{ image.slices[0].cols, image.slices[0].rows, static_cast<int>(image.slices.size()) };
+    RectangleShape imageSize = RectangleShape{ image.image.slices[0].cols, image.image.slices[0].rows, static_cast<int>(image.image.slices.size()) };
 
     size_t t = config.nThreads;
     // t = static_cast<size_t>(2);
     size_t memoryPerCube = maxMemoryPerCube(t, config.maxMem_GB * 1e9, algorithm);
     Padding cubePadding = getCubePadding(imageSize, psfs);
     RectangleShape idealCubeSize = getCubeShape(memoryPerCube, config.nThreads, imageSize, cubePadding);
-
     // idealCubeSize = RectangleShape(393, 313, 46);
-    std::vector<BoxCoord> cubeCoordinates = splitImageHomogeneous(idealCubeSize, imageSize);
+    std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = splitImageHomogeneous(idealCubeSize, cubePadding, imageSize);
     // Create task descriptors for each cube
-
-    plan.tasks.reserve(cubeCoordinates.size());
-    for (size_t i = 0; i < cubeCoordinates.size(); ++i) {
+    plan.imagePadding = getImagePadding(imageSize, idealCubeSize, cubePadding);
+    plan.tasks.reserve(cubeCoordinatesWithPadding.size());
+    for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
         LabeledCubeTaskDescriptor descriptor;
         descriptor.taskId = static_cast<int>(i);
-        descriptor.srcBox = cubeCoordinates[i];
+        descriptor.srcBox = cubeCoordinatesWithPadding[i].box;
         descriptor.channelNumber = channelNumber;
         descriptor.estimatedMemoryUsage = estimateMemoryUsage(idealCubeSize, algorithm);
-        descriptor.requiredPadding = cubePadding;
+        descriptor.requiredPadding = cubeCoordinatesWithPadding[i].padding;
 
         plan.tasks.push_back(std::make_unique<LabeledCubeTaskDescriptor>(descriptor));
     }
@@ -216,15 +214,12 @@ std::function<void()> LabeledImageDeconvolutionStrategy::createTask(
                 PaddedImage resultCube;
                 resultCube.padding = cubeImage.padding;
                 resultCube.image = convertFFTWComplexToCVMatVector(f_host);
-                {
-                    std::unique_lock<std::mutex> lock(writerMutex);
-                    // deconovlutionStrategy.insertImage(cubeImage, outputImage);
-                    Postprocessor::insertLabeledCubeInImage(resultCube, outputImage, task.srcBox, labelgroup);
-                    // Postprocessor::insertCubeInImage(resultCube, outputImage, task.srcBox); //TESTVALUE
-                }
+                // std::unique_lock<std::mutex> lock(writerMutex);
+                // deconovlutionStrategy.insertImage(cubeImage, outputImage);
+                Postprocessor::insertLabeledCubeInImage(resultCube, outputImage, task.srcBox, labelgroup); // threadsafe because different regions
+                // Postprocessor::insertCubeInImage(resultCube, outputImage, task.srcBox); //TESTVALUE
             }
-            break;
-        }
+         }
 
         iobackend->releaseBackend();
 

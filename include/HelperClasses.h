@@ -97,7 +97,22 @@ struct PaddedImage{
 struct BoxCoord {
     int x, y, z;
     RectangleShape dimensions;
+    bool isWithin(const BoxCoord& other) const {
+        // Check if this box is completely within the other box
+        return (x >= other.x && 
+                y >= other.y && 
+                z >= other.z &&
+                x + dimensions.width <= other.x + other.dimensions.width &&
+                y + dimensions.height <= other.y + other.dimensions.height &&
+                z + dimensions.depth <= other.z + other.dimensions.depth);
+    }
 };
+
+struct BoxCoordWithPadding {
+    BoxCoord box;
+    Padding padding;
+};
+
 template<typename entryType>
 struct BoxEntryPair {
     BoxCoord box;
