@@ -4,18 +4,21 @@
 #include <string>
 #include <unordered_map>
 #include <functional>
-#include "deconvolution/deconvolutionStrategies/DeconvolutionStrategy.h"
+#include "deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h"
+#include "deconvolution/deconvolutionStrategies/IDeconvolutionExecutor.h"
+#include "deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.h"
 
 // Forward declarations
 class SetupConfig;
 
 /**
- * Factory for creating deconvolution strategies based on configuration type.
+ * Factory for creating deconvolution strategy pairs based on configuration type.
+ * Each strategy pair contains both a strategy and its corresponding executor.
  * Supports both built-in strategies and custom strategy registration.
  */
 class DeconvolutionStrategyFactory {
 public:
-    using StrategyCreator = std::function<std::unique_ptr<DeconvolutionStrategy>(std::shared_ptr<SetupConfig>)>;
+    using StrategyPairCreator = std::function<std::unique_ptr<DeconvolutionStrategyPair>(std::shared_ptr<SetupConfig>)>;
     
     /**
      * Get the singleton instance of the factory
@@ -23,26 +26,34 @@ public:
     static DeconvolutionStrategyFactory& getInstance();
     
     /**
-     * Create a deconvolution strategy based on the type string
+     * Create a deconvolution strategy pair based on the type string
      * @param type The deconvolution type string (e.g., "normal", "labeled")
-     * @return Unique pointer to the created strategy, or nullptr if type is unknown
+     * @return Unique pointer to the created strategy pair, or nullptr if type is unknown
      */
-    std::unique_ptr<DeconvolutionStrategy> createStrategy(const std::string& type, std::shared_ptr<SetupConfig> config);
+    std::unique_ptr<DeconvolutionStrategyPair> createStrategyPair(const std::string& type, std::shared_ptr<SetupConfig> config);
 
     /**
-     * Create a deconvolution strategy based on SetupConfig
+     * Create a deconvolution strategy pair based on SetupConfig
+     * Automatically determines strategy type and loads required data (labeled images, PSF maps)
+     * @param setupConfig The setup configuration containing all necessary information
+     * @return Unique pointer to the configured strategy pair, or nullptr if configuration is invalid
+     */
+    std::unique_ptr<DeconvolutionStrategyPair> createStrategyPair(std::shared_ptr<SetupConfig> setupConfig);
+
+    /**
+     * Create a deconvolution strategy based on SetupConfig (backward compatibility)
      * Automatically determines strategy type and loads required data (labeled images, PSF maps)
      * @param setupConfig The setup configuration containing all necessary information
      * @return Unique pointer to the configured strategy, or nullptr if configuration is invalid
      */
-    std::unique_ptr<DeconvolutionStrategy> createStrategy(std::shared_ptr<SetupConfig> setupConfig);
+    std::unique_ptr<IDeconvolutionStrategy> createStrategy(std::shared_ptr<SetupConfig> setupConfig);
     
     /**
-     * Register a custom strategy creator
+     * Register a custom strategy pair creator
      * @param type The type string to associate with this strategy
-     * @param creator Function that creates and returns the strategy
+     * @param creator Function that creates and returns the strategy pair
      */
-    void registerStrategy(const std::string& type, StrategyCreator creator);
+    void registerStrategy(const std::string& type, StrategyPairCreator creator);
     
     /**
      * Check if a strategy type is supported
@@ -70,5 +81,5 @@ private:
      */
     void registerBuiltInStrategies();
     
-    std::unordered_map<std::string, StrategyCreator> strategy_creators_;
+    std::unordered_map<std::string, StrategyPairCreator> strategy_creators_;
 };

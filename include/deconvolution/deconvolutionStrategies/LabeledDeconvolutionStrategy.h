@@ -1,6 +1,6 @@
 #pragma once
-#include "IDeconvolutionStrategy.h"
-#include "../DeconvolutionConfig.h"
+#include "StandardDeconvolutionStrategy.h"
+#include "deconvolution/DeconvolutionConfig.h"
 #include "../../HyperstackImage.h"
 #include "../../psf/PSF.h"
 #include "../DeconvolutionAlgorithmFactory.h"
@@ -15,10 +15,10 @@
 #include "../../backend/IBackend.h"
 #include "../../backend/IBackendMemoryManager.h"
 
-class StandardDeconvolutionStrategy : public IDeconvolutionStrategy {
+class LabeledDeconvolutionStrategy : public StandardDeconvolutionStrategy {
 public:
-    StandardDeconvolutionStrategy();
-    virtual ~StandardDeconvolutionStrategy() = default;
+    LabeledDeconvolutionStrategy();
+    virtual ~LabeledDeconvolutionStrategy() = default;
 
     // IDeconvolutionStrategy interface
     virtual ChannelPlan createPlan(
@@ -27,20 +27,24 @@ public:
         const DeconvolutionConfig& config) override;
 
 
+    // ILabeledDeconvolutionStrategy interface
+    virtual void setLabeledImage(std::shared_ptr<Hyperstack> labelImage);
+    virtual void setLabelPSFMap(const RangeMap<std::string>& labelPSFMap);
+
 protected:
     // Helper methods for plan creation
-    virtual size_t maxMemoryPerCube(
-        size_t maxNumberThreads, 
-        size_t maxMemory,
-        const DeconvolutionAlgorithm* algorithm);
+    virtual std::vector<Label> getLabelGroups(int channelNumber, const BoxCoord& roi, std::vector<std::shared_ptr<PSF>>& psfs);
+    virtual std::vector<std::shared_ptr<PSF>> getPSFForLabel(int label, std::vector<std::shared_ptr<PSF>>& psfs);
 
+    // Reuse methods from StandardDeconvolutionStrategy
+    // virtual size_t maxMemoryPerCube(
+    //     size_t maxNumberThreads, 
+    //     size_t maxMemory,
+    //     const std::shared_ptr<DeconvolutionAlgorithm> algorithm);
 
-    std::unique_ptr<DeconvolutionAlgorithm> getAlgorithm(const DeconvolutionConfig& config);
-    std::unique_ptr<IBackend> getBackend(const DeconvolutionConfig& config);
-    
-    virtual size_t estimateMemoryUsage(
-        const RectangleShape& cubeSize,
-        const DeconvolutionAlgorithm* algorithm);
+    // virtual size_t estimateMemoryUsage(
+    //     const RectangleShape& cubeSize,
+    //     const std::shared_ptr<DeconvolutionAlgorithm> algorithm);
     
     virtual RectangleShape getCubeShape(
         size_t memoryPerCube,
@@ -56,5 +60,8 @@ protected:
 
     virtual Padding getCubePadding(const RectangleShape& image, const std::vector<PSF> psfs);
 
+private:
+    RangeMap<std::string> psfLabelMap;
+    std::shared_ptr<Hyperstack> labelImage;
 
 };

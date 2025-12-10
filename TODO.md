@@ -2,6 +2,8 @@ when reading image file that ends with .tif but the file doesnt acutally exist a
 
 
 Reader/Writer:
+    should the reader actually have a lot of padding logic? i think no but its much easier because it has all the dimensionality information and its easir to pass as padding something that goes out of bounds of image instead of passing e.g. as negative values. Also it can load data however it sees fit. i dont think the executor should know about imagemetadata and determine itself what part of the image can be read and what has to padded after having read the image. I still believe that the reader should not do padding, but think about this before implementing
+
     the tasks that are run should be in order of how data is read. So dont schedule all tasks, and then just run them, as later on they might not access contiguous cubes. Rather Schedule new tasks only when old tasks are done so that they are in order of how they were created which should also be in order of how they are loaded
 
     Think about imagePadding, if i want to cut images out of the image, the deconvstrategy epects the originalImage to already be padded. How do i pad the image without having to load everything. The coordinates of how the cubes are requested are also for a padded image, think about this. Pad individual strips if they are at the edge of the image. Think about how coordinates are translated from unpadded to padded image psf padding is just zeros, so this doesnt actually matter. 

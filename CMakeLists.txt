@@ -124,6 +124,9 @@ set(COMMON_SOURCES
     src/hyperstack/HyperstackIO.cpp
     src/hyperstack/HyperstackMetaData.cpp
 
+    src/IO/TiffReader.cpp
+    src/IO/TiffWriter.cpp
+
     src/psf/PSF.cpp
     src/psf/generators/GaussianPSFGenerator.cpp
     src/psf/generators/BornWolfModel.cpp
@@ -139,8 +142,11 @@ set(COMMON_SOURCES
     src/deconvolution/Postprocessor.cpp
     src/deconvolution/DeconvolutionProcessor.cpp
     
-    src/deconvolution/deconvolutionStrategies/DeconvolutionStrategy.cpp
-    src/deconvolution/deconvolutionStrategies/LabeledImageDeconvolutionStrategy.cpp
+    src/deconvolution/deconvolutionStrategies/DeconvolutionStrategyFacade.cpp
+    src/deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.cpp
+    src/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.cpp
+    src/deconvolution/deconvolutionStrategies/LabeledDeconvolutionStrategy.cpp
+    src/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.cpp
     src/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.cpp
 
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
@@ -160,8 +166,6 @@ set(COMMON_SOURCES
     src/frontend/gui/DefaultGUIStyleConfig.cpp
     src/frontend/gui/GUIFrontend.cpp
     src/frontend/SetupConfig.cpp
-
-
 
     src/frontend/gui/windows/SpecificWindows.cpp
     src/frontend/gui/windows/MainWindow.cpp

@@ -22,6 +22,7 @@ class Hyperstack;
 class BaseDeconvolutionAlgorithm;
 class DeconvolutionConfig;
 class DeconvolutionStrategy;
+class DeconvolutionStrategyPair;
 class DeconvolutionAlgorithmFactory;
 
 class DeconvolutionService : public IDeconvolutionService{
@@ -81,7 +82,7 @@ private:
     bool validateImageConfig(const json& config) const;
     
     // Algorithm management
-    std::unique_ptr<DeconvolutionStrategy> deconvolutionStrategy;
+    std::unique_ptr<DeconvolutionStrategyPair> deconvolutionStrategyPair;
 
     // PSF package management
     std::vector<PSF> createPSFsFromSetup(
