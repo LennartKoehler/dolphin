@@ -8,6 +8,7 @@
 #include "deconvolution/ImageMap.h"
 #include "psf/PSF.h"
 #include "backend/IBackend.h"
+#include "Image3D.h"
 #include <iostream>
 class IBackend;
 
@@ -70,18 +71,18 @@ private:
 namespace Preprocessor{
 
 
-    std::vector<std::vector<cv::Mat>> splitImageHomogeneous(
-        std::vector<cv::Mat>& image,
+    std::vector<Image3D> splitImageHomogeneous(
+        Image3D& image,
         const RectangleShape& subimageShape,
         const RectangleShape& imageOriginalShape,
         const RectangleShape& imageShapePadded,
         const RectangleShape& cubeShapePadded);
 
-    void expandToMinSize(std::vector<cv::Mat>& image, const RectangleShape& minSize);
+    void expandToMinSize(Image3D& image, const RectangleShape& minSize);
 
 
-    Padding padToShape(std::vector<cv::Mat>& image3D, const RectangleShape& targetShape, int borderType);
-    void padImage(std::vector<cv::Mat>& image, const Padding& padding, int borderType);
+    Padding padToShape(Image3D& image3D, const RectangleShape& targetShape, int borderType);
+    void padImage(Image3D& image, const Padding& padding, int borderType);
 
 
 }

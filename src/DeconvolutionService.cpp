@@ -14,12 +14,15 @@ See the LICENSE file provided with the code for the full license.
 #include "DeconvolutionService.h"
 #include "PSFCreator.h"
 #include "deconvolution/DeconvolutionProcessor.h"
-#include "deconvolution/deconvolutionStrategies/DeconvolutionStrategy.h"
+#include "deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h"
+#include "deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.h"
 #include "DeconvolutionStrategyFactory.h"
 #include "ThreadPool.h"
 #include <chrono>
 #include <fstream>
 #include "UtlIO.h"
+#include "IO/TiffReader.h"
+#include "IO/TiffWriter.h"
 
 DeconvolutionService::DeconvolutionService() 
     : initialized_(false),
@@ -105,7 +108,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
             return createResult(false, error_msg,
                               std::chrono::duration<double>::zero());
         }
-        
+
         // Create PSFs
         std::vector<PSF> psfs = createPSFsFromSetup(setupConfig);
         if (request.getPSFConfig() != nullptr){
@@ -118,20 +121,35 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
                               std::chrono::duration<double>::zero());
         }
         
-        // Create deconvolution strategy using factory
+        // Create deconvolution strategy pair using factory
         DeconvolutionStrategyFactory& factory = DeconvolutionStrategyFactory::getInstance();
-        deconvolutionStrategy = factory.createStrategy(setupConfig);
+        auto strategyPair = factory.createStrategyPair(setupConfig);
         
-        if (!deconvolutionStrategy) {
+        if (!strategyPair) {
             std::string error_msg = "Unsupported deconvolution type: " + deconvConfig->deconvolutionType;
             handleError(error_msg);
             return createResult(false, error_msg,
                               std::chrono::duration<double>::zero());
         }
         
-        deconvolutionStrategy->configure(std::make_unique<DeconvolutionConfig>(*deconvConfig.get()));
+        // Configure both strategy and executor
+        strategyPair->getExecutor().configure(std::make_unique<DeconvolutionConfig>(*deconvConfig.get()));
 
-        Hyperstack result = deconvolutionStrategy->run(*hyperstack, psfs);
+        TiffReader reader{setupConfig->imagePath};
+
+        
+        ChannelPlan plan = strategyPair->getStrategy().createPlan(reader.getMetaData(), psfs, *deconvConfig);
+
+        // Execute the plan using the executor
+        std::string output_path = request.output_path;
+        // TiffWriter writer{output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath)};
+        TiffWriter writer;
+        strategyPair->getExecutor().execute(plan, reader, writer);
+        
+        // Load the result from the writer
+        // Hyperstack result = loadImage(output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath));
+        Hyperstack result;
+        assert(false); //TESTVALUE
         
         // Handle saving
         std::string output_path = request.output_path;

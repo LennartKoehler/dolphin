@@ -97,9 +97,11 @@ bool Hyperstack::isValid(){
     return !channels.empty();
 }
 bool Hyperstack::readFromTifDir(const std::string& directoryPath) {
-    HyperstackReader reader;
-    if (reader.readFromTifDir(directoryPath)) {
-        this->channels = reader.getChannels();
+    TiffReader reader;
+    std::vector<Channel> tempChannels;
+    Image3D tempLayers;
+    if (reader.readFromTifDir(directoryPath, tempChannels, tempLayers)) {
+        this->channels = tempChannels;
         this->metaData = reader.getMetaData();
         return true;
     }

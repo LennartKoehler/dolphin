@@ -32,7 +32,7 @@ public:
 
     std::future<void> deconvolveSingleCube(
         std::shared_ptr<IBackend> backend,
-        std::shared_ptr<DeconvolutionAlgorithm> algorithm,
+        std::unique_ptr<DeconvolutionAlgorithm> algorithm,
         const RectangleShape& workShape,
         const std::vector<std::shared_ptr<PSF>>& psfs_host,
         ComplexData& g_device,

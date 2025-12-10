@@ -1,0 +1,270 @@
+Date : 2025-12-10 13:02:10
+Directory : /home/lennart-k-hler/projects/dolphin
+Total : 168 files,  3393 codes, 131 comments, 477 blanks, all 4001 lines
+
+Languages
++--------------+------------+------------+------------+------------+------------+
+| language     | files      | code       | comment    | blank      | total      |
++--------------+------------+------------+------------+------------+------------+
+| C++          |         66 |      1,826 |         20 |        359 |      2,205 |
+| JSON         |         37 |      1,189 |          0 |         10 |      1,199 |
+| XML          |         16 |        204 |          0 |          6 |        210 |
+| Markdown     |          3 |        148 |          0 |         55 |        203 |
+| Makefile     |          2 |        107 |         26 |         36 |        169 |
+| CMake        |         16 |         65 |          0 |         13 |         78 |
+| CMake Cache  |          1 |         41 |          0 |          1 |         42 |
+| Ini          |          1 |         15 |          0 |          6 |         21 |
+| TypeScript   |          5 |         -2 |          0 |         -1 |         -3 |
+| Shell Script |          1 |         -5 |         -4 |         -3 |        -12 |
+| Log          |         18 |        -46 |          0 |         -7 |        -53 |
+| CUDA C++     |          2 |       -149 |         89 |          2 |        -58 |
++--------------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                            | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                               |        168 |      3,393 |        131 |        477 |      4,001 |
+| . (Files)                                                                                                                       |          3 |         27 |          0 |         16 |         43 |
+| backends                                                                                                                        |          6 |        -26 |       -184 |        -17 |       -227 |
+| backends/cpu                                                                                                                    |          2 |         12 |          2 |          9 |         23 |
+| backends/cuda                                                                                                                   |          4 |        -38 |       -186 |        -26 |       -250 |
+| build                                                                                                                           |         92 |      1,465 |         26 |         34 |      1,525 |
+| build (Files)                                                                                                                   |          4 |        154 |         17 |         31 |        202 |
+| build/.cmake                                                                                                                    |         34 |      1,128 |          0 |          2 |      1,130 |
+| build/.cmake/api                                                                                                                |         34 |      1,128 |          0 |          2 |      1,130 |
+| build/.cmake/api/v1                                                                                                             |         34 |      1,128 |          0 |          2 |      1,130 |
+| build/.cmake/api/v1/reply                                                                                                       |         34 |      1,128 |          0 |          2 |      1,130 |
+| build/CMakeFiles                                                                                                                |          3 |         11 |          0 |          0 |         11 |
+| build/CMakeFiles (Files)                                                                                                        |          1 |          2 |          0 |          0 |          2 |
+| build/CMakeFiles/dolphinlib.dir                                                                                                 |          2 |          9 |          0 |          0 |          9 |
+| build/Testing                                                                                                                   |         34 |        158 |          0 |         -1 |        157 |
+| build/Testing/20251110-1226                                                                                                     |          1 |        -34 |          0 |         -1 |        -35 |
+| build/Testing/20251111-1034                                                                                                     |          1 |        -34 |          0 |         -1 |        -35 |
+| build/Testing/20251112-1041                                                                                                     |          1 |        -34 |          0 |         -1 |        -35 |
+| build/Testing/20251114-0903                                                                                                     |          1 |        -34 |          0 |         -1 |        -35 |
+| build/Testing/20251117-0846                                                                                                     |          1 |        -34 |          0 |         -1 |        -35 |
+| build/Testing/20251121-1437                                                                                                     |          1 |         34 |          0 |          1 |         35 |
+| build/Testing/20251124-0840                                                                                                     |          1 |         34 |          0 |          1 |         35 |
+| build/Testing/20251125-1037                                                                                                     |          1 |         34 |          0 |          1 |         35 |
+| build/Testing/20251126-0902                                                                                                     |          1 |         34 |          0 |          1 |         35 |
+| build/Testing/20251127-1040                                                                                                     |          1 |         34 |          0 |          1 |         35 |
+| build/Testing/20251128-0854                                                                                                     |          1 |         34 |          0 |          1 |         35 |
+| build/Testing/20251201-0849                                                                                                     |          1 |         34 |          0 |          1 |         35 |
+| build/Testing/20251205-0847                                                                                                     |          1 |         34 |          0 |          1 |         35 |
+| build/Testing/20251208-1054                                                                                                     |          1 |         34 |          0 |          1 |         35 |
+| build/Testing/20251209-0838                                                                                                     |          1 |         34 |          0 |          1 |         35 |
+| build/Testing/20251210-0851                                                                                                     |          1 |         34 |          0 |          1 |         35 |
+| build/Testing/Temporary                                                                                                         |         18 |        -46 |          0 |         -7 |        -53 |
+| build/tests                                                                                                                     |         17 |         14 |          9 |          2 |         25 |
+| build/tests (Files)                                                                                                             |          2 |         43 |          9 |         12 |         64 |
+| build/tests/CMakeFiles                                                                                                          |         15 |        -29 |          0 |        -10 |        -39 |
+| build/tests/CMakeFiles/cpu_test.dir                                                                                             |          3 |        -29 |          0 |        -10 |        -39 |
+| build/tests/CMakeFiles/cuda_test.dir                                                                                            |          3 |        -29 |          0 |        -10 |        -39 |
+| build/tests/CMakeFiles/cufft_vs_fftw_comparison.dir                                                                             |          3 |         29 |          0 |         10 |         39 |
+| build/tests/CMakeFiles/fft_performance_test.dir                                                                                 |          3 |        -29 |          0 |        -10 |        -39 |
+| build/tests/CMakeFiles/tiff_generation_test.dir                                                                                 |          3 |         29 |          0 |         10 |         39 |
+| configs                                                                                                                         |          1 |          1 |          0 |         -1 |          0 |
+| include                                                                                                                         |         30 |        509 |        124 |        111 |        744 |
+| include (Files)                                                                                                                 |          6 |        148 |         42 |         35 |        225 |
+| include/IO                                                                                                                      |          2 |         54 |         20 |         17 |         91 |
+| include/backend                                                                                                                 |          5 |        -77 |         -2 |        -11 |        -90 |
+| include/deconvolution                                                                                                           |         16 |        381 |         64 |         70 |        515 |
+| include/deconvolution (Files)                                                                                                   |          6 |         27 |         36 |        -12 |         51 |
+| include/deconvolution/deconvolutionStrategies                                                                                   |         10 |        354 |         28 |         82 |        464 |
+| include/frontend                                                                                                                |          1 |          3 |          0 |          0 |          3 |
+| lib                                                                                                                             |          4 |       -156 |         97 |          1 |        -58 |
+| lib/cube                                                                                                                        |          4 |       -156 |         97 |          1 |        -58 |
+| lib/cube/include                                                                                                                |          1 |         -2 |          2 |          0 |          0 |
+| lib/cube/src                                                                                                                    |          3 |       -154 |         95 |          1 |        -58 |
+| profiling                                                                                                                       |          1 |         -5 |         -4 |         -3 |        -12 |
+| src                                                                                                                             |         24 |        999 |        -24 |        182 |      1,157 |
+| src (Files)                                                                                                                     |          3 |         90 |         15 |         20 |        125 |
+| src/IO                                                                                                                          |          2 |        430 |         83 |         93 |        606 |
+| src/backend                                                                                                                     |          3 |          7 |          4 |          3 |         14 |
+| src/deconvolution                                                                                                               |         13 |        566 |       -111 |         82 |        537 |
+| src/deconvolution (Files)                                                                                                       |          5 |       -222 |       -150 |       -105 |       -477 |
+| src/deconvolution/algorithms                                                                                                    |          1 |         20 |          8 |         14 |         42 |
+| src/deconvolution/deconvolutionStrategies                                                                                       |          7 |        768 |         31 |        173 |        972 |
+| src/frontend                                                                                                                    |          1 |          9 |          0 |         -2 |          7 |
+| src/hyperstack                                                                                                                  |          2 |       -103 |        -15 |        -14 |       -132 |
+| tests                                                                                                                           |          7 |        579 |         96 |        154 |        829 |
+| tests (Files)                                                                                                                   |          4 |        380 |         42 |        114 |        536 |
+| tests/backends                                                                                                                  |          1 |         26 |          0 |         -2 |         24 |
+| tests/labeledImage                                                                                                              |          2 |        173 |         54 |         42 |        269 |
++---------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+
+| filename                                                                                                                        | language     | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+
+| /home/lennart-k-hler/projects/dolphin/CMakeLists.txt                                                                            | CMake        |          5 |          0 |          6 |         11 |
+| /home/lennart-k-hler/projects/dolphin/NOTES.md                                                                                  | Markdown     |          2 |          0 |          0 |          2 |
+| /home/lennart-k-hler/projects/dolphin/TODO.md                                                                                   | Markdown     |         20 |          0 |         10 |         30 |
+| /home/lennart-k-hler/projects/dolphin/backends/cpu/CPUBackend.cpp                                                               | C++          |          8 |          1 |          2 |         11 |
+| /home/lennart-k-hler/projects/dolphin/backends/cpu/CPUBackend.h                                                                 | C++          |          4 |          1 |          7 |         12 |
+| /home/lennart-k-hler/projects/dolphin/backends/cuda/CUDABackend.cpp                                                             | C++          |        -39 |       -129 |        -18 |       -186 |
+| /home/lennart-k-hler/projects/dolphin/backends/cuda/CUDABackend.h                                                               | C++          |         -1 |         -3 |          1 |         -3 |
+| /home/lennart-k-hler/projects/dolphin/backends/cuda/CUDABackendManager.cpp                                                      | C++          |          1 |        -54 |         -9 |        -62 |
+| /home/lennart-k-hler/projects/dolphin/backends/cuda/CUDABackendManager.h                                                        | C++          |          1 |          0 |          0 |          1 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/cache-v2-649605dffa5c4608e18d.json                              | JSON         |     -3,863 |          0 |         -1 |     -3,864 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/cache-v2-879d3b141295eaea1089.json                              | JSON         |      4,323 |          0 |          1 |      4,324 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/cmakeFiles-v1-48c18cd125f2a6b9cec6.json                         | JSON         |       -465 |          0 |         -1 |       -466 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/cmakeFiles-v1-b91f56d0b20e34e1a4dc.json                         | JSON         |        495 |          0 |          1 |        496 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/codemodel-v2-00cc157f88cb7308c7c8.json                          | JSON         |       -273 |          0 |         -1 |       -274 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/codemodel-v2-31236e4ee72b072007af.json                          | JSON         |        291 |          0 |          1 |        292 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/index-2025-11-17T08-46-22-0586.json                             | JSON         |       -132 |          0 |         -1 |       -133 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/index-2025-12-10T08-51-51-0400.json                             | JSON         |        132 |          0 |          1 |        133 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-CUBE-Debug-7843643db23c192db8cb.json                     | JSON         |        402 |          0 |          1 |        403 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-CUBE-Debug-f2ae367fd55f21bac009.json                     | JSON         |       -402 |          0 |         -1 |       -403 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-backendlib-Debug-a4ab383c8333823a0fc5.json               | JSON         |        117 |          0 |          1 |        118 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-backendlib-Debug-c37659056b130ebc2964.json               | JSON         |       -117 |          0 |         -1 |       -118 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cpu_backend-Debug-32d47a80b9ec1aace727.json              | JSON         |       -184 |          0 |         -1 |       -185 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cpu_backend-Debug-e7b82370f724e6fd7f48.json              | JSON         |        184 |          0 |          1 |        185 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cpu_test-Debug-03fc96ae4bda063a33d1.json                 | JSON         |       -420 |          0 |         -1 |       -421 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cpu_test-Debug-be46c4d7c81a3894e3dd.json                 | JSON         |        420 |          0 |          1 |        421 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cuda_backend-Debug-17c47f4ace0330c8a6c0.json             | JSON         |       -331 |          0 |         -1 |       -332 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cuda_backend-Debug-40fcc6a846db6c1ea7d5.json             | JSON         |        331 |          0 |          1 |        332 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cuda_test-Debug-619435b23b7c0b8a0b03.json                | JSON         |        420 |          0 |          1 |        421 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cuda_test-Debug-6c7fb1609b1ed404e20a.json                | JSON         |       -420 |          0 |         -1 |       -421 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-cufft_vs_fftw_comparison-Debug-18855d60e2561c2c27d7.json | JSON         |        176 |          0 |          1 |        177 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-dolphin-Debug-ba7dbd9be1c5b75a5caf.json                  | JSON         |       -401 |          0 |         -1 |       -402 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-dolphin-Debug-befa68194cc747524152.json                  | JSON         |        401 |          0 |          1 |        402 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-dolphin_tests-Debug-85e97cb1a811e23bacdf.json            | JSON         |        428 |          0 |          1 |        429 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-dolphin_tests-Debug-a3896d4ca9022817c423.json            | JSON         |       -428 |          0 |         -1 |       -429 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-dolphinlib-Debug-01358fe4dcd76212bfc3.json               | JSON         |        548 |          0 |          1 |        549 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-dolphinlib-Debug-fa2161eb70b9a92bda46.json               | JSON         |       -524 |          0 |         -1 |       -525 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-fft_performance_test-Debug-92fd2d13026bf165edbe.json     | JSON         |       -420 |          0 |         -1 |       -421 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-fft_performance_test-Debug-cab0402d081c3691e02d.json     | JSON         |        420 |          0 |          1 |        421 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-imgui_lib-Debug-79d27c04a1298a469f81.json                | JSON         |        180 |          0 |          1 |        181 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-imgui_lib-Debug-c23e93502e1d369c41ed.json                | JSON         |       -180 |          0 |         -1 |       -181 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-implot3d_lib-Debug-708bd818efdfcfa2debb.json             | JSON         |       -162 |          0 |         -1 |       -163 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-implot3d_lib-Debug-da9ce58c0a1223c6f687.json             | JSON         |        162 |          0 |          1 |        163 |
+| /home/lennart-k-hler/projects/dolphin/build/.cmake/api/v1/reply/target-tiff_generation_test-Debug-0775a0ff57b58f2d95bb.json     | JSON         |        420 |          0 |          1 |        421 |
+| /home/lennart-k-hler/projects/dolphin/build/CMakeCache.txt                                                                      | CMake Cache  |         41 |          0 |          1 |         42 |
+| /home/lennart-k-hler/projects/dolphin/build/CMakeFiles/Makefile.cmake                                                           | CMake        |          2 |          0 |          0 |          2 |
+| /home/lennart-k-hler/projects/dolphin/build/CMakeFiles/dolphinlib.dir/DependInfo.cmake                                          | CMake        |          3 |          0 |          0 |          3 |
+| /home/lennart-k-hler/projects/dolphin/build/CMakeFiles/dolphinlib.dir/cmake_clean.cmake                                         | CMake        |          6 |          0 |          0 |          6 |
+| /home/lennart-k-hler/projects/dolphin/build/Makefile                                                                            | Makefile     |         68 |         17 |         24 |        109 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251110-1226/Test.xml                                                      | XML          |        -34 |          0 |         -1 |        -35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251111-1034/Test.xml                                                      | XML          |        -34 |          0 |         -1 |        -35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251112-1041/Test.xml                                                      | XML          |        -34 |          0 |         -1 |        -35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251114-0903/Test.xml                                                      | XML          |        -34 |          0 |         -1 |        -35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251117-0846/Test.xml                                                      | XML          |        -34 |          0 |         -1 |        -35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251121-1437/Test.xml                                                      | XML          |         34 |          0 |          1 |         35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251124-0840/Test.xml                                                      | XML          |         34 |          0 |          1 |         35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251125-1037/Test.xml                                                      | XML          |         34 |          0 |          1 |         35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251126-0902/Test.xml                                                      | XML          |         34 |          0 |          1 |         35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251127-1040/Test.xml                                                      | XML          |         34 |          0 |          1 |         35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251128-0854/Test.xml                                                      | XML          |         34 |          0 |          1 |         35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251201-0849/Test.xml                                                      | XML          |         34 |          0 |          1 |         35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251205-0847/Test.xml                                                      | XML          |         34 |          0 |          1 |         35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251208-1054/Test.xml                                                      | XML          |         34 |          0 |          1 |         35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251209-0838/Test.xml                                                      | XML          |         34 |          0 |          1 |         35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/20251210-0851/Test.xml                                                      | XML          |         34 |          0 |          1 |         35 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest.log                                                      | Log          |        -63 |          0 |        -12 |        -75 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251110-1226.log                                        | Log          |         -3 |          0 |         -1 |         -4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251111-1034.log                                        | Log          |         -3 |          0 |         -1 |         -4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251112-1041.log                                        | Log          |         -3 |          0 |         -1 |         -4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251114-0903.log                                        | Log          |         -3 |          0 |         -1 |         -4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251117-0846.log                                        | Log          |         -3 |          0 |         -1 |         -4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251121-1437.log                                        | Log          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251124-0840.log                                        | Log          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251125-1037.log                                        | Log          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251126-0902.log                                        | Log          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251127-1040.log                                        | Log          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251128-0854.log                                        | Log          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251201-0849.log                                        | Log          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251205-0847.log                                        | Log          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251208-1054.log                                        | Log          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251209-0838.log                                        | Log          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTest_20251210-0851.log                                        | Log          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/Testing/Temporary/LastTestsFailed.log                                               | Log          |         -1 |          0 |         -1 |         -2 |
+| /home/lennart-k-hler/projects/dolphin/build/compile_commands.json                                                               | JSON         |         30 |          0 |          0 |         30 |
+| /home/lennart-k-hler/projects/dolphin/build/imgui.ini                                                                           | Ini          |         15 |          0 |          6 |         21 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/cpu_test.dir/DependInfo.cmake                                      | CMake        |        -17 |          0 |         -7 |        -24 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/cpu_test.dir/cmake_clean.cmake                                     | CMake        |        -10 |          0 |         -2 |        -12 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/cpu_test.dir/compiler_depend.ts                                    | TypeScript   |         -2 |          0 |         -1 |         -3 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/cuda_test.dir/DependInfo.cmake                                     | CMake        |        -17 |          0 |         -7 |        -24 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/cuda_test.dir/cmake_clean.cmake                                    | CMake        |        -10 |          0 |         -2 |        -12 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/cuda_test.dir/compiler_depend.ts                                   | TypeScript   |         -2 |          0 |         -1 |         -3 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/cufft_vs_fftw_comparison.dir/DependInfo.cmake                      | CMake        |         17 |          0 |          7 |         24 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/cufft_vs_fftw_comparison.dir/cmake_clean.cmake                     | CMake        |         10 |          0 |          2 |         12 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/cufft_vs_fftw_comparison.dir/compiler_depend.ts                    | TypeScript   |          2 |          0 |          1 |          3 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/fft_performance_test.dir/DependInfo.cmake                          | CMake        |        -17 |          0 |         -7 |        -24 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/fft_performance_test.dir/cmake_clean.cmake                         | CMake        |        -10 |          0 |         -2 |        -12 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/fft_performance_test.dir/compiler_depend.ts                        | TypeScript   |         -2 |          0 |         -1 |         -3 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/tiff_generation_test.dir/DependInfo.cmake                          | CMake        |         17 |          0 |          7 |         24 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/tiff_generation_test.dir/cmake_clean.cmake                         | CMake        |         10 |          0 |          2 |         12 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CMakeFiles/tiff_generation_test.dir/compiler_depend.ts                        | TypeScript   |          2 |          0 |          1 |          3 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/CTestTestfile.cmake                                                           | CMake        |          4 |          0 |          0 |          4 |
+| /home/lennart-k-hler/projects/dolphin/build/tests/Makefile                                                                      | Makefile     |         39 |          9 |         12 |         60 |
+| /home/lennart-k-hler/projects/dolphin/configs/default_config.json                                                               | JSON         |          1 |          0 |         -1 |          0 |
+| /home/lennart-k-hler/projects/dolphin/include/DeconvolutionService.h                                                            | C++          |          1 |          0 |          1 |          2 |
+| /home/lennart-k-hler/projects/dolphin/include/DeconvolutionStrategyFactory.h                                                    | C++          |         24 |         37 |         14 |         75 |
+| /home/lennart-k-hler/projects/dolphin/include/Dolphin.h                                                                         | C++          |         -2 |          0 |         -1 |         -3 |
+| /home/lennart-k-hler/projects/dolphin/include/HelperClasses.h                                                                   | C++          |        108 |          3 |         14 |        125 |
+| /home/lennart-k-hler/projects/dolphin/include/IO/TiffReader.h                                                                   | C++          |         49 |         20 |         14 |         83 |
+| /home/lennart-k-hler/projects/dolphin/include/IO/TiffWriter.h                                                                   | C++          |          5 |          0 |          3 |          8 |
+| /home/lennart-k-hler/projects/dolphin/include/Image3D.h                                                                         | C++          |         17 |          2 |          6 |         25 |
+| /home/lennart-k-hler/projects/dolphin/include/ImageMetaData.h                                                                   | C++          |          0 |          0 |          1 |          1 |
+| /home/lennart-k-hler/projects/dolphin/include/backend/BackendFactory.h                                                          | C++          |          2 |          0 |          0 |          2 |
+| /home/lennart-k-hler/projects/dolphin/include/backend/ComplexData.h                                                             | C++          |        -68 |         -2 |         -4 |        -74 |
+| /home/lennart-k-hler/projects/dolphin/include/backend/IBackend.h                                                                | C++          |        -20 |         -5 |         -6 |        -31 |
+| /home/lennart-k-hler/projects/dolphin/include/backend/IBackendMemoryManager.h                                                   | C++          |         10 |          3 |          0 |         13 |
+| /home/lennart-k-hler/projects/dolphin/include/backend/IDeconvolutionBackend.h                                                   | C++          |         -1 |          2 |         -1 |          0 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/DeconvolutionAlgorithmFactory.h                                     | C++          |          2 |          0 |          0 |          2 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/DeconvolutionConfig.h                                               | C++          |         66 |         25 |         16 |        107 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/DeconvolutionProcessor.h                                            | C++          |        -26 |        -17 |        -27 |        -70 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/ImageMap.h                                                          | C++          |        -30 |         27 |         -2 |         -5 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/Postprocessor.h                                                     | C++          |          7 |          0 |         -1 |          6 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/Preprocessor.h                                                      | C++          |          8 |          1 |          2 |         11 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/deconvolutionStrategies/ComputationalPlan.h                         | C++          |        167 |         14 |         44 |        225 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/deconvolutionStrategies/DeconvolutionStrategy.h                     | C++          |        -18 |         -7 |         -6 |        -31 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/deconvolutionStrategies/HomogeneousCubesStrategy.h                  | C++          |        -35 |         -2 |         -8 |        -45 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/deconvolutionStrategies/IDeconvolutionExecutor.h                    | C++          |         12 |          2 |          3 |         17 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h                    | C++          |         14 |          1 |          4 |         19 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h              | C++          |         53 |          3 |          8 |         64 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/deconvolutionStrategies/LabeledDeconvolutionStrategy.h              | C++          |         44 |         11 |         12 |         67 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/deconvolutionStrategies/LabeledImageDeconvolutionStrategy__old.h    | C++          |         25 |          1 |          7 |         33 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h             | C++          |         46 |          3 |          6 |         55 |
+| /home/lennart-k-hler/projects/dolphin/include/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h             | C++          |         46 |          2 |         12 |         60 |
+| /home/lennart-k-hler/projects/dolphin/include/frontend/SetupConfig.h                                                            | C++          |          3 |          0 |          0 |          3 |
+| /home/lennart-k-hler/projects/dolphin/lib/cube/include/operations.h                                                             | C++          |         -2 |          2 |          0 |          0 |
+| /home/lennart-k-hler/projects/dolphin/lib/cube/src/main.cpp                                                                     | C++          |         -5 |          6 |         -1 |          0 |
+| /home/lennart-k-hler/projects/dolphin/lib/cube/src/operations.cu                                                                | CUDA C++     |       -138 |         73 |          0 |        -65 |
+| /home/lennart-k-hler/projects/dolphin/lib/cube/src/utl.cu                                                                       | CUDA C++     |        -11 |         16 |          2 |          7 |
+| /home/lennart-k-hler/projects/dolphin/profiling/nsys.sh                                                                         | Shell Script |         -5 |         -4 |         -3 |        -12 |
+| /home/lennart-k-hler/projects/dolphin/src/DeconvolutionService.cpp                                                              | C++          |         15 |          8 |          1 |         24 |
+| /home/lennart-k-hler/projects/dolphin/src/DeconvolutionStrategyFactory.cpp                                                      | C++          |         54 |          4 |         16 |         74 |
+| /home/lennart-k-hler/projects/dolphin/src/IO/TiffReader.cpp                                                                     | C++          |        430 |         83 |         92 |        605 |
+| /home/lennart-k-hler/projects/dolphin/src/IO/TiffWriter.cpp                                                                     | C++          |          0 |          0 |          1 |          1 |
+| /home/lennart-k-hler/projects/dolphin/src/PSFCreator.cpp                                                                        | C++          |         21 |          3 |          3 |         27 |
+| /home/lennart-k-hler/projects/dolphin/src/backend/BackendFactory.cpp                                                            | C++          |          7 |          4 |          5 |         16 |
+| /home/lennart-k-hler/projects/dolphin/src/backend/ComplexData.cpp                                                               | C++          |          0 |          0 |         -1 |         -1 |
+| /home/lennart-k-hler/projects/dolphin/src/backend/IBackend.cpp                                                                  | C++          |          0 |          0 |         -1 |         -1 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/DeconvolutionAlgorithmFactory.cpp                                       | C++          |         16 |          1 |          4 |         21 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/DeconvolutionConfig.cpp                                                 | C++          |          0 |         26 |          8 |         34 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/DeconvolutionProcessor.cpp                                              | C++          |       -280 |       -182 |       -150 |       -612 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/Postprocessor.cpp                                                       | C++          |         18 |          4 |         14 |         36 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/Preprocessor.cpp                                                        | C++          |         24 |          1 |         19 |         44 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/algorithms/TestAlgorithm.cpp                                            | C++          |         20 |          8 |         14 |         42 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/deconvolutionStrategies/DeconvolutionStrategyFacade.cpp                 | C++          |         54 |          5 |         11 |         70 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/deconvolutionStrategies/HomogeneousCubesStrategy.cpp                    | C++          |       -143 |        -30 |        -45 |       -218 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.cpp                | C++          |        193 |         15 |         46 |        254 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/deconvolutionStrategies/LabeledDeconvolutionStrategy.cpp                | C++          |        192 |          1 |         41 |        234 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/deconvolutionStrategies/LabeledImageDeconvolutionStrategy.cpp           | C++          |        168 |         24 |         43 |        235 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.cpp               | C++          |        189 |         16 |         49 |        254 |
+| /home/lennart-k-hler/projects/dolphin/src/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.cpp               | C++          |        115 |          0 |         28 |        143 |
+| /home/lennart-k-hler/projects/dolphin/src/frontend/SetupConfig.cpp                                                              | C++          |          9 |          0 |         -2 |          7 |
+| /home/lennart-k-hler/projects/dolphin/src/hyperstack/HyperstackIO.cpp                                                           | C++          |       -106 |        -15 |        -15 |       -136 |
+| /home/lennart-k-hler/projects/dolphin/src/hyperstack/Image3D.cpp                                                                | C++          |          3 |          0 |          1 |          4 |
+| /home/lennart-k-hler/projects/dolphin/tests/CMakeLists.txt                                                                      | CMake        |         72 |          0 |         16 |         88 |
+| /home/lennart-k-hler/projects/dolphin/tests/README_cufft_vs_fftw.md                                                             | Markdown     |        126 |          0 |         45 |        171 |
+| /home/lennart-k-hler/projects/dolphin/tests/backends/fft_performance_test.cpp                                                   | C++          |         26 |          0 |         -2 |         24 |
+| /home/lennart-k-hler/projects/dolphin/tests/cufft_vs_fftw_comparison.cpp                                                        | C++          |        179 |         41 |         54 |        274 |
+| /home/lennart-k-hler/projects/dolphin/tests/labeledImage/labeled_image_test.json                                                | JSON         |         30 |          0 |          9 |         39 |
+| /home/lennart-k-hler/projects/dolphin/tests/labeledImage/tiff_generation_test.cpp                                               | C++          |        143 |         54 |         33 |        230 |
+| /home/lennart-k-hler/projects/dolphin/tests/main.cpp                                                                            | C++          |          3 |          1 |         -1 |          3 |
+| Total                                                                                                                           |              |      3,393 |        131 |        477 |      4,001 |
++---------------------------------------------------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+

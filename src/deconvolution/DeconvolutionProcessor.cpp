@@ -18,7 +18,7 @@ See the LICENSE file provided with the code for the full license.
 
 std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
     std::shared_ptr<IBackend> prototypebackend,
-    std::shared_ptr<DeconvolutionAlgorithm> prototypealgorithm, 
+    std::unique_ptr<DeconvolutionAlgorithm> algorithm, 
     const RectangleShape& workShape,
     const std::vector<std::shared_ptr<PSF>>& psfs_host, // dont pass psfs as ComplexData, because the workerbackend might be needed to preprocess psfs
     ComplexData& g_device,
@@ -29,7 +29,7 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
     std::future<void> resultDone = workerPool->enqueue([
         this,
         &prototypebackend,
-        &prototypealgorithm,
+        &algorithm,
         &psfs_host,
         &workShape,
         &g_device,
@@ -40,7 +40,6 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
 
         std::shared_ptr<IBackend> threadbackend = prototypebackend->onNewThread();
         
-        std::unique_ptr<DeconvolutionAlgorithm> algorithm = prototypealgorithm->clone();
         algorithm->setBackend(threadbackend);
 
         std::vector<const ComplexData*> preprocessedPSFs;

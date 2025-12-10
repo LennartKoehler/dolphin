@@ -32,7 +32,7 @@ class DeconvolutionConfig;
  */
 class DeconvolutionAlgorithmFactory {
 public:
-    using AlgorithmCreator = std::function<std::shared_ptr<DeconvolutionAlgorithm>()>;
+    using AlgorithmCreator = std::function<DeconvolutionAlgorithm*()>;
 
     /**
      * @brief Get the singleton instance of the factory.
@@ -54,6 +54,8 @@ public:
      * @throws std::runtime_error if algorithm is unknown or GPU variant requested but unavailable
      */
     std::shared_ptr<DeconvolutionAlgorithm> create(const DeconvolutionConfig& config);
+    std::shared_ptr<DeconvolutionAlgorithm> createShared(const DeconvolutionConfig& config);
+    std::unique_ptr<DeconvolutionAlgorithm> createUnique(const DeconvolutionConfig& config);
 
     /**
      * @brief Get list of all available algorithms.

@@ -26,9 +26,9 @@ void Postprocessor::insertCubeInImage(
         cv::Rect roi(cube.padding.before.width, cube.padding.before.height, srcBox.dimensions.width, srcBox.dimensions.height);
         cv::Mat srcSlice = cube.image[zCube](roi);
         // Define where it goes in the big image
-        cv::Rect dstRoi(srcBox.x, srcBox.y, srcBox.dimensions.width, srcBox.dimensions.height);
+        cv::Rect dstRoi(srcBox.position.width, srcBox.position.height, srcBox.dimensions.width, srcBox.dimensions.height);
 
-        srcSlice.copyTo(image[srcBox.z + zCube - cube.padding.before.depth](dstRoi));
+        srcSlice.copyTo(image[srcBox.position.depth + zCube - cube.padding.before.depth](dstRoi));
     }
 }
 
@@ -43,10 +43,10 @@ void Postprocessor::insertLabeledCubeInImage(
         cv::Mat srcSlice = cube.image[zCube](roi);
         
         // Define where it goes in the big image
-        cv::Rect dstRoi(srcBox.x, srcBox.y, srcBox.dimensions.width, srcBox.dimensions.height);
+        cv::Rect dstRoi(srcBox.position.width, srcBox.position.height, srcBox.dimensions.width, srcBox.dimensions.height);
         
         // Get corresponding label slice
-        int outputZ = srcBox.z + zCube - cube.padding.before.depth;
+        int outputZ = srcBox.position.depth + zCube - cube.padding.before.depth;
         
         cv::Mat mask = labelgroup.getMask(dstRoi, outputZ);
         // Copy only where mask is true

@@ -46,6 +46,12 @@ void DeconvolutionAlgorithmFactory::registerAlgorithm(const std::string& name, A
 std::shared_ptr<DeconvolutionAlgorithm> DeconvolutionAlgorithmFactory::create(
     const DeconvolutionConfig& config
 ) {
+    return createShared(config);
+}
+
+std::shared_ptr<DeconvolutionAlgorithm> DeconvolutionAlgorithmFactory::createShared(
+    const DeconvolutionConfig& config
+) {
     auto it = algorithms_.find(config.algorithmName);
     if (it == algorithms_.end()) {
         throw std::runtime_error("Unknown algorithm: " + config.algorithmName);
@@ -55,7 +61,22 @@ std::shared_ptr<DeconvolutionAlgorithm> DeconvolutionAlgorithmFactory::create(
     
     // Configure the algorithm with the provided config
     algorithm->configure(config);
-    return algorithm;
+    return std::shared_ptr<DeconvolutionAlgorithm>(algorithm);
+}
+
+std::unique_ptr<DeconvolutionAlgorithm> DeconvolutionAlgorithmFactory::createUnique(
+    const DeconvolutionConfig& config
+) {
+    auto it = algorithms_.find(config.algorithmName);
+    if (it == algorithms_.end()) {
+        throw std::runtime_error("Unknown algorithm: " + config.algorithmName);
+    }
+    
+    auto algorithm = it->second();
+    
+    // Configure the algorithm with the provided config
+    algorithm->configure(config);
+    return std::unique_ptr<DeconvolutionAlgorithm>(algorithm);
 }
 
 std::vector<std::string> DeconvolutionAlgorithmFactory::getAvailableAlgorithms() const {
@@ -77,27 +98,27 @@ void DeconvolutionAlgorithmFactory::registerAlgorithms() {
     std::cout << "[INFO] Registering deconvolution algorithms..." << std::endl;
     
     registerAlgorithm("RichardsonLucy", []() {
-        return std::make_shared<RLDeconvolutionAlgorithm>();
+        return new RLDeconvolutionAlgorithm();
     });
     
     registerAlgorithm("InverseFilter", []() {
-        return std::make_shared<InverseFilterDeconvolutionAlgorithm>();
+        return new InverseFilterDeconvolutionAlgorithm();
     });
 
     registerAlgorithm("RichardsonLucyTotalVariation", []() {
-        return std::make_shared<RLTVDeconvolutionAlgorithm>();
+        return new RLTVDeconvolutionAlgorithm();
     });
     
     registerAlgorithm("RegularizedInverseFilter", []() {
-        return std::make_shared<RegularizedInverseFilterDeconvolutionAlgorithm>();
+        return new RegularizedInverseFilterDeconvolutionAlgorithm();
     });
     
     registerAlgorithm("RichardsonLucywithAdaptiveDamping", []() {
-        return std::make_shared<RLADDeconvolutionAlgorithm>();
+        return new RLADDeconvolutionAlgorithm();
     });
 
     registerAlgorithm("TestAlgorithm", []() {
-        return std::make_shared<TestAlgorithm>();
+        return new TestAlgorithm();
     });
 
     std::cout << "[INFO] Registered " << algorithms_.size() << " algorithm(s)" << std::endl;

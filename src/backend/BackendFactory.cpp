@@ -33,14 +33,29 @@ void BackendFactory::registerBackend(const std::string& name, BackendCreator cre
 }
 
 std::shared_ptr<IBackend> BackendFactory::create(const std::string& backendName) {
+    return createShared(backendName);
+}
+
+std::shared_ptr<IBackend> BackendFactory::createShared(const std::string& backendName) {
     auto& factory = getInstance();
     auto it = factory.backends_.find(backendName);
     
     if (it != factory.backends_.end()) {
-        return it->second();
+        return std::shared_ptr<IBackend>(it->second());
     }
     
-    throw dolphin::backend::BackendException("Backend '" + backendName + "' not found", backendName, "create");
+    throw dolphin::backend::BackendException("Backend '" + backendName + "' not found", backendName, "createShared");
+}
+
+std::unique_ptr<IBackend> BackendFactory::createUnique(const std::string& backendName) {
+    auto& factory = getInstance();
+    auto it = factory.backends_.find(backendName);
+    
+    if (it != factory.backends_.end()) {
+        return std::unique_ptr<IBackend>(it->second());
+    }
+    
+    throw dolphin::backend::BackendException("Backend '" + backendName + "' not found", backendName, "createUnique");
 }
 
 void* BackendFactory::getHandle(const std::string& backendName){
@@ -115,15 +130,14 @@ void BackendFactory::registerBackends() {
     std::cout << "[INFO] Registering backends..." << std::endl;
     
     // Register CPU backend
-    registerBackend("cpu", [this]() -> std::shared_ptr<IBackend> {
+    registerBackend("cpu", [this]() -> IBackend* {
         // auto deconv = createDeconvBackend("cpu");
         // auto memory = createMemManager("cpu");
         return createBackend("cpu");
-
     });
     
     // Register CUDA backend
-    registerBackend("cuda", [this]() -> std::shared_ptr<IBackend> {
+    registerBackend("cuda", [this]() -> IBackend* {
         // auto deconv = createDeconvBackend("cuda");
         // auto memory = createMemManager("cuda");
         return createBackend("cuda");

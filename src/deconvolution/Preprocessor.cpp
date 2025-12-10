@@ -16,8 +16,8 @@ See the LICENSE file provided with the code for the full license.
 #include <opencv2/core.hpp>
 
 
-std::vector<std::vector<cv::Mat>> Preprocessor::splitImageHomogeneous(
-    std::vector<cv::Mat>& image,
+std::vector<Image3D> Preprocessor::splitImageHomogeneous(
+    Image3D& image,
     const RectangleShape& subimageShape,
     const RectangleShape& imageOriginalShape,
     const RectangleShape& imageShapePadded,
@@ -51,7 +51,7 @@ std::vector<std::vector<cv::Mat>> Preprocessor::splitImageHomogeneous(
         throw std::invalid_argument("Invalid image dimensions after accounting for padding.");
     }
 
-    std::vector<std::vector<cv::Mat>> cubes;
+    std::vector<Image3D> cubes;
     cubes.reserve(totalCubes);
 
     // Triple nested loop to iterate through all cube positions
@@ -93,8 +93,8 @@ std::vector<std::vector<cv::Mat>> Preprocessor::splitImageHomogeneous(
                 }
 
                 // Process current cube - extract cubeShapePadded dimensions
-                std::vector<cv::Mat> cube;
-                cube.reserve(cubeShapePadded.depth);
+                std::vector<cv::Mat> cubeSlices;
+                cubeSlices.reserve(cubeShapePadded.depth);
 
                 // Extract cube with asymmetric padding
                 int depthStart = actualPos.depth - cubePaddingDepth;
@@ -108,12 +108,12 @@ std::vector<std::vector<cv::Mat>> Preprocessor::splitImageHomogeneous(
                     int heightEnd = actualPos.height + subimageShape.height + cubePaddingHeightEnd;
 
                     cv::Rect cubeSlice(widthStart, heightStart, widthEnd - widthStart, heightEnd - heightStart);
-                    cv::Mat paddedSlice = image.at(z)(cubeSlice).clone();
+                    cv::Mat paddedSlice = image.slices.at(z)(cubeSlice).clone();
 
-                    cube.push_back(paddedSlice);
+                    cubeSlices.push_back(paddedSlice);
                 }
 
-                cubes.push_back(std::move(cube));
+                cubes.push_back(Image3D(std::move(cubeSlices)));
             }
         }
     }
@@ -123,11 +123,11 @@ std::vector<std::vector<cv::Mat>> Preprocessor::splitImageHomogeneous(
 
 
 
-void Preprocessor::padImage(std::vector<cv::Mat>& image3D, const Padding& padding, int borderType){
+void Preprocessor::padImage(Image3D& image, const Padding& padding, int borderType){
     
-    int currentDepth = image3D.size();
-    int currentHeight = image3D[0].rows;
-    int currentWidth = image3D[0].cols;
+    int currentDepth = image.slices.size();
+    int currentHeight = image.slices[0].rows;
+    int currentWidth = image.slices[0].cols;
     
     
     int depthPaddingBefore = padding.before.depth;
@@ -153,10 +153,10 @@ void Preprocessor::padImage(std::vector<cv::Mat>& image3D, const Padding& paddin
             // For reflection, alternate between forward and backward
             if ((i / currentDepth) % 2 != 0) {
                 // Forward direction
-                paddingBefore.push_back(image3D[sourceIndex].clone());
+                paddingBefore.push_back(image.slices[sourceIndex].clone());
             } else {
                 // Reverse direction  
-                paddingBefore.push_back(image3D[currentDepth - 1 - sourceIndex].clone());
+                paddingBefore.push_back(image.slices[currentDepth - 1 - sourceIndex].clone());
             }
         }
         
@@ -165,30 +165,30 @@ void Preprocessor::padImage(std::vector<cv::Mat>& image3D, const Padding& paddin
             int sourceIndex = i % currentDepth;
             if ((i / currentDepth) % 2 == 0) {
                 // Start from the end, going backward
-                paddingAfter.push_back(image3D[currentDepth - 1 - sourceIndex].clone());
+                paddingAfter.push_back(image.slices[currentDepth - 1 - sourceIndex].clone());
             } else {
                 // Forward direction
-                paddingAfter.push_back(image3D[sourceIndex].clone());
+                paddingAfter.push_back(image.slices[sourceIndex].clone());
             }
         }
     }
     else if (borderType == 0) {
         // Zero padding
-        cv::Mat zeroMat = cv::Mat::zeros(currentHeight, currentWidth, image3D[0].type());
+        cv::Mat zeroMat = cv::Mat::zeros(currentHeight, currentWidth, image.slices[0].type());
         paddingBefore.assign(depthPaddingBefore, zeroMat);
         paddingAfter.assign(depthPaddingAfter, zeroMat);
     }
     
     // Insert padding
-    image3D.insert(image3D.begin(), paddingBefore.begin(), paddingBefore.end());
-    image3D.insert(image3D.end(), paddingAfter.begin(), paddingAfter.end());
+    image.slices.insert(image.slices.begin(), paddingBefore.begin(), paddingBefore.end());
+    image.slices.insert(image.slices.end(), paddingAfter.begin(), paddingAfter.end());
 
 
 
     int heightPaddingBottom = padding.after.height;
     int widthPaddingRight = padding.after.width;
     
-    for (auto& layer : image3D) {
+    for (auto& layer : image.slices) {
         cv::copyMakeBorder(layer, layer, 
                             heightPaddingTop, heightPaddingBottom,
                             widthPaddingLeft, widthPaddingRight, 
@@ -197,12 +197,12 @@ void Preprocessor::padImage(std::vector<cv::Mat>& image3D, const Padding& paddin
 }
 
 
-Padding Preprocessor::padToShape(std::vector<cv::Mat>& image3D, const RectangleShape& targetShape, int borderType){
-    assert (!image3D.empty() && "Cannot pad empty image");
+Padding Preprocessor::padToShape(Image3D& image, const RectangleShape& targetShape, int borderType){
+    assert (!image.slices.empty() && "Cannot pad empty image");
     
-    int currentDepth = image3D.size();
-    int currentHeight = image3D[0].rows;
-    int currentWidth = image3D[0].cols;
+    int currentDepth = image.slices.size();
+    int currentHeight = image.slices[0].rows;
+    int currentWidth = image.slices[0].cols;
     
     // Calculate total padding needed
     int totalDepthPadding = targetShape.depth - currentDepth;
@@ -249,18 +249,18 @@ Padding Preprocessor::padToShape(std::vector<cv::Mat>& image3D, const RectangleS
         }
     };
 
-    Preprocessor::padImage(image3D, padding, borderType);
+    Preprocessor::padImage(image, padding, borderType);
     return padding;
 }
 
 
 
-void Preprocessor::expandToMinSize(std::vector<cv::Mat>& image, const RectangleShape& minSize) {
-    if (image.empty()) return;
+void Preprocessor::expandToMinSize(Image3D& image, const RectangleShape& minSize) {
+    if (image.slices.empty()) return;
     
-    int currentDepth = image.size();
-    int currentHeight = image[0].rows;
-    int currentWidth = image[0].cols;
+    int currentDepth = image.slices.size();
+    int currentHeight = image.slices[0].rows;
+    int currentWidth = image.slices[0].cols;
     
     // Calculate padding needed for each dimension
     int depthPadding = std::max(0, minSize.depth - currentDepth);
@@ -269,19 +269,19 @@ void Preprocessor::expandToMinSize(std::vector<cv::Mat>& image, const RectangleS
     
     // Expand depth if needed
     if (depthPadding > 0) {
-        image.reserve(minSize.depth);
+        image.slices.reserve(minSize.depth);
         
         // Add slices at the end (could also mirror from beginning/end)
         for (int i = 0; i < depthPadding; ++i) {
             // Mirror from existing slices - use modulo to cycle through
             int sourceIndex = (currentDepth - 1) - (i % currentDepth);
-            image.push_back(image[sourceIndex].clone());
+            image.slices.push_back(image.slices[sourceIndex].clone());
         }
     }
     
     // Expand width and height if needed
     if (widthPadding > 0 || heightPadding > 0) {
-        for (auto& layer : image) {
+        for (auto& layer : image.slices) {
             cv::copyMakeBorder(layer, layer, 
                              0,              // top = 0 (no padding at top)
                              heightPadding,  // bottom = all height padding
