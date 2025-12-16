@@ -13,6 +13,8 @@
 #include "backend/Exceptions.h"
 #include "deconvolution/ImageMap.h"
 #include "HelperClasses.h"
+#include "frontend/SetupConfig.h"
+#include "UtlIO.h"
 
 
 
@@ -20,9 +22,8 @@ ChannelPlan LabeledDeconvolutionStrategy::createPlan(
     const ImageMetaData& metadata, 
     const std::vector<PSF>& psfs,
     const DeconvolutionConfig& config
-
 ) {
-
+    int channelNumber = 0; //TODO TESTVALUE
 
     std::vector<std::shared_ptr<PSF>> psfPointers;
     for (const auto& psf : psfs) {
@@ -30,8 +31,8 @@ ChannelPlan LabeledDeconvolutionStrategy::createPlan(
     }
  
     RectangleShape imageSize = RectangleShape{metadata.imageWidth, metadata.imageLength, metadata.slices};
-    std::unique_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(config);
-    std::unique_ptr<IBackend> backend = getBackend(config);
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(config);
+    std::shared_ptr<IBackend> backend = getBackend(config);
 
     size_t t = config.nThreads;
     size_t memoryPerCube = maxMemoryPerCube(t, config.maxMem_GB * 1e9, algorithm.get());
@@ -45,18 +46,20 @@ ChannelPlan LabeledDeconvolutionStrategy::createPlan(
     
     for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
         LabeledCubeTaskDescriptor descriptor;
+        descriptor.algorithm = algorithm;
+        descriptor.backend = backend;
         descriptor.taskId = static_cast<int>(i);
         descriptor.paddedBox = cubeCoordinatesWithPadding[i];
         descriptor.channelNumber = 0; // Default channel, can be modified as needed
         descriptor.estimatedMemoryUsage = estimateMemoryUsage(idealCubeSize, algorithm.get());
-
+        descriptor.labels = getLabelGroups(channelNumber, descriptor.paddedBox.box, psfPointers);
+        
         tasks.push_back(std::make_unique<LabeledCubeTaskDescriptor>(descriptor));
     }
 
     size_t totalTasks = tasks.size();
     return ChannelPlan{
-        std::move(backend),
-        std::move(algorithm),
+
         ExecutionStrategy::PARALLEL,
         std::move(imagePadding),
         std::move(tasks),
@@ -133,45 +136,68 @@ std::vector<Label> LabeledDeconvolutionStrategy::getLabelGroups(int channelNumbe
         }
     }
 
-    labelGroups.reserve(uniqueLabels.size());
+    // Track which label ranges we've already added to avoid duplicates
+    std::set<std::pair<int, int>> addedRanges;
+    
     for (int label : uniqueLabels) {
-        Label labelgroup;
-        labelgroup.setLabel(label);
-        labelgroup.setLabelImage(labelChannel);
-        labelgroup.setPSFs(getPSFForLabel(label, psfs));
-        labelGroups.push_back(labelgroup);
+        std::vector<Range<std::string>> psfids = psfLabelMap.get(label);
+        if(psfids.size() > 1){
+
+            // TODO if overlap, then create new range of that overlap with the combined psfs, should they ever overlap?
+            throw std::runtime_error("PSF Maps cant overlap");
+        }
+        if (psfids.size() != 0){
+            // Create a unique key for this label range
+            std::pair<int, int> rangeKey = {psfids[0].start, psfids[0].end};
+            
+            // Only add if we haven't already added this range
+            if (addedRanges.find(rangeKey) == addedRanges.end()) {
+                Label labelgroup;
+                labelgroup.setLabelImage(labelChannel);
+                int start = psfids[0].start;
+                int end = psfids[0].end;
+                end = end ? start == end : end - 1; // because rangemap the end is exclusive while in range its inclusive;
+                labelgroup.setRange(Range<std::shared_ptr<PSF>>(psfids[0].start, psfids[0].end, getPSFForLabel(psfids[0], psfs)));
+                labelGroups.push_back(labelgroup);
+                addedRanges.insert(rangeKey);
+            }
+        }
+        
     }
 
     return labelGroups;
 }
 
-std::vector<std::shared_ptr<PSF>> LabeledDeconvolutionStrategy::getPSFForLabel(int label, std::vector<std::shared_ptr<PSF>>& psfs) {
-    std::vector<std::string> psfids = psfLabelMap.get(label);
+std::vector<std::shared_ptr<PSF>> LabeledDeconvolutionStrategy::getPSFForLabel(Range<std::string>& psfids, std::vector<std::shared_ptr<PSF>>& psfs) {
     std::vector<std::shared_ptr<PSF>> assignedpsfs;
 
-    for (const auto& psfid : psfids) {
+    for (const auto& psfid : psfids.get()) {
         for (const auto& psf : psfs) {
             if (psf->ID == psfid) {
                 assignedpsfs.push_back(psf);
             }
         }
     }
+    if (assignedpsfs.size() == 0){
+        std::cout << "Cant find a PSF for the desired Label, please check your input" <<std::endl;
+    }
+    
     return assignedpsfs;
 }
 
 
-RectangleShape LabeledDeconvolutionStrategy::getCubeShape(
-    size_t memoryPerCube,
-    size_t numberThreads,
-    const RectangleShape& imageOriginalShape,
-    const Padding& cubePadding
-){
-    size_t width = 128;
-    size_t height = 256;
-    size_t depth = 128;
+// RectangleShape LabeledDeconvolutionStrategy::getCubeShape(
+//     size_t memoryPerCube,
+//     size_t numberThreads,
+//     const RectangleShape& imageOriginalShape,
+//     const Padding& cubePadding
+// ){
+//     size_t width = 128;
+//     size_t height = 256;
+//     size_t depth = 128;
 
-    return RectangleShape(width, height, depth) - cubePadding.before - cubePadding.after;
-}
+//     return RectangleShape(width, height, depth) - cubePadding.before - cubePadding.after;
+// }
 
 Padding LabeledDeconvolutionStrategy::getImagePadding(
     const RectangleShape& imageSize,
@@ -208,4 +234,24 @@ Padding LabeledDeconvolutionStrategy::getCubePadding(const RectangleShape& image
     );
     paddingbefore = paddingbefore + 1;
     return Padding{paddingbefore, paddingbefore};
+}
+
+void LabeledDeconvolutionStrategy::configure(const SetupConfig& setupConfig) {
+    // Load labeled image if path is provided
+    if (!setupConfig.labeledImage.empty()) {
+        Image3D labels = TiffReader::readTiffFile(setupConfig.labeledImage);
+        Hyperstack hyper;
+        Channel c;
+        c.image = labels;
+        hyper.channels = std::vector<Channel>{c};
+        setLabeledImage(std::make_shared<Hyperstack>(hyper));
+
+    }
+    
+    // Load PSF label map if provided
+    if (!setupConfig.labelPSFMap.empty()) {
+        RangeMap<std::string> labelPSFMap;
+        labelPSFMap.loadFromString(setupConfig.labelPSFMap);
+        setLabelPSFMap(labelPSFMap);
+    }
 }

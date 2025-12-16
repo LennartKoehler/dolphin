@@ -9,7 +9,7 @@
     "time": false,
     "saveSubimages": false, 
     "backenddeconv": "cpu",
-    "nThreads": 10,
+    "nThreads": 3,
     "maxMem_GB": 64
   },
   
@@ -29,9 +29,9 @@
 
   "savePsf": false,
 
-  "strategyType": "normal",
-  "labeledImage": "/home/lennart-k-hler/data/labeledImage/EnvelopLabelOutline16bit.tif",
-  "labelPSFMap": "0[ID1234], 1[PSF]"
+  "strategyType": "labeled",
+  "labeledImage": "/home/lennart-k-hler/data/labeledImage/simpleMask.tif",
+  "labelPSFMap": "1[ID1234], 254[ID1234]"
 
 
 }

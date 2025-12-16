@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include "deconvolution/DeconvolutionProcessor.h"
 #include "deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h"
 #include "deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.h"
+#include "deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "DeconvolutionStrategyFactory.h"
 #include "ThreadPool.h"
 #include <chrono>
@@ -101,13 +102,13 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::shared_ptr<DeconvolutionConfig> deconvConfig = setupConfig->deconvolutionConfig;
 
         // Load hyperstack
-        std::shared_ptr<Hyperstack> hyperstack = loadImage(setupConfig->imagePath);
-        if (!hyperstack) {
-            std::string error_msg = "Failed to load image from: " + setupConfig->imagePath;
-            handleError(error_msg);
-            return createResult(false, error_msg,
-                              std::chrono::duration<double>::zero());
-        }
+        // std::shared_ptr<Hyperstack> hyperstack = loadImage(setupConfig->imagePath);
+        // if (!hyperstack) {
+        //     std::string error_msg = "Failed to load image from: " + setupConfig->imagePath;
+        //     handleError(error_msg);
+        //     return createResult(false, error_msg,
+        //                       std::chrono::duration<double>::zero());
+        // }
 
         // Create PSFs
         std::vector<PSF> psfs = createPSFsFromSetup(setupConfig);
@@ -135,35 +136,35 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         // Configure both strategy and executor
         strategyPair->getExecutor().configure(std::make_unique<DeconvolutionConfig>(*deconvConfig.get()));
 
-        TiffReader reader{setupConfig->imagePath};
+        TiffReader reader(setupConfig->imagePath);
 
-        
+       
         ChannelPlan plan = strategyPair->getStrategy().createPlan(reader.getMetaData(), psfs, *deconvConfig);
 
         // Execute the plan using the executor
         std::string output_path = request.output_path;
+
+        std::string path = output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath);
         // TiffWriter writer{output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath)};
-        TiffWriter writer;
+        TiffWriter writer(path, reader.getMetaData());
         strategyPair->getExecutor().execute(plan, reader, writer);
         
         // Load the result from the writer
         // Hyperstack result = loadImage(output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath));
         Hyperstack result;
-        assert(false); //TESTVALUE
         
         // Handle saving
-        std::string output_path = request.output_path;
         std::vector<std::string> layer_paths;
         
-        if (!output_path.empty()) {
-            std::string path = output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath);
-            result.saveAsTifFile(path);
-            logMessage("Deconvolution result saved to: " + path);
+        // if (!output_path.empty()) {
+        //     std::string path = output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath);
+        //     result.saveAsTifFile(path);
+        //     logMessage("Deconvolution result saved to: " + path);
             
-            if (request.save_separate) {
-                result.saveAsTifDir("../result/deconv");
-            }
-        }
+        //     if (request.save_separate) {
+        //         result.saveAsTifDir("../result/deconv");
+        //     }
+        // }
         
         if (request.show_example) {
             logMessage("Showing example deconvolution layer visualization");

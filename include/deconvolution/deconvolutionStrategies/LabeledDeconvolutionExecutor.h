@@ -32,21 +32,4 @@ protected:
         const ImageWriter& writer);
 
 
-
-    virtual std::vector<Label> getLabelGroups(int channelNumber, const BoxCoord& roi, std::vector<std::shared_ptr<PSF>>& psfs);
-
-protected:
-    std::unique_ptr<DeconvolutionConfig> config;
-    std::shared_ptr<IBackendMemoryManager> cpuMemoryManager;
-    std::shared_ptr<IBackend> backend_;
-    std::shared_ptr<DeconvolutionAlgorithm> algorithm_;
-    PSFPreprocessor psfPreprocessor;
-    DeconvolutionProcessor processor;
-    std::shared_ptr<ThreadPool> readwriterPool;
-    size_t numberThreads;
-    LoadingBar loadingBar;
-    std::shared_ptr<Hyperstack> labelImage;
-    RangeMap<std::string> psfLabelMap;
-    std::vector<std::shared_ptr<PSF>> psfs;
-    bool configured = false;
 };

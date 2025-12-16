@@ -17,14 +17,16 @@ namespace Postprocessor{
 
 
     void insertCubeInImage(
-        PaddedImage& cube,
-        std::vector<cv::Mat>& image,
-        BoxCoord srcBox
+        const Image3D& cube,
+        const BoxCoord& cubeBox,
+        Image3D& image,
+        const BoxCoord& srcBox
     );
     void insertLabeledCubeInImage(
         const PaddedImage& cube,
-        std::vector<cv::Mat>& image,
+        Image3D& image,
         const BoxCoord& srcBox,
+        const BoxCoord& labeledImageROI,
         const Label& labelGroup
     );
 

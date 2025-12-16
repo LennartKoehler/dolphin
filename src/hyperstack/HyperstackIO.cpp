@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "HyperstackImage.h"
-#include "HyperstackReader.h"
+#include "IO/TiffReader.h"
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>
@@ -97,14 +97,14 @@ bool Hyperstack::isValid(){
     return !channels.empty();
 }
 bool Hyperstack::readFromTifDir(const std::string& directoryPath) {
-    TiffReader reader;
+    TiffReader reader(directoryPath);
     std::vector<Channel> tempChannels;
     Image3D tempLayers;
-    if (reader.readFromTifDir(directoryPath, tempChannels, tempLayers)) {
-        this->channels = tempChannels;
-        this->metaData = reader.getMetaData();
-        return true;
-    }
+    // if (reader.readFromTifDir(directoryPath, tempChannels, tempLayers)) {
+    //     this->channels = tempChannels;
+    //     this->metaData = reader.getMetaData();
+    //     return true;
+    // }
     return false;
 }
 

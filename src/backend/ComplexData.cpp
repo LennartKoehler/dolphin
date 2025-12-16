@@ -24,7 +24,6 @@ ComplexData::~ComplexData() {
     }
 }
 
-
 ComplexData::ComplexData(const ComplexData& other)
     : backend(other.backend), size(other.size) {
     ComplexData copy = backend->copyData(other);

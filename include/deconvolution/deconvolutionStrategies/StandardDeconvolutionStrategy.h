@@ -15,12 +15,17 @@
 #include "../../backend/IBackend.h"
 #include "../../backend/IBackendMemoryManager.h"
 
+// Forward declaration
+class SetupConfig;
+
 class StandardDeconvolutionStrategy : public IDeconvolutionStrategy {
 public:
-    StandardDeconvolutionStrategy();
+    StandardDeconvolutionStrategy() = default;
     virtual ~StandardDeconvolutionStrategy() = default;
 
     // IDeconvolutionStrategy interface
+    virtual void configure(const SetupConfig& setupConfig) override;
+    
     virtual ChannelPlan createPlan(
         const ImageMetaData& metadata,
         const std::vector<PSF>& psfs,
@@ -35,8 +40,8 @@ protected:
         const DeconvolutionAlgorithm* algorithm);
 
 
-    std::unique_ptr<DeconvolutionAlgorithm> getAlgorithm(const DeconvolutionConfig& config);
-    std::unique_ptr<IBackend> getBackend(const DeconvolutionConfig& config);
+    std::shared_ptr<DeconvolutionAlgorithm> getAlgorithm(const DeconvolutionConfig& config);
+    std::shared_ptr<IBackend> getBackend(const DeconvolutionConfig& config);
     
     virtual size_t estimateMemoryUsage(
         const RectangleShape& cubeSize,

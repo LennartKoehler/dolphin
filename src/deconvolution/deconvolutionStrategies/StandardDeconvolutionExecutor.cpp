@@ -35,6 +35,9 @@ StandardDeconvolutionExecutor::StandardDeconvolutionExecutor(){
 
 
 }
+StandardDeconvolutionExecutor::~StandardDeconvolutionExecutor(){
+    psfPreprocessor.cleanup();
+}
 
 void StandardDeconvolutionExecutor::execute(const ChannelPlan& plan, const ImageReader& reader, const ImageWriter& writer) {
     parallelDeconvolution(plan, reader, writer);
@@ -80,15 +83,16 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
 
         PaddedImage cubeImage = reader.getSubimage(task.paddedBox);
 
-        std::shared_ptr<IBackend> iobackend = plan.backend->onNewThread();
+        std::shared_ptr<IBackend> iobackend = task.backend->onNewThread(task.backend);
         ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage.image, workShape);
         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
         cpuMemoryManager->freeMemoryOnDevice(g_host);
         ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
         iobackend->sync();
 
+
         ComplexData f_host{cpuMemoryManager.get(), nullptr, RectangleShape()};
-        std::unique_ptr<DeconvolutionAlgorithm> algorithm = plan.algorithm->clone();
+        std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
         try {
             std::future<void> resultDone = processor.deconvolveSingleCube(
@@ -109,9 +113,10 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
         }
         
         cubeImage.image = convertFFTWComplexToCVMatVector(f_host);
-        // writer.writeCube(task.srcBox, cubeImage);
-        // Postprocessor::insertCubeInImage(cubeImage, outputImage, task.srcBox);
-        
+
+        writer.setSubimage(cubeImage.image, task.paddedBox);
+
+
         loadingBar.addOne();
     };
 }
@@ -140,49 +145,25 @@ void StandardDeconvolutionExecutor::parallelDeconvolution(
 //     return PaddedImage{std::move(image.image.slices), channelPlan.imagePadding};
 // }
 
-// void StandardDeconvolutionExecutor::postprocessChannel(Channel& image){
-//     // Global normalization of the merged volume
-//     double global_max_val= 0.0;
-//     double global_min_val = MAXFLOAT;
-//     for (const auto& slice : image.image.slices) {
-//         cv::threshold(slice, slice, 0, 0.0, cv::THRESH_TOZERO);
-//         double min_val, max_val;
-//         cv::minMaxLoc(slice, &min_val, &max_val);
-//         global_max_val = std::max(global_max_val, max_val);
-//         global_min_val = std::min(global_min_val, min_val);
-//     }
-
-//     for (auto& slice : image.image.slices) {
-//         slice.convertTo(slice, CV_32F, 1.0 / (global_max_val - global_min_val), -global_min_val * (1 / (global_max_val - global_min_val)));
-//         cv::threshold(slice, slice, config->epsilon, 0.0, cv::THRESH_TOZERO);
-//     }
-// }
-
-PaddedImage StandardDeconvolutionExecutor::getCubeImage(const PaddedImage& paddedImage, const BoxCoord& coords, const Padding& cubePadding){
-    assert(coords.position.width >= 0 && coords.position.height >= 0 && coords.position.depth >= 0 && "getCubeImage source Box coordinates must be non-negative");
-    assert(coords.position.width + coords.dimensions.width <= paddedImage.image.slices[0].cols && "getCubeImage cube extends beyond image width");
-    assert(coords.position.height + coords.dimensions.height <= paddedImage.image.slices[0].rows && "getCubeImage cube extends beyond image height");
-    assert(coords.position.depth + coords.dimensions.depth <= static_cast<int>(paddedImage.image.slices.size()) && "getCubeImage cube extends beyond image depth");
-    assert(paddedImage.padding.before >= cubePadding.before && "getCubeImage too little image padding");
-    assert(paddedImage.padding.after >= cubePadding.after && "getCubeImage too little image padding");
-
-    std::vector<cv::Mat> cube;
-    cube.reserve(coords.dimensions.depth + cubePadding.before.depth + cubePadding.after.depth);
-    
-    int xImage = coords.position.width + paddedImage.padding.before.width - cubePadding.before.width;
-    int yImage = coords.position.height + paddedImage.padding.before.height - cubePadding.before.height;
-    RectangleShape totalPadding = cubePadding.before + cubePadding.after;
-
-    for (int zCube = 0; zCube < coords.dimensions.depth + totalPadding.depth; ++zCube) {
-        cv::Rect imageROI(xImage, yImage, coords.dimensions.width + totalPadding.width, coords.dimensions.height + totalPadding.height);
-        int zImage = zCube + coords.position.depth + paddedImage.padding.before.depth - cubePadding.before.depth;
-        cv::Mat slice(coords.dimensions.height + totalPadding.height, coords.dimensions.width + totalPadding.width, CV_32F, cv::Scalar(0));
-        paddedImage.image.slices[zImage](imageROI).copyTo(slice);
-        cube.push_back(std::move(slice));
+void StandardDeconvolutionExecutor::postprocessChannel(Image3D& image){
+    // Global normalization of the merged volume
+    double global_max_val= 0.0;
+    double global_min_val = MAXFLOAT;
+    for (const auto& slice : image.slices) {
+        cv::threshold(slice, slice, 0, 0.0, cv::THRESH_TOZERO);
+        double min_val, max_val;
+        cv::minMaxLoc(slice, &min_val, &max_val);
+        global_max_val = std::max(global_max_val, max_val);
+        global_min_val = std::min(global_min_val, min_val);
     }
-    
-    return PaddedImage{std::move(cube), cubePadding};
+    float epsilon = 1e-6; //TESTVALUE
+    for (auto& slice : image.slices) {
+        slice.convertTo(slice, CV_32F, 1.0 / (global_max_val - global_min_val), -global_min_val * (1 / (global_max_val - global_min_val)));
+        cv::threshold(slice, slice, epsilon, 0.0, cv::THRESH_TOZERO);
+    }
 }
+
+
 
 ComplexData StandardDeconvolutionExecutor::convertCVMatVectorToFFTWComplex(
     const Image3D& input, 

@@ -1,7 +1,11 @@
-when reading image file that ends with .tif but the file doesnt acutally exist a nonintuitive error occurs
 
+bug somewhere in the labeled deconvolution, somehow everything concerning the label is 0, the labels are correct and exist, the second psf is zero, the masks are all zero
+should psflabelgroups be able to overlap?
 
 Reader/Writer:
+    maybe the reader can also keep the file open
+
+
     should the reader actually have a lot of padding logic? i think no but its much easier because it has all the dimensionality information and its easir to pass as padding something that goes out of bounds of image instead of passing e.g. as negative values. Also it can load data however it sees fit. i dont think the executor should know about imagemetadata and determine itself what part of the image can be read and what has to padded after having read the image. I still believe that the reader should not do padding, but think about this before implementing
 
     the tasks that are run should be in order of how data is read. So dont schedule all tasks, and then just run them, as later on they might not access contiguous cubes. Rather Schedule new tasks only when old tasks are done so that they are in order of how they were created which should also be in order of how they are loaded
@@ -19,6 +23,8 @@ Reader/Writer:
             perhaps it can be good to read multiple cubes at once from file do to their data being concurrent on disc. Perhaps for larger available memory one had more reader/writer threads which hold the cube on memory, but therefore guarantee that a cube is always available.
             Think about which core does what, perhaps each thread should do everything, so that when the data is read it might already be on l2 cache, but i dont think that matters as data is too large.
             Perhaps we also dont split reading/writing and processing on multiple threads, as there seems to be no use when basically everything can happen in parallel
+
+    when reading image file that ends with .tif but the file doesnt acutally exist a nonintuitive error occurs
 
 think about read/write threads especially for cpu applications, they should be on same core for better data transfer
 

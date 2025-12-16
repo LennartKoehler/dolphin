@@ -277,10 +277,11 @@ public:
         return memoryManager;
     }
 
-    // Clone method - creates a new thread-specific backend
-    // The ownership model of the clone depends on the onNewThread() implementation
-    std::shared_ptr<IBackend> onNewThread() const override {
-        return CPUBackend::createWithExternalOwnership(deconvBackend, memoryManager);
+
+    
+    // Overloaded version for CPU: simply return the original since CPU doesn't need complex thread management
+    std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const override {
+        return original;
     }
 };
 

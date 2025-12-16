@@ -34,9 +34,11 @@ public:
                    lhs.psf == rhs.psf;
         }
     };
-    PSFPreprocessor(){
-        
-    }
+    PSFPreprocessor() = default;
+
+    void cleanup(){
+        preprocessedPSFs.clear(); 
+    };
 
     void setPreprocessingFunction(std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend> backend)> func) {
         preprocessingFunction = std::move(func);
@@ -55,6 +57,7 @@ public:
         ComplexData* rawPtr = preprocessingFunction(shape, psfCopy, backend);
         
         // Insert into map
+        psfBackends.push_back(backend); // hold on to backends until the psfs are also deleted
         auto [insertedIt, _] = preprocessedPSFs.emplace(
             Key{key},  // Copy the key
             std::unique_ptr<ComplexData>(rawPtr)
@@ -66,6 +69,7 @@ private:
     std::mutex mutex;
     std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend> backend)> preprocessingFunction;
     std::unordered_map<Key, std::unique_ptr<ComplexData>, KeyHash, KeyEqual> preprocessedPSFs;
+    std::vector<std::shared_ptr<IBackend>> psfBackends;
 
 };
 namespace Preprocessor{

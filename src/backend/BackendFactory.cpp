@@ -32,9 +32,7 @@ void BackendFactory::registerBackend(const std::string& name, BackendCreator cre
     backends_[name] = std::move(creator);
 }
 
-std::shared_ptr<IBackend> BackendFactory::create(const std::string& backendName) {
-    return createShared(backendName);
-}
+
 
 std::shared_ptr<IBackend> BackendFactory::createShared(const std::string& backendName) {
     auto& factory = getInstance();
@@ -98,7 +96,9 @@ std::unique_ptr<IDeconvolutionBackend> BackendFactory::createDeconvBackend(const
 
 
 
-std::shared_ptr<IBackend> BackendFactory::createBackend(const std::string& backendName){
+
+
+IBackend* BackendFactory::create(const std::string& backendName){
     void* handle = getHandle(backendName);
     using create_backend_fn = IBackend*();
     auto create_backend = reinterpret_cast<create_backend_fn*>(dlsym(handle, "createBackend"));
@@ -108,7 +108,7 @@ std::shared_ptr<IBackend> BackendFactory::createBackend(const std::string& backe
         return nullptr;
     }
     
-    return std::shared_ptr<IBackend>(create_backend());
+    return create_backend();
 }
 
 std::vector<std::string> BackendFactory::getAvailableBackends() const {
@@ -133,14 +133,14 @@ void BackendFactory::registerBackends() {
     registerBackend("cpu", [this]() -> IBackend* {
         // auto deconv = createDeconvBackend("cpu");
         // auto memory = createMemManager("cpu");
-        return createBackend("cpu");
+        return create("cpu");
     });
     
     // Register CUDA backend
     registerBackend("cuda", [this]() -> IBackend* {
         // auto deconv = createDeconvBackend("cuda");
         // auto memory = createMemManager("cuda");
-        return createBackend("cuda");
+        return create("cuda");
     });
 
     std::cout << "[INFO] Registered " << backends_.size() << " backend(s)" << std::endl;

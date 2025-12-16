@@ -69,26 +69,23 @@ std::vector<std::string> DeconvolutionStrategyFactory::getSupportedTypes() const
 }
 
 void DeconvolutionStrategyFactory::registerBuiltInStrategies() {
-    registerStrategy("normal", [](std::shared_ptr<SetupConfig>) -> std::unique_ptr<DeconvolutionStrategyPair> {
+    registerStrategy("normal", [](std::shared_ptr<SetupConfig> setupConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
         auto strategy = std::make_unique<StandardDeconvolutionStrategy>();
         auto executor = std::make_unique<StandardDeconvolutionExecutor>();
+        
+        // Configure strategy with setup config
+        strategy->configure(*setupConfig);
+        
         return std::make_unique<DeconvolutionStrategyPair>(std::move(strategy), std::move(executor));
     });
     
     // Register labeled image deconvolution strategy
-    // TODO change, this should not actually have config reading
     registerStrategy("labeled", [](std::shared_ptr<SetupConfig> setupConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
         auto strategy = std::make_unique<LabeledDeconvolutionStrategy>();
         auto executor = std::make_unique<LabeledDeconvolutionExecutor>();
 
-        std::shared_ptr<Hyperstack> labels = std::make_shared<Hyperstack>();
-        labels->readFromTifFile(setupConfig->labeledImage.c_str());
-        strategy->setLabeledImage(labels);
-
-        // load json
-        RangeMap<std::string> labelPSFMap;
-        labelPSFMap.loadFromString(setupConfig->labelPSFMap);
-        strategy->setLabelPSFMap(labelPSFMap);
+        // Configure strategy with setup config (loads labeled image and PSF map internally)
+        strategy->configure(*setupConfig);
 
         return std::make_unique<DeconvolutionStrategyPair>(std::move(strategy), std::move(executor));
     });

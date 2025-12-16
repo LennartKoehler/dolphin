@@ -514,8 +514,14 @@ void CUDADeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& grad
     CUDA_CHECK(err, "normalizeTV");
 }
 
-std::shared_ptr<IBackend> CUDABackend::onNewThread() const {
-    return CUDABackendManager::getInstance().getBackendForCurrentThread();
+std::shared_ptr<IBackend> CUDABackend::onNewThread(std::shared_ptr<IBackend> original) const {
+    // For CUDA, use the backend manager to get the appropriate backend for this thread
+    // This might return the original or a different backend depending on the manager's logic
+    auto threadBackend = CUDABackendManager::getInstance().getBackendForCurrentThread();
+    
+    // You could implement logic here to decide whether to return the original or the new one
+    // For now, let's return the thread-specific backend from the manager
+    return threadBackend;
 }
 
 void CUDABackend::releaseBackend(){

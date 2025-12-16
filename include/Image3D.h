@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <vector>
 #include <opencv2/core/mat.hpp>
+#include <list>
 #include "HelperClasses.h"
 class Image3D {
 public:
@@ -22,7 +23,13 @@ public:
     Image3D(std::vector<cv::Mat>&& slices){
         this->slices = std::move(slices);
     }
-
+    Image3D(const RectangleShape& shape){
+        slices.reserve(shape.depth);
+        for (int z = 0; z < shape.depth; ++z) {
+            cv::Mat slice(shape.height, shape.width, CV_32F, cv::Scalar(-1.0f));
+            slices.push_back(slice);
+        }
+    }
     Image3D(const Image3D& other){
         // Deep copy each slice
         slices.reserve(other.slices.size());
@@ -40,7 +47,7 @@ public:
 
             // Define the ROI in the source image
             cv::Rect imageROI(coords.position.width, coords.position.height, coords.dimensions.width, coords.dimensions.height);
-            int zImage = coords.position.depth;
+            int zImage = zCube + coords.position.depth;
             cv::Mat slice(coords.dimensions.height, coords.dimensions.width, CV_32F, cv::Scalar(0));
 
             // Copy from the source image ROI to the entire slice
@@ -57,3 +64,43 @@ public:
     bool show();
 };
 
+struct PaddedImage{
+    Image3D image;
+    Padding padding;
+};
+
+struct ImageBuffer{
+    Image3D image;
+    BoxCoordWithPadding source;
+    int interactedValue = 0; // TODO make this betterwidth of the imagebuffer which has been readFrom/writtenTo
+};
+
+template<typename T>
+struct CustomList{
+    std::list<T> images; // since this class actually owns the data, perhaps keep track of if its still used or will be used in the future, each cube should be used only once
+    T& find(int index){
+            if (index >= images.size()) {
+                throw std::out_of_range("Index out of range");
+            }
+
+            auto it = images.begin();
+            std::advance(it, index); // move iterator to the desired index
+            return *it;              // return reference to element
+        }
+
+    void deleteIndex(int index){
+        if (index >= images.size()) {
+            throw std::out_of_range("Index out of range");
+        }
+
+        auto it = images.begin();
+        std::advance(it, index); // move iterator to the element
+        images.erase(it);           // erase it from the list
+    }
+    size_t size(){
+        return images.size();
+    }
+    void push_back(T image){
+        images.push_back(std::move(image));
+    }
+};

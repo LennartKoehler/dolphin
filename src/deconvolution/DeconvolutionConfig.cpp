@@ -12,7 +12,8 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "deconvolution/DeconvolutionConfig.h"
-
+#include "deconvolution/DeconvolutionAlgorithmFactory.h"
+#include "backend/BackendFactory.h"
 DeconvolutionConfig::DeconvolutionConfig() {
     registerAllParameters();
 }
