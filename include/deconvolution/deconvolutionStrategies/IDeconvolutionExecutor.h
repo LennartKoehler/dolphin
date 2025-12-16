@@ -2,10 +2,11 @@
 #include "ComputationalPlan.h"
 #include "HyperstackImage.h"
 #include "psf/PSF.h"
-#include "DeconvolutionConfig.h"
+#include "../DeconvolutionConfig.h"
 #include <memory>
 
-
+class ImageReader;
+class ImageWriter;
 // the class which actually runs the deconvolution tasks described in channelplan
 // uses reader and writer itself to manage io
 class IDeconvolutionExecutor {

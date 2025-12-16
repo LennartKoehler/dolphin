@@ -17,40 +17,43 @@ See the LICENSE file provided with the code for the full license.
 #include "HelperClasses.h"
 
 void Postprocessor::insertCubeInImage(
-    PaddedImage& cube,
-    std::vector<cv::Mat>& image,
-    BoxCoord srcBox
+    const Image3D& cube,
+    const BoxCoord& cubeBox,
+    Image3D& image,
+    const BoxCoord& srcBox
 ){
 
-    for (int zCube = cube.padding.before.depth; zCube < srcBox.dimensions.depth + cube.padding.before.depth; zCube++){
-        cv::Rect roi(cube.padding.before.width, cube.padding.before.height, srcBox.dimensions.width, srcBox.dimensions.height);
-        cv::Mat srcSlice = cube.image[zCube](roi);
+    for (int zCube = cubeBox.position.depth; zCube < cubeBox.position.depth + cubeBox.dimensions.depth; zCube++){
+        cv::Rect roi(cubeBox.position.width, cubeBox.position.height, cubeBox.dimensions.width, cubeBox.dimensions.height);
+        cv::Mat srcSlice = cube.slices[zCube](roi);
         // Define where it goes in the big image
         cv::Rect dstRoi(srcBox.position.width, srcBox.position.height, srcBox.dimensions.width, srcBox.dimensions.height);
 
-        srcSlice.copyTo(image[srcBox.position.depth + zCube - cube.padding.before.depth](dstRoi));
+        srcSlice.copyTo(image.slices[srcBox.position.depth + zCube - cubeBox.position.depth](dstRoi));
     }
 }
 
 void Postprocessor::insertLabeledCubeInImage(
     const PaddedImage& cube,
-    std::vector<cv::Mat>& outputImage,
-    const BoxCoord& srcBox,
+    Image3D& outputImage, 
+    const BoxCoord& outputImageROI,
+    const BoxCoord& labeledImageROI,
     const Label& labelgroup
 ){
-    for (int zCube = cube.padding.before.depth; zCube < srcBox.dimensions.depth + cube.padding.before.depth; zCube++){
-        cv::Rect roi(cube.padding.before.width, cube.padding.before.height, srcBox.dimensions.width, srcBox.dimensions.height);
-        cv::Mat srcSlice = cube.image[zCube](roi);
+    for (int zCube = cube.padding.before.depth; zCube < outputImageROI.dimensions.depth + cube.padding.before.depth; zCube++){
+        cv::Rect roi(cube.padding.before.width, cube.padding.before.height, outputImageROI.dimensions.width, outputImageROI.dimensions.height);
+        cv::Mat srcSlice = cube.image.slices[zCube](roi);
         
         // Define where it goes in the big image
-        cv::Rect dstRoi(srcBox.position.width, srcBox.position.height, srcBox.dimensions.width, srcBox.dimensions.height);
+        cv::Rect dstRoi(outputImageROI.position.width, outputImageROI.position.height, outputImageROI.dimensions.width, outputImageROI.dimensions.height); 
+        int outputZ = outputImageROI.position.depth + zCube - cube.padding.before.depth;
+
+        cv::Rect labelRoi(labeledImageROI.position.width, labeledImageROI.position.height, labeledImageROI.dimensions.width, labeledImageROI.dimensions.height);
+        int labelZ = labeledImageROI.position.depth + zCube - cube.padding.before.depth;
         
-        // Get corresponding label slice
-        int outputZ = srcBox.position.depth + zCube - cube.padding.before.depth;
-        
-        cv::Mat mask = labelgroup.getMask(dstRoi, outputZ);
+        cv::Mat mask = labelgroup.getMask(labelRoi, labelZ);
         // Copy only where mask is true
-        srcSlice.copyTo(outputImage[outputZ](dstRoi), mask);
+        srcSlice.copyTo(outputImage.slices[outputZ](dstRoi), mask);
         // srcSlice.copyTo(outputImage[outputZ](dstRoi)); //TESTVALUE
     }
     

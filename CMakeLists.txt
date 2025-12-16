@@ -142,7 +142,7 @@ set(COMMON_SOURCES
     src/deconvolution/Postprocessor.cpp
     src/deconvolution/DeconvolutionProcessor.cpp
     
-    src/deconvolution/deconvolutionStrategies/DeconvolutionStrategyFacade.cpp
+    src/deconvolution/deconvolutionStrategies/ImageSplit.cpp
     src/deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.cpp
     src/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.cpp
     src/deconvolution/deconvolutionStrategies/LabeledDeconvolutionStrategy.cpp

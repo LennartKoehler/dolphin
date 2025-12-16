@@ -4,6 +4,9 @@
 #include "deconvolution/DeconvolutionConfig.h"
 #include "psf/PSF.h"
 #include "Image3D.h"
+#include <atomic>
+#include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include <opencv2/opencv.hpp>
 
 enum class ExecutionStrategy {
     PARALLEL,
@@ -13,26 +16,27 @@ enum class ExecutionStrategy {
 class Label{
 public:
     Label() = default;
-    Label(int label, Image3D* labelImage) :label(label), labelImage(labelImage){}
-    void setLabel(int label) {this->label = label;}
+    Label(Image3D* labelImage) :labelImage(labelImage){}
     void setLabelImage(Image3D* labelImage){ this->labelImage = labelImage;}
-    void setPSFs(std::vector<std::shared_ptr<PSF>> psfs) {this->assignedPSFs = psfs;}
+    void setRange(Range<std::shared_ptr<PSF>> psfs) {this->psfs = psfs;}
+
 
     cv::Mat getMask(const cv::Rect& roi, int z) const {
         cv::Mat labelSlice = (*labelImage).slices[z](roi);
         
-        // Create mask where label equals labelGroup
-        cv::Mat mask = (labelSlice == label);
+        // Create mask where label is inrange of labelgroup 
+        cv::Mat mask;
+        cv::inRange(labelSlice, psfs.start, psfs.end, mask); // -1 because its inclusive, we dont want that
         return mask;
     }
     std::vector<std::shared_ptr<PSF>> getPSFs() const {
-        return assignedPSFs;
+        return psfs.values;
     }
 
 private:
-    int label;
+    Range<std::shared_ptr<PSF>> psfs; 
     Image3D* labelImage;
-    std::vector<std::shared_ptr<PSF>> assignedPSFs;
+
 
 };
 
@@ -40,7 +44,9 @@ private:
 struct CubeTaskDescriptor {
     int taskId;
     int channelNumber;
-    BoxCoordWithPadding paddedBox; 
+    BoxCoordWithPadding paddedBox;
+    std::shared_ptr<IBackend> backend;
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm;
     size_t estimatedMemoryUsage;
     virtual std::string getType() const = 0;
 };
@@ -51,13 +57,12 @@ struct StandardCubeTaskDescriptor : public CubeTaskDescriptor{
 };
 
 struct LabeledCubeTaskDescriptor : public CubeTaskDescriptor{
-   std::string getType() const override {return "labeled";}
+    std::vector<Label> labels;
+    std::string getType() const override {return "labeled";}
 
 };
 
 struct ChannelPlan {
-    std::unique_ptr<IBackend> backend;
-    std::unique_ptr<DeconvolutionAlgorithm> algorithm;
     ExecutionStrategy executionStrategy;
     Padding imagePadding;
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
@@ -135,87 +140,4 @@ public:
 std::vector<BoxCoordWithPadding> splitImageHomogeneous(
     const RectangleShape& subimageShape,
     const Padding& cubePadding,
-    const RectangleShape& imageOriginalShape)
-{
-    std::vector<BoxCoordWithPadding> cubePositions;
-    // Calculate number of cubes in each dimension
-    int cubesInDepth = std::max(1,(imageOriginalShape.depth + subimageShape.depth - 1) / subimageShape.depth);
-    int cubesInWidth = std::max(1,(imageOriginalShape.width + subimageShape.width - 1) / subimageShape.width);
-    int cubesInHeight = std::max(1,(imageOriginalShape.height + subimageShape.height - 1) / subimageShape.height);
-    
-    // Calculate total number of cubes
-    int totalCubes = cubesInDepth * cubesInWidth * cubesInHeight;
-    cubePositions.reserve(totalCubes);
-
-    for (int d = 0; d < cubesInDepth; ++d) {
-        for (int w = 0; w < cubesInWidth; ++w) {
-            for (int h = 0; h < cubesInHeight; ++h) {
-                
-                // Calculate current position in original image coordinates
-                RectangleShape currentPos(
-                    w * subimageShape.width,
-                    h * subimageShape.height,
-                    d * subimageShape.depth
-                );
-
-                // Calculate remaining size for this cube
-                RectangleShape remainingSize(
-                    std::min(subimageShape.width, imageOriginalShape.width - w * subimageShape.width),
-                    std::min(subimageShape.height, imageOriginalShape.height - h * subimageShape.height),
-                    std::min(subimageShape.depth, imageOriginalShape.depth - d * subimageShape.depth)
-                );
-
-                // Skip if no remaining size (shouldn't happen with proper calculation)
-                if (remainingSize.depth <= 0 || remainingSize.width <= 0 || remainingSize.height <= 0) {
-                    continue;
-                }
-
-                // Determine actual cube positions - use overlap for boundary cubes
-                RectangleShape actualPos = currentPos;
-                RectangleShape actualDimensions = subimageShape;
-                Padding adjustedPadding = cubePadding;
-                
-                // Check if padded cube exceeds image size and adjust accordingly
-                RectangleShape paddedCubeSize = subimageShape + cubePadding.before + cubePadding.after;
-                
-                // If padded cube is larger than image in any dimension, adjust to make padding after larger while making dimensions of box smaller
-                if (subimageShape.width > imageOriginalShape.width) {
-                    actualDimensions.width = imageOriginalShape.width;
-                    adjustedPadding.after.width = cubePadding.after.width + subimageShape.width - imageOriginalShape.width;
-                }
-                if (subimageShape.height > imageOriginalShape.height) {
-                    actualDimensions.height = imageOriginalShape.height;
-                    adjustedPadding.after.height = cubePadding.after.height + subimageShape.height - imageOriginalShape.height;
-                }
-                if (subimageShape.depth > imageOriginalShape.depth) {
-                    actualDimensions.depth = imageOriginalShape.depth;
-                    adjustedPadding.after.depth = cubePadding.after.depth + subimageShape.depth - imageOriginalShape.depth;
-                }
-                
-                // If this would be the last cube and doesn't fit completely, shift it back to create overlap
-                if (remainingSize.depth < actualDimensions.depth && remainingSize.depth > 0) {
-                    actualPos.depth = currentPos.depth - (actualDimensions.depth - remainingSize.depth);
-                }
-                if (remainingSize.width < actualDimensions.width && remainingSize.width > 0) {
-                    actualPos.width = currentPos.width - (actualDimensions.width - remainingSize.width);
-                }
-                if (remainingSize.height < actualDimensions.height && remainingSize.height > 0) {
-                    actualPos.height = currentPos.height - (actualDimensions.height - remainingSize.height);
-                }
-                
-                BoxCoord cube;
-                cube.position = actualPos;
-                cube.dimensions = actualDimensions;
-                
-                BoxCoordWithPadding cubeWithPadding;
-                cubeWithPadding.box = cube;
-                cubeWithPadding.padding = adjustedPadding;
-                
-                cubePositions.push_back(std::move(cubeWithPadding));
-            }
-        }
-    }
-
-    return cubePositions;
-}
-
+    const RectangleShape& imageOriginalShape);

@@ -50,20 +50,25 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
         // This will need to be updated to use the reader and writer interfaces
         RectangleShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
         PaddedImage cubeImage = reader.getSubimage(task.paddedBox);
-        std::vector<Label> labelgroups = getLabelGroups(task.channelNumber, task.paddedBox.box, psfs);
-        std::shared_ptr<IBackend> iobackend = backend_->onNewThread();
+
+        Image3D tempCubeOutput = cubeImage.image;
+        
+        std::shared_ptr<IBackend> iobackend = task.backend->onNewThread(task.backend);
         ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage.image, workShape);
         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
         cpuMemoryManager->freeMemoryOnDevice(g_host);
+    
 
-        for (const Label& labelgroup : labelgroups){
-            ComplexData local_g_device = iobackend->getMemoryManager().copyData(g_device);
-            ComplexData f_host{cpuMemoryManager.get(), nullptr, RectangleShape()};
-
-            ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
+        for (const Label& labelgroup : task.labels){
             std::vector<std::shared_ptr<PSF>> psfs = labelgroup.getPSFs();
-            std::unique_ptr<DeconvolutionAlgorithm> algorithm = plan.algorithm->clone();
+            
             if (psfs.size() != 0){
+                ComplexData local_g_device = iobackend->getMemoryManager().copyData(g_device);
+                ComplexData f_host{cpuMemoryManager.get(), nullptr, RectangleShape()};
+
+                ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
+
+                std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
                 try {
                     std::future<void> resultDone = processor.deconvolveSingleCube(
                         iobackend,
@@ -81,12 +86,18 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
                     throw; // dont overwrite image if exception
                 }
                 PaddedImage resultCube;
-                resultCube.padding = cubeImage.padding;
+                resultCube.padding = task.paddedBox.padding;
                 resultCube.image = convertFFTWComplexToCVMatVector(f_host);
-                // Postprocessor::insertLabeledCubeInImage(resultCube, outputImage, task.srcBox, labelgroup);
-            }
-         }
-
+                Postprocessor::insertLabeledCubeInImage(
+                    resultCube,
+                    tempCubeOutput,
+                    BoxCoord{task.paddedBox.padding.before,
+                        task.paddedBox.box.dimensions},
+                    task.paddedBox.box,
+                    labelgroup);
+                }
+        }
+        writer.setSubimage(tempCubeOutput, task.paddedBox);
         iobackend->releaseBackend();
         loadingBar.addOne();
     };

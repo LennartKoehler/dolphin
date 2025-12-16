@@ -15,12 +15,17 @@
 #include "../../backend/IBackend.h"
 #include "../../backend/IBackendMemoryManager.h"
 
+// Forward declaration
+class SetupConfig;
+
 class LabeledDeconvolutionStrategy : public StandardDeconvolutionStrategy {
 public:
-    LabeledDeconvolutionStrategy();
+    LabeledDeconvolutionStrategy() = default;
     virtual ~LabeledDeconvolutionStrategy() = default;
 
     // IDeconvolutionStrategy interface
+    virtual void configure(const SetupConfig& setupConfig) override;
+    
     virtual ChannelPlan createPlan(
         const ImageMetaData& metadata,
         const std::vector<PSF>& psfs,
@@ -34,7 +39,7 @@ public:
 protected:
     // Helper methods for plan creation
     virtual std::vector<Label> getLabelGroups(int channelNumber, const BoxCoord& roi, std::vector<std::shared_ptr<PSF>>& psfs);
-    virtual std::vector<std::shared_ptr<PSF>> getPSFForLabel(int label, std::vector<std::shared_ptr<PSF>>& psfs);
+    virtual std::vector<std::shared_ptr<PSF>> getPSFForLabel(Range<std::string>& psfids, std::vector<std::shared_ptr<PSF>>& psfs);
 
     // Reuse methods from StandardDeconvolutionStrategy
     // virtual size_t maxMemoryPerCube(
@@ -46,11 +51,11 @@ protected:
     //     const RectangleShape& cubeSize,
     //     const std::shared_ptr<DeconvolutionAlgorithm> algorithm);
     
-    virtual RectangleShape getCubeShape(
-        size_t memoryPerCube,
-        size_t numberThreads,
-        const RectangleShape& imageOriginalShape,
-        const Padding& cubePadding);
+    // virtual RectangleShape getCubeShape(
+    //     size_t memoryPerCube,
+    //     size_t numberThreads,
+    //     const RectangleShape& imageOriginalShape,
+    //     const Padding& cubePadding);
 
     virtual Padding getImagePadding(
         const RectangleShape& imageSize,

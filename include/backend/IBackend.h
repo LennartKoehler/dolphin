@@ -77,8 +77,9 @@ public:
 
 
 public:
-    virtual ~IBackend() = default;
+    virtual ~IBackend(){
 
+    }
     // Pure virtual methods that must be implemented by concrete backends
     virtual std::string getDeviceType() const noexcept = 0;
     
@@ -108,7 +109,7 @@ public:
     virtual IBackendMemoryManager& mutableMemoryManager() noexcept = 0;
 
     // Clone method - creates a new thread-specific backend
-    virtual std::shared_ptr<IBackend> onNewThread() const = 0;
+    virtual std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const = 0;
     virtual void releaseBackend() = 0;
     virtual void sync() = 0;
     

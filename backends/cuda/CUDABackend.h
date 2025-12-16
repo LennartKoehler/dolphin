@@ -289,8 +289,9 @@ public:
         return memoryBackend;
     }
 
-    // Clone method - creates a new thread-specific backend
-    // The ownership model of the clone depends on the onNewThread() implementation
-    std::shared_ptr<IBackend> onNewThread() const override;
+
+    // Overloaded version for CUDA: use backend manager to potentially return a different backend
+    std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const override;
+    
     void releaseBackend() override;
 };

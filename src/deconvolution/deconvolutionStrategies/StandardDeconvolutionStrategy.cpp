@@ -13,6 +13,7 @@
 #include "backend/Exceptions.h"
 #include "deconvolution/ImageMap.h"
 #include "HelperClasses.h"
+#include "frontend/SetupConfig.h"
 
 
 
@@ -27,8 +28,8 @@ ChannelPlan StandardDeconvolutionStrategy::createPlan(
     }
 
     RectangleShape imageSize = RectangleShape{metadata.imageWidth, metadata.imageLength, metadata.slices};
-    std::unique_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(config);
-    std::unique_ptr<IBackend> backend = getBackend(config);
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(config);
+    std::shared_ptr<IBackend> backend = getBackend(config);
 
     size_t t = config.nThreads;
     size_t memoryPerCube = maxMemoryPerCube(t, config.maxMem_GB * 1e9, algorithm.get());
@@ -42,6 +43,8 @@ ChannelPlan StandardDeconvolutionStrategy::createPlan(
     
     for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
         StandardCubeTaskDescriptor descriptor;
+        descriptor.algorithm = algorithm;
+        descriptor.backend = backend;
         descriptor.taskId = static_cast<int>(i);
         descriptor.channelNumber = 0; // Default channel
         descriptor.paddedBox = cubeCoordinatesWithPadding[i];
@@ -53,8 +56,6 @@ ChannelPlan StandardDeconvolutionStrategy::createPlan(
     
     size_t totalTasks = tasks.size();
     return ChannelPlan{
-        std::move(backend),
-        std::move(algorithm),
         ExecutionStrategy::PARALLEL,
         std::move(imagePadding),
         std::move(tasks),
@@ -63,15 +64,15 @@ ChannelPlan StandardDeconvolutionStrategy::createPlan(
 }
 
 
-std::unique_ptr<DeconvolutionAlgorithm> StandardDeconvolutionStrategy::getAlgorithm(const DeconvolutionConfig& config) {    
+std::shared_ptr<DeconvolutionAlgorithm> StandardDeconvolutionStrategy::getAlgorithm(const DeconvolutionConfig& config) {    
     DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
-    std::unique_ptr<DeconvolutionAlgorithm> algorithm = fact.createUnique(config);
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm = fact.createShared(config);
     return algorithm; 
 }
 
-std::unique_ptr<IBackend> StandardDeconvolutionStrategy::getBackend(const DeconvolutionConfig& config){
+std::shared_ptr<IBackend> StandardDeconvolutionStrategy::getBackend(const DeconvolutionConfig& config){
     BackendFactory& bf = BackendFactory::getInstance();
-    std::unique_ptr<IBackend> backend = bf.createUnique(config.backenddeconv);
+    std::shared_ptr<IBackend> backend = bf.createShared(config.backenddeconv);
     backend->mutableMemoryManager().setMemoryLimit(config.maxMem_GB * 1e9); 
     return backend;
 }
@@ -103,10 +104,13 @@ RectangleShape StandardDeconvolutionStrategy::getCubeShape(
     const Padding& cubePadding
 ){
     size_t width = 128;
-    size_t height = 256;
-    size_t depth = 128;
+    size_t height = 128; 
+    size_t depth = 64;
 
-    return RectangleShape(width, height, depth) - cubePadding.before - cubePadding.after;
+    
+    RectangleShape cubeSize = RectangleShape(width, height, depth) - cubePadding.before - cubePadding.after;
+    assert(cubeSize > RectangleShape(0,0,0));
+    return cubeSize;
 }
 
 Padding StandardDeconvolutionStrategy::getImagePadding(
@@ -144,4 +148,9 @@ Padding StandardDeconvolutionStrategy::getCubePadding(const RectangleShape& imag
     );
     paddingbefore = paddingbefore + 1;
     return Padding{paddingbefore, paddingbefore};
+}
+
+void StandardDeconvolutionStrategy::configure(const SetupConfig& setupConfig) {
+    // Base configuration for standard strategy - no special setup needed
+    // This method can be extended by subclasses for specific configuration requirements
 }

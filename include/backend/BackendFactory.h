@@ -31,12 +31,10 @@ class BackendFactory {
 public:
     using BackendCreator = std::function<IBackend*()>;
 
-    static std::shared_ptr<IBackend> create(const std::string& backendName);
     static std::shared_ptr<IBackend> createShared(const std::string& backendName);
     static std::unique_ptr<IBackend> createUnique(const std::string& backendName);
     static std::unique_ptr<IBackendMemoryManager> createMemManager(const std::string& backendName);
     static std::unique_ptr<IDeconvolutionBackend> createDeconvBackend(const std::string& backendName);
-    static std::shared_ptr<IBackend> createBackend(const std::string& backendName);
 
     static BackendFactory& getInstance();
 
@@ -53,6 +51,7 @@ private:
     BackendFactory(const BackendFactory&) = delete;
     BackendFactory& operator=(const BackendFactory&) = delete;
 
+    IBackend* create(const std::string& backendName);
     void registerBackends();
     static void* getHandle(const std::string& backendName);
 

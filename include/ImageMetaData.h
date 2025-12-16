@@ -33,8 +33,11 @@ public:
     int linChannels = 0;//in Description (linearized channels)
     uint16_t planarConfig = 0;
     int totalImages = -1;
-     int dataType = 0; //calculated
+    int dataType = 0; //calculated
     float xResolution, yResolution = 0.0f;
+    float maxSampleValue = 0;
+    float minSampleValue = 0;
+    int sampleFormat;
 
 
 };

@@ -18,7 +18,7 @@
 class StandardDeconvolutionExecutor : public IDeconvolutionExecutor {
 public:
     StandardDeconvolutionExecutor();
-    virtual ~StandardDeconvolutionExecutor() = default;
+    virtual ~StandardDeconvolutionExecutor();
 
     // IDeconvolutionExecutor interface
     virtual void execute(const ChannelPlan& plan, const ImageReader& reader, const ImageWriter& writer) override;
@@ -31,9 +31,8 @@ protected:
         const ImageReader& reader,
         const ImageWriter& writer);
 
-    virtual PaddedImage preprocessChannel(Channel& image, const ChannelPlan& channelPlan);
-    virtual void postprocessChannel(Channel& image);
-    virtual PaddedImage getCubeImage(const PaddedImage& paddedImage, const BoxCoord& coords, const Padding& cubePadding);
+    // virtual PaddedImage preprocessChannel(Channel& image, const ChannelPlan& channelPlan);
+    virtual void postprocessChannel(Image3D& image);
     virtual ComplexData convertCVMatVectorToFFTWComplex(const Image3D& input, const RectangleShape& shape);
     virtual Image3D convertFFTWComplexToCVMatVector(const ComplexData& input);
 
