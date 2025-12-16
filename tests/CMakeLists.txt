@@ -60,63 +60,73 @@ target_include_directories(tiff_generation_test
 add_test(NAME TiffGenerationTest COMMAND tiff_generation_test)
 set_tests_properties(TiffGenerationTest PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# Standalone cuFFT vs FFTW comparison test
-find_package(CUDAToolkit REQUIRED)
+# FFTW Multithreading Performance Test
+find_package(OpenMP REQUIRED)
 
-# Find FFTW using pkg-config or manual search
-find_package(PkgConfig)
-if (PkgConfig_FOUND)
-    pkg_check_modules(FFTW fftw3)
-endif()
-
-# If pkg-config didn't find FFTW, try manual search
-if (NOT FFTW_FOUND)
-    find_path(FFTW_INCLUDE_DIR
-        NAMES fftw3.h
-        PATHS /usr/include /usr/local/include /opt/local/include
-    )
-    find_library(FFTW_LIBRARY
-        NAMES fftw3
-        PATHS /usr/lib /usr/local/lib /opt/local/lib
-    )
-    find_library(FFTW_THREADS_LIBRARY
-        NAMES fftw3_threads
-        PATHS /usr/lib /usr/local/lib /opt/local/lib
-    )
-    if (FFTW_INCLUDE_DIR AND FFTW_LIBRARY)
-        set(FFTW_FOUND TRUE)
-    endif()
-endif()
-
-if (NOT FFTW_FOUND)
-    message(FATAL_ERROR "FFTW library not found. Please install libfftw3-dev")
-endif()
-
-add_executable(cufft_vs_fftw_comparison
-    cufft_vs_fftw_comparison.cpp
+# Find FFTW libraries
+find_path(FFTW_INCLUDE_DIR
+    NAMES fftw3.h
+    PATHS /usr/include /usr/local/include /opt/local/include
 )
 
-# Link libraries for standalone test
-target_link_libraries(cufft_vs_fftw_comparison
-    PRIVATE
-        CUDA::cufft
-        CUDA::cufftw
-        ${FFTW_LIBRARIES}
-        ${FFTW_THREADS_LIBRARY}
-        pthread
-        CUDA::cudart
-        ${CMAKE_THREAD_LIBS_INIT}
+find_library(FFTW_LIBRARY
+    NAMES fftw3f
+    PATHS /usr/include /usr/local/include /opt/local/include
 )
 
-# Include directories for standalone test
-target_include_directories(cufft_vs_fftw_comparison
-    PRIVATE
-        ${CUDAToolkit_INCLUDE_DIRS}
-        ${FFTW_INCLUDE_DIRS}
+
+
+find_library(FFTW_THREADS_LIBRARY
+    NAMES fftw3f_threads
+    PATHS /usr/lib /usr/local/lib /opt/local/lib /usr/lib/x86_64-linux-gnu
 )
 
-# Add standalone test to test suite
-add_test(NAME CuFFTvsFFTW COMMAND cufft_vs_fftw_comparison)
-set_tests_properties(CuFFTvsFFTW PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+find_library(LIKWID_LIBRARY
+    NAMES likwid
+    PATHS /usr/lib /usr/local/lib /opt/local/lib /usr/lib/x86_64-linux-gnu
+)
+find_path(LIKWID_INCLUDE_DIR
+    NAMES likwid
+    PATHS /usr/include /usr/local/include /opt/local/include
+)
 
-
+if (FFTW_INCLUDE_DIR AND FFTW_LIBRARY AND FFTW_THREADS_LIBRARY)
+    add_executable(fftw_multithreading_test
+        fftw_multithreading_test.cpp
+    )
+    target_compile_options(fftw_multithreading_test PRIVATE -DLIKWID_PERFMON)
+    
+    # Set C++ standard and compiler flags
+    set_property(TARGET fftw_multithreading_test PROPERTY CXX_STANDARD 17)
+    target_compile_options(fftw_multithreading_test PRIVATE ${OpenMP_CXX_FLAGS})
+    
+    # Link libraries for multithreading test
+    target_link_libraries(fftw_multithreading_test
+        PRIVATE
+            ${FFTW_LIBRARY}
+            ${FFTW_THREADS_LIBRARY}
+            ${LIKWID_LIBRARY}
+            OpenMP::OpenMP_CXX
+            pthread
+    )
+    
+    # Include directories for multithreading test
+    target_include_directories(fftw_multithreading_test
+        PRIVATE
+            ${LIKWID_INCLUDE_DIR}
+            ${FFTW_INCLUDE_DIR}
+    )
+    
+    # Add multithreading test to test suite
+    add_test(NAME FFTWMultithreadingTest COMMAND fftw_multithreading_test)
+    set_tests_properties(FFTWMultithreadingTest PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    
+    message(STATUS "FFTW multithreading test will be built")
+    message(STATUS "FFTW library: ${FFTW_LIBRARY}")
+    message(STATUS "FFTW threads library: ${FFTW_THREADS_LIBRARY}")
+else()
+    message(STATUS "FFTW libraries not found - FFTW multithreading test will not be built")
+    message(STATUS "FFTW include dir: ${FFTW_INCLUDE_DIR}")
+    message(STATUS "FFTW library: ${FFTW_LIBRARY}")
+    message(STATUS "FFTW threads library: ${FFTW_THREADS_LIBRARY}")
+endif()
