@@ -75,6 +75,11 @@ struct ImageBuffer{
     int interactedValue = 0; // TODO make this betterwidth of the imagebuffer which has been readFrom/writtenTo
 };
 
+struct ImageMaskPair{
+    Image3D image;
+    Image3D mask;
+};
+
 template<typename T>
 struct CustomList{
     std::list<T> images; // since this class actually owns the data, perhaps keep track of if its still used or will be used in the future, each cube should be used only once

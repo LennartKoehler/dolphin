@@ -1,20 +1,15 @@
 {
   "Deconvolution": {
     "algorithmName": "RichardsonLucyTotalVariation",
-    "subimageSize": 500,
-    "iterations": 20,
+    "iterations": 5,
     "epsilon": 1e-6,
     "grid": false,
     "lambda": 0.015,
     "borderType": 2,
-    "cubePSFMap": [],
-    "layerPSFMap": {
-      ":": ["ID1234"]
-    },
     "time": false,
     "saveSubimages": false, 
     "backenddeconv": "cuda",
-    "nThreads": 2,
+    "nThreads": 8,
     "maxMem_GB": 64
   },
   
@@ -26,7 +21,7 @@
   "backend": "cuda",
   "deconvolution_config_path": "",
 
-  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
+  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/CElegans-CY3.tif",
   "strategyType": "normal", 
   "info": false,
   "showExampleLayers": false,

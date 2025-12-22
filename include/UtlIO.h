@@ -31,6 +31,8 @@ namespace UtlIO{
 
     void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
 
+    int countTiffDirectories(TIFF* tif);
+
     std::string getFilename(const std::string& path);
 
 }

@@ -1,6 +1,5 @@
-#include "CPUBackend.h"
+#include "OpenMPBackend.h"
 #include <iostream>
-#include <omp.h>
 #include <algorithm>
 #include <sstream>
 #include <cmath>
@@ -11,13 +10,24 @@
 #include <unistd.h>
 #endif
 
+// Include SIMD headers for high-performance implementations
+#ifdef __AVX2__
+#include <immintrin.h>
+#define SIMD_ALIGNMENT 32
+#elif defined(__SSE2__)
+#include <emmintrin.h>
+#define SIMD_ALIGNMENT 16
+#else
+#define SIMD_ALIGNMENT 8
+#endif
+
 
 // Unified FFTW error check macro
 #define FFTW_UNIFIED_CHECK(fftw_result, operation) { \
     if ((fftw_result) == nullptr) { \
         throw dolphin::backend::BackendException( \
             "FFTW operation failed", \
-            "CPU", \
+            "OpenMP", \
             operation \
         ); \
     } \
@@ -27,7 +37,7 @@
     if ((ptr) == nullptr) { \
         throw dolphin::backend::MemoryException( \
             "FFTW memory allocation failed", \
-            "CPU", \
+            "OpenMP", \
             size, \
             operation \
         ); \
@@ -37,22 +47,22 @@
 
 
 // Static member definition
-MemoryTracking CPUBackendMemoryManager::memory;
+MemoryTracking OpenMPBackendMemoryManager::memory;
 
 extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
-    return new CPUDeconvolutionBackend();
+    return new OpenMPDeconvolutionBackend();
 }
 
 extern "C" IBackendMemoryManager* createBackendMemoryManager() {
-    return new CPUBackendMemoryManager();
+    return new OpenMPBackendMemoryManager();
 }
 
 extern "C" IBackend* createBackend(){
-    return CPUBackend::create();
+    return OpenMPBackend::create();
 }
 
-// CPUBackendMemoryManager implementation
-CPUBackendMemoryManager::CPUBackendMemoryManager(){
+// OpenMPBackendMemoryManager implementation
+OpenMPBackendMemoryManager::OpenMPBackendMemoryManager(){
     // Initialize memory tracking if not already done
     std::unique_lock<std::mutex> lock(memory.memoryMutex);
     if (memory.maxMemorySize == 0) {
@@ -60,32 +70,32 @@ CPUBackendMemoryManager::CPUBackendMemoryManager(){
     }
 }
 
-CPUBackendMemoryManager::~CPUBackendMemoryManager() {
+OpenMPBackendMemoryManager::~OpenMPBackendMemoryManager() {
 
 }
 
-void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
+void OpenMPBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
     std::unique_lock<std::mutex> lock(memory.memoryMutex);
     memory.maxMemorySize = maxMemorySize;
 }
 
-void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
+void OpenMPBackendMemoryManager::waitForMemory(size_t requiredSize) const {
     std::unique_lock<std::mutex> lock(memory.memoryMutex);
     if ((memory.totalUsedMemory + requiredSize) > memory.maxMemorySize){
-        std::cerr << "CPUBackend out of memory, waiting for memory to free up" << std::endl;
+        std::cerr << "OpenMPBackend out of memory, waiting for memory to free up" << std::endl;
     }
     memory.memoryCondition.wait(lock, [this, requiredSize]() {
         return memory.maxMemorySize == 0 || (memory.totalUsedMemory + requiredSize) <= memory.maxMemorySize;
     });
 }
 
-// CPUBackendMemoryManager implementation
-bool CPUBackendMemoryManager::isOnDevice(void* ptr) const {
-    // For CPU backend, all valid pointers are "on device"
+// OpenMPBackendMemoryManager implementation
+bool OpenMPBackendMemoryManager::isOnDevice(void* ptr) const {
+    // For OpenMP backend, all valid pointers are "on device"
     return ptr != nullptr;
 }
 
-void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
+void OpenMPBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     if (data.data != nullptr) {
         return; // Already allocated
     }
@@ -96,7 +106,7 @@ void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     waitForMemory(requested_size);
     
     data.data = (complex*)fftw_malloc(requested_size);
-    MEMORY_ALLOC_CHECK(data.data, requested_size, "CPU", "allocateMemoryOnDevice");
+    MEMORY_ALLOC_CHECK(data.data, requested_size, "OpenMP", "allocateMemoryOnDevice");
     
     // Update memory tracking
     {
@@ -107,33 +117,32 @@ void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     data.backend = this;
 }
 
-ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const RectangleShape& shape) const {
+ComplexData OpenMPBackendMemoryManager::allocateMemoryOnDevice(const RectangleShape& shape) const {
     ComplexData result{this, nullptr, shape};
     allocateMemoryOnDevice(result);
     return result;
 }
 
-ComplexData CPUBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
-    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data");
+ComplexData OpenMPBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
+    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "OpenMP", "copyDataToDevice - source data");
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
     std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
     return result;
 }
 
-ComplexData CPUBackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const {
-    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "moveDataFromDevice - source data");
+ComplexData OpenMPBackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const {
+    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "OpenMP", "moveDataFromDevice - source data");
     if (&destBackend == this){
         return srcdata;
     }
     else{
         // For cross-backend transfer, use the destination backend's copy method
-        // since cpubackend is the "default" it is simple, be careful how this works for other backends though
         return destBackend.copyDataToDevice(srcdata);
     }
 }
 
-ComplexData CPUBackendMemoryManager::copyData(const ComplexData& srcdata) const {
-    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "copyData - source data");
+ComplexData OpenMPBackendMemoryManager::copyData(const ComplexData& srcdata) const {
+    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "OpenMP", "copyData - source data");
     ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
     memCopy(srcdata, destdata);
     return destdata;
@@ -141,15 +150,15 @@ ComplexData CPUBackendMemoryManager::copyData(const ComplexData& srcdata) const 
 
 
 
-void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
-    BACKEND_CHECK(srcData.data != nullptr, "Source data pointer is null", "CPU", "memCopy - source data");
-    BACKEND_CHECK(destData.data != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data");
-    BACKEND_CHECK(destData.size.volume == srcData.size.volume, "Source and destination must have same size", "CPU", "memCopy");
+void OpenMPBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
+    BACKEND_CHECK(srcData.data != nullptr, "Source data pointer is null", "OpenMP", "memCopy - source data");
+    BACKEND_CHECK(destData.data != nullptr, "Destination data pointer is null", "OpenMP", "memCopy - destination data");
+    BACKEND_CHECK(destData.size.volume == srcData.size.volume, "Source and destination must have same size", "OpenMP", "memCopy");
     std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex));
 }
 
-void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
-    BACKEND_CHECK(data.data != nullptr, "Data pointer is null", "CPU", "freeMemoryOnDevice - data pointer");
+void OpenMPBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
+    BACKEND_CHECK(data.data != nullptr, "Data pointer is null", "OpenMP", "freeMemoryOnDevice - data pointer");
     size_t requested_size = sizeof(complex) * data.size.volume;
     fftw_free(data.data);
     
@@ -168,9 +177,9 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     data.data = nullptr;
 }
 
-size_t CPUBackendMemoryManager::getAvailableMemory() const {
+size_t OpenMPBackendMemoryManager::getAvailableMemory() const {
     try {
-        // For CPU backend, return available system memory
+        // For OpenMP backend, return available system memory
         size_t memory = 0;
         #ifdef __linux__
             long pagesize = sysconf(_SC_PAGESIZE);
@@ -196,43 +205,46 @@ size_t CPUBackendMemoryManager::getAvailableMemory() const {
     }
 }
 
-size_t CPUBackendMemoryManager::getAllocatedMemory() const {
+size_t OpenMPBackendMemoryManager::getAllocatedMemory() const {
     std::lock_guard<std::mutex> lock(memory.memoryMutex);
     return memory.totalUsedMemory;
 }
 
 
 // #####################################################################################################
-// CPUDeconvolutionBackend implementation
-CPUDeconvolutionBackend::CPUDeconvolutionBackend() {
+// OpenMPDeconvolutionBackend implementation
+OpenMPDeconvolutionBackend::OpenMPDeconvolutionBackend() {
 }
 
-CPUDeconvolutionBackend::~CPUDeconvolutionBackend() {
+OpenMPDeconvolutionBackend::~OpenMPDeconvolutionBackend() {
     destroyFFTPlans();
 }
 
-void CPUDeconvolutionBackend::initializeGlobal() {
+void OpenMPDeconvolutionBackend::initializeGlobal() {
     static bool globalInitialized = false;
     if (!globalInitialized){
         fftw_init_threads();
-        fftw_plan_with_nthreads(1); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
-        std::cout << "[STATUS] CPU global initialization done" << std::endl;
+
+        int num_threads = omp_get_max_threads() - 4;
+        omp_set_num_threads(num_threads);
+        fftw_plan_with_nthreads(num_threads);
+        std::cout << "[STATUS] OpenMP global initialization done with " << num_threads << " threads" << std::endl;
         globalInitialized = true;
     }
 }
 
-void CPUDeconvolutionBackend::init() {
+void OpenMPDeconvolutionBackend::init() {
     initializeGlobal();
-    std::cout << "[STATUS] CPU backend initialized for lazy plan creation" << std::endl;
+    std::cout << "[STATUS] OpenMP backend initialized for lazy plan creation" << std::endl;
 }
 
-void CPUDeconvolutionBackend::cleanup() {
+void OpenMPDeconvolutionBackend::cleanup() {
     fftw_cleanup_threads();
     destroyFFTPlans();
-    std::cout << "[STATUS] CPU backend postprocessing completed" << std::endl;
+    std::cout << "[STATUS] OpenMP backend postprocessing completed" << std::endl;
 }
 
-void CPUDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
+void OpenMPDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
     // This method assumes the mutex is already locked by the caller
     
     // Check if plan already exists for this shape (double-check pattern)
@@ -248,12 +260,12 @@ void CPUDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
         
         FFTPlanPair& planPair = planMap[shape];
         
-        // Create forward FFT plan
+        // Create forward FFT plan with OpenMP threading
         planPair.forward = fftw_plan_dft_3d(shape.depth, shape.height, shape.width,
                                            temp, temp, FFTW_FORWARD, FFTW_MEASURE);
         FFTW_UNIFIED_CHECK(planPair.forward, "initializePlan - forward plan");
     
-        // Create backward FFT plan  
+        // Create backward FFT plan with OpenMP threading  
         planPair.backward = fftw_plan_dft_3d(shape.depth, shape.height, shape.width,
                                             temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
         FFTW_UNIFIED_CHECK(planPair.backward, "initializePlan - backward plan");
@@ -271,7 +283,7 @@ void CPUDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
     }
 }
 
-void CPUDeconvolutionBackend::destroyFFTPlans() {
+void OpenMPDeconvolutionBackend::destroyFFTPlans() {
     std::unique_lock<std::mutex> lock(backendMutex);
     for (auto& pair : planMap) {
         if (pair.second.forward) {
@@ -286,7 +298,7 @@ void CPUDeconvolutionBackend::destroyFFTPlans() {
     planMap.clear();
 }
 
-CPUDeconvolutionBackend::FFTPlanPair* CPUDeconvolutionBackend::getPlanPair(const RectangleShape& shape) {
+OpenMPDeconvolutionBackend::FFTPlanPair* OpenMPDeconvolutionBackend::getPlanPair(const RectangleShape& shape) {
     auto it = planMap.find(shape);
     if (it != planMap.end()) {
         return &it->second;
@@ -295,56 +307,56 @@ CPUDeconvolutionBackend::FFTPlanPair* CPUDeconvolutionBackend::getPlanPair(const
 }
 
 // FFT Operations
-void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
-    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
-    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
+void OpenMPDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
+    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "OpenMP", "forwardFFT - input data");
+    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "OpenMP", "forwardFFT - output data");
     
     // First, try to get existing plan (fast path, no lock)
-    auto* planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+    auto* planPair = const_cast<OpenMPDeconvolutionBackend*>(this)->getPlanPair(in.size);
     
     // If plan doesn't exist, create it (slow path, with lock)
     if (planPair == nullptr) {
-        std::unique_lock<std::mutex> lock(const_cast<CPUDeconvolutionBackend*>(this)->backendMutex);
+        std::unique_lock<std::mutex> lock(const_cast<OpenMPDeconvolutionBackend*>(this)->backendMutex);
         // Double-check pattern: another thread might have created it while we waited for the lock
-        planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+        planPair = const_cast<OpenMPDeconvolutionBackend*>(this)->getPlanPair(in.size);
         if (planPair == nullptr) {
-            const_cast<CPUDeconvolutionBackend*>(this)->initializePlan(in.size);
-            planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+            const_cast<OpenMPDeconvolutionBackend*>(this)->initializePlan(in.size);
+            planPair = const_cast<OpenMPDeconvolutionBackend*>(this)->getPlanPair(in.size);
         }
     }
     
-    BACKEND_CHECK(planPair != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
-    BACKEND_CHECK(planPair->forward != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
+    BACKEND_CHECK(planPair != nullptr, "Failed to create FFT plan for shape", "OpenMP", "forwardFFT - plan creation");
+    BACKEND_CHECK(planPair->forward != nullptr, "Forward FFT plan is null", "OpenMP", "forwardFFT - FFT plan");
     
     fftw_execute_dft(planPair->forward, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
 }
 
-void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
-    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
-    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
+void OpenMPDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
+    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "OpenMP", "backwardFFT - input data");
+    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "OpenMP", "backwardFFT - output data");
     
     // First, try to get existing plan (fast path, no lock)
-    auto* planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+    auto* planPair = const_cast<OpenMPDeconvolutionBackend*>(this)->getPlanPair(in.size);
     
     // If plan doesn't exist, create it (slow path, with lock)
     if (planPair == nullptr) {
-        std::unique_lock<std::mutex> lock(const_cast<CPUDeconvolutionBackend*>(this)->backendMutex);
+        std::unique_lock<std::mutex> lock(const_cast<OpenMPDeconvolutionBackend*>(this)->backendMutex);
         // Double-check pattern: another thread might have created it while we waited for the lock
-        planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+        planPair = const_cast<OpenMPDeconvolutionBackend*>(this)->getPlanPair(in.size);
         if (planPair == nullptr) {
-            const_cast<CPUDeconvolutionBackend*>(this)->initializePlan(in.size);
-            planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
+            const_cast<OpenMPDeconvolutionBackend*>(this)->initializePlan(in.size);
+            planPair = const_cast<OpenMPDeconvolutionBackend*>(this)->getPlanPair(in.size);
         }
     }
     
-    BACKEND_CHECK(planPair != nullptr, "Failed to create FFT plan for shape", "CPU", "backwardFFT - plan creation");
-    BACKEND_CHECK(planPair->backward != nullptr, "Backward FFT plan is null", "CPU", "backwardFFT - FFT plan");
+    BACKEND_CHECK(planPair != nullptr, "Failed to create FFT plan for shape", "OpenMP", "backwardFFT - plan creation");
+    BACKEND_CHECK(planPair->backward != nullptr, "Backward FFT plan is null", "OpenMP", "backwardFFT - FFT plan");
     
     fftw_execute_dft(planPair->backward, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
 }
 
 // Shift Operations
-void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
+void OpenMPDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
     int width = data.size.width;
     int height = data.size.height;
     int depth = data.size.depth;
@@ -352,7 +364,7 @@ void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
 
-    //#pragma omp parallel for collapse(3)
+    #pragma omp parallel for collapse(3)
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
@@ -370,7 +382,7 @@ void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
     }
 }
 
-void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
+void OpenMPDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
     int width = data.size.width;
     int height = data.size.height;
     int depth = data.size.depth;
@@ -378,6 +390,7 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
 
+    #pragma omp parallel for collapse(3)
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = 0; y < halfHeight; ++y) {
             for (int x = 0; x < halfWidth; ++x) {
@@ -390,6 +403,7 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
         }
     }
 
+    #pragma omp parallel for collapse(3)
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = 0; y < halfHeight; ++y) {
             for (int x = halfWidth; x < width; ++x) {
@@ -402,6 +416,7 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
         }
     }
 
+    #pragma omp parallel for collapse(3)
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = halfHeight; y < height; ++y) {
             for (int x = 0; x < halfWidth; ++x) {
@@ -414,6 +429,7 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
         }
     }
 
+    #pragma omp parallel for collapse(3)
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = halfHeight; y < height; ++y) {
             for (int x = halfWidth; x < width; ++x) {
@@ -428,32 +444,47 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
 }
 
 // Complex Arithmetic Operations
-void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
+void OpenMPDeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "complexMultiplication - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "OpenMP", "complexMultiplication - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexMultiplication - result");
     
-    double real_a;
-    double imag_a;
-    double real_b;
-    double imag_b;    
-    for (int i = 0; i < a.size.volume; ++i) {
-        real_a = a.data[i][0];
-        imag_a = a.data[i][1];
-        real_b = b.data[i][0];
-        imag_b = b.data[i][1];
+// #ifdef __AVX2__
+//     // Use AVX2 implementation if available and data is properly aligned
+//     if (reinterpret_cast<uintptr_t>(a.data) % 32 == 0 && 
+//         reinterpret_cast<uintptr_t>(b.data) % 32 == 0 && 
+//         reinterpret_cast<uintptr_t>(result.data) % 32 == 0) {
+//         complexMultiplicationAVX2(a, b, result);
+//         return;
+//     }
+// #endif
+    
+    const int volume = a.size.volume;
+    
+    // Use restrict pointers to help compiler optimize
+    complex* __restrict__ a_ptr = a.data;
+    complex* __restrict__ b_ptr = b.data;
+    complex* __restrict__ result_ptr = result.data;
+    
+    #pragma omp parallel for simd //aligned(a_ptr, b_ptr, result_ptr:SIMD_ALIGNMENT) schedule(static)
+    for (int i = 0; i < volume; ++i) {
+        // Direct access without intermediate variables for better vectorization
+        const double real_a = a_ptr[i][0];
+        const double imag_a = a_ptr[i][1];
+        const double real_b = b_ptr[i][0];
+        const double imag_b = b_ptr[i][1];
 
-        result.data[i][0] = real_a * real_b - imag_a * imag_b;
-        result.data[i][1] = real_a * imag_b + imag_a * real_b;
+        result_ptr[i][0] = real_a * real_b - imag_a * imag_b;
+        result_ptr[i][1] = real_a * imag_b + imag_a * real_b;
     }
 }
 
-void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
+void OpenMPDeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "complexDivision - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "OpenMP", "complexDivision - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexDivision - result");
 
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for (int i = 0; i < a.size.volume; ++i) {
         double real_a = a.data[i][0];
         double imag_a = a.data[i][1];
@@ -472,33 +503,44 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
     }
 }
 
-void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexAddition - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexAddition - result");
+void OpenMPDeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "complexAddition - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "OpenMP", "complexAddition - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexAddition - result");
 
-    for (int i = 0; i < a.size.volume; ++i) {
-        result.data[i][0] = a.data[i][0] + b.data[i][0];
-        result.data[i][1] = a.data[i][1] + b.data[i][1];
+    const int volume = a.size.volume;
+    complex* __restrict__ a_ptr = a.data;
+    complex* __restrict__ b_ptr = b.data;
+    complex* __restrict__ result_ptr = result.data;
+
+    #pragma omp parallel for simd aligned(a_ptr, b_ptr, result_ptr:SIMD_ALIGNMENT) schedule(static)
+    for (int i = 0; i < volume; ++i) {
+        result_ptr[i][0] = a_ptr[i][0] + b_ptr[i][0];
+        result_ptr[i][1] = a_ptr[i][1] + b_ptr[i][1];
     }
 }
 
-void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
+void OpenMPDeconvolutionBackend::scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) const {
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "scalarMultiplication - input a");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "scalarMultiplication - result");
 
-    for (int i = 0; i < a.size.volume; ++i) {
-        result.data[i][0] = a.data[i][0] * scalar;
-        result.data[i][1] = a.data[i][1] * scalar;
+    const int volume = a.size.volume;
+    complex* __restrict__ a_ptr = a.data;
+    complex* __restrict__ result_ptr = result.data;
+
+    #pragma omp parallel for simd aligned(a_ptr, result_ptr:SIMD_ALIGNMENT) schedule(static)
+    for (int i = 0; i < volume; ++i) {
+        result_ptr[i][0] = a_ptr[i][0] * scalar;
+        result_ptr[i][1] = a_ptr[i][1] * scalar;
     }
 }
 
-void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexMultiplicationWithConjugate - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplicationWithConjugate - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result");
+void OpenMPDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "complexMultiplicationWithConjugate - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "OpenMP", "complexMultiplicationWithConjugate - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexMultiplicationWithConjugate - result");
 
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for (int i = 0; i < a.size.volume; ++i) {
         double real_a = a.data[i][0];
         double imag_a = a.data[i][1];
@@ -510,12 +552,12 @@ void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexDa
     }
 }
 
-void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexDivisionStabilized - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexDivisionStabilized - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result");
+void OpenMPDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "complexDivisionStabilized - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "OpenMP", "complexDivisionStabilized - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexDivisionStabilized - result");
 
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for (int i = 0; i < a.size.volume; ++i) {
         double real_a = a.data[i][0];
         double imag_a = a.data[i][1];
@@ -530,16 +572,17 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
 }
 
 // Specialized Functions
-void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
+void OpenMPDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
     int width = psf.size.width;
     int height = psf.size.height;
     int depth = psf.size.depth;
 
+    #pragma omp parallel for collapse(3)
     for (int z = 0; z < depth; ++z) {
-        float wz = 2 * M_PI * z / depth;
         for (int y = 0; y < height; ++y) {
-            float wy = 2 * M_PI * y / height;
             for (int x = 0; x < width; ++x) {
+                float wz = 2 * M_PI * z / depth;
+                float wy = 2 * M_PI * y / height;
                 float wx = 2 * M_PI * x / width;
                 float laplacian_value = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
 
@@ -552,19 +595,24 @@ void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, Co
     }
 }
 
-void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double epsilon) const {
+void OpenMPDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double epsilon) const {
     double max_val = 0.0, max_val2 = 0.0;
+    
+    #pragma omp parallel for reduction(max:max_val, max_val2)
     for (int j = 0; j < resultImage.size.volume; j++) {
         max_val = std::max(max_val, resultImage.data[j][0]);
         max_val2 = std::max(max_val2, resultImage.data[j][1]);
     }
+    
+    #pragma omp parallel for simd
     for (int j = 0; j < resultImage.size.volume; j++) {
         resultImage.data[j][0] /= (max_val + epsilon);
         resultImage.data[j][1] /= (max_val2 + epsilon);
     }
 }
 
-void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolume) const {
+void OpenMPDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolume) const {
+    #pragma omp parallel for simd
     for (int i = 0; i < data.size.volume; ++i) {
         data.data[i][0] /= cubeVolume;
         data.data[i][1] /= cubeVolume;
@@ -572,30 +620,37 @@ void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolu
 }
 
 // Debug functions
-void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
+void OpenMPDeconvolutionBackend::hasNAN(const ComplexData& data) const {
     int nanCount = 0, infCount = 0;
     double minReal = std::numeric_limits<double>::max();
     double maxReal = std::numeric_limits<double>::lowest();
     double minImag = std::numeric_limits<double>::max();
     double maxImag = std::numeric_limits<double>::lowest();
     
+    #pragma omp parallel for reduction(+:nanCount, infCount) reduction(min:minReal, minImag) reduction(max:maxReal, maxImag)
     for (int i = 0; i < data.size.volume; i++) {
         double real = data.data[i][0];
         double imag = data.data[i][1];
         
         // Check for NaN
         if (std::isnan(real) || std::isnan(imag)) {
-            nanCount++;
-            if (nanCount <= 10) { // Only print first 10
-                std::cout << "NaN at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
+            #pragma omp critical
+            {
+                nanCount++;
+                if (nanCount <= 10) { // Only print first 10
+                    std::cout << "NaN at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
+                }
             }
         }
         
         // Check for infinity
         if (std::isinf(real) || std::isinf(imag)) {
-            infCount++;
-            if (infCount <= 10) {
-                std::cout << "Inf at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
+            #pragma omp critical
+            {
+                infCount++;
+                if (infCount <= 10) {
+                    std::cout << "Inf at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
+                }
             }
         }
         
@@ -616,7 +671,7 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
 }
 
 // Layer and Visualization Functions
-void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
+void OpenMPDeconvolutionBackend::reorderLayers(ComplexData& data) const {
     int width = data.size.width;
     int height = data.size.height;
     int depth = data.size.depth;
@@ -650,81 +705,85 @@ void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
 }
 
 // Gradient and TV Functions
-void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
+void OpenMPDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
     int width = image.size.width;
     int height = image.size.height;
     int depth = image.size.depth;
     
+    #pragma omp parallel for collapse(3)
     for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width - 1; ++x) {
-                int index = z * height * width + y * width + x;
-                int nextIndex = index + 1;
-
-                gradX.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                gradX.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
-            }
-
-            int lastIndex = z * height * width + y * width + (width - 1);
-            gradX.data[lastIndex][0] = 0.0;
-            gradX.data[lastIndex][1] = 0.0;
-        }
-    }
-}
-
-void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
-    int width = image.size.width;
-    int height = image.size.height;
-    int depth = image.size.depth;
-    
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height - 1; ++y) {
-            for (int x = 0; x < width; ++x) {
-                int index = z * height * width + y * width + x;
-                int nextIndex = index + width;
-
-                gradY.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                gradY.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
-            }
-        }
-
-        for (int x = 0; x < width; ++x) {
-            int lastIndex = z * height * width + (height - 1) * width + x;
-            gradY.data[lastIndex][0] = 0.0;
-            gradY.data[lastIndex][1] = 0.0;
-        }
-    }
-}
-
-void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
-    int width = image.size.width;
-    int height = image.size.height;
-    int depth = image.size.depth;
-    
-    for (int z = 0; z < depth - 1; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 int index = z * height * width + y * width + x;
-                int nextIndex = index + height * width;
-
-                gradZ.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                gradZ.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                
+                if (x < width - 1) {
+                    int nextIndex = index + 1;
+                    gradX.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                    gradX.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                } else {
+                    // Boundary condition: last column
+                    gradX.data[index][0] = 0.0;
+                    gradX.data[index][1] = 0.0;
+                }
             }
-        }
-    }
-
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            int lastIndex = (depth - 1) * height * width + y * width + x;
-            gradZ.data[lastIndex][0] = 0.0;
-            gradZ.data[lastIndex][1] = 0.0;
         }
     }
 }
 
-void CPUDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
+void OpenMPDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
+    int width = image.size.width;
+    int height = image.size.height;
+    int depth = image.size.depth;
+    
+    #pragma omp parallel for collapse(3)
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int index = z * height * width + y * width + x;
+                
+                if (y < height - 1) {
+                    int nextIndex = index + width;
+                    gradY.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                    gradY.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                } else {
+                    // Boundary condition: last row
+                    gradY.data[index][0] = 0.0;
+                    gradY.data[index][1] = 0.0;
+                }
+            }
+        }
+    }
+}
+
+void OpenMPDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
+    int width = image.size.width;
+    int height = image.size.height;
+    int depth = image.size.depth;
+    
+    #pragma omp parallel for collapse(3)
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int index = z * height * width + y * width + x;
+                
+                if (z < depth - 1) {
+                    int nextIndex = index + height * width;
+                    gradZ.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                    gradZ.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                } else {
+                    // Boundary condition: last depth layer
+                    gradZ.data[index][0] = 0.0;
+                    gradZ.data[index][1] = 0.0;
+                }
+            }
+        }
+    }
+}
+
+void OpenMPDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
     int nxy = gx.size.width * gx.size.height;
 
+    #pragma omp parallel for
     for (int z = 0; z < gx.size.depth; ++z) {
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
@@ -741,9 +800,10 @@ void CPUDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, co
 
 
 
-void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) const {
+void OpenMPDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) const {
     int nxy = gradX.size.width * gradX.size.height;
 
+    #pragma omp parallel for
     for (int z = 0; z < gradX.size.depth; ++z) {
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
@@ -766,3 +826,55 @@ void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY
     }
 }
 
+// High-performance AVX2 implementation for complex multiplication
+#ifdef __AVX2__
+void OpenMPDeconvolutionBackend::complexMultiplicationAVX2(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "complexMultiplicationAVX2 - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "OpenMP", "complexMultiplicationAVX2 - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexMultiplicationAVX2 - result");
+    
+    const int volume = a.size.volume;
+    const double* __restrict__ a_ptr = reinterpret_cast<const double*>(a.data);
+    const double* __restrict__ b_ptr = reinterpret_cast<const double*>(b.data);
+    double* __restrict__ result_ptr = reinterpret_cast<double*>(result.data);
+    
+    const int simd_end = (volume * 2) & ~7; // Process 4 complex numbers (8 doubles) at a time
+    
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < simd_end; i += 8) {
+        // Load 4 complex numbers from a and b
+        __m256d a_vals = _mm256_load_pd(&a_ptr[i]);     // a0_r, a0_i, a1_r, a1_i
+        __m256d a_vals2 = _mm256_load_pd(&a_ptr[i+4]);  // a2_r, a2_i, a3_r, a3_i
+        __m256d b_vals = _mm256_load_pd(&b_ptr[i]);     // b0_r, b0_i, b1_r, b1_i
+        __m256d b_vals2 = _mm256_load_pd(&b_ptr[i+4]);  // b2_r, b2_i, b3_r, b3_i
+        
+        // Shuffle to separate real and imaginary parts
+        __m256d a_real = _mm256_shuffle_pd(a_vals, a_vals2, 0x0); // a0_r, a1_r, a2_r, a3_r
+        __m256d a_imag = _mm256_shuffle_pd(a_vals, a_vals2, 0xF); // a0_i, a1_i, a2_i, a3_i
+        __m256d b_real = _mm256_shuffle_pd(b_vals, b_vals2, 0x0); // b0_r, b1_r, b2_r, b3_r
+        __m256d b_imag = _mm256_shuffle_pd(b_vals, b_vals2, 0xF); // b0_i, b1_i, b2_i, b3_i
+        
+        // Complex multiplication: (a_r + i*a_i) * (b_r + i*b_i) = (a_r*b_r - a_i*b_i) + i*(a_r*b_i + a_i*b_r)
+        __m256d result_real = _mm256_fmsub_pd(a_real, b_real, _mm256_mul_pd(a_imag, b_imag));
+        __m256d result_imag = _mm256_fmadd_pd(a_real, b_imag, _mm256_mul_pd(a_imag, b_real));
+        
+        // Interleave real and imaginary parts back
+        __m256d result1 = _mm256_unpacklo_pd(result_real, result_imag);
+        __m256d result2 = _mm256_unpackhi_pd(result_real, result_imag);
+        
+        _mm256_store_pd(&result_ptr[i], result1);
+        _mm256_store_pd(&result_ptr[i+4], result2);
+    }
+    
+    // Handle remaining elements
+    for (int i = simd_end / 2; i < volume; ++i) {
+        const double real_a = a.data[i][0];
+        const double imag_a = a.data[i][1];
+        const double real_b = b.data[i][0];
+        const double imag_b = b.data[i][1];
+
+        result.data[i][0] = real_a * real_b - imag_a * imag_b;
+        result.data[i][1] = real_a * imag_b + imag_a * real_b;
+    }
+}
+#endif

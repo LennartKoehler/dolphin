@@ -75,17 +75,19 @@ void DeconvolutionStrategyFactory::registerBuiltInStrategies() {
         
         // Configure strategy with setup config
         strategy->configure(*setupConfig);
+        executor->configure(*setupConfig);
         
         return std::make_unique<DeconvolutionStrategyPair>(std::move(strategy), std::move(executor));
     });
     
     // Register labeled image deconvolution strategy
     registerStrategy("labeled", [](std::shared_ptr<SetupConfig> setupConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
-        auto strategy = std::make_unique<LabeledDeconvolutionStrategy>();
+        auto strategy = std::make_unique<StandardDeconvolutionStrategy>();
         auto executor = std::make_unique<LabeledDeconvolutionExecutor>();
 
         // Configure strategy with setup config (loads labeled image and PSF map internally)
         strategy->configure(*setupConfig);
+        executor->configure(*setupConfig);
 
         return std::make_unique<DeconvolutionStrategyPair>(std::move(strategy), std::move(executor));
     });

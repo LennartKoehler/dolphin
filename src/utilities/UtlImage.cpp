@@ -31,7 +31,7 @@ void UtlImage::findGlobalMinMax(const std::vector<cv::Mat>& images, double& glob
 
 void UtlImage::normalizeToSumOne(std::vector<cv::Mat>& psf) {
     // Berechne die Summe aller Werte in der PSF
-    double totalSum = 0.0;
+    double totalSum = 1e-6;
     for (auto& slice : psf) {
         if (slice.type() != CV_32F) {
             std::cerr << "Error: Unsupported matrix type! " << slice.type() << std::endl;

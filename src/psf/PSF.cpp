@@ -21,6 +21,7 @@ See the LICENSE file provided with the code for the full license.
 #include "UtlIO.h"
 namespace fs = std::filesystem;
 #include "UtlImage.h"
+#include "IO/TiffReader.h"
 
 // void PSF::setParameters(int sizeX, int sizeY, int sizeZ, double resLat, double resAx, 
 //                   double numericalAperture, double wavelength, 
@@ -48,42 +49,12 @@ std::string getFilenameFromPath(const std::string& path) {
 
 bool PSF::readFromTifFile(const char *filename) {
     this->ID = getFilenameFromPath(filename);
-    //METADATA
-    std::string imageType = "";
-    std::string name = "";
-    std::string description = "";
-    int imageWidth, imageLength = 0;
-    int frameCount = 0;
-    uint16_t resolutionUnit = 0;
-    uint16_t samplesPerPixel = 1; //num of channels (0 would cause 512 channels)
-    uint16_t bitsPerSample = 32;//bit depth
-    uint16_t photometricInterpretation = 0;
-    int linChannels = 1;//in Description (linearized channels)
-    uint16_t planarConfig = 0;
-    int totalImages = -1;
-    int slices = 0;
-    int dataType = 0; //calculated
-    float xResolution, yResolution = 0.0f;
-    std::vector<cv::Mat> layers;
-
-    //Reading File
-    TIFF* tifOriginalFile = TIFFOpen(filename, "r");
-    UtlIO::extractData(tifOriginalFile, name, description, filename, linChannels, slices, imageWidth, imageLength, resolutionUnit, xResolution, yResolution, samplesPerPixel, photometricInterpretation, bitsPerSample, frameCount, planarConfig, totalImages);
-
-    //Read Layers
-    UtlIO::readLayers(layers, totalImages, dataType, bitsPerSample, samplesPerPixel, tifOriginalFile);
-
-    //Converting Layers to 32F
-    UtlIO::convertImageTo32F(layers, dataType, bitsPerSample);
-    UtlImage::normalizeToSumOne(layers);
 
 
-    //Creating Channel Images
-    Image3D imageLayers;
-    std::vector<Channel> channels;
-    UtlIO::createImage3D(channels, imageLayers, 0, totalImages, name, layers);
-    this->image = imageLayers;
+    this->image = TiffReader::readTiffFile(filename);
 
+
+    // UtlImage::normalizeToSumOne(image.slices); //TESTVALUE
     return true;
 }
 

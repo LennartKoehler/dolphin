@@ -15,6 +15,10 @@ See the LICENSE file provided with the code for the full license.
 #include <stdexcept>
 #include <functional>
 #include "HelperClasses.h"
+#include "itkImage.h"
+#include "itkDanielssonDistanceMapImageFilter.h"
+#include "itkCastImageFilter.h"
+#include "itkImageRegionIterator.h"
 
 void Postprocessor::insertCubeInImage(
     const Image3D& cube,
@@ -33,33 +37,240 @@ void Postprocessor::insertCubeInImage(
     }
 }
 
-void Postprocessor::insertLabeledCubeInImage(
-    const PaddedImage& cube,
-    Image3D& outputImage, 
-    const BoxCoord& outputImageROI,
-    const BoxCoord& labeledImageROI,
-    const Label& labelgroup
-){
-    for (int zCube = cube.padding.before.depth; zCube < outputImageROI.dimensions.depth + cube.padding.before.depth; zCube++){
-        cv::Rect roi(cube.padding.before.width, cube.padding.before.height, outputImageROI.dimensions.width, outputImageROI.dimensions.height);
-        cv::Mat srcSlice = cube.image.slices[zCube](roi);
+// void Postprocessor::insertLabeledCubeInImage(
+//     const PaddedImage& cube,
+//     Image3D& outputImage, 
+//     const BoxCoord& outputImageROI,
+//     const BoxCoord& labeledImageROI,
+//     const Label& labelgroup
+// ){
+//     for (int zCube = cube.padding.before.depth; zCube < outputImageROI.dimensions.depth + cube.padding.before.depth; zCube++){
+//         cv::Rect roi(cube.padding.before.width, cube.padding.before.height, outputImageROI.dimensions.width, outputImageROI.dimensions.height);
+//         cv::Mat srcSlice = cube.image.slices[zCube](roi);
         
-        // Define where it goes in the big image
-        cv::Rect dstRoi(outputImageROI.position.width, outputImageROI.position.height, outputImageROI.dimensions.width, outputImageROI.dimensions.height); 
-        int outputZ = outputImageROI.position.depth + zCube - cube.padding.before.depth;
+//         // Define where it goes in the big image
+//         cv::Rect dstRoi(outputImageROI.position.width, outputImageROI.position.height, outputImageROI.dimensions.width, outputImageROI.dimensions.height); 
+//         int outputZ = outputImageROI.position.depth + zCube - cube.padding.before.depth;
 
-        cv::Rect labelRoi(labeledImageROI.position.width, labeledImageROI.position.height, labeledImageROI.dimensions.width, labeledImageROI.dimensions.height);
-        int labelZ = labeledImageROI.position.depth + zCube - cube.padding.before.depth;
+//         cv::Rect labelRoi(labeledImageROI.position.width, labeledImageROI.position.height, labeledImageROI.dimensions.width, labeledImageROI.dimensions.height);
+//         int labelZ = labeledImageROI.position.depth + zCube - cube.padding.before.depth;
         
-        cv::Mat mask = labelgroup.getMask(labelRoi, labelZ);
-        // Copy only where mask is true
-        srcSlice.copyTo(outputImage.slices[outputZ](dstRoi), mask);
-        // srcSlice.copyTo(outputImage[outputZ](dstRoi)); //TESTVALUE
+//         cv::Mat mask = labelgroup.getMask(labelRoi, labelZ);
+//         // Copy only where mask is true
+//         srcSlice.copyTo(outputImage.slices[outputZ](dstRoi), mask);
+//         // srcSlice.copyTo(outputImage[outputZ](dstRoi)); //TESTVALUE
+//     }
+    
+    
+// }
+
+itk::Image<float, 3>::Pointer convertImage(const Image3D& image){
+    using PixelType = float;
+    constexpr unsigned int Dimension = 3;
+    using ImageType = itk::Image<PixelType, Dimension>;
+
+    ImageType::Pointer image3D = ImageType::New();
+    RectangleShape imageShape = image.getShape();
+    int width, height, depth;
+    width = imageShape.width;
+    height = imageShape.height;
+    depth = imageShape.depth;
+
+    ImageType::SizeType size;
+    size[0] = width;
+    size[1] = height;
+    size[2] = depth;
+
+    ImageType::IndexType start;
+    start.Fill(0);
+
+    ImageType::RegionType region;
+    region.SetSize(size);
+    region.SetIndex(start);
+
+    image3D->SetRegions(region);
+    image3D->Allocate();
+    image3D->FillBuffer(0);
+
+    // Copy data slice by slice
+    for (int z = 0; z < depth; ++z) {
+        const cv::Mat& slice = image.slices[z];
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                ImageType::IndexType index = { x, y, z };
+                float pixelValue = 0.0f;
+                
+                // Handle different OpenCV data types
+                int cv_type = slice.type();
+                if (cv_type == CV_32F || cv_type == CV_32FC1) {
+                    pixelValue = slice.at<float>(y, x);
+                } else if (cv_type == CV_8U || cv_type == CV_8UC1) {
+                    pixelValue = static_cast<float>(slice.at<uint8_t>(y, x));
+                } else if (cv_type == CV_16U || cv_type == CV_16UC1) {
+                    pixelValue = static_cast<float>(slice.at<uint16_t>(y, x));
+                } else {
+                    // Default fallback - try to convert to float
+                    cv::Mat convertedSlice;
+                    slice.convertTo(convertedSlice, CV_32F);
+                    pixelValue = convertedSlice.at<float>(y, x);
+                }
+                
+                image3D->SetPixel(index, pixelValue);
+            }
+        }
     }
-    
-    
+    return image3D;
 }
 
+Image3D convertItkImageToImage3D(const itk::Image<float, 3>::Pointer& itkImage) {
+    using PixelType = float;
+    constexpr unsigned int Dimension = 3;
+    using ImageType = itk::Image<PixelType, Dimension>;
+
+    // Get image dimensions
+    ImageType::SizeType size = itkImage->GetLargestPossibleRegion().GetSize();
+    int width = size[0];
+    int height = size[1];
+    int depth = size[2];
+
+    // Create vector to hold OpenCV Mat slices
+    std::vector<cv::Mat> slices;
+    slices.reserve(depth);
+
+    // Convert slice by slice
+    for (int z = 0; z < depth; ++z) {
+        // Create OpenCV Mat for this slice
+        cv::Mat slice(height, width, CV_32F);
+        
+        // Copy pixel data from ITK to OpenCV
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                ImageType::IndexType index = { x, y, z };
+                float pixelValue = itkImage->GetPixel(index);
+
+                slice.at<float>(y, x) = pixelValue;
+            }
+        }
+        
+        slices.push_back(slice);
+    }
+
+    return Image3D(std::move(slices));
+}
+
+// this also merges the images
+Image3D Postprocessor::addFeathering(
+    std::vector<ImageMaskPair>& pairs,
+    int radius,
+    double epsilon
+){
+    
+    using PixelType = float;
+    constexpr unsigned int Dimension = 3;
+
+    using ImageType = itk::Image<PixelType, Dimension>;
+    using DistanceFilterType = itk::DanielssonDistanceMapImageFilter<ImageType, ImageType>;
+
+    using IteratorType = itk::ImageRegionIterator<ImageType>;
+
+    struct ImageHelper{
+        ImageType::Pointer image;
+        ImageType::Pointer mask;
+        IteratorType imageIt;
+        IteratorType maskIt;
+    };
+
+
+
+    std::vector<ImageHelper> itkImageMasks;
+    for (auto& pair : pairs){
+        ImageType::Pointer image = convertImage(pair.image);
+        ImageType::Pointer mask = convertImage(pair.mask);
+        // Create iterators after storing the images, not before moving them
+        ImageHelper helper;
+        helper.image = image;
+        helper.mask = mask;
+        helper.imageIt = IteratorType(image, image->GetLargestPossibleRegion());
+        // helper.maskIt = IteratorType(mask, mask->GetLargestPossibleRegion()); // fill in next loop
+        itkImageMasks.push_back(std::move(helper));
+    }
+
+
+    ImageType::Pointer output = itkImageMasks[0].image;
+
+    {
+        for (auto& imagemask : itkImageMasks){
+    
+
+            // Create the distance filter
+            DistanceFilterType::Pointer distanceFilter = DistanceFilterType::New();
+            distanceFilter->SetInput(imagemask.mask);
+            // distanceFilter->SetUseImageSpacing(true); // takes voxel spacing into account if you have anisotropic voxels
+            distanceFilter->Update();
+
+            ImageType::Pointer distanceImage = distanceFilter->GetOutput();
+
+            // Optionally, clip distances at 'radius' and convert back to 0-1 gradient
+            itk::ImageRegionIterator<ImageType> it(distanceImage, distanceImage->GetLargestPossibleRegion());
+            for (it.GoToBegin(); !it.IsAtEnd(); ++it)
+            {
+                float dist = it.Get();
+                if (dist > radius)
+                    dist = radius;
+
+                it.Set(1.0f - dist / radius); // gradient: 1 at mask, 0 at radius
+            }
+            imagemask.mask = distanceImage;
+            // Recreate the mask iterator since we replaced the mask image
+            imagemask.maskIt = IteratorType(imagemask.mask, imagemask.mask->GetLargestPossibleRegion());
+
+        }
+        
+
+        IteratorType outIt(output,  output->GetLargestPossibleRegion());
+        
+        for(auto& image : itkImageMasks){
+            image.imageIt.GoToBegin();
+            image.maskIt.GoToBegin();
+        }
+        outIt.GoToBegin();
+
+        std::vector<float> weights;
+        std::vector<float> values;
+        float sum = 1e-6f;  // Initialize sum
+        float weight;
+
+        while(!outIt.IsAtEnd()){
+            weights.clear();  // Clear vectors at start of each iteration
+            values.clear();
+            sum = 1e-6f;      // Reset sum for each pixel
+            
+            for(auto& image : itkImageMasks){
+                weight = image.maskIt.Get();
+                values.push_back(image.imageIt.Get());
+                weights.push_back(weight);
+                sum += weight;
+
+                ++image.imageIt;
+                ++image.maskIt;
+            }
+            float resultValue = 0;
+            if (sum > 0) {  // Avoid division by zero
+                for(int i = 0; i < values.size(); i++){
+                    resultValue += (weights[i] / sum) * values[i];  // Fixed formula for weighted blending
+                }
+            }
+            outIt.Set(resultValue);
+            ++outIt;
+
+            
+        }
+    }
+    return convertItkImageToImage3D(output);
+
+
+
+}
 
 
 void Postprocessor::removePadding(std::vector<cv::Mat>& image, const Padding& padding) {

@@ -15,13 +15,18 @@
 #include "../../backend/IBackend.h"
 #include "../../backend/IBackendMemoryManager.h"
 
+class SetupConfig;
+
 class LabeledDeconvolutionExecutor : public StandardDeconvolutionExecutor {
 public:
     LabeledDeconvolutionExecutor();
     virtual ~LabeledDeconvolutionExecutor() = default;
 
+    // Configuration methods
+    virtual void configure(const SetupConfig& setupConfig);
 
-
+    void setLabelReader(std::unique_ptr<ImageReader> labelReader) {this->labelReader = std::move(labelReader);}
+    void setPsfLabelMap(RangeMap<std::string> psfLabelMap) {this->psfLabelMap = psfLabelMap;}
 
 
 protected:
@@ -31,5 +36,16 @@ protected:
         const ImageReader& reader,
         const ImageWriter& writer);
 
+    std::vector<Label> getLabelGroups(
+        int channelNumber,
+		const BoxCoord& roi,
+		const std::vector<std::shared_ptr<PSF>>& psfs,
+		const Image3D& image,
+		RangeMap<std::string> psfLabelMap);
+
+    std::vector<std::shared_ptr<PSF>> getPSFForLabel(Range<std::string>& psfids, const std::vector<std::shared_ptr<PSF>>& psfs);
+
+    RangeMap<std::string> psfLabelMap;
+    std::unique_ptr<ImageReader> labelReader;
 
 };

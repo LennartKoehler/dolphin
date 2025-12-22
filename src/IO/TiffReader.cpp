@@ -22,32 +22,16 @@ See the LICENSE file provided with the code for the full license.
 #include <cstdarg>
 #include "deconvolution/Preprocessor.h"
 #include "UtlImage.h"
+#include <chrono>
+#include <thread>
+
 namespace fs = std::filesystem;
 
-// // Default constructor
-// HyperstackReader::HyperstackReader() {
-//     // Initialize metadata with default values
-//     metaData.imageType = "";
-//     metaData.filename = "";
-//     metaData.description = "";
-//     metaData.imageWidth = 0;
-//     metaData.imageLength = 0;
-//     metaData.frameCount = 0;
-//     metaData.resolutionUnit = 0;
-//     metaData.samplesPerPixel = 1;
-//     metaData.bitsPerSample = 0;
-//     metaData.photometricInterpretation = 0;
-//     metaData.linChannels = 1;
-//     metaData.planarConfig = 0;
-//     metaData.totalImages = -1;
-//     metaData.slices = 0;
-//     metaData.dataType = 0;
-//     metaData.xResolution = 0.0f;
-//     metaData.yResolution = 0.0f;
-// }
+
 
 // Constructor with filename
 TiffReader::TiffReader(std::string filename){
+    std::unique_lock<std::mutex> lock(mutex);
     // Set filename in metadata
     metaData.filename = filename;
     maxBufferMemory_bytes = 999999999; //TESTVALUE
@@ -55,11 +39,16 @@ TiffReader::TiffReader(std::string filename){
     TIFFSetWarningHandler(customTifWarningHandler);
     metaData = extractMetadata(filename);
     currentBufferMemory_bytes = 0;
+    tif = TIFFOpen(filename.c_str(), "r");
 }
 
 // Destructor
 TiffReader::~TiffReader() {
     // Clean up resources if needed
+    if (tif) {
+        TIFFClose(tif);
+        tif = nullptr;
+    }
 }
 
 
@@ -71,7 +60,7 @@ Image3D TiffReader::readTiffFile(const std::string& filename) {
     Image3D image;
     BoxCoord fullImage{RectangleShape{0,0,0}, RectangleShape{metaData.imageWidth, metaData.imageLength, metaData.slices}};
     
-    if (!readSubimageFromTiffFile(filename, metaData, fullImage.position.height, fullImage.position.depth, 
+    if (!readSubimageFromTiffFileStatic(filename, metaData, fullImage.position.height, fullImage.position.depth, 
                      fullImage.dimensions.height, fullImage.dimensions.depth, fullImage.dimensions.width, image)) {
         std::cerr << "[ERROR] Failed to read TIFF file: " << filename << std::endl;
         return Image3D();
@@ -101,17 +90,16 @@ ImageMetaData TiffReader::extractMetadata(const std::string& filename) {
     return metaData;
 }
 
-bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers){
+bool TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers){
     layers.slices.clear();
     
     TIFFSetWarningHandler(TiffReader::customTifWarningHandler);
-    TIFF* tif = TIFFOpen(filename.c_str(), "r");
+    TIFF* tif = TIFFOpen(filename.c_str(), "r"); //TESTVALUE
     
     if (!tif) {
         std::cerr << "[ERROR] Cannot open TIFF file: " << filename << std::endl;
         return false;
     }
-    
 
     
     // Validate region shape
@@ -120,9 +108,6 @@ bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const Ima
         std::cerr << "[ERROR] Invalid region dimensions: " << height << "x" << depth << std::endl;
         return false;
     }
-    
-
-    
 
     
     // Determine OpenCV data type
@@ -179,10 +164,81 @@ bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const Ima
     
     // Clean up
     _TIFFfree(buf);
-    TIFFClose(tif);
+    TIFFClose(tif); //TESTVALUE
+    convertImageTo32F(layers, metaData);
     //TODO
     // size_t memory = getMemoryForShape(RectangleShape{metaData.imageWidth, height, depth});
     // updateCurrentMemoryBuffer(memory + currentBufferMemory_bytes);
+    
+    std::cout << "[INFO] Successfully read region: " << height << "x" << depth << std::endl;
+    return true;
+}
+
+// Non-static method using member TIFF* variable
+bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers) const {
+    layers.slices.clear();
+    
+    if (!tif) {
+        std::cerr << "[ERROR] TIFF file is not open" << std::endl;
+        return false;
+    }
+    
+    // Validate region shape
+    if (height <= 0 || depth <= 0) {
+        std::cerr << "[ERROR] Invalid region dimensions: " << height << "x" << depth << std::endl;
+        return false;
+    }
+    
+    // Determine OpenCV data type
+    int cvType;
+    if (metaData.bitsPerSample == 8) {
+        cvType = CV_8UC(metaData.samplesPerPixel);
+    } else if (metaData.bitsPerSample == 16) {
+        cvType = CV_16UC(metaData.samplesPerPixel);
+    } else if (metaData.bitsPerSample == 32) {
+        cvType = CV_32FC(metaData.samplesPerPixel);
+    } else {
+        std::cerr << "[ERROR] Unsupported bit depth: " << metaData.bitsPerSample << std::endl;
+        return false;
+    }
+    
+    // Read the specific region using scanline API
+    tsize_t scanlineSize = TIFFScanlineSize(tif);
+    char* buf = (char*)_TIFFmalloc(scanlineSize);
+    if (!buf) {
+        std::cerr << "[ERROR] Memory allocation failed for scanline buffer" << std::endl;
+        return false;
+    }
+    
+    // Read each directory (z-slice) in the region
+    for (uint32_t zIndex = z; zIndex < z + depth; zIndex++) {
+        // Always set the directory for this z-slice (including z=0)
+        if (!TIFFSetDirectory(tif, zIndex)) {
+            _TIFFfree(buf);
+            std::cerr << "[ERROR] Failed to set directory for z-slice " << zIndex << std::endl;
+            return false;
+        }
+        
+        // Create a matrix for this z-slice
+        cv::Mat layer(height, width, cvType);
+        
+        // Read only the required rows (scanlines)
+        for (uint32_t yIndex = y; yIndex < y + height; yIndex++) {
+            if (TIFFReadScanline(tif, buf, yIndex) == -1) {
+                _TIFFfree(buf);
+                std::cerr << "[ERROR] Failed to read scanline " << yIndex << " in z-slice " << zIndex << std::endl;
+                return false;
+            }
+            
+            // Copy only the required columns
+            memcpy(layer.ptr(yIndex - y), buf, scanlineSize);
+        }
+        
+        layers.slices.push_back(layer);
+    }
+    
+    // Clean up (but don't close the TIFF file since it's a member variable)
+    _TIFFfree(buf);
     
     std::cout << "[INFO] Successfully read region: " << height << "x" << depth << std::endl;
     return true;
@@ -268,6 +324,7 @@ void TiffReader::readStripWithPadding(const BoxCoordWithPadding& coord) const {
 }
 
 PaddedImage TiffReader::getSubimage(const BoxCoordWithPadding& coord) const {
+
     std::unique_lock<std::mutex> lock(mutex); //TESTVALUE
     int bufferIndex;
     bufferIndex = getStripIndex(coord);
@@ -322,7 +379,17 @@ ImageMetaData TiffReader::extractMetadataFromTiff(TIFF*& tifFile)
                 metadatatemp.slices = std::stoi(line.substr(line.find("=") + 1));
         }
     }
+    // If slices not found in description, calculate from total images and channels
+    if (metadatatemp.slices == 0) {
+        int totalDirectories = countTiffDirectories(tifFile);
+        
+        if (metadatatemp.linChannels > 0) {
+            metadatatemp.slices = totalDirectories / metadatatemp.linChannels;
 
+        } else {
+            metadatatemp.slices = totalDirectories;
+        }
+    }
     // -------------------------
     // TIFF core tags (correct types)
     // -------------------------
@@ -390,6 +457,19 @@ ImageMetaData TiffReader::extractMetadataFromTiff(TIFF*& tifFile)
 
     return metadatatemp; 
 }
+
+
+int TiffReader::countTiffDirectories(TIFF* tif) {
+    int count = 0;
+    do {
+        count++;
+    } while (TIFFReadDirectory(tif));
+    
+    // Reset to first directory
+    TIFFSetDirectory(tif, 0);
+    return count;
+}
+
 void TiffReader::createImage3D(const Image3D& layers, std::vector<Channel>& channels) {
     if(metaData.linChannels > 0){
         std::vector<Image3D> channelData(metaData.linChannels);

@@ -264,6 +264,11 @@ size_t CUDABackendMemoryManager::getAvailableMemory() const {
     return freeMem;
 }
 
+size_t CUDABackendMemoryManager::getAllocatedMemory() const {
+    std::lock_guard<std::mutex> lock(memory.memoryMutex);
+    return memory.totalUsedMemory;
+}
+
 
 
 

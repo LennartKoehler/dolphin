@@ -38,7 +38,7 @@ public:
 
 protected:
     // Helper methods for plan creation
-    virtual std::vector<Label> getLabelGroups(int channelNumber, const BoxCoord& roi, std::vector<std::shared_ptr<PSF>>& psfs);
+    virtual std::vector<Label> getLabelGroups(int channelNumber, const BoxCoord& roi, std::vector<std::shared_ptr<PSF>>& psfs, const Image3D& label);
     virtual std::vector<std::shared_ptr<PSF>> getPSFForLabel(Range<std::string>& psfids, std::vector<std::shared_ptr<PSF>>& psfs);
 
     // Reuse methods from StandardDeconvolutionStrategy
@@ -67,6 +67,6 @@ protected:
 
 private:
     RangeMap<std::string> psfLabelMap;
-    std::shared_ptr<Hyperstack> labelImage;
+    std::string labelImagePath; 
 
 };

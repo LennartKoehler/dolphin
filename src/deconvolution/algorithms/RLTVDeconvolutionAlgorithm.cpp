@@ -25,9 +25,34 @@ void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     std::cout << "[CONFIGURATION] lambda: " << lambda << std::endl;
 }
 
+void RLTVDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
+    if (!backend) {
+        std::cerr << "[ERROR] No backend available for Richardson-Lucy TV algorithm initialization" << std::endl;
+        return;
+    }
+    
+    // Allocate memory for intermediate arrays
+    c = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    gx = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    gy = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    gz = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    tv = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    
+    initialized = true;
+}
+
+bool RLTVDeconvolutionAlgorithm::isInitialized() const {
+    return initialized;
+}
+
 void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
         std::cerr << "[ERROR] No backend available for Richardson-Lucy TV algorithm" << std::endl;
+        return;
+    }
+    
+    if (!initialized) {
+        std::cerr << "[ERROR] Richardson-Lucy TV algorithm not initialized. Call init() first." << std::endl;
         return;
     }
 
@@ -36,13 +61,7 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g
     assert(backend->getMemoryManager().isOnDevice(g.data) && "Input image is not on device");
     assert(backend->getMemoryManager().isOnDevice(f.data) && "Output buffer is not on device");
 
-    // Allocate memory for intermediate arrays
-    ComplexData c = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
-    ComplexData gx = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
-    ComplexData gy = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
-    ComplexData gz = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
-    ComplexData tv = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
-    
+    // Use pre-allocated memory for intermediate arrays
     // Initialize result with input data
     backend->getMemoryManager().memCopy(g, f);
 
@@ -94,6 +113,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecifi
     copy->iterations = this->iterations;
     copy->lambda = this->lambda;
     copy->complexDivisionEpsilon = this->complexDivisionEpsilon;
+    copy->initialized = false; // Clone needs to be re-initialized
     // Don't copy backend - each thread needs its own
     return copy;
 }

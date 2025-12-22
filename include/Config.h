@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include "../lib/nlohmann/json.hpp"
 #include <fstream>
 #include <iostream>
+#include <unordered_set>
 
 using json = nlohmann::json;
 using ordered_json = nlohmann::ordered_json;
@@ -69,6 +70,32 @@ public:
     virtual bool loadFromJSON(const json& jsonData){
         bool success = true;
         try{
+            // First, collect all valid json tags from registered parameters
+            std::unordered_set<std::string> validTags;
+            for (const auto& param : parameters) {
+                if (param.jsonTag) {
+                    validTags.insert(param.jsonTag);
+                }
+            }
+            
+            // Check for unknown keys in JSON
+            std::vector<std::string> unknownKeys;
+            for (auto it = jsonData.begin(); it != jsonData.end(); ++it) {
+                if (validTags.find(it.key()) == validTags.end()) {
+                    unknownKeys.push_back(it.key());
+                }
+            }
+            
+            // Report unknown keys
+            if (!unknownKeys.empty()) {
+                std::cout << "[WARNING] Unknown configuration keys found in JSON:";
+                for (const auto& key : unknownKeys) {
+                    std::cout << " '" << key << "'";
+                }
+                std::cout << std::endl;
+
+            }
+            
             visitParams([&jsonData]<typename T>(T& value, ConfigParameter& param) {
                 if (jsonData.contains(param.jsonTag)) {
                     value = jsonData.at(param.jsonTag).get<T>();

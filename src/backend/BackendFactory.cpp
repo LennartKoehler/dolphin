@@ -136,6 +136,13 @@ void BackendFactory::registerBackends() {
         return create("cpu");
     });
     
+    // Register OpenMP backend
+    registerBackend("openmp", [this]() -> IBackend* {
+        // auto deconv = createDeconvBackend("openmp");
+        // auto memory = createMemManager("openmp");
+        return create("openmp");
+    });
+    
     // Register CUDA backend
     registerBackend("cuda", [this]() -> IBackend* {
         // auto deconv = createDeconvBackend("cuda");

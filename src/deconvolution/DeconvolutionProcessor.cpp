@@ -41,7 +41,7 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         std::shared_ptr<IBackend> threadbackend = prototypebackend->onNewThread(prototypebackend);
         
         algorithm->setBackend(threadbackend);
-
+        algorithm->init(workShape);
         std::vector<const ComplexData*> preprocessedPSFs;
 
         for (auto& psf : psfs_host){
@@ -52,7 +52,7 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         }
         for (const auto* psf_device : preprocessedPSFs){
             algorithm->deconvolve(*psf_device, g_device, f_device);
-            threadbackend->getDeconvManager().scalarMultiplication(f_device, 1.0 / f_device.size.volume, f_device); // Add normalization
+            // threadbackend->getDeconvManager().scalarMultiplication(f_device, 1.0 / f_device.size.volume, f_device); // Add normalization
             threadbackend->sync();
         }
         

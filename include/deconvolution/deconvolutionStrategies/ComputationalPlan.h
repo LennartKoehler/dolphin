@@ -16,26 +16,38 @@ enum class ExecutionStrategy {
 class Label{
 public:
     Label() = default;
-    Label(Image3D* labelImage) :labelImage(labelImage){}
-    void setLabelImage(Image3D* labelImage){ this->labelImage = labelImage;}
+    // Label(Image3D* labelImage) :labelImage(labelImage){}
+    // void setLabelImage(Image3D* labelImage){ this->labelImage = labelImage;}
     void setRange(Range<std::shared_ptr<PSF>> psfs) {this->psfs = psfs;}
 
-
-    cv::Mat getMask(const cv::Rect& roi, int z) const {
-        cv::Mat labelSlice = (*labelImage).slices[z](roi);
+    // cv::Mat getMask(const cv::Rect& roi, int z) const {
+    //     cv::Mat labelSlice = (*labelImage).slices[z](roi);
         
-        // Create mask where label is inrange of labelgroup 
-        cv::Mat mask;
-        cv::inRange(labelSlice, psfs.start, psfs.end, mask); // -1 because its inclusive, we dont want that
-        return mask;
+    //     // Create mask where label is inrange of labelgroup 
+    //     cv::Mat mask;
+    //     cv::inRange(labelSlice, psfs.start, psfs.end, mask); // -1 because its inclusive, we dont want that
+    //     return mask;
+    // }
+    Image3D getMask(const Image3D& labelImage) const {
+        Image3D result;
+        for (auto& slice : labelImage.slices){
+            cv::Mat mask;
+            // cv::Rect cvRoi(roi.position.width, roi.position.height, roi.dimensions.width, roi.dimensions.height);
+            // cv::Mat labelSlice = labelImage.slices[z];
+            cv::inRange(slice, psfs.start, psfs.end, mask);
+            result.slices.push_back(mask);
+        }
+        return result;
     }
+
     std::vector<std::shared_ptr<PSF>> getPSFs() const {
         return psfs.values;
     }
 
 private:
     Range<std::shared_ptr<PSF>> psfs; 
-    Image3D* labelImage;
+    // Image3D* labelImage;
+    Image3D mask;
 
 
 };

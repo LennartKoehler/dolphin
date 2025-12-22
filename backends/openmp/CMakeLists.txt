@@ -1,18 +1,13 @@
-# backends/cpu/CMakeLists.txt
+# backends/openmp/CMakeLists.txt
 cmake_minimum_required(VERSION 3.10)
 
-project(CPUBackend)
+project(OpenMPBackend)
 
-# CPU backend is always a shared library (plugin)
-add_library(cpu_backend SHARED CPUBackend.cpp)
-target_compile_options(cpu_backend PRIVATE
-    -O3
-    -march=native
-    -fopt-info-vec-optimized
-    -g -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma
-)
+# OpenMP backend is always a shared library (plugin)
+add_library(openmp_backend SHARED OpenMPBackend.cpp)
+
 # Include the main project headers
-target_include_directories(cpu_backend PUBLIC
+target_include_directories(openmp_backend PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/include
 )
@@ -31,7 +26,7 @@ if(NOT FFTW3_LIB OR NOT FFTW3_THREADS_LIB)
 endif()
 
 # Link FFTW shared libraries and OpenMP
-target_link_libraries(cpu_backend PRIVATE
+target_link_libraries(openmp_backend PRIVATE
     ${FFTW3_LIB}
     ${FFTW3_THREADS_LIB}
     OpenMP::OpenMP_CXX
@@ -39,11 +34,11 @@ target_link_libraries(cpu_backend PRIVATE
 )
 
 # Set proper output name
-set_target_properties(cpu_backend PROPERTIES OUTPUT_NAME "cpu_backend")
+set_target_properties(openmp_backend PROPERTIES OUTPUT_NAME "openmp_backend")
 
 # Specify library output directory
-set_target_properties(cpu_backend PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/backends/cpu
-    LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/backends/cpu
-    LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/backends/cpu
+set_target_properties(openmp_backend PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/backends/openmp
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/backends/openmp
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/backends/openmp
 )

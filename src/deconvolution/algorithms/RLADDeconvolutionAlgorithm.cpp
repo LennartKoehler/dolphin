@@ -25,15 +25,35 @@ void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     beta = 0.01;         // Fixed as in original
 }
 
+void RLADDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
+    if (!backend) {
+        std::cerr << "[ERROR] No backend available for RLAD algorithm initialization" << std::endl;
+        return;
+    }
+    
+    // Allocate memory for intermediate arrays
+    c = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    
+    initialized = true;
+}
+
+bool RLADDeconvolutionAlgorithm::isInitialized() const {
+    return initialized;
+}
+
 void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
         std::cerr << "[ERROR] No backend available for RLAD algorithm" << std::endl;
         return;
     }
+    
+    if (!initialized) {
+        std::cerr << "[ERROR] RLAD algorithm not initialized. Call init() first." << std::endl;
+        return;
+    }
 
-    // Allocate memory for intermediate arrays
+    // Use pre-allocated memory for intermediate arrays
     assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
-    ComplexData c = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
     backend->getMemoryManager().memCopy(g, f);
 
     for (int n = 0; n < iterations; ++n) {
@@ -87,6 +107,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::cloneSpecifi
     copy->dampingDecrease = this->dampingDecrease;
     copy->alpha = this->alpha;
     copy->beta = this->beta;
+    copy->initialized = false; // Clone needs to be re-initialized
     // Don't copy backend - each thread needs its own
     return copy;
 }

@@ -24,7 +24,6 @@ See the LICENSE file provided with the code for the full license.
 #include <tiffio.h>
 
 
-
 class ImageReader{
 public:
     virtual PaddedImage getSubimage(const BoxCoordWithPadding& box) const = 0;
@@ -42,7 +41,10 @@ public:
     // Main static methods
     static Image3D readTiffFile(const std::string& filename);
     static ImageMetaData extractMetadata(const std::string& filename);
-    static bool readSubimageFromTiffFile(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers);
+    static bool readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers);
+    
+    // Non-static version that uses member TIFF* variable
+    bool readSubimageFromTiffFile(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers) const ;
     
     // Non-static buffered reading methods
     PaddedImage getSubimage(const BoxCoordWithPadding& box) const override;
@@ -62,6 +64,7 @@ private:
     mutable size_t currentBufferMemory_bytes;
     mutable std::condition_variable memoryWaiter;
     mutable std::mutex mutex;
+    TIFF* tif; // Member variable to keep TIFF file open
     
     // Non-static helper methods for buffered reading
     void readStripWithPadding(const BoxCoordWithPadding& coord) const;
@@ -76,4 +79,6 @@ private:
     static void convertImageTo32F(Image3D& layers, const ImageMetaData& metaData);
     static ImageMetaData extractMetadataFromTiff(TIFF*& tifFile);
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
+
+    static int countTiffDirectories(TIFF* tif);
 };

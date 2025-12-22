@@ -103,8 +103,8 @@ RectangleShape StandardDeconvolutionStrategy::getCubeShape(
     const RectangleShape& imageOriginalShape,
     const Padding& cubePadding
 ){
-    size_t width = 128;
-    size_t height = 128; 
+    size_t width = 256;
+    size_t height = 256; 
     size_t depth = 64;
 
     
