@@ -196,6 +196,11 @@ size_t CPUBackendMemoryManager::getAvailableMemory() const {
     }
 }
 
+size_t CPUBackendMemoryManager::getAllocatedMemory() const {
+    std::lock_guard<std::mutex> lock(memory.memoryMutex);
+    return memory.totalUsedMemory;
+}
+
 
 // #####################################################################################################
 // CPUDeconvolutionBackend implementation
@@ -432,7 +437,6 @@ void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const 
     double imag_a;
     double real_b;
     double imag_b;    
-    //#pragma omp parallel for simd
     for (int i = 0; i < a.size.volume; ++i) {
         real_a = a.data[i][0];
         imag_a = a.data[i][1];

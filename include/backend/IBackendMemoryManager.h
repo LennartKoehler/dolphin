@@ -92,6 +92,10 @@ public:
         NOT_IMPLEMENTED(getAvailableMemory);
     }
 
+    virtual size_t getAllocatedMemory() const {
+        NOT_IMPLEMENTED(getAllocatedMemory);
+    }
+
 
 
 protected:

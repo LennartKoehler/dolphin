@@ -30,6 +30,32 @@ target_include_directories(cpu_test
 add_test(NAME CPUBackendTest COMMAND cpu_test)
 set_tests_properties(CPUBackendTest PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
+# OpenMP Backend Test
+add_executable(openmp_test
+    openmp_test.cpp
+)
+
+# Link libraries to OpenMP test
+target_link_libraries(openmp_test
+    PRIVATE
+        dolphinlib
+        backendlib
+        pthread
+        gomp
+        stdc++fs
+)
+
+# Include directories for OpenMP test
+target_include_directories(openmp_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/../src
+)
+
+# Add OpenMP test to test suite
+add_test(NAME OpenMPBackendTest COMMAND openmp_test)
+set_tests_properties(OpenMPBackendTest PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
 # CUDA Backend Test (conditional)
 option(BUILD_CUDA_TESTS "Build CUDA backend tests" ON)
 if(BUILD_CUDA_TESTS)

@@ -1,37 +1,44 @@
-[Start Dolphin]
-[PSF_SERVICE] INFO: PSF Generation Service initialized successfully
-[INFO] Registering deconvolution algorithms...
-[INFO] Registered 6 algorithm(s)
-[INFO] Registering backends...
-[INFO] Registered 2 backend(s)
-[DECONV_SERVICE] INFO: Deconvolution Service initialized successfully
-[INFO] Abstract service layer initialized successfully
-[INFO] Deconvolution mode selected
-[INFO] Configuration loaded from: ../configs/default_config.json
-[DECONV_SERVICE] INFO: Starting deconvolution with request: /home/lennart-k-hler/data/dolphin_test_data/bacteria.tif
-[INFO] Read in 46 layers
-[STATUS] Layer 0/45 in 32F converted [STATUS] Layer 1/45 in 32F converted [STATUS] Layer 2/45 in 32F converted [STATUS] Layer 3/45 in 32F converted [STATUS] Layer 4/45 in 32F converted [STATUS] Layer 5/45 in 32F converted [STATUS] Layer 6/45 in 32F converted [STATUS] Layer 7/45 in 32F converted [STATUS] Layer 8/45 in 32F converted [STATUS] Layer 9/45 in 32F converted [STATUS] Layer 10/45 in 32F converted [STATUS] Layer 11/45 in 32F converted [STATUS] Layer 12/45 in 32F converted [STATUS] Layer 13/45 in 32F converted [STATUS] Layer 14/45 in 32F converted [STATUS] Layer 15/45 in 32F converted [STATUS] Layer 16/45 in 32F converted [STATUS] Layer 17/45 in 32F converted [STATUS] Layer 18/45 in 32F converted [STATUS] Layer 19/45 in 32F converted [STATUS] Layer 20/45 in 32F converted [STATUS] Layer 21/45 in 32F converted [STATUS] Layer 22/45 in 32F converted [STATUS] Layer 23/45 in 32F converted [STATUS] Layer 24/45 in 32F converted [STATUS] Layer 25/45 in 32F converted [STATUS] Layer 26/45 in 32F converted [STATUS] Layer 27/45 in 32F converted [STATUS] Layer 28/45 in 32F converted [STATUS] Layer 29/45 in 32F converted [STATUS] Layer 30/45 in 32F converted [STATUS] Layer 31/45 in 32F converted [STATUS] Layer 32/45 in 32F converted [STATUS] Layer 33/45 in 32F converted [STATUS] Layer 34/45 in 32F converted [STATUS] Layer 35/45 in 32F converted [STATUS] Layer 36/45 in 32F converted [STATUS] Layer 37/45 in 32F converted [STATUS] Layer 38/45 in 32F converted [STATUS] Layer 39/45 in 32F converted [STATUS] Layer 40/45 in 32F converted [STATUS] Layer 41/45 in 32F converted [STATUS] Layer 42/45 in 32F converted [STATUS] Layer 43/45 in 32F converted [STATUS] Layer 44/45 in 32F converted [STATUS] Layer 45/45 in 32F converted 0.029595
-[INFO] /home/lennart-k-hler/data/dolphin_test_data/bacteria.tif converted to multichannel
-[INFO] Read in metadata successful
-sizeX: 20
-sizeY: 20
-sizeZ: 40
-NA: 1.2
-resLateral_nm: 200
-resAxial_nm: 200
-ID: ID1234
-qualityFactor: 1
-sigmaX: 10
-sigmaY: 10
-sigmaZ: 10
-nanometerScale: 1e-09
-pixelScaling: 1e-06
-[CONFIGURATION] Richardson-Lucy Total Variation algorithm
-[CONFIGURATION] iterations: 20
-[CONFIGURATION] lambda: 0.015
-[STATUS] Starting deconvolution
-[DEBUG] Successfully created FFTW plans for shape: 256x128x64
-[STATUS] Saving result of channel 
-[STATUS] Deconvolution complete
-[DECONV_SERVICE] INFO: Deconvolution result saved to: /home/lennart-k-hler/data/dolphin_results/deconv_bacteria.tif
-[End Dolphin]
+==200612== Callgrind, a call-graph generating cache profiler
+==200612== Copyright (C) 2002-2017, and GNU GPL'd, by Josef Weidendorfer et al.
+==200612== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==200612== Command: ./dolphin deconvolution -c ../configs/default_config.json
+==200612== Parent PID: 200609
+==200612== 
+==200612== For interactive control, run 'callgrind_control -h'.
+vex amd64->IR: unhandled instruction bytes: 0x62 0xF1 0x7F 0x8 0x7F 0x0 0xC5 0xF9 0xD6 0x40
+vex amd64->IR:   REX=0 REX.W=0 REX.R=0 REX.X=0 REX.B=0
+vex amd64->IR:   VEX=0 VEX.L=0 VEX.nVVVV=0x0 ESC=NONE
+vex amd64->IR:   PFX.66=0 PFX.F2=0 PFX.F3=0
+==200612== valgrind: Unrecognised instruction at address 0x14638f.
+==200612==    at 0x14638F: std::function<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > ()>::function<CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)::{lambda()#1}, void>(CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)::{lambda()#1}&&) (std_function.h:437)
+==200612==    by 0x1334EB: CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) (CLI11.hpp:3625)
+==200612==    by 0x133AEE: CLI::detail::ExistingFileValidator::ExistingFileValidator() (CLI11.hpp:4587)
+==200612==    by 0x12B455: __static_initialization_and_destruction_0() (CLI11.hpp:3780)
+==200612==    by 0x12B7B9: _GLOBAL__sub_I_main (main.cpp:33)
+==200612==    by 0x7B01303: __libc_start_main@@GLIBC_2.34 (libc-start.c:145)
+==200612==    by 0x12A6F4: (below main) (in /home/lennart-k-hler/projects/dolphin/build/dolphin)
+==200612== Your program just tried to execute an instruction that Valgrind
+==200612== did not recognise.  There are two possible reasons for this.
+==200612== 1. Your program has a bug and erroneously jumped to a non-code
+==200612==    location.  If you are running Memcheck and you just saw a
+==200612==    warning about a bad jump, it's probably your program's fault.
+==200612== 2. The instruction is legitimate but Valgrind doesn't handle it,
+==200612==    i.e. it's Valgrind's fault.  If you think this is the case or
+==200612==    you are not sure, please let us know and we'll try to fix it.
+==200612== Either way, Valgrind will now raise a SIGILL signal which will
+==200612== probably kill your program.
+==200612== 
+==200612== Process terminating with default action of signal 4 (SIGILL)
+==200612==  Illegal opcode at address 0x14638F
+==200612==    at 0x14638F: std::function<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > ()>::function<CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)::{lambda()#1}, void>(CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)::{lambda()#1}&&) (std_function.h:437)
+==200612==    by 0x1334EB: CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) (CLI11.hpp:3625)
+==200612==    by 0x133AEE: CLI::detail::ExistingFileValidator::ExistingFileValidator() (CLI11.hpp:4587)
+==200612==    by 0x12B455: __static_initialization_and_destruction_0() (CLI11.hpp:3780)
+==200612==    by 0x12B7B9: _GLOBAL__sub_I_main (main.cpp:33)
+==200612==    by 0x7B01303: __libc_start_main@@GLIBC_2.34 (libc-start.c:145)
+==200612==    by 0x12A6F4: (below main) (in /home/lennart-k-hler/projects/dolphin/build/dolphin)
+==200612== 
+==200612== Events    : Ir
+==200612== Collected : 6791664
+==200612== 
+==200612== I   refs:      6,791,664

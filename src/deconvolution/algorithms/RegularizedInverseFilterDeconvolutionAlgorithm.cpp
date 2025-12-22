@@ -22,19 +22,39 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const Deconvoluti
     lambda = config.lambda;
 }
 
+void RegularizedInverseFilterDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
+    if (!backend) {
+        std::cerr << "[ERROR] No backend available for Regularized Inverse Filter algorithm initialization" << std::endl;
+        return;
+    }
+    
+    // Allocate memory for intermediate arrays
+    H2 = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    L = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    L2 = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    FA = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    FP = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    
+    initialized = true;
+}
+
+bool RegularizedInverseFilterDeconvolutionAlgorithm::isInitialized() const {
+    return initialized;
+}
+
 void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
         std::cerr << "[ERROR] No backend available for Regularized Inverse Filter algorithm" << std::endl;
         return;
     }
+    
+    if (!initialized) {
+        std::cerr << "[ERROR] Regularized Inverse Filter algorithm not initialized. Call init() first." << std::endl;
+        return;
+    }
 
-    // Allocate memory for intermediate arrays
+    // Use pre-allocated memory for intermediate arrays
     assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
-    ComplexData H2 = backend->getMemoryManager().allocateMemoryOnDevice(H.size);
-    ComplexData L = backend->getMemoryManager().allocateMemoryOnDevice(H.size);
-    ComplexData L2 = backend->getMemoryManager().allocateMemoryOnDevice(H.size);
-    ComplexData FA = backend->getMemoryManager().allocateMemoryOnDevice(H.size);
-    ComplexData FP = backend->getMemoryManager().allocateMemoryOnDevice(H.size);
 
     backend->getMemoryManager().memCopy(g, f);
     // Forward FFT on image
@@ -62,6 +82,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlg
     auto copy = std::make_unique<RegularizedInverseFilterDeconvolutionAlgorithm>();
     // Copy all relevant state
     copy->lambda = this->lambda;
+    copy->initialized = false; // Clone needs to be re-initialized
     // Don't copy backend - each thread needs its own
     return copy;
 }

@@ -15,13 +15,30 @@ See the LICENSE file provided with the code for the full license.
 
 
 
-void TestAlgorithm::configure(const DeconvolutionConfig& config){}
-void TestAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
-    
-
-    // backend->getMemoryManager().freeMemoryOnDevice(c); // dont need because it is managed within complexdatas destructor
+void TestAlgorithm::configure(const DeconvolutionConfig& config) {
+    // Test algorithm has no configuration parameters
 }
-std::unique_ptr<DeconvolutionAlgorithm> TestAlgorithm::cloneSpecific() const{return std::make_unique<TestAlgorithm>();}
+
+void TestAlgorithm::init(const RectangleShape& dataSize) {
+    // Test algorithm doesn't need any special initialization or memory allocation
+    initialized = true;
+}
+
+bool TestAlgorithm::isInitialized() const {
+    return initialized;
+}
+
+void TestAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
+    backend->getMemoryManager().memCopy(H, f); 
+    
+    // Test algorithm implementation - placeholder that does nothing
+}
+
+std::unique_ptr<DeconvolutionAlgorithm> TestAlgorithm::cloneSpecific() const {
+    auto copy = std::make_unique<TestAlgorithm>();
+    copy->initialized = false; // Clone needs to be re-initialized
+    return copy;
+}
 
 size_t TestAlgorithm::getMemoryMultiplier() const {
     return 3; // No additional memory allocation + 3 input copies

@@ -13,6 +13,7 @@
 #include "backend/Exceptions.h"
 #include "deconvolution/ImageMap.h"
 #include "HelperClasses.h"
+#include "frontend/SetupConfig.h"
 
 LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
     std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
@@ -33,33 +34,57 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 }
 
 
+void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig){
+    this->labelReader = std::make_unique<TiffReader>(setupConfig.labeledImage);
+ 
+    // Load PSF label map if provided
+    if (!setupConfig.labelPSFMap.empty()) {
+        RangeMap<std::string> labelPSFMap;
+        labelPSFMap.loadFromString(setupConfig.labelPSFMap);
+        this->psfLabelMap = labelPSFMap;
+    }
+}
+
 
 std::function<void()> LabeledDeconvolutionExecutor::createTask(
     const std::unique_ptr<CubeTaskDescriptor>& taskDesc,
     const ImageReader& reader,
     const ImageWriter& writer) {
     
-    LabeledCubeTaskDescriptor* labeledTask = dynamic_cast<LabeledCubeTaskDescriptor*>(taskDesc.get());
+    StandardCubeTaskDescriptor* labeledTask = dynamic_cast<StandardCubeTaskDescriptor*>(taskDesc.get());
     if (!labeledTask) {
         throw std::runtime_error("Expected LabeledCubeTaskDescriptor but got different type");
     }
 
     return [this, task = *labeledTask, &reader, &writer]() {
-        // TODO: Implement task logic using reader and writer
-        // The previous implementation used inputImagePadded and outputImage directly
-        // This will need to be updated to use the reader and writer interfaces
+
         RectangleShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
         PaddedImage cubeImage = reader.getSubimage(task.paddedBox);
+        PaddedImage labelImage = labelReader->getSubimage(task.paddedBox);
 
-        Image3D tempCubeOutput = cubeImage.image;
+
+
         
         std::shared_ptr<IBackend> iobackend = task.backend->onNewThread(task.backend);
         ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage.image, workShape);
         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
         cpuMemoryManager->freeMemoryOnDevice(g_host);
-    
 
-        for (const Label& labelgroup : task.labels){
+        // TODO is this async?
+        std::vector<Label> tasklabels = getLabelGroups(
+            task.channelNumber,
+            BoxCoord{RectangleShape(0,0,0), workShape},
+            task.psfs,
+            labelImage.image,
+            psfLabelMap
+        );
+
+
+        std::vector<ImageMaskPair> tempResults;
+        tempResults.reserve(tasklabels.size());
+        Image3D result = cubeImage.image;
+
+        for (const Label& labelgroup : tasklabels){
             std::vector<std::shared_ptr<PSF>> psfs = labelgroup.getPSFs();
             
             if (psfs.size() != 0){
@@ -88,16 +113,40 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
                 PaddedImage resultCube;
                 resultCube.padding = task.paddedBox.padding;
                 resultCube.image = convertFFTWComplexToCVMatVector(f_host);
-                Postprocessor::insertLabeledCubeInImage(
-                    resultCube,
-                    tempCubeOutput,
-                    BoxCoord{task.paddedBox.padding.before,
-                        task.paddedBox.box.dimensions},
-                    task.paddedBox.box,
-                    labelgroup);
-                }
+
+
+                ImageMaskPair pair{resultCube.image, labelgroup.getMask(labelImage.image)};
+                
+                
+                
+                
+                tempResults.push_back(pair);
+            }
+
+
         }
-        writer.setSubimage(tempCubeOutput, task.paddedBox);
+        int radius = 1;
+        float epsilon = 5;
+        
+        if (tempResults.size() > 1){
+
+
+            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/test.tif", tempResults[0].image, reader.getMetaData());
+            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/test2.tif", tempResults[1].image, reader.getMetaData());
+
+  
+            result = Postprocessor::addFeathering(tempResults, radius, epsilon);
+            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/test2.tif", result, reader.getMetaData());
+
+        }
+        else if (tempResults.size() == 1){
+            result = tempResults[0].image;
+        }
+
+        writer.setSubimage(result, task.paddedBox);
+
+        // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/test2.tif", result, reader.getMetaData());
+
         iobackend->releaseBackend();
         loadingBar.addOne();
     };
@@ -106,3 +155,88 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
 
 
 
+std::vector<Label> LabeledDeconvolutionExecutor::getLabelGroups(
+        int channelNumber,
+		const BoxCoord& roi,
+		const std::vector<std::shared_ptr<PSF>>& psfs,
+		const Image3D& image,
+		RangeMap<std::string> psfLabelMap) {
+    std::vector<Label> labelGroups;
+
+
+    // Image3D* labelChannel = &labelImage->channels[channelNumber].image;
+    
+
+    // Track which label ranges we've already added to avoid duplicates
+    std::set<std::pair<int, int>> addedRanges;
+    
+    std::set<int> uniqueLabels;
+    
+
+    int endZ = std::min(roi.position.depth + roi.dimensions.depth, static_cast<int>(image.slices.size()));
+
+    for (int z = roi.position.depth; z < endZ; ++z) {
+        if (z >= 0 && z < static_cast<int>(image.slices.size())) {
+            const cv::Mat& slice = image.slices[z];
+            cv::Rect sliceRoi(roi.position.width, roi.position.height, roi.dimensions.width, roi.dimensions.height);
+            sliceRoi &= cv::Rect(0, 0, slice.cols, slice.rows);
+
+            if (!sliceRoi.empty()) {
+                cv::Mat roiSlice = slice(sliceRoi);
+               
+                cv::Mat convertedRoi;
+                roiSlice.convertTo(convertedRoi, CV_32S);
+                //TODO for different cv mat types
+                for (int y = 0; y < convertedRoi.rows; ++y) {
+                    for (int x = 0; x < convertedRoi.cols; ++x) {
+                        int labelValue = convertedRoi.at<int>(y, x);
+                        uniqueLabels.insert(labelValue);
+                    }
+                }
+            }
+        }
+    }
+
+    for (int label : uniqueLabels) {
+        std::vector<Range<std::string>> psfids = psfLabelMap.get(label);
+        if(psfids.size() > 1){
+
+            // TODO if overlap, then create new range of that overlap with the combined psfs, should they ever overlap?
+            throw std::runtime_error("PSF Maps cant overlap");
+        }
+        if (psfids.size() != 0){
+            // Create a unique key for this label range
+            std::pair<int, int> rangeKey = {psfids[0].start, psfids[0].end};
+            
+            // Only add if we haven't already added this range
+            if (addedRanges.find(rangeKey) == addedRanges.end()) {
+                Label labelgroup;
+                int start = psfids[0].start;
+                int end = psfids[0].end;
+                end = end ? start == end : end - 1; // because in rangemap the end is exclusive while in range its inclusive;
+                labelgroup.setRange(Range<std::shared_ptr<PSF>>(psfids[0].start, psfids[0].end, getPSFForLabel(psfids[0], psfs)));
+                labelGroups.push_back(labelgroup);
+                addedRanges.insert(rangeKey);
+            }
+        }
+        
+    }
+
+    return labelGroups;
+}
+std::vector<std::shared_ptr<PSF>> LabeledDeconvolutionExecutor::getPSFForLabel(Range<std::string>& psfids, const std::vector<std::shared_ptr<PSF>>& psfs) {
+    std::vector<std::shared_ptr<PSF>> assignedpsfs;
+
+    for (const auto& psfid : psfids.get()) {
+        for (const auto& psf : psfs) {
+            if (psf->ID == psfid) {
+                assignedpsfs.push_back(psf);
+            }
+        }
+    }
+    if (assignedpsfs.size() == 0){
+        std::cout << "Cant find a PSF for the desired Label, please check your input" <<std::endl;
+    }
+    
+    return assignedpsfs;
+}

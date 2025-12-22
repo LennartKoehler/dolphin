@@ -51,6 +51,11 @@ private:
     int getStripIndex(const BoxCoordWithPadding& coord) const;
     void processReadyToWriteQueue() const;
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
-    bool writeImageToTiff(const cv::Mat& image, int directoryIndex, int yOffset) const;
+    bool writeMatToTiff(const cv::Mat& image, int directoryIndex, int yOffset) const;
+    
+    // Helper functions for type conversion
+    static int getTargetCvType(const ImageMetaData& metadata);
+    static void convertImageToTargetType(const cv::Mat& source, cv::Mat& destination, 
+                                        int sourceCvType, int targetCvType);
 
 };

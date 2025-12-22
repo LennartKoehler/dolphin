@@ -20,8 +20,22 @@ See the LICENSE file provided with the code for the full license.
 void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
     iterations = config.iterations;
+}
 
+void RLDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
+    if (!backend) {
+        std::cerr << "[ERROR] No backend available for Richardson-Lucy algorithm initialization" << std::endl;
+        return;
+    }
+    
+    // Allocate memory for intermediate arrays
+    c = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    
+    initialized = true;
+}
 
+bool RLDeconvolutionAlgorithm::isInitialized() const {
+    return initialized;
 }
 
 void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
@@ -29,10 +43,14 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, 
         std::cerr << "[ERROR] No backend available for Richardson-Lucy algorithm" << std::endl;
         return;
     }
+    
+    if (!initialized) {
+        std::cerr << "[ERROR] Richardson-Lucy algorithm not initialized. Call init() first." << std::endl;
+        return;
+    }
 
-    // Allocate memory for intermediate arrays
+    // Use pre-allocated memory for intermediate arrays
     assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
-    ComplexData c = backend->getMemoryManager().allocateMemoryOnDevice(g.size);
     backend->getMemoryManager().memCopy(g, f);
 
     for (int n = 0; n < iterations; ++n) {
@@ -78,6 +96,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLDeconvolutionAlgorithm::cloneSpecific(
     auto copy = std::make_unique<RLDeconvolutionAlgorithm>();
     // Copy all relevant state
     copy->iterations = this->iterations;
+    copy->initialized = false; // Clone needs to be re-initialized
     // Don't copy backend - each thread needs its own
     return copy;
 }

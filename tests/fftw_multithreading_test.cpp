@@ -40,7 +40,7 @@ void generateRandomData(std::vector<std::complex<float>>& data, size_t size) {
 }
 
 // FFTW 3D FFT with configurable thread count
-void runFFTWMultithread(const std::vector<std::complex<float>>& input,
+double runFFTWMultithread(const std::vector<std::complex<float>>& input,
                        std::vector<std::complex<float>>& output,
                        int dim_x, int dim_y, int dim_z,
                        int num_iterations, int num_threads) {
@@ -48,7 +48,7 @@ void runFFTWMultithread(const std::vector<std::complex<float>>& input,
     // Initialize FFTW threading
     if (fftwf_init_threads() == 0) {
         std::cerr << "Failed to initialize FFTW threads!" << std::endl;
-        return;
+        return 0;
     }
     
     // Set the number of threads for FFTW
@@ -98,6 +98,7 @@ void runFFTWMultithread(const std::vector<std::complex<float>>& input,
     std::cout << "  Total time: " << duration.count() << " microseconds" << std::endl;
     std::cout << "  Average time per iteration: " << avg_time << " microseconds" << std::endl;
     std::cout << "  Throughput: " << (1e6 / avg_time) << " FFTs/second" << std::endl;
+    return static_cast<double>(duration.count());
 }
 
 // Test scaling efficiency
@@ -109,7 +110,7 @@ void testScalingEfficiency(const std::vector<std::complex<float>>& input,
     
     // Test with different thread counts
     std::vector<int> thread_counts = {1, 2, 4, 8};
-    thread_counts = std::vector<int>{12};
+    // thread_counts = std::vector<int>{12};
 
     
     // Limit to available cores
@@ -130,11 +131,11 @@ void testScalingEfficiency(const std::vector<std::complex<float>>& input,
         std::cout << "\nTesting with " << threads << " thread(s):" << std::endl;
         
         auto start = std::chrono::high_resolution_clock::now();
-        runFFTWMultithread(input, result, dim_x, dim_y, dim_z, num_iterations, threads);
+        double duration = runFFTWMultithread(input, result, dim_x, dim_y, dim_z, num_iterations, threads);
         auto end = std::chrono::high_resolution_clock::now();
         
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-        execution_times.push_back(static_cast<double>(duration.count()) / num_iterations);
+        // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        execution_times.push_back(duration / num_iterations);
     }
     
     // Calculate and display scaling metrics
@@ -193,9 +194,9 @@ int main() {
     
     // Test configurations
     std::vector<std::tuple<int, int, int>> test_sizes = {
-        {64, 64, 64}//,     // Medium 3D FFT
-        // {128, 128, 128},  // Large 3D FFT
-        // {256, 256, 128}   // Very large 3D FFT
+        // {64, 64, 64},     // Medium 3D FFT
+        {128, 128, 128},  // Large 3D FFT
+        {256, 256, 256}   // Very large 3D FFT
     };
     
     int num_iterations = 50;
@@ -224,7 +225,7 @@ int main() {
         
         // Test memory bandwidth with optimal thread count
         int optimal_threads = std::min(8, static_cast<int>(std::thread::hardware_concurrency()));
-        testMemoryBandwidth(dim_x, dim_y, dim_z, optimal_threads);
+        // testMemoryBandwidth(dim_x, dim_y, dim_z, optimal_threads);
     }
     
     // Cleanup FFTW threading

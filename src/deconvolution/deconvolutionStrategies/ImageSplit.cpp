@@ -18,9 +18,8 @@ std::vector<BoxCoordWithPadding> splitImageHomogeneous(
     cubePositions.reserve(totalCubes);
 
     for (int d = 0; d < cubesInDepth; ++d) {
-        for (int w = 0; w < cubesInWidth; ++w) {
-            for (int h = 0; h < cubesInHeight; ++h) {
-                
+        for (int h = 0; h < cubesInHeight; ++h) {
+            for (int w = 0; w < cubesInWidth; ++w) {                
                 // Calculate current position in original image coordinates
                 RectangleShape currentPos(
                     w * subimageShape.width,

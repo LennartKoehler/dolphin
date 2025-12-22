@@ -4,11 +4,19 @@ project(Deconvtool)
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -fopenmp -march=native")
-set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+
+# Set build type to Release by default for performance
+# if(NOT CMAKE_BUILD_TYPE)
+#     set(CMAKE_BUILD_TYPE Release)
+# endif()
+
+# Optimization flags for different build types
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -march=native")
+# set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma")
+# set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
+# set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma")
 # Include directories and libraries for FFTW, OpenCV, OpenMP, and TIFF
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
 include_directories(/usr/local/include)
@@ -16,9 +24,10 @@ include_directories(/usr/local/include)
 find_package(OpenCV REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(TIFF REQUIRED)
+find_package(ITK REQUIRED)
 
 
-# # Compiler flags for Valgrind-safe build
+# Compiler flags for Valgrind-safe build
 # if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 #     add_compile_options(
 #         -O0             # Disable optimizations
@@ -97,6 +106,7 @@ include_directories(
     ${OpenCV_INCLUDE_DIRS}
     ${TIFF_INCLUDE_DIR}
     ${CMAKE_SOURCE_DIR}/include
+    ${ITK_USE_FILE}
 )
 # ------------------------------------------------------------
 # Collect sources
@@ -115,7 +125,6 @@ set(COMMON_SOURCES
     src/DeconvolutionService.cpp
     src/DeconvolutionStrategyFactory.cpp
     src/ThreadPool.cpp
-    # src/backend/ComplexData.cpp
     src/backend/BackendFactory.cpp
     
     src/hyperstack/HyperstackImage.cpp
@@ -156,7 +165,6 @@ set(COMMON_SOURCES
     src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/TestAlgorithm.cpp
     
-    # src/utilities/UtlFFT.cpp
     src/utilities/UtlGrid.cpp
     src/utilities/UtlImage.cpp
     src/utilities/UtlIO.cpp
@@ -188,6 +196,7 @@ target_link_libraries(dolphinlib
         ${OpenCV_LIBS}
         ${TIFF_LIBRARIES}
         OpenMP::OpenMP_CXX
+        ${ITK_LIBRARIES}
 
 )
 
@@ -210,6 +219,7 @@ target_link_libraries(dolphin
         stdc++fs)
 
 add_subdirectory(backends/cpu)
+add_subdirectory(backends/openmp)
 
 # ------------------------------------------------------------
 # GPU executable (only if CUDA found)

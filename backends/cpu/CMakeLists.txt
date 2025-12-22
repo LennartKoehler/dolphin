@@ -5,7 +5,12 @@ project(CPUBackend)
 
 # CPU backend is always a shared library (plugin)
 add_library(cpu_backend SHARED CPUBackend.cpp)
-
+target_compile_options(cpu_backend PRIVATE
+    -O3
+    -march=native
+    -fopt-info-vec-optimized
+    -g -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma
+)
 # Include the main project headers
 target_include_directories(cpu_backend PUBLIC
     ${CMAKE_SOURCE_DIR}/src

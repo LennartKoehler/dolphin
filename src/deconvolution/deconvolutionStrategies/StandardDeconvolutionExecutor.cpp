@@ -1,4 +1,5 @@
 #include "deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h"
+#include "frontend/SetupConfig.h"
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <stdexcept>
 #include "UtlImage.h"
@@ -57,14 +58,25 @@ void StandardDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfi
         workerThreads = static_cast<int>(numberThreads * 0.75);
         ioThreads = workerThreads + 2 ;
     }
+    else if (config->backenddeconv == "openmp"){
+
+        workerThreads = 1; //TESTVALUE for openmp 
+        ioThreads = workerThreads + 2;
+        
+    }
     else{
-        workerThreads = numberThreads;
+        workerThreads = 2;
         ioThreads = workerThreads + 2;
     }
     
     readwriterPool = std::make_shared<ThreadPool>(ioThreads);
     processor.init(workerThreads);
     configured = true;
+}
+
+void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig) {
+    // Base implementation - does not need specific setup config handling
+    // Derived classes can override this for specialized configuration
 }
 
 std::function<void()> StandardDeconvolutionExecutor::createTask(
@@ -111,7 +123,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
         catch (...) {
             throw; // dont overwrite image if exception
         }
-        
+        // std::cout << iobackend->getMemoryManager().getAllocatedMemory() << std::endl; 
         cubeImage.image = convertFFTWComplexToCVMatVector(f_host);
 
         writer.setSubimage(cubeImage.image, task.paddedBox);

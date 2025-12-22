@@ -35,7 +35,8 @@ public:
     ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const override; // for cpu these are copy operations
     void freeMemoryOnDevice(ComplexData& data) const override;
     size_t getAvailableMemory() const override;
-  
+    size_t getAllocatedMemory() const override;
+
 
 private:
     // Memory management
@@ -43,9 +44,9 @@ private:
     
     // Helper method to wait for memory availability
     void waitForMemory(size_t requiredSize) const;
-    
-    // Static method to get memory tracking instance
+          // Static method to get memory tracking instance
     static MemoryTracking& getMemoryTracking() { return memory; }
+
 };
 
 class CPUDeconvolutionBackend : public IDeconvolutionBackend{

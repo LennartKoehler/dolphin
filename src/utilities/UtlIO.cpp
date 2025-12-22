@@ -121,6 +121,20 @@ bool UtlIO::extractData(TIFF* &tifOriginalFile, std::string &name, std::string &
             std::cout << "[INFO] No image description" << std::endl;
         }
 
+        // If slices not found in description, calculate from total images and channels
+        if (slices == 0) {
+            int totalDirectories = countTiffDirectories(tifOriginalFile);
+            
+            if (linChannels > 0) {
+                slices = totalDirectories / linChannels;
+                std::cout << "[INFO] Calculated slices from total directories: " << slices 
+                         << " (total dirs: " << totalDirectories << ", channels: " << linChannels << ")" << std::endl;
+            } else {
+                slices = totalDirectories;
+                std::cout << "[INFO] Using total directories as slices: " << slices << std::endl;
+            }
+        }
+
         // Lese TIFF-Tags, wie im früheren Beispiel
         int tempWidth, tempLength, tempResUnit, tempspp, temppi, tempbps, tempfc, temppc;
         float tempXRes, tempYRes;
@@ -157,6 +171,11 @@ void UtlIO::createImage3D(std::vector<Channel> &channels, Image3D &imageLayers, 
         int c = 0;
         int z = 0;
         int multichannel_z = ((totalImages + 1) / linChannels);
+        
+        // Calculate slices per channel
+        int slicesPerChannel = layers.size() / linChannels;
+        std::cout << "[INFO] Calculated " << slicesPerChannel << " slices per channel" << std::endl;
+        
         bool success = false;
         for(auto& singleLayer : layers){
             channelData[c].push_back(singleLayer);
@@ -203,4 +222,15 @@ std::string UtlIO::getFilename(const std::string& path) {
         return path; // No directory separator found, return whole string
     }
     return path.substr(pos + 1);
+}
+
+int UtlIO::countTiffDirectories(TIFF* tif) {
+    int count = 0;
+    do {
+        count++;
+    } while (TIFFReadDirectory(tif));
+    
+    // Reset to first directory
+    TIFFSetDirectory(tif, 0);
+    return count;
 }

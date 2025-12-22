@@ -15,6 +15,8 @@
 #include "../../backend/IBackend.h"
 #include "../../backend/IBackendMemoryManager.h"
 
+class SetupConfig;
+
 class StandardDeconvolutionExecutor : public IDeconvolutionExecutor {
 public:
     StandardDeconvolutionExecutor();
@@ -23,6 +25,7 @@ public:
     // IDeconvolutionExecutor interface
     virtual void execute(const ChannelPlan& plan, const ImageReader& reader, const ImageWriter& writer) override;
     virtual void configure(std::unique_ptr<DeconvolutionConfig> config) override;
+    virtual void configure(const SetupConfig& setupConfig);
 
 protected:
     // Helper methods for execution

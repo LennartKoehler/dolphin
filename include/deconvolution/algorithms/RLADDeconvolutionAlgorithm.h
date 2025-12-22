@@ -6,8 +6,13 @@
 
 class RLADDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
 public:
-    void deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) override;
+    RLADDeconvolutionAlgorithm() = default;
+    virtual ~RLADDeconvolutionAlgorithm() = default;
+
     void configure(const DeconvolutionConfig& config) override;
+    void init(const RectangleShape& dataSize) override;
+    bool isInitialized() const override;
+    void deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) override;
     size_t getMemoryMultiplier() const override;
 
 private:
@@ -16,4 +21,8 @@ private:
     int dampingDecrease; //0=exp, 1=lin
     double alpha;
     double beta;
+    bool initialized = false;
+    
+    // Algorithm-specific data members for intermediate calculations
+    ComplexData c;
 };

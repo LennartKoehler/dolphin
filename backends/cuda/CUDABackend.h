@@ -37,6 +37,7 @@ public:
     ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const override; // for gpu these are copy operations
     void freeMemoryOnDevice(ComplexData& data) const override;
     size_t getAvailableMemory() const override;
+    size_t getAllocatedMemory() const override;
 private:
 
     static MemoryTracking memory; 

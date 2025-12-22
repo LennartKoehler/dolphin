@@ -20,9 +20,29 @@ void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& c
     epsilon = config.epsilon;  // Assuming epsilon is in the config
 }
 
+void InverseFilterDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
+    if (!backend) {
+        std::cerr << "[ERROR] No backend available for Inverse Filter algorithm initialization" << std::endl;
+        return;
+    }
+    
+    // No additional memory allocations needed for this simple algorithm
+    // All operations are done in-place or using temporary variables from the backend
+    initialized = true;
+}
+
+bool InverseFilterDeconvolutionAlgorithm::isInitialized() const {
+    return initialized;
+}
+
 void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
         std::cerr << "[ERROR] No backend available for Inverse Filter algorithm" << std::endl;
+        return;
+    }
+    
+    if (!initialized) {
+        std::cerr << "[ERROR] Inverse Filter algorithm not initialized. Call init() first." << std::endl;
         return;
     }
 
@@ -52,6 +72,7 @@ std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::clo
     auto copy = std::make_unique<InverseFilterDeconvolutionAlgorithm>();
     // Copy all relevant state
     copy->epsilon = this->epsilon;
+    copy->initialized = false; // Clone needs to be re-initialized
     // Don't copy backend - each thread needs its own
     return copy;
 }
