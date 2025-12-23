@@ -105,28 +105,35 @@ if (FFTW_INCLUDE_DIR AND FFTW_LIBRARY AND FFTW_THREADS_LIBRARY)
     add_executable(fftw_multithreading_test
         fftw_multithreading_test.cpp
     )
-    target_compile_options(fftw_multithreading_test PRIVATE -DLIKWID_PERFMON)
     
     # Set C++ standard and compiler flags
     set_property(TARGET fftw_multithreading_test PROPERTY CXX_STANDARD 17)
     target_compile_options(fftw_multithreading_test PRIVATE ${OpenMP_CXX_FLAGS})
     
-    # Link libraries for multithreading test
+    # Base libraries for multithreading test
     target_link_libraries(fftw_multithreading_test
         PRIVATE
             ${FFTW_LIBRARY}
             ${FFTW_THREADS_LIBRARY}
-            ${LIKWID_LIBRARY}
             OpenMP::OpenMP_CXX
             pthread
     )
     
-    # Include directories for multithreading test
+    # Base include directories for multithreading test
     target_include_directories(fftw_multithreading_test
         PRIVATE
-            ${LIKWID_INCLUDE_DIR}
             ${FFTW_INCLUDE_DIR}
     )
+    
+    # Add LIKWID support if available
+    if (LIKWID_LIBRARY AND LIKWID_INCLUDE_DIR)
+        target_compile_options(fftw_multithreading_test PRIVATE -DLIKWID_PERFMON)
+        target_link_libraries(fftw_multithreading_test PRIVATE ${LIKWID_LIBRARY})
+        target_include_directories(fftw_multithreading_test PRIVATE ${LIKWID_INCLUDE_DIR})
+        message(STATUS "LIKWID support enabled for fftw_multithreading_test")
+    else()
+        message(STATUS "LIKWID not found - building fftw_multithreading_test without LIKWID support")
+    endif()
     
     # Add multithreading test to test suite
     add_test(NAME FFTWMultithreadingTest COMMAND fftw_multithreading_test)
@@ -136,28 +143,35 @@ if (FFTW_INCLUDE_DIR AND FFTW_LIBRARY AND FFTW_THREADS_LIBRARY)
     add_executable(fftw_size_decomposition_test
         fftw_size_decomposition_test.cpp
     )
-    target_compile_options(fftw_size_decomposition_test PRIVATE -DLIKWID_PERFMON)
     
     # Set C++ standard and compiler flags
     set_property(TARGET fftw_size_decomposition_test PROPERTY CXX_STANDARD 17)
     target_compile_options(fftw_size_decomposition_test PRIVATE ${OpenMP_CXX_FLAGS})
     
-    # Link libraries for size decomposition test
+    # Base libraries for size decomposition test
     target_link_libraries(fftw_size_decomposition_test
         PRIVATE
             ${FFTW_LIBRARY}
             ${FFTW_THREADS_LIBRARY}
-            ${LIKWID_LIBRARY}
             OpenMP::OpenMP_CXX
             pthread
     )
     
-    # Include directories for size decomposition test
+    # Base include directories for size decomposition test
     target_include_directories(fftw_size_decomposition_test
         PRIVATE
-            ${LIKWID_INCLUDE_DIR}
             ${FFTW_INCLUDE_DIR}
     )
+    
+    # Add LIKWID support if available
+    if (LIKWID_LIBRARY AND LIKWID_INCLUDE_DIR)
+        target_compile_options(fftw_size_decomposition_test PRIVATE -DLIKWID_PERFMON)
+        target_link_libraries(fftw_size_decomposition_test PRIVATE ${LIKWID_LIBRARY})
+        target_include_directories(fftw_size_decomposition_test PRIVATE ${LIKWID_INCLUDE_DIR})
+        message(STATUS "LIKWID support enabled for fftw_size_decomposition_test")
+    else()
+        message(STATUS "LIKWID not found - building fftw_size_decomposition_test without LIKWID support")
+    endif()
     
     # Add size decomposition test to test suite
     add_test(NAME FFTWSizeDecompositionTest COMMAND fftw_size_decomposition_test)
@@ -167,6 +181,12 @@ if (FFTW_INCLUDE_DIR AND FFTW_LIBRARY AND FFTW_THREADS_LIBRARY)
     message(STATUS "FFTW size decomposition test will be built")
     message(STATUS "FFTW library: ${FFTW_LIBRARY}")
     message(STATUS "FFTW threads library: ${FFTW_THREADS_LIBRARY}")
+    if (LIKWID_LIBRARY AND LIKWID_INCLUDE_DIR)
+        message(STATUS "LIKWID library: ${LIKWID_LIBRARY}")
+        message(STATUS "LIKWID include dir: ${LIKWID_INCLUDE_DIR}")
+    else()
+        message(STATUS "LIKWID library not found - tests will be built without LIKWID support")
+    endif()
 else()
     message(STATUS "FFTW libraries not found - FFTW tests will not be built")
     message(STATUS "FFTW include dir: ${FFTW_INCLUDE_DIR}")
