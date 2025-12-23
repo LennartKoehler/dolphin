@@ -16,11 +16,7 @@ add_executable(dolphin_tests
 # Link libraries to tests
 target_link_libraries(dolphin_tests
     PRIVATE
-        dolphinlib
-        backendlib
-        pthread
-        gomp
-        stdc++fs
+        dolphin 
 )
 
 # Include directories for tests
@@ -41,15 +37,14 @@ add_executable(feathering_test
 
 target_link_libraries(feathering_test
     PRIVATE
-        dolphinlib
-        ${ITK_LIBRARIES}
+        dolphin
         )
 
 # Add ITK include directories and configuration
-target_include_directories(feathering_test
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-)
+# target_include_directories(feathering_test
+#     PRIVATE
+#         ${CMAKE_SOURCE_DIR}/include
+# )
 
 add_test(NAME FeatheringTest COMMAND feathering_test)
 
@@ -62,11 +57,7 @@ add_executable(tiff_generation_test
 # Link libraries to TIFF generation test
 target_link_libraries(tiff_generation_test
     PRIVATE
-        dolphinlib
-        backendlib
-        pthread
-        gomp
-        stdc++fs
+        dolphin
 )
 
 # Include directories for TIFF generation test
@@ -106,7 +97,7 @@ find_library(LIKWID_LIBRARY
     PATHS /usr/lib /usr/local/lib /opt/local/lib /usr/lib/x86_64-linux-gnu
 )
 find_path(LIKWID_INCLUDE_DIR
-    NAMES likwid
+    NAMES likwid.h
     PATHS /usr/include /usr/local/include /opt/local/include
 )
 

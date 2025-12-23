@@ -12,11 +12,7 @@ add_executable(cpu_test
 # Link libraries to CPU test
 target_link_libraries(cpu_test
     PRIVATE
-        dolphinlib
-        backendlib
-        pthread
-        gomp
-        stdc++fs
+        dolphin
 )
 
 # Include directories for CPU test
@@ -38,11 +34,7 @@ add_executable(openmp_test
 # Link libraries to OpenMP test
 target_link_libraries(openmp_test
     PRIVATE
-        dolphinlib
-        backendlib
-        pthread
-        gomp
-        stdc++fs
+        dolphin
 )
 
 # Include directories for OpenMP test
@@ -69,11 +61,7 @@ if(BUILD_CUDA_TESTS)
         # Link libraries to CUDA test
         target_link_libraries(cuda_test
             PRIVATE
-                dolphinlib
-                backendlib
-                pthread
-                gomp
-                stdc++fs
+                dolphin
         )
         
         # Include directories for CUDA test
@@ -102,11 +90,7 @@ add_executable(fft_performance_test
 # Link libraries to FFT performance test
 target_link_libraries(fft_performance_test
     PRIVATE
-        dolphinlib
-        backendlib
-        pthread
-        gomp
-        stdc++fs
+        dolphin
 )
 
 # Include directories for FFT performance test

@@ -12,7 +12,6 @@
 #include "deconvolution/Postprocessor.h"
 #include "backend/BackendFactory.h"
 #include "backend/Exceptions.h"
-#include "deconvolution/ImageMap.h"
 #include "HelperClasses.h"
 
 StandardDeconvolutionExecutor::StandardDeconvolutionExecutor(){
@@ -84,12 +83,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
     const ImageReader& reader,
     const ImageWriter& writer) {
     
-    StandardCubeTaskDescriptor* standardTask = dynamic_cast<StandardCubeTaskDescriptor*>(taskDesc.get());
-    if (!standardTask) {
-        throw std::runtime_error("Expected StandardCubeTaskDescriptor but got different type");
-    }
-
-    return [this, task = *standardTask, &reader, &writer]() {
+    return [this, task = *taskDesc, &reader, &writer]() {
 
         RectangleShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 

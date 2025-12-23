@@ -14,7 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include <array>
 #include <algorithm>
-#include "HelperClasses.h"
+#include "RectangleShape.h"
 
 class IBackendMemoryManager;
 typedef double complex[2];
