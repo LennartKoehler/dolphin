@@ -3,6 +3,7 @@
 #include <iostream>
 #include <memory>
 #include <chrono>
+#include <cstring>
 
 void testOpenMPBackendInitialization() {
     std::cout << "=== Testing OpenMP Backend Initialization ===" << std::endl;

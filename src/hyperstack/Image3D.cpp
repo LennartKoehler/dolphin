@@ -25,7 +25,8 @@ float Image3D::getPixel(int x, int y, int z) {
 }
 
 RectangleShape Image3D::getShape()const {
-    return RectangleShape{this->slices[0].cols, this->slices[0].rows, this->slices.size()};
+    int depth = static_cast<int>(this->slices.size());
+    return RectangleShape{this->slices[0].cols, this->slices[0].rows, depth};
 }
 
 bool Image3D::showSlice(int z) {

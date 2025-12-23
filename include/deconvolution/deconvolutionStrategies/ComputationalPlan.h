@@ -1,6 +1,5 @@
 #pragma once
 #include <vector>
-#include "deconvolution/ImageMap.h"
 #include "deconvolution/DeconvolutionConfig.h"
 #include "psf/PSF.h"
 #include "Image3D.h"
@@ -60,19 +59,10 @@ struct CubeTaskDescriptor {
     std::shared_ptr<IBackend> backend;
     std::shared_ptr<DeconvolutionAlgorithm> algorithm;
     size_t estimatedMemoryUsage;
-    virtual std::string getType() const = 0;
-};
-
-struct StandardCubeTaskDescriptor : public CubeTaskDescriptor{
     std::vector<std::shared_ptr<PSF>> psfs;
-    std::string getType() const override {return "standard";}
 };
 
-struct LabeledCubeTaskDescriptor : public CubeTaskDescriptor{
-    std::vector<Label> labels;
-    std::string getType() const override {return "labeled";}
 
-};
 
 struct ChannelPlan {
     ExecutionStrategy executionStrategy;

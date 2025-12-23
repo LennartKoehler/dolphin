@@ -1,0 +1,14 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Find the dependencies that dolphin needs
+find_dependency(OpenCV REQUIRED)
+find_dependency(OpenMP REQUIRED)
+find_dependency(TIFF REQUIRED)
+find_dependency(ITK REQUIRED)
+
+# Include the targets file
+include("${CMAKE_CURRENT_LIST_DIR}/dolphinTargets.cmake")
+
+check_required_components(dolphin)

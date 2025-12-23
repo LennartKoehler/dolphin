@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <string>
+#include <opencv2/core/mat.hpp>
 #include "HelperClasses.h"
 #include "Config.h"
 

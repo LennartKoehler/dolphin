@@ -9,6 +9,7 @@ add_library(cuda_backend SHARED
 
 target_include_directories(cuda_backend PUBLIC
     ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/lib/cube/include  # Add CUBE's include directory
 
 )

@@ -11,7 +11,6 @@
 #include "deconvolution/Preprocessor.h"
 #include "backend/BackendFactory.h"
 #include "backend/Exceptions.h"
-#include "deconvolution/ImageMap.h"
 #include "HelperClasses.h"
 #include "frontend/SetupConfig.h"
 
@@ -51,26 +50,18 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
     const ImageReader& reader,
     const ImageWriter& writer) {
     
-    StandardCubeTaskDescriptor* labeledTask = dynamic_cast<StandardCubeTaskDescriptor*>(taskDesc.get());
-    if (!labeledTask) {
-        throw std::runtime_error("Expected LabeledCubeTaskDescriptor but got different type");
-    }
-
-    return [this, task = *labeledTask, &reader, &writer]() {
+    return [this, task = *taskDesc, &reader, &writer]() {
 
         RectangleShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
         PaddedImage cubeImage = reader.getSubimage(task.paddedBox);
         PaddedImage labelImage = labelReader->getSubimage(task.paddedBox);
-
-
-
         
         std::shared_ptr<IBackend> iobackend = task.backend->onNewThread(task.backend);
         ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage.image, workShape);
         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
         cpuMemoryManager->freeMemoryOnDevice(g_host);
 
-        // TODO is this async?
+        // TODO is this async safe?
         std::vector<Label> tasklabels = getLabelGroups(
             task.channelNumber,
             BoxCoord{RectangleShape(0,0,0), workShape},
@@ -78,7 +69,6 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
             labelImage.image,
             psfLabelMap
         );
-
 
         std::vector<ImageMaskPair> tempResults;
         tempResults.reserve(tasklabels.size());
@@ -114,12 +104,7 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
                 resultCube.padding = task.paddedBox.padding;
                 resultCube.image = convertFFTWComplexToCVMatVector(f_host);
 
-
                 ImageMaskPair pair{resultCube.image, labelgroup.getMask(labelImage.image)};
-                
-                
-                
-                
                 tempResults.push_back(pair);
             }
 
@@ -129,24 +114,13 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
         float epsilon = 5;
         
         if (tempResults.size() > 1){
-
-
-            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/test.tif", tempResults[0].image, reader.getMetaData());
-            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/test2.tif", tempResults[1].image, reader.getMetaData());
-
-  
             result = Postprocessor::addFeathering(tempResults, radius, epsilon);
-            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/test2.tif", result, reader.getMetaData());
-
         }
         else if (tempResults.size() == 1){
             result = tempResults[0].image;
         }
 
         writer.setSubimage(result, task.paddedBox);
-
-        // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/test2.tif", result, reader.getMetaData());
-
         iobackend->releaseBackend();
         loadingBar.addOne();
     };

@@ -11,7 +11,6 @@
 #include "deconvolution/Postprocessor.h"
 #include "backend/BackendFactory.h"
 #include "backend/Exceptions.h"
-#include "deconvolution/ImageMap.h"
 #include "HelperClasses.h"
 #include "frontend/SetupConfig.h"
 
@@ -42,7 +41,7 @@ ChannelPlan StandardDeconvolutionStrategy::createPlan(
     tasks.reserve(cubeCoordinatesWithPadding.size());
     
     for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
-        StandardCubeTaskDescriptor descriptor;
+        CubeTaskDescriptor descriptor;
         descriptor.algorithm = algorithm;
         descriptor.backend = backend;
         descriptor.taskId = static_cast<int>(i);
@@ -51,7 +50,7 @@ ChannelPlan StandardDeconvolutionStrategy::createPlan(
         descriptor.psfs = psfPointers;
         descriptor.estimatedMemoryUsage = estimateMemoryUsage(idealCubeSizeUnpadded, algorithm.get());
         
-        tasks.push_back(std::make_unique<StandardCubeTaskDescriptor>(descriptor));
+        tasks.push_back(std::make_unique<CubeTaskDescriptor>(descriptor));
     }
     
     size_t totalTasks = tasks.size();

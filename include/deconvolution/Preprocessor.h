@@ -5,7 +5,6 @@
 #include <memory>
 #include <mutex>
 #include "backend/ComplexData.h"
-#include "deconvolution/ImageMap.h"
 #include "psf/PSF.h"
 #include "backend/IBackend.h"
 #include "Image3D.h"

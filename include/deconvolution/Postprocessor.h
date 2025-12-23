@@ -3,7 +3,6 @@
 #include <vector>
 #include <opencv2/core/mat.hpp>
 #include "backend/ComplexData.h"
-#include "deconvolution/ImageMap.h"
 #include "deconvolution/deconvolutionStrategies/ComputationalPlan.h"
 #include "itkImage.h"
 

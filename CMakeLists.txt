@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.10)
-project(Deconvtool)
+project(Deconvtool VERSION 1.0.0)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Set build type to Release by default for performance
-# if(NOT CMAKE_BUILD_TYPE)
-#     set(CMAKE_BUILD_TYPE Release)
-# endif()
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
 
 # Optimization flags for different build types
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -march=native")
@@ -17,15 +17,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma")
 # Include directories and libraries for FFTW, OpenCV, OpenMP, and TIFF
 # set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-
-include_directories(/usr/local/include)
-# link_directories(/usr/local/lib)
-find_package(OpenCV REQUIRED)
-find_package(OpenMP REQUIRED)
-find_package(TIFF REQUIRED)
-find_package(ITK REQUIRED)
-
 
 # Compiler flags for Valgrind-safe build
 # if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -40,84 +31,23 @@ find_package(ITK REQUIRED)
 #         -Wextra
 #     )
 # endif()
+
+# link_directories(/usr/local/lib)
+find_package(OpenCV REQUIRED)
+find_package(OpenMP REQUIRED)
+find_package(TIFF REQUIRED)
+find_package(ITK REQUIRED)
+
+
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
-# Find CUDA toolkit if available (optional)
-find_package(CUDAToolkit QUIET)
-if(CUDAToolkit_FOUND)
-    message(STATUS "CUDA toolkit found: ${CUDAToolkit_VERSION}")
-    set(CUDA_AVAILABLE TRUE)
-else()
-    message(STATUS "CUDA toolkit not found. Building CPU-only version.")
-    set(CUDA_AVAILABLE FALSE)
-endif()
 
-
-
-# IMGUI-------------------------------------------
-find_package(OpenGL REQUIRED)
-find_package(glfw3 3.3 REQUIRED)   # Needs GLFW installed system-wide
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GLEW REQUIRED glew)
-
-
-set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/lib/imgui)
-
-
-add_library(imgui_lib
-    ${IMGUI_DIR}/imgui.cpp
-    ${IMGUI_DIR}/imgui_demo.cpp
-    ${IMGUI_DIR}/imgui_draw.cpp
-    ${IMGUI_DIR}/imgui_tables.cpp
-    ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
-)
-target_link_libraries(imgui_lib PUBLIC
-    OpenGL::GL
-    glfw
-    ${GLEW_LIBRARIES}
-)
-target_include_directories(imgui_lib PUBLIC
-    ${CMAKE_SOURCE_DIR}/lib/imgui
-    ${CMAKE_SOURCE_DIR}/lib/imgui/backends
-    ${GLEW_INCLUDE_DIRS}
-)
-
-# IMPLOT3 and imguiFileExplorer------------------------------
-set(IMPLOT3D_DIR ${CMAKE_SOURCE_DIR}/lib/implot3d)
-
-add_library(implot3d_lib
-    ${IMPLOT3D_DIR}/implot3d.cpp
-    ${IMPLOT3D_DIR}/implot3d_items.cpp
-
-)
-
-target_include_directories(implot3d_lib PUBLIC
-    ${CMAKE_SOURCE_DIR}/lib/implot3d
-    ${CMAKE_SOURCE_DIR}/lib/imgui-filebrowser)
-    
-target_link_libraries(implot3d_lib PUBLIC
-    imgui_lib)
-
-
-
-# Common include dirs
-include_directories(
-    ${OpenCV_INCLUDE_DIRS}
-    ${TIFF_INCLUDE_DIR}
-    ${CMAKE_SOURCE_DIR}/include
-    ${ITK_USE_FILE}
-)
 # ------------------------------------------------------------
 # Collect sources
 # ------------------------------------------------------------
 
-set(BACKEND_SOURCES
-    src/backend/ComplexData.cpp)
-add_library(backendlib ${BACKEND_SOURCES})
-
-
-set(COMMON_SOURCES
+# Create Dolphin library with full API
+set(DOLPHIN_SOURCES
     src/Dolphin.cpp
     src/PSFCreator.cpp
     src/ServiceFactory.cpp
@@ -169,75 +99,102 @@ set(COMMON_SOURCES
     src/utilities/UtlImage.cpp
     src/utilities/UtlIO.cpp
 
-    src/frontend/CLIFrontend.cpp
-    src/frontend/gui/imguiWidget.cpp
-    src/frontend/gui/DefaultGUIStyleConfig.cpp
-    src/frontend/gui/GUIFrontend.cpp
     src/frontend/SetupConfig.cpp
-
-    src/frontend/gui/windows/SpecificWindows.cpp
-    src/frontend/gui/windows/MainWindow.cpp
-    src/frontend/gui/windows/FunctionContent.cpp
-    src/frontend/gui/windows/Window.cpp
-    src/frontend/gui/windows/ConfigWindow.cpp
-    src/frontend/gui/windows/BackendConfigWindow.cpp
-
-    src/frontend/gui/SpinningDonut.cpp
 )
-add_library(dolphinlib ${COMMON_SOURCES})
-# ------------------------------------------------------------
-# Build shared library containing all algorithms
-# ------------------------------------------------------------
 
-target_link_libraries(dolphinlib
+
+
+# Create backend library
+set(BACKEND_SOURCES
+    src/backend/ComplexData.cpp)
+add_library(backendlib SHARED ${BACKEND_SOURCES})
+
+target_include_directories(backendlib
     PUBLIC
-        imgui_lib
-        implot3d_lib
+        ${CMAKE_SOURCE_DIR}/include)
+
+
+
+
+# Create shared library for Dolphin API
+add_library(dolphin SHARED ${DOLPHIN_SOURCES})
+
+target_include_directories(dolphin
+    PUBLIC
+        ${OpenCV_INCLUDE_DIRS}
+        ${TIFF_INCLUDE_DIR}
+        ${ITK_USE_FILE}
+        ${CMAKE_SOURCE_DIR}/include
+)
+
+target_link_libraries(dolphin
+    PUBLIC
+        backendlib
         ${OpenCV_LIBS}
         ${TIFF_LIBRARIES}
         OpenMP::OpenMP_CXX
         ${ITK_LIBRARIES}
-
 )
 
-target_include_directories(dolphinlib
-    PUBLIC
-        ${CMAKE_SOURCE_DIR}/include
-
+# Set version for the library
+set_target_properties(dolphin PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
 )
 
-# ------------------------------------------------------------
-# CPU executable
-# ------------------------------------------------------------
-add_executable(dolphin src/main.cpp)
-target_link_libraries(dolphin
-    PRIVATE
-        dolphinlib
-        backendlib
-        pthread
-        gomp
-        stdc++fs)
+# Install targets
+install(TARGETS dolphin backendlib
+    EXPORT dolphinTargets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
+)
 
-add_subdirectory(backends/cpu)
-add_subdirectory(backends/openmp)
+# Install headers
+install(DIRECTORY include/ 
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h"
+)
 
-# ------------------------------------------------------------
-# GPU executable (only if CUDA found)
-# ------------------------------------------------------------
-if(CUDA_AVAILABLE)
-    enable_language(CUDA)
-    message(STATUS "CUDA found, building dolphincuda with CUBE.")
-    add_compile_definitions(CUDA_AVAILABLE)
-    add_subdirectory(backends/cuda)
-    # Add CUBE subproject
-    # target_link_libraries(cuda_backend
-    #     PUBLIC
-    #         dolphinlib  # cudalib depends on dolphinlib headers
-    # )
+# Create and install the config file
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/dolphinConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
 
-else()
-    message(STATUS "CUDA not found. Building only CPU version.")
-endif()
+# Export targets
+export(EXPORT dolphinTargets
+    FILE "${CMAKE_CURRENT_BINARY_DIR}/dolphinTargets.cmake"
+    NAMESPACE dolphin::
+)
+
+# Configure the config file
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/dolphinConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/dolphinConfig.cmake"
+    INSTALL_DESTINATION lib/cmake/dolphin
+)
+
+# Install the config files
+install(EXPORT dolphinTargets
+    FILE dolphinTargets.cmake
+    NAMESPACE dolphin::
+    DESTINATION lib/cmake/dolphin
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/dolphinConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/dolphinConfigVersion.cmake"
+    DESTINATION lib/cmake/dolphin
+)
+
+
+
+
+
 
 option(ENABLE_TESTS "Enable tests" ON)
 if (${ENABLE_TESTS})
@@ -252,6 +209,50 @@ if (${ENABLE_TESTS})
     enable_testing()
     add_subdirectory(tests)
 
-
-
 endif()
+
+
+
+# find_package(CUDAToolkit QUIET)
+# if(CUDAToolkit_FOUND)
+#     message(STATUS "CUDA toolkit found: ${CUDAToolkit_VERSION}")
+#     set(CUDA_AVAILABLE TRUE)
+# else()
+#     message(STATUS "CUDA toolkit not found. Building CPU-only version.")
+#     set(CUDA_AVAILABLE FALSE)
+# endif()
+
+
+
+
+# ------------------------------------------------------------
+# CPU executable (using CLI frontend)
+# ------------------------------------------------------------
+# add_executable(dolphin src/main.cpp)
+# target_link_libraries(dolphin
+#     PRIVATE
+#         dolphin
+#         pthread
+#         gomp
+#         stdc++fs)
+
+# add_subdirectory(backends/cpu)
+# add_subdirectory(backends/openmp)
+
+# ------------------------------------------------------------
+# GPU executable (only if CUDA found)
+# ------------------------------------------------------------
+# if(CUDA_AVAILABLE)
+#     enable_language(CUDA)
+#     message(STATUS "CUDA found, building dolphincuda with CUBE.")
+#     add_compile_definitions(CUDA_AVAILABLE)
+#     # add_subdirectory(backends/cuda)
+#     # Add CUBE subproject
+#     # target_link_libraries(cuda_backend
+#     #     PUBLIC
+#     #         dolphinlib  # cudalib depends on dolphinlib headers
+#     # )
+
+# else()
+#     message(STATUS "CUDA not found. Building only CPU version.")
+# endif()

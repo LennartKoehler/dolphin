@@ -1,9 +1,9 @@
 [submodule "lib/imgui"]
-	path = lib/imgui
+	path = frontends/gui/lib/imgui
 	url = https://github.com/ocornut/imgui
 [submodule "lib/implot3d"]
-	path = lib/implot3d
+	path = frontends/gui/lib/implot3d
 	url = https://github.com/brenocq/implot3d
 [submodule "lib/imgui-filebrowser"]
-	path = lib/imgui-filebrowser
+	path = frontends/gui/lib/imgui-filebrowser
 	url = https://github.com/AirGuanZ/imgui-filebrowser

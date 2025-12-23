@@ -21,7 +21,6 @@ See the LICENSE file provided with the code for the full license.
 #include <functional>
 #include "../lib/nlohmann/json.hpp"
 #include "HyperstackImage.h"
-#include "deconvolution/ImageMap.h"
 #include <future>
 
 using json = nlohmann::json;
