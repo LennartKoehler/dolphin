@@ -241,7 +241,7 @@ bool TiffWriter::saveToFile(const std::string& filename, int y, int z, int heigh
             return false;
         }
          // Set directory for this slice
-        if (!TIFFWriteDirectory(tif)) { //TESTVALUE TIFFSetDirectory
+        if (!TIFFWriteDirectory(tif)) {
             TIFFClose(tif);
             std::cerr << "[ERROR] Failed to set directory for slice " << i << std::endl;
             return false;

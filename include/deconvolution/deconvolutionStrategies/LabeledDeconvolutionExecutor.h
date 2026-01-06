@@ -30,7 +30,6 @@ public:
 
 
 protected:
-    // Helper methods for execution
     virtual std::function<void()> createTask(
         const std::unique_ptr<CubeTaskDescriptor>& taskDesc,
         const ImageReader& reader,
@@ -48,4 +47,6 @@ protected:
     RangeMap<std::string> psfLabelMap;
     std::unique_ptr<ImageReader> labelReader;
 
+
+    int featheringRadius = 0;
 };

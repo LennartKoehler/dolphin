@@ -78,7 +78,7 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::Int, &nThreads, "nThreads", false, "nThreads", "--nThreads", "Number of threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Float, &maxMem_GB, "maxMem_GB", false, "maxMem_GB", "--maxMem_GB", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Bool, &verbose, "verbose", true, "verbose", "--verbose", "Enable verbose", false, false, 0.0, 1.0, nullptr});
-
+    
     // Note: RangeMap parameters are not yet supported in the base Config parameter system
 }
 

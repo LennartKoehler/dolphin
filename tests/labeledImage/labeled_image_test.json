@@ -3,31 +3,23 @@
     "algorithmName": "TestAlgorithm",
     "iterations": 1,
     "epsilon": 1e-6,
-    "grid": false,
     "lambda": 0.015,
     "borderType": 2,
-    "time": false,
-    "saveSubimages": false, 
-    "backenddeconv": "cpu",
+    "backenddeconv": "../backends/cpu/libcpu_backend.so",
     "nThreads": 8,
     "maxMem_GB": 64
+    
   },
   
 
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
-  "psf_file_path": "../tests/labeledImage/test_tiff_output/test_tiff_outputconstant_hyperstack_1.tif",
+  "psf_file_path": "../tests/labeledImage/test_tiff_output/test_tiff_outputconstant_hyperstack_12.tif",
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
-  "backend": "cuda",
-  "deconvolution_config_path": "",
 
+ 
   "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
-  "info": false,
-  "showExampleLayers": false,
-  "time": false,
-  "seperate": false,
 
-  "savePsf": false,
-
+  "featheringRadius": 2,
   "strategyType": "labeled",
   "labeledImage": "/home/lennart-k-hler/data/labeledImage/simpleMask.tif",
   "labelPSFMap": "0[ID1234], 1:255[test_tiff_outputconstant_hyperstack_1]"

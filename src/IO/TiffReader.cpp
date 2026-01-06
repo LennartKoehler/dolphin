@@ -74,7 +74,7 @@ Image3D TiffReader::readTiffFile(const std::string& filename) {
 ImageMetaData TiffReader::extractMetadata(const std::string& filename) {
     TIFF* tifFile = TIFFOpen(filename.c_str(), "r");
     if (!tifFile) {
-        std::cerr << "[ERROR] Cannot open TIFF file: " << filename << std::endl;
+        std::cerr << "[ERROR] Cannot open TIFF file to read metadata: " << filename << std::endl;
         return ImageMetaData();
     }
     

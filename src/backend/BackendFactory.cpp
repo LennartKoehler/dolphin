@@ -19,7 +19,7 @@ See the LICENSE file provided with the code for the full license.
 BackendFactory& BackendFactory::getInstance() {
     static BackendFactory instance;
     if (!instance.initialized_) {
-        instance.registerBackends();
+        // instance.registerBackends();
         instance.initialized_ = true;
     }
     return instance;
@@ -35,29 +35,38 @@ void BackendFactory::registerBackend(const std::string& name, BackendCreator cre
 
 
 std::shared_ptr<IBackend> BackendFactory::createShared(const std::string& backendName) {
-    auto& factory = getInstance();
-    auto it = factory.backends_.find(backendName);
+    // auto& factory = getInstance();
+    // auto it = factory.backends_.find(backendName);
     
-    if (it != factory.backends_.end()) {
-        return std::shared_ptr<IBackend>(it->second());
-    }
+    // if (it != factory.backends_.end()) {
+    //     return std::shared_ptr<IBackend>(it->second());
+    // }
+    // registerBackend("cpu", [this]() -> IBackend* {
+    //     // auto deconv = createDeconvBackend("cpu");
+    //     // auto memory = createMemManager("cpu");
     
-    throw dolphin::backend::BackendException("Backend '" + backendName + "' not found", backendName, "createShared");
+    
+    // throw dolphin::backend::BackendException("Backend '" + backendName + "' not found", backendName, "createShared");
+
+    return std::shared_ptr<IBackend>(BackendFactory::create(backendName));
 }
 
 std::unique_ptr<IBackend> BackendFactory::createUnique(const std::string& backendName) {
-    auto& factory = getInstance();
-    auto it = factory.backends_.find(backendName);
+    // auto& factory = getInstance();
+    // auto it = factory.backends_.find(backendName);
     
-    if (it != factory.backends_.end()) {
-        return std::unique_ptr<IBackend>(it->second());
-    }
+    // if (it != factory.backends_.end()) {
+    //     return std::unique_ptr<IBackend>(it->second());
+    // }
     
-    throw dolphin::backend::BackendException("Backend '" + backendName + "' not found", backendName, "createUnique");
+    // throw dolphin::backend::BackendException("Backend '" + backendName + "' not found", backendName, "createUnique");
+    
+    return std::unique_ptr<IBackend>(BackendFactory::create(backendName));
 }
 
 void* BackendFactory::getHandle(const std::string& backendName){
-    std::string libpath = std::string("backends/") + backendName + "/lib" + backendName + "_backend.so";
+    // std::string libpath = std::string("backends/") + backendName + "/lib" + backendName + "_backend.so";
+    std::string libpath = backendName;
     void* handle = dlopen(libpath.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!handle) {
         const char* err = dlerror();
@@ -126,29 +135,29 @@ bool BackendFactory::isBackendAvailable(const std::string& name) const {
     return backends_.find(name) != backends_.end();
 }
 
-void BackendFactory::registerBackends() {
-    std::cout << "[INFO] Registering backends..." << std::endl;
+// void BackendFactory::registerBackends() {
+//     std::cout << "[INFO] Registering backends..." << std::endl;
     
-    // Register CPU backend
-    registerBackend("cpu", [this]() -> IBackend* {
-        // auto deconv = createDeconvBackend("cpu");
-        // auto memory = createMemManager("cpu");
-        return create("cpu");
-    });
+//     // Register CPU backend
+//     registerBackend("cpu", []() -> IBackend* {
+//         // auto deconv = createDeconvBackend("cpu");
+//         // auto memory = createMemManager("cpu");
+//         return BackendFactory::create("cpu");
+//     });
     
-    // Register OpenMP backend
-    registerBackend("openmp", [this]() -> IBackend* {
-        // auto deconv = createDeconvBackend("openmp");
-        // auto memory = createMemManager("openmp");
-        return create("openmp");
-    });
+//     // Register OpenMP backend
+//     registerBackend("openmp", []() -> IBackend* {
+//         // auto deconv = createDeconvBackend("openmp");
+//         // auto memory = createMemManager("openmp");
+//         return BackendFactory::create("openmp");
+//     });
     
-    // Register CUDA backend
-    registerBackend("cuda", [this]() -> IBackend* {
-        // auto deconv = createDeconvBackend("cuda");
-        // auto memory = createMemManager("cuda");
-        return create("cuda");
-    });
+//     // Register CUDA backend
+//     registerBackend("cuda", []() -> IBackend* {
+//         // auto deconv = createDeconvBackend("cuda");
+//         // auto memory = createMemManager("cuda");
+//         return BackendFactory::create("cuda");
+//     });
 
-    std::cout << "[INFO] Registered " << backends_.size() << " backend(s)" << std::endl;
-}
+//     std::cout << "[INFO] Registered " << backends_.size() << " backend(s)" << std::endl;
+// }

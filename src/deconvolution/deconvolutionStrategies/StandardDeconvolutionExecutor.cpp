@@ -47,17 +47,17 @@ void StandardDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfi
     
     BackendFactory& bf = BackendFactory::getInstance();
 
-    this->cpuMemoryManager = bf.createMemManager("cpu");
+    this->cpuMemoryManager = bf.createMemManager("../backends/cpu/libcpu_backend.so");//TODO make dynamic
 
     numberThreads = config->nThreads;
     int workerThreads;
     int ioThreads;
 
-    if (config->backenddeconv == "cpu"){
+    if (config->backenddeconv == "../backends/cpu/libcpu_backend.so"){ // TODO MOVE TO CONFIG?
         workerThreads = static_cast<int>(numberThreads * 0.75);
         ioThreads = workerThreads + 2 ;
     }
-    else if (config->backenddeconv == "openmp"){
+    else if (config->backenddeconv == "../backends/cpu/libopenmp_backend.so"){
 
         workerThreads = 1; //TESTVALUE for openmp 
         ioThreads = workerThreads + 2;
