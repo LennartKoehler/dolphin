@@ -51,8 +51,8 @@ private:
     BackendFactory(const BackendFactory&) = delete;
     BackendFactory& operator=(const BackendFactory&) = delete;
 
-    IBackend* create(const std::string& backendName);
-    void registerBackends();
+    static IBackend* create(const std::string& backendName);
+    // void registerBackends();
     static void* getHandle(const std::string& backendName);
 
     std::map<std::string, BackendCreator> backends_;

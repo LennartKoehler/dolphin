@@ -21,12 +21,12 @@ See the LICENSE file provided with the code for the full license.
 #include <functional>
 #include "../lib/nlohmann/json.hpp"
 #include "HyperstackImage.h"
+#include "frontend/SetupConfig.h"
 #include <future>
 
 using json = nlohmann::json;
 
 // Forward declarations
-class SetupConfig;
 class PSF;
 class HyperstackImage;
 class PSFConfig;
@@ -125,7 +125,9 @@ class DeconvolutionRequest {
 public:
 
     
-    DeconvolutionRequest(std::shared_ptr<SetupConfig> config) : setup_config_(config) {}
+    DeconvolutionRequest(std::shared_ptr<SetupConfig> config) : setup_config_(config) {
+        output_path = config->outputDir;
+    }
     
     void setConfig(std::shared_ptr<SetupConfig> config) { setup_config_ = config; }
     std::shared_ptr<SetupConfig> getConfig() const { return setup_config_; }

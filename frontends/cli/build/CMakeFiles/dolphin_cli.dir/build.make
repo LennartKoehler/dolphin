@@ -109,7 +109,7 @@ dolphin_cli: CMakeFiles/dolphin_cli.dir/src/main.cpp.o
 dolphin_cli: CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o
 dolphin_cli: CMakeFiles/dolphin_cli.dir/build.make
 dolphin_cli: /usr/local/lib/libdolphin.so.1.0.0
-dolphin_cli: /usr/local/lib/libbackendlib.a
+dolphin_cli: /usr/local/lib/libbackendlib.so
 dolphin_cli: /usr/local/lib/libopencv_gapi.so.4.13.0
 dolphin_cli: /usr/local/lib/libopencv_highgui.so.4.13.0
 dolphin_cli: /usr/local/lib/libopencv_ml.so.4.13.0

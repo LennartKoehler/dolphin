@@ -35,13 +35,14 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 
 void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig){
     this->labelReader = std::make_unique<TiffReader>(setupConfig.labeledImage);
- 
+    this->featheringRadius = setupConfig.featheringRadius;
     // Load PSF label map if provided
     if (!setupConfig.labelPSFMap.empty()) {
         RangeMap<std::string> labelPSFMap;
         labelPSFMap.loadFromString(setupConfig.labelPSFMap);
         this->psfLabelMap = labelPSFMap;
     }
+
 }
 
 
@@ -110,11 +111,10 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
 
 
         }
-        int radius = 1;
         float epsilon = 5;
         
         if (tempResults.size() > 1){
-            result = Postprocessor::addFeathering(tempResults, radius, epsilon);
+            result = Postprocessor::addFeathering(tempResults, featheringRadius, epsilon);
         }
         else if (tempResults.size() == 1){
             result = tempResults[0].image;

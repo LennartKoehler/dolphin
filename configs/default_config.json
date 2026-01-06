@@ -8,7 +8,7 @@
     "borderType": 2,
     "time": false,
     "saveSubimages": false, 
-    "backenddeconv": "cuda",
+    "backenddeconv": "../backends/cpu/libcpu_backend.so",
     "nThreads": 8,
     "maxMem_GB": 64
   },
@@ -21,7 +21,7 @@
   "backend": "cuda",
   "deconvolution_config_path": "",
 
-  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/CElegans-CY3.tif",
+  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
   "strategyType": "normal", 
   "info": false,
   "showExampleLayers": false,

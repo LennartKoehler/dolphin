@@ -95,7 +95,6 @@ bool DeconvolutionAlgorithmFactory::isAlgorithmAvailable(const std::string& name
 }
 
 void DeconvolutionAlgorithmFactory::registerAlgorithms() {
-    std::cout << "[INFO] Registering deconvolution algorithms..." << std::endl;
     
     registerAlgorithm("RichardsonLucy", []() {
         return new RLDeconvolutionAlgorithm();
@@ -121,5 +120,4 @@ void DeconvolutionAlgorithmFactory::registerAlgorithms() {
         return new TestAlgorithm();
     });
 
-    std::cout << "[INFO] Registered " << algorithms_.size() << " algorithm(s)" << std::endl;
 }

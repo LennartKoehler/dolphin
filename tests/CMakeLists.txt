@@ -10,7 +10,7 @@ add_subdirectory(backends)
 # Original combined test (optional)
 add_executable(dolphin_tests
     memory_exception_example.cpp
-    labeledImage/tiff_generation_test.cpp
+    tiff_generation_test.cpp
 )
 
 # Link libraries to tests
@@ -31,6 +31,14 @@ add_test(NAME DolphinTests COMMAND dolphin_tests)
 set_tests_properties(DolphinTests PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 
+add_executable(labeled_image_test
+    labeledImage/labeled_image_test.cpp)
+target_link_libraries(labeled_image_test
+    PRIVATE
+        dolphin)
+
+add_test(NAME LabeledImageTest COMMAND labeled_image_test)
+set_tests_properties(LabeledImageTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable(feathering_test
     feathering_test.cpp)
@@ -51,7 +59,7 @@ add_test(NAME FeatheringTest COMMAND feathering_test)
 
 # Standalone TIFF generation test
 add_executable(tiff_generation_test
-    labeledImage/tiff_generation_test.cpp
+    tiff_generation_test.cpp
 )
 
 # Link libraries to TIFF generation test
@@ -137,7 +145,7 @@ if (FFTW_INCLUDE_DIR AND FFTW_LIBRARY AND FFTW_THREADS_LIBRARY)
     
     # Add multithreading test to test suite
     add_test(NAME FFTWMultithreadingTest COMMAND fftw_multithreading_test)
-    set_tests_properties(FFTWMultithreadingTest PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_tests_properties(FFTWMultithreadingTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     
     # FFTW Size Decomposition Test
     add_executable(fftw_size_decomposition_test
@@ -175,7 +183,7 @@ if (FFTW_INCLUDE_DIR AND FFTW_LIBRARY AND FFTW_THREADS_LIBRARY)
     
     # Add size decomposition test to test suite
     add_test(NAME FFTWSizeDecompositionTest COMMAND fftw_size_decomposition_test)
-    set_tests_properties(FFTWSizeDecompositionTest PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_tests_properties(FFTWSizeDecompositionTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     
     message(STATUS "FFTW multithreading test will be built")
     message(STATUS "FFTW size decomposition test will be built")

@@ -203,10 +203,9 @@ DeconvolutionRequest CLIFrontend::generateDeconvRequest(std::shared_ptr<SetupCon
     DeconvolutionRequest request(setupConfigCopy);
     
     // Set CLI-specific options from parsed arguments
-    request.save_separate = setupConfigCopy->sep;
-    request.save_subimages = setupConfigCopy->saveSubimages;
-    request.show_example = setupConfigCopy->showExampleLayers;
-    request.print_info = setupConfigCopy->printInfo;
-    request.output_path = setupConfigCopy->outputDir;
+    // request.save_separate = setupConfigCopy->sep;
+    // request.save_subimages = setupConfigCopy->saveSubimages;
+    // request.show_example = setupConfigCopy->showExampleLayers;
+    // request.print_info = setupConfigCopy->printInfo;
     return request;
 }

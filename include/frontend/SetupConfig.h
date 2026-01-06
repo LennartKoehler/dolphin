@@ -22,15 +22,14 @@ public:
     std::string labeledImage;
     std::string labelPSFMap;
     std::string strategyType = "normal";
-    bool time = false; //show time
-    bool sep = false; //save layer separate (TIF dir)
-    bool savePsf = false; //save PSF
-    bool showExampleLayers = false; //show random example layer of image and PSF
-    bool printInfo = false; //show metadata of image
-    bool saveSubimages = false;
     std::string backend = "cpu";
-    // std::vector<int> layers;
-    // std::vector<int> subimages;
+
+    int featheringRadius = 0;
+    // bool sep = false; //save layer separate (TIF dir)
+    // bool savePsf = false; //save PSF
+    // bool showExampleLayers = false; //show random example layer of image and PSF
+    // bool printInfo = false; //show metadata of image
+    // bool saveSubimages = false;
 
     std::shared_ptr<DeconvolutionConfig> deconvolutionConfig;
 

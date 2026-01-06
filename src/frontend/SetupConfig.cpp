@@ -48,17 +48,18 @@ SetupConfig::SetupConfig(const SetupConfig& other)
     psfConfigPath = other.psfConfigPath;
     psfFilePath = other.psfFilePath;
     psfDirPath = other.psfDirPath;
-    time = other.time;
-    sep = other.sep;
-    savePsf = other.savePsf;
-    showExampleLayers = other.showExampleLayers;
-    printInfo = other.printInfo;
-    saveSubimages = other.saveSubimages;
+    // time = other.time;
+    // sep = other.sep;
+    // savePsf = other.savePsf;
+    // showExampleLayers = other.showExampleLayers;
+    // printInfo = other.printInfo;
+    // saveSubimages = other.saveSubimages;
     backend = other.backend;
     outputDir = other.outputDir;
     strategyType = other.strategyType;
     labeledImage = other.labeledImage;
     labelPSFMap = other.labelPSFMap;
+    featheringRadius = other.featheringRadius;
     // Deep copy the shared_ptr content
     if (other.deconvolutionConfig != nullptr) {
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
@@ -76,18 +77,18 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         psfConfigPath = other.psfConfigPath;
         psfFilePath = other.psfFilePath;
         psfDirPath = other.psfDirPath;
-        time = other.time;
-        sep = other.sep;
-        savePsf = other.savePsf;
-        showExampleLayers = other.showExampleLayers;
-        printInfo = other.printInfo;
-        saveSubimages = other.saveSubimages;
+        // time = other.time;
+        // sep = other.sep;
+        // savePsf = other.savePsf;
+        // showExampleLayers = other.showExampleLayers;
+        // printInfo = other.printInfo;
+        // saveSubimages = other.saveSubimages;
         backend = other.backend;
         outputDir = other.outputDir;
         strategyType = other.strategyType;
         labeledImage = other.labeledImage;
-        labelPSFMap = other.labelPSFMap;
-        
+        labelPSFMap = other.labelPSFMap; 
+        featheringRadius = other.featheringRadius;
         // Deep copy the shared_ptr content
         if (other.deconvolutionConfig != nullptr) {
             deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
@@ -118,11 +119,11 @@ bool SetupConfig::loadFromJSON(const json& jsonData){
 void SetupConfig::registerAllParameters(){
     // Register each parameter as a ConfigParameter struct
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
-    parameters.push_back({ParameterType::Bool, &sep, "sep", false, "sep", "--sep", "Save layer separate", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Bool, &time, "time", false, "time", "--time", "Show duration", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Bool, &savePsf, "savePsf", false, "savePsf", "--savePsf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Bool, &showExampleLayers, "showExampleLayers", false, "showExampleLayers", "--showExampleLayers", "Show example layers", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Bool, &printInfo, "info", false, "info", "--info", "Print info about input image", false, false, 0.0, 0.0, nullptr});
+    // parameters.push_back({ParameterType::Bool, &sep, "sep", false, "sep", "--sep", "Save layer separate", false, false, 0.0, 0.0, nullptr});
+    // parameters.push_back({ParameterType::Bool, &time, "time", false, "time", "--time", "Show duration", false, false, 0.0, 0.0, nullptr});
+    // parameters.push_back({ParameterType::Bool, &savePsf, "savePsf", false, "savePsf", "--savePsf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
+    // parameters.push_back({ParameterType::Bool, &showExampleLayers, "showExampleLayers", false, "showExampleLayers", "--showExampleLayers", "Show example layers", false, false, 0.0, 0.0, nullptr});
+    // parameters.push_back({ParameterType::Bool, &printInfo, "info", false, "info", "--info", "Print info about input image", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &imagePath, "image_path", false, "image_path", "-i,--image_path", "Input image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &outputDir, "outputDir", true, "outputDir", "--outputDir", "Output directory", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &psfConfigPath, "psf_config_path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
@@ -132,6 +133,7 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::String, &strategyType, "strategyType", true, "strategyType", "--strategyType", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &labeledImage, "labeledImage", true, "labeledImage", "--labeledImage", "Labeled image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &labelPSFMap, "labelPSFMap", true, "labelPSFMap", "--labelPSFMap", "Label PSF map path", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Int, &featheringRadius, "featheringRadius", true, "featheringRadius", "--featheringRadius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
     // parameters.push_back({ParameterType::Bool, &saveSubimages, "saveSubimages", true, "saveSubimages", "--saveSubimages", "Save subimages separate", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::String, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
     

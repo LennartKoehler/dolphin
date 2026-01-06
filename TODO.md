@@ -1,3 +1,7 @@
+write abstract request for user input, through which the library can communicate with the frontend
+
+make check that feathering radius is smaller than padding (psf size) so that there are no boundary conditions caused by too much feathering
+
 make backend into ABI? correctly seperate backend from application? If it stays dlopen, then there is no real use inregistering backends, but rather we can just select a backend library through cli. Then there is no need for someone to have backend libraries that he doesnt use, just somehow always include cpubackend, as the default, and as its needed for the deconvolutionexecutor
     - create an IBackend abi which also declares a complexdata interface
     - in the implementations (cuda and cpu) the complexdata can have a definition (could be same definition for all)
@@ -13,12 +17,11 @@ Reader/Writer:
     should the reader actually have a lot of padding logic? i think no but its much easier because it has all the dimensionality information and its easir to pass as padding something that goes out of bounds of image instead of passing e.g. as negative values. Also it can load data however it sees fit. i dont think the executor should know about imagemetadata and determine itself what part of the image can be read and what has to padded after having read the image. I still believe that the reader should not do padding, but think about this before implementing
 
 
-    Think about imagePadding, if i want to cut images out of the image, the deconvstrategy epects the originalImage to already be padded. How do i pad the image without having to load everything. The coordinates of how the cubes are requested are also for a padded image, think about this. Pad individual strips if they are at the edge of the image. Think about how coordinates are translated from unpadded to padded image psf padding is just zeros, so this doesnt actually matter. 
-
-    when reading image file that ends with .tif but the file doesnt acutally exist a nonintuitive error occurs
+    Think about imagePadding, if i want to cut images out of the image, the deconvstrategy expects the originalImage to already be padded. How do i pad the image without having to load everything. The coordinates of how the cubes are requested are also for a padded image, think about this. Pad individual strips if they are at the edge of the image. Think about how coordinates are translated from unpadded to padded image psf padding is just zeros, so this doesnt actually matter. 
 
 
-someweird padding problems, causing sufficient padding to still produce boundary conditions
+
+some weird padding problems, causing sufficient padding to still produce boundary conditions
     somehow caused by padding for whatever reason, should have nothing to do with how data is read or written as when i init the result as zero the whole image is filled,
     for some reason half of the psf on both sides id not anough although mathematically it should be
     should also have nothing to do with normalization within the cube as i also tested that

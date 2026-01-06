@@ -8,14 +8,13 @@
             "name": "Debug dolphin CLI",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${command:cmake.launchTargetPath}", // your built binary
+            "program": "${workspaceFolder}/frontends/cli/build/dolphin_cli",
             "args": [
                 "psfgenerator",
-                "-p", "../configs/default_psf_config_gibsonlanni.json",
-
+                "-p", "../configs/default_psf_config_gibsonlanni.json"
             ],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build",
+            "cwd": "${workspaceFolder}/frontends",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb"
@@ -24,15 +23,14 @@
             "name": "Debug dolphin config",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${command:cmake.launchTargetPath}",
+            "program": "${workspaceFolder}/frontends/cli/build/dolphin_cli",
             "args": [
                 "deconvolution",
                 "-c", "../configs/default_config.json"
-
             ],
             "additionalSOLibSearchPath": "${workspaceFolder}/lib/cube/**",
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build",
+            "cwd": "${workspaceFolder}/frontends",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
@@ -53,15 +51,14 @@
             "name": "Debug dolphin labeled image",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${command:cmake.launchTargetPath}",
+            "program": "${workspaceFolder}/frontends/cli/build/dolphin_cli",
             "args": [
                 "deconvolution",
                 "-c", "../tests/labeledImage/labeled_image_test.json"
-
             ],
             "additionalSOLibSearchPath": "${workspaceFolder}/lib/cube/**",
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build",
+            "cwd": "${workspaceFolder}/frontends",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
@@ -107,15 +104,14 @@
             "name": "Debug dolphin config psfgenerator",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${command:cmake.launchTargetPath}",
+            "program": "${workspaceFolder}/frontends/cli/build/dolphin_cli",
             "args": [
                 "psfgenerator",
                 "-p", "../configs/default_psf_config_gibsonlanni.json"
-
             ],
             "additionalSOLibSearchPath": "${workspaceFolder}/lib/cube/**",
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build",
+            "cwd": "${workspaceFolder}/frontends",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
@@ -136,14 +132,12 @@
             "name": "Debug dolphin GUI",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${command:cmake.launchTargetPath}",
+            "program": "${workspaceFolder}/frontends/gui/build/dolphin_gui",
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build",
+            "cwd": "${workspaceFolder}/frontends",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb"
-        },
-
-
+        }
     ]
 }
