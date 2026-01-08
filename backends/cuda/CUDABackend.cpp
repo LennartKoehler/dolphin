@@ -277,7 +277,7 @@ size_t CUDABackendMemoryManager::getAllocatedMemory() const {
 
 CUDADeconvolutionBackend::CUDADeconvolutionBackend(){
 
-   cudaSetDevice(0);
+//    cudaSetDevice(0);
 
 }
 

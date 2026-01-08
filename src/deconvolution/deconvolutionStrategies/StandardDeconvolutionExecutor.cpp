@@ -2,11 +2,7 @@
 #include "frontend/SetupConfig.h"
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <stdexcept>
-#include "UtlImage.h"
-#include <opencv2/opencv.hpp>
-#include <opencv2/core.hpp>
 #include <iostream>
-#include <opencv2/imgproc.hpp>
 #include <omp.h>
 #include "deconvolution/Preprocessor.h"
 #include "deconvolution/Postprocessor.h"
@@ -23,7 +19,7 @@ StandardDeconvolutionExecutor::StandardDeconvolutionExecutor(){
     std::shared_ptr<PSF> inputPSF,
     std::shared_ptr<IBackend> backend
     ) -> ComplexData* {
-        Preprocessor::padToShape(inputPSF->image, shape, 0);
+        Preprocessor::padToShape(inputPSF->image, shape, PaddingType::ZERO);
         ComplexData h = convertCVMatVectorToFFTWComplex(inputPSF->image, shape);
         ComplexData h_device = backend->getMemoryManager().copyDataToDevice(h);
         backend->getDeconvManager().octantFourierShift(h_device);
@@ -55,7 +51,7 @@ void StandardDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfi
 
     if (config->backenddeconv == "../backends/cpu/libcpu_backend.so"){ // TODO MOVE TO CONFIG?
         workerThreads = static_cast<int>(numberThreads * 0.75);
-        ioThreads = workerThreads + 2 ;
+        ioThreads = workerThreads + 2 ; // TESTVALUE
     }
     else if (config->backenddeconv == "../backends/cpu/libopenmp_backend.so"){
 
@@ -68,6 +64,8 @@ void StandardDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfi
         ioThreads = workerThreads + 2;
     }
     
+    workerThreads = std::max(1, workerThreads);
+    ioThreads = std::max(1, ioThreads);
     readwriterPool = std::make_shared<ThreadPool>(ioThreads);
     processor.init(workerThreads);
     configured = true;
@@ -146,29 +144,6 @@ void StandardDeconvolutionExecutor::parallelDeconvolution(
         f.get();
 }
 
-// PaddedImage StandardDeconvolutionExecutor::preprocessChannel(Channel& image, const ChannelPlan& channelPlan) {
-//     Preprocessor::padImage(image.image, channelPlan.imagePadding, config->borderType);
-//     return PaddedImage{std::move(image.image.slices), channelPlan.imagePadding};
-// }
-
-void StandardDeconvolutionExecutor::postprocessChannel(Image3D& image){
-    // Global normalization of the merged volume
-    double global_max_val= 0.0;
-    double global_min_val = MAXFLOAT;
-    for (const auto& slice : image.slices) {
-        cv::threshold(slice, slice, 0, 0.0, cv::THRESH_TOZERO);
-        double min_val, max_val;
-        cv::minMaxLoc(slice, &min_val, &max_val);
-        global_max_val = std::max(global_max_val, max_val);
-        global_min_val = std::min(global_min_val, min_val);
-    }
-    float epsilon = 1e-6; //TESTVALUE
-    for (auto& slice : image.slices) {
-        slice.convertTo(slice, CV_32F, 1.0 / (global_max_val - global_min_val), -global_min_val * (1 / (global_max_val - global_min_val)));
-        cv::threshold(slice, slice, epsilon, 0.0, cv::THRESH_TOZERO);
-    }
-}
-
 
 
 ComplexData StandardDeconvolutionExecutor::convertCVMatVectorToFFTWComplex(
@@ -181,14 +156,12 @@ ComplexData StandardDeconvolutionExecutor::convertCVMatVectorToFFTWComplex(
     int height = shape.height;
     int depth = shape.depth;
     
-    for (int z = 0; z < depth; ++z) {
-        CV_Assert(input.slices[z].type() == CV_32F);
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                result.data[z * height * width + y * width + x][0] = static_cast<double>(input.slices[z].at<float>(y, x));
-                result.data[z * height * width + y * width + x][1] = 0.0;
-            }
-        }
+    int index = 0;
+    for (const auto& it : input) {
+        
+        result.data[index][0] = static_cast<double>(it);
+        result.data[index][1] = 0.0;
+        index ++;
     }
 
     return result;
@@ -201,25 +174,16 @@ Image3D StandardDeconvolutionExecutor::convertFFTWComplexToCVMatVector(
     const int height = input.size.height;
     const int depth  = input.size.depth;
 
-    Image3D output;
-    output.slices.reserve(depth);
+    Image3D output(RectangleShape(width, height, depth));
 
     const auto* in = input.data;
+    int index = 0;
+    for (auto& it : output) {
+        double real = in[index][0];
+        double imag = in[index][1];
+        it = static_cast<float>(std::sqrt(real * real + imag * imag));
+        index ++;
 
-    for (int z = 0; z < depth; ++z) {
-        cv::Mat result(height, width, CV_32F);
-        float* dst = reinterpret_cast<float*>(result.data);
-
-        const int sliceSize = width * height;
-        int baseIndex = z * sliceSize;
-
-        for (int i = 0; i < sliceSize; ++i) {
-            double real = in[baseIndex + i][0];
-            double imag = in[baseIndex + i][1];
-            dst[i] = static_cast<float>(std::sqrt(real * real + imag * imag));
-        }
-
-        output.slices.push_back(result);
     }
 
     return output;

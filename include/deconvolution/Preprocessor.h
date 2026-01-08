@@ -1,14 +1,16 @@
 #pragma once
 #include <vector>
-#include <opencv2/core/mat.hpp>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <iostream>
+
+#include "DeconvolutionConfig.h"
 #include "backend/ComplexData.h"
 #include "psf/PSF.h"
 #include "backend/IBackend.h"
 #include "Image3D.h"
-#include <iostream>
+
 class IBackend;
 
 class PSFPreprocessor{
@@ -74,18 +76,11 @@ private:
 namespace Preprocessor{
 
 
-    std::vector<Image3D> splitImageHomogeneous(
-        Image3D& image,
-        const RectangleShape& subimageShape,
-        const RectangleShape& imageOriginalShape,
-        const RectangleShape& imageShapePadded,
-        const RectangleShape& cubeShapePadded);
-
     void expandToMinSize(Image3D& image, const RectangleShape& minSize);
 
 
-    Padding padToShape(Image3D& image3D, const RectangleShape& targetShape, int borderType);
-    void padImage(Image3D& image, const Padding& padding, int borderType);
+    Padding padToShape(Image3D& image3D, const RectangleShape& targetShape, PaddingType borderType);
+    void padImage(Image3D& image, const Padding& padding, PaddingType borderType);
 
 
 }

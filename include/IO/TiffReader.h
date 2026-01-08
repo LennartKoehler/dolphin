@@ -14,7 +14,6 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <string>
-#include <opencv2/core/mat.hpp>
 #include "Image3D.h"
 #include "HyperstackImage.h"
 #include "ImageMetaData.h"
@@ -22,12 +21,20 @@ See the LICENSE file provided with the code for the full license.
 #include <condition_variable>
 #include <mutex>
 #include <tiffio.h>
+#include "itkImageRegionIterator.h"
 
 
 class ImageReader{
 public:
     virtual PaddedImage getSubimage(const BoxCoordWithPadding& box) const = 0;
     virtual const ImageMetaData& getMetaData() const = 0;
+    static std::string getFilename(const std::string& path) {
+        size_t pos = path.find_last_of("/\\");
+        if (pos == std::string::npos) {
+            return path; // No directory separator found, return whole string
+        }
+        return path.substr(pos + 1);
+    }
 };
 
 class TiffReader : public ImageReader {
@@ -79,6 +86,7 @@ private:
     static void convertImageTo32F(Image3D& layers, const ImageMetaData& metaData);
     static ImageMetaData extractMetadataFromTiff(TIFF*& tifFile);
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
+    static void convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, int width, const ImageMetaData& metaData);
 
     static int countTiffDirectories(TIFF* tif);
 };

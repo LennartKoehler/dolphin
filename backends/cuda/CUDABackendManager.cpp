@@ -26,7 +26,7 @@ std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend() {
     cudaStream_t stream = createStream();
     cudaSetDevice(0);
 
-    CUDABackend* backend = CUDABackend::create();   // --- Construct backend ---
+    CUDABackend* backend = CUDABackend::create(); 
     backend->setStream(stream);
     return std::shared_ptr<CUDABackend>(backend);
 }

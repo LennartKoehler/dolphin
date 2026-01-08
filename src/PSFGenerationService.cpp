@@ -267,7 +267,8 @@ std::string PSFGenerationService::savePSF(const std::string& path, const std::st
     std::filesystem::create_directories(output_path.parent_path());
     
     std::string output_path_str = output_path.string();
-    psf->saveAsTifFile(output_path_str);
+
+    psf->writeToTiffFile(output_path_str);
     logMessage("PSF saved to: " + output_path_str);
     return output_path_str;
 }

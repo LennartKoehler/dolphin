@@ -1,11 +1,9 @@
 #include "DeconvolutionStrategyFactory.h"
 #include "deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
 #include "deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h"
-#include "deconvolution/deconvolutionStrategies/LabeledDeconvolutionStrategy.h"
 #include "deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
 #include "frontend/SetupConfig.h"
 #include "HyperstackImage.h"
-#include "UtlIO.h"
 #include <stdexcept>
 
 DeconvolutionStrategyFactory::DeconvolutionStrategyFactory() {

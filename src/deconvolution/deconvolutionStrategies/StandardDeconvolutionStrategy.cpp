@@ -1,11 +1,7 @@
 #include "deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <stdexcept>
-#include "UtlImage.h"
-#include <opencv2/opencv.hpp>
-#include <opencv2/core.hpp>
 #include <iostream>
-#include <opencv2/imgproc.hpp>
 #include <omp.h>
 #include "deconvolution/Preprocessor.h"
 #include "deconvolution/Postprocessor.h"

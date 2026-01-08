@@ -165,57 +165,6 @@ bool UtlIO::extractData(TIFF* &tifOriginalFile, std::string &name, std::string &
     }
 }
 
-void UtlIO::createImage3D(std::vector<Channel> &channels, Image3D &imageLayers, int linChannels, int totalImages, std::string name, std::vector<cv::Mat> layers){
-    if(linChannels > 0){
-        std::vector<std::vector<cv::Mat>> channelData(linChannels);
-        int c = 0;
-        int z = 0;
-        int multichannel_z = ((totalImages + 1) / linChannels);
-        
-        // Calculate slices per channel
-        int slicesPerChannel = layers.size() / linChannels;
-        std::cout << "[INFO] Calculated " << slicesPerChannel << " slices per channel" << std::endl;
-        
-        bool success = false;
-        for(auto& singleLayer : layers){
-            channelData[c].push_back(singleLayer);
-            c++;
-            if(c > linChannels-1){
-                c = 0;
-                z++;
-            }
-            if(multichannel_z == z) {
-                std::cout <<"[INFO] " << name << " converted to multichannel" << std::endl;
-                success = true;
-            }
-        }
-        if(!success){
-            std::cout << "[ERROR] "<< name << "(Layers: " << std::to_string(size(layers)) << ") could not converted to multichannel, Layers: " << std::to_string(z) << std::endl;
-        }
-
-        //create Image3D with channeldata
-        int id = 0;
-        for(auto& layers : channelData){
-            Image3D imageLayers;
-            imageLayers.slices = layers;
-            Channel channel;
-            channel.image = imageLayers;
-            channel.id = id;
-            channels.push_back(channel);
-            id++;
-        }
-
-    }else{
-        imageLayers.slices = layers;
-        Channel channel;
-        channel.image = imageLayers;
-        channel.id = 0;
-        channels.push_back(channel);
-    }
-}
-
-
-
 std::string UtlIO::getFilename(const std::string& path) {
     size_t pos = path.find_last_of("/\\");
     if (pos == std::string::npos) {

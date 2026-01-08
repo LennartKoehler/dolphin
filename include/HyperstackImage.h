@@ -29,19 +29,19 @@ public:
     std::vector<Channel> channels;
     ImageMetaData metaData;
 
-    bool readFromTifFile(const char *filename);
-    bool readFromTifDir(const std::string& directoryPath);
+    // bool readFromTifFile(const char *filename);
+    // bool readFromTifDir(const std::string& directoryPath);
 
-    bool saveAsTifFile(const std::string &directoryPath) const ;
-    bool saveAsTifDir(const std::string& directoryPath) const;
+    // bool saveAsTifFile(const std::string &directoryPath) const ;
+    // bool saveAsTifDir(const std::string& directoryPath) const;
 
-    bool showSlice(int channel, int z);
-    bool showChannel(int channel) const;
+    // bool showSlice(int channel, int z);
+    // bool showChannel(int channel) const;
 
     void printMetadata() const;
 
-    float getPixel(int channel, int x, int y, int z);
-    bool isValid();
+    // float getPixel(int channel, int x, int y, int z);
+    // bool isValid();
 
     // Hyperstack convolve(PSF psf);
 

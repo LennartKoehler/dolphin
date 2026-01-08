@@ -13,13 +13,13 @@
   
 
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
-  "psf_file_path": "../tests/labeledImage/test_tiff_output/test_tiff_outputconstant_hyperstack_12.tif",
+  "psf_file_path": "../tests/labeledImage/test_tiff_output/test_tiff_outputconstant_hyperstack_1.tif",
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
 
  
   "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
 
-  "featheringRadius": 2,
+  "featheringRadius": 8,
   "strategyType": "labeled",
   "labeledImage": "/home/lennart-k-hler/data/labeledImage/simpleMask.tif",
   "labelPSFMap": "0[ID1234], 1:255[test_tiff_outputconstant_hyperstack_1]"

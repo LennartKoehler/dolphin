@@ -11,9 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include <opencv2/core.hpp>
 #include "psf/generators/BornWolfModel.h"
-#include <opencv2/opencv.hpp>
 #include <vector>
 #include <cmath>
 #include <complex>
@@ -30,7 +28,6 @@ PSF BornWolfModel::generatePSF() const {
     double meanY = height / 2.0;
     double meanZ = layers / 2.0;
 
-    std::vector<cv::Mat> psfLayers;  // Vektor für die PSF-Schichten
 
     // Physikalische Parameter
     double wavelength = 488.0;  // Wellenlänge in Nanometern (nm)
@@ -43,49 +40,62 @@ PSF BornWolfModel::generatePSF() const {
     double k = 2 * M_PI * refractiveIndex / wavelength;  // Wellenzahl
     double maxTheta = asin(NA / refractiveIndex);  // Maximaler Winkel (Halböffnung)
 
-    // Erzeuge die PSF basierend auf dem Born-Wolf-Modell
-    for (int z = 0; z < layers; ++z) {
+    ImageType::Pointer itkImage = ImageType::New();
+    ImageType::SizeType size;
+    size[0] = width;
+    size[1] = height;
+    size[2] = layers;
+
+    ImageType::IndexType start;
+    start.Fill(0);
+
+    ImageType::RegionType region;
+    region.SetSize(size);
+    region.SetIndex(start);
+
+    itkImage->SetRegions(region);
+    itkImage->Allocate();
+
+    itk::ImageRegionIterator<ImageType> it(itkImage, region);
+    
+    
+    double sum = 0.0;
+    for (it.GoToBegin(); !it.IsAtEnd(); ++it){
+        ImageType::IndexType index = it.GetIndex();
+        int x = index[0];
+        int y = index[1];
+        int z = index[2];
+
+        double dx = (x - meanX) * voxelSizeXY;  // Abstand in X-Richtung (in physikalischen Einheiten)
+        double dy = (y - meanY) * voxelSizeXY;  // Abstand in Y-Richtung (in physikalischen Einheiten)
         double dz = (z - meanZ) * voxelSizeZ;  // Abstandsmaß in Z-Richtung (z in physikalischen Einheiten)
-        cv::Mat psfSlice(height, width, CV_32F);
+        // Radialer Abstand von der Mitte
+        double r = sqrt(dx * dx + dy * dy);
 
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                double dx = (x - meanX) * voxelSizeXY;  // Abstand in X-Richtung (in physikalischen Einheiten)
-                double dy = (y - meanY) * voxelSizeXY;  // Abstand in Y-Richtung (in physikalischen Einheiten)
+        // Berechnung der Bessel-Funktion und der Phasenverschiebung
+        // Der Faktor 2 * J1(k * r * sin(maxTheta)) / (k * r * sin(maxTheta)) ergibt den lateralen Beitrag
+        double besselFactor = 2.0 * j1(k * r * sin(maxTheta)) / (k * r * sin(maxTheta));
 
-                // Radialer Abstand von der Mitte
-                double r = sqrt(dx * dx + dy * dy);
+        // Berechnung des axiale Intensitätsbeitrags (Longitudinale Komponente)
+        double axialFactor = cos(k * dz * cos(maxTheta));
 
-                // Berechnung der Bessel-Funktion und der Phasenverschiebung
-                // Der Faktor 2 * J1(k * r * sin(maxTheta)) / (k * r * sin(maxTheta)) ergibt den lateralen Beitrag
-                double besselFactor = 2.0 * j1(k * r * sin(maxTheta)) / (k * r * sin(maxTheta));
-
-                // Berechnung des axiale Intensitätsbeitrags (Longitudinale Komponente)
-                double axialFactor = cos(k * dz * cos(maxTheta));
-
-                // Berechnung des PSF-Wertes an dieser Stelle
-                float value = static_cast<float>(besselFactor * axialFactor);
-                psfSlice.at<float>(y, x) = value;
-            }
-        }
-
-        // Füge die Schicht zur Liste hinzu
-        psfLayers.push_back(psfSlice);
+        // Berechnung des PSF-Wertes an dieser Stelle
+        double value = besselFactor * axialFactor;
+        it.Set(value);
+        sum += value;
     }
+
 
     // Normiere die PSF so, dass die Summe aller Werte 1 ergibt
-    double sum = 0.0;
-    for (const auto& layer : psfLayers) {
-        sum += cv::sum(layer)[0];
+    
+    for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
+        it.Set(it.Get() / sum);
     }
 
-    for (auto& layer : psfLayers) {
-        layer /= sum;
-    }
+
 
     // Erstelle das PSF-Objekt und fülle es mit den erzeugten Schichten
-    Image3D psfImage;
-    psfImage.slices = psfLayers;
+    Image3D psfImage(std::move(itkImage));
     PSF bornWolfPsf;
     bornWolfPsf.image = psfImage;
 

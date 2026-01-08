@@ -38,11 +38,14 @@ struct BoxCoord {
         // Store original values to calculate what was cropped
         RectangleShape originalPosition = position;
         RectangleShape originalDimensions = dimensions;
-        
+
+        RectangleShape positionDiff = position - other.position;
+        positionDiff.clamp({0,0,0});
         // Adjust position to be within the other box
         position.width = std::max(position.width, other.position.width);
         position.height = std::max(position.height, other.position.height);
         position.depth = std::max(position.depth, other.position.depth);
+
         
         // Calculate the maximum allowed dimensions
         int maxWidth = std::max(0, other.position.width + other.dimensions.width - position.width);
@@ -50,24 +53,22 @@ struct BoxCoord {
         int maxDepth = std::max(0, other.position.depth + other.dimensions.depth - position.depth);
         
         // Crop dimensions to fit within the other box
-        dimensions.width = std::min(dimensions.width, maxWidth);
-        dimensions.height = std::min(dimensions.height, maxHeight);
-        dimensions.depth = std::min(dimensions.depth, maxDepth);
+        // have to accomodate for something being cut off at the beginning aswell, which therefore reduces the desired dimensions
+        dimensions.width = std::min(dimensions.width + positionDiff.width, maxWidth);
+        dimensions.height = std::min(dimensions.height + positionDiff.height, maxHeight);
+        dimensions.depth = std::min(dimensions.depth + positionDiff.depth, maxDepth);
+
         dimensions.updateVolume();
         
         // Calculate cropped amounts
         Padding croppedPadding;
-        croppedPadding.before.width = position.width - originalPosition.width;
-        croppedPadding.before.height = position.height - originalPosition.height;
-        croppedPadding.before.depth = position.depth - originalPosition.depth;
-
-
+        croppedPadding.before = position - originalPosition;
         
         croppedPadding.after.width = std::max(0, originalDimensions.width - dimensions.width - croppedPadding.before.width);
         croppedPadding.after.height = std::max(0, originalDimensions.height - dimensions.height - croppedPadding.before.height);
         croppedPadding.after.depth = std::max(0, originalDimensions.depth - dimensions.depth - croppedPadding.before.depth);
         
-
+        assert(croppedPadding.before + croppedPadding.after + dimensions == originalDimensions && "CropTo something went wrong while cropping");
 
         return croppedPadding;
     }

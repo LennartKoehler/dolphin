@@ -52,9 +52,7 @@ std::vector<PSF> PSFCreator::readPSFsFromFilePath(const std::string& psfFilePath
         // Determine if the path is a file or directory and read accordingly
         std::string ext = psffilepath.substr(psffilepath.find_last_of(".") + 1);
         if (ext == "tif" || ext == "tiff" || ext == "ometif") {
-            psf.readFromTifFile(psffilepath.c_str());
-        } else {
-            psf.readFromTifDir(psffilepath);
+            psf.readFromTiffFile(psffilepath);
         }
         
         psfs.push_back(psf);

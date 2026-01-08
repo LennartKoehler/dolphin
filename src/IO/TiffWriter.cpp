@@ -11,22 +11,21 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include <opencv2/imgproc.hpp>
 #include "IO/TiffWriter.h"
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>
-#include <opencv2/highgui.hpp>
-#include <opencv2/core.hpp>
+
 #include <filesystem>
 #include <fstream>
 #include <cstdarg>
 #include <climits>
 #include <queue>
 #include "deconvolution/Preprocessor.h"
-#include "UtlImage.h"
 #include "deconvolution/Postprocessor.h"
-
+#include "itkImageSliceIteratorWithIndex.h"
+#include "itkImageRegionIterator.h"
+#include "itkMinimumMaximumImageFilter.h"
 
 namespace fs = std::filesystem;
 
@@ -56,18 +55,15 @@ const ImageMetaData& TiffWriter::getMetaData() const {
 }
 
 bool TiffWriter::setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const {
-    if (image.slices.empty()) {
-        std::cerr << "[ERROR] Cannot set subimage: Image3D has no slices" << std::endl;
+    RectangleShape imageShape = image.getShape();
+    if (imageShape.depth == 0 || imageShape.width == 0 || imageShape.height == 0) {
+        std::cerr << "[ERROR] Cannot set subimage: Image3D has invalid dimensions" << std::endl;
         return false;
     }
     
-    // Validate the image dimensions
-    if (image.slices[0].cols <= 0 || image.slices[0].rows <= 0) {
-        std::cerr << "[ERROR] Cannot set subimage: Invalid image dimensions" << std::endl;
-        return false;
-    }
+    std::unique_lock<std::mutex> lock(writerMutex);
     
-    std::unique_lock<std::mutex> lock(writerMutex); //TESTVALUE
+
     int bufferIndex;
     bufferIndex = getStripIndex(coord);
     if (bufferIndex != -1){
@@ -78,7 +74,6 @@ bool TiffWriter::setSubimage(const Image3D& image, const BoxCoordWithPadding& co
     bufferIndex = getStripIndex(coord);
     copyToTile(image, coord, bufferIndex);
     return true;
-    
 }
 
 void TiffWriter::createNewTile(const BoxCoordWithPadding& coord) const {
@@ -97,6 +92,8 @@ void TiffWriter::createNewTile(const BoxCoordWithPadding& coord) const {
     tileBuffer.push_back(std::move(tile));
 }
 
+
+
 int TiffWriter::getStripIndex(const BoxCoordWithPadding& coord) const {
     BoxCoordWithPadding actualCoord = coord;
     actualCoord.padding.before = RectangleShape(0,0,0);
@@ -109,23 +106,7 @@ int TiffWriter::getStripIndex(const BoxCoordWithPadding& coord) const {
     return -1;
 }
 
-void TiffWriter::postprocessChannel(Image3D& image){
-    // Global normalization of the merged volume
-    double global_max_val= 0.0;
-    double global_min_val = MAXFLOAT;
-    for (const auto& slice : image.slices) {
-        cv::threshold(slice, slice, 0, 0.0, cv::THRESH_TOZERO);
-        double min_val, max_val;
-        cv::minMaxLoc(slice, &min_val, &max_val);
-        global_max_val = std::max(global_max_val, max_val);
-        global_min_val = std::min(global_min_val, min_val);
-    }
-    float epsilon = 1e-6; //TESTVALUE
-    for (auto& slice : image.slices) {
-        slice.convertTo(slice, CV_32F, 1.0 / (global_max_val - global_min_val), -global_min_val * (1 / (global_max_val - global_min_val)));
-        cv::threshold(slice, slice, epsilon, 0.0, cv::THRESH_TOZERO);
-    }
-}
+
 
 bool TiffWriter::copyToTile(const Image3D& image, const BoxCoordWithPadding& coord, int index) const {
     ImageBuffer& tile = tileBuffer.find(index);
@@ -134,9 +115,6 @@ bool TiffWriter::copyToTile(const Image3D& image, const BoxCoordWithPadding& coo
     BoxCoord cubeBox = BoxCoord{coord.padding.before, coord.box.dimensions};
 
     Postprocessor::insertCubeInImage(image, cubeBox, tile.image, srcBox);
-    
-    tile.interactedValue += coord.box.dimensions.width * coord.box.dimensions.height;
-    
     if (isTileFull(tile)){
         // writeTile(metaData.filename, tile);
         // tileBuffer.deleteIndex(index);
@@ -151,9 +129,13 @@ bool TiffWriter::copyToTile(const Image3D& image, const BoxCoordWithPadding& coo
 }
 
 bool TiffWriter::isTileFull(const ImageBuffer& strip) const {
-    cv::Mat mask = (strip.image.slices[0] == -1.0f); // since im writing tiles, the depth dimension shouldnt matter and i can take first slice
-    int remaining = cv::countNonZero(mask);
-    return remaining == 0;
+    using MinMaxFilterType = itk::MinimumMaximumImageFilter<ImageType>;
+
+    auto minMax = MinMaxFilterType::New();
+    minMax->SetInput(strip.image.getItkImage());
+    minMax->Update();
+    float min = minMax->GetMinimum();
+    return (min != -1.0f); // make sure that initialization is the smallest possible value (we dont expect negative values in real image)
 }
 
 
@@ -236,7 +218,7 @@ bool TiffWriter::saveToFile(const std::string& filename, int y, int z, int heigh
     for (size_t i = writtenToDepth - z; i < depth; ++i) {
 
         // Write the slice
-        if (!writeMatToTiff(layers.slices[i], i + z, y)) {
+        if (!writeSliceToTiff(layers, i, i + z, y)) {
             TIFFClose(tif);
             return false;
         }
@@ -258,45 +240,36 @@ bool TiffWriter::saveToFile(const std::string& filename, int y, int z, int heigh
 }
 
 
-bool TiffWriter::writeMatToTiff(const cv::Mat& image, int directoryIndex, int yOffset) const {
-    if (image.empty()) {
-        std::cerr << "[ERROR] Cannot write empty image to TIFF" << std::endl;
+bool TiffWriter::writeSliceToTiff(const Image3D& image, int sliceIndex, int directoryIndex, int yOffset) const {
+    RectangleShape imageShape = image.getShape();
+    if (sliceIndex >= imageShape.depth) {
+        std::cerr << "[ERROR] Slice index out of bounds: " << sliceIndex << std::endl;
         return false;
     }
     
-    // Determine target type from metadata and convert if needed
-    int targetCvType = getTargetCvType(metaData);
+    // Extract slice data
+    std::vector<float> sliceData;
+    extractSliceData(image, sliceIndex, sliceData);
     
-    cv::Mat convertedImage;
-    convertImageToTargetType(image, convertedImage, image.type(), targetCvType);
+    if (sliceData.empty()) {
+        std::cerr << "[ERROR] Cannot write empty slice to TIFF" << std::endl;
+        return false;
+    }
+    
+    // Convert to target type based on metadata
+    std::vector<uint8_t> convertedData;
+    convertSliceDataToTargetType(sliceData, convertedData, imageShape.width, imageShape.height, metaData);
     
     // Use metadata values for TIFF fields
     uint16_t bitsPerSample = metaData.bitsPerSample;
     uint16_t samplesPerPixel = metaData.samplesPerPixel;
-    int cvType = targetCvType;
-    
-    switch (CV_MAT_DEPTH(cvType)) {
-        case CV_8U:
-            bitsPerSample = 8;
-            break;
-        case CV_16U:
-            bitsPerSample = 16;
-            break;
-        case CV_32F:
-            bitsPerSample = 32;
-            break;
-        default:
-            std::cerr << "[ERROR] Unsupported OpenCV data type: " << cvType << std::endl;
-        }
     int sampleFormat = metaData.sampleFormat;
-    // samplesPerPixel = CV_MAT_CN(cvType);
     
     // Process description to remove min/max/mode lines
     std::istringstream iss(this->metaData.description);
     std::ostringstream oss;
     std::string line;
     while (std::getline(iss, line)) {
-        // Prüfen, ob die Zeile "min=" oder "max=" enthält
         if (line.find("min=") == std::string::npos && line.find("max=") == std::string::npos && line.find("mode=") == std::string::npos) {
             oss << line << "\n";
         }
@@ -304,13 +277,10 @@ bool TiffWriter::writeMatToTiff(const cv::Mat& image, int directoryIndex, int yO
     std::string cutted_description = oss.str();
     
     // Set TIFF fields only for new directories
-    TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, convertedImage.cols);
-    TIFFSetField(tif, TIFFTAG_IMAGELENGTH, convertedImage.rows);
-    // TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, 50); //TESTVALUE
-
+    TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, imageShape.width);
+    TIFFSetField(tif, TIFFTAG_IMAGELENGTH, imageShape.height);
     TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, bitsPerSample);
     TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, samplesPerPixel);
-
     TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
     TIFFSetField(tif, TIFFTAG_PLANARCONFIG, this->metaData.planarConfig);
     TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, this->metaData.photometricInterpretation);
@@ -319,7 +289,6 @@ bool TiffWriter::writeMatToTiff(const cv::Mat& image, int directoryIndex, int yO
     }
     TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, sampleFormat);
     
-
     tsize_t scanlineSize = TIFFScanlineSize(tif);
     
     // Allocate buffer for scanlines
@@ -328,16 +297,13 @@ bool TiffWriter::writeMatToTiff(const cv::Mat& image, int directoryIndex, int yO
         std::cerr << "[ERROR] Memory allocation failed for scanline buffer" << std::endl;
         return false;
     }
-
-    if(!(this->metaData.description == "" || this->metaData.description.empty())){
-        TIFFSetField(tif, TIFFTAG_IMAGEDESCRIPTION, cutted_description.c_str());
-    }
-
     
     // Write scanlines
-    for (uint32_t row = 0; row < convertedImage.rows; ++row) {
-        memcpy(buf, convertedImage.ptr(row), scanlineSize);
-        if (TIFFWriteScanline(tif, buf, row, 0) == -1) { //TESTVALUE + offset
+    size_t bytesPerPixel = bitsPerSample / 8 * samplesPerPixel;
+    for (uint32_t row = 0; row < imageShape.height; ++row) {
+        size_t srcOffset = row * imageShape.width * bytesPerPixel;
+        memcpy(buf, &convertedData[srcOffset], scanlineSize);
+        if (TIFFWriteScanline(tif, buf, row, 0) == -1) {
             _TIFFfree(buf);
             std::cerr << "[ERROR] Failed to write scanline " << row << " in directory " << directoryIndex << std::endl;
             return false;
@@ -356,16 +322,27 @@ void TiffWriter::customTifWarningHandler(const char* module, const char* fmt, va
 }
 
 
-
+ImageMetaData TiffWriter::extractMetaData(const Image3D& image){
+    ImageMetaData metaData;
+    RectangleShape size = image.getShape();
+    metaData.imageWidth = size.width;
+    metaData.imageLength = size.height;
+    metaData.slices = size.depth;
+    metaData.bitsPerSample = 32;
+    metaData.samplesPerPixel = 1;
+    metaData.sampleFormat = SAMPLEFORMAT_IEEEFP;
+    metaData.photometricInterpretation = 1;
+    metaData.planarConfig = 1;
+    return metaData;
+}
+std::mutex test;
 // Static method for writing entire Image3D to file
-bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, const ImageMetaData& metadata) {
-    if (image.slices.empty()) {
-        std::cerr << "[ERROR] Cannot write Image3D: No slices available" << std::endl;
-        return false;
-    }
+bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) {
+    std::unique_lock<std::mutex> lock(test);
+    ImageMetaData metadata = extractMetaData(image);
+    RectangleShape imageShape = image.getShape();
     
-    // Validate image dimensions
-    if (image.slices[0].cols <= 0 || image.slices[0].rows <= 0) {
+    if (imageShape.depth == 0 || imageShape.width == 0 || imageShape.height == 0) {
         std::cerr << "[ERROR] Cannot write Image3D: Invalid image dimensions" << std::endl;
         return false;
     }
@@ -379,9 +356,6 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, 
         std::cerr << "[ERROR] Cannot create TIFF file: " << filename << std::endl;
         return false;
     }
-    
-    // Determine target type from metadata
-    int targetCvType = getTargetCvType(metadata);
     
     // Use metadata values for TIFF fields
     uint16_t bitsPerSample = metadata.bitsPerSample;
@@ -405,21 +379,24 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, 
     }
     
     // Write each slice as a separate directory in the TIFF file
-    for (size_t zIndex = 0; zIndex < image.slices.size(); ++zIndex) {
-        const cv::Mat& slice = image.slices[zIndex];
+    for (int zIndex = 0; zIndex < imageShape.depth; ++zIndex) {
+        // Extract slice data
+        std::vector<float> sliceData;
+        extractSliceData(image, zIndex, sliceData);
         
         // Convert slice to target type if needed
-        cv::Mat convertedSlice;
-        convertImageToTargetType(slice, convertedSlice, slice.type(), targetCvType);
+        std::vector<uint8_t> convertedData;
+        convertSliceDataToTargetType(sliceData, convertedData, imageShape.width, imageShape.height, metadata);
         
         // Set TIFF fields for this directory
-        TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, convertedSlice.cols);
-        TIFFSetField(tif, TIFFTAG_IMAGELENGTH, convertedSlice.rows);
+        TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, imageShape.width);
+        TIFFSetField(tif, TIFFTAG_IMAGELENGTH, imageShape.height);
         TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, bitsPerSample);
         TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, samplesPerPixel);
         TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
         TIFFSetField(tif, TIFFTAG_PLANARCONFIG, metadata.planarConfig);
         TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, metadata.photometricInterpretation);
+
         TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, sampleFormat);
         
         if (!cutted_description.empty()) {
@@ -444,8 +421,10 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, 
         }
         
         // Write scanlines
-        for (uint32_t row = 0; row < convertedSlice.rows; ++row) {
-            memcpy(buf, convertedSlice.ptr(row), scanlineSize);
+        size_t bytesPerPixel = bitsPerSample / 8 * samplesPerPixel;
+        for (uint32_t row = 0; row < imageShape.height; ++row) {
+            size_t srcOffset = row * imageShape.width * bytesPerPixel;
+            memcpy(buf, &convertedData[srcOffset], scanlineSize);
             if (TIFFWriteScanline(tif, buf, row, 0) == -1) {
                 _TIFFfree(buf);
                 TIFFClose(tif);
@@ -458,7 +437,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, 
         _TIFFfree(buf);
         
         // Set directory for next slice (except for the last one)
-        if (zIndex < image.slices.size() - 1) {
+        if (zIndex < imageShape.depth - 1) {
             if (!TIFFWriteDirectory(tif)) {
                 TIFFClose(tif);
                 std::cerr << "[ERROR] Failed to set directory for slice " << zIndex << std::endl;
@@ -478,50 +457,94 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, 
 
 
 
-int TiffWriter::getTargetCvType(const ImageMetaData& metadata) {
-    int targetCvType;
+int TiffWriter::getTargetItkType(const ImageMetaData& metadata) {
+    // This function returns the ITK pixel type identifier
+    // For simplicity, we'll use the metadata directly since ITK uses templated types
     if (metadata.bitsPerSample == 8) {
-        targetCvType = CV_8UC(metadata.samplesPerPixel);
+        return 8;  // 8-bit unsigned
     } else if (metadata.bitsPerSample == 16) {
-        targetCvType = CV_16UC(metadata.samplesPerPixel);
+        return 16; // 16-bit unsigned
     } else if (metadata.bitsPerSample == 32) {
-        targetCvType = CV_32FC(metadata.samplesPerPixel);
+        return 32; // 32-bit float
     } else {
         std::cerr << "[ERROR] Unsupported bit depth from metadata: " << metadata.bitsPerSample << std::endl;
-        targetCvType = CV_8UC(metadata.samplesPerPixel); // fallback
+        return 8; // fallback to 8-bit
     }
-    return targetCvType;
 }
 
-void TiffWriter::convertImageToTargetType(const cv::Mat& source, cv::Mat& destination, 
-                                         int sourceCvType, int targetCvType) {
-    if (sourceCvType == targetCvType) {
-        destination = source;
+void TiffWriter::extractSliceData(const Image3D& image, int sliceIndex, std::vector<float>& sliceData) {
+    RectangleShape shape = image.getShape();
+    if (sliceIndex >= shape.depth) {
+        std::cerr << "[ERROR] Slice index out of bounds: " << sliceIndex << std::endl;
         return;
     }
     
-    int inputDepth = CV_MAT_DEPTH(sourceCvType);
-    int targetDepth = CV_MAT_DEPTH(targetCvType);
-    double min = 0;
-    double max = 1; 
-    if (inputDepth == CV_32F && targetDepth == CV_8U) {
-        // Convert from 32F to 8U (assuming 32F values are in [0,1] range)  
-        max = 255.0;
-        min = 0.0;
-    } else if (inputDepth == CV_32F && targetDepth == CV_16U) {
-        // Convert from 32F to 16U (assuming 32F values are in [0,1] range)
-        max = 65535.0;
-		min = 0.0;
-    } else if (inputDepth == CV_8U && targetDepth == CV_32F) {
-        // Convert from 8U to 32F (scale to [0,1] range)
-        max = 1.0/255.0;
-		min = 0.0;
-    } else if (inputDepth == CV_16U && targetDepth == CV_32F) {
-        // Convert from 16U to 32F (scale to [0,1] range)
-        max = 1.0/65535.0;
-		min = 0.0;
-    }
-    source.convertTo(destination, targetCvType, max, min);
+    sliceData.resize(shape.width * shape.height);
     
+    // Use ITK slice iterator to extract slice data
+    ImageType::Pointer itkImage = image.getItkImage();
+    
+    // Define the slice region
+    ImageType::IndexType start;
+    start[0] = 0;
+    start[1] = 0;
+    start[2] = sliceIndex;
+    
+    ImageType::SizeType size;
+    size[0] = shape.width;
+    size[1] = shape.height;
+    size[2] = 1;
+    
+    ImageType::RegionType sliceRegion;
+    sliceRegion.SetIndex(start);
+    sliceRegion.SetSize(size);
+    
+    itk::ImageRegionIterator<ImageType> it(itkImage, sliceRegion);
+    
+    int pixelIndex = 0;
+    for (it.GoToBegin(); !it.IsAtEnd(); ++it, ++pixelIndex) {
+        sliceData[pixelIndex] = it.Get();
+    }
+}
+
+void TiffWriter::convertSliceDataToTargetType(const std::vector<float>& sourceData, 
+                                            std::vector<uint8_t>& targetData, 
+                                            int width, int height,
+                                            const ImageMetaData& metadata) {
+    size_t numPixels = width * height;
+    
+    if (metadata.bitsPerSample == 8) {
+        // Convert float to 8-bit unsigned
+        targetData.resize(numPixels);
+        for (size_t i = 0; i < numPixels; ++i) {
+            // Assume source data is in [0,1] range, scale to [0,255]
+            float scaledValue = sourceData[i] * 255.0f;
+            targetData[i] = static_cast<uint8_t>(std::max(0.0f, std::min(255.0f, scaledValue)));
+        }
+    } else if (metadata.bitsPerSample == 16) {
+        // Convert float to 16-bit unsigned
+        targetData.resize(numPixels * 2);
+        uint16_t* data16 = reinterpret_cast<uint16_t*>(targetData.data());
+        for (size_t i = 0; i < numPixels; ++i) {
+            // Assume source data is in [0,1] range, scale to [0,65535]
+            float scaledValue = sourceData[i] * 65535.0f;
+            data16[i] = static_cast<uint16_t>(std::max(0.0f, std::min(65535.0f, scaledValue)));
+        }
+    } else if (metadata.bitsPerSample == 32) {
+        // Keep as 32-bit float
+        targetData.resize(numPixels * 4);
+        float* data32 = reinterpret_cast<float*>(targetData.data());
+        for (size_t i = 0; i < numPixels; ++i) {
+            data32[i] = sourceData[i];
+        }
+    } else {
+        std::cerr << "[ERROR] Unsupported bit depth: " << metadata.bitsPerSample << std::endl;
+        // Fallback to 8-bit
+        targetData.resize(numPixels);
+        for (size_t i = 0; i < numPixels; ++i) {
+            float scaledValue = sourceData[i] * 255.0f;
+            targetData[i] = static_cast<uint8_t>(std::max(0.0f, std::min(255.0f, scaledValue)));
+        }
+    }
 }
 

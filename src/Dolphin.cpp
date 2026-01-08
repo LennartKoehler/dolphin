@@ -15,7 +15,6 @@ See the LICENSE file provided with the code for the full license.
 #include <iostream>
 #include <chrono>
 #include <fstream>
-#include <opencv2/opencv.hpp>
 #include <sys/stat.h>
 
 

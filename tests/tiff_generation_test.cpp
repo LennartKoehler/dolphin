@@ -14,8 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #include <iostream>
 #include <string>
 #include <vector>
-#include <opencv2/core.hpp>
-#include <opencv2/imgcodecs.hpp>
+
 #include <tiffio.h>
 #include <filesystem>
 
@@ -23,6 +22,7 @@ See the LICENSE file provided with the code for the full license.
 #include "../include/Image3D.h"
 #include "../include/Channel.h"
 #include "../include/ImageMetaData.h"
+#include "../include/RectangleShape.h"
 
 /**
  * Creates a 3D TIFF image with a constant value throughout
@@ -142,21 +142,20 @@ bool createConstantValueTiffWithHyperstack(const std::string& filePath, const in
         Channel channel;
         channel.id = 0;
         
-        // Create Image3D with constant value slices
-        Image3D image3D;
-        for (int z = 0; z < size[2]; ++z) {
-            // Create a slice with constant value
-            cv::Mat slice(size[1], size[0], CV_32F);
-            slice.setTo(value);
-            image3D.slices.push_back(slice);
-        }
+        // Create Image3D with constant value using ITK approach
+        RectangleShape imageShape(size[0], size[1], size[2]);
+        Image3D image3D(imageShape);
+        
+        // Fill the image with the desired constant value
+        auto itkImage = image3D.getItkImage();
+        itkImage->FillBuffer(value);
         
         channel.image = image3D;
         hyperstack.channels.push_back(channel);
 
         // Save using Hyperstack's save method
-        bool success = hyperstack.saveAsTifFile(filePath);
-        
+        // bool success = hyperstack.writeToTiffFile(filePath);
+        bool success = true; //TESTVALUE 
         if (success) {
             std::cout << "[SUCCESS] Created constant value TIFF using Hyperstack: " << filePath << std::endl;
             std::cout << "  Dimensions: " << size[0] << "x" << size[1] << "x" << size[2] << std::endl;

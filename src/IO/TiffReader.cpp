@@ -15,15 +15,13 @@ See the LICENSE file provided with the code for the full license.
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>
-#include <opencv2/highgui.hpp>
-#include <opencv2/core.hpp>
 #include <filesystem>
 #include <fstream>
 #include <cstdarg>
 #include "deconvolution/Preprocessor.h"
-#include "UtlImage.h"
 #include <chrono>
 #include <thread>
+#include "itkImageRegionIterator.h"
 
 namespace fs = std::filesystem;
 
@@ -75,7 +73,7 @@ ImageMetaData TiffReader::extractMetadata(const std::string& filename) {
     TIFF* tifFile = TIFFOpen(filename.c_str(), "r");
     if (!tifFile) {
         std::cerr << "[ERROR] Cannot open TIFF file to read metadata: " << filename << std::endl;
-        return ImageMetaData();
+        throw; 
     }
     
     ImageMetaData metaData = extractMetadataFromTiff(tifFile);
@@ -90,18 +88,16 @@ ImageMetaData TiffReader::extractMetadata(const std::string& filename) {
     return metaData;
 }
 
-bool TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers){
-    layers.slices.clear();
-    
+bool TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& image){
+     
     TIFFSetWarningHandler(TiffReader::customTifWarningHandler);
-    TIFF* tif = TIFFOpen(filename.c_str(), "r"); //TESTVALUE
+    TIFF* tif = TIFFOpen(filename.c_str(), "r");
     
     if (!tif) {
         std::cerr << "[ERROR] Cannot open TIFF file: " << filename << std::endl;
         return false;
     }
 
-    
     // Validate region shape
     if (height <= 0 || depth <= 0) {
         TIFFClose(tif);
@@ -109,20 +105,9 @@ bool TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, con
         return false;
     }
 
-    
-    // Determine OpenCV data type
-    int cvType;
-    if (metaData.bitsPerSample == 8) {
-        cvType = CV_8UC(metaData.samplesPerPixel);
-    } else if (metaData.bitsPerSample == 16) {
-        cvType = CV_16UC(metaData.samplesPerPixel);
-    } else if (metaData.bitsPerSample == 32) {
-        cvType = CV_32FC(metaData.samplesPerPixel);
-    } else {
-        TIFFClose(tif);
-        std::cerr << "[ERROR] Unsupported bit depth: " << metaData.bitsPerSample << std::endl;
-        return false;
-    }
+    // Create ITK image with the specified dimensions
+    RectangleShape imageShape(width, height, depth);
+    image = Image3D(imageShape);
     
     // Read the specific region using scanline API
     tsize_t scanlineSize = TIFFScanlineSize(tif);
@@ -133,6 +118,9 @@ bool TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, con
         return false;
     }
     
+    // Create a temporary buffer for conversion
+    std::vector<float> rowData(width);
+    
     // Read each directory (z-slice) in the region
     for (uint32_t zIndex = z; zIndex < z + depth; zIndex++) {
         // Set the directory for this z-slice
@@ -142,41 +130,37 @@ bool TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, con
             std::cerr << "[ERROR] Failed to set directory for z-slice " << zIndex << std::endl;
             return false;
         }
-        
-        // Create a matrix for this z-slice
-        cv::Mat layer(height, width, cvType);
-        
+
         // Read only the required rows (scanlines)
         for (uint32_t yIndex = y; yIndex < y + height; yIndex++) {
             if (TIFFReadScanline(tif, buf, yIndex) == -1) {
                 _TIFFfree(buf);
                 TIFFClose(tif);
-                std::cerr << "[ERROR] Failed to read scanline " << yIndex << " in z-slice " << yIndex << std::endl;
+                std::cerr << "[ERROR] Failed to read scanline " << yIndex << " in z-slice " << zIndex << std::endl;
                 return false;
             }
             
-            // Copy only the required columns
-            memcpy(layer.ptr(yIndex - y), buf, scanlineSize);
+            // Convert scanline data based on bit depth and set into ITK image
+            convertScanlineToFloat(buf, rowData, width, metaData);
+            
+            // Set the row data into the ITK image
+            for (int x = 0; x < width; x++) {
+                image.setPixel(x, yIndex - y, zIndex - z, rowData[x]);
+            }
         }
-        
-        layers.slices.push_back(layer);
     }
     
     // Clean up
     _TIFFfree(buf);
-    TIFFClose(tif); //TESTVALUE
-    convertImageTo32F(layers, metaData);
-    //TODO
-    // size_t memory = getMemoryForShape(RectangleShape{metaData.imageWidth, height, depth});
-    // updateCurrentMemoryBuffer(memory + currentBufferMemory_bytes);
+    TIFFClose(tif);
+    convertImageTo32F(image, metaData);
     
-    std::cout << "[INFO] Successfully read region: " << height << "x" << depth << std::endl;
+    std::cout << "[INFO] Successfully read strip (" << filename << "): " << "(" << y << "," << z << ") " << height << "x" << depth << std::endl;
     return true;
 }
 
 // Non-static method using member TIFF* variable
-bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers) const {
-    layers.slices.clear();
+bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& image) const {
     
     if (!tif) {
         std::cerr << "[ERROR] TIFF file is not open" << std::endl;
@@ -189,18 +173,9 @@ bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const Ima
         return false;
     }
     
-    // Determine OpenCV data type
-    int cvType;
-    if (metaData.bitsPerSample == 8) {
-        cvType = CV_8UC(metaData.samplesPerPixel);
-    } else if (metaData.bitsPerSample == 16) {
-        cvType = CV_16UC(metaData.samplesPerPixel);
-    } else if (metaData.bitsPerSample == 32) {
-        cvType = CV_32FC(metaData.samplesPerPixel);
-    } else {
-        std::cerr << "[ERROR] Unsupported bit depth: " << metaData.bitsPerSample << std::endl;
-        return false;
-    }
+    // Create ITK image with the specified dimensions
+    RectangleShape imageShape(width, height, depth);
+    image = Image3D(imageShape);
     
     // Read the specific region using scanline API
     tsize_t scanlineSize = TIFFScanlineSize(tif);
@@ -209,6 +184,9 @@ bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const Ima
         std::cerr << "[ERROR] Memory allocation failed for scanline buffer" << std::endl;
         return false;
     }
+    
+    // Create a temporary buffer for conversion
+    std::vector<float> rowData(width);
     
     // Read each directory (z-slice) in the region
     for (uint32_t zIndex = z; zIndex < z + depth; zIndex++) {
@@ -219,9 +197,6 @@ bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const Ima
             return false;
         }
         
-        // Create a matrix for this z-slice
-        cv::Mat layer(height, width, cvType);
-        
         // Read only the required rows (scanlines)
         for (uint32_t yIndex = y; yIndex < y + height; yIndex++) {
             if (TIFFReadScanline(tif, buf, yIndex) == -1) {
@@ -230,17 +205,18 @@ bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const Ima
                 return false;
             }
             
-            // Copy only the required columns
-            memcpy(layer.ptr(yIndex - y), buf, scanlineSize);
+            // Convert scanline data based on bit depth and set into ITK image
+            convertScanlineToFloat(buf, rowData, width, metaData);
+            
+            // Set the row data into the ITK image
+            image.setRow(yIndex - y, zIndex - z, rowData.data());
+
         }
-        
-        layers.slices.push_back(layer);
     }
     
-    // Clean up (but don't close the TIFF file since it's a member variable)
     _TIFFfree(buf);
     
-    std::cout << "[INFO] Successfully read region: " << height << "x" << depth << std::endl;
+    std::cout << "[INFO] Successfully read strip (" << filename << "): " << "(" << y << "," << z << ") " << height << "x" << depth << std::endl;
     return true;
 }
 
@@ -267,10 +243,11 @@ Image3D TiffReader::managedReader(const BoxCoord& coord) const {
     readSubimageFromTiffFile(metaData.filename, metaData, coord.position.height, coord.position.depth, 
                 coord.dimensions.height, coord.dimensions.depth, coord.dimensions.width, result);
 
-    convertImageTo32F(result, metaData);
+    // convertImageTo32F(result, metaData);
     return result;
 }
 
+#include "IO/TiffWriter.h"
 PaddedImage TiffReader::getFromBuffer(const BoxCoordWithPadding& coord, int bufferIndex) const {
     
     PaddedImage result;
@@ -280,7 +257,7 @@ PaddedImage TiffReader::getFromBuffer(const BoxCoordWithPadding& coord, int buff
         coord.box.position - buffer.source.box.position,
         coord.box.dimensions + coord.padding.before + coord.padding.after
     };
-        // the images stored in the ImageBuffer are basically shifted to the bottom right
+        // the images stored in the ImageBuffer are basically shifted to the bottom right due to the padding
     result.image = std::move(buffer.image.getSubimageCopy(convertedCoords)); 
     if (buffer.interactedValue >= buffer.source.box.dimensions.width){
         loadedImageStrips.deleteIndex(bufferIndex);
@@ -308,7 +285,7 @@ void TiffReader::readStripWithPadding(const BoxCoordWithPadding& coord) const {
     requestedRegion.position.width = 0;
 
     Image3D readImage = managedReader(requestedRegion);
-    Preprocessor::padImage(readImage, padding, 2);
+    Preprocessor::padImage(readImage, padding, PaddingType::MIRROR);
 
     ImageBuffer result;
     result.image = readImage;
@@ -334,7 +311,9 @@ PaddedImage TiffReader::getSubimage(const BoxCoordWithPadding& coord) const {
     readStripWithPadding(coord);
 
     bufferIndex = getStripIndex(coord);
-    return getFromBuffer(coord, bufferIndex);
+    PaddedImage image = getFromBuffer(coord, bufferIndex);
+    assert(image.image.getItkImage().IsNotNull());
+    return image;
 }
 
 
@@ -343,18 +322,24 @@ const ImageMetaData& TiffReader::getMetaData() const {
     return metaData;
 }
 
-void TiffReader::convertImageTo32F(Image3D& layers, const ImageMetaData& metaData){
-    int i = 0;
-    for (auto& layer : layers.slices) {
-        int type = CV_MAKETYPE(CV_32F, layer.channels());
-        layer.convertTo(layer, type, 1 / (metaData.maxSampleValue - metaData.minSampleValue), - metaData.minSampleValue * (1 / (metaData.maxSampleValue - metaData.minSampleValue)));
+void TiffReader::convertImageTo32F(Image3D& image, const ImageMetaData& metaData){
+    RectangleShape shape = image.getShape();
+    double scale = 1.0 / (metaData.maxSampleValue - metaData.minSampleValue);
+    double offset = -metaData.minSampleValue * scale;
+    
+    int pixelCount = 0;
+    int totalPixels = shape.volume;
+    
+    // Use ITK iterator to convert pixel values
+    for (auto it = image.begin(); it != image.end(); ++it) {
+        float originalValue = *it;
+        float convertedValue = static_cast<float>(originalValue * scale + offset);
+        *it = convertedValue;
+        
+        pixelCount++;
 
-        std::cout << "\r[STATUS] Layer " << i << "/" << layers.slices.size() - 1 << " in 32F converted"
-                  << " ";
-        std::flush(std::cout);
-        i++;
     }
-    std::cout << std::to_string(layers.slices[1].at<float>(1, 1)) << std::endl;
+    std::cout << std::endl;
 }
 
 
@@ -473,41 +458,46 @@ int TiffReader::countTiffDirectories(TIFF* tif) {
 void TiffReader::createImage3D(const Image3D& layers, std::vector<Channel>& channels) {
     if(metaData.linChannels > 0){
         std::vector<Image3D> channelData(metaData.linChannels);
+        RectangleShape layerShape = layers.getShape();
+        int slicesPerChannel = layerShape.depth / metaData.linChannels;
+        
+        // Initialize each channel with the appropriate dimensions
+        for(int c = 0; c < metaData.linChannels; c++){
+            RectangleShape channelShape(layerShape.width, layerShape.height, slicesPerChannel);
+            channelData[c] = Image3D(channelShape);
+        }
+        
+        // Copy data from layers to individual channels
         int c = 0;
-        int z = 0;
-        int multichannel_z = ((metaData.totalImages + 1) / metaData.linChannels);
-        bool success = false;
-        for(auto& singleLayer : layers.slices){
-            channelData[c].slices.push_back(singleLayer);
+        int channelZ = 0;
+        for(int z = 0; z < layerShape.depth; z++){
+            // Extract slice data from the source image
+            for(int y = 0; y < layerShape.height; y++){
+                for(int x = 0; x < layerShape.width; x++){
+                    float pixelValue = layers.getPixel(x, y, z);
+                    channelData[c].setPixel(x, y, channelZ, pixelValue);
+                }
+            }
+            
             c++;
-            if(c > metaData.linChannels-1){
+            if(c >= metaData.linChannels){
                 c = 0;
-                z++;
-            }
-            if(multichannel_z == z) {
-                std::cout <<"[INFO] " << metaData.filename << " converted to multichannel" << std::endl;
-                success = true;
+                channelZ++;
             }
         }
-        if(!success){
-            std::cout << "[ERROR] "<< metaData.filename << "(Layers: " << std::to_string(layers.slices.size()) << ") could not converted to multichannel, Layers: " << std::to_string(z) << std::endl;
-        }
-
-        //create channels with Image3D data
-        int id = 0;
-        for(auto& imageData : channelData){
+        
+        // Create channels with Image3D data
+        for(int id = 0; id < metaData.linChannels; id++){
             Channel channel;
-            channel.image = imageData;
+            channel.image = channelData[id];
             channel.id = id;
             channels.push_back(channel);
-            id++;
         }
-
+        
+        std::cout << "[INFO] " << metaData.filename << " converted to multichannel" << std::endl;
     }else{
-        Image3D imageLayers;
-        imageLayers.slices = layers.slices;
         Channel channel;
-        channel.image = imageLayers;
+        channel.image = layers;
         channel.id = 0;
         channels.push_back(channel);
     }
@@ -516,6 +506,29 @@ void TiffReader::createImage3D(const Image3D& layers, std::vector<Channel>& chan
 void TiffReader::customTifWarningHandler(const char* module, const char* fmt, va_list ap) {
     // Ignoriere alle Warnungen oder filtere nach bestimmten Tags
     // Beispiel: printf(fmt, ap); // Um die Warnungen anzuzeigen
+}
+
+void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, int width, const ImageMetaData& metaData) {
+    if (metaData.bitsPerSample == 8) {
+        const uint8_t* data8 = reinterpret_cast<const uint8_t*>(scanlineData);
+        for (int x = 0; x < width; x++) {
+            rowData[x] = static_cast<float>(data8[x * metaData.samplesPerPixel]);
+        }
+    } else if (metaData.bitsPerSample == 16) {
+        const uint16_t* data16 = reinterpret_cast<const uint16_t*>(scanlineData);
+        for (int x = 0; x < width; x++) {
+            rowData[x] = static_cast<float>(data16[x * metaData.samplesPerPixel]);
+        }
+    } else if (metaData.bitsPerSample == 32) {
+        const float* data32 = reinterpret_cast<const float*>(scanlineData);
+        for (int x = 0; x < width; x++) {
+            rowData[x] = data32[x * metaData.samplesPerPixel];
+        }
+    } else {
+        std::cerr << "[ERROR] Unsupported bit depth: " << metaData.bitsPerSample << std::endl;
+        // Fill with zeros as fallback
+        std::fill(rowData.begin(), rowData.end(), 0.0f);
+    }
 }
 
 // std::string TiffReader::getFilename(const std::string& path) {

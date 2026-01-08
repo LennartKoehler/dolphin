@@ -87,7 +87,7 @@ public:
 
     void setConfig(PSFConfigInfo config) { config_ = config; }
     PSFConfigInfo getConfig() const { return config_; }
-    
+ 
 
     PSFConfigInfo config_;
     std::string output_path;
@@ -188,7 +188,6 @@ public:
     
     virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
     virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
-    virtual std::shared_ptr<Hyperstack> loadImage(const std::string& path) = 0;
 };
 
 // --- Service Factory ---
