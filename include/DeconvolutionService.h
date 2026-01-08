@@ -46,7 +46,6 @@ public:
 
     void setLogger(std::function<void(const std::string&)> logger) override;
     void setConfigLoader(std::function<json(const std::string&)> loader) override;
-    std::shared_ptr<Hyperstack> loadImage(const std::string& path) override;
 
     // IService interface
     void initialize() override;

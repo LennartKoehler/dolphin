@@ -1,4 +1,7 @@
-write abstract request for user input, through which the library can communicate with the frontend
+the psfs arent filled correctly in the labeleddeconvolutionexecutor. There are no labelgroups with psfs. Do i need to have an integer image aswell for the labels? 
+
+support for multiple gpus
+    - now each device needs to have its own memory tracking, the rest should stay the same
 
 make check that feathering radius is smaller than padding (psf size) so that there are no boundary conditions caused by too much feathering
 

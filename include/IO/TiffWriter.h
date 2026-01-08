@@ -3,12 +3,13 @@
 #include <string>
 #include <vector>
 #include <queue>
-#include <opencv2/core/mat.hpp>
 #include "Image3D.h"
 #include "HyperstackImage.h"
 #include "ImageMetaData.h"
 #include "Channel.h"
 #include <tiffio.h>
+#include "itkImageSliceIteratorWithIndex.h"
+#include "itkImageRegionIterator.h"
 class ImageWriter {
 public:
     virtual bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const = 0;
@@ -28,7 +29,7 @@ public:
     bool saveToFile(const std::string& filename, int y, int z, int height, int depth, const Image3D& layers) const;
     
     // Static method for writing entire Image3D to file
-    static bool writeToFile(const std::string& filename, const Image3D& image, const ImageMetaData& metadata);
+    static bool writeToFile(const std::string& filename, const Image3D& image);
     
     // Getters
     const ImageMetaData& getMetaData() const;
@@ -43,6 +44,7 @@ private:
     // mutable std::map<int, bool> directories;
     
     // Helper methods
+    static ImageMetaData extractMetaData(const Image3D& image);
     void createNewTile(const BoxCoordWithPadding& coord) const;
     bool isTileFull(const ImageBuffer& strip) const;
     bool writeTile(const std::string& filename, const ImageBuffer& strip) const;
@@ -51,11 +53,14 @@ private:
     int getStripIndex(const BoxCoordWithPadding& coord) const;
     void processReadyToWriteQueue() const;
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
-    bool writeMatToTiff(const cv::Mat& image, int directoryIndex, int yOffset) const;
+    bool writeSliceToTiff(const Image3D& image, int sliceIndex, int directoryIndex, int yOffset) const;
     
-    // Helper functions for type conversion
-    static int getTargetCvType(const ImageMetaData& metadata);
-    static void convertImageToTargetType(const cv::Mat& source, cv::Mat& destination, 
-                                        int sourceCvType, int targetCvType);
+    // Helper functions for ITK-based operations
+    static int getTargetItkType(const ImageMetaData& metadata);
+    static void extractSliceData(const Image3D& image, int sliceIndex, std::vector<float>& sliceData);
+    static void convertSliceDataToTargetType(const std::vector<float>& sourceData, 
+                                           std::vector<uint8_t>& targetData, 
+                                           int width, int height,
+                                           const ImageMetaData& metadata);
 
 };

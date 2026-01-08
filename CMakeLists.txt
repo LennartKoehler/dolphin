@@ -15,7 +15,7 @@ endif()
 # set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma")
 # set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
 # set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma")
-# Include directories and libraries for FFTW, OpenCV, OpenMP, and TIFF
+# Include directories and libraries for FFTW, OpenMP, and TIFF
 # set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Compiler flags for Valgrind-safe build
@@ -33,7 +33,6 @@ endif()
 # endif()
 
 # link_directories(/usr/local/lib)
-find_package(OpenCV REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
@@ -84,7 +83,6 @@ set(DOLPHIN_SOURCES
     src/deconvolution/deconvolutionStrategies/ImageSplit.cpp
     src/deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.cpp
     src/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.cpp
-    src/deconvolution/deconvolutionStrategies/LabeledDeconvolutionStrategy.cpp
     src/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.cpp
     src/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.cpp
 
@@ -94,10 +92,7 @@ set(DOLPHIN_SOURCES
     src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/TestAlgorithm.cpp
-    
-    src/utilities/UtlGrid.cpp
-    src/utilities/UtlImage.cpp
-    src/utilities/UtlIO.cpp
+
 
     src/frontend/SetupConfig.cpp
 )
@@ -111,7 +106,8 @@ add_library(backendlib SHARED ${BACKEND_SOURCES})
 
 target_include_directories(backendlib
     PUBLIC
-        ${CMAKE_SOURCE_DIR}/include)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/backend>
+        $<INSTALL_INTERFACE:include/backend>)
 
 
 
@@ -121,16 +117,15 @@ add_library(dolphin SHARED ${DOLPHIN_SOURCES})
 
 target_include_directories(dolphin
     PUBLIC
-        ${OpenCV_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
         ${TIFF_INCLUDE_DIR}
-        ${ITK_USE_FILE}
-        ${CMAKE_SOURCE_DIR}/include
+        ${ITK_INCLUDE_DIRS}
 )
 
 target_link_libraries(dolphin
     PUBLIC
         backendlib
-        ${OpenCV_LIBS}
         ${TIFF_LIBRARIES}
         OpenMP::OpenMP_CXX
         ${ITK_LIBRARIES}

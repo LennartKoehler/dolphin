@@ -14,12 +14,14 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <string>
-#include <opencv2/core/mat.hpp>
 #include "HelperClasses.h"
 #include "Config.h"
 
 
-
+enum class PaddingType{
+    ZERO,
+    MIRROR
+};
 class DeconvolutionConfig : public Config{
 public:
     DeconvolutionConfig();
@@ -31,7 +33,7 @@ public:
     int iterations = 10;
     float epsilon = 1e-6;
     float lambda = 0.001;
-    int borderType = cv::BORDER_REFLECT;
+    PaddingType borderType = PaddingType::ZERO;
     std::string backenddeconv = "cpu";
     int nThreads = 1;
     float maxMem_GB = 0;

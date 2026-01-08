@@ -2,17 +2,13 @@
 #include "deconvolution/Postprocessor.h"
 #include <set>
 #include <stdexcept>
-#include "UtlImage.h"
-#include <opencv2/opencv.hpp>
-#include <opencv2/core.hpp>
 #include <iostream>
-#include <opencv2/imgproc.hpp>
-#include <omp.h>
 #include "deconvolution/Preprocessor.h"
 #include "backend/BackendFactory.h"
 #include "backend/Exceptions.h"
 #include "HelperClasses.h"
 #include "frontend/SetupConfig.h"
+#include "itkImageRegionConstIterator.h"
 
 LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
     std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
@@ -20,7 +16,7 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
     std::shared_ptr<PSF> inputPSF,
     std::shared_ptr<IBackend> backend
     ) -> ComplexData* {
-        Preprocessor::padToShape(inputPSF->image, shape, 0);
+        Preprocessor::padToShape(inputPSF->image, shape, PaddingType::ZERO);
         ComplexData h = convertCVMatVectorToFFTWComplex(inputPSF->image, shape);
         ComplexData h_device = backend->getMemoryManager().copyDataToDevice(h);
         backend->getDeconvManager().octantFourierShift(h_device);
@@ -56,7 +52,7 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
         RectangleShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
         PaddedImage cubeImage = reader.getSubimage(task.paddedBox);
         PaddedImage labelImage = labelReader->getSubimage(task.paddedBox);
-        
+
         std::shared_ptr<IBackend> iobackend = task.backend->onNewThread(task.backend);
         ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage.image, workShape);
         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
@@ -137,38 +133,45 @@ std::vector<Label> LabeledDeconvolutionExecutor::getLabelGroups(
 		RangeMap<std::string> psfLabelMap) {
     std::vector<Label> labelGroups;
 
-
-    // Image3D* labelChannel = &labelImage->channels[channelNumber].image;
-    
-
     // Track which label ranges we've already added to avoid duplicates
     std::set<std::pair<int, int>> addedRanges;
     
     std::set<int> uniqueLabels;
     
+    RectangleShape imageSize = image.getShape();
+    int endZ = std::min(roi.position.depth + roi.dimensions.depth, imageSize.depth);
 
-    int endZ = std::min(roi.position.depth + roi.dimensions.depth, static_cast<int>(image.slices.size()));
-
-    for (int z = roi.position.depth; z < endZ; ++z) {
-        if (z >= 0 && z < static_cast<int>(image.slices.size())) {
-            const cv::Mat& slice = image.slices[z];
-            cv::Rect sliceRoi(roi.position.width, roi.position.height, roi.dimensions.width, roi.dimensions.height);
-            sliceRoi &= cv::Rect(0, 0, slice.cols, slice.rows);
-
-            if (!sliceRoi.empty()) {
-                cv::Mat roiSlice = slice(sliceRoi);
-               
-                cv::Mat convertedRoi;
-                roiSlice.convertTo(convertedRoi, CV_32S);
-                //TODO for different cv mat types
-                for (int y = 0; y < convertedRoi.rows; ++y) {
-                    for (int x = 0; x < convertedRoi.cols; ++x) {
-                        int labelValue = convertedRoi.at<int>(y, x);
-                        uniqueLabels.insert(labelValue);
-                    }
-                }
-            }
-        }
+    // Get the ITK image for direct access
+    ImageType::Pointer itkImage = image.getItkImage();
+    
+    // Define the region to iterate over based on the ROI
+    ImageType::IndexType roiStart;
+    roiStart[0] = roi.position.width;
+    roiStart[1] = roi.position.height;
+    roiStart[2] = roi.position.depth;
+    
+    ImageType::SizeType roiSize;
+    roiSize[0] = roi.dimensions.width;
+    roiSize[1] = roi.dimensions.height;
+    roiSize[2] = std::min(roi.dimensions.depth, imageSize.depth - roi.position.depth);
+    
+    ImageType::RegionType roiRegion;
+    roiRegion.SetIndex(roiStart);
+    roiRegion.SetSize(roiSize);
+    
+    // Ensure the region is within image bounds
+    ImageType::RegionType imageRegion = itkImage->GetLargestPossibleRegion();
+    if (!imageRegion.IsInside(roiRegion)) {
+        // Crop the ROI to fit within the image bounds
+        roiRegion.Crop(imageRegion);
+    }
+    
+    // Iterate through the ROI using ITK iterator
+    itk::ImageRegionConstIterator<ImageType> iterator(itkImage, roiRegion);
+    for (iterator.GoToBegin(); !iterator.IsAtEnd(); ++iterator) {
+        float pixelValue = iterator.Get();
+        int labelValue = static_cast<int>(pixelValue);
+        uniqueLabels.insert(labelValue);
     }
 
     for (int label : uniqueLabels) {

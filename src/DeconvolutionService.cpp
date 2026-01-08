@@ -21,7 +21,6 @@ See the LICENSE file provided with the code for the full license.
 #include "ThreadPool.h"
 #include <chrono>
 #include <fstream>
-#include "UtlIO.h"
 #include "IO/TiffReader.h"
 #include "IO/TiffWriter.h"
 
@@ -144,7 +143,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         // Execute the plan using the executor
         std::string output_path = request.output_path;
 
-        std::string path = output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath);
+        std::string path = output_path + "/deconv_" + TiffReader::getFilename(setupConfig->imagePath);
         // TiffWriter writer{output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath)};
         TiffWriter writer(path, reader.getMetaData());
         strategyPair->getExecutor().execute(plan, reader, writer);
@@ -253,23 +252,7 @@ void DeconvolutionService::setConfigLoader(std::function<json(const std::string&
     config_loader_ = loader;
 }
 
-std::shared_ptr<Hyperstack> DeconvolutionService::loadImage(const std::string& path) {
-    try {
-        std::shared_ptr<Hyperstack> hyperstack = std::make_shared<Hyperstack>();
-        
-        // Determine if path is file or directory based on extension
-        std::string ext = path.substr(path.find_last_of(".") + 1);
-        if (ext == "tif" || ext == "tiff" || ext == "ometif") {
-            hyperstack->readFromTifFile(path.c_str());
-        } else {
-            hyperstack->readFromTifDir(path.c_str());
-        }
-        
-        return hyperstack;
-    } catch (const std::exception& e) {
-        throw std::runtime_error("Failed to load image: " + std::string(e.what()));
-    }
-}
+
 
 void DeconvolutionService::setDefaultLogger(std::function<void(const std::string&)> logger) {
     default_logger_ = logger;

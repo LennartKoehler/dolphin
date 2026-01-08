@@ -15,7 +15,7 @@ public:
     void setConfig(const std::shared_ptr<const PSFConfig> config) override;
     bool hasConfig() override;
 	void setIntegrator(std::unique_ptr<NumericalIntegrator> integrator);
-	cv::Mat SinglePlanePSF(const GibsonLanniPSFConfig& config) const; // gibson lanni equation for one z-slice
+	std::vector<float> SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config) const; // gibson lanni equation for one z-slice, returns data as vector
 
 private:
 	void initBesselHelper() const;

@@ -13,229 +13,158 @@ See the LICENSE file provided with the code for the full license.
 
 #include "deconvolution/Preprocessor.h"
 #include <stdexcept>
-#include <opencv2/core.hpp>
+#include "itkConstantPadImageFilter.h"
+#include "itkMirrorPadImageFilter.h"
+#include "itkRegionOfInterestImageFilter.h"
+#include "itkImageDuplicator.h"
 
 
-std::vector<Image3D> Preprocessor::splitImageHomogeneous(
-    Image3D& image,
-    const RectangleShape& subimageShape,
-    const RectangleShape& imageOriginalShape,
-    const RectangleShape& imageShapePadded,
-    const RectangleShape& cubeShapePadded) {
 
-    assert(imageOriginalShape >= subimageShape &&  "[ERROR] subimage has to be smaller than image");   
 
-    // Calculate image padding from actual image dimensions vs imageShapePadded
-    RectangleShape imagePadding = (imageShapePadded - imageOriginalShape) / 2;
-
-    // Calculate actual cube padding amounts from cubeShapePadded
-    int cubePaddingWidth = (cubeShapePadded.width - subimageShape.width) / 2;
-    int cubePaddingHeight = (cubeShapePadded.height - subimageShape.height) / 2;
-    int cubePaddingDepth = (cubeShapePadded.depth - subimageShape.depth) / 2;
+void Preprocessor::padImage(Image3D& image, const Padding& padding, PaddingType borderType){
     
-    // Support asymmetric padding by calculating remaining padding
-    int cubePaddingWidthEnd = cubeShapePadded.width - subimageShape.width - cubePaddingWidth;
-    int cubePaddingHeightEnd = cubeShapePadded.height - subimageShape.height - cubePaddingHeight;
-    int cubePaddingDepthEnd = cubeShapePadded.depth - subimageShape.depth - cubePaddingDepth;
-
-    // Calculate number of cubes in each dimension
-    int cubesInDepth = (imageOriginalShape.depth + subimageShape.depth - 1) / subimageShape.depth;
-    int cubesInWidth = (imageOriginalShape.width + subimageShape.width - 1) / subimageShape.width;
-    int cubesInHeight = (imageOriginalShape.height + subimageShape.height - 1) / subimageShape.height;
+    // Get current image dimensions using ITK
+    RectangleShape currentShape = image.getShape();
+    int currentDepth = currentShape.depth;
+    int currentHeight = currentShape.height;
+    int currentWidth = currentShape.width;
     
-    // Calculate total number of cubes
-    int totalCubes = cubesInDepth * cubesInWidth * cubesInHeight;
-
-    // Ensure dimensions are valid
-    if (imageOriginalShape.depth <= 0 || imageOriginalShape.height <= 0 || imageOriginalShape.width <= 0) {
-        throw std::invalid_argument("Invalid image dimensions after accounting for padding.");
-    }
-
-    std::vector<Image3D> cubes;
-    cubes.reserve(totalCubes);
-
-    // Triple nested loop to iterate through all cube positions
-    for (int d = 0; d < cubesInDepth; ++d) {
-        for (int w = 0; w < cubesInWidth; ++w) {
-            for (int h = 0; h < cubesInHeight; ++h) {
-                
-                // Calculate current position in original image coordinates
-                RectangleShape currentPos(
-                    imagePadding.width + w * subimageShape.width,
-                    imagePadding.height + h * subimageShape.height,
-                    imagePadding.depth + d * subimageShape.depth
-                );
-
-                // Calculate remaining size for this cube
-                RectangleShape remainingSize(
-                    std::min(subimageShape.width, imageOriginalShape.width - w * subimageShape.width),
-                    std::min(subimageShape.height, imageOriginalShape.height - h * subimageShape.height),
-                    std::min(subimageShape.depth, imageOriginalShape.depth - d * subimageShape.depth)
-                );
-
-                // Skip if no remaining size (shouldn't happen with proper calculation)
-                if (remainingSize.depth <= 0 || remainingSize.width <= 0 || remainingSize.height <= 0) {
-                    continue;
-                }
-
-                // Determine actual cube positions - use overlap for boundary cubes
-                RectangleShape actualPos = currentPos;
-                
-                // If this would be the last cube and doesn't fit completely, shift it back to create overlap
-                if (remainingSize.depth < subimageShape.depth && remainingSize.depth > 0) {
-                    actualPos.depth = currentPos.depth - (subimageShape.depth - remainingSize.depth);
-                }
-                if (remainingSize.width < subimageShape.width && remainingSize.width > 0) {
-                    actualPos.width = currentPos.width - (subimageShape.width - remainingSize.width);
-                }
-                if (remainingSize.height < subimageShape.height && remainingSize.height > 0) {
-                    actualPos.height = currentPos.height - (subimageShape.height - remainingSize.height);
-                }
-
-                // Process current cube - extract cubeShapePadded dimensions
-                std::vector<cv::Mat> cubeSlices;
-                cubeSlices.reserve(cubeShapePadded.depth);
-
-                // Extract cube with asymmetric padding
-                int depthStart = actualPos.depth - cubePaddingDepth;
-                int depthEnd = actualPos.depth + subimageShape.depth + cubePaddingDepthEnd;
-
-                for (int z = depthStart; z < depthEnd; ++z) {
-                    
-                    int widthStart = actualPos.width - cubePaddingWidth;
-                    int heightStart = actualPos.height - cubePaddingHeight;
-                    int widthEnd = actualPos.width + subimageShape.width + cubePaddingWidthEnd;
-                    int heightEnd = actualPos.height + subimageShape.height + cubePaddingHeightEnd;
-
-                    cv::Rect cubeSlice(widthStart, heightStart, widthEnd - widthStart, heightEnd - heightStart);
-                    cv::Mat paddedSlice = image.slices.at(z)(cubeSlice).clone();
-
-                    cubeSlices.push_back(paddedSlice);
-                }
-
-                cubes.push_back(Image3D(std::move(cubeSlices)));
-            }
-        }
-    }
-    
-    return cubes;
-}
-
-
-
-void Preprocessor::padImage(Image3D& image, const Padding& padding, int borderType){
-    
-    int currentDepth = image.slices.size();
-    int currentHeight = image.slices[0].rows;
-    int currentWidth = image.slices[0].cols;
-    
-    
+    // Set up padding amounts
     int depthPaddingBefore = padding.before.depth;
     int heightPaddingTop = padding.before.height;
     int widthPaddingLeft = padding.before.width;
-
     
-    // Handle depth padding (3D)
-
-    // Distribute padding: put extra padding at the end if odd
     int depthPaddingAfter = padding.after.depth;
-    
-    std::vector<cv::Mat> paddingBefore, paddingAfter;
-    
-    if (borderType == cv::BORDER_REFLECT) {
-        // if the padding is larger than the image this would otherwise be negative
-        int start = std::max(0, currentDepth - padding.before.depth);
-
-        // Before padding: reflect continuously if needed
-        for (int i = start; i < depthPaddingBefore + start; ++i) {
-            // Use modulo to continuously reflect through the image
-            int sourceIndex = i % currentDepth;
-            // For reflection, alternate between forward and backward
-            if ((i / currentDepth) % 2 != 0) {
-                // Forward direction
-                paddingBefore.push_back(image.slices[sourceIndex].clone());
-            } else {
-                // Reverse direction  
-                paddingBefore.push_back(image.slices[currentDepth - 1 - sourceIndex].clone());
-            }
-        }
-        
-        // After padding: reflect continuously if needed
-        for (int i = 0; i < depthPaddingAfter; ++i) {
-            int sourceIndex = i % currentDepth;
-            if ((i / currentDepth) % 2 == 0) {
-                // Start from the end, going backward
-                paddingAfter.push_back(image.slices[currentDepth - 1 - sourceIndex].clone());
-            } else {
-                // Forward direction
-                paddingAfter.push_back(image.slices[sourceIndex].clone());
-            }
-        }
-    }
-    else if (borderType == 0) {
-        // Zero padding
-        cv::Mat zeroMat = cv::Mat::zeros(currentHeight, currentWidth, image.slices[0].type());
-        paddingBefore.assign(depthPaddingBefore, zeroMat);
-        paddingAfter.assign(depthPaddingAfter, zeroMat);
-    }
-    
-    // Insert padding
-    image.slices.insert(image.slices.begin(), paddingBefore.begin(), paddingBefore.end());
-    image.slices.insert(image.slices.end(), paddingAfter.begin(), paddingAfter.end());
-
-
-
     int heightPaddingBottom = padding.after.height;
     int widthPaddingRight = padding.after.width;
     
-    for (auto& layer : image.slices) {
-        cv::copyMakeBorder(layer, layer, 
-                            heightPaddingTop, heightPaddingBottom,
-                            widthPaddingLeft, widthPaddingRight, 
-                            borderType);
+
+    if (borderType == PaddingType::MIRROR) {
+        // Reflective padding using ITK MirrorPadImageFilter
+        using MirrorPadFilterType = itk::MirrorPadImageFilter<ImageType, ImageType>;
+        typename MirrorPadFilterType::Pointer mirrorPadFilter = MirrorPadFilterType::New();
+        
+        // Set up padding sizes
+        ImageType::SizeType lowerExtendRegion;
+        lowerExtendRegion[0] = widthPaddingLeft;
+        lowerExtendRegion[1] = heightPaddingTop;
+        lowerExtendRegion[2] = depthPaddingBefore;
+        
+        ImageType::SizeType upperExtendRegion;
+        upperExtendRegion[0] = widthPaddingRight;
+        upperExtendRegion[1] = heightPaddingBottom;
+        upperExtendRegion[2] = depthPaddingAfter;
+        
+        mirrorPadFilter->SetPadLowerBound(lowerExtendRegion);
+        mirrorPadFilter->SetPadUpperBound(upperExtendRegion);
+        mirrorPadFilter->SetInput(image.getItkImage());
+        mirrorPadFilter->Update();
+        
+        ImageType::Pointer paddedImage = mirrorPadFilter->GetOutput();
+        
+        // Force the region to start at (0,0,0) instead of negative coordinates
+        ImageType::SizeType paddedSize;
+        paddedSize[0] = currentWidth + widthPaddingLeft + widthPaddingRight;
+        paddedSize[1] = currentHeight + heightPaddingTop + heightPaddingBottom;
+        paddedSize[2] = currentDepth + depthPaddingBefore + depthPaddingAfter;
+
+        ImageType::IndexType zeroStart;
+        zeroStart.Fill(0);
+        
+        ImageType::RegionType newRegion;
+        newRegion.SetIndex(zeroStart);
+        newRegion.SetSize(paddedSize);
+        
+        // Reset all regions to start at (0,0,0)
+        paddedImage->SetLargestPossibleRegion(newRegion);
+        paddedImage->SetBufferedRegion(newRegion);
+        paddedImage->SetRequestedRegion(newRegion);
+        
+        image.setItkImage(std::move(paddedImage));
+    }
+    // Choose appropriate ITK filter based on border type
+    else {
+        // Zero padding using ITK ConstantPadImageFilter
+        using PadFilterType = itk::ConstantPadImageFilter<ImageType, ImageType>;
+        typename PadFilterType::Pointer padFilter = PadFilterType::New();
+        
+        // Set up padding sizes (ITK uses [lower, upper] bounds for each dimension)
+        ImageType::SizeType lowerExtendRegion;
+        lowerExtendRegion[0] = widthPaddingLeft;
+        lowerExtendRegion[1] = heightPaddingTop;
+        lowerExtendRegion[2] = depthPaddingBefore;
+        
+        ImageType::SizeType upperExtendRegion;
+        upperExtendRegion[0] = widthPaddingRight;
+        upperExtendRegion[1] = heightPaddingBottom;
+        upperExtendRegion[2] = depthPaddingAfter;
+        
+        padFilter->SetPadLowerBound(lowerExtendRegion);
+        padFilter->SetPadUpperBound(upperExtendRegion);
+        padFilter->SetConstant(0.0f);
+        padFilter->SetInput(image.getItkImage());
+        padFilter->Update();
+        
+        ImageType::Pointer paddedImage = padFilter->GetOutput();
+        
+        // Force the region to start at (0,0,0) instead of negative coordinates
+        ImageType::SizeType paddedSize = paddedImage->GetLargestPossibleRegion().GetSize();
+        ImageType::IndexType zeroStart;
+        zeroStart.Fill(0);
+        
+        ImageType::RegionType newRegion;
+        newRegion.SetIndex(zeroStart);
+        newRegion.SetSize(paddedSize);
+        
+        // Reset all regions to start at (0,0,0)
+        paddedImage->SetLargestPossibleRegion(newRegion);
+        paddedImage->SetBufferedRegion(newRegion);
+        paddedImage->SetRequestedRegion(newRegion);
+        
+        image.setItkImage(std::move(paddedImage));
     }
 }
 
 
-Padding Preprocessor::padToShape(Image3D& image, const RectangleShape& targetShape, int borderType){
-    assert (!image.slices.empty() && "Cannot pad empty image");
+Padding Preprocessor::padToShape(Image3D& image, const RectangleShape& targetShape, PaddingType borderType){
+    // Get current image dimensions using ITK
+    RectangleShape currentShape = image.getShape();
+    if (currentShape.width == 0 || currentShape.height == 0 || currentShape.depth == 0) {
+        throw std::invalid_argument("Cannot pad empty image");
+    }
     
-    int currentDepth = image.slices.size();
-    int currentHeight = image.slices[0].rows;
-    int currentWidth = image.slices[0].cols;
+    int currentDepth = currentShape.depth;
+    int currentHeight = currentShape.height;
+    int currentWidth = currentShape.width;
     
     // Calculate total padding needed
     int totalDepthPadding = targetShape.depth - currentDepth;
     int totalHeightPadding = targetShape.height - currentHeight;
     int totalWidthPadding = targetShape.width - currentWidth;
     
-    int depthPaddingBefore;
-    int heightPaddingTop;
-    int widthPaddingLeft;
+    int depthPaddingBefore = 0;
+    int heightPaddingTop = 0;
+    int widthPaddingLeft = 0;
 
-    int depthPaddingAfter;
-    int heightPaddingBottom;
-    int widthPaddingRight;
+    int depthPaddingAfter = 0;
+    int heightPaddingBottom = 0;
+    int widthPaddingRight = 0;
 
-
- 
     // Handle depth padding (3D)
     if (totalDepthPadding > 0) {
         // Distribute padding: put extra padding at the end if odd
         depthPaddingBefore = totalDepthPadding / 2;
         depthPaddingAfter = totalDepthPadding - depthPaddingBefore;
-        
-        
     }
     
-    // Handle 2D padding (width/height) - OpenCV automatically handles continuous reflection
+    // Handle 2D padding (width/height)
     if (totalHeightPadding > 0 || totalWidthPadding > 0) {
         heightPaddingTop = totalHeightPadding / 2;
         heightPaddingBottom = totalHeightPadding - heightPaddingTop;
         widthPaddingLeft = totalWidthPadding / 2;
         widthPaddingRight = totalWidthPadding - widthPaddingLeft;
-
     }
+    
     Padding padding{
         RectangleShape{
             widthPaddingLeft,
@@ -256,39 +185,47 @@ Padding Preprocessor::padToShape(Image3D& image, const RectangleShape& targetSha
 
 
 void Preprocessor::expandToMinSize(Image3D& image, const RectangleShape& minSize) {
-    if (image.slices.empty()) return;
+    // Get current image dimensions using ITK
+    RectangleShape currentShape = image.getShape();
+    if (currentShape.width == 0 || currentShape.height == 0 || currentShape.depth == 0) {
+        return;
+    }
     
-    int currentDepth = image.slices.size();
-    int currentHeight = image.slices[0].rows;
-    int currentWidth = image.slices[0].cols;
+    int currentDepth = currentShape.depth;
+    int currentHeight = currentShape.height;
+    int currentWidth = currentShape.width;
     
     // Calculate padding needed for each dimension
     int depthPadding = std::max(0, minSize.depth - currentDepth);
     int heightPadding = std::max(0, minSize.height - currentHeight);
     int widthPadding = std::max(0, minSize.width - currentWidth);
     
-    // Expand depth if needed
-    if (depthPadding > 0) {
-        image.slices.reserve(minSize.depth);
-        
-        // Add slices at the end (could also mirror from beginning/end)
-        for (int i = 0; i < depthPadding; ++i) {
-            // Mirror from existing slices - use modulo to cycle through
-            int sourceIndex = (currentDepth - 1) - (i % currentDepth);
-            image.slices.push_back(image.slices[sourceIndex].clone());
-        }
+    // If no padding needed, return
+    if (depthPadding == 0 && heightPadding == 0 && widthPadding == 0) {
+        return;
     }
     
-    // Expand width and height if needed
-    if (widthPadding > 0 || heightPadding > 0) {
-        for (auto& layer : image.slices) {
-            cv::copyMakeBorder(layer, layer, 
-                             0,              // top = 0 (no padding at top)
-                             heightPadding,  // bottom = all height padding
-                             0,              // left = 0 (no padding at left) 
-                             widthPadding,   // right = all width padding
-                             cv::BORDER_REFLECT_101);
-        }
-    }
+    // Use MirrorPadImageFilter for expansion (similar to the original BORDER_REFLECT_101)
+    using MirrorPadFilterType = itk::MirrorPadImageFilter<ImageType, ImageType>;
+    typename MirrorPadFilterType::Pointer mirrorPadFilter = MirrorPadFilterType::New();
+    
+    // Set up padding sizes - expand only at the end (like the original code)
+    ImageType::SizeType lowerExtendRegion;
+    lowerExtendRegion[0] = 0;              // left = 0 (no padding at left)
+    lowerExtendRegion[1] = 0;              // top = 0 (no padding at top)
+    lowerExtendRegion[2] = 0;              // front = 0 (no padding at front)
+    
+    ImageType::SizeType upperExtendRegion;
+    upperExtendRegion[0] = widthPadding;   // right = all width padding
+    upperExtendRegion[1] = heightPadding;  // bottom = all height padding
+    upperExtendRegion[2] = depthPadding;   // back = all depth padding
+    
+    mirrorPadFilter->SetPadLowerBound(lowerExtendRegion);
+    mirrorPadFilter->SetPadUpperBound(upperExtendRegion);
+    mirrorPadFilter->SetInput(image.getItkImage());
+    mirrorPadFilter->Update();
+    
+    ImageType::Pointer expandedImage = mirrorPadFilter->GetOutput();
+    image.setItkImage(std::move(expandedImage));
 }
 

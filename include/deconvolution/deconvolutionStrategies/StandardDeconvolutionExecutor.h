@@ -35,7 +35,6 @@ protected:
         const ImageWriter& writer);
 
     // virtual PaddedImage preprocessChannel(Channel& image, const ChannelPlan& channelPlan);
-    virtual void postprocessChannel(Image3D& image);
     virtual ComplexData convertCVMatVectorToFFTWComplex(const Image3D& input, const RectangleShape& shape);
     virtual Image3D convertFFTWComplexToCVMatVector(const ComplexData& input);
 

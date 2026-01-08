@@ -60,6 +60,10 @@ See the LICENSE file provided with the code for the full license.
 #include "psf/configs/GibsonLanniPSFConfig.h"
 #include "ThreadPool.h"
 #include "psf/generators/BesselHelper.h"
+#include "itkImage.h"
+#include "itkImageRegionIterator.h"
+#include <cmath>
+#include <future>
 
 GibsonLanniPSFGenerator::GibsonLanniPSFGenerator(std::unique_ptr<NumericalIntegrator> integrator)
     : numericalIntegrator(std::move(integrator)){}
@@ -102,31 +106,76 @@ void GibsonLanniPSFGenerator::initBesselHelper() const {
 }
 
 PSF GibsonLanniPSFGenerator::generatePSF() const {
-    std::vector<cv::Mat> sphereLayers;
-    std::vector<std::future<cv::Mat>> tempSphereLayers;
-    sphereLayers.reserve(config->sizeZ);
-
     initBesselHelper();
 
+    // Create ITK 3D image
+    ImageType::Pointer itkImage = ImageType::New();
+    
+    // Set the image dimensions
+    ImageType::SizeType size;
+    size[0] = config->sizeX;
+    size[1] = config->sizeY;
+    size[2] = config->sizeZ;
+
+    ImageType::IndexType start;
+    start.Fill(0);
+
+    ImageType::RegionType region;
+    region.SetSize(size);
+    region.SetIndex(start);
+
+    itkImage->SetRegions(region);
+    itkImage->Allocate();
+
+    // Process each z-slice using threading
+    std::vector<std::future<std::vector<float>>> tempSphereLayers;
+    tempSphereLayers.reserve(config->sizeZ);
+
     for (int z = 0; z < config->sizeZ; z++){
-        GibsonLanniPSFConfig config = *(this->config);
-        config.ti_nm = config.ti0_nm + config.pixelSizeAxial_nm * (z - (config.sizeZ - 1.0) / 2.0);
-        tempSphereLayers.emplace_back(threadPool->enqueue([this, config](){
-            return SinglePlanePSF(config);
+        GibsonLanniPSFConfig configCopy = *(this->config);
+        configCopy.ti_nm = configCopy.ti0_nm + configCopy.pixelSizeAxial_nm * (z - (config->sizeZ - 1.0) / 2.0);
+        tempSphereLayers.emplace_back(threadPool->enqueue([this, configCopy](){
+            return SinglePlanePSFAsVector(configCopy);
         })); 
     }
-    for (auto& future : tempSphereLayers){
-        sphereLayers.push_back(future.get());
+
+    // Copy data from computed slices into ITK image
+    for (int z = 0; z < config->sizeZ; z++) {
+        std::vector<float> sliceData = tempSphereLayers[z].get();
+        
+        // Define the slice region for z-th slice
+        ImageType::IndexType sliceStart;
+        sliceStart[0] = 0;
+        sliceStart[1] = 0;
+        sliceStart[2] = z;
+
+        ImageType::SizeType sliceSize;
+        sliceSize[0] = config->sizeX;
+        sliceSize[1] = config->sizeY;
+        sliceSize[2] = 1;
+
+        ImageType::RegionType sliceRegion;
+        sliceRegion.SetIndex(sliceStart);
+        sliceRegion.SetSize(sliceSize);
+
+        // Iterator over the slice
+        itk::ImageRegionIterator<ImageType> it(itkImage, sliceRegion);
+        
+        int dataIndex = 0;
+        for (it.GoToBegin(); !it.IsAtEnd(); ++it, ++dataIndex) {
+            it.Set(sliceData[dataIndex]);
+        }
     }
-    Image3D psfImage;
-    psfImage.slices = sphereLayers;
+
+    // Create PSF object with the ITK image
+    Image3D psfImage(std::move(itkImage));
     PSF psf;
     psf.image = psfImage;
     return psf;
 }
 
 
-cv::Mat GibsonLanniPSFGenerator::SinglePlanePSF(const GibsonLanniPSFConfig& config) const {    
+std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config) const {    
     int nx = config.sizeX;
     int ny = config.sizeY;
     int OVER_SAMPLING = config.OVER_SAMPLING;
@@ -165,7 +214,7 @@ cv::Mat GibsonLanniPSFGenerator::SinglePlanePSF(const GibsonLanniPSFConfig& conf
     }
     
     // Linear interpolation of the pixel values
-    cv::Mat slice(nx, ny, CV_32F);
+    std::vector<float> sliceData(nx * ny);
     double rPixel, value;
     int index;
     
@@ -179,11 +228,11 @@ cv::Mat GibsonLanniPSFGenerator::SinglePlanePSF(const GibsonLanniPSFConfig& conf
             } else {
                 value = h[index];
             }
-            slice.at<float>(x,y) = value;
+            sliceData[x * ny + y] = static_cast<float>(value);
         }
     }
     
-    return slice;
+    return sliceData;
 }
 
 
