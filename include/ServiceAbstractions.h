@@ -19,7 +19,7 @@ See the LICENSE file provided with the code for the full license.
 #include <chrono>
 #include <stdexcept>
 #include <functional>
-#include "../lib/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include "HyperstackImage.h"
 #include "frontend/SetupConfig.h"
 #include <future>

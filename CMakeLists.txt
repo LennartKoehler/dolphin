@@ -102,12 +102,13 @@ set(DOLPHIN_SOURCES
 # Create backend library
 set(BACKEND_SOURCES
     src/backend/ComplexData.cpp)
-add_library(backendlib SHARED ${BACKEND_SOURCES})
+add_library(backendlib STATIC ${BACKEND_SOURCES})
 
 target_include_directories(backendlib
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/backend>
-        $<INSTALL_INTERFACE:include/backend>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+
+        $<INSTALL_INTERFACE:include>)
 
 
 
@@ -119,6 +120,8 @@ target_include_directories(dolphin
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib>
+        $<INSTALL_INTERFACE:lib>
         ${TIFF_INCLUDE_DIR}
         ${ITK_INCLUDE_DIRS}
 )
@@ -136,6 +139,10 @@ set_target_properties(dolphin PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
 )
+set_target_properties(dolphin PROPERTIES
+    INSTALL_RPATH "$ORIGIN/../lib"
+    BUILD_RPATH "$ORIGIN/../lib"
+)
 
 # Install targets
 install(TARGETS dolphin backendlib
@@ -149,7 +156,7 @@ install(TARGETS dolphin backendlib
 # Install headers
 install(DIRECTORY include/ 
     DESTINATION include
-    FILES_MATCHING PATTERN "*.h"
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
 
 # Create and install the config file

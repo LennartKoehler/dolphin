@@ -67,6 +67,8 @@ void StandardDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfi
     workerThreads = std::max(1, workerThreads);
     ioThreads = std::max(1, ioThreads);
     readwriterPool = std::make_shared<ThreadPool>(ioThreads);
+
+    std::function<void()> threadInitFunc = [](){}
     processor.init(workerThreads);
     configured = true;
 }

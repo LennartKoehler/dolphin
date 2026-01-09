@@ -24,11 +24,14 @@ class PSF;
 class ComplexData;
 class PSFPreprocessor;
 
+
 class DeconvolutionProcessor{
 public:
     DeconvolutionProcessor() = default;
 
-    void init(size_t numberThreads){ workerPool = std::make_shared<ThreadPool>(numberThreads);}
+    void init(size_t numberThreads, std::function<void()> threadInitFunc){
+        workerPool = std::make_unique<ThreadPool>(numberThreads, threadInitFunc);
+    }
 
     std::future<void> deconvolveSingleCube(
         std::shared_ptr<IBackend> backend,
@@ -41,7 +44,7 @@ public:
 
 
 private:
-    std::shared_ptr<ThreadPool> workerPool;
-
+    std::unique_ptr<ThreadPool> workerPool;
+    
 };
 

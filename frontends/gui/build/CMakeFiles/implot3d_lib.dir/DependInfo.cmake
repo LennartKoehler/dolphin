@@ -8,8 +8,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/lennart-k-hler/projects/dolphin/frontends/gui/lib/implot3d/implot3d.cpp" "CMakeFiles/implot3d_lib.dir/lib/implot3d/implot3d.cpp.o" "gcc" "CMakeFiles/implot3d_lib.dir/lib/implot3d/implot3d.cpp.o.d"
-  "/home/lennart-k-hler/projects/dolphin/frontends/gui/lib/implot3d/implot3d_items.cpp" "CMakeFiles/implot3d_lib.dir/lib/implot3d/implot3d_items.cpp.o" "gcc" "CMakeFiles/implot3d_lib.dir/lib/implot3d/implot3d_items.cpp.o.d"
+  "/home/lennart-koehler/projects/dolphin/frontends/gui/lib/implot3d/implot3d.cpp" "CMakeFiles/implot3d_lib.dir/lib/implot3d/implot3d.cpp.o" "gcc" "CMakeFiles/implot3d_lib.dir/lib/implot3d/implot3d.cpp.o.d"
+  "/home/lennart-koehler/projects/dolphin/frontends/gui/lib/implot3d/implot3d_items.cpp" "CMakeFiles/implot3d_lib.dir/lib/implot3d/implot3d_items.cpp.o" "gcc" "CMakeFiles/implot3d_lib.dir/lib/implot3d/implot3d_items.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

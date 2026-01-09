@@ -9,22 +9,32 @@ CUDABackendManager& CUDABackendManager::getInstance() {
 }
 
 void CUDABackendManager::initializeGlobalCUDA() {
-    static bool globalInitialized = false;
-    static std::mutex initMutex;
-    static std::condition_variable initCondition;
-    static bool initInProgress = false;
+    // static bool globalInitialized = false;
+    // static std::mutex initMutex;
+    // static std::condition_variable initCondition;
+    // static bool initInProgress = false;
     
-    std::unique_lock<std::mutex> lock(initMutex);
-    cudaStream_t stream1;
-    cudaStreamCreate(&stream1);
+    // std::unique_lock<std::mutex> lock(initMutex);
+    // cudaStream_t stream1;
+    // cudaStreamCreate(&stream1);
+    int deviceCount;
+    cudaGetDeviceCount(&deviceCount);
+    int device;
+    for (device = 0; device < deviceCount; ++device) {
+        cudaDeviceProp deviceProp;
+        cudaGetDeviceProperties(&deviceProp, device);
+        printf("Device %d has compute capability %d.%d.\n",
+        device, deviceProp.major, deviceProp.minor);
+    }
 } 
 
 
 // TODO make stream management more native, different streams in one cuda backend should not be permitted, one origin of truth
 std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend() {
-    initializeGlobalCUDA();
-    cudaStream_t stream = createStream();
+    // initializeGlobalCUDA();
+
     cudaSetDevice(0);
+    cudaStream_t stream = createStream();
 
     CUDABackend* backend = CUDABackend::create(); 
     backend->setStream(stream);

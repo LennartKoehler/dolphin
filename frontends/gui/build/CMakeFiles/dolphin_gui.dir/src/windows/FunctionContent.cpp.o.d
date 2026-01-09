@@ -1,7 +1,7 @@
 CMakeFiles/dolphin_gui.dir/src/windows/FunctionContent.cpp.o: \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/src/windows/FunctionContent.cpp \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/src/windows/FunctionContent.cpp \
  /usr/include/stdc-predef.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/include/windows/FunctionContent.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/include/windows/FunctionContent.h \
  /usr/include/c++/13/functional \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -106,7 +106,7 @@ CMakeFiles/dolphin_gui.dir/src/windows/FunctionContent.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h /usr/include/alloca.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
  /usr/include/c++/13/bits/std_abs.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/include/windows/Window.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/include/windows/Window.h \
  /usr/include/c++/13/string /usr/include/c++/13/bits/stringfwd.h \
  /usr/include/c++/13/bits/char_traits.h \
  /usr/include/c++/13/bits/postypes.h /usr/include/c++/13/cwchar \
@@ -139,15 +139,14 @@ CMakeFiles/dolphin_gui.dir/src/windows/FunctionContent.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/types/error_t.h \
  /usr/include/c++/13/bits/charconv.h \
  /usr/include/c++/13/bits/basic_string.tcc \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/include/DefaultGUIStyleConfig.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/include/GUIStyleConfig.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/imgui.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/imconfig.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/include/DefaultGUIStyleConfig.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/include/GUIStyleConfig.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/imgui.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/imconfig.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/float.h /usr/include/string.h \
- /usr/include/strings.h /usr/include/assert.h \
- /home/lennart-k-hler/projects/dolphin/include/Config.h \
- /home/lennart-k-hler/projects/dolphin/lib/nlohmann/json.hpp \
- /usr/include/c++/13/algorithm /usr/include/c++/13/bits/ranges_algo.h \
+ /usr/include/strings.h /usr/include/assert.h /usr/local/include/Config.h \
+ /usr/local/lib/nlohmann/json.hpp /usr/include/c++/13/algorithm \
+ /usr/include/c++/13/bits/ranges_algo.h \
  /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_algorithm_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/iterator \
@@ -287,7 +286,7 @@ CMakeFiles/dolphin_gui.dir/src/windows/FunctionContent.cpp.o: \
  /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/iostream \
  /usr/include/c++/13/unordered_set \
  /usr/include/c++/13/bits/unordered_set.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/include/imguiWidget.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui-filebrowser/imfilebrowser.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/include/imguiWidget.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui-filebrowser/imfilebrowser.h \
  /usr/include/c++/13/set /usr/include/c++/13/bits/stl_set.h \
  /usr/include/c++/13/bits/stl_multiset.h

@@ -1,8 +1,8 @@
 CMakeFiles/dolphin_gui.dir/src/imguiWidget.cpp.o: \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/src/imguiWidget.cpp \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/src/imguiWidget.cpp \
  /usr/include/stdc-predef.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/include/imguiWidget.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/include/GUIStyleConfig.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/include/imguiWidget.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/include/GUIStyleConfig.h \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -130,13 +130,12 @@ CMakeFiles/dolphin_gui.dir/src/imguiWidget.cpp.o: \
  /usr/include/c++/13/bits/enable_special_members.h \
  /usr/include/c++/13/bits/node_handle.h \
  /usr/include/c++/13/bits/erase_if.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/imgui.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/imconfig.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/imgui.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/imconfig.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/float.h /usr/include/string.h \
- /usr/include/strings.h /usr/include/assert.h \
- /home/lennart-k-hler/projects/dolphin/include/Config.h \
- /home/lennart-k-hler/projects/dolphin/lib/nlohmann/json.hpp \
- /usr/include/c++/13/algorithm /usr/include/c++/13/bits/stl_algo.h \
+ /usr/include/strings.h /usr/include/assert.h /usr/local/include/Config.h \
+ /usr/local/lib/nlohmann/json.hpp /usr/include/c++/13/algorithm \
+ /usr/include/c++/13/bits/stl_algo.h \
  /usr/include/c++/13/bits/algorithmfwd.h \
  /usr/include/c++/13/bits/stl_heap.h \
  /usr/include/c++/13/bits/uniform_int_dist.h \
@@ -286,10 +285,10 @@ CMakeFiles/dolphin_gui.dir/src/imguiWidget.cpp.o: \
  /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/iostream \
  /usr/include/c++/13/unordered_set \
  /usr/include/c++/13/bits/unordered_set.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui-filebrowser/imfilebrowser.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui-filebrowser/imfilebrowser.h \
  /usr/include/c++/13/set /usr/include/c++/13/bits/stl_set.h \
  /usr/include/c++/13/bits/stl_multiset.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/backends/imgui_impl_glfw.h \
- /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/backends/imgui_impl_opengl3.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/backends/imgui_impl_glfw.h \
+ /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/backends/imgui_impl_opengl3.h \
  /usr/local/include/GLFW/glfw3.h /usr/include/GL/gl.h \
  /usr/include/GL/glext.h /usr/include/KHR/khrplatform.h

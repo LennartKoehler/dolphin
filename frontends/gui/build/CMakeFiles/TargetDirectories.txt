@@ -1,5 +1,5 @@
-/home/lennart-k-hler/projects/dolphin/frontends/gui/build/CMakeFiles/imgui_lib.dir
-/home/lennart-k-hler/projects/dolphin/frontends/gui/build/CMakeFiles/implot3d_lib.dir
-/home/lennart-k-hler/projects/dolphin/frontends/gui/build/CMakeFiles/dolphin_gui.dir
-/home/lennart-k-hler/projects/dolphin/frontends/gui/build/CMakeFiles/edit_cache.dir
-/home/lennart-k-hler/projects/dolphin/frontends/gui/build/CMakeFiles/rebuild_cache.dir
+/home/lennart-koehler/projects/dolphin/frontends/gui/build/CMakeFiles/imgui_lib.dir
+/home/lennart-koehler/projects/dolphin/frontends/gui/build/CMakeFiles/implot3d_lib.dir
+/home/lennart-koehler/projects/dolphin/frontends/gui/build/CMakeFiles/dolphin_gui.dir
+/home/lennart-koehler/projects/dolphin/frontends/gui/build/CMakeFiles/edit_cache.dir
+/home/lennart-koehler/projects/dolphin/frontends/gui/build/CMakeFiles/rebuild_cache.dir

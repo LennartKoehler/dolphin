@@ -1,7 +1,6 @@
 CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
- /home/lennart-k-hler/projects/dolphin/frontends/cli/src/main.cpp \
- /usr/include/stdc-predef.h \
- /home/lennart-k-hler/projects/dolphin/include/Dolphin.h \
+ /home/lennart-koehler/projects/dolphin/frontends/cli/src/main.cpp \
+ /usr/include/stdc-predef.h /usr/local/include/Dolphin.h \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -125,75 +124,16 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/stl_uninitialized.h \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
- /usr/include/c++/13/bits/vector.tcc \
- /usr/local/include/opencv4/opencv2/opencv.hpp \
- /usr/local/include/opencv4/opencv2/opencv_modules.hpp \
- /usr/local/include/opencv4/opencv2/core.hpp \
- /usr/local/include/opencv4/opencv2/core/cvdef.h \
- /usr/local/include/opencv4/opencv2/core/version.hpp \
- /usr/include/c++/13/limits \
- /usr/local/include/opencv4/opencv2/core/hal/interface.h \
- /usr/include/c++/13/cstdint \
+ /usr/include/c++/13/bits/vector.tcc /usr/include/c++/13/memory \
+ /usr/include/c++/13/bits/stl_tempbuf.h \
+ /usr/include/c++/13/bits/stl_raw_storage_iter.h \
+ /usr/include/c++/13/bits/align.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
- /usr/local/include/opencv4/opencv2/core/cv_cpu_dispatch.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/emmintrin.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/xmmintrin.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/mmintrin.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/mm_malloc.h \
- /usr/include/c++/13/stdlib.h \
- /usr/local/include/opencv4/opencv2/core/base.hpp \
- /usr/include/c++/13/climits \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h \
- /usr/include/limits.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
- /usr/include/x86_64-linux-gnu/bits/local_lim.h \
- /usr/include/linux/limits.h \
- /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
- /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
- /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
- /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
- /usr/include/c++/13/algorithm /usr/include/c++/13/bits/stl_algo.h \
- /usr/include/c++/13/bits/algorithmfwd.h \
- /usr/include/c++/13/bits/stl_heap.h \
- /usr/include/c++/13/bits/uniform_int_dist.h \
- /usr/include/c++/13/bits/stl_tempbuf.h \
- /usr/include/c++/13/bits/ranges_algo.h \
- /usr/include/c++/13/bits/ranges_algobase.h \
- /usr/include/c++/13/pstl/glue_algorithm_defs.h \
- /usr/include/c++/13/pstl/execution_defs.h \
- /usr/local/include/opencv4/opencv2/core/cvstd.hpp \
- /usr/include/c++/13/cstring /usr/include/string.h /usr/include/strings.h \
- /usr/include/c++/13/utility /usr/include/c++/13/bits/stl_relops.h \
- /usr/include/c++/13/cmath /usr/include/math.h \
- /usr/include/x86_64-linux-gnu/bits/math-vector.h \
- /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h \
- /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h \
- /usr/include/x86_64-linux-gnu/bits/fp-logb.h \
- /usr/include/x86_64-linux-gnu/bits/fp-fast.h \
- /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h \
- /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
- /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h \
- /usr/include/x86_64-linux-gnu/bits/iscanonical.h \
- /usr/include/c++/13/bits/specfun.h /usr/include/c++/13/tr1/gamma.tcc \
- /usr/include/c++/13/tr1/special_function_util.h \
- /usr/include/c++/13/tr1/bessel_function.tcc \
- /usr/include/c++/13/tr1/beta_function.tcc \
- /usr/include/c++/13/tr1/ell_integral.tcc \
- /usr/include/c++/13/tr1/exp_integral.tcc \
- /usr/include/c++/13/tr1/hypergeometric.tcc \
- /usr/include/c++/13/tr1/legendre_function.tcc \
- /usr/include/c++/13/tr1/modified_bessel_func.tcc \
- /usr/include/c++/13/tr1/poly_hermite.tcc \
- /usr/include/c++/13/tr1/poly_laguerre.tcc \
- /usr/include/c++/13/tr1/riemann_zeta.tcc \
- /usr/local/include/opencv4/opencv2/core/cvstd_wrapper.hpp \
- /usr/include/c++/13/memory \
- /usr/include/c++/13/bits/stl_raw_storage_iter.h \
- /usr/include/c++/13/bits/align.h /usr/include/c++/13/bits/unique_ptr.h \
- /usr/include/c++/13/ostream /usr/include/c++/13/ios \
- /usr/include/c++/13/exception /usr/include/c++/13/bits/exception_ptr.h \
+ /usr/include/c++/13/bits/unique_ptr.h /usr/include/c++/13/ostream \
+ /usr/include/c++/13/ios /usr/include/c++/13/exception \
+ /usr/include/c++/13/bits/exception_ptr.h \
  /usr/include/c++/13/bits/cxxabi_init_exception.h \
  /usr/include/c++/13/typeinfo /usr/include/c++/13/bits/nested_exception.h \
  /usr/include/c++/13/bits/ios_base.h /usr/include/c++/13/ext/atomicity.h \
@@ -209,6 +149,7 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
  /usr/include/x86_64-linux-gnu/bits/setjmp.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h \
+ /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/atomic_word.h \
  /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
  /usr/include/c++/13/bits/locale_classes.h \
@@ -234,7 +175,16 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/shared_ptr_atomic.h \
  /usr/include/c++/13/bits/atomic_base.h \
  /usr/include/c++/13/bits/atomic_lockfree_defines.h \
- /usr/include/c++/13/bits/atomic_wait.h /usr/include/unistd.h \
+ /usr/include/c++/13/bits/atomic_wait.h /usr/include/c++/13/cstdint \
+ /usr/include/c++/13/climits \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h \
+ /usr/include/limits.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/local_lim.h \
+ /usr/include/linux/limits.h \
+ /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/uio_lim.h /usr/include/unistd.h \
  /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
  /usr/include/x86_64-linux-gnu/bits/environments.h \
  /usr/include/x86_64-linux-gnu/bits/confname.h \
@@ -249,58 +199,20 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/std_mutex.h \
  /usr/include/c++/13/backward/auto_ptr.h \
  /usr/include/c++/13/bits/ranges_uninitialized.h \
+ /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
- /usr/local/include/opencv4/opencv2/core/neon_utils.hpp \
- /usr/local/include/opencv4/opencv2/core/vsx_utils.hpp \
- /usr/include/assert.h /usr/local/include/opencv4/opencv2/core/check.hpp \
- /usr/local/include/opencv4/opencv2/core/traits.hpp \
- /usr/local/include/opencv4/opencv2/core/matx.hpp \
- /usr/local/include/opencv4/opencv2/core/saturate.hpp \
- /usr/local/include/opencv4/opencv2/core/fast_math.hpp \
- /usr/local/include/opencv4/opencv2/core/matx.inl.hpp \
- /usr/local/include/opencv4/opencv2/core/types.hpp \
- /usr/include/c++/13/cfloat \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/float.h \
- /usr/local/include/opencv4/opencv2/core/mat.hpp \
- /usr/local/include/opencv4/opencv2/core/bufferpool.hpp \
- /usr/include/c++/13/array \
- /usr/local/include/opencv4/opencv2/core/mat.inl.hpp \
- /usr/local/include/opencv4/opencv2/core/persistence.hpp \
- /usr/local/include/opencv4/opencv2/core/operations.hpp \
- /usr/local/include/opencv4/opencv2/core/cvstd.inl.hpp \
- /usr/include/c++/13/complex /usr/include/c++/13/sstream \
- /usr/include/c++/13/istream /usr/include/c++/13/bits/istream.tcc \
- /usr/include/c++/13/bits/sstream.tcc \
- /usr/local/include/opencv4/opencv2/core/utility.hpp \
- /usr/include/c++/13/functional /usr/include/c++/13/bits/std_function.h \
- /usr/include/c++/13/unordered_map \
- /usr/include/c++/13/bits/unordered_map.h \
- /usr/include/c++/13/bits/hashtable.h \
- /usr/include/c++/13/bits/hashtable_policy.h \
- /usr/include/c++/13/bits/enable_special_members.h \
- /usr/include/c++/13/bits/node_handle.h \
- /usr/include/c++/13/bits/erase_if.h /usr/include/c++/13/mutex \
+ /usr/include/c++/13/pstl/execution_defs.h \
+ /usr/local/include/ServiceAbstractions.h /usr/include/c++/13/chrono \
  /usr/include/c++/13/bits/chrono.h /usr/include/c++/13/ratio \
- /usr/include/c++/13/ctime /usr/include/c++/13/bits/parse_numbers.h \
- /usr/include/c++/13/bits/unique_lock.h \
- /usr/local/include/opencv4/opencv2/core/optim.hpp \
- /usr/local/include/opencv4/opencv2/core/ovx.hpp \
- /usr/local/include/opencv4/opencv2/core/cvdef.h \
- /usr/local/include/opencv4/opencv2/calib3d.hpp \
- /usr/local/include/opencv4/opencv2/features2d.hpp \
- /usr/local/include/opencv4/opencv2/flann/miniflann.hpp \
- /usr/local/include/opencv4/opencv2/flann/defines.h \
- /usr/local/include/opencv4/opencv2/flann/config.h \
- /usr/local/include/opencv4/opencv2/core/affine.hpp \
- /usr/local/include/opencv4/opencv2/core/utils/logger.hpp \
- /usr/include/c++/13/iostream \
- /usr/local/include/opencv4/opencv2/core/utils/logger.defines.hpp \
- /usr/local/include/opencv4/opencv2/core/utils/logtag.hpp \
- /usr/local/include/opencv4/opencv2/dnn.hpp \
- /usr/local/include/opencv4/opencv2/dnn/dnn.hpp \
- /usr/local/include/opencv4/opencv2/core/async.hpp \
- /usr/include/c++/13/chrono /usr/include/c++/13/bits/chrono_io.h \
- /usr/include/c++/13/iomanip /usr/include/c++/13/locale \
+ /usr/include/c++/13/limits /usr/include/c++/13/ctime \
+ /usr/include/c++/13/bits/parse_numbers.h /usr/include/c++/13/sstream \
+ /usr/include/c++/13/istream /usr/include/c++/13/bits/istream.tcc \
+ /usr/include/c++/13/bits/sstream.tcc /usr/include/c++/13/bits/stl_algo.h \
+ /usr/include/c++/13/bits/algorithmfwd.h \
+ /usr/include/c++/13/bits/stl_heap.h \
+ /usr/include/c++/13/bits/uniform_int_dist.h \
+ /usr/include/c++/13/bits/chrono_io.h /usr/include/c++/13/iomanip \
+ /usr/include/c++/13/locale \
  /usr/include/c++/13/bits/locale_facets_nonio.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \
@@ -308,97 +220,47 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/locale_facets_nonio.tcc \
  /usr/include/c++/13/bits/locale_conv.h \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/format \
- /usr/include/c++/13/charconv /usr/include/c++/13/optional \
+ /usr/include/c++/13/array /usr/include/c++/13/charconv \
+ /usr/include/c++/13/optional \
+ /usr/include/c++/13/bits/enable_special_members.h \
  /usr/include/c++/13/span /usr/include/c++/13/variant \
- /usr/local/include/opencv4/opencv2/dnn/version.hpp \
- /usr/local/include/opencv4/opencv2/dnn/dict.hpp /usr/include/c++/13/map \
- /usr/include/c++/13/bits/stl_tree.h /usr/include/c++/13/bits/stl_map.h \
- /usr/include/c++/13/bits/stl_multimap.h \
- /usr/local/include/opencv4/opencv2/dnn/layer.hpp \
- /usr/local/include/opencv4/opencv2/dnn/dnn.inl.hpp \
- /usr/local/include/opencv4/opencv2/dnn/utils/inference_engine.hpp \
- /usr/local/include/opencv4/opencv2/dnn/dnn.hpp \
- /usr/local/include/opencv4/opencv2/flann.hpp \
- /usr/local/include/opencv4/opencv2/flann/flann_base.hpp \
- /usr/local/include/opencv4/opencv2/flann/general.h \
- /usr/local/include/opencv4/opencv2/flann/matrix.h \
- /usr/local/include/opencv4/opencv2/flann/params.h \
- /usr/local/include/opencv4/opencv2/flann/any.h \
- /usr/local/include/opencv4/opencv2/flann/defines.h \
- /usr/local/include/opencv4/opencv2/flann/saving.h \
- /usr/local/include/opencv4/opencv2/flann/nn_index.h \
- /usr/local/include/opencv4/opencv2/flann/result_set.h \
- /usr/include/c++/13/set /usr/include/c++/13/bits/stl_set.h \
- /usr/include/c++/13/bits/stl_multiset.h \
- /usr/local/include/opencv4/opencv2/flann/all_indices.h \
- /usr/local/include/opencv4/opencv2/flann/kdtree_index.h \
- /usr/local/include/opencv4/opencv2/flann/dynamic_bitset.h \
- /usr/local/include/opencv4/opencv2/flann/dist.h \
- /usr/local/include/opencv4/opencv2/flann/heap.h \
- /usr/local/include/opencv4/opencv2/flann/allocator.h \
- /usr/local/include/opencv4/opencv2/flann/random.h \
- /usr/local/include/opencv4/opencv2/flann/kdtree_single_index.h \
- /usr/local/include/opencv4/opencv2/flann/kmeans_index.h \
- /usr/local/include/opencv4/opencv2/flann/logger.h \
- /usr/local/include/opencv4/opencv2/flann/composite_index.h \
- /usr/local/include/opencv4/opencv2/flann/linear_index.h \
- /usr/local/include/opencv4/opencv2/flann/hierarchical_clustering_index.h \
- /usr/local/include/opencv4/opencv2/flann/lsh_index.h \
- /usr/local/include/opencv4/opencv2/flann/lsh_table.h \
- /usr/include/c++/13/math.h \
- /usr/local/include/opencv4/opencv2/flann/autotuned_index.h \
- /usr/local/include/opencv4/opencv2/flann/ground_truth.h \
- /usr/local/include/opencv4/opencv2/flann/index_testing.h \
- /usr/local/include/opencv4/opencv2/flann/timer.h \
- /usr/local/include/opencv4/opencv2/flann/sampling.h \
- /usr/local/include/opencv4/opencv2/highgui.hpp \
- /usr/local/include/opencv4/opencv2/imgcodecs.hpp \
- /usr/local/include/opencv4/opencv2/videoio.hpp \
- /usr/local/include/opencv4/opencv2/imgproc.hpp \
- /usr/local/include/opencv4/opencv2/imgproc/segmentation.hpp \
- /usr/local/include/opencv4/opencv2/ml.hpp \
- /usr/local/include/opencv4/opencv2/ml/ml.inl.hpp \
- /usr/local/include/opencv4/opencv2/objdetect.hpp \
- /usr/local/include/opencv4/opencv2/objdetect/aruco_detector.hpp \
- /usr/local/include/opencv4/opencv2/objdetect/aruco_dictionary.hpp \
- /usr/local/include/opencv4/opencv2/objdetect/aruco_board.hpp \
- /usr/local/include/opencv4/opencv2/objdetect/graphical_code_detector.hpp \
- /usr/local/include/opencv4/opencv2/objdetect/detection_based_tracker.hpp \
- /usr/local/include/opencv4/opencv2/objdetect/face.hpp \
- /usr/local/include/opencv4/opencv2/objdetect/charuco_detector.hpp \
- /usr/local/include/opencv4/opencv2/objdetect/barcode.hpp \
- /usr/local/include/opencv4/opencv2/photo.hpp \
- /usr/local/include/opencv4/opencv2/stitching.hpp \
- /usr/local/include/opencv4/opencv2/stitching/warpers.hpp \
- /usr/local/include/opencv4/opencv2/stitching/detail/warpers.hpp \
- /usr/local/include/opencv4/opencv2/core/cuda.hpp \
- /usr/local/include/opencv4/opencv2/core/cuda_types.hpp \
- /usr/local/include/opencv4/opencv2/core/cuda.inl.hpp \
- /usr/local/include/opencv4/opencv2/stitching/detail/warpers_inl.hpp \
- /usr/local/include/opencv4/opencv2/stitching/detail/warpers.hpp \
- /usr/local/include/opencv4/opencv2/stitching/detail/matchers.hpp \
- /usr/local/include/opencv4/opencv2/stitching/detail/motion_estimators.hpp \
- /usr/local/include/opencv4/opencv2/stitching/detail/matchers.hpp \
- /usr/local/include/opencv4/opencv2/stitching/detail/util.hpp \
- /usr/include/c++/13/list /usr/include/c++/13/bits/stl_list.h \
- /usr/include/c++/13/bits/list.tcc \
- /usr/local/include/opencv4/opencv2/stitching/detail/util_inl.hpp \
- /usr/include/c++/13/queue /usr/include/c++/13/deque \
- /usr/include/c++/13/bits/stl_deque.h /usr/include/c++/13/bits/deque.tcc \
- /usr/include/c++/13/bits/stl_queue.h \
- /usr/local/include/opencv4/opencv2/stitching/detail/camera.hpp \
- /usr/local/include/opencv4/opencv2/stitching/detail/exposure_compensate.hpp \
- /usr/local/include/opencv4/opencv2/stitching/detail/seam_finders.hpp \
- /usr/local/include/opencv4/opencv2/stitching/detail/blenders.hpp \
- /usr/local/include/opencv4/opencv2/stitching/detail/camera.hpp \
- /usr/local/include/opencv4/opencv2/video.hpp \
- /usr/local/include/opencv4/opencv2/video/tracking.hpp \
- /usr/local/include/opencv4/opencv2/video/background_segm.hpp \
- /home/lennart-k-hler/projects/dolphin/include/ServiceAbstractions.h \
- /home/lennart-k-hler/projects/dolphin/lib/nlohmann/json.hpp \
+ /usr/include/c++/13/functional /usr/include/c++/13/bits/std_function.h \
+ /usr/include/c++/13/unordered_map \
+ /usr/include/c++/13/bits/unordered_map.h \
+ /usr/include/c++/13/bits/hashtable.h \
+ /usr/include/c++/13/bits/hashtable_policy.h \
+ /usr/include/c++/13/bits/node_handle.h \
+ /usr/include/c++/13/bits/erase_if.h /usr/local/lib/nlohmann/json.hpp \
+ /usr/include/c++/13/algorithm /usr/include/c++/13/bits/ranges_algo.h \
+ /usr/include/c++/13/pstl/glue_algorithm_defs.h \
  /usr/include/c++/13/iterator /usr/include/c++/13/bits/stream_iterator.h \
+ /usr/include/c++/13/utility /usr/include/c++/13/bits/stl_relops.h \
  /usr/include/c++/13/forward_list /usr/include/c++/13/bits/forward_list.h \
- /usr/include/c++/13/bits/forward_list.tcc /usr/include/c++/13/valarray \
+ /usr/include/c++/13/bits/forward_list.tcc /usr/include/c++/13/map \
+ /usr/include/c++/13/bits/stl_tree.h /usr/include/c++/13/bits/stl_map.h \
+ /usr/include/c++/13/bits/stl_multimap.h /usr/include/c++/13/valarray \
+ /usr/include/c++/13/cmath /usr/include/math.h \
+ /usr/include/x86_64-linux-gnu/bits/math-vector.h \
+ /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h \
+ /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h \
+ /usr/include/x86_64-linux-gnu/bits/fp-logb.h \
+ /usr/include/x86_64-linux-gnu/bits/fp-fast.h \
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h \
+ /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h \
+ /usr/include/x86_64-linux-gnu/bits/iscanonical.h \
+ /usr/include/c++/13/bits/specfun.h /usr/include/c++/13/tr1/gamma.tcc \
+ /usr/include/c++/13/tr1/special_function_util.h \
+ /usr/include/c++/13/tr1/bessel_function.tcc \
+ /usr/include/c++/13/tr1/beta_function.tcc \
+ /usr/include/c++/13/tr1/ell_integral.tcc \
+ /usr/include/c++/13/tr1/exp_integral.tcc \
+ /usr/include/c++/13/tr1/hypergeometric.tcc \
+ /usr/include/c++/13/tr1/legendre_function.tcc \
+ /usr/include/c++/13/tr1/modified_bessel_func.tcc \
+ /usr/include/c++/13/tr1/poly_hermite.tcc \
+ /usr/include/c++/13/tr1/poly_laguerre.tcc \
+ /usr/include/c++/13/tr1/riemann_zeta.tcc \
  /usr/include/c++/13/bits/valarray_array.h \
  /usr/include/c++/13/bits/valarray_array.tcc \
  /usr/include/c++/13/bits/valarray_before.h \
@@ -408,40 +270,200 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/gslice_array.h \
  /usr/include/c++/13/bits/mask_array.h \
  /usr/include/c++/13/bits/indirect_array.h /usr/include/c++/13/version \
- /usr/include/c++/13/cassert /usr/include/c++/13/filesystem \
- /usr/include/c++/13/bits/fs_fwd.h /usr/include/c++/13/bits/fs_path.h \
- /usr/include/c++/13/codecvt /usr/include/c++/13/bits/fs_dir.h \
- /usr/include/c++/13/bits/fs_ops.h /usr/include/c++/13/ranges \
- /usr/include/c++/13/numeric /usr/include/c++/13/bits/stl_numeric.h \
+ /usr/include/c++/13/cassert /usr/include/assert.h \
+ /usr/include/c++/13/cstring /usr/include/string.h /usr/include/strings.h \
+ /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \
+ /usr/include/c++/13/bits/fs_path.h /usr/include/c++/13/codecvt \
+ /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
+ /usr/include/c++/13/ranges /usr/include/c++/13/numeric \
+ /usr/include/c++/13/bits/stl_numeric.h \
  /usr/include/c++/13/pstl/glue_numeric_defs.h /usr/include/c++/13/any \
- /home/lennart-k-hler/projects/dolphin/include/HyperstackImage.h \
- /home/lennart-k-hler/projects/dolphin/include/Image3D.h \
- /home/lennart-k-hler/projects/dolphin/include/HelperClasses.h \
- /home/lennart-k-hler/projects/dolphin/include/RectangleShape.h \
- /home/lennart-k-hler/projects/dolphin/include/ImageMetaData.h \
- /home/lennart-k-hler/projects/dolphin/include/Channel.h \
- /home/lennart-k-hler/projects/dolphin/include/psf/PSF.h \
- /usr/include/c++/13/future /usr/include/c++/13/condition_variable \
- /usr/include/c++/13/stop_token /usr/include/c++/13/atomic \
- /usr/include/c++/13/bits/std_thread.h /usr/include/c++/13/semaphore \
- /usr/include/c++/13/bits/semaphore_base.h \
+ /usr/local/include/HyperstackImage.h /usr/local/include/Image3D.h \
+ /usr/include/c++/13/list /usr/include/c++/13/bits/stl_list.h \
+ /usr/include/c++/13/bits/list.tcc /usr/local/include/ITK-5.4/itkImage.h \
+ /usr/local/include/ITK-5.4/itkImageRegion.h \
+ /usr/local/include/ITK-5.4/itkRegion.h \
+ /usr/local/include/ITK-5.4/itkObject.h \
+ /usr/local/include/ITK-5.4/itkLightObject.h \
+ /usr/local/include/ITK-5.4/itkMacro.h \
+ /usr/local/include/ITK-5.4/itkWin32Header.h \
+ /usr/local/include/ITK-5.4/itkConfigure.h \
+ /usr/local/include/ITK-5.4/ITKCommonExport.h \
+ /usr/local/include/ITK-5.4/itkPrintHelper.h /usr/include/c++/13/iostream \
+ /usr/local/include/ITK-5.4/itkExceptionObject.h \
+ /usr/local/include/ITK-5.4/itkSmartPointer.h \
+ /usr/local/include/ITK-5.4/itkTimeStamp.h \
+ /usr/local/include/ITK-5.4/itkIntTypes.h /usr/include/c++/13/atomic \
+ /usr/local/include/ITK-5.4/itkSingletonMacro.h \
+ /usr/local/include/ITK-5.4/itkIndent.h \
+ /usr/local/include/ITK-5.4/itkEventObject.h \
+ /usr/local/include/ITK-5.4/itkMetaDataDictionary.h \
+ /usr/local/include/ITK-5.4/itkMetaDataObjectBase.h \
+ /usr/local/include/ITK-5.4/itkCommonEnums.h \
+ /usr/local/include/ITK-5.4/itkSize.h \
+ /usr/local/include/ITK-5.4/itkMakeFilled.h \
+ /usr/local/include/ITK-5.4/itkContinuousIndex.h \
+ /usr/local/include/ITK-5.4/itkPoint.h \
+ /usr/local/include/ITK-5.4/itkNumericTraits.h \
+ /usr/include/c++/13/complex /usr/local/include/ITK-5.4/itkFixedArray.h \
+ /usr/local/include/ITK-5.4/itkFixedArray.hxx \
+ /usr/local/include/ITK-5.4/itkNumericTraitsFixedArrayPixel.h \
+ /usr/local/include/ITK-5.4/itkVector.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_vector_ref.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_vector.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_error.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_export.h \
+ /usr/local/include/ITK-5.4/vcl_compiler.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_c_vector.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_numeric_traits.h \
+ /usr/local/include/ITK-5.4/vxl_config.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_config.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_sse.h /usr/include/c++/13/cfloat \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/float.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_alloc.h \
+ /usr/local/include/ITK-5.4/itkVector.hxx \
+ /usr/local/include/ITK-5.4/itkMath.h \
+ /usr/local/include/ITK-5.4/itkMathDetail.h /usr/include/c++/13/cfenv \
+ /usr/include/c++/13/fenv.h /usr/include/fenv.h \
+ /usr/include/x86_64-linux-gnu/bits/fenv.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/emmintrin.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/xmmintrin.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/mmintrin.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/mm_malloc.h \
+ /usr/include/c++/13/stdlib.h \
+ /usr/local/include/ITK-5.4/itkConceptChecking.h \
+ /usr/local/include/ITK-5.4/itkPixelTraits.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_math.h \
+ /usr/local/include/ITK-5.4/vnl/dll.h \
+ /usr/local/include/ITK-5.4/vxl_version.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_vector.h \
+ /usr/local/include/ITK-5.4/itkNumericTraitsVectorPixel.h \
+ /usr/local/include/ITK-5.4/itkPoint.hxx \
+ /usr/local/include/ITK-5.4/itkNumericTraitsPointPixel.h \
+ /usr/local/include/ITK-5.4/itkIndex.h \
+ /usr/local/include/ITK-5.4/itkOffset.h \
+ /usr/local/include/ITK-5.4/itkImageRegion.hxx \
+ /usr/local/include/ITK-5.4/itkImportImageContainer.h \
+ /usr/local/include/ITK-5.4/itkObjectFactory.h \
+ /usr/local/include/ITK-5.4/itkObjectFactoryBase.h \
+ /usr/local/include/ITK-5.4/itkCreateObjectFunction.h \
+ /usr/local/include/ITK-5.4/itkImportImageContainer.hxx \
+ /usr/local/include/ITK-5.4/itkDefaultPixelAccessor.h \
+ /usr/local/include/ITK-5.4/itkDefaultPixelAccessorFunctor.h \
+ /usr/local/include/ITK-5.4/itkWeakPointer.h \
+ /usr/local/include/ITK-5.4/itkNeighborhoodAccessorFunctor.h \
+ /usr/local/include/ITK-5.4/itkImageBoundaryCondition.h \
+ /usr/local/include/ITK-5.4/itkNeighborhood.h \
+ /usr/local/include/ITK-5.4/itkNeighborhoodAllocator.h \
+ /usr/local/include/ITK-5.4/itkMakeUniqueForOverwrite.h \
+ /usr/local/include/ITK-5.4/itkSliceIterator.h \
+ /usr/local/include/ITK-5.4/itkNeighborhood.hxx \
+ /usr/local/include/ITK-5.4/itkImageBase.h \
+ /usr/local/include/ITK-5.4/itkDataObject.h \
+ /usr/local/include/ITK-5.4/itkRealTimeStamp.h \
+ /usr/local/include/ITK-5.4/itkRealTimeInterval.h \
+ /usr/local/include/ITK-5.4/itkMatrix.h \
+ /usr/local/include/ITK-5.4/itkCovariantVector.h \
+ /usr/local/include/ITK-5.4/itkNumericTraitsCovariantVectorPixel.h \
+ /usr/local/include/ITK-5.4/itkCovariantVector.hxx \
+ /usr/local/include/ITK-5.4/vnl/vnl_matrix_fixed.hxx \
+ /usr/local/include/ITK-5.4/vnl/vnl_matrix_fixed.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_matrix.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_matrix_ref.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_vector_fixed.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_vector_ref.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_math.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_complex.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_transpose.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_fastops.h \
+ /usr/local/include/ITK-5.4/vnl/algo/vnl_matrix_inverse.h \
+ /usr/local/include/ITK-5.4/vnl/algo/vnl_svd.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_numeric_traits.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_vector.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_matrix.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_diag_matrix.h \
+ /usr/local/include/ITK-5.4/vnl/algo/vnl_algo_export.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_matrix.h \
+ /usr/local/include/ITK-5.4/vnl/algo/vnl_determinant.h \
+ /usr/local/include/ITK-5.4/vnl/vnl_matrix_fixed.h \
+ /usr/local/include/ITK-5.4/itkMatrix.hxx \
+ /usr/local/include/ITK-5.4/itkImageHelper.h \
+ /usr/local/include/ITK-5.4/itkFloatTypes.h \
+ /usr/local/include/ITK-5.4/itkImageBase.hxx /usr/include/c++/13/mutex \
+ /usr/include/c++/13/bits/unique_lock.h \
+ /usr/local/include/ITK-5.4/itkProcessObject.h \
+ /usr/local/include/ITK-5.4/itkThreadSupport.h /usr/include/c++/13/set \
+ /usr/include/c++/13/bits/stl_set.h \
+ /usr/include/c++/13/bits/stl_multiset.h /usr/include/c++/13/thread \
+ /usr/include/c++/13/stop_token /usr/include/c++/13/bits/std_thread.h \
+ /usr/include/c++/13/semaphore /usr/include/c++/13/bits/semaphore_base.h \
  /usr/include/c++/13/bits/atomic_timed_wait.h \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
  /usr/include/x86_64-linux-gnu/bits/semaphore.h \
- /usr/include/c++/13/bits/atomic_futex.h \
- /home/lennart-k-hler/projects/dolphin/include/ServiceFactory.h \
- /home/lennart-k-hler/projects/dolphin/include/PSFGenerationService.h \
- /home/lennart-k-hler/projects/dolphin/include/psf/configs/PSFConfig.h \
- /home/lennart-k-hler/projects/dolphin/include/Config.h \
+ /usr/local/include/ITK-5.4/itkSpatialOrientation.h \
+ /usr/local/include/ITK-5.4/itkImage.hxx \
+ /usr/local/include/ITK-5.4/itkImageRegionIterator.h \
+ /usr/local/include/ITK-5.4/itkImageRegionConstIterator.h \
+ /usr/local/include/ITK-5.4/itkImageIterator.h \
+ /usr/local/include/ITK-5.4/itkImageConstIterator.h \
+ /usr/local/include/ITK-5.4/itkImage.h \
+ /usr/local/include/ITK-5.4/itkImageIterator.hxx \
+ /usr/local/include/ITK-5.4/itkImageRegionConstIterator.hxx \
+ /usr/local/include/ITK-5.4/itkImageRegionIterator.hxx \
+ /usr/local/include/ITK-5.4/itkExtractImageFilter.h \
+ /usr/local/include/ITK-5.4/itkInPlaceImageFilter.h \
+ /usr/local/include/ITK-5.4/itkImageToImageFilter.h \
+ /usr/local/include/ITK-5.4/itkImageSource.h \
+ /usr/local/include/ITK-5.4/itkImageRegionSplitterBase.h \
+ /usr/local/include/ITK-5.4/itkImageIORegion.h \
+ /usr/local/include/ITK-5.4/itkImageSourceCommon.h \
+ /usr/local/include/ITK-5.4/itkImageSource.hxx \
+ /usr/local/include/ITK-5.4/itkOutputDataObjectIterator.h \
+ /usr/local/include/ITK-5.4/itkDataObjectIterator.h \
+ /usr/local/include/ITK-5.4/itkMultiThreaderBase.h \
+ /usr/local/include/ITK-5.4/itkProgressReporter.h \
+ /usr/local/include/ITK-5.4/itkImageToImageFilterDetail.h \
+ /usr/local/include/ITK-5.4/itkImageToImageFilterCommon.h \
+ /usr/local/include/ITK-5.4/itkImageToImageFilter.hxx \
+ /usr/local/include/ITK-5.4/itkInputDataObjectIterator.h \
+ /usr/local/include/ITK-5.4/itkInputDataObjectConstIterator.h \
+ /usr/local/include/ITK-5.4/itkDataObjectConstIterator.h \
+ /usr/local/include/ITK-5.4/itkInPlaceImageFilter.hxx \
+ /usr/local/include/ITK-5.4/itkExtractImageFilterRegionCopier.h \
+ /usr/local/include/ITK-5.4/itkExtractImageFilter.hxx \
+ /usr/local/include/ITK-5.4/itkImageAlgorithm.h \
+ /usr/local/include/ITK-5.4/itkImageRegionIterator.h \
+ /usr/local/include/ITK-5.4/itkImageAlgorithm.hxx \
+ /usr/local/include/ITK-5.4/itkArray.h \
+ /usr/local/include/ITK-5.4/vxl_version.h \
+ /usr/local/include/ITK-5.4/itkArray.hxx \
+ /usr/local/include/ITK-5.4/itkNumericTraitsArrayPixel.h \
+ /usr/local/include/ITK-5.4/itkImageScanlineIterator.h \
+ /usr/local/include/ITK-5.4/itkImageScanlineConstIterator.h \
+ /usr/local/include/ITK-5.4/itkImageScanlineConstIterator.hxx \
+ /usr/local/include/ITK-5.4/itkImageScanlineIterator.hxx \
+ /usr/local/include/ITK-5.4/itkRegionOfInterestImageFilter.h \
+ /usr/local/include/ITK-5.4/itkRegionOfInterestImageFilter.hxx \
+ /usr/local/include/ITK-5.4/itkTotalProgressReporter.h \
+ /usr/local/include/ITK-5.4/itkImageDuplicator.h \
+ /usr/local/include/ITK-5.4/itkImageDuplicator.hxx \
+ /usr/local/include/HelperClasses.h /usr/local/lib/nlohmann/json.hpp \
+ /usr/local/include/RectangleShape.h /usr/local/include/ImageMetaData.h \
+ /usr/local/include/Channel.h /usr/local/include/psf/PSF.h \
+ /usr/local/include/frontend/SetupConfig.h \
+ /usr/local/include/psf/configs/PSFConfig.h /usr/local/include/Config.h \
  /usr/include/c++/13/fstream \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
  /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/unordered_set \
- /usr/include/c++/13/bits/unordered_set.h \
- /home/lennart-k-hler/projects/dolphin/include/DeconvolutionService.h \
- /home/lennart-k-hler/projects/dolphin/frontends/cli/include/CLIFrontend.h \
- /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI/CLI11.hpp \
- /home/lennart-k-hler/projects/dolphin/include/frontend/IFrontend.h \
- /home/lennart-k-hler/projects/dolphin/include/deconvolution/DeconvolutionConfig.h \
- /home/lennart-k-hler/projects/dolphin/include/frontend/SetupConfig.h
+ /usr/include/c++/13/bits/unordered_set.h /usr/include/c++/13/future \
+ /usr/include/c++/13/condition_variable \
+ /usr/include/c++/13/bits/atomic_futex.h \
+ /usr/local/include/ServiceFactory.h \
+ /usr/local/include/PSFGenerationService.h \
+ /usr/local/include/DeconvolutionService.h \
+ /home/lennart-koehler/projects/dolphin/frontends/cli/include/CLIFrontend.h \
+ /home/lennart-koehler/projects/dolphin/frontends/cli/lib/CLI/CLI11.hpp \
+ /usr/local/include/frontend/IFrontend.h \
+ /usr/local/include/deconvolution/DeconvolutionConfig.h
