@@ -14,10 +14,11 @@ See the LICENSE file provided with the code for the full license.
 #include "ThreadPool.h"
 #include <iostream>
 
-ThreadPool::ThreadPool(size_t numThreads) : stop(false) {
+ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc) : stop(false) {
     newTaskCondition = [](){return true;};
     for(size_t i = 0; i < numThreads; ++i) {
-        workers.emplace_back([this] {
+        workers.emplace_back([this, threadInitFunc] {
+            threadInitFunc();
             for(;;) {
                 std::function<void()> task;
                 {

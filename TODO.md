@@ -1,3 +1,7 @@
+
+think about the processor workerpool. I think the host threads should be fixed to the backends. Use the custom init function to do a per host thread init. E.g. for cuda this will allow the thread to set the cuda device. The task description should not include the backendprototype. I think this should only be handled in the strategy or the processor. Then only one init per host thread in worker pool. And then they can just keep taking tasks and not have to worry about backend. Perhaps they can even own their backend
+
+
 the psfs arent filled correctly in the labeleddeconvolutionexecutor. There are no labelgroups with psfs. Do i need to have an integer image aswell for the labels? 
 
 support for multiple gpus

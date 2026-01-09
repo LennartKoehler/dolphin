@@ -21,7 +21,7 @@ See the LICENSE file provided with the code for the full license.
 
 class ThreadPool {
 public:
-    ThreadPool(size_t numThreads = 1);
+    ThreadPool(size_t numThreads = 1, std::function<void()> threadInitFunc = [](){});
     
     template<class F, class... Args>
     auto enqueue(F&& f, Args&&... args) -> std::future<typename std::result_of<F(Args...)>::type> {

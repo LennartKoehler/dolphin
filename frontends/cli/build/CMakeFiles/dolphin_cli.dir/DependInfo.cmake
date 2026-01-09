@@ -8,8 +8,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/lennart-k-hler/projects/dolphin/frontends/cli/src/CLIFrontend.cpp" "CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o" "gcc" "CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o.d"
-  "/home/lennart-k-hler/projects/dolphin/frontends/cli/src/main.cpp" "CMakeFiles/dolphin_cli.dir/src/main.cpp.o" "gcc" "CMakeFiles/dolphin_cli.dir/src/main.cpp.o.d"
+  "/home/lennart-koehler/projects/dolphin/frontends/cli/src/CLIFrontend.cpp" "CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o" "gcc" "CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o.d"
+  "/home/lennart-koehler/projects/dolphin/frontends/cli/src/main.cpp" "CMakeFiles/dolphin_cli.dir/src/main.cpp.o" "gcc" "CMakeFiles/dolphin_cli.dir/src/main.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

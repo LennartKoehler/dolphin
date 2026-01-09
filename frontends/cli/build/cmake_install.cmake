@@ -1,4 +1,4 @@
-# Install script for directory: /home/lennart-k-hler/projects/dolphin/frontends/cli
+# Install script for directory: /home/lennart-koehler/projects/dolphin/frontends/cli
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/lennart-k-hler/projects/dolphin/frontends/cli/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/lennart-koehler/projects/dolphin/frontends/cli/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
