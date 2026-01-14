@@ -7,8 +7,9 @@
 #include "deconvolution/Preprocessor.h"
 #include "deconvolution/Postprocessor.h"
 #include "backend/BackendFactory.h"
-#include "backend/Exceptions.h"
+#include "dolphinbackend/Exceptions.h"
 #include "HelperClasses.h"
+#include "backend/DefaultBackendMemoryManager.h"
 
 StandardDeconvolutionExecutor::StandardDeconvolutionExecutor(){
     // Initialize thread pool and processor will be done in configure
@@ -43,7 +44,7 @@ void StandardDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfi
     
     BackendFactory& bf = BackendFactory::getInstance();
 
-    this->cpuMemoryManager = bf.createMemManager("../backends/cpu/libcpu_backend.so");//TODO make dynamic
+    this->cpuMemoryManager = std::make_shared<DefaultBackendMemoryManager>();
 
     numberThreads = config->nThreads;
     int workerThreads;
@@ -68,8 +69,7 @@ void StandardDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfi
     ioThreads = std::max(1, ioThreads);
     readwriterPool = std::make_shared<ThreadPool>(ioThreads);
 
-    std::function<void()> threadInitFunc = [](){}
-    processor.init(workerThreads);
+    processor.init(workerThreads, [](){});
     configured = true;
 }
 
@@ -84,7 +84,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
     const ImageWriter& writer) {
     
     return [this, task = *taskDesc, &reader, &writer]() {
-
+        std::cout << "preparing new task" << std::endl;
         RectangleShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
         PaddedImage cubeImage = reader.getSubimage(task.paddedBox);
@@ -97,9 +97,11 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
         iobackend->sync();
 
 
+
         ComplexData f_host{cpuMemoryManager.get(), nullptr, RectangleShape()};
         std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
+        std::cout << "enqueueing new task to processor" << std::endl;
         try {
             std::future<void> resultDone = processor.deconvolveSingleCube(
                 iobackend,
@@ -117,7 +119,6 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
         catch (...) {
             throw; // dont overwrite image if exception
         }
-        // std::cout << iobackend->getMemoryManager().getAllocatedMemory() << std::endl; 
         cubeImage.image = convertFFTWComplexToCVMatVector(f_host);
 
         writer.setSubimage(cubeImage.image, task.paddedBox);

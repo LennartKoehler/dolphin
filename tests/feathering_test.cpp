@@ -1,4 +1,4 @@
-#include "../include/Image3D.h"  // Use explicit path to local header
+#include "Image3D.h"  // Use explicit path to local header
 #include "deconvolution/Postprocessor.h"
 #include "IO/TiffReader.h"
 #include "IO/TiffWriter.h"

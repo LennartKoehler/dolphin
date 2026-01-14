@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "backend/BackendFactory.h"
-#include "backend/Exceptions.h"
+#include <dolphinbackend/Exceptions.h>
 #include <iostream>
 #include <dlfcn.h>
 

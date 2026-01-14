@@ -54,6 +54,7 @@ if(BUILD_CUDA_TESTS)
     # Check if CUDA is available
     find_package(CUDAToolkit QUIET)
     if(CUDAToolkit_FOUND)
+
         add_executable(cuda_test
             cuda_test.cpp
         )

@@ -4,18 +4,18 @@ project(Deconvtool VERSION 1.0.0)
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-
 # Set build type to Release by default for performance
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
+set(CMAKE_BUILD_TYPE Debug)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 # Optimization flags for different build types
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -march=native")
 # set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma")
 # set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
 # set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma")
-# Include directories and libraries for FFTW, OpenMP, and TIFF
 # set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Compiler flags for Valgrind-safe build
@@ -33,13 +33,19 @@ endif()
 # endif()
 
 # link_directories(/usr/local/lib)
-find_package(OpenMP REQUIRED)
+set(BUILD_SHARED_LIBS OFF)
+set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
+add_library(dolphinbackend STATIC IMPORTED)
+
+set_target_properties(dolphinbackend PROPERTIES
+    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/lib/libdolphinbackend.a"
+    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/include"
+)
 
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
 # ------------------------------------------------------------
 # Collect sources
@@ -54,6 +60,8 @@ set(DOLPHIN_SOURCES
     src/DeconvolutionService.cpp
     src/DeconvolutionStrategyFactory.cpp
     src/ThreadPool.cpp
+
+    src/backend/DefaultBackendMemoryManager.cpp
     src/backend/BackendFactory.cpp
     
     src/hyperstack/HyperstackImage.cpp
@@ -99,26 +107,12 @@ set(DOLPHIN_SOURCES
 
 
 
-# Create backend library
-set(BACKEND_SOURCES
-    src/backend/ComplexData.cpp)
-add_library(backendlib STATIC ${BACKEND_SOURCES})
-
-target_include_directories(backendlib
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-
-        $<INSTALL_INTERFACE:include>)
-
-
-
-
 # Create shared library for Dolphin API
-add_library(dolphin SHARED ${DOLPHIN_SOURCES})
+add_library(dolphin STATIC ${DOLPHIN_SOURCES})
 
 target_include_directories(dolphin
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/dolphin>
         $<INSTALL_INTERFACE:include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib>
         $<INSTALL_INTERFACE:lib>
@@ -128,9 +122,8 @@ target_include_directories(dolphin
 
 target_link_libraries(dolphin
     PUBLIC
-        backendlib
+        dolphinbackend
         ${TIFF_LIBRARIES}
-        OpenMP::OpenMP_CXX
         ${ITK_LIBRARIES}
 )
 
@@ -144,8 +137,14 @@ set_target_properties(dolphin PROPERTIES
     BUILD_RPATH "$ORIGIN/../lib"
 )
 
+
+
+
+
+
+
 # Install targets
-install(TARGETS dolphin backendlib
+install(TARGETS dolphin
     EXPORT dolphinTargets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
@@ -200,11 +199,7 @@ install(FILES
 
 option(ENABLE_TESTS "Enable tests" ON)
 if (${ENABLE_TESTS})
-     # Ensure backends are built before tests
-    # add_subdirectory(backends/cpu)
-    # if(CUDA_AVAILABLE)
-    #     add_subdirectory(backends/cuda)
-    # endif()
+
     set(CMAKE_CTEST_ARGUMENTS "--verbose")
 
 
@@ -214,47 +209,3 @@ if (${ENABLE_TESTS})
 endif()
 
 
-
-# find_package(CUDAToolkit QUIET)
-# if(CUDAToolkit_FOUND)
-#     message(STATUS "CUDA toolkit found: ${CUDAToolkit_VERSION}")
-#     set(CUDA_AVAILABLE TRUE)
-# else()
-#     message(STATUS "CUDA toolkit not found. Building CPU-only version.")
-#     set(CUDA_AVAILABLE FALSE)
-# endif()
-
-
-
-
-# ------------------------------------------------------------
-# CPU executable (using CLI frontend)
-# ------------------------------------------------------------
-# add_executable(dolphin src/main.cpp)
-# target_link_libraries(dolphin
-#     PRIVATE
-#         dolphin
-#         pthread
-#         gomp
-#         stdc++fs)
-
-# add_subdirectory(backends/cpu)
-# add_subdirectory(backends/openmp)
-
-# ------------------------------------------------------------
-# GPU executable (only if CUDA found)
-# ------------------------------------------------------------
-# if(CUDA_AVAILABLE)
-#     enable_language(CUDA)
-#     message(STATUS "CUDA found, building dolphincuda with CUBE.")
-#     add_compile_definitions(CUDA_AVAILABLE)
-#     # add_subdirectory(backends/cuda)
-#     # Add CUBE subproject
-#     # target_link_libraries(cuda_backend
-#     #     PUBLIC
-#     #         dolphinlib  # cudalib depends on dolphinlib headers
-#     # )
-
-# else()
-#     message(STATUS "CUDA not found. Building only CPU version.")
-# endif()

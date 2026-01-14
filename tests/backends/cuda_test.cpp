@@ -1,5 +1,6 @@
-#include "../include/backend/BackendFactory.h"
-#include "../include/backend/ComplexData.h"
+#include "backend/BackendFactory.h"
+#include "dolphinbackend/ComplexData.h"
+
 #include <iostream>
 #include <memory>
 
@@ -10,8 +11,11 @@ void testCUDABackendInitialization() {
         std::cout << "Creating CUDA backend..." << std::endl;
         
         // Create CUDA backend
-        auto cudaBackend = BackendFactory::getInstance().createDeconvBackend("cuda");
-        auto cudaMemManager = BackendFactory::getInstance().createMemManager("cuda");
+
+        std::shared_ptr<IBackend> backend = BackendFactory::getInstance().createShared("/home/lennart-k-hler/projects/dolphin/backends/cuda/build/libcuda_backend.so");
+        IBackendMemoryManager* cudaMemManager = backend->getMemoryManagerPtr();
+        IDeconvolutionBackend& cudaBackendtemp = backend->mutableDeconvManager();
+        IDeconvolutionBackend* cudaBackend = &cudaBackendtemp;
         
         if (!cudaBackend) {
             std::cout << "CUDA backend not available (this is expected if CUDA libraries are not built)" << std::endl;

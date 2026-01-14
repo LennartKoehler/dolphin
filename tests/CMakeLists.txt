@@ -6,7 +6,7 @@ enable_testing()
 
 # Include backends subdirectory for backend-specific tests
 add_subdirectory(backends)
-
+add_subdirectory(mainTest)
 # Original combined test (optional)
 add_executable(dolphin_tests
     memory_exception_example.cpp
@@ -30,15 +30,6 @@ target_include_directories(dolphin_tests
 add_test(NAME DolphinTests COMMAND dolphin_tests)
 set_tests_properties(DolphinTests PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
-
-add_executable(labeled_image_test
-    labeledImage/labeled_image_test.cpp)
-target_link_libraries(labeled_image_test
-    PRIVATE
-        dolphin)
-
-add_test(NAME LabeledImageTest COMMAND labeled_image_test)
-set_tests_properties(LabeledImageTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable(feathering_test
     feathering_test.cpp)

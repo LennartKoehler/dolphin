@@ -18,11 +18,11 @@ See the LICENSE file provided with the code for the full license.
 #include <tiffio.h>
 #include <filesystem>
 
-#include "../include/HyperstackImage.h"
-#include "../include/Image3D.h"
-#include "../include/Channel.h"
-#include "../include/ImageMetaData.h"
-#include "../include/RectangleShape.h"
+#include "HyperstackImage.h"
+#include "Image3D.h"
+#include "Channel.h"
+#include "ImageMetaData.h"
+#include "dolphinbackend/RectangleShape.h"
 
 /**
  * Creates a 3D TIFF image with a constant value throughout

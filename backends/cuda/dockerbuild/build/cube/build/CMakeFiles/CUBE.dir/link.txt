@@ -1,0 +1,2 @@
+/usr/bin/ar qc libCUBE.a CMakeFiles/CUBE.dir/src/utl.cu.o CMakeFiles/CUBE.dir/src/operations.cu.o CMakeFiles/CUBE.dir/src/kernels/global.cu.o
+/usr/bin/ranlib libCUBE.a

@@ -8,8 +8,8 @@
     "borderType": 2,
     "time": false,
     "saveSubimages": false, 
-    "backenddeconv": "../backends/cpu/libcpu_backend.so",
-    "nThreads": 8,
+    "backenddeconv": "../backends/cuda/build/libcuda_backend.so",
+    "nThreads": 1,
     "maxMem_GB": 64
   },
   
