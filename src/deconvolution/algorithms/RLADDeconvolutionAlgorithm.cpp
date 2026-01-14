@@ -13,8 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
 #include <iostream>
-#include <omp.h>
-#include <fftw3.h>
+
 #include <cassert>
 
 void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {

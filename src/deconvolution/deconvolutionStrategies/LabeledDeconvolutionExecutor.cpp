@@ -5,7 +5,7 @@
 #include <iostream>
 #include "deconvolution/Preprocessor.h"
 #include "backend/BackendFactory.h"
-#include "backend/Exceptions.h"
+#include "dolphinbackend/Exceptions.h"
 #include "HelperClasses.h"
 #include "frontend/SetupConfig.h"
 #include "itkImageRegionConstIterator.h"

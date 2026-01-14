@@ -16,6 +16,9 @@ See the LICENSE file provided with the code for the full license.
 #include "ThreadPool.h"
 #include "deconvolution/Preprocessor.h"
 
+
+
+
 std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
     std::shared_ptr<IBackend> prototypebackend,
     std::unique_ptr<DeconvolutionAlgorithm> algorithm, 
@@ -36,7 +39,6 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         &f_device,
         &psfPreprocessor
     ]() mutable {
-
 
         std::shared_ptr<IBackend> threadbackend = prototypebackend->onNewThread(prototypebackend);
         

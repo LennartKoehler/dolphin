@@ -21,6 +21,26 @@
             "MIMode": "gdb"
         },
         {
+            "name": "Debug cuda backend test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/backends/cuda/build/tests/cuda_test",
+            "args": [],
+            "stopAtEntry": false,
+            "environment": [],
+            "cwd": "${workspaceFolder}/backends/cuda/build",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                "description": "Enable pretty-printing",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+                }
+            ]
+        },
+
+        {
             "name": "Debug dolphin config",
             "type": "cppdbg",
             "request": "launch",
@@ -49,18 +69,20 @@
             ]
         },
         {
-            "name": "Debug dolphin labeled image",
+            "name": "Debug dolphin",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/frontends/cli/build/dolphin_cli",
+            "program": "${workspaceFolder}/build/tests/mainTest/main_test",
             "args": [
-                "deconvolution",
-                "-c", "../tests/labeledImage/labeled_image_test.json"
+                "${workspaceFolder}/configs/default_config.json"
             ],
-            "additionalSOLibSearchPath": "${workspaceFolder}/lib/cube/**",
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/frontends",
-            "environment": [],
+            "cwd": "${workspaceFolder}/build",
+            "environment": [
+            {
+                "name": "LD_LIBRARY_PATH",
+                "value": "${workspaceFolder}/backends/cuda/build"
+            }],
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [
@@ -141,22 +163,24 @@
             "externalConsole": false,
             "MIMode": "gdb"
         },
-    {
-        "name": "Debug LabeledImageTest (CTest)",
-        "type": "cppdbg",
-        "request": "launch",
-        "program": "${workspaceFolder}/build/tests/labeled_image_test",
-        "args": [],
-        "stopAtEntry": false,
-        "cwd": "${workspaceFolder}/tests",
-        "environment": [],
-        "externalConsole": false,
-        "MIMode": "gdb",
-        "setupCommands": [
-            {
-            "description": "Enable pretty-printing",
-            "text": "-enable-pretty-printing",
-            "ignoreFailures": true
-            }
-        ]
+        {
+            "name": "Debug LabeledImageTest (CTest)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/tests/labeled_image_test",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/tests",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                "description": "Enable pretty-printing",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+                }
+            ]
+        }
+    ]
 }

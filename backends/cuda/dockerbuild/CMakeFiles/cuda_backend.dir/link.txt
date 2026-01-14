@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcuda_backend.a CMakeFiles/cuda_backend.dir/src/CUDABackend.cpp.o CMakeFiles/cuda_backend.dir/src/CUDABackendManager.cpp.o
+/usr/bin/ranlib libcuda_backend.a

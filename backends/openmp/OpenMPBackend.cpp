@@ -272,7 +272,7 @@ void OpenMPDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
         
         fftw_free(temp);
         
-        std::cout << "[DEBUG] Successfully created FFTW plans for shape: " 
+        std::cout << "[DEBUG] Successfully created FFTW plan for shape: " 
                   << shape.width << "x" << shape.height << "x" << shape.depth << std::endl;
     }
     catch (...){

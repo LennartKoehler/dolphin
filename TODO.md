@@ -1,3 +1,7 @@
+something goes wrong in cudabackend. For some reason there is an error when using the cudabackend. I assume it has to do with the defaultbackendmemorymanager and that data is not properly allocated / deallocated. The debugger works though
+
+
+create proper dolphinbackend library, with complexdata source (maybe even install). Then link that dolphinbackend to the backends and doplhin. Then it should be possible to test the cudabackend on the serve
 
 think about the processor workerpool. I think the host threads should be fixed to the backends. Use the custom init function to do a per host thread init. E.g. for cuda this will allow the thread to set the cuda device. The task description should not include the backendprototype. I think this should only be handled in the strategy or the processor. Then only one init per host thread in worker pool. And then they can just keep taking tasks and not have to worry about backend. Perhaps they can even own their backend
 
@@ -18,7 +22,6 @@ make backend into ABI? correctly seperate backend from application? If it stays 
 tiffwriter doesnt work with yeast image
 
 
-replace opencv with itk?
 
 Reader/Writer:
     should the reader actually have a lot of padding logic? i think no but its much easier because it has all the dimensionality information and its easir to pass as padding something that goes out of bounds of image instead of passing e.g. as negative values. Also it can load data however it sees fit. i dont think the executor should know about imagemetadata and determine itself what part of the image can be read and what has to padded after having read the image. I still believe that the reader should not do padding, but think about this before implementing
