@@ -99,6 +99,40 @@
             ]
         },
         {
+            "name": "Debug dolphin remote",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/dockerbuild/build/tests/mainTest/main_test",
+            "MIMode": "gdb",
+            "miDebuggerServerAddress": "nodeasb02g:1234",
+            "useExtendedRemote": true,
+            "externalConsole": true,
+            "sourceFileMap" : {
+                "/workspace" : "/home/lennart-k-hler/projects/dolphin",
+                // "/workspace" : "/home/lennart-k-hler/projects/dolphin/backends/cuda"
+                "/workspace/src/CUDABackend.cpp" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/src/CUDABackend.cpp",
+                "/workspace/src/CUDABackendManage.cpp" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/src/CUDABackendManager.cpp",
+                "/workspace/include/CUDABackend.h" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/include/CUDABackend.h",
+
+                "/workspace/include/CUDABackendManager.h" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/include/CUDABackendManager.h"
+
+            },
+
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "/home/lkoehler25/projects/dolphin/dolphinmain/assets/default_config.json"
+            ],
+            "setupCommands": [
+                {
+                    "description": "Switch to thread 1",
+                    "text": "thread 1",
+                    "ignoreFailures": true
+                }
+            ],
+
+
+        },
+        {
           "name": "(ctest) Launch",
             "type": "cppdbg",
             "request": "launch",

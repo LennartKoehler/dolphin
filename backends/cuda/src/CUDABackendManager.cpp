@@ -24,25 +24,51 @@ void CUDABackendManager::initializeGlobalCUDA() {
 
 
 // TODO make stream management more native, different streams in one cuda backend should not be permitted, one origin of truth
-std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend() {
+std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend(CUDADevice device) {
     // initializeGlobalCUDA();
-
-
     
-    CUDADevice device = devices[usedDeviceCounter];;
-    usedDeviceCounter = ++usedDeviceCounter % nDevices; // keep looping
+    if (nDevices == 0) {
+        throw dolphin::backend::BackendException(
+            "No CUDA devices available", "CUDA", "createNewBackend");
+    }
+    
+    if (devices.empty()) {
+        throw dolphin::backend::BackendException(
+            "No CUDA devices configured", "CUDA", "createNewBackend");
+    }
+    
+    cudaError_t err = cudaSetDevice(device.id);
+    CUDA_CHECK(err, "createNewBackend - cudaSetDevice");
+    
+    cudaStream_t stream;
+    err = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+    CUDA_CHECK(err, "createNewBackend - cudaStreamCreateWithFlags");
+    
+    try {
+        CUDABackend* backend = CUDABackend::create();
+        if (!backend) {
+            throw dolphin::backend::BackendException(
+                "Failed to create CUDABackend", "CUDA", "createNewBackend");
+        }
+        
+        backend->setStream(stream);
+        backend->setDevice(device);
+        
 
-    cudaSetDevice(device.id);
-    cudaStream_t stream = createStream();
-    CUDABackend* backend = CUDABackend::create();
-    backend->setStream(stream);
-    backend->setDevice(device);
-    cudaSetDevice(0);
 
-    std::cout << "New CUDA Backend created" << usedDeviceCounter <<"   " << device.id << std::endl;
+        cudaDeviceSynchronize();
+        CUDA_CHECK(err, "createNewBackend - cudaSetDevice reset");
 
-     return std::shared_ptr<CUDABackend>(backend);
+
+        return std::shared_ptr<CUDABackend>(backend);
+    } catch (...) {
+        // Clean up stream if backend creation fails
+        cudaStreamDestroy(stream);
+        throw;
+    }
 }
+
+
 
 std::shared_ptr<CUDABackend> CUDABackendManager::getBackendForCurrentThread() {
     std::unique_lock<std::mutex> lock(managerMutex_);
@@ -58,7 +84,10 @@ std::shared_ptr<CUDABackend> CUDABackendManager::getBackendForCurrentThread() {
     
     // Check if we can create a new backend
     if (threadBackends_.size() < maxThreads_) {
-        auto backend = createNewBackend();
+        CUDADevice device = devices[usedDeviceCounter];
+        usedDeviceCounter = ++usedDeviceCounter % nDevices; // keep looping
+
+        auto backend = createNewBackend(device);
         threadBackends_[currentThreadId].backend = std::move(backend);
         totalCreated_++;
 
@@ -70,6 +99,34 @@ std::shared_ptr<CUDABackend> CUDABackendManager::getBackendForCurrentThread() {
     // Try again after waiting
     return getBackendForCurrentThread();
 }
+std::shared_ptr<CUDABackend> CUDABackendManager::getBackendForCurrentThreadSameDevice(CUDADevice device) {
+    std::unique_lock<std::mutex> lock(managerMutex_);
+    
+    std::thread::id currentThreadId = std::this_thread::get_id();
+
+    // Check if we already have a backend for this thread
+    auto it = threadBackends_.find(currentThreadId);
+    if (it != threadBackends_.end() && !it->second.inUse) {
+        it->second.inUse = true;
+        return it->second.backend;
+    }
+    
+    // Check if we can create a new backend
+    if (threadBackends_.size() < maxThreads_) {
+
+        auto backend = createNewBackend(device);
+        threadBackends_[currentThreadId].backend = std::move(backend);
+        totalCreated_++;
+
+        threadBackends_[currentThreadId].inUse = true;
+        return threadBackends_[currentThreadId].backend;
+    }
+
+    
+    // Try again after waiting
+    return getBackendForCurrentThread();
+}
+
 
 void CUDABackendManager::releaseBackendForCurrentThread(CUDABackend* backend) {
     std::unique_lock<std::mutex> lock(managerMutex_);
@@ -126,10 +183,7 @@ void CUDABackendManager::cleanup() {
 
 cudaStream_t CUDABackendManager::createStream() {
     cudaStream_t stream;
-    // cudaError_t err = cudaStreamCreate(&stream);
     cudaError_t err = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-    if (err != cudaSuccess) {
-        throw std::runtime_error("Failed to create CUDA stream: " + std::string(cudaGetErrorString(err)));
-    }
+    CUDA_CHECK(err, "createStream - cudaStreamCreateWithFlags");
     return stream;
 }

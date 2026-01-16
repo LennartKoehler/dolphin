@@ -1,5 +1,6 @@
-something goes wrong in cudabackend. For some reason there is an error when using the cudabackend. I assume it has to do with the defaultbackendmemorymanager and that data is not properly allocated / deallocated. The debugger works though
+rethink the threadpool layout for deconvolution. Currently its very static. Also i want to be able to adjust the number of iothreads and number of workerthreads spereately. To be able to adjust them for the system at hand. But be very careful about what data is shared and whats not! iothreads have to be on same device as workerthreads. 
 
+test application if its correctly running on multiple devices
 
 create proper dolphinbackend library, with complexdata source (maybe even install). Then link that dolphinbackend to the backends and doplhin. Then it should be possible to test the cudabackend on the serve
 

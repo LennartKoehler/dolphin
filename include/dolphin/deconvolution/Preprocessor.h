@@ -19,12 +19,13 @@ public:
     struct Key{
         RectangleShape shape;
         std::string psf;
+        std::string device;
     };
 
     struct KeyHash {
         std::size_t operator()(const Key& key) const {
             std::hash<std::string> hashFn;
-            return hashFn(key.psf) ^ (std::hash<int>()(key.shape.width) << 1) ^ std::hash<int>()(key.shape.height);
+            return hashFn(key.psf) ^ hashFn(key.device) ^ (std::hash<int>()(key.shape.width) << 1) ^ std::hash<int>()(key.shape.height);
         }
     };
 
@@ -32,6 +33,7 @@ public:
         bool operator()(const Key& lhs, const Key& rhs) const {
             return lhs.shape.width == rhs.shape.width &&
                    lhs.shape.height == rhs.shape.height &&
+                   lhs.device == rhs.device &&
                    lhs.psf == rhs.psf;
         }
     };
@@ -47,7 +49,7 @@ public:
 
     const ComplexData* getPreprocessedPSF(const RectangleShape& shape, const std::shared_ptr<PSF> psf, std::shared_ptr<IBackend> backend) {
         std::unique_lock<std::mutex> lock(mutex);
-        Key key{shape, psf->ID};
+        Key key{shape, psf->ID, backend->getDeviceType()};
         auto it = preprocessedPSFs.find(key);
         if (it != preprocessedPSFs.end()) {
             return it->second.get();

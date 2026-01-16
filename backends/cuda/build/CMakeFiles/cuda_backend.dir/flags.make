@@ -6,5 +6,5 @@ CXX_DEFINES = -Dcuda_backend_EXPORTS
 
 CXX_INCLUDES = -I/home/lennart-k-hler/projects/dolphin/backends/cuda/include -I/home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include -isystem /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include
 
-CXX_FLAGS = -g -O0 -DDEBUG -fPIC
+CXX_FLAGS = -g -O0 -DDEBUG -std=gnu++20 -fPIC
 

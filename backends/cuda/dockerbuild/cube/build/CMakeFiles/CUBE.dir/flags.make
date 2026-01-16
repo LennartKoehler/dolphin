@@ -6,5 +6,5 @@ CUDA_DEFINES =
 
 CUDA_INCLUDES = -I/workspace/lib/cube/include -isystem=/usr/local/cuda/include
 
-CUDA_FLAGS =  -O3 -O3 -DNDEBUG --generate-code=arch=compute_86,code=[compute_86,sm_86] -Xcompiler=-fPIC -std=c++14
+CUDA_FLAGS =  -O3 -g --generate-code=arch=compute_86,code=[compute_86,sm_86] --generate-code=arch=compute_75,code=[compute_75,sm_75] -Xcompiler=-fPIC -std=c++14
 

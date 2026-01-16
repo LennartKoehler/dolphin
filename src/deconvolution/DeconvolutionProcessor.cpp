@@ -40,7 +40,7 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         &psfPreprocessor
     ]() mutable {
 
-        std::shared_ptr<IBackend> threadbackend = prototypebackend->onNewThread(prototypebackend);
+        thread_local std::shared_ptr<IBackend> threadbackend = prototypebackend->onNewThreadSharedMemory(prototypebackend);
         
         algorithm->setBackend(threadbackend);
         algorithm->init(workShape);
@@ -58,7 +58,7 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
             threadbackend->sync();
         }
         
-        threadbackend->releaseBackend();
+        // threadbackend->releaseBackend();
 
 
     });
@@ -68,3 +68,36 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
 
 
 
+ComplexData DeconvolutionProcessor::staticDeconvolveSingleCube(
+    std::shared_ptr<IBackend> prototypebackend,
+    std::unique_ptr<DeconvolutionAlgorithm> algorithm, 
+    const RectangleShape& workShape,
+    const std::vector<std::shared_ptr<PSF>>& psfs_host, // dont pass psfs as ComplexData, because the workerbackend might be needed to preprocess psfs
+    ComplexData& g_device,
+    ComplexData& f_device,
+    PSFPreprocessor& psfPreprocessor){
+
+
+
+        // std::shared_ptr<IBackend> prototypebackend = prototypebackend->onNewThreadSharedMemory(prototypebackend);
+        
+        algorithm->setBackend(prototypebackend);
+        algorithm->init(workShape);
+        std::vector<const ComplexData*> preprocessedPSFs;
+
+        for (auto& psf : psfs_host){
+
+            preprocessedPSFs.push_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, prototypebackend));
+            prototypebackend->sync();
+        
+        }
+        for (const auto* psf_device : preprocessedPSFs){
+            algorithm->deconvolve(*psf_device, g_device, f_device);
+            // prototypebackend->getDeconvManager().scalarMultiplication(f_device, 1.0 / f_device.size.volume, f_device); // Add normalization
+            prototypebackend->sync();
+        }
+        
+        // prototypebackend->releaseBackend();
+
+        return std::move(f_device);
+}
