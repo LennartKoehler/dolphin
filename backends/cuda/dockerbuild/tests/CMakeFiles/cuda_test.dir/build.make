@@ -92,7 +92,7 @@ cuda_test_EXTERNAL_OBJECTS =
 
 tests/cuda_test: tests/CMakeFiles/cuda_test.dir/test.cpp.o
 tests/cuda_test: tests/CMakeFiles/cuda_test.dir/build.make
-tests/cuda_test: libcuda_backend.a
+tests/cuda_test: libcuda_backend.so
 tests/cuda_test: cube/build/libCUBE.a
 tests/cuda_test: /usr/local/cuda/lib64/libcufftw.so
 tests/cuda_test: /usr/local/cuda/lib64/libcufft.so

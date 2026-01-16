@@ -92,7 +92,7 @@ multiple_devices_test_EXTERNAL_OBJECTS =
 
 tests/multiple_devices_test: tests/CMakeFiles/multiple_devices_test.dir/multiple_devices_test.cpp.o
 tests/multiple_devices_test: tests/CMakeFiles/multiple_devices_test.dir/build.make
-tests/multiple_devices_test: libcuda_backend.a
+tests/multiple_devices_test: libcuda_backend.so
 tests/multiple_devices_test: cube/build/libCUBE.a
 tests/multiple_devices_test: /usr/local/cuda/lib64/libcufftw.so
 tests/multiple_devices_test: /usr/local/cuda/lib64/libcufft.so

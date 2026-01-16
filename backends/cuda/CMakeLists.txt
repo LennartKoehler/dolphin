@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.1)
 
 set(CMAKE_CUDA_RUNTIME_LIBRARY Static)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
 set(CMAKE_BUILD_TYPE Debug)
 project(cudaBackend)

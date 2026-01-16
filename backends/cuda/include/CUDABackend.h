@@ -2,10 +2,37 @@
 #include <dolphinbackend/IBackend.h>
 #include <dolphinbackend/IDeconvolutionBackend.h>
 #include <dolphinbackend/IBackendMemoryManager.h>
+#include <dolphinbackend/Exceptions.h>
 #include <cufftw.h>
 #include <CUBE.h>
 #include <cuda_runtime.h>
 #include <map>
+#include <iostream>
+
+// Unified CUDA error check macro
+#define CUDA_CHECK(err, operation) { \
+    if (err != cudaSuccess) { \
+        std::cerr << cudaGetErrorString(err) << operation << std::endl; \
+        throw dolphin::backend::BackendException( \
+            std::string("CUDA error: ") + cudaGetErrorString(err), \
+            "CUDA", \
+            operation \
+        ); \
+    } \
+}
+
+// Unified cuFFT error check macro
+#define CUFFT_CHECK(call, operation) { \
+    cufftResult res = call; \
+    if (res != CUFFT_SUCCESS) { \
+        throw dolphin::backend::BackendException( \
+            "cuFFT error code: " + std::to_string(res), \
+            "CUDA", \
+            operation \
+        ); \
+    } \
+}
+
 
 using cudaDeviceID = int;
 struct CUDADevice{
@@ -24,7 +51,7 @@ public:
     void setDevice(CUDADevice device) { this->device = device;}
     // Override device type method
     std::string getDeviceType() const noexcept override {
-        return "cuda";
+        return std::string("cuda") + std::to_string(device.id);
     }
     
     void sync() override {cudaStreamSynchronize(stream);}
@@ -61,7 +88,7 @@ public:
     
     // Override device type method
     std::string getDeviceType() const noexcept override {
-        return "cuda";
+        return (std::string("cuda") + std::to_string(device.id));
     }
 
     // Core processing functions
@@ -192,22 +219,34 @@ private:
 public:
     // Factory method to create CUDABackend with
     static CUDABackend* create() {
-        auto deconv = std::make_unique<CUDADeconvolutionBackend>();
-        auto memoryManager = std::make_unique<CUDABackendMemoryManager>();
-        CUDABackend* backend = new CUDABackend(std::move(deconv), std::move(memoryManager));
-        size_t freeMem, totalMem;
-        cudaError_t err = cudaMemGetInfo(&freeMem, &totalMem);
-        backend->setDevice(CUDADevice{0, new MemoryTracking(totalMem)});
-
-        return backend;
+        try {
+            auto deconv = std::make_unique<CUDADeconvolutionBackend>();
+            auto memoryManager = std::make_unique<CUDABackendMemoryManager>();
+            CUDABackend* backend = new CUDABackend(std::move(deconv), std::move(memoryManager));
+            
+            size_t freeMem, totalMem;
+            cudaError_t err = cudaMemGetInfo(&freeMem, &totalMem);
+            CUDA_CHECK(err, "create - cudaMemGetInfo");
+            
+            if (totalMem == 0) {
+                throw dolphin::backend::BackendException(
+                    "Device 0 reports zero memory", "CUDA", "create");
+            }
+            
+            backend->setDevice(CUDADevice{0, new MemoryTracking(totalMem)});
+            return backend;
+        } catch (...) {
+            // Clean up any allocated resources if creation fails
+            throw dolphin::backend::BackendException(
+                "Failed to create CUDABackend", "CUDA", "create");
+        }
     }
 
     // Implementation of pure virtual methods
     std::string getDeviceType() const noexcept override {
-        return "cuda";
+        return std::string("cuda") + std::to_string(static_cast<int>(device.id));
     }
     void sync() override{
-        deconvBackend.sync();
         memoryBackend.sync(); 
     }
 
@@ -223,7 +262,8 @@ public:
     }
 
     void configureThreadLocalDevice(){
-        cudaSetDevice(device.id);
+        cudaError_t err = cudaSetDevice(device.id);
+        CUDA_CHECK(err, "configureThreadLocalDevice");
     }
 
 
@@ -313,6 +353,7 @@ public:
 
     // Overloaded version for CUDA: use backend manager to potentially return a different backend
     std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const override;
+    std::shared_ptr<IBackend> onNewThreadSharedMemory(std::shared_ptr<IBackend> original) const override;
     
     void releaseBackend() override;
 };

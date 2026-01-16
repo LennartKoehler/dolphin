@@ -25,14 +25,10 @@ void DefaultBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) cons
     if (data.data != nullptr) {
         return; // Already allocated
     }
-    
     size_t requested_size = sizeof(complex) * data.size.volume;
-         
     data.data = (complex*)std::malloc(requested_size); 
-
     MEMORY_ALLOC_CHECK(data.data, requested_size, "Default", "allocateMemoryOnDevice");
-
-
+    
     data.backend = this;
 }
 

@@ -42,6 +42,8 @@ public:
      */
     std::shared_ptr<CUDABackend> getBackendForCurrentThread();
 
+    std::shared_ptr<CUDABackend> getBackendForCurrentThreadSameDevice(CUDADevice device);
+
     /**
      * Release a CUDA backend (only valid for the thread that acquired it)
      * @param backend The backend to release
@@ -86,22 +88,46 @@ private:
      * Private constructor for singleton pattern
      */
     CUDABackendManager(){
-        cudaGetDeviceCount(&nDevices);
+        cudaError_t err = cudaGetDeviceCount(&nDevices);
+        CUDA_CHECK(err, "cudaGetDeviceCount");
+        
+        if (nDevices <= 0) {
+            throw dolphin::backend::BackendException(
+                "No CUDA devices found", "CUDA", "CUDABackendManager constructor");
+        }
+        
         int device;
+        // int nDevices = 1;
         for (device = 0; device < nDevices; ++device) {
             cudaDeviceProp deviceProp;
-            cudaGetDeviceProperties(&deviceProp, device);
+            err = cudaGetDeviceProperties(&deviceProp, device);
+            CUDA_CHECK(err, "cudaGetDeviceProperties");
             
-            cudaSetDevice(device); //TODO overhead?
+ 
+            
+            err = cudaSetDevice(device);
+            CUDA_CHECK(err, "cudaSetDevice");
 
             size_t freeMem, totalMem;
-            cudaError_t err = cudaMemGetInfo(&freeMem, &totalMem);
+            err = cudaMemGetInfo(&freeMem, &totalMem);
+            CUDA_CHECK(err, "cudaMemGetInfo");
+            
+            if (totalMem == 0) {
+                throw dolphin::backend::BackendException(
+                    "Device " + std::to_string(device) + " reports zero memory",
+                    "CUDA", "CUDABackendManager constructor");
+            }
+            
             devices.push_back(CUDADevice{device, new MemoryTracking(totalMem)});
 
             printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
             device, deviceProp.major, deviceProp.minor, (totalMem/1e9));
+            
         }
-        cudaSetDevice(0);
+        
+        // Reset to device 0 for default operations
+        err = cudaSetDevice(0);
+        CUDA_CHECK(err, "cudaSetDevice");
     };
 
     /**
@@ -125,6 +151,6 @@ private:
     
     // Helper methods
     void initializeGlobalCUDA();
-    std::shared_ptr<CUDABackend> createNewBackend();
+    std::shared_ptr<CUDABackend> createNewBackend(CUDADevice device);
     cudaStream_t createStream();
 };

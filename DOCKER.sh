@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build the image
 
+
+
 docker build -t dolphin_build .
 
 # Create a container (without running it)

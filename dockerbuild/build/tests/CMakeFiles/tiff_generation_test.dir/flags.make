@@ -6,5 +6,5 @@ CXX_DEFINES = -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_LARGEFILE64_SOURCE -D_LARG
 
 CXX_INCLUDES = -I/workspace/../include -I/workspace/../src -I/workspace/include/dolphin -I/workspace/lib -isystem /usr/local/include/ITK-5.4 -isystem /workspace/lib/dolphinbackend/include -isystem /usr/local/include/ITK-5.4/itkzlib-ng -isystem /usr/local/include/ITK-5.4/itkjpeg -isystem /usr/local/include/ITK-5.4/itkpng
 
-CXX_FLAGS =  -g -O3 -DNDEBUG -std=gnu++20
+CXX_FLAGS =  -g -g -std=gnu++20
 

@@ -80,6 +80,7 @@ size_t StandardDeconvolutionStrategy::maxMemoryPerCube(
     
     size_t algorithmMemoryMultiplier = algorithm->getMemoryMultiplier();
     size_t memoryBuffer = 1e9;
+    maxNumberThreads = maxNumberThreads == 0 ? 1 : maxNumberThreads;
     size_t memoryPerThread = maxMemory / maxNumberThreads;
     size_t memoryPerCube = memoryPerThread / algorithmMemoryMultiplier;
     return memoryPerCube; 

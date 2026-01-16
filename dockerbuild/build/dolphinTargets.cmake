@@ -49,11 +49,11 @@ set_target_properties(dolphin::dolphin PROPERTIES
   INTERFACE_LINK_LIBRARIES "dolphinbackend;/usr/local/lib/libtiff.a;itkdouble-conversion;ITKInternalEigen3::Eigen;itksys;itkvnl_algo;itkvnl;itkv3p_netlib;itkvcl;ITKCommon;itkNetlibSlatec;ITKStatistics;ITKTransform;ITKMesh;zlib;ITKMetaIO;ITKSpatialObjects;ITKPath;ITKLabelMap;ITKMathematicalMorphology;ITKQuadEdgeMesh;ITKFastMarching;ITKIOImageBase;ITKFFT;ITKConvolution;ITKSmoothing;ITKImageFeature;ITKOptimizers;ITKPolynomials;ITKBiasCorrection;ITKColormap;ITKDICOMParser;ITKDeformableMesh;ITKDenoising;ITKDiffusionTensorImage;ITKEXPAT;gdcmDICT;gdcmMSFF;ITKznz;ITKniftiio;ITKgiftiio;ITKPDEDeformableRegistration;hdf5_cpp-static;hdf5-static;hdf5_hl-static;ITKIOBMP;ITKIOBioRad;ITKIOBruker;ITKIOCSV;ITKIOGDCM;ITKIOIPL;ITKIOGE;ITKIOGIPL;ITKIOHDF5;itkjpeg;ITKIOJPEG;itkopenjpeg;ITKIOJPEG2000;itktiff;ITKIOTIFF;ITKIOLSM;itkminc2;ITKIOMINC;ITKIOMRC;ITKIOMeshBase;ITKIOMeshBYU;ITKIOMeshFreeSurfer;ITKIOMeshGifti;ITKIOMeshOBJ;ITKIOMeshOFF;ITKIOMeshVTK;ITKIOMeta;ITKIONIFTI;ITKNrrdIO;ITKIONRRD;itkpng;ITKIOPNG;ITKIOSiemens;ITKIOXML;ITKIOSpatialObjects;ITKIOStimulate;ITKTransformFactory;ITKIOTransformBase;ITKIOTransformHDF5;ITKIOTransformInsightLegacy;ITKIOTransformMatlab;ITKIOVTK;ITKKLMRegionGrowing;itklbfgs;ITKMarkovRandomFieldsClassifiers;ITKOptimizersv4;ITKQuadEdgeMeshFiltering;ITKRegionGrowing;ITKRegistrationMethodsv4;ITKTestKernel;ITKVTK;ITKVideoCore;ITKVideoIO;ITKWatersheds"
 )
 
-# Import target "dolphin::dolphin" for configuration "Release"
-set_property(TARGET dolphin::dolphin APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
+# Import target "dolphin::dolphin" for configuration "Debug"
+set_property(TARGET dolphin::dolphin APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
 set_target_properties(dolphin::dolphin PROPERTIES
-  IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "CXX"
-  IMPORTED_LOCATION_RELEASE "/workspace/build/libdolphin.a"
+  IMPORTED_LINK_INTERFACE_LANGUAGES_DEBUG "CXX"
+  IMPORTED_LOCATION_DEBUG "/workspace/build/libdolphin.a"
   )
 
 # This file does not depend on other imported targets which have

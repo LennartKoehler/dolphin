@@ -114,6 +114,7 @@ ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const RectangleShape
 }
 
 ComplexData CPUBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
+
     BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data");
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
     std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));

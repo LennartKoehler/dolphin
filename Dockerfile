@@ -83,5 +83,5 @@ COPY . /workspace
 WORKDIR /workspace
 RUN rm -rf build && mkdir build
 WORKDIR /workspace/build
-RUN cmake -DCMAKE_BUILD_TYPE=Release .. && \
+RUN cmake -DCMAKE_BUILD_TYPE=Debug .. && \
     cmake --build . -- -j$(nproc)

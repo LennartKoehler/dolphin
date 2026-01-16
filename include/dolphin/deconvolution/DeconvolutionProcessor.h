@@ -29,7 +29,7 @@ class DeconvolutionProcessor{
 public:
     DeconvolutionProcessor() = default;
 
-    void init(size_t numberThreads, std::function<void()> threadInitFunc){
+    void init(size_t numberThreads, std::function<void()> threadInitFunc = [](){}){
         workerPool = std::make_unique<ThreadPool>(numberThreads, threadInitFunc);
     }
 
@@ -41,10 +41,20 @@ public:
         ComplexData& g_device,
         ComplexData& f_device,
         PSFPreprocessor& psfpreprocessor);
-
+    
+    static ComplexData staticDeconvolveSingleCube(
+        std::shared_ptr<IBackend> backend,
+        std::unique_ptr<DeconvolutionAlgorithm> algorithm,
+        const RectangleShape& workShape,
+        const std::vector<std::shared_ptr<PSF>>& psfs_host,
+        ComplexData& g_device,
+        ComplexData& f_device,
+        PSFPreprocessor& psfpreprocessor);
 
 private:
     std::unique_ptr<ThreadPool> workerPool;
     
 };
+
+
 

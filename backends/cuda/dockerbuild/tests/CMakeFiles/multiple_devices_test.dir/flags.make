@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/workspace/include -I/workspace/lib/cube/include -isystem /usr/local/cuda/include -isystem /workspace/lib/dolphinbackend/include
 
-CXX_FLAGS = -g -static-libstdc++ -static-libgcc
+CXX_FLAGS = -g -O0 -DDEBUG -static-libstdc++ -static-libgcc -std=gnu++20
 
