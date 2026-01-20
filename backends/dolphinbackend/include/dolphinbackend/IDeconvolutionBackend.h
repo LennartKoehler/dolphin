@@ -40,7 +40,7 @@ public:
      * Get the device type of this backend
      * @return Device type string
      */
-    virtual std::string getDeviceType() const noexcept {
+    virtual std::string getDevice() const noexcept {
         return "unknown";
     }
 

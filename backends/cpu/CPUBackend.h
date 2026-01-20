@@ -15,9 +15,10 @@ public:
     ~CPUBackendMemoryManager();
     
     // Override device type method
-    std::string getDeviceType() const noexcept override {
+    std::string getDevice() const noexcept override {
         return "cpu";
     }
+
     
     // Synchronization method - CPU implementation (no-op)
     void sync() override {}
@@ -55,7 +56,7 @@ public:
     ~CPUDeconvolutionBackend() override;
     
     // Override device type method
-    std::string getDeviceType() const noexcept override {
+    std::string getDevice() const noexcept override {
         return "cpu";
     }
 
@@ -187,8 +188,11 @@ public:
         
     void sync() override {}
     // Implementation of pure virtual methods
-    std::string getDeviceType() const noexcept override {
+    std::string getDevice() const noexcept override {
         return "cpu";
+    }
+    int getNumberDevices() const noexcept override{
+        return 1;
     }
 
     // Ownership query methods

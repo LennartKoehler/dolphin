@@ -111,7 +111,7 @@
                 "/workspace" : "/home/lennart-k-hler/projects/dolphin",
                 // "/workspace" : "/home/lennart-k-hler/projects/dolphin/backends/cuda"
                 "/workspace/src/CUDABackend.cpp" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/src/CUDABackend.cpp",
-                "/workspace/src/CUDABackendManage.cpp" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/src/CUDABackendManager.cpp",
+                "/workspace/src/CUDABackendManager.cpp" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/src/CUDABackendManager.cpp",
                 "/workspace/include/CUDABackend.h" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/include/CUDABackend.h",
 
                 "/workspace/include/CUDABackendManager.h" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/include/CUDABackendManager.h"

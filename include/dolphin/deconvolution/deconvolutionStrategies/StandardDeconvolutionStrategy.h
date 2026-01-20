@@ -27,9 +27,11 @@ public:
     virtual void configure(const SetupConfig& setupConfig) override;
     
     virtual ChannelPlan createPlan(
-        const ImageMetaData& metadata,
+        std::shared_ptr<ImageReader> reader,
+        std::shared_ptr<ImageWriter> writer,
         const std::vector<PSF>& psfs,
-        const DeconvolutionConfig& config) override;
+        const DeconvolutionConfig& config,
+        const SetupConfig& setupConfig) override;
 
 
 protected:
@@ -41,7 +43,7 @@ protected:
 
 
     std::shared_ptr<DeconvolutionAlgorithm> getAlgorithm(const DeconvolutionConfig& config);
-    std::shared_ptr<IBackend> getBackend(const DeconvolutionConfig& config);
+    std::shared_ptr<IBackend> getBackend(const SetupConfig& config);
     
     virtual size_t estimateMemoryUsage(
         const RectangleShape& cubeSize,
@@ -58,6 +60,8 @@ protected:
         const RectangleShape& cubeSizeUnpadded,
         const Padding& cubePadding
     );
+
+    virtual std::vector<std::shared_ptr<TaskContext>> createContexts(std::shared_ptr<IBackend> backend, const SetupConfig& config) const ;
 
     virtual Padding getCubePadding(const RectangleShape& image, const std::vector<PSF> psfs);
 

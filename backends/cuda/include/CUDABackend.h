@@ -50,7 +50,7 @@ public:
     void setStream(cudaStream_t stream){ this->stream = stream;}
     void setDevice(CUDADevice device) { this->device = device;}
     // Override device type method
-    std::string getDeviceType() const noexcept override {
+    std::string getDevice() const noexcept override {
         return std::string("cuda") + std::to_string(device.id);
     }
     
@@ -87,7 +87,7 @@ public:
     ~CUDADeconvolutionBackend() override;
     
     // Override device type method
-    std::string getDeviceType() const noexcept override {
+    std::string getDevice() const noexcept override {
         return (std::string("cuda") + std::to_string(device.id));
     }
 
@@ -243,11 +243,12 @@ public:
     }
 
     // Implementation of pure virtual methods
-    std::string getDeviceType() const noexcept override {
+    std::string getDevice() const noexcept override {
         return std::string("cuda") + std::to_string(static_cast<int>(device.id));
     }
+    int getNumberDevices()const override;
     void sync() override{
-        memoryBackend.sync(); 
+        memoryBackend.sync();
     }
 
     void setStream(cudaStream_t stream){

@@ -31,7 +31,7 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 
 void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig){
     this->labelReader = std::make_unique<TiffReader>(setupConfig.labeledImage);
-    this->featheringRadius = setupConfig.featheringRadius;
+    
     // Load PSF label map if provided
     if (!setupConfig.labelPSFMap.empty()) {
         RangeMap<std::string> labelPSFMap;
@@ -39,21 +39,36 @@ void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig){
         this->psfLabelMap = labelPSFMap;
     }
 
+    this->numberWorkerThreads = setupConfig.nWorkerThreads;
+    this->numberIOThreads = setupConfig.nIOThreads;
+    this->numberDevices = setupConfig.nDevices;
+}
+
+void LabeledDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfig> config){
+
+    this->featheringRadius = config->featheringRadius;
 }
 
 
 std::function<void()> LabeledDeconvolutionExecutor::createTask(
-    const std::unique_ptr<CubeTaskDescriptor>& taskDesc,
-    const ImageReader& reader,
-    const ImageWriter& writer) {
+    const std::unique_ptr<CubeTaskDescriptor>& taskDesc) {
     
-    return [this, task = *taskDesc, &reader, &writer]() {
+    return [this, task = *taskDesc]() {
+
+        TaskContext* context = task.context.get();
+
+        thread_local std::shared_ptr<IBackend> iobackend = context->prototypebackend->onNewThreadSharedMemory(context->prototypebackend);
+
+        std::shared_ptr<ImageReader> reader = task.reader;
+        std::shared_ptr<ImageWriter> writer = task.writer;
+        
+
+
 
         RectangleShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
-        PaddedImage cubeImage = reader.getSubimage(task.paddedBox);
+        PaddedImage cubeImage = reader->getSubimage(task.paddedBox);
         PaddedImage labelImage = labelReader->getSubimage(task.paddedBox);
 
-        std::shared_ptr<IBackend> iobackend = task.backend->onNewThread(task.backend);
         ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage.image, workShape);
         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
         cpuMemoryManager->freeMemoryOnDevice(g_host);
@@ -82,7 +97,7 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
 
                 std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
                 try {
-                    std::future<void> resultDone = processor.deconvolveSingleCube(
+                    std::future<void> resultDone = context->processor.deconvolveSingleCube(
                         iobackend,
                         std::move(algorithm),
                         workShape,
@@ -116,7 +131,7 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
             result = tempResults[0].image;
         }
 
-        writer.setSubimage(result, task.paddedBox);
+        writer->setSubimage(result, task.paddedBox);
         iobackend->releaseBackend();
         loadingBar.addOne();
     };

@@ -1,1 +1,0 @@
-/usr/bin/c++  -g -O3 -DNDEBUG CMakeFiles/fftw_size_decomposition_test.dir/fftw_size_decomposition_test.cpp.o -o fftw_size_decomposition_test  /usr/lib/x86_64-linux-gnu/libfftw3f.a /usr/lib/x86_64-linux-gnu/libfftw3f_threads.a -lpthread /usr/lib/gcc/x86_64-linux-gnu/11/libgomp.a /usr/lib/x86_64-linux-gnu/libpthread.a 

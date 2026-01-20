@@ -13,7 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "deconvolution/DeconvolutionConfig.h"
 #include "deconvolution/DeconvolutionAlgorithmFactory.h"
-#include "backend/BackendFactory.h"
+
 DeconvolutionConfig::DeconvolutionConfig() {
     registerAllParameters();
 }
@@ -26,12 +26,10 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     epsilon(other.epsilon),
     lambda(other.lambda),
     borderType(other.borderType),
-    backenddeconv(other.backenddeconv),
-    nThreads(other.nThreads),
-    maxMem_GB(other.maxMem_GB),
     verbose(other.verbose),
     layerPSFMap(other.layerPSFMap),
-    cubePSFMap(other.cubePSFMap)
+    cubePSFMap(other.cubePSFMap),
+    featheringRadius(other.featheringRadius)
     {
         registerAllParameters();
     }
@@ -60,11 +58,10 @@ bool DeconvolutionConfig::loadFromJSON(const json& jsonData) {
 void DeconvolutionConfig::registerAllParameters() {
     static std::vector<std::string> algorithmOptions =
         DeconvolutionAlgorithmFactory::getInstance().getAvailableAlgorithms();
-    static std::vector<std::string> backendOptions =
-        BackendFactory::getInstance().getAvailableBackends();
+
 
     static void* algorithmOptionsVoid = static_cast<void*>(&algorithmOptions);
-    static void* backendOptionsVoid = static_cast<void*>(&backendOptions);
+    
 
     // Register each parameter as a ConfigParameter struct
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
@@ -74,10 +71,8 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::Float, &epsilon, "epsilon", true, "epsilon", "--epsilon", "Epsilon", false, true, 1e-12, 1e-3, nullptr});
     parameters.push_back({ParameterType::Float, &lambda, "lambda", true, "lambda", "--lambda", "Lambda regularization", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Int, &borderType, "borderType", true, "borderType", "--borderType", "Border type", false, true, 0.0, 5.0, nullptr});
-    parameters.push_back({ParameterType::VectorString, &backenddeconv, "backenddeconv", true, "backenddeconv", "--backenddeconv", "Backend type", false, false, 0.0, 0.0, backendOptionsVoid});
-    parameters.push_back({ParameterType::Int, &nThreads, "nThreads", false, "nThreads", "--nThreads", "Number of threads", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Float, &maxMem_GB, "maxMem_GB", false, "maxMem_GB", "--maxMem_GB", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Bool, &verbose, "verbose", true, "verbose", "--verbose", "Enable verbose", false, false, 0.0, 1.0, nullptr});
+    parameters.push_back({ParameterType::Int, &featheringRadius, "featheringRadius", true, "featheringRadius", "--featheringRadius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
     
     // Note: RangeMap parameters are not yet supported in the base Config parameter system
 }

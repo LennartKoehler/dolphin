@@ -15,7 +15,7 @@ public:
     ~OpenMPBackendMemoryManager();
     
     // Override device type method
-    std::string getDeviceType() const noexcept override {
+    std::string getDevice() const noexcept override {
         return "openmp";
     }
     
@@ -55,7 +55,7 @@ public:
     ~OpenMPDeconvolutionBackend() override;
     
     // Override device type method
-    std::string getDeviceType() const noexcept override {
+    std::string getDevice() const noexcept override {
         return "openmp";
     }
 
@@ -189,7 +189,7 @@ public:
         
     void sync() override {}
     // Implementation of pure virtual methods
-    std::string getDeviceType() const noexcept override {
+    std::string getDevice() const noexcept override {
         return "openmp";
     }
 

@@ -15,7 +15,6 @@ WORKDIR /workspace
 # Copy your project
 COPY . /workspace
 
-ENV CMAKE_PREFIX_PATH=/workspace/local_dep
 # Build your project
 RUN rm -rf build && mkdir -p build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \

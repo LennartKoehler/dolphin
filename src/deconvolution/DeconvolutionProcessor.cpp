@@ -101,3 +101,45 @@ ComplexData DeconvolutionProcessor::staticDeconvolveSingleCube(
 
         return std::move(f_device);
 }
+ComplexData DeconvolutionProcessor::staticDeconvolveSingleCubeWithCopying(
+    std::shared_ptr<IBackend> prototypebackend,
+    std::shared_ptr<IBackendMemoryManager> hostbackend,
+    std::unique_ptr<DeconvolutionAlgorithm> algorithm, 
+    const RectangleShape& workShape,
+    const std::vector<std::shared_ptr<PSF>>& psfs_host, // dont pass psfs as ComplexData, because the workerbackend might be needed to preprocess psfs
+    ComplexData& g_host,
+    PSFPreprocessor& psfPreprocessor){
+
+        thread_local std::shared_ptr<IBackend> workerbackend = prototypebackend->onNewThread(prototypebackend); //TODO with thread local the task.backend is irrelevant (except the first few)
+        ComplexData g_device = workerbackend->getMemoryManager().copyDataToDevice(g_host);
+
+        // cpuMemoryManager->freeMemoryOnDevice(g_host);
+
+        ComplexData f_device = workerbackend->getMemoryManager().allocateMemoryOnDevice(workShape);
+
+
+
+        // std::shared_ptr<IBackend> prototypebackend = prototypebackend->onNewThreadSharedMemory(prototypebackend);
+        
+        algorithm->setBackend(workerbackend);
+        algorithm->init(workShape);
+        std::vector<const ComplexData*> preprocessedPSFs;
+
+        for (auto& psf : psfs_host){
+
+            preprocessedPSFs.push_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, workerbackend));
+            workerbackend->sync();
+        
+        }
+        for (const auto* psf_device : preprocessedPSFs){
+            algorithm->deconvolve(*psf_device, g_device, f_device);
+            // prototypebackend->getDeconvManager().scalarMultiplication(f_device, 1.0 / f_device.size.volume, f_device); // Add normalization
+            workerbackend->sync();
+        }
+        
+        // prototypebackend->releaseBackend();
+        
+        ComplexData f_host = workerbackend->getMemoryManager().moveDataFromDevice(f_device, *hostbackend);
+
+        return std::move(f_host);
+}

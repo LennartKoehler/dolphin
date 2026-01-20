@@ -3,8 +3,8 @@
 #include <dolphinbackend/ComplexData.h>
 #include <dolphinbackend/RectangleShape.h>
 #include <thread>
+#include <dolphinbackend/IBackend.h>
 #include "CUDABackend.h"
-
 void testMultipleDevices() {
     std::cout << "=== Testing CUDA Backend Initialization ===" << std::endl;
     
@@ -16,7 +16,7 @@ void testMultipleDevices() {
         IBackendMemoryManager* cudaMemManager = backend->getMemoryManagerPtr();
         IDeconvolutionBackend& cudaBackendtemp = backend->mutableDeconvManager();
         IDeconvolutionBackend* cudaBackend = &cudaBackendtemp;
-
+        std::cout << "Number of devices detectes" << backend->getNumberDevices() << std::endl;
         if (!cudaBackend) {
             std::cout << "CUDA backend not available (this is expected if CUDA libraries are not built)" << std::endl;
             return;

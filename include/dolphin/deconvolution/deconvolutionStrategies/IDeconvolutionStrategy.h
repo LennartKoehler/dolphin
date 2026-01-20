@@ -19,9 +19,11 @@ public:
     
     // Creates a computational plan for deconvolution
     virtual ChannelPlan createPlan(
-        const ImageMetaData& metadata,
+        std::shared_ptr<ImageReader> reader,
+        std::shared_ptr<ImageWriter> writer, 
         const std::vector<PSF>& psfs,
-        const DeconvolutionConfig& config) = 0;
+        const DeconvolutionConfig& config,
+        const SetupConfig& setupConfig) = 0;
     
 
 };

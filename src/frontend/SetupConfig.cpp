@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include "deconvolution/DeconvolutionConfig.h"
 #include "psf/configs/PSFConfig.h"
 #include "psf/PSFGeneratorFactory.h"
+#include "backend/BackendFactory.h"
 
 SetupConfig::SetupConfig() {
     registerAllParameters();
@@ -48,18 +49,19 @@ SetupConfig::SetupConfig(const SetupConfig& other)
     psfConfigPath = other.psfConfigPath;
     psfFilePath = other.psfFilePath;
     psfDirPath = other.psfDirPath;
-    // time = other.time;
-    // sep = other.sep;
-    // savePsf = other.savePsf;
-    // showExampleLayers = other.showExampleLayers;
-    // printInfo = other.printInfo;
-    // saveSubimages = other.saveSubimages;
+
     backend = other.backend;
+    nThreads = other.nThreads;
+    nWorkerThreads = other.nWorkerThreads;
+    nIOThreads = other.nIOThreads;
+    nDevices = other.nDevices;
+    maxMem_GB = other.maxMem_GB;
+
     outputDir = other.outputDir;
     strategyType = other.strategyType;
     labeledImage = other.labeledImage;
     labelPSFMap = other.labelPSFMap;
-    featheringRadius = other.featheringRadius;
+
     // Deep copy the shared_ptr content
     if (other.deconvolutionConfig != nullptr) {
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
@@ -77,18 +79,18 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         psfConfigPath = other.psfConfigPath;
         psfFilePath = other.psfFilePath;
         psfDirPath = other.psfDirPath;
-        // time = other.time;
-        // sep = other.sep;
-        // savePsf = other.savePsf;
-        // showExampleLayers = other.showExampleLayers;
-        // printInfo = other.printInfo;
-        // saveSubimages = other.saveSubimages;
+         
         backend = other.backend;
+        nThreads = other.nThreads;
+        nWorkerThreads = other.nWorkerThreads;
+        nIOThreads = other.nIOThreads;
+        nDevices = other.nDevices;
+        maxMem_GB = other.maxMem_GB;
+
         outputDir = other.outputDir;
         strategyType = other.strategyType;
         labeledImage = other.labeledImage;
         labelPSFMap = other.labelPSFMap; 
-        featheringRadius = other.featheringRadius;
         // Deep copy the shared_ptr content
         if (other.deconvolutionConfig != nullptr) {
             deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
@@ -124,16 +126,27 @@ void SetupConfig::registerAllParameters(){
     // parameters.push_back({ParameterType::Bool, &savePsf, "savePsf", false, "savePsf", "--savePsf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::Bool, &showExampleLayers, "showExampleLayers", false, "showExampleLayers", "--showExampleLayers", "Show example layers", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::Bool, &printInfo, "info", false, "info", "--info", "Print info about input image", false, false, 0.0, 0.0, nullptr});
+    static std::vector<std::string> backendOptions =
+        BackendFactory::getInstance().getAvailableBackends();
+    static void* backendOptionsVoid = static_cast<void*>(&backendOptions);
     parameters.push_back({ParameterType::FilePath, &imagePath, "image_path", false, "image_path", "-i,--image_path", "Input image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &outputDir, "outputDir", true, "outputDir", "--outputDir", "Output directory", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &psfConfigPath, "psf_config_path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &psfFilePath, "psf_file_path", true, "psf_file_path", "--psf_file_path", "PSF file path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::DeconvolutionConfig, &deconvolutionConfig, "Deconvolution", true, "DeconConfig", "--deconvConfig", "Deconv Config", false, false, 0.0, 0.0, nullptr});
+    
     parameters.push_back({ParameterType::String, &strategyType, "strategyType", true, "strategyType", "--strategyType", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &labeledImage, "labeledImage", true, "labeledImage", "--labeledImage", "Labeled image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &labelPSFMap, "labelPSFMap", true, "labelPSFMap", "--labelPSFMap", "Label PSF map path", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Int, &featheringRadius, "featheringRadius", true, "featheringRadius", "--featheringRadius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
+    parameters.push_back({ParameterType::VectorString, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, backendOptionsVoid});
+    parameters.push_back({ParameterType::Int, &nThreads, "nThreads", false, "nThreads", "--nThreads", "Number of threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Int, &nWorkerThreads, "nWorkerThreads", true, "nWorkerThreads", "--nWorkerThreads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Int, &nIOThreads, "nIOThreads", true, "nIOThreads", "--nIOThreads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Int, &nDevices, "nDevices", true, "nDevices", "--nDevices", "Number of devices", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMem_GB, "maxMem_GB", false, "maxMem_GB", "--maxMem_GB", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
+    
+
+    parameters.push_back({ParameterType::DeconvolutionConfig, &deconvolutionConfig, "Deconvolution", true, "DeconConfig", "--deconvConfig", "Deconv Config", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::Bool, &saveSubimages, "saveSubimages", true, "saveSubimages", "--saveSubimages", "Save subimages separate", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::String, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
     

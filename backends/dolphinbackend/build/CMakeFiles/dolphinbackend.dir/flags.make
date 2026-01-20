@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend
 
-CXX_FLAGS = 
+CXX_FLAGS = -std=gnu++20
 

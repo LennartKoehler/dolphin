@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 
 class RectangleShape;
 class IBackend;
+class IBackendMemoryManager;
 class DeconvolutionAlgorithm;
 class ThreadPool;
 class PSF;
@@ -50,6 +51,17 @@ public:
         ComplexData& g_device,
         ComplexData& f_device,
         PSFPreprocessor& psfpreprocessor);
+ 
+    static ComplexData staticDeconvolveSingleCubeWithCopying(
+        std::shared_ptr<IBackend> backend,
+        std::shared_ptr<IBackendMemoryManager> hostbackend,
+        std::unique_ptr<DeconvolutionAlgorithm> algorithm,
+        const RectangleShape& workShape,
+        const std::vector<std::shared_ptr<PSF>>& psfs_host,
+        ComplexData& g_host,
+        PSFPreprocessor& psfpreprocessor);
+
+
 
 private:
     std::unique_ptr<ThreadPool> workerPool;

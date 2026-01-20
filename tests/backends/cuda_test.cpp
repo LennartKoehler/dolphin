@@ -12,11 +12,13 @@ void testCUDABackendInitialization() {
         
         // Create CUDA backend
 
-        std::shared_ptr<IBackend> backend = BackendFactory::getInstance().createShared("/home/lennart-k-hler/projects/dolphin/backends/cuda/build/libcuda_backend.so");
+        std::shared_ptr<IBackend> backend = BackendFactory::getInstance().createShared("../libcuda_backend.so");
         IBackendMemoryManager* cudaMemManager = backend->getMemoryManagerPtr();
         IDeconvolutionBackend& cudaBackendtemp = backend->mutableDeconvManager();
         IDeconvolutionBackend* cudaBackend = &cudaBackendtemp;
         
+        
+        std::cout << "Number of devices detected: " << backend->getNumberDevices() << std::endl;
         if (!cudaBackend) {
             std::cout << "CUDA backend not available (this is expected if CUDA libraries are not built)" << std::endl;
             return;

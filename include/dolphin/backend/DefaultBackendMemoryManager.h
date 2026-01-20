@@ -9,7 +9,7 @@ public:
     ~DefaultBackendMemoryManager();
     
 
-    std::string getDeviceType() const noexcept override {
+    std::string getDevice() const noexcept override {
         return "default";
     }
     

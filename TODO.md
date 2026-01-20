@@ -1,4 +1,24 @@
+make backend creation more explicit from within ibackend, currently when creating the prototypebackends for each device, they are actually the same backend. Also the same device!! 
+
+i tihnk cuda and dolphin might be using the installed dolphinbackend to build
+
+if i have this new context then i need to update how i set the device of the backend, because now its kind of the job of the strategy to initialize them so i can directly call it through the IBackend and not implicitly call on cudabackendmanager
+
+create a task context, which is the computer related task stuff. the task context should replace the thread_local stuff for multiple devices, so it should have a shared IBackend for each device, a processor to enqueue the work on, perhaps also a shared psfpreprocessor per device. I think it should also have a shared iothreadpool per device. So per device i have the following:
+    - io threadpool
+    - deconvprocessor
+    - prototypebackend on device
+    then in the createtask i can just use the context belonging to that task to enqueue work correctly. Therefore i no longer need a main device thread but can just have different contexts per device. I can even have the context created in the deconvolutionstrategy where i create tasks. Then i will have the taks member variables actually deconvolutionrelated and the context be the copmuterrelated stuff with device specifics and also have the context shared between multiple tasks. So have a shared_ptr<TaskContext>
+    also add reader and writer to the task, this will make multiple channels easier, i can just specify the reader and writer which is fixed to a specific channel, then for another channel i just create more tasks but a different reader and writer
+
+i think in the multiple devices deconvolutionexecutor im not actually achieving parallelism
+
+currently the backend mentioned in the taskDescription is not properly used for multiple devices, one could for example implement a device specification in the backend, or remove the backend entirely from the taskDescription. 
+
+
 rethink the threadpool layout for deconvolution. Currently its very static. Also i want to be able to adjust the number of iothreads and number of workerthreads spereately. To be able to adjust them for the system at hand. But be very careful about what data is shared and whats not! iothreads have to be on same device as workerthreads. 
+    - make main thread for each device
+    - per device set number of iothreads and workerthreads
 
 test application if its correctly running on multiple devices
 

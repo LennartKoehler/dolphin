@@ -7,10 +7,9 @@
     "lambda": 0.015,
     "borderType": 2,
     "time": false,
-    "saveSubimages": false, 
-    "backenddeconv": "../backends/cuda/build/libcuda_backend.so",
-    "nThreads": 1,
-    "maxMem_GB": 64
+    "saveSubimages": false
+    
+
   },
   
 
@@ -18,7 +17,13 @@
   "psf_file_path": "",
   "psf_dir_path": "",
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
-  "backend": "cuda",
+  
+  "backend": "../backends/cuda/build/libcuda_backend.so",
+  "nIOThreads": 8,
+  "nWorkerThreads" : 2,
+  "nDevices" : 1,
+  "maxMem_GB": 64,
+
   "deconvolution_config_path": "",
 
   "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",

@@ -24,7 +24,13 @@ public:
     std::string strategyType = "normal";
     std::string backend = "cpu";
 
-    int featheringRadius = 0;
+    int nThreads = 1;
+    int nIOThreads = 1;
+    int nWorkerThreads = 1;
+    int nDevices = 1;
+    float maxMem_GB = 1;
+
+
     // bool sep = false; //save layer separate (TIF dir)
     // bool savePsf = false; //save PSF
     // bool showExampleLayers = false; //show random example layer of image and PSF

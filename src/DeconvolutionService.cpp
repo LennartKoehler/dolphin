@@ -135,18 +135,19 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         // Configure both strategy and executor
         strategyPair->getExecutor().configure(std::make_unique<DeconvolutionConfig>(*deconvConfig.get()));
 
-        TiffReader reader(setupConfig->imagePath);
-
-       
-        ChannelPlan plan = strategyPair->getStrategy().createPlan(reader.getMetaData(), psfs, *deconvConfig);
-
         // Execute the plan using the executor
         std::string output_path = request.output_path;
 
         std::string path = output_path + "/deconv_" + TiffReader::getFilename(setupConfig->imagePath);
         // TiffWriter writer{output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath)};
-        TiffWriter writer(path, reader.getMetaData());
-        strategyPair->getExecutor().execute(plan, reader, writer);
+        
+        std::shared_ptr<TiffReader> reader = std::make_shared<TiffReader>(setupConfig->imagePath);
+        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(path, reader->getMetaData());
+       
+        ChannelPlan plan = strategyPair->getStrategy().createPlan(reader, writer, psfs, *deconvConfig, *setupConfig);
+
+
+        strategyPair->getExecutor().execute(plan);
         
         // Load the result from the writer
         // Hyperstack result = loadImage(output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath));
