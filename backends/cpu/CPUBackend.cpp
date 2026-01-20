@@ -1,6 +1,5 @@
 #include "CPUBackend.h"
 #include <iostream>
-#include <omp.h>
 #include <algorithm>
 #include <sstream>
 #include <cmath>

@@ -567,6 +567,11 @@ std::shared_ptr<IBackend> CUDABackend::onNewThread(std::shared_ptr<IBackend> ori
     return threadBackend;
 }
 
+int CUDABackend::getNumberDevices() const {
+    int nDevices;
+    cudaError_t err = cudaGetDeviceCount(&nDevices);
+    return nDevices; 
+}
 
 std::shared_ptr<IBackend> CUDABackend::onNewThreadSharedMemory(std::shared_ptr<IBackend> original) const {
     std::shared_ptr<CUDABackend> threadBackend = CUDABackendManager::getInstance().getBackendForCurrentThreadSameDevice(device);

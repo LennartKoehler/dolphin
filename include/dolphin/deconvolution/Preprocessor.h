@@ -49,7 +49,7 @@ public:
 
     const ComplexData* getPreprocessedPSF(const RectangleShape& shape, const std::shared_ptr<PSF> psf, std::shared_ptr<IBackend> backend) {
         std::unique_lock<std::mutex> lock(mutex);
-        Key key{shape, psf->ID, backend->getDeviceType()};
+        Key key{shape, psf->ID, backend->getDevice()};
         auto it = preprocessedPSFs.find(key);
         if (it != preprocessedPSFs.end()) {
             return it->second.get();

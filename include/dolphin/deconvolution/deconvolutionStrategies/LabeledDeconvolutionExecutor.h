@@ -24,6 +24,7 @@ public:
 
     // Configuration methods
     virtual void configure(const SetupConfig& setupConfig);
+    virtual void configure(std::unique_ptr<DeconvolutionConfig> config);
 
     void setLabelReader(std::unique_ptr<ImageReader> labelReader) {this->labelReader = std::move(labelReader);}
     void setPsfLabelMap(RangeMap<std::string> psfLabelMap) {this->psfLabelMap = psfLabelMap;}
@@ -31,9 +32,7 @@ public:
 
 protected:
     virtual std::function<void()> createTask(
-        const std::unique_ptr<CubeTaskDescriptor>& taskDesc,
-        const ImageReader& reader,
-        const ImageWriter& writer);
+        const std::unique_ptr<CubeTaskDescriptor>& taskDesc) override;
 
     std::vector<Label> getLabelGroups(
         int channelNumber,

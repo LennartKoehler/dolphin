@@ -2,7 +2,7 @@
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/home/lennart-k-hler/projects/dolphin/lib/dolphinbackend")
+  set(CMAKE_INSTALL_PREFIX "/home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 

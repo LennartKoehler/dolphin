@@ -5,6 +5,10 @@
 #include "Image3D.h"
 #include <atomic>
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "ThreadPool.h"
+#include "deconvolution/DeconvolutionProcessor.h"
+#include "IO/TiffWriter.h"
+#include "IO/TiffReader.h"
 
 enum class ExecutionStrategy {
     PARALLEL,
@@ -42,15 +46,53 @@ private:
 
 };
 
+// should be device specific
+struct TaskContext{
+    TaskContext(
+        std::shared_ptr<IBackend> backend,
+        int nWorkerThreads,
+        int nIOThreads
+    ) : prototypebackend(std::move(backend)),
+          processor(),
+          ioPool(nIOThreads)
+    {
+        processor.init(nWorkerThreads);
+    }
+    std::shared_ptr<IBackend> prototypebackend;
+    DeconvolutionProcessor processor;
+    ThreadPool ioPool;
+};
 
 struct CubeTaskDescriptor {
-    int taskId;
-    int channelNumber;
-    BoxCoordWithPadding paddedBox;
-    std::shared_ptr<IBackend> backend;
-    std::shared_ptr<DeconvolutionAlgorithm> algorithm;
-    size_t estimatedMemoryUsage;
-    std::vector<std::shared_ptr<PSF>> psfs;
+        CubeTaskDescriptor(int taskId,
+                        int channelNumber,
+                        const BoxCoordWithPadding& paddedBox,
+                        const std::shared_ptr<DeconvolutionAlgorithm>& algorithm,
+                        size_t estimatedMemoryUsage,
+                        const std::vector<std::shared_ptr<PSF>>& psfs,
+                        const std::shared_ptr<ImageReader> reader,
+                        const std::shared_ptr<ImageWriter> writer,
+                        std::shared_ptr<TaskContext> context)
+        : taskId(taskId),
+          channelNumber(channelNumber),
+          paddedBox(paddedBox),
+          algorithm(algorithm),
+          estimatedMemoryUsage(estimatedMemoryUsage),
+          psfs(psfs),
+          reader(reader),
+          writer(writer),
+          context(context)
+    {}
+
+    const int taskId;
+    const int channelNumber;
+    const BoxCoordWithPadding paddedBox;
+    const std::shared_ptr<DeconvolutionAlgorithm> algorithm;
+    const size_t estimatedMemoryUsage;
+    const std::vector<std::shared_ptr<PSF>> psfs;
+    const std::shared_ptr<ImageReader> reader;
+    const std::shared_ptr<ImageWriter> writer;
+    std::shared_ptr<TaskContext> context;
 };
 
 

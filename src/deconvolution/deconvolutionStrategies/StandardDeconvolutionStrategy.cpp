@@ -2,7 +2,6 @@
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <stdexcept>
 #include <iostream>
-#include <omp.h>
 #include "deconvolution/Preprocessor.h"
 #include "deconvolution/Postprocessor.h"
 #include "backend/BackendFactory.h"
@@ -13,49 +12,73 @@
 
 
 ChannelPlan StandardDeconvolutionStrategy::createPlan(
-    const ImageMetaData& metadata, 
+    std::shared_ptr<ImageReader> reader,
+    std::shared_ptr<ImageWriter> writer,
     const std::vector<PSF>& psfs,
-    const DeconvolutionConfig& config
+    const DeconvolutionConfig& deconvConfig,
+    const SetupConfig& setupConfig
 ) {
     std::vector<std::shared_ptr<PSF>> psfPointers;
     for (const auto& psf : psfs) {
         psfPointers.push_back(std::make_shared<PSF>(psf));
     }
 
+    ImageMetaData metadata = reader->getMetaData();
     RectangleShape imageSize = RectangleShape{metadata.imageWidth, metadata.imageLength, metadata.slices};
-    std::shared_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(config);
-    std::shared_ptr<IBackend> backend = getBackend(config);
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(deconvConfig);
 
-    size_t t = config.nThreads;
-    size_t memoryPerCube = maxMemoryPerCube(t, config.maxMem_GB * 1e9, algorithm.get());
+    std::shared_ptr<IBackend> backend = getBackend(setupConfig);
+
+    std::vector<std::shared_ptr<TaskContext>> contexts = createContexts(backend, setupConfig);
+
+    size_t nThreads = setupConfig.nThreads;
+    size_t memoryPerCube = maxMemoryPerCube(nThreads, setupConfig.maxMem_GB * 1e9, algorithm.get());
     Padding cubePadding = getCubePadding(imageSize, psfs);
-    RectangleShape idealCubeSizeUnpadded = getCubeShape(memoryPerCube, config.nThreads, imageSize, cubePadding);
+    RectangleShape idealCubeSizeUnpadded = getCubeShape(memoryPerCube, setupConfig.nThreads, imageSize, cubePadding);
     Padding imagePadding = getImagePadding(imageSize, idealCubeSizeUnpadded, cubePadding);
 
     std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = splitImageHomogeneous(idealCubeSizeUnpadded, cubePadding, imageSize);
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     tasks.reserve(cubeCoordinatesWithPadding.size());
     
+    int channel = 0; //TODO 
+
     for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
-        CubeTaskDescriptor descriptor;
-        descriptor.algorithm = algorithm;
-        descriptor.backend = backend;
-        descriptor.taskId = static_cast<int>(i);
-        descriptor.channelNumber = 0; // Default channel
-        descriptor.paddedBox = cubeCoordinatesWithPadding[i];
-        descriptor.psfs = psfPointers;
-        descriptor.estimatedMemoryUsage = estimateMemoryUsage(idealCubeSizeUnpadded, algorithm.get());
-        
-        tasks.push_back(std::make_unique<CubeTaskDescriptor>(descriptor));
+
+        std::shared_ptr<TaskContext> context = contexts[i % contexts.size()]; // cycle through contexts and assign the context to that task
+
+        tasks.push_back(std::make_unique<CubeTaskDescriptor>(
+            static_cast<int>(i),
+            channel, // Default channel
+            cubeCoordinatesWithPadding[i],
+            algorithm,
+            estimateMemoryUsage(idealCubeSizeUnpadded, algorithm.get()),
+            psfPointers,
+            reader,
+            writer,
+            context
+        ));
     }
     
     size_t totalTasks = tasks.size();
     return ChannelPlan{
-        ExecutionStrategy::PARALLEL,
+        ExecutionStrategy::PARALLEL, 
         std::move(imagePadding),
         std::move(tasks),
         totalTasks
     };
+}
+
+std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createContexts(std::shared_ptr<IBackend> backend, const SetupConfig& config) const {
+    int numberDevices = backend->getNumberDevices();
+    std::vector<std::shared_ptr<TaskContext>> contexts;
+    
+    for (int i = 0; i < numberDevices; i++){        
+        std::shared_ptr<IBackend> prototypebackend = backend->onNewThread(backend);
+
+        contexts.emplace_back(std::make_shared<TaskContext>(prototypebackend, config.nWorkerThreads, config.nIOThreads));
+    }
+    return contexts;
 }
 
 
@@ -65,10 +88,10 @@ std::shared_ptr<DeconvolutionAlgorithm> StandardDeconvolutionStrategy::getAlgori
     return algorithm; 
 }
 
-std::shared_ptr<IBackend> StandardDeconvolutionStrategy::getBackend(const DeconvolutionConfig& config){
+std::shared_ptr<IBackend> StandardDeconvolutionStrategy::getBackend(const SetupConfig& config){
     BackendFactory& bf = BackendFactory::getInstance();
-    std::shared_ptr<IBackend> backend = bf.createShared(config.backenddeconv);
-    backend->mutableMemoryManager().setMemoryLimit(config.maxMem_GB * 1e9); 
+    std::shared_ptr<IBackend> backend = bf.createShared(config.backend);
+    // backend->mutableMemoryManager().setMemoryLimit(config.maxMem_GB * 1e9); // TESTVALUE
     return backend;
 }
 

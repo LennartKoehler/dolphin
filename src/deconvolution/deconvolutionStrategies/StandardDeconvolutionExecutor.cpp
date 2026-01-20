@@ -15,6 +15,7 @@
 StandardDeconvolutionExecutor::StandardDeconvolutionExecutor(){
     // Initialize thread pool and processor will be done in configure
 
+    this->cpuMemoryManager = std::make_shared<DefaultBackendMemoryManager>();
 
     std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
         const RectangleShape shape,
@@ -37,117 +38,34 @@ StandardDeconvolutionExecutor::~StandardDeconvolutionExecutor(){
     psfPreprocessor.cleanup();
 }
 
-void StandardDeconvolutionExecutor::execute(const ChannelPlan& plan, const ImageReader& reader, const ImageWriter& writer) {
-    parallelDeconvolution(plan, reader, writer);
+void StandardDeconvolutionExecutor::execute(const ChannelPlan& plan) {
+    parallelDeconvolution(plan);
 }
 
 void StandardDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfig> config) {
-    
-    BackendFactory& bf = BackendFactory::getInstance();
 
-    this->cpuMemoryManager = std::make_shared<DefaultBackendMemoryManager>();
-
-    numberThreads = config->nThreads;
-    int workerThreads;
-    int ioThreads;
-
-    if (config->backenddeconv == "../backends/cpu/libcpu_backend.so"){ // TODO MOVE TO CONFIG?
-        workerThreads = static_cast<int>(numberThreads * 0.75);
-        ioThreads = workerThreads + 2 ; // test" << std::this_thread::get_id() << "VALUE
-    }
-    else if (config->backenddeconv == "../backends/cpu/libopenmp_backend.so"){
-
-        workerThreads = 1; //test" << std::this_thread::get_id() << "VALUE for openmp 
-        ioThreads = workerThreads + 2;
-        
-    }
-    else{
-        workerThreads = numberThreads;
-        ioThreads = workerThreads + 2;
-    }
-    
-    workerThreads = std::max(1, workerThreads);
-    ioThreads = std::max(1, ioThreads);
-    readwriterPool = std::make_shared<ThreadPool>(ioThreads);
-
-    processor.init(workerThreads, [](){});
-    configured = true;
 }
 
 void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig) {
 
 }
 
-// std::function<void()> StandardDeconvolutionExecutor::createTask(
-//     const std::unique_ptr<CubeTaskDescriptor>& taskDesc,
-//     const ImageReader& reader,
-//     const ImageWriter& writer) {
-    
-//     return [this, task = *taskDesc, &reader, &writer]() {
-//         RectangleShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
-
-//         PaddedImage cubeImage = reader.getSubimage(task.paddedBox);
-
-//         std::shared_ptr<IBackend> iobackend = task.backend->onNewThread(task.backend);
-//         ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage.image, workShape);
-
-//         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
-
-//         cpuMemoryManager->freeMemoryOnDevice(g_host);
-
-//         ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
-
-//         ComplexData f_host{cpuMemoryManager.get(), nullptr, RectangleShape()};
-//         std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
-
-
-//         try {
-//             std::future<void> resultDone = processor.deconvolveSingleCube(
-//                 iobackend,
-//                 std::move(algorithm),
-//                 workShape,
-//                 task.psfs,
-//                 g_device,
-//                 f_device,
-//                 psfPreprocessor);
-
-//             resultDone.get(); //wait for result
-//             f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, *cpuMemoryManager);
-//             iobackend->releaseBackend();
-//         }
-//         catch (...) {
-//             throw; // dont overwrite image if exception
-//         }
-
-//         cubeImage.image = convertFFTWComplexToCVMatVector(f_host);
-
-//         writer.setSubimage(cubeImage.image, task.paddedBox);
-
-
-//         loadingBar.addOne();
-//     };
-// }
-
 std::function<void()> StandardDeconvolutionExecutor::createTask(
-    const std::unique_ptr<CubeTaskDescriptor>& taskDesc,
-    const ImageReader& reader,
-    const ImageWriter& writer) {
+    const std::unique_ptr<CubeTaskDescriptor>& taskDesc) {
     
-    return [this, task = *taskDesc, &reader, &writer]() {
+    return [this, task = *taskDesc]() {
 
-        thread_local std::shared_ptr<IBackend> iobackend = task.backend->onNewThread(task.backend); //TODO with thread local the task.backend is irrelevant (except the first few)
-        // thread_local DeconvolutionProcessor tl_processor{};
-        // thread_local struct ThreadInitializer {
-        //     ThreadInitializer() { 
-        //         tl_processor.init(1);
-        //     }
-        // } thread_init;
+        TaskContext* context = task.context.get();
+
+        thread_local std::shared_ptr<IBackend> iobackend = context->prototypebackend->onNewThreadSharedMemory(context->prototypebackend);
+
+        std::shared_ptr<ImageReader> reader = task.reader;
+        std::shared_ptr<ImageWriter> writer = task.writer;
 
 
         RectangleShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
-        PaddedImage cubeImage = reader.getSubimage(task.paddedBox);
-
+        PaddedImage cubeImage = reader->getSubimage(task.paddedBox);
 
         ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage.image, workShape);
 
@@ -162,7 +80,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
 
 
         try {
-            f_device = DeconvolutionProcessor::staticDeconvolveSingleCube(
+            std::future<void> resultDone = context->processor.deconvolveSingleCube(
                 iobackend,
                 std::move(algorithm),
                 workShape,
@@ -171,9 +89,8 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
                 f_device,
                 psfPreprocessor);
 
-            // resultDone.get(); //wait for result
+            resultDone.get(); //wait for result
             f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, *cpuMemoryManager);
-            // iobackend->releaseBackend();
         }
         catch (...) {
             throw; // dont overwrite image if exception
@@ -181,31 +98,34 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
 
         cubeImage.image = convertFFTWComplexToCVMatVector(f_host);
 
-        writer.setSubimage(cubeImage.image, task.paddedBox);
+        writer->setSubimage(cubeImage.image, task.paddedBox);
 
 
         loadingBar.addOne();
     };
 }
 
+
+
 void StandardDeconvolutionExecutor::parallelDeconvolution(
-    const ChannelPlan& channelPlan,
-    const ImageReader& reader,
-    const ImageWriter& writer) {
+    const ChannelPlan& channelPlan) {
 
     std::vector<std::future<void>> runningTasks;
     loadingBar.setMax(channelPlan.totalTasks);
     std::mutex writerMutex;
 
     for (const std::unique_ptr<CubeTaskDescriptor>& task : channelPlan.tasks) {
-        std::function<void()> threadtask = createTask(task, reader, writer);
-        runningTasks.push_back(readwriterPool->enqueue(threadtask));
+
+
+        std::function<void()> threadtask = createTask(task);
+        runningTasks.push_back(task->context->ioPool.enqueue(threadtask));
     }
 
     // Wait for all remaining tasks to finish
     for (auto& f : runningTasks)
         f.get();
 }
+
 
 
 

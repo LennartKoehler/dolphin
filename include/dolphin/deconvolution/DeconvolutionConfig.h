@@ -34,9 +34,9 @@ public:
     float epsilon = 1e-6;
     float lambda = 0.001;
     PaddingType borderType = PaddingType::ZERO;
-    std::string backenddeconv = "cpu";
-    int nThreads = 1;
-    float maxMem_GB = 0;
+
+
+    int featheringRadius = 0;
     bool verbose = false;
     RangeMap<std::string> cubePSFMap; // 
     RangeMap<std::string> layerPSFMap; // currently unused

@@ -56,7 +56,7 @@ std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend(CUDADevice dev
         
 
 
-        cudaDeviceSynchronize();
+        // cudaDeviceSynchronize();
         CUDA_CHECK(err, "createNewBackend - cudaSetDevice reset");
 
 

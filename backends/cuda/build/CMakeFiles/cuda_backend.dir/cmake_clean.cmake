@@ -3,8 +3,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/cuda_backend.dir/src/CUDABackend.cpp.o.d"
   "CMakeFiles/cuda_backend.dir/src/CUDABackendManager.cpp.o"
   "CMakeFiles/cuda_backend.dir/src/CUDABackendManager.cpp.o.d"
+  "libcuda_backend.a"
   "libcuda_backend.pdb"
-  "libcuda_backend.so"
 )
 
 # Per-language clean rules from dependency scanning.
