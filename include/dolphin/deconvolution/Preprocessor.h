@@ -39,6 +39,9 @@ public:
     };
     PSFPreprocessor() = default;
 
+    ~PSFPreprocessor(){
+        cleanup();
+    }
     void cleanup(){
         preprocessedPSFs.clear(); 
     };
@@ -77,7 +80,8 @@ private:
 };
 namespace Preprocessor{
 
-
+    ComplexData convertImageToComplexData(const Image3D& image);
+    Image3D convertComplexDataToImage(const ComplexData& data);
     void expandToMinSize(Image3D& image, const RectangleShape& minSize);
 
 

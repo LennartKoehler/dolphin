@@ -15,27 +15,25 @@
 StandardDeconvolutionExecutor::StandardDeconvolutionExecutor(){
     // Initialize thread pool and processor will be done in configure
 
-    this->cpuMemoryManager = std::make_shared<DefaultBackendMemoryManager>();
-
-    std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
-        const RectangleShape shape,
-        std::shared_ptr<PSF> inputPSF,
-        std::shared_ptr<IBackend> backend
-            ) -> ComplexData* {
-                Preprocessor::padToShape(inputPSF->image, shape, PaddingType::ZERO);
-                ComplexData h = convertCVMatVectorToFFTWComplex(inputPSF->image, shape);
-                ComplexData h_device = backend->getMemoryManager().copyDataToDevice(h);
-                backend->getDeconvManager().octantFourierShift(h_device);
-                backend->getDeconvManager().forwardFFT(h_device, h_device);
-                backend->sync();
-                return new ComplexData(std::move(h_device));
-            };
-    psfPreprocessor.setPreprocessingFunction(psfPreprocessFunction);
+    // std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
+    //     const RectangleShape shape,
+    //     std::shared_ptr<PSF> inputPSF,
+    //     std::shared_ptr<IBackend> backend
+    //         ) -> ComplexData* {
+    //             Preprocessor::padToShape(inputPSF->image, shape, PaddingType::ZERO);
+    //             ComplexData h = convertCVMatVectorToFFTWComplex(inputPSF->image, shape);
+    //             ComplexData h_device = backend->getMemoryManager().copyDataToDevice(h);
+    //             backend->getDeconvManager().octantFourierShift(h_device);
+    //             backend->getDeconvManager().forwardFFT(h_device, h_device);
+    //             backend->sync();
+    //             return new ComplexData(std::move(h_device));
+    //         };
+    // psfPreprocessor.setPreprocessingFunction(psfPreprocessFunction);
 
 
 }
 StandardDeconvolutionExecutor::~StandardDeconvolutionExecutor(){
-    psfPreprocessor.cleanup();
+    // psfPreprocessor.cleanup();
 }
 
 void StandardDeconvolutionExecutor::execute(const ChannelPlan& plan) {
@@ -67,15 +65,15 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
 
         PaddedImage cubeImage = reader->getSubimage(task.paddedBox);
 
-        ComplexData g_host = convertCVMatVectorToFFTWComplex(cubeImage.image, workShape);
+        ComplexData g_host = Preprocessor::convertImageToComplexData(cubeImage.image);
 
         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
 
-        cpuMemoryManager->freeMemoryOnDevice(g_host);
+        DefaultBackendMemoryManager::getInstance().freeMemoryOnDevice(g_host);
 
         ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
 
-        ComplexData f_host{cpuMemoryManager.get(), nullptr, RectangleShape()};
+        ComplexData f_host{&DefaultBackendMemoryManager::getInstance(), nullptr, RectangleShape()};
         std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
 
@@ -87,16 +85,16 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
                 task.psfs,
                 g_device,
                 f_device,
-                psfPreprocessor);
+                *context->psfpreprocessor.get());
 
             resultDone.get(); //wait for result
-            f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, *cpuMemoryManager);
+            f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, DefaultBackendMemoryManager::getInstance());
         }
         catch (...) {
             throw; // dont overwrite image if exception
         }
 
-        cubeImage.image = convertFFTWComplexToCVMatVector(f_host);
+        cubeImage.image = Preprocessor::convertComplexDataToImage(f_host);
 
         writer->setSubimage(cubeImage.image, task.paddedBox);
 
@@ -129,45 +127,3 @@ void StandardDeconvolutionExecutor::parallelDeconvolution(
 
 
 
-ComplexData StandardDeconvolutionExecutor::convertCVMatVectorToFFTWComplex(
-    const Image3D& input, 
-    const RectangleShape& shape) {
-
-    ComplexData result = cpuMemoryManager->allocateMemoryOnDevice(shape);
-
-    int width = shape.width;
-    int height = shape.height;
-    int depth = shape.depth;
-    
-    int index = 0;
-    for (const auto& it : input) {
-        
-        result.data[index][0] = static_cast<double>(it);
-        result.data[index][1] = 0.0;
-        index ++;
-    }
-
-    return result;
-}
-
-Image3D StandardDeconvolutionExecutor::convertFFTWComplexToCVMatVector(
-        const ComplexData& input)
-{
-    const int width  = input.size.width;
-    const int height = input.size.height;
-    const int depth  = input.size.depth;
-
-    Image3D output(RectangleShape(width, height, depth));
-
-    const auto* in = input.data;
-    int index = 0;
-    for (auto& it : output) {
-        double real = in[index][0];
-        double imag = in[index][1];
-        it = static_cast<float>(std::sqrt(real * real + imag * imag));
-        index ++;
-
-    }
-
-    return output;
-}

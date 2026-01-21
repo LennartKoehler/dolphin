@@ -9,6 +9,7 @@
 #include "deconvolution/DeconvolutionProcessor.h"
 #include "IO/TiffWriter.h"
 #include "IO/TiffReader.h"
+#include "deconvolution/Preprocessor.h"
 
 enum class ExecutionStrategy {
     PARALLEL,
@@ -58,9 +59,16 @@ struct TaskContext{
     {
         processor.init(nWorkerThreads);
     }
+    ~TaskContext(){
+        psfpreprocessor->cleanup();
+    }
+    void setPreprocessor(std::unique_ptr<PSFPreprocessor> preprocessor){
+        psfpreprocessor = std::move(preprocessor);
+    }
     std::shared_ptr<IBackend> prototypebackend;
     DeconvolutionProcessor processor;
     ThreadPool ioPool;
+    std::unique_ptr<PSFPreprocessor> psfpreprocessor; // this saves preprocessed psfs which can only be shared if on the same device
 };
 
 struct CubeTaskDescriptor {
