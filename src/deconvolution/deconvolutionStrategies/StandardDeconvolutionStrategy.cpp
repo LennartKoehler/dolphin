@@ -29,6 +29,7 @@ ChannelPlan StandardDeconvolutionStrategy::createPlan(
 
     std::shared_ptr<IBackend> backend = getBackend(setupConfig);
 
+
     std::vector<std::shared_ptr<TaskContext>> contexts = createContexts(backend, setupConfig);
 
     size_t nThreads = setupConfig.nThreads;
@@ -69,19 +70,43 @@ ChannelPlan StandardDeconvolutionStrategy::createPlan(
     };
 }
 
-std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createContexts(std::shared_ptr<IBackend> backend, const SetupConfig& config) const {
-    int numberDevices = backend->getNumberDevices();
-    numberDevices = std::min(numberDevices, config.nDevices);
-    numberDevices = numberDevices < 1 ? 1 : numberDevices;
-    
-    std::vector<std::shared_ptr<TaskContext>> contexts;
-    
-    for (int i = 0; i < numberDevices; i++){        
-        std::shared_ptr<IBackend> prototypebackend = backend->onNewThread(backend);
+std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreprocessor() const {
+    std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
+        const RectangleShape shape,
+        std::shared_ptr<PSF> inputPSF,
+        std::shared_ptr<IBackend> backend
+            ) -> ComplexData* {
+                Preprocessor::padToShape(inputPSF->image, shape, PaddingType::ZERO);
+                ComplexData h = Preprocessor::convertImageToComplexData(inputPSF->image);
+                ComplexData h_device = backend->getMemoryManager().copyDataToDevice(h);
+                backend->getDeconvManager().octantFourierShift(h_device);
+                backend->getDeconvManager().forwardFFT(h_device, h_device);
+                backend->sync();
+                return new ComplexData(std::move(h_device));
+            };
+    std::unique_ptr<PSFPreprocessor> preprocessor = std::make_unique<PSFPreprocessor>();
+    preprocessor->setPreprocessingFunction(psfPreprocessFunction);
+    return std::move(preprocessor);
+}
 
-        contexts.emplace_back(std::make_shared<TaskContext>(prototypebackend, config.nWorkerThreads, config.nIOThreads));
-    }
-    return contexts;
+std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createContexts(
+    std::shared_ptr<IBackend> backend,
+    const SetupConfig& config) const {
+        int numberDevices = backend->getNumberDevices();
+        numberDevices = std::min(numberDevices, config.nDevices);
+        numberDevices = numberDevices < 1 ? 1 : numberDevices;
+
+        std::vector<std::shared_ptr<TaskContext>> contexts;
+        
+        for (int i = 0; i < numberDevices; i++){        
+            std::shared_ptr<IBackend> prototypebackend = backend->onNewThread(backend);
+            std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(prototypebackend, config.nWorkerThreads, config.nIOThreads);
+
+            std::unique_ptr<PSFPreprocessor> preprocessor = createPSFPreprocessor(); // new psfpreprocessor for each context because the psfs live on device
+            context->setPreprocessor(std::move(preprocessor));
+            contexts.emplace_back(context);
+        }
+        return contexts;
 }
 
 

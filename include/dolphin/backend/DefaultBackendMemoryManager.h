@@ -4,10 +4,8 @@
 
 class DefaultBackendMemoryManager : public IBackendMemoryManager{
 public:
-    // Constructor
-    DefaultBackendMemoryManager();
-    ~DefaultBackendMemoryManager();
-    
+
+    static DefaultBackendMemoryManager& getInstance(); 
 
     std::string getDeviceString() const noexcept override {
         return "default";
@@ -28,4 +26,7 @@ public:
 
 private:
 
+    // Constructor
+    DefaultBackendMemoryManager();
+    ~DefaultBackendMemoryManager();
 };

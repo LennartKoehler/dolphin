@@ -32,21 +32,10 @@ protected:
     virtual std::function<void()> createTask(
         const std::unique_ptr<CubeTaskDescriptor>& taskDesc);
     
-    // virtual PaddedImage preprocessChannel(Channel& image, const ChannelPlan& channelPlan);
-    virtual ComplexData convertCVMatVectorToFFTWComplex(const Image3D& input, const RectangleShape& shape);
-    virtual Image3D convertFFTWComplexToCVMatVector(const ComplexData& input);
-
     // Parallel execution
     virtual void parallelDeconvolution(
         const ChannelPlan& channelPlan);
 
 protected:
-    std::shared_ptr<IBackendMemoryManager> cpuMemoryManager;
-    PSFPreprocessor psfPreprocessor;
-
-    int numberIOThreads;
-    int numberWorkerThreads;
-    int numberDevices; // for devices with no shared memory
     LoadingBar loadingBar;
-    bool configured = false;
-};
+ };

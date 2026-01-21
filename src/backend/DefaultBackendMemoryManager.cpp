@@ -6,7 +6,11 @@
 
 // DefaultBackendMemoryManager implementation
 DefaultBackendMemoryManager::DefaultBackendMemoryManager(){
+}
 
+DefaultBackendMemoryManager& DefaultBackendMemoryManager::getInstance(){
+    static DefaultBackendMemoryManager instance;
+    return instance;
 }
 
 DefaultBackendMemoryManager::~DefaultBackendMemoryManager() {

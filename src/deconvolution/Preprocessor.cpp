@@ -17,8 +17,51 @@ See the LICENSE file provided with the code for the full license.
 #include "itkMirrorPadImageFilter.h"
 #include "itkRegionOfInterestImageFilter.h"
 #include "itkImageDuplicator.h"
+#include "backend/DefaultBackendMemoryManager.h"
+
+ComplexData Preprocessor::convertImageToComplexData(
+    const Image3D& input) {
 
 
+    RectangleShape shape = input.getShape();
+    ComplexData result = DefaultBackendMemoryManager::getInstance().allocateMemoryOnDevice(shape);
+
+    int width = shape.width;
+    int height = shape.height;
+    int depth = shape.depth;
+    
+    int index = 0;
+    for (const auto& it : input) {
+        
+        result.data[index][0] = static_cast<double>(it);
+        result.data[index][1] = 0.0;
+        index ++;
+    }
+
+    return result;
+}
+
+Image3D Preprocessor::convertComplexDataToImage(
+        const ComplexData& input)
+{
+    const int width  = input.size.width;
+    const int height = input.size.height;
+    const int depth  = input.size.depth;
+
+    Image3D output(RectangleShape(width, height, depth));
+
+    const auto* in = input.data;
+    int index = 0;
+    for (auto& it : output) {
+        double real = in[index][0];
+        double imag = in[index][1];
+        it = static_cast<float>(std::sqrt(real * real + imag * imag));
+        index ++;
+
+    }
+
+    return output;
+}
 
 
 void Preprocessor::padImage(Image3D& image, const Padding& padding, PaddingType borderType){

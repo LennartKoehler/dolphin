@@ -61,7 +61,11 @@ protected:
         const Padding& cubePadding
     );
 
-    virtual std::vector<std::shared_ptr<TaskContext>> createContexts(std::shared_ptr<IBackend> backend, const SetupConfig& config) const ;
+    virtual std::unique_ptr<PSFPreprocessor> createPSFPreprocessor() const ;
+
+    virtual std::vector<std::shared_ptr<TaskContext>> createContexts(
+        std::shared_ptr<IBackend> backend,
+		const SetupConfig& config) const ;
 
     virtual Padding getCubePadding(const RectangleShape& image, const std::vector<PSF> psfs);
 

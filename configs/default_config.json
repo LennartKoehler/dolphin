@@ -26,7 +26,7 @@
 
   "deconvolution_config_path": "",
 
-  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
+  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/2ChannelBacteria.tif",
   "strategyType": "normal", 
   "info": false,
   "showExampleLayers": false,
