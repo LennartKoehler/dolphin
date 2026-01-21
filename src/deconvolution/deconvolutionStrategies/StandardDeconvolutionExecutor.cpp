@@ -1,3 +1,16 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #include "deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h"
 #include "frontend/SetupConfig.h"
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
@@ -13,30 +26,12 @@
 #include <thread>
 
 StandardDeconvolutionExecutor::StandardDeconvolutionExecutor(){
-    // Initialize thread pool and processor will be done in configure
-
-    // std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
-    //     const RectangleShape shape,
-    //     std::shared_ptr<PSF> inputPSF,
-    //     std::shared_ptr<IBackend> backend
-    //         ) -> ComplexData* {
-    //             Preprocessor::padToShape(inputPSF->image, shape, PaddingType::ZERO);
-    //             ComplexData h = convertCVMatVectorToFFTWComplex(inputPSF->image, shape);
-    //             ComplexData h_device = backend->getMemoryManager().copyDataToDevice(h);
-    //             backend->getDeconvManager().octantFourierShift(h_device);
-    //             backend->getDeconvManager().forwardFFT(h_device, h_device);
-    //             backend->sync();
-    //             return new ComplexData(std::move(h_device));
-    //         };
-    // psfPreprocessor.setPreprocessingFunction(psfPreprocessFunction);
-
 
 }
 StandardDeconvolutionExecutor::~StandardDeconvolutionExecutor(){
-    // psfPreprocessor.cleanup();
-}
+ }
 
-void StandardDeconvolutionExecutor::execute(const ChannelPlan& plan) {
+void StandardDeconvolutionExecutor::execute(const DeconvolutionPlan& plan) {
     parallelDeconvolution(plan);
 }
 
@@ -106,7 +101,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
 
 
 void StandardDeconvolutionExecutor::parallelDeconvolution(
-    const ChannelPlan& channelPlan) {
+    const DeconvolutionPlan& channelPlan) {
 
     std::vector<std::future<void>> runningTasks;
     loadingBar.setMax(channelPlan.totalTasks);

@@ -141,10 +141,11 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::string path = output_path + "/deconv_" + TiffReader::getFilename(setupConfig->imagePath);
         // TiffWriter writer{output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath)};
         
-        std::shared_ptr<TiffReader> reader = std::make_shared<TiffReader>(setupConfig->imagePath);
+        int channel = 0;
+        std::shared_ptr<TiffReader> reader = std::make_shared<TiffReader>(setupConfig->imagePath, channel);
         std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(path, reader->getMetaData());
        
-        ChannelPlan plan = strategyPair->getStrategy().createPlan(reader, writer, psfs, *deconvConfig, *setupConfig);
+        DeconvolutionPlan plan = strategyPair->getStrategy().createPlan(reader, writer, psfs, *deconvConfig, *setupConfig);
 
 
         strategyPair->getExecutor().execute(plan);

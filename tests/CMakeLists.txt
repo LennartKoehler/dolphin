@@ -26,10 +26,19 @@ target_include_directories(dolphin_tests
         ${CMAKE_SOURCE_DIR}/../src
 )
 
+
+
 # Add original combined test to test suite
 add_test(NAME DolphinTests COMMAND dolphin_tests)
 set_tests_properties(DolphinTests PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
+add_executable(read_write_test
+    read_write_test.cpp)
+target_link_libraries(read_write_test
+    PRIVATE
+        dolphin)
+
+add_test(NAME ReadWriteTest COMMAND read_write_test)
 
 add_executable(feathering_test
     feathering_test.cpp)

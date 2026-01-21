@@ -462,7 +462,7 @@ CMakeFiles/dolphin.dir/src/DeconvolutionService.cpp.o: \
  /workspace/include/dolphin/psf/generators/BasePSFGenerator.h \
  /workspace/include/dolphin/deconvolution/DeconvolutionProcessor.h \
  /workspace/include/dolphin/deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h \
- /workspace/include/dolphin/deconvolution/deconvolutionStrategies/ComputationalPlan.h \
+ /workspace/include/dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h \
  /workspace/include/dolphin/deconvolution/DeconvolutionConfig.h \
  /workspace/include/dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h \
  /workspace/lib/dolphinbackend/include/dolphinbackend/ComplexData.h \

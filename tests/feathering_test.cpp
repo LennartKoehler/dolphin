@@ -6,9 +6,10 @@
 int main(){
 
     std::string filename1 = "/home/lennart-k-hler/data/labeledImage/simpleMaskSmall.tif";
-    Image3D image1 = TiffReader::readTiffFile(filename1);
+    int channel = 0;
+    Image3D image1 = TiffReader::readTiffFile(filename1, channel);
     std::string filename2 = "/home/lennart-k-hler/data/labeledImage/simpleMaskSmall_darker.tif";
-    Image3D image2 = TiffReader::readTiffFile(filename2);
+    Image3D image2 = TiffReader::readTiffFile(filename2, channel);
     PaddedImage pImage1{image1};
 
     PaddedImage pImage2{image2};

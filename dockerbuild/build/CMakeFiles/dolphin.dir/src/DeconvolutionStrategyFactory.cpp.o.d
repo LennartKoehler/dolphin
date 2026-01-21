@@ -211,7 +211,7 @@ CMakeFiles/dolphin.dir/src/DeconvolutionStrategyFactory.cpp.o: \
  /usr/include/c++/11/bits/stl_bvector.h \
  /usr/include/c++/11/bits/vector.tcc \
  /workspace/include/dolphin/deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h \
- /workspace/include/dolphin/deconvolution/deconvolutionStrategies/ComputationalPlan.h \
+ /workspace/include/dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h \
  /workspace/include/dolphin/deconvolution/DeconvolutionConfig.h \
  /workspace/include/dolphin/HelperClasses.h /usr/include/c++/11/algorithm \
  /usr/include/c++/11/bits/ranges_algo.h \

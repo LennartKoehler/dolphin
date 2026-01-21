@@ -1,3 +1,16 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #include "deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
 #include "deconvolution/Postprocessor.h"
 #include <set>
@@ -16,7 +29,8 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 
 
 void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig){
-    this->labelReader = std::make_unique<TiffReader>(setupConfig.labeledImage);
+    int channel = 0;
+    this->labelReader = std::make_unique<TiffReader>(setupConfig.labeledImage, channel);
     
     // Load PSF label map if provided
     if (!setupConfig.labelPSFMap.empty()) {
@@ -33,7 +47,11 @@ void LabeledDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfig
     this->featheringRadius = config->featheringRadius;
 }
 
-
+/*
+Deconvolution using a labelimage which allows for different psfs for different parts of the image.
+For each unique label within a cube the deconvolution is performed, and at the end the deconvolved images are stitched together
+according to the specifications in the labelimage.
+*/
 std::function<void()> LabeledDeconvolutionExecutor::createTask(
     const std::unique_ptr<CubeTaskDescriptor>& taskDesc) {
     

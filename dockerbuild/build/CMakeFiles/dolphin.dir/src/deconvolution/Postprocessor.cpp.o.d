@@ -174,7 +174,7 @@ CMakeFiles/dolphin.dir/src/deconvolution/Postprocessor.cpp.o: \
  /usr/include/c++/11/bits/erase_if.h \
  /usr/include/c++/11/pstl/execution_defs.h \
  /workspace/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h \
- /workspace/include/dolphin/deconvolution/deconvolutionStrategies/ComputationalPlan.h \
+ /workspace/include/dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h \
  /workspace/include/dolphin/deconvolution/DeconvolutionConfig.h \
  /workspace/include/dolphin/HelperClasses.h /usr/include/c++/11/sstream \
  /usr/include/c++/11/istream /usr/include/c++/11/ios \

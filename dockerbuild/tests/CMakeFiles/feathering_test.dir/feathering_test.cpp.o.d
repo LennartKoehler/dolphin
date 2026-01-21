@@ -444,7 +444,7 @@ tests/CMakeFiles/feathering_test.dir/feathering_test.cpp.o: \
  /workspace/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h \
  /workspace/include/dolphin/deconvolution/Postprocessor.h \
  /workspace/lib/dolphinbackend/include/dolphinbackend/ComplexData.h \
- /workspace/include/dolphin/deconvolution/deconvolutionStrategies/ComputationalPlan.h \
+ /workspace/include/dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h \
  /workspace/include/dolphin/deconvolution/DeconvolutionConfig.h \
  /workspace/include/dolphin/Config.h /usr/include/c++/11/fstream \
  /usr/include/x86_64-linux-gnu/c++/11/bits/basic_file.h \

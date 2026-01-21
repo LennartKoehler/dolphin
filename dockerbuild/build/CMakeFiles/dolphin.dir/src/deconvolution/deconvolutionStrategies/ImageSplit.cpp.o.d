@@ -1,7 +1,7 @@
 CMakeFiles/dolphin.dir/src/deconvolution/deconvolutionStrategies/ImageSplit.cpp.o: \
  /workspace/src/deconvolution/deconvolutionStrategies/ImageSplit.cpp \
  /usr/include/stdc-predef.h \
- /workspace/include/dolphin/deconvolution/deconvolutionStrategies/ComputationalPlan.h \
+ /workspace/include/dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h \
  /usr/include/c++/11/vector /usr/include/c++/11/bits/stl_algobase.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \

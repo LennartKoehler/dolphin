@@ -40,15 +40,15 @@ public:
 class TiffReader : public ImageReader {
 public:
     // Constructor with filename - now only for buffered reading
-    explicit TiffReader(std::string filename);
+    explicit TiffReader(std::string filename, int channel);
     
     // Destructor
     ~TiffReader();
     
-    // Main static methods
-    static Image3D readTiffFile(const std::string& filename);
+    // Main static methods    static Image3D readTiffFile(const std::string& filename, int channel);
+    static Image3D readTiffFile(const std::string& filename, int channel);
     static ImageMetaData extractMetadata(const std::string& filename);
-    static bool readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers);
+    static bool readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers, int channel);
     
     // Non-static version that uses member TIFF* variable
     bool readSubimageFromTiffFile(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers) const ;
@@ -71,6 +71,7 @@ private:
     mutable size_t currentBufferMemory_bytes;
     mutable std::condition_variable memoryWaiter;
     mutable std::mutex mutex;
+    int channel;
     TIFF* tif; // Member variable to keep TIFF file open
     
     // Non-static helper methods for buffered reading

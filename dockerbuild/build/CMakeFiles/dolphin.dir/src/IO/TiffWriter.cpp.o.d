@@ -473,7 +473,7 @@ CMakeFiles/dolphin.dir/src/IO/TiffWriter.cpp.o: \
  /workspace/lib/dolphinbackend/include/dolphinbackend/IBackendMemoryManager.h \
  /usr/include/c++/11/condition_variable \
  /workspace/include/dolphin/deconvolution/Postprocessor.h \
- /workspace/include/dolphin/deconvolution/deconvolutionStrategies/ComputationalPlan.h \
+ /workspace/include/dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h \
  /workspace/include/dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h \
  /workspace/include/dolphin/backend/BackendFactory.h /usr/include/dlfcn.h \
  /usr/include/x86_64-linux-gnu/bits/dlfcn.h \
