@@ -22,6 +22,17 @@ void CUDABackendManager::initializeGlobalCUDA() {
 
 } 
 
+std::shared_ptr<CUDABackend> CUDABackendManager::getNewBackendDifferentDevice(const CUDADevice& device){
+    CUDADevice newdevice = devices[usedDeviceCounter];
+    usedDeviceCounter = ++usedDeviceCounter % nDevices; // keep looping
+
+    return createNewBackend(newdevice);    
+}
+
+
+std::shared_ptr<CUDABackend> CUDABackendManager::getNewBackendSameDevice(const CUDADevice& device){
+    return createNewBackend(device);
+}
 
 // TODO make stream management more native, different streams in one cuda backend should not be permitted, one origin of truth
 std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend(CUDADevice device) {
@@ -59,8 +70,9 @@ std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend(CUDADevice dev
         // cudaDeviceSynchronize();
         CUDA_CHECK(err, "createNewBackend - cudaSetDevice reset");
 
-
-        return std::shared_ptr<CUDABackend>(backend);
+        std::shared_ptr<CUDABackend> cudabackend = std::shared_ptr<CUDABackend>(backend);
+        backends.push_back(cudabackend);
+        return cudabackend;
     } catch (...) {
         // Clean up stream if backend creation fails
         cudaStreamDestroy(stream);
@@ -70,6 +82,59 @@ std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend(CUDADevice dev
 
 
 
+
+size_t CUDABackendManager::getMaxThreads() const {
+    std::unique_lock<std::mutex> lock(managerMutex_);
+    return maxThreads_;
+}
+
+size_t CUDABackendManager::getActiveThreads() const {
+    std::unique_lock<std::mutex> lock(managerMutex_);
+    return threadBackends_.size();
+}
+
+size_t CUDABackendManager::getTotalBackends() const {
+    std::unique_lock<std::mutex> lock(managerMutex_);
+    return totalCreated_;
+}
+
+void CUDABackendManager::cleanup() {
+    std::unique_lock<std::mutex> lock(managerMutex_);
+    
+    // Clean up all active thread backends
+    for (auto& pair : threadBackends_) {
+        if (pair.second.backend) {
+            pair.second.backend->mutableDeconvManager().cleanup();
+        }
+    }
+    threadBackends_.clear();
+    
+
+    
+    std::cout << "[INFO] Cleaned up CUDA backend manager" << std::endl;
+}
+
+cudaStream_t CUDABackendManager::createStream() {
+    cudaStream_t stream;
+    cudaError_t err = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+    CUDA_CHECK(err, "createStream - cudaStreamCreateWithFlags");
+    return stream;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// unused
 std::shared_ptr<CUDABackend> CUDABackendManager::getBackendForCurrentThread() {
     std::unique_lock<std::mutex> lock(managerMutex_);
     
@@ -148,42 +213,4 @@ void CUDABackendManager::releaseBackendForCurrentThread(CUDABackend* backend) {
 void CUDABackendManager::setMaxThreads(size_t maxThreads) {
     std::unique_lock<std::mutex> lock(managerMutex_);
     maxThreads_ = maxThreads;
-}
-
-size_t CUDABackendManager::getMaxThreads() const {
-    std::unique_lock<std::mutex> lock(managerMutex_);
-    return maxThreads_;
-}
-
-size_t CUDABackendManager::getActiveThreads() const {
-    std::unique_lock<std::mutex> lock(managerMutex_);
-    return threadBackends_.size();
-}
-
-size_t CUDABackendManager::getTotalBackends() const {
-    std::unique_lock<std::mutex> lock(managerMutex_);
-    return totalCreated_;
-}
-
-void CUDABackendManager::cleanup() {
-    std::unique_lock<std::mutex> lock(managerMutex_);
-    
-    // Clean up all active thread backends
-    for (auto& pair : threadBackends_) {
-        if (pair.second.backend) {
-            pair.second.backend->mutableDeconvManager().cleanup();
-        }
-    }
-    threadBackends_.clear();
-    
-
-    
-    std::cout << "[INFO] Cleaned up CUDA backend manager" << std::endl;
-}
-
-cudaStream_t CUDABackendManager::createStream() {
-    cudaStream_t stream;
-    cudaError_t err = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-    CUDA_CHECK(err, "createStream - cudaStreamCreateWithFlags");
-    return stream;
 }
