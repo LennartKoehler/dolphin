@@ -224,12 +224,11 @@ tests/CMakeFiles/multiple_devices_test.dir/multiple_devices_test.cpp.o: \
  /usr/include/c++/11/ctime /usr/include/c++/11/bits/parse_numbers.h \
  /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
  /usr/include/x86_64-linux-gnu/bits/semaphore.h \
- /workspace/include/CUDABackend.h \
  /workspace/lib/dolphinbackend/include/dolphinbackend/IBackend.h \
  /workspace/lib/dolphinbackend/include/dolphinbackend/IDeconvolutionBackend.h \
  /usr/include/c++/11/mutex /usr/include/c++/11/bits/unique_lock.h \
  /workspace/lib/dolphinbackend/include/dolphinbackend/IBackendMemoryManager.h \
- /usr/include/c++/11/condition_variable \
+ /usr/include/c++/11/condition_variable /workspace/include/CUDABackend.h \
  /workspace/lib/dolphinbackend/include/dolphinbackend/Exceptions.h \
  /usr/local/cuda/include/cufftw.h /usr/local/cuda/include/cufft.h \
  /usr/local/cuda/include/cuComplex.h /usr/include/c++/11/math.h \

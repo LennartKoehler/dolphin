@@ -40,6 +40,11 @@ public:
      * @return Shared pointer to a CUDABackend
      * @throws std::runtime_error if CUDA backend creation fails
      */
+
+
+    std::shared_ptr<CUDABackend> getNewBackendDifferentDevice(const CUDADevice& device);
+    std::shared_ptr<CUDABackend> getNewBackendSameDevice(const CUDADevice& device);
+
     std::shared_ptr<CUDABackend> getBackendForCurrentThread();
 
     std::shared_ptr<CUDABackend> getBackendForCurrentThreadSameDevice(CUDADevice device);
@@ -136,8 +141,10 @@ private:
     ~CUDABackendManager() = default;
 
     // Backend storage and management
+
     std::unordered_map<std::thread::id, ThreadBackend> threadBackends_;
     std::vector<CUDADevice> devices;
+    std::vector<std::shared_ptr<CUDABackend>> backends;
 
     // Threading synchronization
     mutable std::mutex managerMutex_;

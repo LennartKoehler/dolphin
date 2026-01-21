@@ -11,11 +11,14 @@ RUN apt-get update && apt-get install -y \
 
 # Set working directory
 WORKDIR /workspace
-
-# Copy your project
 COPY . /workspace
+RUN rm -rf build && mkdir -p build && cd build && \
+    cmake -DCMAKE_BUILD_TYPE=Debug ..
+# Copy your project
+COPY src/ src/
+COPY include/ include/
+
 
 # Build your project
-RUN rm -rf build && mkdir -p build && cd build && \
-    cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    cmake --build . -- -j$(nproc)
+
+RUN cmake --build build -- -j$(nproc)

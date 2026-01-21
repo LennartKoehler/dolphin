@@ -81,7 +81,7 @@ public:
 
     }
     // Pure virtual methods that must be implemented by concrete backends
-    virtual std::string getDevice() const noexcept = 0;
+    virtual std::string getDeviceString() const noexcept = 0;
     virtual int getNumberDevices() const = 0;
     
     // Ownership query methods

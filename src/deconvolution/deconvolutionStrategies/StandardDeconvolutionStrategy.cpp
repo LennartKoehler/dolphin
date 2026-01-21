@@ -71,6 +71,9 @@ ChannelPlan StandardDeconvolutionStrategy::createPlan(
 
 std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createContexts(std::shared_ptr<IBackend> backend, const SetupConfig& config) const {
     int numberDevices = backend->getNumberDevices();
+    numberDevices = std::min(numberDevices, config.nDevices);
+    numberDevices = numberDevices < 1 ? 1 : numberDevices;
+    
     std::vector<std::shared_ptr<TaskContext>> contexts;
     
     for (int i = 0; i < numberDevices; i++){        
