@@ -28,7 +28,9 @@ namespace fs = std::filesystem;
 
 
 // Constructor with filename
-TiffReader::TiffReader(std::string filename){
+TiffReader::TiffReader(std::string filename, int channel)
+    : channel(channel)
+    {
     std::unique_lock<std::mutex> lock(mutex);
     // Set filename in metadata
     metaData.filename = filename;
@@ -51,7 +53,7 @@ TiffReader::~TiffReader() {
 
 
 // Static method for reading entire TIFF file
-Image3D TiffReader::readTiffFile(const std::string& filename) {
+Image3D TiffReader::readTiffFile(const std::string& filename, int channel) {
     TIFFSetWarningHandler(customTifWarningHandler);
     ImageMetaData metaData = extractMetadata(filename);
     
@@ -59,7 +61,7 @@ Image3D TiffReader::readTiffFile(const std::string& filename) {
     BoxCoord fullImage{RectangleShape{0,0,0}, RectangleShape{metaData.imageWidth, metaData.imageLength, metaData.slices}};
     
     if (!readSubimageFromTiffFileStatic(filename, metaData, fullImage.position.height, fullImage.position.depth, 
-                     fullImage.dimensions.height, fullImage.dimensions.depth, fullImage.dimensions.width, image)) {
+                     fullImage.dimensions.height, fullImage.dimensions.depth, fullImage.dimensions.width, image, channel)) {
         std::cerr << "[ERROR] Failed to read TIFF file: " << filename << std::endl;
         return Image3D();
     }
@@ -88,7 +90,7 @@ ImageMetaData TiffReader::extractMetadata(const std::string& filename) {
     return metaData;
 }
 
-bool TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& image){
+bool TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& image, int channel){
      
     TIFFSetWarningHandler(TiffReader::customTifWarningHandler);
     TIFF* tif = TIFFOpen(filename.c_str(), "r");
@@ -120,11 +122,11 @@ bool TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, con
     
     // Create a temporary buffer for conversion
     std::vector<float> rowData(width);
-    
     // Read each directory (z-slice) in the region
     for (uint32_t zIndex = z; zIndex < z + depth; zIndex++) {
         // Set the directory for this z-slice
-        if (zIndex > 0 && !TIFFSetDirectory(tif, zIndex)) {
+        int zIndexChannel = (zIndex * metaData.linChannels) + channel;
+        if (zIndexChannel > 0 && !TIFFSetDirectory(tif, zIndexChannel)) {
             _TIFFfree(buf);
             TIFFClose(tif);
             std::cerr << "[ERROR] Failed to set directory for z-slice " << zIndex << std::endl;
@@ -191,7 +193,9 @@ bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const Ima
     // Read each directory (z-slice) in the region
     for (uint32_t zIndex = z; zIndex < z + depth; zIndex++) {
         // Always set the directory for this z-slice (including z=0)
-        if (!TIFFSetDirectory(tif, zIndex)) {
+
+        int zIndexChannel = (zIndex * metaData.linChannels) + channel;
+        if (!TIFFSetDirectory(tif, zIndexChannel)) {
             _TIFFfree(buf);
             std::cerr << "[ERROR] Failed to set directory for z-slice " << zIndex << std::endl;
             return false;

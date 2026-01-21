@@ -1,3 +1,16 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #pragma once
 #include "StandardDeconvolutionExecutor.h"
 #include "deconvolution/DeconvolutionConfig.h"
@@ -7,7 +20,7 @@
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "ThreadPool.h"
 #include "deconvolution/Preprocessor.h"
-#include "ComputationalPlan.h"
+#include "DeconvolutionPlan.h"
 #include "deconvolution/DeconvolutionProcessor.h"
 #include "IO/TiffReader.h"
 #include "IO/TiffWriter.h"
@@ -17,6 +30,10 @@
 
 class SetupConfig;
 
+/*
+DeconvnolutionExecutor that takes a labelimage. This allows for different psfs for different parts of the image. 
+The labelimage (int pixelvalues) provides the information for which psf should be used for each psf.
+*/
 class LabeledDeconvolutionExecutor : public StandardDeconvolutionExecutor {
 public:
     LabeledDeconvolutionExecutor();

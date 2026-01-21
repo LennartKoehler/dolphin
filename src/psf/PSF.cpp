@@ -23,7 +23,7 @@ std::string getFilenameFromPath(const std::string& path) {
 }
 
 void PSF::readFromTiffFile(const std::string& path){
-    image = TiffReader::readTiffFile(path);
+    image = TiffReader::readTiffFile(path, 0);
     ID = getFilenameFromPath(path);
 }
 

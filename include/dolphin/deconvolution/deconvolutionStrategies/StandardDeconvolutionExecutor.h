@@ -1,3 +1,16 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #pragma once
 #include "IDeconvolutionExecutor.h"
 #include "deconvolution/DeconvolutionConfig.h"
@@ -7,7 +20,7 @@
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "ThreadPool.h"
 #include "deconvolution/Preprocessor.h"
-#include "ComputationalPlan.h"
+#include "DeconvolutionPlan.h"
 #include "deconvolution/DeconvolutionProcessor.h"
 #include "IO/TiffReader.h"
 #include "IO/TiffWriter.h"
@@ -23,7 +36,7 @@ public:
     virtual ~StandardDeconvolutionExecutor();
 
     // IDeconvolutionExecutor interface
-    virtual void execute(const ChannelPlan& plan) override;
+    virtual void execute(const DeconvolutionPlan& plan) override;
     virtual void configure(std::unique_ptr<DeconvolutionConfig> config) override;
     virtual void configure(const SetupConfig& setupConfig);
 
@@ -34,7 +47,7 @@ protected:
     
     // Parallel execution
     virtual void parallelDeconvolution(
-        const ChannelPlan& channelPlan);
+        const DeconvolutionPlan& channelPlan);
 
 protected:
     LoadingBar loadingBar;

@@ -1,3 +1,16 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #pragma once
 #include <vector>
 #include "deconvolution/DeconvolutionConfig.h"
@@ -7,47 +20,15 @@
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "ThreadPool.h"
 #include "deconvolution/DeconvolutionProcessor.h"
+#include "deconvolution/Preprocessor.h"
 #include "IO/TiffWriter.h"
 #include "IO/TiffReader.h"
-#include "deconvolution/Preprocessor.h"
-
-enum class ExecutionStrategy {
-    PARALLEL,
-    SEQUENTIAL
-};
-
-class Label{
-public:
-    Label() = default;
-    // Label(Image3D* labelImage) :labelImage(labelImage){}
-    // void setLabelImage(Image3D* labelImage){ this->labelImage = labelImage;}
-    void setRange(Range<std::shared_ptr<PSF>> psfs) {this->psfs = psfs;}
-
-    // cv::Mat getMask(const cv::Rect& roi, int z) const {
-    //     cv::Mat labelSlice = (*labelImage).slices[z](roi);
-        
-    //     // Create mask where label is inrange of labelgroup 
-    //     cv::Mat mask;
-    //     cv::inRange(labelSlice, psfs.start, psfs.end, mask); // -1 because its inclusive, we dont want that
-    //     return mask;
-    // }
-    Image3D getMask(const Image3D& labelImage) const {
-        return labelImage.getInRange(psfs.start, psfs.end); 
-    }
-
-    std::vector<std::shared_ptr<PSF>> getPSFs() const {
-        return psfs.values;
-    }
-
-private:
-    Range<std::shared_ptr<PSF>> psfs; 
-    // Image3D* labelImage;
-    Image3D mask;
 
 
-};
-
-// should be device specific
+/*
+The context for a specific CubeTaskDescription. These can be shared between tasks
+Currently a TaskContext is created for each Device. So each device has its own workers, psfpreprocessor and ioThreads
+*/
 struct TaskContext{
     TaskContext(
         std::shared_ptr<IBackend> backend,
@@ -68,9 +49,14 @@ struct TaskContext{
     std::shared_ptr<IBackend> prototypebackend;
     DeconvolutionProcessor processor;
     ThreadPool ioPool;
-    std::unique_ptr<PSFPreprocessor> psfpreprocessor; // this saves preprocessed psfs which can only be shared if on the same device
+    std::unique_ptr<PSFPreprocessor> psfpreprocessor;
 };
 
+
+
+/*
+This Description is the blueprint of how the specified part of the image is to be deconvolved.
+*/
 struct CubeTaskDescriptor {
         CubeTaskDescriptor(int taskId,
                         int channelNumber,
@@ -105,12 +91,36 @@ struct CubeTaskDescriptor {
 
 
 
-struct ChannelPlan {
-    ExecutionStrategy executionStrategy;
+
+struct DeconvolutionPlan {
     Padding imagePadding;
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     size_t totalTasks;
 };
+class Label{
+public:
+    Label() = default;
+
+    void setRange(Range<std::shared_ptr<PSF>> psfs) {this->psfs = psfs;}
+
+
+    Image3D getMask(const Image3D& labelImage) const {
+        return labelImage.getInRange(psfs.start, psfs.end); 
+    }
+
+    std::vector<std::shared_ptr<PSF>> getPSFs() const {
+        return psfs.values;
+    }
+
+private:
+    Range<std::shared_ptr<PSF>> psfs; 
+    // Image3D* labelImage;
+    Image3D mask;
+
+
+};
+
+
 
 class LoadingBar{
 public:

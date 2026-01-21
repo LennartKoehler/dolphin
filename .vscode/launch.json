@@ -133,6 +133,32 @@
 
         },
         {
+            "name": "Debug read_write_test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/tests/read_write_test",
+            "args": [
+                "~/data/dolphin_test_data/2ChannelBacteria.tif", "~/data/dolphin_results/c2_test.tiff", "1"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/tests",
+ 
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+            {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            },
+            {
+                "description": "Disassemble in intel syntax",
+                "text": "-gdb-set disassembly-flavor intel",
+                "ignoreFailures": true
+            }
+            ]
+        },
+        {
           "name": "(ctest) Launch",
             "type": "cppdbg",
             "request": "launch",
