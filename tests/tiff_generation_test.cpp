@@ -18,9 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include <tiffio.h>
 #include <filesystem>
 
-#include "HyperstackImage.h"
 #include "Image3D.h"
-#include "Channel.h"
 #include "ImageMetaData.h"
 #include "dolphinbackend/RectangleShape.h"
 
@@ -104,72 +102,7 @@ bool createConstantValueTiff(const std::string& filePath, const int size[3], flo
     }
 }
 
-/**
- * Creates a 3D TIFF image using the Hyperstack class (DOLPHIN framework)
- * 
- * @param filePath Path where to save the TIFF file
- * @param size 3D dimensions {width, height, depth}
- * @param value The constant value to fill the image with
- * @return true if successful, false otherwise
- */
-bool createConstantValueTiffWithHyperstack(const std::string& filePath, const int size[3], float value) {
-    try {
-        // Create directory if it doesn't exist
-        std::filesystem::path dirPath = std::filesystem::path(filePath).parent_path();
-        if (!dirPath.empty()) {
-            std::filesystem::create_directories(dirPath);
-        }
 
-        // Create Hyperstack
-        Hyperstack hyperstack;
-        
-        // Create metadata
-        ImageMetaData metaData;
-        metaData.linChannels = 1;
-        metaData.imageWidth = size[0];
-        metaData.imageLength = size[1];
-        metaData.slices = size[2];
-        metaData.totalImages = size[2] - 1;
-        metaData.bitsPerSample = 32;
-        metaData.samplesPerPixel = 1;
-        metaData.planarConfig = PLANARCONFIG_CONTIG;
-        metaData.photometricInterpretation = PHOTOMETRIC_MINISBLACK;
-        metaData.description = "Generated test image using Hyperstack\nConstant value: " + std::to_string(value);
-        
-        hyperstack.metaData = metaData;
-
-        // Create channel with constant value slices
-        Channel channel;
-        channel.id = 0;
-        
-        // Create Image3D with constant value using ITK approach
-        RectangleShape imageShape(size[0], size[1], size[2]);
-        Image3D image3D(imageShape);
-        
-        // Fill the image with the desired constant value
-        auto itkImage = image3D.getItkImage();
-        itkImage->FillBuffer(value);
-        
-        channel.image = image3D;
-        hyperstack.channels.push_back(channel);
-
-        // Save using Hyperstack's save method
-        // bool success = hyperstack.writeToTiffFile(filePath);
-        bool success = true; //TESTVALUE 
-        if (success) {
-            std::cout << "[SUCCESS] Created constant value TIFF using Hyperstack: " << filePath << std::endl;
-            std::cout << "  Dimensions: " << size[0] << "x" << size[1] << "x" << size[2] << std::endl;
-            std::cout << "  Constant value: " << value << std::endl;
-        } else {
-            std::cerr << "[ERROR] Failed to save TIFF using Hyperstack" << std::endl;
-        }
-        
-        return success;
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in createConstantValueTiffWithHyperstack: " << e.what() << std::endl;
-        return false;
-    }
-}
 
 /**
  * Test function that creates multiple TIFF images with different parameters
@@ -200,19 +133,7 @@ void runTiffGenerationTests() {
             std::cerr << "[FAILED] Test case " << i << " failed" << std::endl;
         }
     }
-    
-    // Test with Hyperstack
-    std::cout << "\n--- Testing Hyperstack TIFF Writing ---" << std::endl;
-    for (int i = 0; i < numTestCases; ++i) {
-        std::string filePath = outputDir + "/constant_hyperstack_" + std::to_string(i) + ".tif";
-        int size[3] = {testCases[i][0], testCases[i][1], testCases[i][2]};
-        float value = testCases[i][3];
-        
-        bool success = createConstantValueTiffWithHyperstack(filePath, size, value);
-        if (!success) {
-            std::cerr << "[FAILED] Test case " << i << " failed" << std::endl;
-        }
-    }
+
     
     std::cout << "\n=== TIFF Generation Tests Completed ===" << std::endl;
 }

@@ -64,11 +64,9 @@ set(DOLPHIN_SOURCES
     src/backend/DefaultBackendMemoryManager.cpp
     src/backend/BackendFactory.cpp
     
-    src/hyperstack/HyperstackImage.cpp
-    src/hyperstack/Image3D.cpp
-    src/hyperstack/ImageMetaData.cpp
-    src/hyperstack/HyperstackIO.cpp
-    src/hyperstack/HyperstackMetaData.cpp
+    src/image/Image3D.cpp
+    src/image/ImageMetaData.cpp
+
 
     src/IO/TiffReader.cpp
     src/IO/TiffWriter.cpp

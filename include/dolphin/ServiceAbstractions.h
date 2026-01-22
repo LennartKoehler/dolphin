@@ -20,7 +20,6 @@ See the LICENSE file provided with the code for the full license.
 #include <stdexcept>
 #include <functional>
 #include <nlohmann/json.hpp>
-#include "HyperstackImage.h"
 #include "frontend/SetupConfig.h"
 #include <future>
 
@@ -28,7 +27,6 @@ using json = nlohmann::json;
 
 // Forward declarations
 class PSF;
-class HyperstackImage;
 class PSFConfig;
 
 // --- Common Interface ---
@@ -155,7 +153,6 @@ public:
                         std::chrono::duration<double> dur = std::chrono::duration<double>::zero())
         : ServiceResultBase(success, message, dur) {}
     
-    std::shared_ptr<Hyperstack> result;
     std::string output_path;
     std::vector<std::string> individual_layer_paths;
     

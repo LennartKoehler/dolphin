@@ -16,7 +16,6 @@ See the LICENSE file provided with the code for the full license.
 #include "deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h"
 #include "deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
 #include "frontend/SetupConfig.h"
-#include "HyperstackImage.h"
 #include <stdexcept>
 
 DeconvolutionStrategyFactory::DeconvolutionStrategyFactory() {

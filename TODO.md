@@ -1,4 +1,12 @@
+cna i somehow make the memory used for the workerbackend in a fixed position and pinned, e.g. for cuda i can always reuse the same location to load data into (or 2 locations if 2 iothreads). Is there a speedup of memory reading writing that this would get?
 
+make channels 0 based or 1 based
+
+tiffreader for multiple interleaved channels. For multiple directories it works, dont destroy that. Now create a buffer for the scaneline that is 
+then when writing to image take every third.
+    - here one would have to think about reading all channels at once as this should be faster as the data is being read anyway, but for a star
+    - create two somewhat seperate reading modes, one for multipl samplesperpixel and one for multiple directories, do the same for writing.
+    - at some point they have to go down seperate paths otherwise they interfere with eachother
 
 make check that feathering radius is smaller than padding (psf size) so that there are no boundary conditions caused by too much feathering
 

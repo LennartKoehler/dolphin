@@ -143,7 +143,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         
         int channel = 0;
         std::shared_ptr<TiffReader> reader = std::make_shared<TiffReader>(setupConfig->imagePath, channel);
-        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(path, reader->getMetaData());
+        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(path, reader->getMetaData().getShape());
        
         DeconvolutionPlan plan = strategyPair->getStrategy().createPlan(reader, writer, psfs, *deconvConfig, *setupConfig);
 
@@ -152,7 +152,6 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         
         // Load the result from the writer
         // Hyperstack result = loadImage(output_path + "/deconv_" + UtlIO::getFilename(setupConfig->imagePath));
-        Hyperstack result;
         
         // Handle saving
         std::vector<std::string> layer_paths;
@@ -182,7 +181,6 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::chrono::duration<double> duration = end_time - start_time;
         
         auto result_obj = createResult(true, "Deconvolution completed successfully", duration);
-        result_obj->result = std::make_shared<Hyperstack>(result);
         result_obj->output_path = output_path;
         result_obj->individual_layer_paths = layer_paths;
         

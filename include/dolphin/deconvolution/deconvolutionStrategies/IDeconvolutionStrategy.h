@@ -13,7 +13,6 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 #include "DeconvolutionPlan.h"
-#include "HyperstackImage.h"
 #include "psf/PSF.h"
 #include "../DeconvolutionConfig.h"
 #include <memory>

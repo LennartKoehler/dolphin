@@ -55,7 +55,6 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     tasks.reserve(cubeCoordinatesWithPadding.size());
     
-    int channel = 0; //TODO 
 
     for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
 
@@ -63,7 +62,6 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
 
         tasks.push_back(std::make_unique<CubeTaskDescriptor>(
             static_cast<int>(i),
-            channel, // Default channel
             cubeCoordinatesWithPadding[i],
             algorithm,
             estimateMemoryUsage(idealCubeSizeUnpadded, algorithm.get()),

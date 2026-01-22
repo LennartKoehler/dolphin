@@ -28,7 +28,7 @@ namespace fs = std::filesystem;
 
 
 // Constructor with filename
-TiffReader::TiffReader(std::string filename, int channel)
+TiffReader::TiffReader(const std::string& filename, int channel)
     : channel(channel)
     {
     std::unique_lock<std::mutex> lock(mutex);
@@ -37,7 +37,7 @@ TiffReader::TiffReader(std::string filename, int channel)
     maxBufferMemory_bytes = 999999999; //TESTVALUE
     
     TIFFSetWarningHandler(customTifWarningHandler);
-    metaData = extractMetadata(filename);
+    metaData = extractMetadataStatic(filename);
     currentBufferMemory_bytes = 0;
     tif = TIFFOpen(filename.c_str(), "r");
 }
@@ -55,7 +55,7 @@ TiffReader::~TiffReader() {
 // Static method for reading entire TIFF file
 Image3D TiffReader::readTiffFile(const std::string& filename, int channel) {
     TIFFSetWarningHandler(customTifWarningHandler);
-    ImageMetaData metaData = extractMetadata(filename);
+    ImageMetaData metaData = extractMetadataStatic(filename);
     
     Image3D image;
     BoxCoord fullImage{RectangleShape{0,0,0}, RectangleShape{metaData.imageWidth, metaData.imageLength, metaData.slices}};
@@ -71,7 +71,7 @@ Image3D TiffReader::readTiffFile(const std::string& filename, int channel) {
 }
 
 // Static method for extracting metadata
-ImageMetaData TiffReader::extractMetadata(const std::string& filename) {
+ImageMetaData TiffReader::extractMetadataStatic(const std::string& filename) {
     TIFF* tifFile = TIFFOpen(filename.c_str(), "r");
     if (!tifFile) {
         std::cerr << "[ERROR] Cannot open TIFF file to read metadata: " << filename << std::endl;
@@ -90,83 +90,53 @@ ImageMetaData TiffReader::extractMetadata(const std::string& filename) {
     return metaData;
 }
 
+
+ImageMetaData TiffReader::extractMetadata(){
+    return extractMetadataStatic(metaData.filename);
+}
+
 bool TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& image, int channel){
      
     TIFFSetWarningHandler(TiffReader::customTifWarningHandler);
     TIFF* tif = TIFFOpen(filename.c_str(), "r");
     
-    if (!tif) {
-        std::cerr << "[ERROR] Cannot open TIFF file: " << filename << std::endl;
+    bool succ = readSubimageFromTiffFile(tif, metaData, y, z, height, depth, width, image, channel);
+    if (succ == false){
         return false;
     }
-
-    // Validate region shape
-    if (height <= 0 || depth <= 0) {
-        TIFFClose(tif);
-        std::cerr << "[ERROR] Invalid region dimensions: " << height << "x" << depth << std::endl;
-        return false;
-    }
-
-    // Create ITK image with the specified dimensions
-    RectangleShape imageShape(width, height, depth);
-    image = Image3D(imageShape);
-    
-    // Read the specific region using scanline API
-    tsize_t scanlineSize = TIFFScanlineSize(tif);
-    char* buf = (char*)_TIFFmalloc(scanlineSize);
-    if (!buf) {
-        TIFFClose(tif);
-        std::cerr << "[ERROR] Memory allocation failed for scanline buffer" << std::endl;
-        return false;
-    }
-    
-    // Create a temporary buffer for conversion
-    std::vector<float> rowData(width);
-    // Read each directory (z-slice) in the region
-    for (uint32_t zIndex = z; zIndex < z + depth; zIndex++) {
-        // Set the directory for this z-slice
-        int zIndexChannel = (zIndex * metaData.linChannels) + channel;
-        if (zIndexChannel > 0 && !TIFFSetDirectory(tif, zIndexChannel)) {
-            _TIFFfree(buf);
-            TIFFClose(tif);
-            std::cerr << "[ERROR] Failed to set directory for z-slice " << zIndex << std::endl;
-            return false;
-        }
-
-        // Read only the required rows (scanlines)
-        for (uint32_t yIndex = y; yIndex < y + height; yIndex++) {
-            if (TIFFReadScanline(tif, buf, yIndex) == -1) {
-                _TIFFfree(buf);
-                TIFFClose(tif);
-                std::cerr << "[ERROR] Failed to read scanline " << yIndex << " in z-slice " << zIndex << std::endl;
-                return false;
-            }
-            
-            // Convert scanline data based on bit depth and set into ITK image
-            convertScanlineToFloat(buf, rowData, width, metaData);
-            
-            // Set the row data into the ITK image
-            for (int x = 0; x < width; x++) {
-                image.setPixel(x, yIndex - y, zIndex - z, rowData[x]);
-            }
-        }
-    }
-    
-    // Clean up
-    _TIFFfree(buf);
     TIFFClose(tif);
     convertImageTo32F(image, metaData);
     
-    std::cout << "[INFO] Successfully read strip (" << filename << "): " << "(" << y << "," << z << ") " << height << "x" << depth << std::endl;
     return true;
 }
 
+
+
+
 // Non-static method using member TIFF* variable
-bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& image) const {
-    
-    if (!tif) {
+bool TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& image, int channel) {
+
+    if (!tiffile) {
         std::cerr << "[ERROR] TIFF file is not open" << std::endl;
         return false;
+    }
+    // there are different ways to store multiple channels, either by interleaved directories, or by multiple samples per pixels
+    // i dotn think both are used together
+    int ifdchannel = 0; // image file directory
+    int sppchannel = 0; // samples per pixel
+    if (metaData.linChannels > 1){
+        ifdchannel = channel - 1; // channel is 1 based
+        if (ifdchannel > metaData.linChannels - 1){
+            std::cerr << "[ERROR] Specified channel " << channel << " larger than maximum number of image file directories in image: " << metaData.linChannels << std::endl;
+            return false;
+        }
+    }
+    else if (metaData.samplesPerPixel > 1){
+        sppchannel = channel - 1; // channel is 1 based
+        if (sppchannel > metaData.samplesPerPixel - 1){
+            std::cerr << "[ERROR] Specified channel " << channel << " larger than maximum number of samples per pixel in image: " << metaData.samplesPerPixel << std::endl;
+            return false;
+        }
     }
     
     // Validate region shape
@@ -180,7 +150,7 @@ bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const Ima
     image = Image3D(imageShape);
     
     // Read the specific region using scanline API
-    tsize_t scanlineSize = TIFFScanlineSize(tif);
+    tsize_t scanlineSize = TIFFScanlineSize(tiffile);
     char* buf = (char*)_TIFFmalloc(scanlineSize);
     if (!buf) {
         std::cerr << "[ERROR] Memory allocation failed for scanline buffer" << std::endl;
@@ -194,8 +164,8 @@ bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const Ima
     for (uint32_t zIndex = z; zIndex < z + depth; zIndex++) {
         // Always set the directory for this z-slice (including z=0)
 
-        int zIndexChannel = (zIndex * metaData.linChannels) + channel;
-        if (!TIFFSetDirectory(tif, zIndexChannel)) {
+        int zIndexChannel = (zIndex * metaData.linChannels) + ifdchannel;
+        if (!TIFFSetDirectory(tiffile, zIndexChannel)) {
             _TIFFfree(buf);
             std::cerr << "[ERROR] Failed to set directory for z-slice " << zIndex << std::endl;
             return false;
@@ -203,14 +173,14 @@ bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const Ima
         
         // Read only the required rows (scanlines)
         for (uint32_t yIndex = y; yIndex < y + height; yIndex++) {
-            if (TIFFReadScanline(tif, buf, yIndex) == -1) {
+            if (TIFFReadScanline(tiffile, buf, yIndex) == -1) {
                 _TIFFfree(buf);
                 std::cerr << "[ERROR] Failed to read scanline " << yIndex << " in z-slice " << zIndex << std::endl;
                 return false;
             }
             
             // Convert scanline data based on bit depth and set into ITK image
-            convertScanlineToFloat(buf, rowData, width, metaData);
+            convertScanlineToFloat(buf, rowData, width, metaData, sppchannel);
             
             // Set the row data into the ITK image
             image.setRow(yIndex - y, zIndex - z, rowData.data());
@@ -220,7 +190,7 @@ bool TiffReader::readSubimageFromTiffFile(const std::string& filename, const Ima
     
     _TIFFfree(buf);
     
-    std::cout << "[INFO] Successfully read strip (" << filename << "): " << "(" << y << "," << z << ") " << height << "x" << depth << std::endl;
+    std::cout << "[INFO] Successfully read strip (" << metaData.filename << "): " << "(" << y << "," << z << ") " << height << "x" << depth << std::endl;
     return true;
 }
 
@@ -244,8 +214,8 @@ Image3D TiffReader::managedReader(const BoxCoord& coord) const {
     //     return currentBufferMemory_bytes + memorySize < maxBufferMemory_bytes;
     // });//TESTVALUE
     Image3D result;
-    readSubimageFromTiffFile(metaData.filename, metaData, coord.position.height, coord.position.depth, 
-                coord.dimensions.height, coord.dimensions.depth, coord.dimensions.width, result);
+    readSubimageFromTiffFile(tif, metaData, coord.position.height, coord.position.depth, 
+                coord.dimensions.height, coord.dimensions.depth, coord.dimensions.width, result, channel);
 
     // convertImageTo32F(result, metaData);
     return result;
@@ -372,12 +342,9 @@ ImageMetaData TiffReader::extractMetadataFromTiff(TIFF*& tifFile)
     if (metadatatemp.slices == 0) {
         int totalDirectories = countTiffDirectories(tifFile);
         
-        if (metadatatemp.linChannels > 0) {
-            metadatatemp.slices = totalDirectories / metadatatemp.linChannels;
+        metadatatemp.slices = totalDirectories / metadatatemp.linChannels;
 
-        } else {
-            metadatatemp.slices = totalDirectories;
-        }
+
     }
     // -------------------------
     // TIFF core tags (correct types)
@@ -459,79 +426,30 @@ int TiffReader::countTiffDirectories(TIFF* tif) {
     return count;
 }
 
-void TiffReader::createImage3D(const Image3D& layers, std::vector<Channel>& channels) {
-    if(metaData.linChannels > 0){
-        std::vector<Image3D> channelData(metaData.linChannels);
-        RectangleShape layerShape = layers.getShape();
-        int slicesPerChannel = layerShape.depth / metaData.linChannels;
-        
-        // Initialize each channel with the appropriate dimensions
-        for(int c = 0; c < metaData.linChannels; c++){
-            RectangleShape channelShape(layerShape.width, layerShape.height, slicesPerChannel);
-            channelData[c] = Image3D(channelShape);
-        }
-        
-        // Copy data from layers to individual channels
-        int c = 0;
-        int channelZ = 0;
-        for(int z = 0; z < layerShape.depth; z++){
-            // Extract slice data from the source image
-            for(int y = 0; y < layerShape.height; y++){
-                for(int x = 0; x < layerShape.width; x++){
-                    float pixelValue = layers.getPixel(x, y, z);
-                    channelData[c].setPixel(x, y, channelZ, pixelValue);
-                }
-            }
-            
-            c++;
-            if(c >= metaData.linChannels){
-                c = 0;
-                channelZ++;
-            }
-        }
-        
-        // Create channels with Image3D data
-        for(int id = 0; id < metaData.linChannels; id++){
-            Channel channel;
-            channel.image = channelData[id];
-            channel.id = id;
-            channels.push_back(channel);
-        }
-        
-        std::cout << "[INFO] " << metaData.filename << " converted to multichannel" << std::endl;
-    }else{
-        Channel channel;
-        channel.image = layers;
-        channel.id = 0;
-        channels.push_back(channel);
-    }
-}
+
 
 void TiffReader::customTifWarningHandler(const char* module, const char* fmt, va_list ap) {
     // Ignoriere alle Warnungen oder filtere nach bestimmten Tags
     // Beispiel: printf(fmt, ap); // Um die Warnungen anzuzeigen
 }
 
-void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, int width, const ImageMetaData& metaData) {
-    if (metaData.bitsPerSample == 8) {
-        const uint8_t* data8 = reinterpret_cast<const uint8_t*>(scanlineData);
-        for (int x = 0; x < width; x++) {
-            rowData[x] = static_cast<float>(data8[x * metaData.samplesPerPixel]);
+void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, int width, const ImageMetaData& metaData, int channel) {
+
+    for (int x = 0; x < width; x++) {
+        if (metaData.bitsPerSample == 8) {
+            const uint8_t* data8 = reinterpret_cast<const uint8_t*>(scanlineData);
+                rowData[x] = static_cast<float>(data8[x * metaData.samplesPerPixel + channel]);
+        } else if (metaData.bitsPerSample == 16) {
+            const uint16_t* data16 = reinterpret_cast<const uint16_t*>(scanlineData);
+                rowData[x] = static_cast<float>(data16[x * metaData.samplesPerPixel + channel]);
+        } else if (metaData.bitsPerSample == 32) {
+            const float* data32 = reinterpret_cast<const float*>(scanlineData);
+                rowData[x] = data32[x * metaData.samplesPerPixel + channel];
+        } else {
+            std::cerr << "[ERROR] Unsupported bit depth: " << metaData.bitsPerSample << std::endl;
+            // Fill with zeros as fallback
+            std::fill(rowData.begin(), rowData.end(), 0.0f);
         }
-    } else if (metaData.bitsPerSample == 16) {
-        const uint16_t* data16 = reinterpret_cast<const uint16_t*>(scanlineData);
-        for (int x = 0; x < width; x++) {
-            rowData[x] = static_cast<float>(data16[x * metaData.samplesPerPixel]);
-        }
-    } else if (metaData.bitsPerSample == 32) {
-        const float* data32 = reinterpret_cast<const float*>(scanlineData);
-        for (int x = 0; x < width; x++) {
-            rowData[x] = data32[x * metaData.samplesPerPixel];
-        }
-    } else {
-        std::cerr << "[ERROR] Unsupported bit depth: " << metaData.bitsPerSample << std::endl;
-        // Fill with zeros as fallback
-        std::fill(rowData.begin(), rowData.end(), 0.0f);
     }
 }
 
