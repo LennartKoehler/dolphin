@@ -14,7 +14,6 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include "StandardDeconvolutionExecutor.h"
 #include "deconvolution/DeconvolutionConfig.h"
-#include "HyperstackImage.h"
 #include "psf/PSF.h"
 #include "deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
@@ -52,7 +51,6 @@ protected:
         const std::unique_ptr<CubeTaskDescriptor>& taskDesc) override;
 
     std::vector<Label> getLabelGroups(
-        int channelNumber,
 		const BoxCoord& roi,
 		const std::vector<std::shared_ptr<PSF>>& psfs,
 		const Image3D& image,

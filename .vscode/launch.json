@@ -138,7 +138,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tests/read_write_test",
             "args": [
-                "~/data/dolphin_test_data/2ChannelBacteria.tif", "~/data/dolphin_results/c2_test.tiff", "1"
+                "~/data/dolphin_test_data/CElegans-CY3.tif", "~/data/dolphin_results/yesttest.tiff", "1"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build/tests",

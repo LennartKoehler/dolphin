@@ -79,7 +79,6 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
 
         // TODO is this async safe?
         std::vector<Label> tasklabels = getLabelGroups(
-            task.channelNumber,
             BoxCoord{RectangleShape(0,0,0), workShape},
             task.psfs,
             labelImage.image,
@@ -146,7 +145,6 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
 
 
 std::vector<Label> LabeledDeconvolutionExecutor::getLabelGroups(
-        int channelNumber,
 		const BoxCoord& roi,
 		const std::vector<std::shared_ptr<PSF>>& psfs,
 		const Image3D& image,

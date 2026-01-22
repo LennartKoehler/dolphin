@@ -15,9 +15,9 @@ See the LICENSE file provided with the code for the full license.
 
 #include <string>
 #include <cstdint>
+#include <dolphinbackend/RectangleShape.h>
 
-class ImageMetaData {
-public:
+struct ImageMetaData {
     // Image Attributes
     std::string filename;
 
@@ -30,7 +30,7 @@ public:
     uint16_t samplesPerPixel = 1; //num of channels
     uint16_t bitsPerSample = 0;//bit depth
     uint16_t photometricInterpretation = 0;
-    int linChannels = 0;//in Description (linearized channels)
+    int linChannels = 1;//in Description (linearized channels)
     uint16_t planarConfig = 0;
     int totalImages = -1;
     int dataType = 0; //calculated
@@ -39,6 +39,9 @@ public:
     float minSampleValue = 0;
     int sampleFormat;
 
+    RectangleShape getShape() const {
+        return RectangleShape(imageWidth, imageLength, slices);
+    }
 
 };
 

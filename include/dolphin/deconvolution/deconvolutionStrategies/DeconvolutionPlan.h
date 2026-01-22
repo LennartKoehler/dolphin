@@ -59,7 +59,6 @@ This Description is the blueprint of how the specified part of the image is to b
 */
 struct CubeTaskDescriptor {
         CubeTaskDescriptor(int taskId,
-                        int channelNumber,
                         const BoxCoordWithPadding& paddedBox,
                         const std::shared_ptr<DeconvolutionAlgorithm>& algorithm,
                         size_t estimatedMemoryUsage,
@@ -68,7 +67,6 @@ struct CubeTaskDescriptor {
                         const std::shared_ptr<ImageWriter> writer,
                         std::shared_ptr<TaskContext> context)
         : taskId(taskId),
-          channelNumber(channelNumber),
           paddedBox(paddedBox),
           algorithm(algorithm),
           estimatedMemoryUsage(estimatedMemoryUsage),
@@ -79,7 +77,6 @@ struct CubeTaskDescriptor {
     {}
 
     const int taskId;
-    const int channelNumber;
     const BoxCoordWithPadding paddedBox;
     const std::shared_ptr<DeconvolutionAlgorithm> algorithm;
     const size_t estimatedMemoryUsage;
