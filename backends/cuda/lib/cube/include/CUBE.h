@@ -3,11 +3,11 @@
 
 #ifdef DOUBLE_PRECISION
 typedef double real_t;
-typedef real_t complex_t[2];
 #else
 typedef float real_t;
-typedef real_t complex_t[2];
 #endif
+
+typedef real_t complex_t[2];
 
 #include "kernels.h"
 #include "utl.h"

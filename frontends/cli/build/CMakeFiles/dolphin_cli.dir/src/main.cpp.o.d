@@ -1,6 +1,6 @@
 CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
- /home/lennart-koehler/projects/dolphin/frontends/cli/src/main.cpp \
- /usr/include/stdc-predef.h /usr/local/include/Dolphin.h \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/src/main.cpp \
+ /usr/include/stdc-predef.h /usr/local/include/dolphin/Dolphin.h \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -202,11 +202,12 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h \
- /usr/local/include/ServiceAbstractions.h /usr/include/c++/13/chrono \
- /usr/include/c++/13/bits/chrono.h /usr/include/c++/13/ratio \
- /usr/include/c++/13/limits /usr/include/c++/13/ctime \
- /usr/include/c++/13/bits/parse_numbers.h /usr/include/c++/13/sstream \
- /usr/include/c++/13/istream /usr/include/c++/13/bits/istream.tcc \
+ /usr/local/include/dolphin/ServiceAbstractions.h \
+ /usr/include/c++/13/chrono /usr/include/c++/13/bits/chrono.h \
+ /usr/include/c++/13/ratio /usr/include/c++/13/limits \
+ /usr/include/c++/13/ctime /usr/include/c++/13/bits/parse_numbers.h \
+ /usr/include/c++/13/sstream /usr/include/c++/13/istream \
+ /usr/include/c++/13/bits/istream.tcc \
  /usr/include/c++/13/bits/sstream.tcc /usr/include/c++/13/bits/stl_algo.h \
  /usr/include/c++/13/bits/algorithmfwd.h \
  /usr/include/c++/13/bits/stl_heap.h \
@@ -230,7 +231,7 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/hashtable.h \
  /usr/include/c++/13/bits/hashtable_policy.h \
  /usr/include/c++/13/bits/node_handle.h \
- /usr/include/c++/13/bits/erase_if.h /usr/local/lib/nlohmann/json.hpp \
+ /usr/include/c++/13/bits/erase_if.h /usr/local/include/nlohmann/json.hpp \
  /usr/include/c++/13/algorithm /usr/include/c++/13/bits/ranges_algo.h \
  /usr/include/c++/13/pstl/glue_algorithm_defs.h \
  /usr/include/c++/13/iterator /usr/include/c++/13/bits/stream_iterator.h \
@@ -278,192 +279,56 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
  /usr/include/c++/13/ranges /usr/include/c++/13/numeric \
  /usr/include/c++/13/bits/stl_numeric.h \
  /usr/include/c++/13/pstl/glue_numeric_defs.h /usr/include/c++/13/any \
- /usr/local/include/HyperstackImage.h /usr/local/include/Image3D.h \
- /usr/include/c++/13/list /usr/include/c++/13/bits/stl_list.h \
- /usr/include/c++/13/bits/list.tcc /usr/local/include/ITK-5.4/itkImage.h \
- /usr/local/include/ITK-5.4/itkImageRegion.h \
- /usr/local/include/ITK-5.4/itkRegion.h \
- /usr/local/include/ITK-5.4/itkObject.h \
- /usr/local/include/ITK-5.4/itkLightObject.h \
- /usr/local/include/ITK-5.4/itkMacro.h \
- /usr/local/include/ITK-5.4/itkWin32Header.h \
- /usr/local/include/ITK-5.4/itkConfigure.h \
- /usr/local/include/ITK-5.4/ITKCommonExport.h \
- /usr/local/include/ITK-5.4/itkPrintHelper.h /usr/include/c++/13/iostream \
- /usr/local/include/ITK-5.4/itkExceptionObject.h \
- /usr/local/include/ITK-5.4/itkSmartPointer.h \
- /usr/local/include/ITK-5.4/itkTimeStamp.h \
- /usr/local/include/ITK-5.4/itkIntTypes.h /usr/include/c++/13/atomic \
- /usr/local/include/ITK-5.4/itkSingletonMacro.h \
- /usr/local/include/ITK-5.4/itkIndent.h \
- /usr/local/include/ITK-5.4/itkEventObject.h \
- /usr/local/include/ITK-5.4/itkMetaDataDictionary.h \
- /usr/local/include/ITK-5.4/itkMetaDataObjectBase.h \
- /usr/local/include/ITK-5.4/itkCommonEnums.h \
- /usr/local/include/ITK-5.4/itkSize.h \
- /usr/local/include/ITK-5.4/itkMakeFilled.h \
- /usr/local/include/ITK-5.4/itkContinuousIndex.h \
- /usr/local/include/ITK-5.4/itkPoint.h \
- /usr/local/include/ITK-5.4/itkNumericTraits.h \
- /usr/include/c++/13/complex /usr/local/include/ITK-5.4/itkFixedArray.h \
- /usr/local/include/ITK-5.4/itkFixedArray.hxx \
- /usr/local/include/ITK-5.4/itkNumericTraitsFixedArrayPixel.h \
- /usr/local/include/ITK-5.4/itkVector.h \
- /usr/local/include/ITK-5.4/vnl/vnl_vector_ref.h \
- /usr/local/include/ITK-5.4/vnl/vnl_vector.h \
- /usr/local/include/ITK-5.4/vnl/vnl_error.h \
- /usr/local/include/ITK-5.4/vnl/vnl_export.h \
- /usr/local/include/ITK-5.4/vcl_compiler.h \
- /usr/local/include/ITK-5.4/vnl/vnl_c_vector.h \
- /usr/local/include/ITK-5.4/vnl/vnl_numeric_traits.h \
- /usr/local/include/ITK-5.4/vxl_config.h \
- /usr/local/include/ITK-5.4/vnl/vnl_config.h \
- /usr/local/include/ITK-5.4/vnl/vnl_sse.h /usr/include/c++/13/cfloat \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/float.h \
- /usr/local/include/ITK-5.4/vnl/vnl_alloc.h \
- /usr/local/include/ITK-5.4/itkVector.hxx \
- /usr/local/include/ITK-5.4/itkMath.h \
- /usr/local/include/ITK-5.4/itkMathDetail.h /usr/include/c++/13/cfenv \
- /usr/include/c++/13/fenv.h /usr/include/fenv.h \
- /usr/include/x86_64-linux-gnu/bits/fenv.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/emmintrin.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/xmmintrin.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/mmintrin.h \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/mm_malloc.h \
- /usr/include/c++/13/stdlib.h \
- /usr/local/include/ITK-5.4/itkConceptChecking.h \
- /usr/local/include/ITK-5.4/itkPixelTraits.h \
- /usr/local/include/ITK-5.4/vnl/vnl_math.h \
- /usr/local/include/ITK-5.4/vnl/dll.h \
- /usr/local/include/ITK-5.4/vxl_version.h \
- /usr/local/include/ITK-5.4/vnl/vnl_vector.h \
- /usr/local/include/ITK-5.4/itkNumericTraitsVectorPixel.h \
- /usr/local/include/ITK-5.4/itkPoint.hxx \
- /usr/local/include/ITK-5.4/itkNumericTraitsPointPixel.h \
- /usr/local/include/ITK-5.4/itkIndex.h \
- /usr/local/include/ITK-5.4/itkOffset.h \
- /usr/local/include/ITK-5.4/itkImageRegion.hxx \
- /usr/local/include/ITK-5.4/itkImportImageContainer.h \
- /usr/local/include/ITK-5.4/itkObjectFactory.h \
- /usr/local/include/ITK-5.4/itkObjectFactoryBase.h \
- /usr/local/include/ITK-5.4/itkCreateObjectFunction.h \
- /usr/local/include/ITK-5.4/itkImportImageContainer.hxx \
- /usr/local/include/ITK-5.4/itkDefaultPixelAccessor.h \
- /usr/local/include/ITK-5.4/itkDefaultPixelAccessorFunctor.h \
- /usr/local/include/ITK-5.4/itkWeakPointer.h \
- /usr/local/include/ITK-5.4/itkNeighborhoodAccessorFunctor.h \
- /usr/local/include/ITK-5.4/itkImageBoundaryCondition.h \
- /usr/local/include/ITK-5.4/itkNeighborhood.h \
- /usr/local/include/ITK-5.4/itkNeighborhoodAllocator.h \
- /usr/local/include/ITK-5.4/itkMakeUniqueForOverwrite.h \
- /usr/local/include/ITK-5.4/itkSliceIterator.h \
- /usr/local/include/ITK-5.4/itkNeighborhood.hxx \
- /usr/local/include/ITK-5.4/itkImageBase.h \
- /usr/local/include/ITK-5.4/itkDataObject.h \
- /usr/local/include/ITK-5.4/itkRealTimeStamp.h \
- /usr/local/include/ITK-5.4/itkRealTimeInterval.h \
- /usr/local/include/ITK-5.4/itkMatrix.h \
- /usr/local/include/ITK-5.4/itkCovariantVector.h \
- /usr/local/include/ITK-5.4/itkNumericTraitsCovariantVectorPixel.h \
- /usr/local/include/ITK-5.4/itkCovariantVector.hxx \
- /usr/local/include/ITK-5.4/vnl/vnl_matrix_fixed.hxx \
- /usr/local/include/ITK-5.4/vnl/vnl_matrix_fixed.h \
- /usr/local/include/ITK-5.4/vnl/vnl_matrix.h \
- /usr/local/include/ITK-5.4/vnl/vnl_matrix_ref.h \
- /usr/local/include/ITK-5.4/vnl/vnl_vector_fixed.h \
- /usr/local/include/ITK-5.4/vnl/vnl_vector_ref.h \
- /usr/local/include/ITK-5.4/vnl/vnl_math.h \
- /usr/local/include/ITK-5.4/vnl/vnl_complex.h \
- /usr/local/include/ITK-5.4/vnl/vnl_transpose.h \
- /usr/local/include/ITK-5.4/vnl/vnl_fastops.h \
- /usr/local/include/ITK-5.4/vnl/algo/vnl_matrix_inverse.h \
- /usr/local/include/ITK-5.4/vnl/algo/vnl_svd.h \
- /usr/local/include/ITK-5.4/vnl/vnl_numeric_traits.h \
- /usr/local/include/ITK-5.4/vnl/vnl_vector.h \
- /usr/local/include/ITK-5.4/vnl/vnl_matrix.h \
- /usr/local/include/ITK-5.4/vnl/vnl_diag_matrix.h \
- /usr/local/include/ITK-5.4/vnl/algo/vnl_algo_export.h \
- /usr/local/include/ITK-5.4/vnl/vnl_matrix.h \
- /usr/local/include/ITK-5.4/vnl/algo/vnl_determinant.h \
- /usr/local/include/ITK-5.4/vnl/vnl_matrix_fixed.h \
- /usr/local/include/ITK-5.4/itkMatrix.hxx \
- /usr/local/include/ITK-5.4/itkImageHelper.h \
- /usr/local/include/ITK-5.4/itkFloatTypes.h \
- /usr/local/include/ITK-5.4/itkImageBase.hxx /usr/include/c++/13/mutex \
- /usr/include/c++/13/bits/unique_lock.h \
- /usr/local/include/ITK-5.4/itkProcessObject.h \
- /usr/local/include/ITK-5.4/itkThreadSupport.h /usr/include/c++/13/set \
- /usr/include/c++/13/bits/stl_set.h \
- /usr/include/c++/13/bits/stl_multiset.h /usr/include/c++/13/thread \
- /usr/include/c++/13/stop_token /usr/include/c++/13/bits/std_thread.h \
+ /usr/local/include/dolphin/frontend/SetupConfig.h \
+ /usr/local/include/psf/configs/PSFConfig.h /usr/include/c++/13/iostream \
+ /usr/local/include/Config.h /usr/include/c++/13/fstream \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
+ /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/unordered_set \
+ /usr/include/c++/13/bits/unordered_set.h /usr/include/c++/13/future \
+ /usr/include/c++/13/mutex /usr/include/c++/13/bits/unique_lock.h \
+ /usr/include/c++/13/condition_variable /usr/include/c++/13/stop_token \
+ /usr/include/c++/13/atomic /usr/include/c++/13/bits/std_thread.h \
  /usr/include/c++/13/semaphore /usr/include/c++/13/bits/semaphore_base.h \
  /usr/include/c++/13/bits/atomic_timed_wait.h \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
  /usr/include/x86_64-linux-gnu/bits/semaphore.h \
- /usr/local/include/ITK-5.4/itkSpatialOrientation.h \
- /usr/local/include/ITK-5.4/itkImage.hxx \
- /usr/local/include/ITK-5.4/itkImageRegionIterator.h \
- /usr/local/include/ITK-5.4/itkImageRegionConstIterator.h \
- /usr/local/include/ITK-5.4/itkImageIterator.h \
- /usr/local/include/ITK-5.4/itkImageConstIterator.h \
- /usr/local/include/ITK-5.4/itkImage.h \
- /usr/local/include/ITK-5.4/itkImageIterator.hxx \
- /usr/local/include/ITK-5.4/itkImageRegionConstIterator.hxx \
- /usr/local/include/ITK-5.4/itkImageRegionIterator.hxx \
- /usr/local/include/ITK-5.4/itkExtractImageFilter.h \
- /usr/local/include/ITK-5.4/itkInPlaceImageFilter.h \
- /usr/local/include/ITK-5.4/itkImageToImageFilter.h \
- /usr/local/include/ITK-5.4/itkImageSource.h \
- /usr/local/include/ITK-5.4/itkImageRegionSplitterBase.h \
- /usr/local/include/ITK-5.4/itkImageIORegion.h \
- /usr/local/include/ITK-5.4/itkImageSourceCommon.h \
- /usr/local/include/ITK-5.4/itkImageSource.hxx \
- /usr/local/include/ITK-5.4/itkOutputDataObjectIterator.h \
- /usr/local/include/ITK-5.4/itkDataObjectIterator.h \
- /usr/local/include/ITK-5.4/itkMultiThreaderBase.h \
- /usr/local/include/ITK-5.4/itkProgressReporter.h \
- /usr/local/include/ITK-5.4/itkImageToImageFilterDetail.h \
- /usr/local/include/ITK-5.4/itkImageToImageFilterCommon.h \
- /usr/local/include/ITK-5.4/itkImageToImageFilter.hxx \
- /usr/local/include/ITK-5.4/itkInputDataObjectIterator.h \
- /usr/local/include/ITK-5.4/itkInputDataObjectConstIterator.h \
- /usr/local/include/ITK-5.4/itkDataObjectConstIterator.h \
- /usr/local/include/ITK-5.4/itkInPlaceImageFilter.hxx \
- /usr/local/include/ITK-5.4/itkExtractImageFilterRegionCopier.h \
- /usr/local/include/ITK-5.4/itkExtractImageFilter.hxx \
- /usr/local/include/ITK-5.4/itkImageAlgorithm.h \
- /usr/local/include/ITK-5.4/itkImageRegionIterator.h \
- /usr/local/include/ITK-5.4/itkImageAlgorithm.hxx \
- /usr/local/include/ITK-5.4/itkArray.h \
- /usr/local/include/ITK-5.4/vxl_version.h \
- /usr/local/include/ITK-5.4/itkArray.hxx \
- /usr/local/include/ITK-5.4/itkNumericTraitsArrayPixel.h \
- /usr/local/include/ITK-5.4/itkImageScanlineIterator.h \
- /usr/local/include/ITK-5.4/itkImageScanlineConstIterator.h \
- /usr/local/include/ITK-5.4/itkImageScanlineConstIterator.hxx \
- /usr/local/include/ITK-5.4/itkImageScanlineIterator.hxx \
- /usr/local/include/ITK-5.4/itkRegionOfInterestImageFilter.h \
- /usr/local/include/ITK-5.4/itkRegionOfInterestImageFilter.hxx \
- /usr/local/include/ITK-5.4/itkTotalProgressReporter.h \
- /usr/local/include/ITK-5.4/itkImageDuplicator.h \
- /usr/local/include/ITK-5.4/itkImageDuplicator.hxx \
- /usr/local/include/HelperClasses.h /usr/local/lib/nlohmann/json.hpp \
- /usr/local/include/RectangleShape.h /usr/local/include/ImageMetaData.h \
- /usr/local/include/Channel.h /usr/local/include/psf/PSF.h \
- /usr/local/include/frontend/SetupConfig.h \
- /usr/local/include/psf/configs/PSFConfig.h /usr/local/include/Config.h \
- /usr/include/c++/13/fstream \
- /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
- /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
- /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/unordered_set \
- /usr/include/c++/13/bits/unordered_set.h /usr/include/c++/13/future \
- /usr/include/c++/13/condition_variable \
  /usr/include/c++/13/bits/atomic_futex.h \
- /usr/local/include/ServiceFactory.h \
- /usr/local/include/PSFGenerationService.h \
- /usr/local/include/DeconvolutionService.h \
- /home/lennart-koehler/projects/dolphin/frontends/cli/include/CLIFrontend.h \
- /home/lennart-koehler/projects/dolphin/frontends/cli/lib/CLI/CLI11.hpp \
+ /usr/local/include/dolphin/ServiceFactory.h \
+ /usr/local/include/dolphin/PSFGenerationService.h \
+ /usr/local/include/dolphin/DeconvolutionService.h \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/include/CLIFrontend.h \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/CLI.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/Version.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/Macros.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/Encoding.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/impl/Encoding_inl.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/Argv.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/impl/Argv_inl.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/StringTools.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/impl/StringTools_inl.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/Error.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/TypeTools.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/Split.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/impl/Split_inl.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/ConfigFwd.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/Validators.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/impl/Validators_inl.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/FormatterFwd.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/Option.hpp \
+ /usr/include/c++/13/set /usr/include/c++/13/bits/stl_set.h \
+ /usr/include/c++/13/bits/stl_multiset.h \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/impl/Option_inl.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/App.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/impl/App_inl.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/Config.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/impl/Config_inl.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/Formatter.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/impl/Formatter_inl.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/ExtraValidators.hpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/cli/lib/CLI11/include/CLI/impl/ExtraValidators_inl.hpp \
  /usr/local/include/frontend/IFrontend.h \
- /usr/local/include/deconvolution/DeconvolutionConfig.h
+ /usr/local/include/dolphin/deconvolution/DeconvolutionConfig.h \
+ /usr/local/include/HelperClasses.h \
+ /usr/local/include/dolphinbackend/RectangleShape.h

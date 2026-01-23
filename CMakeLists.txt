@@ -110,9 +110,9 @@ add_library(dolphin STATIC ${DOLPHIN_SOURCES})
 target_include_directories(dolphin
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/dolphin>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
         $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib>
-        $<INSTALL_INTERFACE:lib>
         ${TIFF_INCLUDE_DIR}
         ${ITK_INCLUDE_DIRS}
 )
@@ -136,10 +136,6 @@ set_target_properties(dolphin PROPERTIES
 
 
 
-
-
-
-
 # Install targets
 install(TARGETS dolphin
     EXPORT dolphinTargets
@@ -150,7 +146,15 @@ install(TARGETS dolphin
 )
 
 # Install headers
-install(DIRECTORY include/ 
+install(DIRECTORY lib/nlohmann/json/single_include/
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
+install(DIRECTORY lib/dolphinbackend/include/
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
+install(DIRECTORY include/dolphin/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )

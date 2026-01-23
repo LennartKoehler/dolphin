@@ -15,7 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include <sys/stat.h>
 #include <type_traits>
 #include <cstring>
-#include "Dolphin.h"
+#include <dolphin/Dolphin.h>
 
 CLIFrontend::CLIFrontend(Dolphin* dolphin, int argc, char** argv)
     : IFrontend(dolphin){

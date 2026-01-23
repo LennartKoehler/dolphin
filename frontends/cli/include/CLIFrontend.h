@@ -1,10 +1,11 @@
 #pragma once
-#include "CLI11.hpp"
+#include "CLI/CLI.hpp"
 
 #include "frontend/IFrontend.h"
-#include "deconvolution/DeconvolutionConfig.h"
 #include "frontend/SetupConfig.h"
-#include "ServiceAbstractions.h"
+
+#include <dolphin/deconvolution/DeconvolutionConfig.h>
+#include <dolphin/ServiceAbstractions.h>
 class CLIFrontend : public IFrontend{
 public:
     CLIFrontend(Dolphin* dolphin, int argc, char** argv);

@@ -13,7 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
-#include "../lib/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
 #include <unordered_set>

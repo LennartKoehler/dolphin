@@ -87,14 +87,14 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lennart-k-hler/projects/dolphin/frontends/cli/build/CMakeFiles /home/lennart-k-hler/projects/dolphin/frontends/cli/build//CMakeFiles/progress.marks
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
+	cd /home/lennart-k-hler/projects/dolphin/frontends/cli/build && $(CMAKE_COMMAND) -E cmake_progress_start /home/lennart-k-hler/projects/dolphin/frontends/cli/build/CMakeFiles /home/lennart-k-hler/projects/dolphin/frontends/cli/build/lib/CLI11/single-include//CMakeFiles/progress.marks
+	cd /home/lennart-k-hler/projects/dolphin/frontends/cli/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 lib/CLI11/single-include/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/lennart-k-hler/projects/dolphin/frontends/cli/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
 clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 clean
+	cd /home/lennart-k-hler/projects/dolphin/frontends/cli/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 lib/CLI11/single-include/clean
 .PHONY : clean
 
 # The main clean target
@@ -103,79 +103,18 @@ clean/fast: clean
 
 # Prepare targets for installation.
 preinstall: all
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 preinstall
+	cd /home/lennart-k-hler/projects/dolphin/frontends/cli/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 lib/CLI11/single-include/preinstall
 .PHONY : preinstall
 
 # Prepare targets for installation.
 preinstall/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 preinstall
+	cd /home/lennart-k-hler/projects/dolphin/frontends/cli/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 lib/CLI11/single-include/preinstall
 .PHONY : preinstall/fast
 
 # clear depends
 depend:
-	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
+	cd /home/lennart-k-hler/projects/dolphin/frontends/cli/build && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
-
-#=============================================================================
-# Target rules for targets named dolphin_cli
-
-# Build rule for target.
-dolphin_cli: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 dolphin_cli
-.PHONY : dolphin_cli
-
-# fast build rule for target.
-dolphin_cli/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphin_cli.dir/build.make CMakeFiles/dolphin_cli.dir/build
-.PHONY : dolphin_cli/fast
-
-src/CLIFrontend.o: src/CLIFrontend.cpp.o
-.PHONY : src/CLIFrontend.o
-
-# target to build an object file
-src/CLIFrontend.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphin_cli.dir/build.make CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o
-.PHONY : src/CLIFrontend.cpp.o
-
-src/CLIFrontend.i: src/CLIFrontend.cpp.i
-.PHONY : src/CLIFrontend.i
-
-# target to preprocess a source file
-src/CLIFrontend.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphin_cli.dir/build.make CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.i
-.PHONY : src/CLIFrontend.cpp.i
-
-src/CLIFrontend.s: src/CLIFrontend.cpp.s
-.PHONY : src/CLIFrontend.s
-
-# target to generate assembly for a file
-src/CLIFrontend.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphin_cli.dir/build.make CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.s
-.PHONY : src/CLIFrontend.cpp.s
-
-src/main.o: src/main.cpp.o
-.PHONY : src/main.o
-
-# target to build an object file
-src/main.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphin_cli.dir/build.make CMakeFiles/dolphin_cli.dir/src/main.cpp.o
-.PHONY : src/main.cpp.o
-
-src/main.i: src/main.cpp.i
-.PHONY : src/main.i
-
-# target to preprocess a source file
-src/main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphin_cli.dir/build.make CMakeFiles/dolphin_cli.dir/src/main.cpp.i
-.PHONY : src/main.cpp.i
-
-src/main.s: src/main.cpp.s
-.PHONY : src/main.s
-
-# target to generate assembly for a file
-src/main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphin_cli.dir/build.make CMakeFiles/dolphin_cli.dir/src/main.cpp.s
-.PHONY : src/main.cpp.s
 
 # Help Target
 help:
@@ -185,13 +124,6 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... dolphin_cli"
-	@echo "... src/CLIFrontend.o"
-	@echo "... src/CLIFrontend.i"
-	@echo "... src/CLIFrontend.s"
-	@echo "... src/main.o"
-	@echo "... src/main.i"
-	@echo "... src/main.s"
 .PHONY : help
 
 
@@ -203,6 +135,6 @@ help:
 # No rule that depends on this can have commands that come from listfiles
 # because they might be regenerated.
 cmake_check_build_system:
-	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
+	cd /home/lennart-k-hler/projects/dolphin/frontends/cli/build && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
 .PHONY : cmake_check_build_system
 

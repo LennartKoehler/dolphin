@@ -11,7 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "Dolphin.h"
+#include <dolphin/Dolphin.h>
 #include "CLIFrontend.h"
 
 int main(int argc, char** argv) {
