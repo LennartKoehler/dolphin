@@ -132,7 +132,7 @@ bool BaseDeconvolutionAlgorithmGPU::preprocessBackendSpecific(int channel_num, i
 
 
 
-void BaseDeconvolutionAlgorithmGPU::algorithmBackendSpecific(int channel_num, complex* H, complex* g, complex* f) {
+void BaseDeconvolutionAlgorithmGPU::algorithmBackendSpecific(int channel_num, complex_t* H, complex_t* g, complex_t* f) {
     cout << "[STATUS] GPU algorithm execution for channel " << channel_num << endl;
     
     if (!m_cudaInitialized || !m_cufftInitialized) {
@@ -194,7 +194,7 @@ void BaseDeconvolutionAlgorithmGPU::algorithmBackendSpecific(int channel_num, co
         } else {
             // Fallback to basic GPU operations
             // Apply PSF in frequency domain (convolution theorem)
-            // This is a simplified version - actual implementation would be more complex
+            // This is a simplified version - actual implementation would be more complex_t
             cufftComplex_t* d_temp = nullptr;
             if (!allocateGPUArray(d_temp, cubeVolume)) {
                 cerr << "[ERROR] Failed to allocate temporary GPU memory" << endl;
@@ -703,13 +703,13 @@ void BaseDeconvolutionAlgorithmGPU::deallocateGPUArray(cufftComplex_t* array) {
 }
 
 // Continue with other helper method implementations...
-bool BaseDeconvolutionAlgorithmGPU::allocateHostPinnedArray(complex*& array, size_t size) {
+bool BaseDeconvolutionAlgorithmGPU::allocateHostPinnedArray(complex_t*& array, size_t size) {
     if (!m_usePinnedMemory || size == 0) {
         return false;
     }
     
     try {
-        cudaError_t err = cudaHostAlloc(&array, size * sizeof(complex), cudaHostAllocPortable);
+        cudaError_t err = cudaHostAlloc(&array, size * sizeof(complex_t), cudaHostAllocPortable);
         if (err != cudaSuccess) {
             cerr << "[CUDA ERROR] Failed to allocate pinned host memory: " << cudaGetErrorString(err) << endl;
             return false;
@@ -731,7 +731,7 @@ bool BaseDeconvolutionAlgorithmGPU::allocateHostPinnedArray(complex*& array, siz
 
 }
 
-void BaseDeconvolutionAlgorithmGPU::deallocateHostPinnedArray(complex* array) {
+void BaseDeconvolutionAlgorithmGPU::deallocateHostPinnedArray(complex_t* array) {
     if (array != nullptr && m_usePinnedMemory) {
         cudaError_t err = cudaFreeHost(array);
         if (err != cudaSuccess && m_enableErrorChecking) {
@@ -747,13 +747,13 @@ void BaseDeconvolutionAlgorithmGPU::deallocateHostPinnedArray(complex* array) {
     }
 }
 
-bool BaseDeconvolutionAlgorithmGPU::copyToGPU(cufftComplex_t* device_array, const complex* host_array, size_t size) {
+bool BaseDeconvolutionAlgorithmGPU::copyToGPU(cufftComplex_t* device_array, const complex_t* host_array, size_t size) {
     if (!device_array || !host_array || size == 0) {
         return false;
     }
     
     try {
-        cudaError_t err = cudaMemcpy(device_array, host_array, size * sizeof(complex), cudaMemcpyHostToDevice);
+        cudaError_t err = cudaMemcpy(device_array, host_array, size * sizeof(complex_t), cudaMemcpyHostToDevice);
         if (err != cudaSuccess) {
             cerr << "[CUDA ERROR] Failed to copy data to GPU: " << cudaGetErrorString(err) << endl;
             return false;
@@ -769,7 +769,7 @@ bool BaseDeconvolutionAlgorithmGPU::copyToGPU(cufftComplex_t* device_array, cons
 
 }
 
-bool BaseDeconvolutionAlgorithmGPU::copyFromGPU(complex* host_array, const cufftComplex_t* device_array, size_t size) {
+bool BaseDeconvolutionAlgorithmGPU::copyFromGPU(complex_t* host_array, const cufftComplex_t* device_array, size_t size) {
     if (!host_array || !device_array || size == 0) {
         return false;
     }

@@ -123,15 +123,15 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 
         std::cout << "[STATUS] Creating fftw plans..." << std::endl;
         // In-line fftplan for fast ft calculation and inverse
-        this->fftwPlanMem = (complex *) fftw_malloc(sizeof(complex) * this->cubeVolume);
+        this->fftwPlanMem = (complex_t *) fftw_malloc(sizeof(complex_t) * this->cubeVolume);
         this->forwardPlan = fftw_plan_dft_3d(this->cubeDepth, this->cubeHeight, this->cubeWidth, this->fftwPlanMem, this->fftwPlanMem, FFTW_FORWARD, FFTW_MEASURE);
         this->backwardPlan = fftw_plan_dft_3d(this->cubeDepth, this->cubeHeight, this->cubeWidth, this->fftwPlanMem, this->fftwPlanMem, FFTW_BACKWARD, FFTW_MEASURE);
-        complex *fftwPSFPlanMem = (complex *) fftw_malloc(sizeof(complex) * originPsfVolume);
+        complex_t *fftwPSFPlanMem = (complex_t *) fftw_malloc(sizeof(complex_t) * originPsfVolume);
 
 
 
 
-    complex *h = (complex *) fftw_malloc(sizeof(complex) * originPsfVolume);
+    complex_t *h = (complex_t *) fftw_malloc(sizeof(complex_t) * originPsfVolume);
 
     fftw_plan forwardPSFPlan = fftw_plan_dft_3d(originPsfDepth, originPsfHeight, originPsfWidth, fftwPSFPlanMem, fftwPSFPlanMem, FFTW_FORWARD, FFTW_MEASURE);
     for(int p = 0; p < psfs.size(); p++) {
@@ -142,7 +142,7 @@ bool BaseDeconvolutionAlgorithm::preprocess(Channel& channel, std::vector<PSF>& 
 
         std::cout << "[STATUS] Padding PSF"<<std::to_string(p+1)<<"..." << std::endl;
         // Pad the PSF to the size of the image
-        complex *temp_h = (complex *) fftw_malloc(sizeof(complex) * safetyBorderPsfVolume);
+        complex_t *temp_h = (complex_t *) fftw_malloc(sizeof(complex_t) * safetyBorderPsfVolume);
         UtlFFT::padPSF(h, originPsfWidth, originPsfHeight, originPsfDepth, temp_h, safetyBorderPsfWidth, safetyBorderPsfHeight, safetyBorderPsfDepth);
 #ifdef CUDA_AVAILABLE
         if(config.gpu == "cuda") {
@@ -363,11 +363,11 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
         for (size_t i = 0; i < this->gridImages.size(); ++i) {
             // PSF
             // H points to an existing PSF (paddedH or paddedH_2) and should not be freed here as it is not allocated with fftw_malloc.
-            complex* H = nullptr;
+            complex_t* H = nullptr;
             // Observed image
-            complex* g = (complex *) fftw_malloc(sizeof(complex) * this->cubeVolume);
+            complex_t* g = (complex_t *) fftw_malloc(sizeof(complex_t) * this->cubeVolume);
             // Result image
-            complex* f = (complex *) fftw_malloc(sizeof(complex) * this->cubeVolume);
+            complex_t* f = (complex_t *) fftw_malloc(sizeof(complex_t) * this->cubeVolume);
                 // LK layernumvec used here
                 if(this->layerNumVec.size() > 1) {
 
@@ -430,7 +430,7 @@ Hyperstack BaseDeconvolutionAlgorithm::deconvolve(Hyperstack &data, std::vector<
             algorithm(data, channel_z, H, g, f);
 
 
-            // Convert the result FFTW complex array back to OpenCV Mat vector
+            // Convert the result FFTW complex_t array back to OpenCV Mat vector
             UtlFFT::convertFFTWComplexToCVMatVector(f, this->gridImages[i], this->cubeWidth, this->cubeHeight, this->cubeDepth);
             this->totalGridNum++;
             fftw_free(g);

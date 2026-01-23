@@ -89,12 +89,12 @@ void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
         return; // Already allocated
     }
     
-    size_t requested_size = sizeof(complex) * data.size.volume;
+    size_t requested_size = sizeof(complex_t) * data.size.volume;
     
     // Wait for memory if max memory limit is set
     waitForMemory(requested_size);
     
-    data.data = (complex*)fftw_malloc(requested_size);
+    data.data = (complex_t*)fftw_malloc(requested_size);
     MEMORY_ALLOC_CHECK(data.data, requested_size, "CPU", "allocateMemoryOnDevice");
     
     // Update memory tracking
@@ -116,7 +116,7 @@ ComplexData CPUBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata
 
     BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data");
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
-    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
+    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex_t));
     return result;
 }
 
@@ -145,12 +145,12 @@ void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& d
     BACKEND_CHECK(srcData.data != nullptr, "Source data pointer is null", "CPU", "memCopy - source data");
     BACKEND_CHECK(destData.data != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data");
     BACKEND_CHECK(destData.size.volume == srcData.size.volume, "Source and destination must have same size", "CPU", "memCopy");
-    std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex));
+    std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex_t));
 }
 
 void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     BACKEND_CHECK(data.data != nullptr, "Data pointer is null", "CPU", "freeMemoryOnDevice - data pointer");
-    size_t requested_size = sizeof(complex) * data.size.volume;
+    size_t requested_size = sizeof(complex_t) * data.size.volume;
     fftw_free(data.data);
     
     // Update memory tracking
@@ -241,10 +241,10 @@ void CPUDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
     }
     
     // Allocate temporary memory for plan creation
-    complex* temp = nullptr;
+    complex_t* temp = nullptr;
     try{
-        temp = (complex*)fftw_malloc(sizeof(complex) * shape.volume);
-        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex) * shape.volume, "initializePlan");
+        temp = (complex_t*)fftw_malloc(sizeof(complex_t) * shape.volume);
+        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * shape.volume, "initializePlan");
         
         FFTPlanPair& planPair = planMap[shape];
         
@@ -623,29 +623,29 @@ void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
     int layerSize = width * height;
     int halfDepth = depth / 2;
     
-    complex* temp = (complex*)fftw_malloc(sizeof(complex) * data.size.volume);
-    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex) * data.size.volume, "reorderLayers");
+    complex_t* temp = (complex_t*)fftw_malloc(sizeof(complex_t) * data.size.volume);
+    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * data.size.volume, "reorderLayers");
 
     int destIndex = 0;
 
     // Copy the middle layer to the first position
-    std::memcpy(temp + destIndex * layerSize, data.data + halfDepth * layerSize, sizeof(complex) * layerSize);
+    std::memcpy(temp + destIndex * layerSize, data.data + halfDepth * layerSize, sizeof(complex_t) * layerSize);
     destIndex++;
 
     // Copy the layers after the middle layer
     for (int z = halfDepth + 1; z < depth; ++z) {
-        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex) * layerSize);
+        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex_t) * layerSize);
         destIndex++;
     }
 
     // Copy the layers before the middle layer
     for (int z = 0; z < halfDepth; ++z) {
-        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex) * layerSize);
+        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex_t) * layerSize);
         destIndex++;
     }
 
     // Copy reordered data back to the original array
-    std::memcpy(data.data, temp, sizeof(complex) * data.size.volume);
+    std::memcpy(data.data, temp, sizeof(complex_t) * data.size.volume);
     fftw_free(temp);
 }
 

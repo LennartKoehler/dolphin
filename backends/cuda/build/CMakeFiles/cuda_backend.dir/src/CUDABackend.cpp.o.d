@@ -220,9 +220,8 @@ CMakeFiles/cuda_backend.dir/src/CUDABackend.cpp.o: \
  /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
  /usr/include/x86_64-linux-gnu/bits/semaphore.h \
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/Exceptions.h \
- /usr/local/cuda/include/cufftw.h /usr/local/cuda/include/cufft.h \
- /usr/local/cuda/include/cuComplex.h /usr/include/c++/13/math.h \
- /usr/include/c++/13/cmath /usr/include/math.h \
+ /usr/local/cuda/include/cufft.h /usr/local/cuda/include/cuComplex.h \
+ /usr/include/c++/13/math.h /usr/include/c++/13/cmath /usr/include/math.h \
  /usr/include/x86_64-linux-gnu/bits/math-vector.h \
  /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h \
  /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h \
@@ -250,7 +249,6 @@ CMakeFiles/cuda_backend.dir/src/CUDABackend.cpp.o: \
  /usr/local/cuda/include/library_types.h \
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/CUBE.h \
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/kernels.h \
- /usr/local/cuda/include/cuComplex.h /usr/local/cuda/include/cufft.h \
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/utl.h \
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/operations.h \
  /usr/local/cuda/include/cuda_runtime_api.h \

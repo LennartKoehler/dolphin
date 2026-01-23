@@ -100,12 +100,12 @@ void OpenMPBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const
         return; // Already allocated
     }
     
-    size_t requested_size = sizeof(complex) * data.size.volume;
+    size_t requested_size = sizeof(complex_t) * data.size.volume;
     
     // Wait for memory if max memory limit is set
     waitForMemory(requested_size);
     
-    data.data = (complex*)fftw_malloc(requested_size);
+    data.data = (complex_t*)fftw_malloc(requested_size);
     MEMORY_ALLOC_CHECK(data.data, requested_size, "OpenMP", "allocateMemoryOnDevice");
     
     // Update memory tracking
@@ -126,7 +126,7 @@ ComplexData OpenMPBackendMemoryManager::allocateMemoryOnDevice(const RectangleSh
 ComplexData OpenMPBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
     BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "OpenMP", "copyDataToDevice - source data");
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
-    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
+    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex_t));
     return result;
 }
 
@@ -154,12 +154,12 @@ void OpenMPBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData
     BACKEND_CHECK(srcData.data != nullptr, "Source data pointer is null", "OpenMP", "memCopy - source data");
     BACKEND_CHECK(destData.data != nullptr, "Destination data pointer is null", "OpenMP", "memCopy - destination data");
     BACKEND_CHECK(destData.size.volume == srcData.size.volume, "Source and destination must have same size", "OpenMP", "memCopy");
-    std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex));
+    std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex_t));
 }
 
 void OpenMPBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     BACKEND_CHECK(data.data != nullptr, "Data pointer is null", "OpenMP", "freeMemoryOnDevice - data pointer");
-    size_t requested_size = sizeof(complex) * data.size.volume;
+    size_t requested_size = sizeof(complex_t) * data.size.volume;
     fftw_free(data.data);
     
     // Update memory tracking
@@ -253,10 +253,10 @@ void OpenMPDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
     }
     
     // Allocate temporary memory for plan creation
-    complex* temp = nullptr;
+    complex_t* temp = nullptr;
     try{
-        temp = (complex*)fftw_malloc(sizeof(complex) * shape.volume);
-        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex) * shape.volume, "initializePlan");
+        temp = (complex_t*)fftw_malloc(sizeof(complex_t) * shape.volume);
+        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * shape.volume, "initializePlan");
         
         FFTPlanPair& planPair = planMap[shape];
         
@@ -462,9 +462,9 @@ void OpenMPDeconvolutionBackend::complexMultiplication(const ComplexData& a, con
     const int volume = a.size.volume;
     
     // Use restrict pointers to help compiler optimize
-    complex* __restrict__ a_ptr = a.data;
-    complex* __restrict__ b_ptr = b.data;
-    complex* __restrict__ result_ptr = result.data;
+    complex_t* __restrict__ a_ptr = a.data;
+    complex_t* __restrict__ b_ptr = b.data;
+    complex_t* __restrict__ result_ptr = result.data;
     
     #pragma omp parallel for simd //aligned(a_ptr, b_ptr, result_ptr:SIMD_ALIGNMENT) schedule(static)
     for (int i = 0; i < volume; ++i) {
@@ -509,9 +509,9 @@ void OpenMPDeconvolutionBackend::complexAddition(const ComplexData& a, const Com
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexAddition - result");
 
     const int volume = a.size.volume;
-    complex* __restrict__ a_ptr = a.data;
-    complex* __restrict__ b_ptr = b.data;
-    complex* __restrict__ result_ptr = result.data;
+    complex_t* __restrict__ a_ptr = a.data;
+    complex_t* __restrict__ b_ptr = b.data;
+    complex_t* __restrict__ result_ptr = result.data;
 
     #pragma omp parallel for simd aligned(a_ptr, b_ptr, result_ptr:SIMD_ALIGNMENT) schedule(static)
     for (int i = 0; i < volume; ++i) {
@@ -525,8 +525,8 @@ void OpenMPDeconvolutionBackend::scalarMultiplication(const ComplexData& a, doub
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "scalarMultiplication - result");
 
     const int volume = a.size.volume;
-    complex* __restrict__ a_ptr = a.data;
-    complex* __restrict__ result_ptr = result.data;
+    complex_t* __restrict__ a_ptr = a.data;
+    complex_t* __restrict__ result_ptr = result.data;
 
     #pragma omp parallel for simd aligned(a_ptr, result_ptr:SIMD_ALIGNMENT) schedule(static)
     for (int i = 0; i < volume; ++i) {
@@ -678,29 +678,29 @@ void OpenMPDeconvolutionBackend::reorderLayers(ComplexData& data) const {
     int layerSize = width * height;
     int halfDepth = depth / 2;
     
-    complex* temp = (complex*)fftw_malloc(sizeof(complex) * data.size.volume);
-    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex) * data.size.volume, "reorderLayers");
+    complex_t* temp = (complex_t*)fftw_malloc(sizeof(complex_t) * data.size.volume);
+    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * data.size.volume, "reorderLayers");
 
     int destIndex = 0;
 
     // Copy the middle layer to the first position
-    std::memcpy(temp + destIndex * layerSize, data.data + halfDepth * layerSize, sizeof(complex) * layerSize);
+    std::memcpy(temp + destIndex * layerSize, data.data + halfDepth * layerSize, sizeof(complex_t) * layerSize);
     destIndex++;
 
     // Copy the layers after the middle layer
     for (int z = halfDepth + 1; z < depth; ++z) {
-        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex) * layerSize);
+        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex_t) * layerSize);
         destIndex++;
     }
 
     // Copy the layers before the middle layer
     for (int z = 0; z < halfDepth; ++z) {
-        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex) * layerSize);
+        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex_t) * layerSize);
         destIndex++;
     }
 
     // Copy reordered data back to the original array
-    std::memcpy(data.data, temp, sizeof(complex) * data.size.volume);
+    std::memcpy(data.data, temp, sizeof(complex_t) * data.size.volume);
     fftw_free(temp);
 }
 
@@ -826,7 +826,7 @@ void OpenMPDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gr
     }
 }
 
-// High-performance AVX2 implementation for complex multiplication
+// High-performance AVX2 implementation for complex_t multiplication
 #ifdef __AVX2__
 void OpenMPDeconvolutionBackend::complexMultiplicationAVX2(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "complexMultiplicationAVX2 - input a");
@@ -838,11 +838,11 @@ void OpenMPDeconvolutionBackend::complexMultiplicationAVX2(const ComplexData& a,
     const double* __restrict__ b_ptr = reinterpret_cast<const double*>(b.data);
     double* __restrict__ result_ptr = reinterpret_cast<double*>(result.data);
     
-    const int simd_end = (volume * 2) & ~7; // Process 4 complex numbers (8 doubles) at a time
+    const int simd_end = (volume * 2) & ~7; // Process 4 complex_t numbers (8 doubles) at a time
     
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < simd_end; i += 8) {
-        // Load 4 complex numbers from a and b
+        // Load 4 complex_t numbers from a and b
         __m256d a_vals = _mm256_load_pd(&a_ptr[i]);     // a0_r, a0_i, a1_r, a1_i
         __m256d a_vals2 = _mm256_load_pd(&a_ptr[i+4]);  // a2_r, a2_i, a3_r, a3_i
         __m256d b_vals = _mm256_load_pd(&b_ptr[i]);     // b0_r, b0_i, b1_r, b1_i

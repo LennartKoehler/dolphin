@@ -24,6 +24,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/IBackend.h"
 #include "Image3D.h"
 
+#include <dolphinbackend/DefaultBackendMemoryManager.h>
+
 class IBackend;
 
 class PSFPreprocessor{

@@ -12,6 +12,7 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3") # -rdc=true
 set(CMAKE_CUDA_ARCHITECTURES "86;75") # TODO TESTVALUE
 set(CMAKE_BUILD_TYPE Debug)  # or Debug
 
+option(DOUBLE_PRECISION "Enable double precision" OFF)
 
 find_package(CUDAToolkit 12.8 REQUIRED)
 # Define source files
@@ -26,6 +27,10 @@ set(CUDA_SOURCES
 
 # Create the executable
 add_library(CUBE STATIC ${CPP_SOURCES} ${CUDA_SOURCES})
+
+if(DOUBLE_PRECISION)
+    target_compile_definitions(myapp PRIVATE DOUBLE_PRECISION)
+endif()
 #add_definitions(-DENABLE_CUBE_DEBUG)
 #add_definitions(-DENABLE_CUBEUTL_DEBUG)
 
@@ -37,8 +42,6 @@ target_include_directories(CUBE
 target_link_libraries(CUBE
    PUBLIC
         ${CUDA_CUDA_LIBRARY}
-        CUDA::cufft
-        CUDA::cufftw
         CUDA::cudart_static
 )
 

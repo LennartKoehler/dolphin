@@ -3,7 +3,8 @@ project(dolphinbackend VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(SOURCES
-    src/ComplexData.cpp)
+    src/ComplexData.cpp
+    src/DefaultBackendMemoryManager.cpp)
 
 add_library(dolphinbackend STATIC ${SOURCES})
 

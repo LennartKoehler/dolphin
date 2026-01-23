@@ -242,8 +242,13 @@ CUBE_IS_TOP_LEVEL:STATIC=OFF
 //Value Computed by CMake
 CUBE_SOURCE_DIR:STATIC=/home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube
 
+CUDAToolkit_BIN_DIR:PATH=/usr/local/cuda-13.0/bin
+
 //Path to a file.
 CUDAToolkit_CUPTI_INCLUDE_DIR:PATH=/usr/local/cuda-13.0/targets/x86_64-linux/include
+
+//Path to a program.
+CUDAToolkit_NVCC_EXECUTABLE:FILEPATH=/usr/local/cuda-13.0/bin/nvcc
 
 //Path to a library.
 CUDAToolkit_rt_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/librt.a
@@ -461,6 +466,9 @@ CUDA_nvrtc_static_LIBRARY:FILEPATH=/usr/local/cuda-13.0/targets/x86_64-linux/lib
 //Path to a library.
 CUDA_pcsamplingutil_LIBRARY:FILEPATH=/usr/local/cuda-13.0/targets/x86_64-linux/lib/libpcsamplingutil.so
 
+//Enable double precision
+DOUBLE_PRECISION:BOOL=OFF
+
 //Enable tests
 ENABLE_TESTS:BOOL=ON
 
@@ -474,7 +482,7 @@ cudaBackend_IS_TOP_LEVEL:STATIC=ON
 cudaBackend_SOURCE_DIR:STATIC=/home/lennart-k-hler/projects/dolphin/backends/cuda
 
 //Dependencies for the target
-cuda_backend_LIB_DEPENDS:STATIC=general;CUBE;general;dolphinbackend;
+cuda_backend_LIB_DEPENDS:STATIC=general;CUDA::cufft;general;CUBE;general;dolphinbackend;
 
 
 ########################
@@ -640,8 +648,12 @@ CMAKE_TAPI-ADVANCED:INTERNAL=1
 CMAKE_UNAME:INTERNAL=/usr/bin/uname
 //ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE
 CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: CUDAToolkit_BIN_DIR
+CUDAToolkit_BIN_DIR-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDAToolkit_CUPTI_INCLUDE_DIR
 CUDAToolkit_CUPTI_INCLUDE_DIR-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: CUDAToolkit_NVCC_EXECUTABLE
+CUDAToolkit_NVCC_EXECUTABLE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDAToolkit_rt_LIBRARY
 CUDAToolkit_rt_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_CUDART
@@ -792,4 +804,8 @@ FIND_PACKAGE_MESSAGE_DETAILS_CUDAToolkit:INTERNAL=[/usr/local/cuda-13.0/targets/
 FIND_PACKAGE_MESSAGE_DETAILS_Threads:INTERNAL=[TRUE][v()]
 //linker supports push/pop state
 _CMAKE_LINKER_PUSHPOP_STATE_SUPPORTED:INTERNAL=TRUE
+//CUDAToolkit internal list of implicit link directories
+_cmake_CUDAToolkit_implicit_link_directories:INTERNAL=/usr/local/cuda-13.0/targets/x86_64-linux/lib/stubs;/usr/local/cuda-13.0/targets/x86_64-linux/lib
+//CUDAToolkit internal list of include directories
+_cmake_CUDAToolkit_include_directories:INTERNAL=/usr/local/cuda-13.0/targets/x86_64-linux/include
 

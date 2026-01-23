@@ -8,6 +8,7 @@ set(CMAKE_BUILD_TYPE Debug)
 project(cudaBackend)
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/lib/cube ${CMAKE_BINARY_DIR}/cube/build)
+set(DOUBLE_PRECISION OFF) # explicit
 
 add_library(dolphinbackend STATIC IMPORTED)
 
@@ -18,6 +19,7 @@ set_target_properties(dolphinbackend PROPERTIES
 
 
 
+find_package(CUDAToolkit 12.8 REQUIRED)
 
 add_library(cuda_backend SHARED
     src/CUDABackend.cpp
@@ -36,6 +38,7 @@ target_include_directories(cuda_backend
 
 
 target_link_libraries(cuda_backend PUBLIC 
+    CUDA::cufft
     CUBE
     dolphinbackend
 )

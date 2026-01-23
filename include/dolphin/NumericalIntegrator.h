@@ -24,7 +24,7 @@ public:
                            double a, double b, 
                            double tolerance = 1e-6, int accuracy = 1) = 0;
     
-    // For complex functions: f(x) -> {real, imag}
+    // For complex_t functions: f(x) -> {real, imag}
     virtual double integrateComplex(std::function<std::array<double, 2>(double)> func,
                                   double a, double b,
                                   double tolerance = 1e-6, int accuracy = 1) = 0;

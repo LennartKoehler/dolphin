@@ -93,9 +93,8 @@ cuda_test_EXTERNAL_OBJECTS =
 tests/cuda_test: tests/CMakeFiles/cuda_test.dir/test.cpp.o
 tests/cuda_test: tests/CMakeFiles/cuda_test.dir/build.make
 tests/cuda_test: libcuda_backend.so
-tests/cuda_test: cube/build/libCUBE.a
-tests/cuda_test: /usr/local/cuda-13.0/targets/x86_64-linux/lib/libcufftw.so
 tests/cuda_test: /usr/local/cuda-13.0/targets/x86_64-linux/lib/libcufft.so
+tests/cuda_test: cube/build/libCUBE.a
 tests/cuda_test: /usr/local/cuda-13.0/targets/x86_64-linux/lib/libcudart_static.a
 tests/cuda_test: /usr/lib/x86_64-linux-gnu/librt.a
 tests/cuda_test: /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/lib/libdolphinbackend.a

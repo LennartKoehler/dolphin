@@ -1760,7 +1760,7 @@ template <typename T, typename S = std::istringstream> class is_istreamable {
     static constexpr bool value = decltype(test<T, S>(0))::value;
 };
 
-/// Check for complex
+/// Check for complex_t
 template <typename T> class is_complex {
     template <typename TT>
     static auto test(int) -> decltype(std::declval<TT>().real(), std::declval<TT>().imag(), std::true_type());
@@ -1978,17 +1978,17 @@ struct type_count<T,
     static constexpr int value{1};
 };
 
-/// Type size for complex since it sometimes looks like a wrapper
+/// Type size for complex_t since it sometimes looks like a wrapper
 template <typename T> struct type_count<T, typename std::enable_if<is_complex<T>::value>::type> {
     static constexpr int value{2};
 };
 
-/// Type size of types that are wrappers,except complex and tuples(which can also be wrappers sometimes)
+/// Type size of types that are wrappers,except complex_t and tuples(which can also be wrappers sometimes)
 template <typename T> struct type_count<T, typename std::enable_if<is_mutable_container<T>::value>::type> {
     static constexpr int value{subtype_count<typename T::value_type>::value};
 };
 
-/// Type size of types that are wrappers,except containers complex and tuples(which can also be wrappers sometimes)
+/// Type size of types that are wrappers,except containers complex_t and tuples(which can also be wrappers sometimes)
 template <typename T>
 struct type_count<T,
                   typename std::enable_if<is_wrapper<T>::value && !is_complex<T>::value && !is_tuple_like<T>::value &&
@@ -2032,12 +2032,12 @@ struct type_count_min<
     static constexpr int value{type_count<T>::value};
 };
 
-/// Type size for complex since it sometimes looks like a wrapper
+/// Type size for complex_t since it sometimes looks like a wrapper
 template <typename T> struct type_count_min<T, typename std::enable_if<is_complex<T>::value>::type> {
     static constexpr int value{1};
 };
 
-/// Type size min of types that are wrappers,except complex and tuples(which can also be wrappers sometimes)
+/// Type size min of types that are wrappers,except complex_t and tuples(which can also be wrappers sometimes)
 template <typename T>
 struct type_count_min<
     T,
@@ -2614,7 +2614,7 @@ bool lexical_cast(const std::string &input, T &output) {
     return false;
 }
 
-/// complex
+/// complex_t
 template <typename T,
           enable_if_t<classify_object<T>::value == object_category::complex_number, detail::enabler> = detail::dummy>
 bool lexical_cast(const std::string &input, T &output) {
@@ -2971,7 +2971,7 @@ bool lexical_conversion(const std::vector<std ::string> &strings, AssignTo &outp
     return (!output.empty());
 }
 
-/// Lexical conversion for complex types
+/// Lexical conversion for complex_t types
 template <class AssignTo, class ConvertTo, enable_if_t<is_complex<ConvertTo>::value, detail::enabler> = detail::dummy>
 bool lexical_conversion(const std::vector<std::string> &strings, AssignTo &output) {
 

@@ -16,7 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include <dolphinbackend/IDeconvolutionBackend.h>
 #include <dolphinbackend/IBackendMemoryManager.h>
 #include <dolphinbackend/Exceptions.h>
-#include <cufftw.h>
+#include <cufft.h>
 #include <CUBE.h>
 #include <cuda_runtime.h>
 #include <map>
@@ -122,28 +122,26 @@ public:
 
     // Shift functions
     void octantFourierShift(ComplexData& data) const override;
-    void inverseQuadrantShift(ComplexData& data) const override;
 
     // Complex arithmetic functions
     void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
-    void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const override;
+    void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
     void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
-    void scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) const override;
+    void scalarMultiplication(const ComplexData& a, complex_t  scalar, ComplexData& result) const override;
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
-    void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const override;
+    void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
 
     // Specialized functions
     void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const override;
-    void normalizeImage(ComplexData& resultImage, double epsilon) const override;
-    void rescaledInverse(ComplexData& data, double cubeVolume) const override;
+
     // void saveInterimImages(const ComplexData& resultImage, int gridNum, int channel_z, int i) const override;
 
     // Gradient and TV functions
     void gradientX(const ComplexData& image, ComplexData& gradX) const override;
     void gradientY(const ComplexData& image, ComplexData& gradY) const override;
     void gradientZ(const ComplexData& image, ComplexData& gradZ) const override;
-    void computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const override;
-    void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) const override;
+    void computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const override;
+    void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const override;
 
     // Layer and visualization functions
     // void reorderLayers(ComplexData& data) override;

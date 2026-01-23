@@ -237,7 +237,7 @@ bool TiffWriter::saveToFile(const std::string& filename, int z, int depth, const
     // TIFFClose(tif);
     writtenToDepth = z + depth;
 
-    std::cout << "[INFO] Successfully saved TIFF file: " << filename << std::endl;
+    std::cout << "[INFO] Successfully saved ImageFileDirectory (" << filename << "): " << z << " - " << z + depth << std::endl;
     return true;
 }
 
@@ -384,15 +384,13 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) 
     
 
     // Write each slice as a separate directory in the TIFF file
-    for (int zIndex = 0; zIndex < imageShape.depth; ++zIndex) {
+    for (int zIndex = 0; zIndex < imageShape.depth - 1; ++zIndex) {
         TiffWriter::writeSliceToTiff(tif, image, zIndex);
         // Set directory for next slice (except for the last one)
-        if (zIndex < imageShape.depth - 1) {
-            if (!TIFFWriteDirectory(tif)) {
-                TIFFClose(tif);
-                std::cerr << "[ERROR] Failed to set directory for slice " << zIndex << std::endl;
-                return false;
-            }
+        if (!TIFFWriteDirectory(tif)) {
+            TIFFClose(tif);
+            std::cerr << "[ERROR] Failed to set directory for slice " << zIndex << std::endl;
+            return false;
         }
     }
     

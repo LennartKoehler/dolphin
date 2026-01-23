@@ -3,7 +3,10 @@
 
 cube/build/CMakeFiles/CUBE.dir/src/kernels/global.cu.o
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/src/kernels/global.cu
+ /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/CUBE.h
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/kernels.h
+ /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/operations.h
+ /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/utl.h
  /usr/include/alloca.h
  /usr/include/asm-generic/errno-base.h
  /usr/include/asm-generic/errno.h
@@ -239,12 +242,9 @@ cube/build/CMakeFiles/CUBE.dir/src/kernels/global.cu.o
  /usr/local/cuda/include/crt/sm_80_rt.hpp
  /usr/local/cuda/include/crt/sm_90_rt.h
  /usr/local/cuda/include/crt/sm_90_rt.hpp
- /usr/local/cuda/include/cuComplex.h
  /usr/local/cuda/include/cuda_device_runtime_api.h
  /usr/local/cuda/include/cuda_runtime.h
  /usr/local/cuda/include/cuda_runtime_api.h
- /usr/local/cuda/include/cufft.h
- /usr/local/cuda/include/cufftw.h
  /usr/local/cuda/include/device_atomic_functions.h
  /usr/local/cuda/include/device_atomic_functions.hpp
  /usr/local/cuda/include/device_launch_parameters.h
@@ -278,8 +278,10 @@ cube/build/CMakeFiles/CUBE.dir/src/kernels/global.cu.o
 
 cube/build/CMakeFiles/CUBE.dir/src/operations.cu.o
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/src/operations.cu
+ /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/CUBE.h
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/kernels.h
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/operations.h
+ /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/utl.h
  /usr/include/alloca.h
  /usr/include/asm-generic/errno-base.h
  /usr/include/asm-generic/errno.h
@@ -531,12 +533,9 @@ cube/build/CMakeFiles/CUBE.dir/src/operations.cu.o
  /usr/local/cuda/include/crt/sm_80_rt.hpp
  /usr/local/cuda/include/crt/sm_90_rt.h
  /usr/local/cuda/include/crt/sm_90_rt.hpp
- /usr/local/cuda/include/cuComplex.h
  /usr/local/cuda/include/cuda_device_runtime_api.h
  /usr/local/cuda/include/cuda_runtime.h
  /usr/local/cuda/include/cuda_runtime_api.h
- /usr/local/cuda/include/cufft.h
- /usr/local/cuda/include/cufftw.h
  /usr/local/cuda/include/device_atomic_functions.h
  /usr/local/cuda/include/device_atomic_functions.hpp
  /usr/local/cuda/include/device_launch_parameters.h
@@ -570,7 +569,9 @@ cube/build/CMakeFiles/CUBE.dir/src/operations.cu.o
 
 cube/build/CMakeFiles/CUBE.dir/src/utl.cu.o
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/src/utl.cu
+ /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/CUBE.h
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/kernels.h
+ /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/operations.h
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/utl.h
  /usr/include/alloca.h
  /usr/include/asm-generic/errno-base.h
@@ -808,12 +809,9 @@ cube/build/CMakeFiles/CUBE.dir/src/utl.cu.o
  /usr/local/cuda/include/crt/sm_80_rt.hpp
  /usr/local/cuda/include/crt/sm_90_rt.h
  /usr/local/cuda/include/crt/sm_90_rt.hpp
- /usr/local/cuda/include/cuComplex.h
  /usr/local/cuda/include/cuda_device_runtime_api.h
  /usr/local/cuda/include/cuda_runtime.h
  /usr/local/cuda/include/cuda_runtime_api.h
- /usr/local/cuda/include/cufft.h
- /usr/local/cuda/include/cufftw.h
  /usr/local/cuda/include/device_atomic_functions.h
  /usr/local/cuda/include/device_atomic_functions.hpp
  /usr/local/cuda/include/device_launch_parameters.h

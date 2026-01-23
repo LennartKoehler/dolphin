@@ -324,7 +324,6 @@ tests/CMakeFiles/cuda_test.dir/test.cpp.o: /home/lennart-k-hler/projects/dolphin
   /usr/local/cuda/include/cuda_runtime.h \
   /usr/local/cuda/include/cuda_runtime_api.h \
   /usr/local/cuda/include/cufft.h \
-  /usr/local/cuda/include/cufftw.h \
   /usr/local/cuda/include/device_types.h \
   /usr/local/cuda/include/driver_functions.h \
   /usr/local/cuda/include/driver_types.h \
@@ -345,8 +344,6 @@ tests/CMakeFiles/cuda_test.dir/test.cpp.o: /home/lennart-k-hler/projects/dolphin
 /usr/local/cuda/include/driver_functions.h:
 
 /usr/local/cuda/include/device_types.h:
-
-/usr/local/cuda/include/cufftw.h:
 
 /usr/local/cuda/include/cufft.h:
 

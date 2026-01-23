@@ -343,7 +343,6 @@ CMakeFiles/cuda_backend.dir/src/CUDABackend.cpp.o: /home/lennart-k-hler/projects
   /usr/local/cuda/include/cuda_runtime.h \
   /usr/local/cuda/include/cuda_runtime_api.h \
   /usr/local/cuda/include/cufft.h \
-  /usr/local/cuda/include/cufftw.h \
   /usr/local/cuda/include/device_types.h \
   /usr/local/cuda/include/driver_functions.h \
   /usr/local/cuda/include/driver_types.h \
@@ -692,7 +691,6 @@ CMakeFiles/cuda_backend.dir/src/CUDABackendManager.cpp.o: /home/lennart-k-hler/p
   /usr/local/cuda/include/cuda_runtime.h \
   /usr/local/cuda/include/cuda_runtime_api.h \
   /usr/local/cuda/include/cufft.h \
-  /usr/local/cuda/include/cufftw.h \
   /usr/local/cuda/include/device_types.h \
   /usr/local/cuda/include/driver_functions.h \
   /usr/local/cuda/include/driver_types.h \
@@ -711,8 +709,6 @@ CMakeFiles/cuda_backend.dir/src/CUDABackendManager.cpp.o: /home/lennart-k-hler/p
 /usr/local/cuda/include/driver_functions.h:
 
 /usr/local/cuda/include/device_types.h:
-
-/usr/local/cuda/include/cufftw.h:
 
 /usr/local/cuda/include/cufft.h:
 

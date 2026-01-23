@@ -51,7 +51,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
         std::cerr << "[ERROR] Regularized Inverse Filter algorithm not initialized. Call init() first." << std::endl;
         return;
     }
-
+    complex_t lambdacomplex = {static_cast<real_t>(lambda), 0};
     // Use pre-allocated memory for intermediate arrays
     assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
 
@@ -65,7 +65,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     // Laplacian L
     backend->getDeconvManager().calculateLaplacianOfPSF(H, L);
     backend->getDeconvManager().complexMultiplication(L, L, L2);
-    backend->getDeconvManager().scalarMultiplication(L2, lambda, L2);
+    backend->getDeconvManager().scalarMultiplication(L2, lambdacomplex, L2);
 
     backend->getDeconvManager().complexAddition(H2, L2, FA);
     backend->getDeconvManager().complexDivisionStabilized(H, FA, FP, complexDivisionEpsilon);

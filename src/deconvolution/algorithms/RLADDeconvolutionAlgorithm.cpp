@@ -50,7 +50,7 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g
         std::cerr << "[ERROR] RLAD algorithm not initialized. Call init() first." << std::endl;
         return;
     }
-
+    
     // Use pre-allocated memory for intermediate arrays
     assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
     backend->getMemoryManager().memCopy(g, f);
@@ -64,6 +64,7 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g
             a = alpha - beta * n;
         }
 
+        complex_t acomplex = {static_cast<real_t>(a), 0};
 
         // a) First transformation: Fn = FFT(fn)
         backend->getDeconvManager().forwardFFT(f, f);
@@ -90,7 +91,7 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g
         backend->getDeconvManager().backwardFFT(f, f);
 
         // Apply adaptive damping: c = c * a
-        backend->getDeconvManager().scalarMultiplication(c, a, c);
+        backend->getDeconvManager().scalarMultiplication(c, acomplex, c);
 
         // fn+1' = fn * c
         backend->getDeconvManager().complexMultiplication(f, c, f);

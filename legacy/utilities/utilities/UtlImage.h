@@ -26,6 +26,6 @@ namespace UtlImage {
     // // normalize an image that all values sum equal 1
     // void normalizeToSumOne(std::vector<cv::Mat>& psf);
     // checks for valid float(32) value (overlfloat protection)
-    bool isValidForFloat(complex* fftwData, size_t size);
+    bool isValidForFloat(complex_t* fftwData, size_t size);
 
     }

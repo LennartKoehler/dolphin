@@ -284,7 +284,7 @@ public:
 
 
     
-    // Overloaded version for CPU: simply return the original since CPU doesn't need complex thread management
+    // Overloaded version for CPU: simply return the original since CPU doesn't need complex_t thread management
     std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const override {
         return original;
     }

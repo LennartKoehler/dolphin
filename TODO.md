@@ -1,3 +1,7 @@
+in the deconvolutionalgorithms, is the scalar multiplication supposed to be for real numbers? which multiplication is this?
+
+work on labeled deconvolution, make faster
+
 cna i somehow make the memory used for the workerbackend in a fixed position and pinned, e.g. for cuda i can always reuse the same location to load data into (or 2 locations if 2 iothreads). Is there a speedup of memory reading writing that this would get?
 
 make channels 0 based or 1 based

@@ -89,7 +89,9 @@ void testOpenMPBackendFunctionality() {
         }
         
         std::cout << "Testing scalar multiplication..." << std::endl;
-        openmpBackend->scalarMultiplication(testData, 2.5, resultData);
+
+        complex_t scalar = {2.5, 0};
+        openmpBackend->scalarMultiplication(testData, scalar, resultData);
         
         // Verify scalar multiplication result
         bool scalarTestPassed = true;
@@ -108,10 +110,10 @@ void testOpenMPBackendFunctionality() {
             std::cout << "Scalar multiplication test FAILED" << std::endl;
         }
         
-        std::cout << "Testing complex addition..." << std::endl;
+        std::cout << "Testing complex_t addition..." << std::endl;
         openmpBackend->complexAddition(testData, testData, resultData);
         
-        // Verify complex addition result (should be 2x original)
+        // Verify complex_t addition result (should be 2x original)
         bool additionTestPassed = true;
         for (int i = 0; i < testShape.volume; ++i) {
             double expected = 2.0 * (static_cast<double>(i % 100) / 100.0);
@@ -133,7 +135,7 @@ void testOpenMPBackendFunctionality() {
         auto fftData = openmpMemManager->allocateMemoryOnDevice(testShape);
         
         // Copy test data to FFT data
-        std::memcpy(fftData.data, testData.data, testShape.volume * sizeof(complex));
+        std::memcpy(fftData.data, testData.data, testShape.volume * sizeof(complex_t));
         
         // Test forward FFT
         openmpBackend->forwardFFT(fftData, resultData);
@@ -218,7 +220,7 @@ void testOpenMPBackendPerformance() {
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
             std::cout << "FFT operations took: " << duration.count() << " ms" << std::endl;
             
-            // Test complex arithmetic performance
+            // Test complex_t arithmetic performance
             start = std::chrono::high_resolution_clock::now();
             openmpBackend->complexMultiplication(testData, testData, resultData);
             end = std::chrono::high_resolution_clock::now();
