@@ -17,7 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include "psf/configs/PSFConfig.h"
 #include "psf/generators/BasePSFGenerator.h"
 #include "frontend/SetupConfig.h"
-#include "../lib/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
 

@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/lennart-koehler/projects/dolphin/frontends/cli
+CMAKE_SOURCE_DIR = /home/lennart-k-hler/projects/dolphin/frontends/cli
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/lennart-koehler/projects/dolphin/frontends/cli/build
+CMAKE_BINARY_DIR = /home/lennart-k-hler/projects/dolphin/frontends/cli/build
 
 # Include any dependencies generated for this target.
 include CMakeFiles/dolphin_cli.dir/depend.make
@@ -70,32 +70,32 @@ include CMakeFiles/dolphin_cli.dir/progress.make
 include CMakeFiles/dolphin_cli.dir/flags.make
 
 CMakeFiles/dolphin_cli.dir/src/main.cpp.o: CMakeFiles/dolphin_cli.dir/flags.make
-CMakeFiles/dolphin_cli.dir/src/main.cpp.o: /home/lennart-koehler/projects/dolphin/frontends/cli/src/main.cpp
+CMakeFiles/dolphin_cli.dir/src/main.cpp.o: /home/lennart-k-hler/projects/dolphin/frontends/cli/src/main.cpp
 CMakeFiles/dolphin_cli.dir/src/main.cpp.o: CMakeFiles/dolphin_cli.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lennart-koehler/projects/dolphin/frontends/cli/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/dolphin_cli.dir/src/main.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/dolphin_cli.dir/src/main.cpp.o -MF CMakeFiles/dolphin_cli.dir/src/main.cpp.o.d -o CMakeFiles/dolphin_cli.dir/src/main.cpp.o -c /home/lennart-koehler/projects/dolphin/frontends/cli/src/main.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lennart-k-hler/projects/dolphin/frontends/cli/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/dolphin_cli.dir/src/main.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/dolphin_cli.dir/src/main.cpp.o -MF CMakeFiles/dolphin_cli.dir/src/main.cpp.o.d -o CMakeFiles/dolphin_cli.dir/src/main.cpp.o -c /home/lennart-k-hler/projects/dolphin/frontends/cli/src/main.cpp
 
 CMakeFiles/dolphin_cli.dir/src/main.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/dolphin_cli.dir/src/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lennart-koehler/projects/dolphin/frontends/cli/src/main.cpp > CMakeFiles/dolphin_cli.dir/src/main.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lennart-k-hler/projects/dolphin/frontends/cli/src/main.cpp > CMakeFiles/dolphin_cli.dir/src/main.cpp.i
 
 CMakeFiles/dolphin_cli.dir/src/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/dolphin_cli.dir/src/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lennart-koehler/projects/dolphin/frontends/cli/src/main.cpp -o CMakeFiles/dolphin_cli.dir/src/main.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lennart-k-hler/projects/dolphin/frontends/cli/src/main.cpp -o CMakeFiles/dolphin_cli.dir/src/main.cpp.s
 
 CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o: CMakeFiles/dolphin_cli.dir/flags.make
-CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o: /home/lennart-koehler/projects/dolphin/frontends/cli/src/CLIFrontend.cpp
+CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o: /home/lennart-k-hler/projects/dolphin/frontends/cli/src/CLIFrontend.cpp
 CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o: CMakeFiles/dolphin_cli.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lennart-koehler/projects/dolphin/frontends/cli/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o -MF CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o.d -o CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o -c /home/lennart-koehler/projects/dolphin/frontends/cli/src/CLIFrontend.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lennart-k-hler/projects/dolphin/frontends/cli/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o -MF CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o.d -o CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o -c /home/lennart-k-hler/projects/dolphin/frontends/cli/src/CLIFrontend.cpp
 
 CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lennart-koehler/projects/dolphin/frontends/cli/src/CLIFrontend.cpp > CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lennart-k-hler/projects/dolphin/frontends/cli/src/CLIFrontend.cpp > CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.i
 
 CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lennart-koehler/projects/dolphin/frontends/cli/src/CLIFrontend.cpp -o CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lennart-k-hler/projects/dolphin/frontends/cli/src/CLIFrontend.cpp -o CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.s
 
 # Object files for target dolphin_cli
 dolphin_cli_OBJECTS = \
@@ -108,120 +108,116 @@ dolphin_cli_EXTERNAL_OBJECTS =
 dolphin_cli: CMakeFiles/dolphin_cli.dir/src/main.cpp.o
 dolphin_cli: CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o
 dolphin_cli: CMakeFiles/dolphin_cli.dir/build.make
-dolphin_cli: /usr/local/lib/libdolphin.so.1.0.0
-dolphin_cli: /usr/local/lib/libbackendlib.a
-dolphin_cli: /usr/lib/x86_64-linux-gnu/libtiff.so
-dolphin_cli: /usr/lib/gcc/x86_64-linux-gnu/13/libgomp.so
-dolphin_cli: /usr/lib/x86_64-linux-gnu/libpthread.a
-dolphin_cli: /usr/local/lib/libITKLabelMap-5.4.a
-dolphin_cli: /usr/local/lib/libITKFastMarching-5.4.a
-dolphin_cli: /usr/local/lib/libITKConvolution-5.4.a
-dolphin_cli: /usr/local/lib/libITKPolynomials-5.4.a
-dolphin_cli: /usr/local/lib/libITKBiasCorrection-5.4.a
-dolphin_cli: /usr/local/lib/libITKColormap-5.4.a
-dolphin_cli: /usr/local/lib/libITKDICOMParser-5.4.a
-dolphin_cli: /usr/local/lib/libITKDeformableMesh-5.4.a
-dolphin_cli: /usr/local/lib/libITKDenoising-5.4.a
-dolphin_cli: /usr/local/lib/libITKDiffusionTensorImage-5.4.a
-dolphin_cli: /usr/local/lib/libITKPDEDeformableRegistration-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOBioRad-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOBruker-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOCSV-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOGE-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOHDF5-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOJPEG2000-5.4.a
-dolphin_cli: /usr/local/lib/libitkopenjpeg-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOLSM-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOMINC-5.4.a
-dolphin_cli: /usr/local/lib/libitkminc2-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOMRC-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOSiemens-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOIPL-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOSpatialObjects-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOXML-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOStimulate-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOTransformHDF5-5.4.a
-dolphin_cli: /usr/local/lib/libitkhdf5_cpp-static-5.4.a
-dolphin_cli: /usr/local/lib/libitkhdf5_hl-static-5.4.a
-dolphin_cli: /usr/local/lib/libitkhdf5-static-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOTransformInsightLegacy-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOTransformMatlab-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOTransformBase-5.4.a
-dolphin_cli: /usr/local/lib/libITKTransformFactory-5.4.a
-dolphin_cli: /usr/local/lib/libITKKLMRegionGrowing-5.4.a
-dolphin_cli: /usr/local/lib/libITKMarkovRandomFieldsClassifiers-5.4.a
-dolphin_cli: /usr/local/lib/libITKQuadEdgeMeshFiltering-5.4.a
-dolphin_cli: /usr/local/lib/libITKRegionGrowing-5.4.a
-dolphin_cli: /usr/local/lib/libITKRegistrationMethodsv4-5.4.a
-dolphin_cli: /usr/local/lib/libITKImageFeature-5.4.a
-dolphin_cli: /usr/local/lib/libITKOptimizersv4-5.4.a
-dolphin_cli: /usr/local/lib/libITKOptimizers-5.4.a
-dolphin_cli: /usr/local/lib/libitklbfgs-5.4.a
-dolphin_cli: /usr/local/lib/libITKTestKernel-5.4.a
-dolphin_cli: /usr/local/lib/libITKFFT-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOBMP-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOGDCM-5.4.a
-dolphin_cli: /usr/local/lib/libitkgdcmMSFF-5.4.a
-dolphin_cli: /usr/local/lib/libitkgdcmDICT-5.4.a
-dolphin_cli: /usr/local/lib/libitkgdcmIOD-5.4.a
-dolphin_cli: /usr/local/lib/libitkgdcmDSED-5.4.a
-dolphin_cli: /usr/local/lib/libitkgdcmCommon-5.4.a
-dolphin_cli: /usr/local/lib/libitkgdcmjpeg8-5.4.a
-dolphin_cli: /usr/local/lib/libitkgdcmjpeg12-5.4.a
-dolphin_cli: /usr/local/lib/libitkgdcmjpeg16-5.4.a
-dolphin_cli: /usr/local/lib/libitkgdcmopenjp2-5.4.a
-dolphin_cli: /usr/local/lib/libitkgdcmcharls-5.4.a
-dolphin_cli: /usr/local/lib/libitkgdcmuuid-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOGIPL-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOJPEG-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOTIFF-5.4.a
-dolphin_cli: /usr/local/lib/libitktiff-5.4.a
-dolphin_cli: /usr/local/lib/libitkjpeg-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOMeshBYU-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOMeshFreeSurfer-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOMeshGifti-5.4.a
-dolphin_cli: /usr/local/lib/libITKgiftiio-5.4.a
-dolphin_cli: /usr/local/lib/libITKEXPAT-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOMeshOBJ-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOMeshOFF-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOMeshVTK-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOMeshBase-5.4.a
-dolphin_cli: /usr/local/lib/libITKQuadEdgeMesh-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOMeta-5.4.a
-dolphin_cli: /usr/local/lib/libITKMetaIO-5.4.a
-dolphin_cli: /usr/local/lib/libITKIONIFTI-5.4.a
-dolphin_cli: /usr/local/lib/libITKniftiio-5.4.a
-dolphin_cli: /usr/local/lib/libITKznz-5.4.a
+dolphin_cli: /usr/local/lib/libdolphin.a
+dolphin_cli: /usr/local/lib/libtiff.a
+dolphin_cli: /usr/local/lib/libITKTestKernel-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOBMP-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOGDCM-6.0.a
+dolphin_cli: /usr/local/lib/libitkgdcmMSFF-6.0.a
+dolphin_cli: /usr/local/lib/libitkgdcmDICT-6.0.a
+dolphin_cli: /usr/local/lib/libitkgdcmIOD-6.0.a
+dolphin_cli: /usr/local/lib/libitkgdcmDSED-6.0.a
+dolphin_cli: /usr/local/lib/libitkgdcmCommon-6.0.a
+dolphin_cli: /usr/local/lib/libitkgdcmjpeg8-6.0.a
+dolphin_cli: /usr/local/lib/libitkgdcmjpeg12-6.0.a
+dolphin_cli: /usr/local/lib/libitkgdcmjpeg16-6.0.a
+dolphin_cli: /usr/local/lib/libitkgdcmcharls-6.0.a
+dolphin_cli: /usr/local/lib/libitkgdcmuuid-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOGIPL-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOJPEG-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOMeshBYU-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOMeshFreeSurfer-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOMeshGifti-6.0.a
+dolphin_cli: /usr/local/lib/libITKgiftiio-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOMeshOBJ-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOMeshOFF-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOMeshVTK-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOMeshBase-6.0.a
+dolphin_cli: /usr/local/lib/libITKQuadEdgeMesh-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOMeta-6.0.a
+dolphin_cli: /usr/local/lib/libITKMetaIO-6.0.a
+dolphin_cli: /usr/local/lib/libITKIONIFTI-6.0.a
+dolphin_cli: /usr/local/lib/libITKniftiio-6.0.a
+dolphin_cli: /usr/local/lib/libITKznz-6.0.a
+dolphin_cli: /usr/local/lib/libITKIONRRD-6.0.a
+dolphin_cli: /usr/local/lib/libITKNrrdIO-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOPNG-6.0.a
+dolphin_cli: /usr/local/lib/libitkpng-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOVTK-6.0.a
+dolphin_cli: /usr/local/lib/libITKLabelMap-6.0.a
+dolphin_cli: /usr/local/lib/libITKFastMarching-6.0.a
+dolphin_cli: /usr/local/lib/libITKConvolution-6.0.a
+dolphin_cli: /usr/local/lib/libITKFFT-6.0.a
+dolphin_cli: /usr/local/lib/libITKPolynomials-6.0.a
+dolphin_cli: /usr/local/lib/libITKBiasCorrection-6.0.a
+dolphin_cli: /usr/local/lib/libITKColormap-6.0.a
+dolphin_cli: /usr/local/lib/libITKDICOMParser-6.0.a
+dolphin_cli: /usr/local/lib/libITKDeformableMesh-6.0.a
+dolphin_cli: /usr/local/lib/libITKDenoising-6.0.a
+dolphin_cli: /usr/local/lib/libITKDiffusionTensorImage-6.0.a
+dolphin_cli: /usr/local/lib/libITKPDEDeformableRegistration-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOBioRad-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOBruker-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOCSV-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOGE-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOSiemens-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOIPL-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOHDF5-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOJPEG2000-6.0.a
+dolphin_cli: /usr/local/lib/libitkopenjpeg-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOLSM-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOTIFF-6.0.a
+dolphin_cli: /usr/local/lib/libitktiff-6.0.a
+dolphin_cli: /usr/local/lib/libitkjpeg-6.0.a
 dolphin_cli: /usr/lib/x86_64-linux-gnu/libm.so
-dolphin_cli: /usr/local/lib/libITKIONRRD-5.4.a
-dolphin_cli: /usr/local/lib/libITKNrrdIO-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOPNG-5.4.a
-dolphin_cli: /usr/local/lib/libitkpng-5.4.a
-dolphin_cli: /usr/local/lib/libitkzlib-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOVTK-5.4.a
-dolphin_cli: /usr/local/lib/libITKVTK-5.4.a
-dolphin_cli: /usr/local/lib/libITKVideoIO-5.4.a
-dolphin_cli: /usr/local/lib/libITKIOImageBase-5.4.a
-dolphin_cli: /usr/local/lib/libITKVideoCore-5.4.a
-dolphin_cli: /usr/local/lib/libITKWatersheds-5.4.a
-dolphin_cli: /usr/local/lib/libITKMathematicalMorphology-5.4.a
-dolphin_cli: /usr/local/lib/libITKStatistics-5.4.a
-dolphin_cli: /usr/local/lib/libitkNetlibSlatec-5.4.a
-dolphin_cli: /usr/local/lib/libITKSpatialObjects-5.4.a
-dolphin_cli: /usr/local/lib/libITKMesh-5.4.a
-dolphin_cli: /usr/local/lib/libITKTransform-5.4.a
-dolphin_cli: /usr/local/lib/libITKPath-5.4.a
-dolphin_cli: /usr/local/lib/libITKCommon-5.4.a
-dolphin_cli: /usr/local/lib/libitkdouble-conversion-5.4.a
-dolphin_cli: /usr/local/lib/libitksys-5.4.a
-dolphin_cli: /usr/local/lib/libITKVNLInstantiation-5.4.a
-dolphin_cli: /usr/local/lib/libitkvnl_algo-5.4.a
-dolphin_cli: /usr/local/lib/libitkvnl-5.4.a
-dolphin_cli: /usr/local/lib/libitkv3p_netlib-5.4.a
-dolphin_cli: /usr/local/lib/libitkvcl-5.4.a
-dolphin_cli: /usr/local/lib/libITKSmoothing-5.4.a
+dolphin_cli: /usr/local/lib/libITKIOMINC-6.0.a
+dolphin_cli: /usr/local/lib/libitkminc2-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOMRC-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOSpatialObjects-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOXML-6.0.a
+dolphin_cli: /usr/local/lib/libITKEXPAT-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOStimulate-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOTransformHDF5-6.0.a
+dolphin_cli: /usr/local/lib/libitkhdf5_cpp.a
+dolphin_cli: /usr/local/lib/libitkhdf5_hl_cpp.a
+dolphin_cli: /usr/local/lib/libitkhdf5_hl.a
+dolphin_cli: /usr/local/lib/libitkhdf5.a
+dolphin_cli: /usr/local/lib/libitkzlib-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOTransformInsightLegacy-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOTransformMatlab-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOTransformBase-6.0.a
+dolphin_cli: /usr/local/lib/libITKTransformFactory-6.0.a
+dolphin_cli: /usr/local/lib/libITKKLMRegionGrowing-6.0.a
+dolphin_cli: /usr/local/lib/libITKMarkovRandomFieldsClassifiers-6.0.a
+dolphin_cli: /usr/local/lib/libITKQuadEdgeMeshFiltering-6.0.a
+dolphin_cli: /usr/local/lib/libITKRegionGrowing-6.0.a
+dolphin_cli: /usr/local/lib/libITKVTK-6.0.a
+dolphin_cli: /usr/local/lib/libITKWatersheds-6.0.a
+dolphin_cli: /usr/local/lib/libITKMathematicalMorphology-6.0.a
+dolphin_cli: /usr/local/lib/libITKRegistrationMethodsv4-6.0.a
+dolphin_cli: /usr/local/lib/libITKPath-6.0.a
+dolphin_cli: /usr/local/lib/libITKImageFeature-6.0.a
+dolphin_cli: /usr/local/lib/libITKSpatialObjects-6.0.a
+dolphin_cli: /usr/local/lib/libITKMesh-6.0.a
+dolphin_cli: /usr/local/lib/libITKTransform-6.0.a
+dolphin_cli: /usr/local/lib/libITKSmoothing-6.0.a
+dolphin_cli: /usr/local/lib/libITKOptimizersv4-6.0.a
+dolphin_cli: /usr/local/lib/libITKOptimizers-6.0.a
+dolphin_cli: /usr/local/lib/libITKStatistics-6.0.a
+dolphin_cli: /usr/local/lib/libitkNetlibSlatec-6.0.a
+dolphin_cli: /usr/local/lib/libitklbfgs-6.0.a
+dolphin_cli: /usr/local/lib/libITKVideoIO-6.0.a
+dolphin_cli: /usr/local/lib/libITKIOImageBase-6.0.a
+dolphin_cli: /usr/local/lib/libITKVideoCore-6.0.a
+dolphin_cli: /usr/local/lib/libITKCommon-6.0.a
+dolphin_cli: /usr/local/lib/libitkdouble-conversion-6.0.a
+dolphin_cli: /usr/local/lib/libitksys-6.0.a
+dolphin_cli: /usr/local/lib/libitkvnl_algo-6.0.a
+dolphin_cli: /usr/local/lib/libitkvnl-6.0.a
+dolphin_cli: /usr/local/lib/libitkv3p_netlib-6.0.a
+dolphin_cli: /usr/local/lib/libitkvcl-6.0.a
 dolphin_cli: CMakeFiles/dolphin_cli.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/lennart-koehler/projects/dolphin/frontends/cli/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable dolphin_cli"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/lennart-k-hler/projects/dolphin/frontends/cli/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable dolphin_cli"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/dolphin_cli.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -233,6 +229,6 @@ CMakeFiles/dolphin_cli.dir/clean:
 .PHONY : CMakeFiles/dolphin_cli.dir/clean
 
 CMakeFiles/dolphin_cli.dir/depend:
-	cd /home/lennart-koehler/projects/dolphin/frontends/cli/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/lennart-koehler/projects/dolphin/frontends/cli /home/lennart-koehler/projects/dolphin/frontends/cli /home/lennart-koehler/projects/dolphin/frontends/cli/build /home/lennart-koehler/projects/dolphin/frontends/cli/build /home/lennart-koehler/projects/dolphin/frontends/cli/build/CMakeFiles/dolphin_cli.dir/DependInfo.cmake "--color=$(COLOR)"
+	cd /home/lennart-k-hler/projects/dolphin/frontends/cli/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/lennart-k-hler/projects/dolphin/frontends/cli /home/lennart-k-hler/projects/dolphin/frontends/cli /home/lennart-k-hler/projects/dolphin/frontends/cli/build /home/lennart-k-hler/projects/dolphin/frontends/cli/build /home/lennart-k-hler/projects/dolphin/frontends/cli/build/CMakeFiles/dolphin_cli.dir/DependInfo.cmake "--color=$(COLOR)"
 .PHONY : CMakeFiles/dolphin_cli.dir/depend
 
