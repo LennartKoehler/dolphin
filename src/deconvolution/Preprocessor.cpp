@@ -17,7 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include "itkMirrorPadImageFilter.h"
 #include "itkRegionOfInterestImageFilter.h"
 #include "itkImageDuplicator.h"
-#include "backend/DefaultBackendMemoryManager.h"
+
 
 ComplexData Preprocessor::convertImageToComplexData(
     const Image3D& input) {
@@ -33,7 +33,7 @@ ComplexData Preprocessor::convertImageToComplexData(
     int index = 0;
     for (const auto& it : input) {
         
-        result.data[index][0] = static_cast<double>(it);
+        result.data[index][0] = static_cast<real_t>(it);
         result.data[index][1] = 0.0;
         index ++;
     }
@@ -50,11 +50,11 @@ Image3D Preprocessor::convertComplexDataToImage(
 
     Image3D output(RectangleShape(width, height, depth));
 
-    const auto* in = input.data;
+    const complex_t* in = input.data;
     int index = 0;
     for (auto& it : output) {
-        double real = in[index][0];
-        double imag = in[index][1];
+        real_t real = in[index][0];
+        real_t imag = in[index][1];
         it = static_cast<float>(std::sqrt(real * real + imag * imag));
         index ++;
 

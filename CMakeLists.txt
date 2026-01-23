@@ -61,7 +61,6 @@ set(DOLPHIN_SOURCES
     src/DeconvolutionStrategyFactory.cpp
     src/ThreadPool.cpp
 
-    src/backend/DefaultBackendMemoryManager.cpp
     src/backend/BackendFactory.cpp
     
     src/image/Image3D.cpp

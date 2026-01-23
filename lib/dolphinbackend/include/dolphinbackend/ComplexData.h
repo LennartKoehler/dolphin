@@ -18,18 +18,19 @@ See the LICENSE file provided with the code for the full license.
 
 class IBackendMemoryManager;
 
-typedef double complex[2];
+typedef float real_t;
+typedef real_t complex_t[2];
 
 
 class ComplexData{
 public:
-    complex* data;
+    complex_t* data;
     RectangleShape size;
     const IBackendMemoryManager* backend;
 
     // Take ownership of pre-allocated memory
     ComplexData() = default;
-    ComplexData(const IBackendMemoryManager* b, complex* data, RectangleShape size);
+    ComplexData(const IBackendMemoryManager* b, complex_t* data, RectangleShape size);
     ~ComplexData();
     ComplexData(const ComplexData& other);
     ComplexData& operator=(const ComplexData& other);

@@ -81,12 +81,12 @@ clean: CMakeFiles/dolphinbackend.dir/clean
 CMakeFiles/dolphinbackend.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphinbackend.dir/build.make CMakeFiles/dolphinbackend.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphinbackend.dir/build.make CMakeFiles/dolphinbackend.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/build/CMakeFiles --progress-num=1,2 "Built target dolphinbackend"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/build/CMakeFiles --progress-num=1,2,3 "Built target dolphinbackend"
 .PHONY : CMakeFiles/dolphinbackend.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/dolphinbackend.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/build/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/build/CMakeFiles 3
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/dolphinbackend.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/build/CMakeFiles 0
 .PHONY : CMakeFiles/dolphinbackend.dir/rule

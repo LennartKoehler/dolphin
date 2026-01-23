@@ -108,10 +108,9 @@ cuda_backend_EXTERNAL_OBJECTS =
 libcuda_backend.so: CMakeFiles/cuda_backend.dir/src/CUDABackend.cpp.o
 libcuda_backend.so: CMakeFiles/cuda_backend.dir/src/CUDABackendManager.cpp.o
 libcuda_backend.so: CMakeFiles/cuda_backend.dir/build.make
+libcuda_backend.so: /usr/local/cuda-13.0/targets/x86_64-linux/lib/libcufft.so
 libcuda_backend.so: cube/build/libCUBE.a
 libcuda_backend.so: /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/lib/libdolphinbackend.a
-libcuda_backend.so: /usr/local/cuda-13.0/targets/x86_64-linux/lib/libcufftw.so
-libcuda_backend.so: /usr/local/cuda-13.0/targets/x86_64-linux/lib/libcufft.so
 libcuda_backend.so: /usr/local/cuda-13.0/targets/x86_64-linux/lib/libcudart_static.a
 libcuda_backend.so: /usr/lib/x86_64-linux-gnu/librt.a
 libcuda_backend.so: CMakeFiles/cuda_backend.dir/link.txt

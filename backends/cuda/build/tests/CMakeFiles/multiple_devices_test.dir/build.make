@@ -93,9 +93,8 @@ multiple_devices_test_EXTERNAL_OBJECTS =
 tests/multiple_devices_test: tests/CMakeFiles/multiple_devices_test.dir/multiple_devices_test.cpp.o
 tests/multiple_devices_test: tests/CMakeFiles/multiple_devices_test.dir/build.make
 tests/multiple_devices_test: libcuda_backend.so
-tests/multiple_devices_test: cube/build/libCUBE.a
-tests/multiple_devices_test: /usr/local/cuda-13.0/targets/x86_64-linux/lib/libcufftw.so
 tests/multiple_devices_test: /usr/local/cuda-13.0/targets/x86_64-linux/lib/libcufft.so
+tests/multiple_devices_test: cube/build/libCUBE.a
 tests/multiple_devices_test: /usr/local/cuda-13.0/targets/x86_64-linux/lib/libcudart_static.a
 tests/multiple_devices_test: /usr/lib/x86_64-linux-gnu/librt.a
 tests/multiple_devices_test: /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/lib/libdolphinbackend.a

@@ -167,9 +167,9 @@ cube/build/CMakeFiles/CUBE.dir/src/kernels/global.cu.o : /home/lennart-k-hler/pr
     /usr/include/c++/13/bits/utility.h \
     /usr/include/c++/13/initializer_list \
     /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/kernels.h \
-    /usr/local/cuda/include/cuComplex.h \
-    /usr/local/cuda/include/cufft.h \
-    /usr/local/cuda/include/cufftw.h \
+    /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/CUBE.h \
+    /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/utl.h \
+    /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/operations.h \
     /usr/include/c++/13/iostream \
     /usr/include/c++/13/ostream \
     /usr/include/c++/13/ios \

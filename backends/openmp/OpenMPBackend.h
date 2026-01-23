@@ -282,7 +282,7 @@ public:
 
 
     
-    // Overloaded version for OpenMP: simply return the original since OpenMP doesn't need complex thread management
+    // Overloaded version for OpenMP: simply return the original since OpenMP doesn't need complex_t thread management
     std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const override {
         return original;
     }

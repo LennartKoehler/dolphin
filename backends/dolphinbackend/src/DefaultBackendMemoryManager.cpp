@@ -11,8 +11,8 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "backend/DefaultBackendMemoryManager.h"
-#include "dolphinbackend/Exceptions.h"
+#include "DefaultBackendMemoryManager.h"
+#include "Exceptions.h"
 #include <memory>
 #include <cstring>
 #include <cstdlib>
@@ -42,8 +42,8 @@ void DefaultBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) cons
     if (data.data != nullptr) {
         return; // Already allocated
     }
-    size_t requested_size = sizeof(complex) * data.size.volume;
-    data.data = (complex*)std::malloc(requested_size); 
+    size_t requested_size = sizeof(complex_t) * data.size.volume;
+    data.data = (complex_t*)std::malloc(requested_size); 
     MEMORY_ALLOC_CHECK(data.data, requested_size, "Default", "allocateMemoryOnDevice");
     
     data.backend = this;
@@ -57,7 +57,7 @@ ComplexData DefaultBackendMemoryManager::allocateMemoryOnDevice(const RectangleS
 
 ComplexData DefaultBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
-    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex));
+    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex_t));
     return result;
 }
 
@@ -86,12 +86,12 @@ void DefaultBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexDat
     BACKEND_CHECK(srcData.data != nullptr, "Source data pointer is null", "Default", "memCopy - source data");
     BACKEND_CHECK(destData.data != nullptr, "Destination data pointer is null", "Default", "memCopy - destination data");
     BACKEND_CHECK(destData.size.volume == srcData.size.volume, "Source and destination must have same size", "Default", "memCopy");
-    std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex));
+    std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex_t));
 }
 
 void DefaultBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     BACKEND_CHECK(data.data != nullptr, "Data pointer is null", "Default", "freeMemoryOnDevice - data pointer");
-    size_t requested_size = sizeof(complex) * data.size.volume;
+    size_t requested_size = sizeof(complex_t) * data.size.volume;
     std::free(data.data);
     
     data.data = nullptr;

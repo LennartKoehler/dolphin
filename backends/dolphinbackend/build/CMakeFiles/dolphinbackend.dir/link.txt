@@ -1,2 +1,2 @@
-/usr/bin/ar qc libdolphinbackend.a CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.o
+/usr/bin/ar qc libdolphinbackend.a CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.o CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o
 /usr/bin/ranlib libdolphinbackend.a

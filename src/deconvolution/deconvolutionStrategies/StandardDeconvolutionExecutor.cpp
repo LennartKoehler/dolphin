@@ -22,7 +22,6 @@ See the LICENSE file provided with the code for the full license.
 #include "backend/BackendFactory.h"
 #include "dolphinbackend/Exceptions.h"
 #include "HelperClasses.h"
-#include "backend/DefaultBackendMemoryManager.h"
 #include <thread>
 
 StandardDeconvolutionExecutor::StandardDeconvolutionExecutor(){

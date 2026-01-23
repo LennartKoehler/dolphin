@@ -1,6 +1,4 @@
 #include "utl.h"
-#include "kernels.h"
-#include <cuComplex.h>
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
@@ -13,16 +11,15 @@
 
 
 
-
 namespace CUBE_UTL_COPY {
-    // Copying fftw_complex datatype to GPU
-    void copyDataFromHostToDevice(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src, cudaStream_t stream) {
+    // Copying complex_t datatype to GPU
+    void copyDataFromHostToDevice(int Nx, int Ny, int Nz,complex_t* dest, complex_t* src, cudaStream_t stream) {
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
         cudaEventRecord(start, stream);
 
-        cudaMemcpyAsync(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyHostToDevice, stream);
+        cudaMemcpyAsync(dest, src, sizeof(complex_t)*Nx*Ny*Nz, cudaMemcpyHostToDevice, stream);
 
         
         cudaEventRecord(stop, stream);
@@ -35,16 +32,17 @@ namespace CUBE_UTL_COPY {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(fftw_complex)*Nx*Ny*Nz<<"B] Copy Data from Host to Device");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(complex_t)*Nx*Ny*Nz<<"B] Copy Data from Host to Device");
 
     }
-    void copyDataFromDeviceToHost(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src, cudaStream_t stream) {
+    
+    void copyDataFromDeviceToHost(int Nx, int Ny, int Nz,complex_t* dest, complex_t* src, cudaStream_t stream) {
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
         cudaEventRecord(start, stream);
 
-        cudaMemcpyAsync(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToHost, stream);
+        cudaMemcpyAsync(dest, src, sizeof(complex_t)*Nx*Ny*Nz, cudaMemcpyDeviceToHost, stream);
         
         cudaEventRecord(stop, stream);
         // cudaEventSynchronize(stop);
@@ -56,15 +54,16 @@ namespace CUBE_UTL_COPY {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(fftw_complex)*Nx*Ny*Nz<<"B] Copy Data from Device to Host");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(complex_t)*Nx*Ny*Nz<<"B] Copy Data from Device to Host");
     }
-    void copyDataFromDeviceToDevice(int Nx, int Ny, int Nz,fftw_complex* dest, fftw_complex* src, cudaStream_t stream) {
+    
+    void copyDataFromDeviceToDevice(int Nx, int Ny, int Nz,complex_t* dest, complex_t* src, cudaStream_t stream) {
         cudaEvent_t start, stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
         cudaEventRecord(start, stream);
 
-        cudaMemcpyAsync(dest, src, sizeof(fftw_complex)*Nx*Ny*Nz, cudaMemcpyDeviceToDevice, stream);
+        cudaMemcpyAsync(dest, src, sizeof(complex_t)*Nx*Ny*Nz, cudaMemcpyDeviceToDevice, stream);
         
         cudaEventRecord(stop, stream);
         // cudaEventSynchronize(stop);
@@ -76,11 +75,6 @@ namespace CUBE_UTL_COPY {
 
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(fftw_complex)*Nx*Ny*Nz<<"B] Copy Data from Device to Host");
+        DEBUG_LOG("[TIME][" << milliseconds << " ms]["<<sizeof(complex_t)*Nx*Ny*Nz<<"B] Copy Data from Device to Host");
     }
 }
-
-
-
-
-

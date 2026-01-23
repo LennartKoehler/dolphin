@@ -151,7 +151,7 @@ size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
     const RectangleShape& cubeSize,
     const DeconvolutionAlgorithm* algorithm
 ){
-    return cubeSize.volume * algorithm->getMemoryMultiplier() * sizeof(complex);
+    return cubeSize.volume * algorithm->getMemoryMultiplier() * sizeof(complex_t);
 }
 
 RectangleShape StandardDeconvolutionStrategy::getCubeShape(

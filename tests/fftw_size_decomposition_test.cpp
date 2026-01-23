@@ -29,7 +29,7 @@ extern "C" {
 #include <fftw3.h>
 }
 
-// Generate random complex data
+// Generate random complex_t data
 void generateRandomData(std::vector<std::complex<float>>& data, size_t size) {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -214,7 +214,7 @@ void runDecompositionTest(const TestConfig& config) {
     std::cout << "Small FFTs: " << config.num_small_ffts << " x (" 
               << config.small_dim_x << "x" << config.small_dim_y 
               << "x" << config.small_dim_z << ")" << std::endl;
-    std::cout << "Total size: " << config.getLargeTotalSize() << " complex elements" << std::endl;
+    std::cout << "Total size: " << config.getLargeTotalSize() << " complex_t elements" << std::endl;
     std::cout << "Threads: " << config.num_threads << std::endl;
     std::cout << "Iterations: " << config.num_iterations << std::endl;
     

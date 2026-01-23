@@ -1,8 +1,8 @@
-CMakeFiles/cuda_backend.dir/src/CUDABackendManager.cpp.o: \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/src/CUDABackendManager.cpp \
+CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o: \
+ /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/src/DefaultBackendMemoryManager.cpp \
  /usr/include/stdc-predef.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/include/CUDABackendManager.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IDeconvolutionBackend.h \
+ /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/DefaultBackendMemoryManager.h \
+ /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/IBackendMemoryManager.h \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -204,16 +204,6 @@ CMakeFiles/cuda_backend.dir/src/CUDABackendManager.cpp.o: \
  /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/ComplexData.h \
- /usr/include/c++/13/array /usr/include/c++/13/algorithm \
- /usr/include/c++/13/bits/stl_algo.h \
- /usr/include/c++/13/bits/algorithmfwd.h \
- /usr/include/c++/13/bits/stl_heap.h \
- /usr/include/c++/13/bits/uniform_int_dist.h \
- /usr/include/c++/13/bits/ranges_algo.h \
- /usr/include/c++/13/pstl/glue_algorithm_defs.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IBackendMemoryManager.h \
  /usr/include/c++/13/condition_variable /usr/include/c++/13/stop_token \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/std_thread.h \
  /usr/include/c++/13/semaphore /usr/include/c++/13/bits/semaphore_base.h \
@@ -221,67 +211,14 @@ CMakeFiles/cuda_backend.dir/src/CUDABackendManager.cpp.o: \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
  /usr/include/x86_64-linux-gnu/bits/semaphore.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/include/CUDABackend.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IBackend.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/Exceptions.h \
- /usr/local/cuda/include/cufft.h /usr/local/cuda/include/cuComplex.h \
- /usr/include/c++/13/math.h /usr/include/c++/13/cmath /usr/include/math.h \
- /usr/include/x86_64-linux-gnu/bits/math-vector.h \
- /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h \
- /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h \
- /usr/include/x86_64-linux-gnu/bits/fp-logb.h \
- /usr/include/x86_64-linux-gnu/bits/fp-fast.h \
- /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h \
- /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
- /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h \
- /usr/include/x86_64-linux-gnu/bits/iscanonical.h \
- /usr/include/c++/13/bits/specfun.h /usr/include/c++/13/tr1/gamma.tcc \
- /usr/include/c++/13/tr1/special_function_util.h \
- /usr/include/c++/13/tr1/bessel_function.tcc \
- /usr/include/c++/13/tr1/beta_function.tcc \
- /usr/include/c++/13/tr1/ell_integral.tcc \
- /usr/include/c++/13/tr1/exp_integral.tcc \
- /usr/include/c++/13/tr1/hypergeometric.tcc \
- /usr/include/c++/13/tr1/legendre_function.tcc \
- /usr/include/c++/13/tr1/modified_bessel_func.tcc \
- /usr/include/c++/13/tr1/poly_hermite.tcc \
- /usr/include/c++/13/tr1/poly_laguerre.tcc \
- /usr/include/c++/13/tr1/riemann_zeta.tcc \
- /usr/local/cuda/include/vector_types.h \
- /usr/local/cuda/include/crt/host_defines.h \
- /usr/local/cuda/include/driver_types.h \
- /usr/local/cuda/include/library_types.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/CUBE.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/kernels.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/utl.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/operations.h \
- /usr/local/cuda/include/cuda_runtime_api.h \
- /usr/local/cuda/include/builtin_types.h \
- /usr/local/cuda/include/device_types.h \
- /usr/local/cuda/include/surface_types.h \
- /usr/local/cuda/include/texture_types.h \
- /usr/local/cuda/include/cuda_device_runtime_api.h \
- /usr/local/cuda/include/cuda_runtime.h \
- /usr/local/cuda/include/crt/host_config.h \
- /usr/local/cuda/include/channel_descriptor.h \
- /usr/local/cuda/include/cuda_runtime_api.h \
- /usr/local/cuda/include/driver_functions.h \
- /usr/local/cuda/include/vector_functions.h \
- /usr/local/cuda/include/vector_functions.hpp /usr/include/c++/13/utility \
- /usr/include/c++/13/bits/stl_relops.h /usr/include/c++/13/map \
- /usr/include/c++/13/bits/stl_tree.h \
- /usr/include/c++/13/bits/node_handle.h \
- /usr/include/c++/13/bits/stl_map.h \
- /usr/include/c++/13/bits/stl_multimap.h \
- /usr/include/c++/13/bits/erase_if.h /usr/include/c++/13/iostream \
- /usr/include/c++/13/istream /usr/include/c++/13/bits/istream.tcc \
- /usr/include/c++/13/vector /usr/include/c++/13/bits/stl_vector.h \
- /usr/include/c++/13/bits/stl_bvector.h \
- /usr/include/c++/13/bits/vector.tcc /usr/include/c++/13/queue \
- /usr/include/c++/13/deque /usr/include/c++/13/bits/stl_deque.h \
- /usr/include/c++/13/bits/deque.tcc /usr/include/c++/13/bits/stl_queue.h \
- /usr/include/c++/13/thread /usr/include/c++/13/unordered_map \
- /usr/include/c++/13/bits/unordered_map.h \
- /usr/include/c++/13/bits/hashtable.h \
- /usr/include/c++/13/bits/hashtable_policy.h \
- /usr/include/c++/13/bits/enable_special_members.h
+ /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/ComplexData.h \
+ /usr/include/c++/13/array /usr/include/c++/13/algorithm \
+ /usr/include/c++/13/bits/stl_algo.h \
+ /usr/include/c++/13/bits/algorithmfwd.h \
+ /usr/include/c++/13/bits/stl_heap.h \
+ /usr/include/c++/13/bits/uniform_int_dist.h \
+ /usr/include/c++/13/bits/ranges_algo.h \
+ /usr/include/c++/13/pstl/glue_algorithm_defs.h \
+ /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/RectangleShape.h \
+ /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/Exceptions.h \
+ /usr/include/c++/13/cstring /usr/include/string.h /usr/include/strings.h

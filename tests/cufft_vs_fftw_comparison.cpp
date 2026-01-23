@@ -31,7 +31,7 @@ extern "C" {
     } \
 }
 
-// Generate random complex data
+// Generate random complex_t data
 void generateRandomData(std::vector<std::complex<float>>& data, size_t size) {
     std::random_device rd;
     std::mt19937 gen(rd());

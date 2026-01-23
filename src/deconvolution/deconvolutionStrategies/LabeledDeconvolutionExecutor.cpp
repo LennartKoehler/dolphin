@@ -22,7 +22,6 @@ See the LICENSE file provided with the code for the full license.
 #include "HelperClasses.h"
 #include "frontend/SetupConfig.h"
 #include "itkImageRegionConstIterator.h"
-#include "backend/DefaultBackendMemoryManager.h"
 
 LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 }

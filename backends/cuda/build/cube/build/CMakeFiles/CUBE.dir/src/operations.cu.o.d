@@ -167,10 +167,9 @@ cube/build/CMakeFiles/CUBE.dir/src/operations.cu.o : /home/lennart-k-hler/projec
     /usr/include/c++/13/bits/utility.h \
     /usr/include/c++/13/initializer_list \
     /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/operations.h \
-    /usr/local/cuda/include/cuComplex.h \
-    /usr/local/cuda/include/cufftw.h \
-    /usr/local/cuda/include/cufft.h \
+    /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/CUBE.h \
     /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/kernels.h \
+    /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include/utl.h \
     /usr/include/c++/13/thread \
     /usr/include/c++/13/bits/std_thread.h \
     /usr/include/c++/13/iosfwd \

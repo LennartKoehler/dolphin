@@ -44,7 +44,7 @@ See the LICENSE file provided with the code for the full license.
 //     }
 // }
 
-bool UtlImage::isValidForFloat(complex* fftwData, size_t size) {
+bool UtlImage::isValidForFloat(complex_t* fftwData, size_t size) {
     for (size_t i = 0; i < size; ++i) {
         // Überprüfen der Real- und Imaginärteile
         if (fftwData[i][0] < std::numeric_limits<float>::lowest() ||

@@ -324,7 +324,6 @@ tests/CMakeFiles/multiple_devices_test.dir/multiple_devices_test.cpp.o: /home/le
   /usr/local/cuda/include/cuda_runtime.h \
   /usr/local/cuda/include/cuda_runtime_api.h \
   /usr/local/cuda/include/cufft.h \
-  /usr/local/cuda/include/cufftw.h \
   /usr/local/cuda/include/device_types.h \
   /usr/local/cuda/include/driver_functions.h \
   /usr/local/cuda/include/driver_types.h \
@@ -345,8 +344,6 @@ tests/CMakeFiles/multiple_devices_test.dir/multiple_devices_test.cpp.o: /home/le
 /usr/local/cuda/include/driver_functions.h:
 
 /usr/local/cuda/include/device_types.h:
-
-/usr/local/cuda/include/cufftw.h:
 
 /usr/local/cuda/include/cufft.h:
 
