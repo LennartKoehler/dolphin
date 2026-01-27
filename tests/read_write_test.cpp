@@ -1,6 +1,6 @@
-#include <dolphin/Image3D.h>
-#include <dolphin/IO/TiffReader.h>
-#include <dolphin/IO/TiffWriter.h>
+#include "Image3D.h"
+#include "IO/TiffReader.h"
+#include "IO/TiffWriter.h"
 #include <iostream>
 #include <string>
 

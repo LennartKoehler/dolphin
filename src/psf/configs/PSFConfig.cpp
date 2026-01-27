@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "psf/configs/PSFConfig.h"
 #include "psf/PSFGeneratorFactory.h"
+#include <spdlog/spdlog.h>
 
 PSFConfig::PSFConfig(){
     registerAllParameters();
@@ -40,7 +41,7 @@ PSFConfig::PSFConfig(const PSFConfig& other)
 
 bool PSFConfig::compareDim(const PSFConfig &other) {
     if(this->sizeX != other.sizeX || this->sizeY != other.sizeY || this->sizeZ != other.sizeZ) {
-        std::cerr << "[ERROR] All PSFs have to be the same size" << std::endl;
+        spdlog::error("All PSFs have to be the same size");
         return false;
     }
     return true;

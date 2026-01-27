@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include <iostream>
 
 #include <cassert>
+#include <spdlog/spdlog.h>
 
 void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
@@ -26,7 +27,7 @@ void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 
 void RLADDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
     if (!backend) {
-        std::cerr << "[ERROR] No backend available for RLAD algorithm initialization" << std::endl;
+        spdlog::error("No backend available for RLAD algorithm initialization");
         return;
     }
     
@@ -42,12 +43,12 @@ bool RLADDeconvolutionAlgorithm::isInitialized() const {
 
 void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
-        std::cerr << "[ERROR] No backend available for RLAD algorithm" << std::endl;
+        spdlog::error("No backend available for RLAD algorithm");
         return;
     }
     
     if (!initialized) {
-        std::cerr << "[ERROR] RLAD algorithm not initialized. Call init() first." << std::endl;
+        spdlog::error("RLAD algorithm not initialized. Call init() first.");
         return;
     }
     

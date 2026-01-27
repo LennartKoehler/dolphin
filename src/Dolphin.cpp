@@ -12,6 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "Dolphin.h"
+#include "Logging.h"
 #include <iostream>
 #include <chrono>
 #include <fstream>
@@ -22,6 +23,7 @@ See the LICENSE file provided with the code for the full license.
 void Dolphin::init(){
     
     // Initialize service layer
+    Logging::init();
     if (!service_layer_initialized_) {
         service_factory_ = ServiceFactory::create();
         
@@ -33,7 +35,7 @@ void Dolphin::init(){
         
         service_layer_initialized_ = true;
         
-        std::cout << "[INFO] Abstract service layer initialized successfully" << std::endl;
+        spdlog::info("Abstract service layer initialized successfully");
     }
 }
 
@@ -64,7 +66,7 @@ std::future<std::unique_ptr<DeconvolutionResult>> Dolphin::deconvolveAsync(Decon
 //     if (config->imagePath.substr(config->imagePath.find_last_of(".") + 1) == "tif" || config->imagePath.substr(config->imagePath.find_last_of(".") + 1) == "tiff" || config->imagePath.substr(config->imagePath.find_last_of(".") + 1) == "ometif") {
 //         hyperstack.readFromTifFile(config->imagePath.c_str());
 //     } else {
-//         std::cout << "[INFO] No file ending .tif, pretending image is DIR" << std::endl;
+//         spdlog::info("No file ending .tif, pretending image is DIR");
 //         hyperstack.readFromTifDir(config->imagePath.c_str());
 //     }
 

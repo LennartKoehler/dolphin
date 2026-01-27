@@ -64,6 +64,7 @@ See the LICENSE file provided with the code for the full license.
 #include "itkImageRegionIterator.h"
 #include <cmath>
 #include <future>
+#include <spdlog/spdlog.h>
 
 GibsonLanniPSFGenerator::GibsonLanniPSFGenerator(std::unique_ptr<NumericalIntegrator> integrator)
     : numericalIntegrator(std::move(integrator)){}
@@ -249,8 +250,7 @@ std::array<double, 2> GibsonLanniIntegrand::operator()(double rho) const {
     double BesselValue = besselHelper.get(k0NAr * rho);
 
     if ((config.NA * rho / config.ns) > 1.0)
-        std::cout << "Warning: NA*rho/ns > 1, (ns,NA,rho)=(" 
-                  << config.ns << ", " << config.NA << ", " << rho << ")\n";
+        spdlog::info("Warning: NA*rho/ns > 1, (ns,NA,rho)=({}, {}, {})\n", config.ns, config.NA, rho);
 
     double OPD1 = config.ns * config.particleAxialPosition_nm * std::sqrt(1 - std::pow(config.NA * rho / config.ns, 2));
     double OPD3 = config.ni * (config.ti_nm - config.ti0_nm) * std::sqrt(1 - std::pow(config.NA * rho / config.ni, 2));

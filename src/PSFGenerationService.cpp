@@ -21,19 +21,20 @@ See the LICENSE file provided with the code for the full license.
 #include <fstream>
 #include <sstream>
 #include <memory>
+#include <spdlog/spdlog.h>
 
 PSFGenerationService::PSFGenerationService()
     : initialized_(false),
-      logger_([](const std::string& msg) { std::cout << "[PSF_SERVICE] " << msg << std::endl; }),
-      error_handler_([](const std::string& msg) { std::cerr << "[PSF_ERROR] " << msg << std::endl; }),
+      logger_([](const std::string& msg) { spdlog::info("[PSF_SERVICE] {}", msg); }),
+      error_handler_([](const std::string& msg) { spdlog::error("[PSF_ERROR] {}", msg); }),
       thread_pool_(std::make_unique<ThreadPool>(8))
 {
     // Initialize supported PSF types
     supported_types_ = {"Gaussian", "GibsonLanni", "BornWolf"};
     
     // Initialize default logger and error handler
-    default_logger_ = [](const std::string& msg) { std::cout << "[DEFAULT] " << msg << std::endl; };
-    default_error_handler_ = [](const std::string& msg) { std::cerr << "[ERROR] " << msg << std::endl; };
+    default_logger_ = [](const std::string& msg) { spdlog::info("[DEFAULT] {}", msg); };
+    default_error_handler_ = [](const std::string& msg) { spdlog::error("{}", msg); };
 }
 
 PSFGenerationService::~PSFGenerationService() {

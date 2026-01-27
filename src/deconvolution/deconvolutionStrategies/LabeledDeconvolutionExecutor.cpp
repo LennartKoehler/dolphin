@@ -22,6 +22,7 @@ See the LICENSE file provided with the code for the full license.
 #include "HelperClasses.h"
 #include "frontend/SetupConfig.h"
 #include "itkImageRegionConstIterator.h"
+#include <spdlog/spdlog.h>
 
 LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 }
@@ -230,7 +231,7 @@ std::vector<std::shared_ptr<PSF>> LabeledDeconvolutionExecutor::getPSFForLabel(R
         }
     }
     if (assignedpsfs.size() == 0){
-        std::cout << "Cant find a PSF for the desired Label, please check your input" <<std::endl;
+        spdlog::info("Cant find a PSF for the desired Label, please check your input");
     }
     
     return assignedpsfs;

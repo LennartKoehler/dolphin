@@ -23,11 +23,12 @@ See the LICENSE file provided with the code for the full license.
 #include <fstream>
 #include "IO/TiffReader.h"
 #include "IO/TiffWriter.h"
+#include <spdlog/spdlog.h>
 
 DeconvolutionService::DeconvolutionService() 
     : initialized_(false),
-      logger_([](const std::string& msg) { std::cout << "[DECONV_SERVICE] " << msg << std::endl; }),
-      error_handler_([](const std::string& msg) { std::cerr << "[DECONV_ERROR] " << msg << std::endl; }),
+      logger_([](const std::string& msg) { spdlog::info("[DECONV_SERVICE] {}", msg); }),
+      error_handler_([](const std::string& msg) { spdlog::error("[DECONV_ERROR] {}", msg); }),
       thread_pool_(std::make_unique<ThreadPool>(1)){}
 
 DeconvolutionService::~DeconvolutionService() {

@@ -26,6 +26,7 @@ class DeconvolutionConfig : public Config{
 public:
     DeconvolutionConfig();
     DeconvolutionConfig(const DeconvolutionConfig& other);
+    std::string getName() const override { return std::string("DeconvolutionConfig"); };
 
     // Use the struct for parameters
     std::string algorithmName = "RichardsonLucyTotalVariation";

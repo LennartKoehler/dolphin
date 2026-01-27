@@ -44,7 +44,6 @@ add_subdirectory(backends/cpu)
 
 
 
-
 # ------------------------------------------------------------
 # Collect sources
 # ------------------------------------------------------------
@@ -58,6 +57,7 @@ set(DOLPHIN_SOURCES
     src/DeconvolutionService.cpp
     src/DeconvolutionStrategyFactory.cpp
     src/ThreadPool.cpp
+    src/Config.cpp
     
     src/image/Image3D.cpp
     src/image/ImageMetaData.cpp
@@ -102,6 +102,8 @@ set(DOLPHIN_SOURCES
 
 # Create shared library for Dolphin API
 add_library(dolphin STATIC ${DOLPHIN_SOURCES})
+
+
 
 target_include_directories(dolphin
     PUBLIC
@@ -206,7 +208,6 @@ if (${ENABLE_TESTS})
 
     enable_testing()
     add_subdirectory(tests)
-
 endif()
 
 

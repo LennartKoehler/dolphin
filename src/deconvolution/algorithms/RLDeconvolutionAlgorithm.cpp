@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #include "deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
 #include <iostream>
 #include <cassert>
+#include <spdlog/spdlog.h>
 
 void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
@@ -22,7 +23,7 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 
 void RLDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
     if (!backend) {
-        std::cerr << "[ERROR] No backend available for Richardson-Lucy algorithm initialization" << std::endl;
+        spdlog::error("No backend available for Richardson-Lucy algorithm initialization");
         return;
     }
     
@@ -38,12 +39,12 @@ bool RLDeconvolutionAlgorithm::isInitialized() const {
 
 void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
-        std::cerr << "[ERROR] No backend available for Richardson-Lucy algorithm" << std::endl;
+        spdlog::error("No backend available for Richardson-Lucy algorithm");
         return;
     }
     
     if (!initialized) {
-        std::cerr << "[ERROR] Richardson-Lucy algorithm not initialized. Call init() first." << std::endl;
+        spdlog::error("Richardson-Lucy algorithm not initialized. Call init() first.");
         return;
     }
 

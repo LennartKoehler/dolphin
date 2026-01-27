@@ -117,7 +117,7 @@ bool TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, con
 bool TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& image, int channel) {
 
     if (!tiffile) {
-        std::cerr << "[ERROR] TIFF file is not open" << std::endl;
+        spdlog::error("TIFF file is not open");
         return false;
     }
     // there are different ways to store multiple channels, either by interleaved directories, or by multiple samples per pixels
@@ -127,21 +127,21 @@ bool TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& me
     if (metaData.linChannels > 1){
         ifdchannel = channel - 1; // channel is 1 based
         if (ifdchannel > metaData.linChannels - 1){
-            spdlog::error(" Specified channel " << channel << " larger than maximum number of image file directories in image: ", metaData.linChannels);
+            spdlog::error(" Specified channel {} larger than maximum number of image file directories in image: {}", channel, metaData.linChannels);
             return false;
         }
     }
     else if (metaData.samplesPerPixel > 1){
         sppchannel = channel - 1; // channel is 1 based
         if (sppchannel > metaData.samplesPerPixel - 1){
-            spdlog::error(" Specified channel " << channel << " larger than maximum number of samples per pixel in image: ", metaData.samplesPerPixel);
+            spdlog::error(" Specified channel {} larger than maximum number of samples per pixel in image: {}", channel, metaData.samplesPerPixel);
             return false;
         }
     }
     
     // Validate region shape
     if (height <= 0 || depth <= 0) {
-        spdlog::error(" Invalid region dimensions: " << height << "x", depth);
+        spdlog::error(" Invalid region dimensions: {} x {}", height, depth);
         return false;
     }
     
@@ -153,7 +153,7 @@ bool TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& me
     tsize_t scanlineSize = TIFFScanlineSize(tiffile);
     char* buf = (char*)_TIFFmalloc(scanlineSize);
     if (!buf) {
-        std::cerr << "[ERROR] Memory allocation failed for scanline buffer" << std::endl;
+        spdlog::error("Memory allocation failed for scanline buffer");
         return false;
     }
     
@@ -175,7 +175,7 @@ bool TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& me
         for (uint32_t yIndex = y; yIndex < y + height; yIndex++) {
             if (TIFFReadScanline(tiffile, buf, yIndex) == -1) {
                 _TIFFfree(buf);
-                spdlog::error(" Failed to read scanline " << yIndex << " in z-slice ", zIndex);
+                spdlog::error(" Failed to read scanline {} in z-slice {}", yIndex, zIndex);
                 return false;
             }
             
@@ -190,7 +190,7 @@ bool TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& me
     
     _TIFFfree(buf);
     
-    std::cout << "[INFO] Successfully read strip (" << metaData.filename << "): " << "(" << y << "," << z << ") " << height << "x" << depth << std::endl;
+    spdlog::info("Successfully read strip ({}): ({},{}) {}x{}", metaData.filename, y, z, height, depth);
     return true;
 }
 
@@ -313,7 +313,7 @@ void TiffReader::convertImageTo32F(Image3D& image, const ImageMetaData& metaData
         pixelCount++;
 
     }
-    std::cout << std::endl;
+    spdlog::info("");
 }
 
 
@@ -471,7 +471,7 @@ void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<fl
 //     } else if (metaData.bitsPerSample == 32) {
 //         // dataType will be set in the loop based on samplesPerPixel
 //     } else {
-//         std::cerr << metaData.bitsPerSample << "[ERROR] Unsupported bit depth." << std::endl;
+//         spdlog::error("Unsupported bit depth.");
 //         return false;
 //     }
     
@@ -500,7 +500,7 @@ void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<fl
 //         uint32_t row;
 //         buf = (char *)_TIFFmalloc(scanlineSize);
 //         if (!buf) {
-//             std::cerr << "[ERROR] Memory allocation failed for buffer." << std::endl;
+//             spdlog::error("Memory allocation failed for buffer.");
 //             TIFFClose(tifFile);
 //             return false;
 //         }
@@ -515,11 +515,11 @@ void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<fl
 //         _TIFFfree(buf);
 
 //         //TODO debug option
-//         //std::cout << "Layer  " << depth << " successfully read" << std::endl;
+//         //spdlog::info("Layer  {} successfully read", depth);
 //     } while (TIFFReadDirectory(tifFile));
 
 //     //TODO debug
-//     std::cout<< "[INFO] Read in " << layers.slices.size() << " layers"<< std::endl;
+//     spdlog::info("Read in {} layers", layers.slices.size());
 
 //     return true;
 // }
@@ -612,7 +612,7 @@ void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<fl
 //         }
 //     }
 
-//     std::cout << "[INFO] Read in " << layers.slices.size() << " layers from directory" << std::endl;
+//     spdlog::info("Read in {} layers from directory", layers.slices.size());
 //     return true;
 // }
 

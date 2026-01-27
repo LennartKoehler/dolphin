@@ -4,10 +4,7 @@ cmake_minimum_required(VERSION 3.10)
 
 enable_testing()
 
-# Include backends subdirectory for backend-specific tests
-# add_subdirectory(backends)
 add_subdirectory(mainTest)
-# Original combined test (optional)
 add_executable(dolphin_tests
     memory_exception_example.cpp
     tiff_generation_test.cpp
@@ -59,11 +56,12 @@ target_link_libraries(feathering_test
         dolphin
         )
 
-# Add ITK include directories and configuration
-# target_include_directories(feathering_test
-#     PRIVATE
-#         ${CMAKE_SOURCE_DIR}/include
-# )
+target_include_directories(feathering_test
+    PRIVATE
+        BEFORE ${CMAKE_SOURCE_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/../src
+)
+
 
 add_test(NAME FeatheringTest COMMAND feathering_test)
 

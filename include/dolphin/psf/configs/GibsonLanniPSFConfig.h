@@ -23,9 +23,6 @@ public:
 	GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other);
 
 
-	std::string getName() const override;
-
-
     float OVER_SAMPLING = 4.0;
     float lambda_nm = 520.0;
     int accuracy = 32;

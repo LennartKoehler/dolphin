@@ -13,7 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 #include <vector>
-#include "psf/configs/PSFConfig.h"
+#include "Config.h"
 
 class DeconvolutionConfig;
 
@@ -21,6 +21,8 @@ class SetupConfig : public Config{
 public:
     SetupConfig();
     SetupConfig(const SetupConfig& other);
+
+    std::string getName() const override { return std::string("SetupConfig"); };
     SetupConfig& operator=(const SetupConfig& other);
 
     bool loadFromJSON(const json& jsonData) override;

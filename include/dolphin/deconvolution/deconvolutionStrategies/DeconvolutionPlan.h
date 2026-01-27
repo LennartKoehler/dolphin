@@ -23,6 +23,7 @@ See the LICENSE file provided with the code for the full license.
 #include "deconvolution/Preprocessor.h"
 #include "IO/TiffWriter.h"
 #include "IO/TiffReader.h"
+#include <spdlog/spdlog.h>
 
 
 /*

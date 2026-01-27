@@ -22,6 +22,7 @@ See the LICENSE file provided with the code for the full license.
 #include <dlfcn.h>
 #include <iostream>
 #include <cpu_backend/CPUBackend.h>
+#include <spdlog/spdlog.h>
 
 // Helper macro for cleaner not-implemented exceptions
 #define NOT_IMPLEMENTED(func_name) \
@@ -66,14 +67,14 @@ private:
         }
         void* handle = getHandle(backendName);
         if (!handle) {
-            std::cerr << "[WARNING] Could not load backend library '" << backendName << "'" << std::endl;
+            spdlog::warn("Could not load backend library '{}', using default instead", backendName);
             return nullptr;
         }
 
         using create_fn = T*();
         auto create_backend = reinterpret_cast<create_fn*>(dlsym(handle, symbolName));
         if (!create_backend) {
-            std::cerr << "[WARNING] Could not find symbol '" << symbolName << "' in backend library '" << backendName << "'" << std::endl;
+            spdlog::warn("Could not find symbol '{}' in backend library '{}', using default instead", symbolName, backendName);
             dlclose(handle);
             return nullptr;
         }
@@ -101,7 +102,7 @@ private:
     static void* getHandle(const std::string& backendName) {
         void* handle = dlopen(backendName.c_str(), RTLD_LAZY);
         if (!handle) {
-            std::cerr << "[ERROR] Failed to open library '" << backendName << "': " << dlerror() << std::endl;
+            spdlog::warn("Failed to open library '{}': {}", backendName, dlerror());
         }
         return handle;
     }

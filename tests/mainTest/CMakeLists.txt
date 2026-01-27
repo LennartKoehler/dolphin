@@ -9,6 +9,8 @@ target_link_libraries(main_test
     PRIVATE
         dolphin)
 
+
+
 add_test(NAME MainTest COMMAND main_test)
 set_tests_properties(MainTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 

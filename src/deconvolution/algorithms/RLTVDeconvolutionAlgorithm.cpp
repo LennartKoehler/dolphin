@@ -14,20 +14,21 @@ See the LICENSE file provided with the code for the full license.
 #include "deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
 #include <iostream>
 #include <cassert>
+#include <spdlog/spdlog.h>
 
 void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Configure algorithm-specific parameters
     iterations = config.iterations;
     lambda = config.lambda;
     
-    std::cout << "[CONFIGURATION] Richardson-Lucy Total Variation algorithm" << std::endl;
-    std::cout << "[CONFIGURATION] iterations: " << iterations << std::endl;
-    std::cout << "[CONFIGURATION] lambda: " << lambda << std::endl;
+    spdlog::info("Richardson-Lucy Total Variation algorithm");
+    spdlog::info("iterations: {}", iterations);
+    spdlog::info("lambda: {}", lambda);
 }
 
 void RLTVDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
     if (!backend) {
-        std::cerr << "[ERROR] No backend available for Richardson-Lucy TV algorithm initialization" << std::endl;
+        spdlog::error("No backend available for Richardson-Lucy TV algorithm initialization");
         return;
     }
     
@@ -47,12 +48,12 @@ bool RLTVDeconvolutionAlgorithm::isInitialized() const {
 
 void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
-        std::cerr << "[ERROR] No backend available for Richardson-Lucy TV algorithm" << std::endl;
+        spdlog::error("No backend available for Richardson-Lucy TV algorithm");
         return;
     }
     
     if (!initialized) {
-        std::cerr << "[ERROR] Richardson-Lucy TV algorithm not initialized. Call init() first." << std::endl;
+        spdlog::error("Richardson-Lucy TV algorithm not initialized. Call init() first.");
         return;
     }
 
