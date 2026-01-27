@@ -19,18 +19,18 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 # set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Compiler flags for Valgrind-safe build
-# if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-#     add_compile_options(
-#         -O0             # Disable optimizations
-#         -g              # Debug symbols
-#         -march=x86-64   # Only baseline instructions
-#         -mno-avx        # Disable AVX
-#         -mno-avx2       # Disable AVX2
-#         -mno-fma        # Disable FMA
-#         -Wall           # Enable warnings
-#         -Wextra
-#     )
-# endif()
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(
+        -O0             # Disable optimizations
+        -g              # Debug symbols
+        -march=x86-64   # Only baseline instructions
+        -mno-avx        # Disable AVX
+        -mno-avx2       # Disable AVX2
+        -mno-fma        # Disable FMA
+        -Wall           # Enable warnings
+        -Wextra
+    )
+endif()
 
 # link_directories(/usr/local/lib)
 set(BUILD_SHARED_LIBS OFF)

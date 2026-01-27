@@ -1,44 +1,26 @@
-==200612== Callgrind, a call-graph generating cache profiler
-==200612== Copyright (C) 2002-2017, and GNU GPL'd, by Josef Weidendorfer et al.
-==200612== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
-==200612== Command: ./dolphin deconvolution -c ../configs/default_config.json
-==200612== Parent PID: 200609
-==200612== 
-==200612== For interactive control, run 'callgrind_control -h'.
-vex amd64->IR: unhandled instruction bytes: 0x62 0xF1 0x7F 0x8 0x7F 0x0 0xC5 0xF9 0xD6 0x40
-vex amd64->IR:   REX=0 REX.W=0 REX.R=0 REX.X=0 REX.B=0
-vex amd64->IR:   VEX=0 VEX.L=0 VEX.nVVVV=0x0 ESC=NONE
-vex amd64->IR:   PFX.66=0 PFX.F2=0 PFX.F3=0
-==200612== valgrind: Unrecognised instruction at address 0x14638f.
-==200612==    at 0x14638F: std::function<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > ()>::function<CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)::{lambda()#1}, void>(CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)::{lambda()#1}&&) (std_function.h:437)
-==200612==    by 0x1334EB: CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) (CLI11.hpp:3625)
-==200612==    by 0x133AEE: CLI::detail::ExistingFileValidator::ExistingFileValidator() (CLI11.hpp:4587)
-==200612==    by 0x12B455: __static_initialization_and_destruction_0() (CLI11.hpp:3780)
-==200612==    by 0x12B7B9: _GLOBAL__sub_I_main (main.cpp:33)
-==200612==    by 0x7B01303: __libc_start_main@@GLIBC_2.34 (libc-start.c:145)
-==200612==    by 0x12A6F4: (below main) (in /home/lennart-k-hler/projects/dolphin/build/dolphin)
-==200612== Your program just tried to execute an instruction that Valgrind
-==200612== did not recognise.  There are two possible reasons for this.
-==200612== 1. Your program has a bug and erroneously jumped to a non-code
-==200612==    location.  If you are running Memcheck and you just saw a
-==200612==    warning about a bad jump, it's probably your program's fault.
-==200612== 2. The instruction is legitimate but Valgrind doesn't handle it,
-==200612==    i.e. it's Valgrind's fault.  If you think this is the case or
-==200612==    you are not sure, please let us know and we'll try to fix it.
-==200612== Either way, Valgrind will now raise a SIGILL signal which will
-==200612== probably kill your program.
-==200612== 
-==200612== Process terminating with default action of signal 4 (SIGILL)
-==200612==  Illegal opcode at address 0x14638F
-==200612==    at 0x14638F: std::function<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > ()>::function<CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)::{lambda()#1}, void>(CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)::{lambda()#1}&&) (std_function.h:437)
-==200612==    by 0x1334EB: CLI::Validator::Validator(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) (CLI11.hpp:3625)
-==200612==    by 0x133AEE: CLI::detail::ExistingFileValidator::ExistingFileValidator() (CLI11.hpp:4587)
-==200612==    by 0x12B455: __static_initialization_and_destruction_0() (CLI11.hpp:3780)
-==200612==    by 0x12B7B9: _GLOBAL__sub_I_main (main.cpp:33)
-==200612==    by 0x7B01303: __libc_start_main@@GLIBC_2.34 (libc-start.c:145)
-==200612==    by 0x12A6F4: (below main) (in /home/lennart-k-hler/projects/dolphin/build/dolphin)
-==200612== 
-==200612== Events    : Ir
-==200612== Collected : 6791664
-==200612== 
-==200612== I   refs:      6,791,664
+==83836== Callgrind, a call-graph generating cache profiler
+==83836== Copyright (C) 2002-2017, and GNU GPL'd, by Josef Weidendorfer et al.
+==83836== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==83836== Command: ./tests/mainTest/main_test ../configs/default_config.json
+==83836== Parent PID: 83833
+==83836== 
+==83836== For interactive control, run 'callgrind_control -h'.
+==83836== 
+==83836== Process terminating with default action of signal 2 (SIGINT)
+==83836==    at 0x4C87D71: __futex_abstimed_wait_cancelable64 (futex-internal.c:57)
+==83836==    by 0x4C8A7EC: pthread_cond_wait@@GLIBC_2.3.2 (pthread_cond_wait.c:503)
+==83836==    by 0x23178E: void std::condition_variable::wait<ThreadPool::ThreadPool(unsigned long, std::function<void ()>)::{lambda()#2}::operator()() const::{lambda()#1}>(std::unique_lock<std::mutex>&, ThreadPool::ThreadPool(unsigned long, std::function<void ()>)::{lambda()#2}::operator()() const::{lambda()#1}) (condition_variable:105)
+==83836==    by 0x23126E: ThreadPool::ThreadPool(unsigned long, std::function<void ()>)::{lambda()#2}::operator()() const (ThreadPool.cpp:26)
+==83836==    by 0x23240F: void std::__invoke_impl<void, ThreadPool::ThreadPool(unsigned long, std::function<void ()>)::{lambda()#2}>(std::__invoke_other, ThreadPool::ThreadPool(unsigned long, std::function<void ()>)::{lambda()#2}&&) (invoke.h:61)
+==83836==    by 0x2323D2: std::__invoke_result<ThreadPool::ThreadPool(unsigned long, std::function<void ()>)::{lambda()#2}>::type std::__invoke<ThreadPool::ThreadPool(unsigned long, std::function<void ()>)::{lambda()#2}>(ThreadPool::ThreadPool(unsigned long, std::function<void ()>)::{lambda()#2}&&) (invoke.h:96)
+==83836==    by 0x23237F: void std::thread::_Invoker<std::tuple<ThreadPool::ThreadPool(unsigned long, std::function<void ()>)::{lambda()#2}> >::_M_invoke<0ul>(std::_Index_tuple<0ul>) (std_thread.h:292)
+==83836==    by 0x232353: std::thread::_Invoker<std::tuple<ThreadPool::ThreadPool(unsigned long, std::function<void ()>)::{lambda()#2}> >::operator()() (std_thread.h:299)
+==83836==    by 0x232337: std::thread::_State_impl<std::thread::_Invoker<std::tuple<ThreadPool::ThreadPool(unsigned long, std::function<void ()>)::{lambda()#2}> > >::_M_run() (std_thread.h:244)
+==83836==    by 0x4A2FDB3: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+==83836==    by 0x4C8BAA3: start_thread (pthread_create.c:447)
+==83836==    by 0x4D18A33: clone (clone.S:100)
+==83836== 
+==83836== Events    : Ir
+==83836== Collected : 125992858998
+==83836== 
+==83836== I   refs:      125,992,858,998
