@@ -1,1 +1,2 @@
-/usr/bin/c++ -fPIC -shared -Wl,-soname,libcpu_backend.so -o backends/cpu/libcpu_backend.so CMakeFiles/cpu_backend.dir/CPUBackend.cpp.o  /usr/lib/x86_64-linux-gnu/libfftw3.so /usr/lib/x86_64-linux-gnu/libfftw3_threads.so -lbackendlib 
+/usr/bin/ar qc libcpu_backend.a CMakeFiles/cpu_backend.dir/src/CPUBackend.cpp.o
+/usr/bin/ranlib libcpu_backend.a

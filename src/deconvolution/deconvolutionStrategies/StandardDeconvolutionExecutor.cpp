@@ -63,11 +63,11 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
 
         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
 
-        DefaultBackendMemoryManager::getInstance().freeMemoryOnDevice(g_host);
+        defaultBackendMemoryManager.freeMemoryOnDevice(g_host);
 
         ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
 
-        ComplexData f_host{&DefaultBackendMemoryManager::getInstance(), nullptr, RectangleShape()};
+        ComplexData f_host{&defaultBackendMemoryManager, nullptr, RectangleShape()};
         std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
 
@@ -82,7 +82,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
                 *context->psfpreprocessor.get());
 
             resultDone.get(); //wait for result
-            f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, DefaultBackendMemoryManager::getInstance());
+            f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, defaultBackendMemoryManager);
         }
         catch (...) {
             throw; // dont overwrite image if exception

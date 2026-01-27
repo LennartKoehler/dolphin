@@ -1,8 +1,8 @@
 CMakeFiles/imgui_lib.dir/lib/imgui/backends/imgui_impl_glfw.cpp.o: \
- /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/backends/imgui_impl_glfw.cpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/backends/imgui_impl_glfw.cpp \
  /usr/include/stdc-predef.h \
- /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/imgui.h \
- /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/imconfig.h \
+ /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/imgui.h \
+ /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/imconfig.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/float.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h /usr/include/string.h \
@@ -17,7 +17,7 @@ CMakeFiles/imgui_lib.dir/lib/imgui/backends/imgui_impl_glfw.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
  /usr/include/strings.h /usr/include/assert.h \
- /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/backends/imgui_impl_glfw.h \
+ /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/backends/imgui_impl_glfw.h \
  /usr/local/include/GLFW/glfw3.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/types.h \
@@ -28,33 +28,6 @@ CMakeFiles/imgui_lib.dir/lib/imgui/backends/imgui_impl_glfw.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-least.h /usr/include/GL/gl.h \
  /usr/include/GL/glext.h /usr/include/KHR/khrplatform.h \
- /usr/local/include/GLFW/glfw3native.h /usr/include/X11/Xlib.h \
- /usr/include/x86_64-linux-gnu/sys/types.h \
- /usr/include/x86_64-linux-gnu/bits/types/clock_t.h \
- /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
- /usr/include/x86_64-linux-gnu/bits/types/time_t.h \
- /usr/include/x86_64-linux-gnu/bits/types/timer_t.h /usr/include/endian.h \
- /usr/include/x86_64-linux-gnu/bits/endian.h \
- /usr/include/x86_64-linux-gnu/bits/endianness.h \
- /usr/include/x86_64-linux-gnu/bits/byteswap.h \
- /usr/include/x86_64-linux-gnu/bits/uintn-identity.h \
- /usr/include/x86_64-linux-gnu/sys/select.h \
- /usr/include/x86_64-linux-gnu/bits/select.h \
- /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h \
- /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h \
- /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h \
- /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
- /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h \
- /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h \
- /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
- /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h /usr/include/X11/X.h \
- /usr/include/X11/Xfuncproto.h /usr/include/X11/Xosdefs.h \
- /usr/include/X11/extensions/Xrandr.h /usr/include/X11/extensions/randr.h \
- /usr/include/X11/extensions/Xrender.h /usr/include/X11/Xutil.h \
- /usr/include/X11/keysym.h /usr/include/X11/keysymdef.h \
- /usr/include/X11/extensions/render.h /usr/include/X11/Xdefs.h \
  /usr/include/unistd.h /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
  /usr/include/x86_64-linux-gnu/bits/environments.h \
  /usr/include/x86_64-linux-gnu/bits/confname.h \

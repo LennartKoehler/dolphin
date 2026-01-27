@@ -38,12 +38,10 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
-add_library(dolphinbackend STATIC IMPORTED)
 
-set_target_properties(dolphinbackend PROPERTIES
-    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/lib/libdolphinbackend.a"
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/include"
-)
+add_subdirectory(backends/dolphinbackend)
+add_subdirectory(backends/cpu)
+
 
 
 
@@ -60,8 +58,6 @@ set(DOLPHIN_SOURCES
     src/DeconvolutionService.cpp
     src/DeconvolutionStrategyFactory.cpp
     src/ThreadPool.cpp
-
-    src/backend/BackendFactory.cpp
     
     src/image/Image3D.cpp
     src/image/ImageMetaData.cpp
@@ -110,8 +106,10 @@ add_library(dolphin STATIC ${DOLPHIN_SOURCES})
 target_include_directories(dolphin
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/dolphin>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cpu/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/dolphinbackend/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/spdlog/include/>
         $<INSTALL_INTERFACE:include>
         ${TIFF_INCLUDE_DIR}
         ${ITK_INCLUDE_DIRS}
@@ -120,8 +118,10 @@ target_include_directories(dolphin
 target_link_libraries(dolphin
     PUBLIC
         dolphinbackend
+        cpu_backend
         ${TIFF_LIBRARIES}
         ${ITK_LIBRARIES}
+
 )
 
 # Set version for the library
@@ -137,7 +137,7 @@ set_target_properties(dolphin PROPERTIES
 
 
 # Install targets
-install(TARGETS dolphin
+install(TARGETS dolphin dolphinbackend cpu_backend
     EXPORT dolphinTargets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
@@ -154,7 +154,7 @@ install(DIRECTORY lib/dolphinbackend/include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
-install(DIRECTORY include/dolphin/
+install(DIRECTORY include/dolphin
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )

@@ -1,5 +1,5 @@
-#include "backend/BackendFactory.h"
-#include "dolphinbackend/ComplexData.h"
+#include <dolphin/backend/BackendFactory.h>
+#include <dolphinbackend/ComplexData.h>
 #include <iostream>
 #include <memory>
 #include <chrono>
@@ -148,7 +148,7 @@ void runFFTPerformanceTest(const std::string& backendName) {
             int size = 64;
             const int totalElements = size * size * size;  // Total volume
             int numSmallFFTs = 100;
-            
+
             // Calculate size for small FFTs
             int smallFFTSize = totalElements / numSmallFFTs;
             // numSmallFFTs = 1; //TESTVALUE

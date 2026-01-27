@@ -18,7 +18,6 @@ set_target_properties(dolphinbackend PROPERTIES
 )
 
 
-
 find_package(CUDAToolkit 12.8 REQUIRED)
 
 add_library(cuda_backend SHARED
@@ -26,11 +25,9 @@ add_library(cuda_backend SHARED
     src/CUDABackendManager.cpp
 )
 
-
-
 target_include_directories(cuda_backend
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_backend>
         ${CMAKE_SOURCE_DIR}/lib/cube/include
 )
 

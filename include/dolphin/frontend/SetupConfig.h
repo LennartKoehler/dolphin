@@ -35,7 +35,7 @@ public:
     std::string labeledImage;
     std::string labelPSFMap;
     std::string strategyType = "normal";
-    std::string backend = "cpu";
+    std::string backend = "libcpu_backend.so";
 
     int nThreads = 1;
     int nIOThreads = 1;

@@ -1,4 +1,4 @@
-#include "Dolphin.h"
+#include <dolphin/Dolphin.h>
 #include "GUIFrontend.h"
 
 int main(int argc, char** argv) {

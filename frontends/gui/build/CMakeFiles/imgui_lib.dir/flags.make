@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui -I/home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/backends
+CXX_INCLUDES = -I/home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui -I/home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/backends
 
 CXX_FLAGS = -std=gnu++20
 
