@@ -1,6 +1,6 @@
 #include <iostream>
-#include "Dolphin.h"
-#include "frontend/SetupConfig.h"
+#include <dolphin/Dolphin.h>
+#include <dolphin/frontend/SetupConfig.h>
 
 
 

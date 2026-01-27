@@ -65,6 +65,16 @@ CMAKE_BINARY_DIR = /home/lennart-k-hler/projects/dolphin/backends/cpu/build
 #=============================================================================
 # Targets provided globally by CMake.
 
+# Special rule for the target test
+test:
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Running tests..."
+	/usr/bin/ctest --force-new-ctest-process --verbose $(ARGS)
+.PHONY : test
+
+# Special rule for the target test
+test/fast: test
+.PHONY : test/fast
+
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "No interactive CMake dialog available..."
@@ -84,6 +94,51 @@ rebuild_cache:
 # Special rule for the target rebuild_cache
 rebuild_cache/fast: rebuild_cache
 .PHONY : rebuild_cache/fast
+
+# Special rule for the target list_install_components
+list_install_components:
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Available install components are: \"Unspecified\""
+.PHONY : list_install_components
+
+# Special rule for the target list_install_components
+list_install_components/fast: list_install_components
+.PHONY : list_install_components/fast
+
+# Special rule for the target install
+install: preinstall
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Install the project..."
+	/usr/bin/cmake -P cmake_install.cmake
+.PHONY : install
+
+# Special rule for the target install
+install/fast: preinstall/fast
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Install the project..."
+	/usr/bin/cmake -P cmake_install.cmake
+.PHONY : install/fast
+
+# Special rule for the target install/local
+install/local: preinstall
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing only the local directory..."
+	/usr/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
+.PHONY : install/local
+
+# Special rule for the target install/local
+install/local/fast: preinstall/fast
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing only the local directory..."
+	/usr/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
+.PHONY : install/local/fast
+
+# Special rule for the target install/strip
+install/strip: preinstall
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing the project stripped..."
+	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
+.PHONY : install/strip
+
+# Special rule for the target install/strip
+install/strip/fast: preinstall/fast
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing the project stripped..."
+	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
+.PHONY : install/strip/fast
 
 # The main all target
 all: cmake_check_build_system
@@ -129,29 +184,55 @@ cpu_backend/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpu_backend.dir/build.make CMakeFiles/cpu_backend.dir/build
 .PHONY : cpu_backend/fast
 
-CPUBackend.o: CPUBackend.cpp.o
-.PHONY : CPUBackend.o
+#=============================================================================
+# Target rules for targets named cpu_test
+
+# Build rule for target.
+cpu_test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 cpu_test
+.PHONY : cpu_test
+
+# fast build rule for target.
+cpu_test/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/cpu_test.dir/build.make tests/CMakeFiles/cpu_test.dir/build
+.PHONY : cpu_test/fast
+
+#=============================================================================
+# Target rules for targets named multiple_devices_test
+
+# Build rule for target.
+multiple_devices_test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 multiple_devices_test
+.PHONY : multiple_devices_test
+
+# fast build rule for target.
+multiple_devices_test/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/multiple_devices_test.dir/build.make tests/CMakeFiles/multiple_devices_test.dir/build
+.PHONY : multiple_devices_test/fast
+
+src/CPUBackend.o: src/CPUBackend.cpp.o
+.PHONY : src/CPUBackend.o
 
 # target to build an object file
-CPUBackend.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpu_backend.dir/build.make CMakeFiles/cpu_backend.dir/CPUBackend.cpp.o
-.PHONY : CPUBackend.cpp.o
+src/CPUBackend.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpu_backend.dir/build.make CMakeFiles/cpu_backend.dir/src/CPUBackend.cpp.o
+.PHONY : src/CPUBackend.cpp.o
 
-CPUBackend.i: CPUBackend.cpp.i
-.PHONY : CPUBackend.i
+src/CPUBackend.i: src/CPUBackend.cpp.i
+.PHONY : src/CPUBackend.i
 
 # target to preprocess a source file
-CPUBackend.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpu_backend.dir/build.make CMakeFiles/cpu_backend.dir/CPUBackend.cpp.i
-.PHONY : CPUBackend.cpp.i
+src/CPUBackend.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpu_backend.dir/build.make CMakeFiles/cpu_backend.dir/src/CPUBackend.cpp.i
+.PHONY : src/CPUBackend.cpp.i
 
-CPUBackend.s: CPUBackend.cpp.s
-.PHONY : CPUBackend.s
+src/CPUBackend.s: src/CPUBackend.cpp.s
+.PHONY : src/CPUBackend.s
 
 # target to generate assembly for a file
-CPUBackend.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpu_backend.dir/build.make CMakeFiles/cpu_backend.dir/CPUBackend.cpp.s
-.PHONY : CPUBackend.cpp.s
+src/CPUBackend.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpu_backend.dir/build.make CMakeFiles/cpu_backend.dir/src/CPUBackend.cpp.s
+.PHONY : src/CPUBackend.cpp.s
 
 # Help Target
 help:
@@ -160,11 +241,18 @@ help:
 	@echo "... clean"
 	@echo "... depend"
 	@echo "... edit_cache"
+	@echo "... install"
+	@echo "... install/local"
+	@echo "... install/strip"
+	@echo "... list_install_components"
 	@echo "... rebuild_cache"
+	@echo "... test"
 	@echo "... cpu_backend"
-	@echo "... CPUBackend.o"
-	@echo "... CPUBackend.i"
-	@echo "... CPUBackend.s"
+	@echo "... cpu_test"
+	@echo "... multiple_devices_test"
+	@echo "... src/CPUBackend.o"
+	@echo "... src/CPUBackend.i"
+	@echo "... src/CPUBackend.s"
 .PHONY : help
 
 

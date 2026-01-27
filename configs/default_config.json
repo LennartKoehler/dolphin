@@ -18,9 +18,9 @@
   "psf_dir_path": "",
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   
-  "backend": "../backends/cuda/build/libcuda_backend.so",
-  "nIOThreads": 8,
-  "nWorkerThreads" : 2,
+  "backend": "../backends/cpu/build/libcpu_backend.so",
+  "nIOThreads": 6,
+  "nWorkerThreads" : 6,
   "nDevices" : 1,
   "maxMem_GB": 64,
 

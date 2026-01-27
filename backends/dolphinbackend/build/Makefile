@@ -198,30 +198,6 @@ src/ComplexData.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphinbackend.dir/build.make CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.s
 .PHONY : src/ComplexData.cpp.s
 
-src/DefaultBackendMemoryManager.o: src/DefaultBackendMemoryManager.cpp.o
-.PHONY : src/DefaultBackendMemoryManager.o
-
-# target to build an object file
-src/DefaultBackendMemoryManager.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphinbackend.dir/build.make CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o
-.PHONY : src/DefaultBackendMemoryManager.cpp.o
-
-src/DefaultBackendMemoryManager.i: src/DefaultBackendMemoryManager.cpp.i
-.PHONY : src/DefaultBackendMemoryManager.i
-
-# target to preprocess a source file
-src/DefaultBackendMemoryManager.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphinbackend.dir/build.make CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.i
-.PHONY : src/DefaultBackendMemoryManager.cpp.i
-
-src/DefaultBackendMemoryManager.s: src/DefaultBackendMemoryManager.cpp.s
-.PHONY : src/DefaultBackendMemoryManager.s
-
-# target to generate assembly for a file
-src/DefaultBackendMemoryManager.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dolphinbackend.dir/build.make CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.s
-.PHONY : src/DefaultBackendMemoryManager.cpp.s
-
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -238,9 +214,6 @@ help:
 	@echo "... src/ComplexData.o"
 	@echo "... src/ComplexData.i"
 	@echo "... src/ComplexData.s"
-	@echo "... src/DefaultBackendMemoryManager.o"
-	@echo "... src/DefaultBackendMemoryManager.i"
-	@echo "... src/DefaultBackendMemoryManager.s"
 .PHONY : help
 
 

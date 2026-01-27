@@ -1,4 +1,4 @@
-#include "backend/BackendFactory.h"
+#include <dolphin/backend/BackendFactory.h>
 #include "dolphinbackend/ComplexData.h"
 #include <iostream>
 #include <memory>

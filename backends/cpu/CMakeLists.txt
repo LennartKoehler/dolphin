@@ -1,14 +1,46 @@
 # backends/cpu/CMakeLists.txt
 cmake_minimum_required(VERSION 3.10)
-
-project(CPUBackend)
-
-
-find_library(FFTW3_LIB NAMES fftw3 PATHS /usr/lib /usr/lib/x86_64-linux-gnu REQUIRED)
-find_library(FFTW3_THREADS_LIB NAMES fftw3_threads PATHS /usr/lib /usr/lib/x86_64-linux-gnu REQUIRED)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
+set(CMAKE_BUILD_TYPE Debug)
 
 
-add_library(cpu_backend SHARED CPUBackend.cpp)
+project(CPUBackend VERSION 1.0.0)
+
+
+set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
+find_library(FFTW3_LIB NAMES fftw3f PATHS /usr/lib /usr/lib/x86_64-linux-gnu REQUIRED)
+find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS /usr/lib /usr/lib/x86_64-linux-gnu REQUIRED)
+
+
+# add_library(dolphinbackend STATIC IMPORTED)
+
+# set_target_properties(dolphinbackend PROPERTIES
+#     IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/lib/libdolphinbackend.a"
+#     INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/include"
+#     INTERFACE_LINK_LIBRARIES ""  # empty if it has no dependencies
+# )
+
+add_library(cpu_backend STATIC
+    src/CPUBackend.cpp
+)
+target_include_directories(cpu_backend
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/cpu_backend>)
+
+
+
+
+# Link FFTW shared libraries
+target_link_libraries(cpu_backend PUBLIC
+    ${FFTW3_LIB}
+    ${FFTW3_THREADS_LIB}
+    )
+
+target_link_libraries(cpu_backend PUBLIC
+    dolphinbackend)
+
 
 target_compile_options(cpu_backend PRIVATE
     -O3
@@ -16,22 +48,63 @@ target_compile_options(cpu_backend PRIVATE
     -fopt-info-vec-optimized
     -g -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma
 )
-# Include the main project headers
-target_include_directories(cpu_backend PUBLIC
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/include
-)
-# Link FFTW shared libraries and OpenMP
-target_link_libraries(cpu_backend PRIVATE
-    ${FFTW3_LIB}
-    ${FFTW3_THREADS_LIB}
-    backendlib
-)
+# # Specify library output directory
+# set_target_properties(cpu_backend PROPERTIES
+#     OUTPUT_NAME "cpu_backend"
+#     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+#     LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}
+#     LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}
+# )
 
-# Specify library output directory
-set_target_properties(cpu_backend PROPERTIES
-    OUTPUT_NAME "cpu_backend"
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}
-    LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}
-)
+# # Install library and headers
+# install(TARGETS cpu_backend
+#     EXPORT cpu_backendTargets
+#     ARCHIVE DESTINATION lib
+#     LIBRARY DESTINATION lib
+#     RUNTIME DESTINATION bin
+#     INCLUDES DESTINATION include
+# )
+
+# install(DIRECTORY include/cpu_backend/
+#     DESTINATION include/cpu_backend
+# )
+
+# # Export CMake targets for find_package
+# install(EXPORT cpu_backendTargets
+#     FILE cpu_backendTargets.cmake
+#     NAMESPACE cpu_backend::
+#     DESTINATION lib/cmake/cpu_backend
+# )
+
+# include(CMakePackageConfigHelpers)
+# write_basic_package_version_file(
+#     "${CMAKE_CURRENT_BINARY_DIR}/cpu_backendConfigVersion.cmake"
+#     VERSION ${PROJECT_VERSION}
+#     COMPATIBILITY AnyNewerVersion
+# )
+
+# configure_file(
+#     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpu_backendConfig.cmake.in"
+#     "${CMAKE_CURRENT_BINARY_DIR}/cpu_backendConfig.cmake"
+#     @ONLY
+# )
+
+# install(FILES
+#     "${CMAKE_CURRENT_BINARY_DIR}/cpu_backendConfig.cmake"
+#     "${CMAKE_CURRENT_BINARY_DIR}/cpu_backendConfigVersion.cmake"
+#     DESTINATION lib/cmake/cpu_backend
+# )
+
+# option(ENABLE_TESTS "Enable tests" ON)
+# if (${ENABLE_TESTS})
+
+#     set(CMAKE_CTEST_ARGUMENTS "--verbose")
+
+
+#     enable_testing()
+#     add_subdirectory(tests)
+
+# endif()
+
+
+

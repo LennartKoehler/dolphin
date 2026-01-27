@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/cpu_backend.dir/CPUBackend.cpp.o"
-  "CMakeFiles/cpu_backend.dir/CPUBackend.cpp.o.d"
-  "backends/cpu/libcpu_backend.pdb"
-  "backends/cpu/libcpu_backend.so"
+  "CMakeFiles/cpu_backend.dir/src/CPUBackend.cpp.o"
+  "CMakeFiles/cpu_backend.dir/src/CPUBackend.cpp.o.d"
+  "libcpu_backend.a"
+  "libcpu_backend.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

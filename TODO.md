@@ -1,3 +1,6 @@
+fix cpubackend and perhaps make it ship with dolphin library
+
+split library in public and private: currently the include paths are wrong after installation, i want the installed headers inside the library named directory in /usr/local/include/dolphin but then when using the code in the frontend dolphin doesnt find its own libraries because it looks in /usr/local/include, not in .../dolphin so private headers should stay as is while public headers i need to use the namespaced include <dolphin/PSFConfig.h> etc 
 
 work on labeled deconvolution, make faster
 

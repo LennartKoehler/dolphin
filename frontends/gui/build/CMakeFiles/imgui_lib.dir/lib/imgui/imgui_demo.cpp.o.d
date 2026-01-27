@@ -1,8 +1,8 @@
 CMakeFiles/imgui_lib.dir/lib/imgui/imgui_demo.cpp.o: \
- /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/imgui_demo.cpp \
+ /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/imgui_demo.cpp \
  /usr/include/stdc-predef.h \
- /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/imgui.h \
- /home/lennart-koehler/projects/dolphin/frontends/gui/lib/imgui/imconfig.h \
+ /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/imgui.h \
+ /home/lennart-k-hler/projects/dolphin/frontends/gui/lib/imgui/imconfig.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/float.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h /usr/include/string.h \

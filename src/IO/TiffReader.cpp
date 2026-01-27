@@ -22,7 +22,7 @@ See the LICENSE file provided with the code for the full license.
 #include <chrono>
 #include <thread>
 #include "itkImageRegionIterator.h"
-
+#include <spdlog/spdlog.h>
 namespace fs = std::filesystem;
 
 
@@ -62,7 +62,7 @@ Image3D TiffReader::readTiffFile(const std::string& filename, int channel) {
     
     if (!readSubimageFromTiffFileStatic(filename, metaData, fullImage.position.height, fullImage.position.depth, 
                      fullImage.dimensions.height, fullImage.dimensions.depth, fullImage.dimensions.width, image, channel)) {
-        std::cerr << "[ERROR] Failed to read TIFF file: " << filename << std::endl;
+        spdlog::error(" Failed to read TIFF file: {}", filename);
         return Image3D();
     }
     
@@ -74,7 +74,7 @@ Image3D TiffReader::readTiffFile(const std::string& filename, int channel) {
 ImageMetaData TiffReader::extractMetadataStatic(const std::string& filename) {
     TIFF* tifFile = TIFFOpen(filename.c_str(), "r");
     if (!tifFile) {
-        std::cerr << "[ERROR] Cannot open TIFF file to read metadata: " << filename << std::endl;
+        spdlog::error("Cannot open TIFF file to read metadata: {}", filename);
         throw; 
     }
     
@@ -127,21 +127,21 @@ bool TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& me
     if (metaData.linChannels > 1){
         ifdchannel = channel - 1; // channel is 1 based
         if (ifdchannel > metaData.linChannels - 1){
-            std::cerr << "[ERROR] Specified channel " << channel << " larger than maximum number of image file directories in image: " << metaData.linChannels << std::endl;
+            spdlog::error(" Specified channel " << channel << " larger than maximum number of image file directories in image: ", metaData.linChannels);
             return false;
         }
     }
     else if (metaData.samplesPerPixel > 1){
         sppchannel = channel - 1; // channel is 1 based
         if (sppchannel > metaData.samplesPerPixel - 1){
-            std::cerr << "[ERROR] Specified channel " << channel << " larger than maximum number of samples per pixel in image: " << metaData.samplesPerPixel << std::endl;
+            spdlog::error(" Specified channel " << channel << " larger than maximum number of samples per pixel in image: ", metaData.samplesPerPixel);
             return false;
         }
     }
     
     // Validate region shape
     if (height <= 0 || depth <= 0) {
-        std::cerr << "[ERROR] Invalid region dimensions: " << height << "x" << depth << std::endl;
+        spdlog::error(" Invalid region dimensions: " << height << "x", depth);
         return false;
     }
     
@@ -167,7 +167,7 @@ bool TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& me
         int zIndexChannel = (zIndex * metaData.linChannels) + ifdchannel;
         if (!TIFFSetDirectory(tiffile, zIndexChannel)) {
             _TIFFfree(buf);
-            std::cerr << "[ERROR] Failed to set directory for z-slice " << zIndex << std::endl;
+            spdlog::error(" Failed to set directory for z-slice ", zIndex);
             return false;
         }
         
@@ -175,7 +175,7 @@ bool TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& me
         for (uint32_t yIndex = y; yIndex < y + height; yIndex++) {
             if (TIFFReadScanline(tiffile, buf, yIndex) == -1) {
                 _TIFFfree(buf);
-                std::cerr << "[ERROR] Failed to read scanline " << yIndex << " in z-slice " << zIndex << std::endl;
+                spdlog::error(" Failed to read scanline " << yIndex << " in z-slice ", zIndex);
                 return false;
             }
             
@@ -446,7 +446,7 @@ void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<fl
             const float* data32 = reinterpret_cast<const float*>(scanlineData);
                 rowData[x] = data32[x * metaData.samplesPerPixel + channel];
         } else {
-            std::cerr << "[ERROR] Unsupported bit depth: " << metaData.bitsPerSample << std::endl;
+            spdlog::error(" Unsupported bit depth: ", metaData.bitsPerSample);
             // Fill with zeros as fallback
             std::fill(rowData.begin(), rowData.end(), 0.0f);
         }
@@ -527,7 +527,7 @@ void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<fl
 // bool TiffReader::extractImageDataFromDirectory(const std::string& directoryPath, ImageMetaData& metaData) {
 //     fs::path dirPath(directoryPath);
 //     if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
-//         std::cerr << "[ERROR] Specified path is not a directory or does not exist: " << directoryPath << std::endl;
+//         spdlog::error(" Specified path is not a directory or does not exist: ", directoryPath);
 //         return false;
 //     }
 
@@ -569,7 +569,7 @@ void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<fl
 //         }
 //     }
 
-//     std::cerr << "[ERROR] No TIFF files found in directory: " << directoryPath << std::endl;
+//     spdlog::error(" No TIFF files found in directory: ", directoryPath);
 //     return false;
 // }
 
@@ -577,7 +577,7 @@ void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<fl
 // bool TiffReader::readLayersFromDirectory(const std::string& directoryPath, Image3D& layers, ImageMetaData& metaData) {
 //     fs::path dirPath(directoryPath);
 //     if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
-//         std::cerr << "[ERROR] Specified path is not a directory or does not exist: " << directoryPath << std::endl;
+//         spdlog::error(" Specified path is not a directory or does not exist: ", directoryPath);
 //         return false;
 //     }
 
@@ -607,7 +607,7 @@ void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<fl
 //             }
 //             TIFFClose(tifFile);
 //         } else {
-//             std::cerr << "[ERROR] Could not open TIFF file: " << filePath.string() << std::endl;
+//             spdlog::error(" Could not open TIFF file: ", filePath.string());
 //             return false;
 //         }
 //     }

@@ -18,32 +18,39 @@ See the LICENSE file provided with the code for the full license.
 #include <stdexcept>
 #include <map>
 #include <functional>
-#include "dolphinbackend/IBackend.h" 
+#include <dolphinbackend/IBackend.h> 
 #include <dlfcn.h>
+#include <iostream>
+#include <cpu_backend/CPUBackend.h>
 
 // Helper macro for cleaner not-implemented exceptions
 #define NOT_IMPLEMENTED(func_name) \
     throw std::runtime_error(std::string(#func_name) + " not implemented in " + typeid(*this).name())
 
 
+static CPUBackendMemoryManager defaultBackendMemoryManager;
+// doesnt actually have a state though :)
+struct BackendFactory {
+    // ---------------- Singleton ----------------
+    static BackendFactory& getInstance() {
+        static BackendFactory instance;
+        return instance;
+    }
 
-class BackendFactory {
-public:
-    using BackendCreator = std::function<IBackend*()>;
+    // ---------------- Templated create ----------------
+    template <typename T>
+    static std::shared_ptr<T> createShared(const std::string& backendName) {
+        T* raw = loadTypedBackend<T>(backendName);
+        return std::shared_ptr<T>(raw, [](T* ptr){
+            if(ptr) delete ptr;  // cleanup
+        });
+    }
 
-    static std::shared_ptr<IBackend> createShared(const std::string& backendName);
-    static std::unique_ptr<IBackend> createUnique(const std::string& backendName);
-    static std::unique_ptr<IBackendMemoryManager> createMemManager(const std::string& backendName);
-    static std::unique_ptr<IDeconvolutionBackend> createDeconvBackend(const std::string& backendName);
-
-    static BackendFactory& getInstance();
-
-    std::vector<std::string> getAvailableBackends() const;
-    bool isBackendAvailable(const std::string& name) const;
-
-    void registerBackend(const std::string& name, BackendCreator creator);
-
-
+    template <typename T>
+    static std::unique_ptr<T> createUnique(const std::string& backendName) {
+        T* raw = loadTypedBackend<T>(backendName);
+        return std::unique_ptr<T>(raw);  // unique_ptr uses delete by default
+    }
 
 private:
     BackendFactory() = default;
@@ -51,10 +58,51 @@ private:
     BackendFactory(const BackendFactory&) = delete;
     BackendFactory& operator=(const BackendFactory&) = delete;
 
-    static IBackend* create(const std::string& backendName);
-    // void registerBackends();
-    static void* getHandle(const std::string& backendName);
+    // ---------------- Internal loader ----------------
+    template <typename T>
+    static T* loadBackend(const std::string& backendName, const char* symbolName) {
+        if (backendName == "default"){
+            return nullptr;
+        }
+        void* handle = getHandle(backendName);
+        if (!handle) {
+            std::cerr << "[WARNING] Could not load backend library '" << backendName << "'" << std::endl;
+            return nullptr;
+        }
 
-    std::map<std::string, BackendCreator> backends_;
-    bool initialized_ = false;
+        using create_fn = T*();
+        auto create_backend = reinterpret_cast<create_fn*>(dlsym(handle, symbolName));
+        if (!create_backend) {
+            std::cerr << "[WARNING] Could not find symbol '" << symbolName << "' in backend library '" << backendName << "'" << std::endl;
+            dlclose(handle);
+            return nullptr;
+        }
+
+        return create_backend();
+    }
+
+    template <typename T>
+    static T* loadTypedBackend(const std::string& backendName) {
+        T* result;
+        if constexpr (std::is_same_v<T, IBackend>) {
+            result = loadBackend<IBackend>(backendName, "createBackend");
+            if (result == nullptr) result = CPUBackend::create();
+        } else if constexpr (std::is_same_v<T, IBackendMemoryManager>) {
+            result = loadBackend<IBackendMemoryManager>(backendName, "createBackendMemoryManager");
+            if (result == nullptr) result = new CPUBackendMemoryManager();
+        } else if constexpr (std::is_same_v<T, IDeconvolutionBackend>) {
+            result = loadBackend<IDeconvolutionBackend>(backendName, "createDeconvolutionBackend");
+            if (result == nullptr) result = new CPUDeconvolutionBackend();
+        }
+        return result;
+    }
+
+    // ---------------- Shared library handle loader ----------------
+    static void* getHandle(const std::string& backendName) {
+        void* handle = dlopen(backendName.c_str(), RTLD_LAZY);
+        if (!handle) {
+            std::cerr << "[ERROR] Failed to open library '" << backendName << "': " << dlerror() << std::endl;
+        }
+        return handle;
+    }
 };

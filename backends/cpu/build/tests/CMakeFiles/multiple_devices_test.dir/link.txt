@@ -1,0 +1,1 @@
+/usr/bin/c++ -g -O0 -DDEBUG -static-libstdc++ -static-libgcc CMakeFiles/multiple_devices_test.dir/multiple_devices_test.cpp.o -o multiple_devices_test  -Wl,-rpath,"\$ORIGIN/../lib" ../libcpu_backend.a /usr/local/lib/libfftw3f.a /usr/lib/x86_64-linux-gnu/libfftw3_threads.so /home/lennart-k-hler/projects/dolphin/backends/cpu/lib/dolphinbackend/lib/libdolphinbackend.a 

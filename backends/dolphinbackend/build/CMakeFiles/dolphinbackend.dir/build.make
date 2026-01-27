@@ -83,33 +83,17 @@ CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/src/ComplexData.cpp -o CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.s
 
-CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o: CMakeFiles/dolphinbackend.dir/flags.make
-CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o: /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/src/DefaultBackendMemoryManager.cpp
-CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o: CMakeFiles/dolphinbackend.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o -MF CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o.d -o CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o -c /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/src/DefaultBackendMemoryManager.cpp
-
-CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/src/DefaultBackendMemoryManager.cpp > CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.i
-
-CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/src/DefaultBackendMemoryManager.cpp -o CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.s
-
 # Object files for target dolphinbackend
 dolphinbackend_OBJECTS = \
-"CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.o" \
-"CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o"
+"CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.o"
 
 # External object files for target dolphinbackend
 dolphinbackend_EXTERNAL_OBJECTS =
 
 libdolphinbackend.a: CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.o
-libdolphinbackend.a: CMakeFiles/dolphinbackend.dir/src/DefaultBackendMemoryManager.cpp.o
 libdolphinbackend.a: CMakeFiles/dolphinbackend.dir/build.make
 libdolphinbackend.a: CMakeFiles/dolphinbackend.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX static library libdolphinbackend.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX static library libdolphinbackend.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/dolphinbackend.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/dolphinbackend.dir/link.txt --verbose=$(VERBOSE)
 

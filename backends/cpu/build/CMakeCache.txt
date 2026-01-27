@@ -104,7 +104,7 @@ CMAKE_EXPORT_COMPILE_COMMANDS:BOOL=
 CMAKE_FIND_PACKAGE_REDIRECTS_DIR:STATIC=/home/lennart-k-hler/projects/dolphin/backends/cpu/build/CMakeFiles/pkgRedirects
 
 //Install path prefix, prepended onto install directories.
-CMAKE_INSTALL_PREFIX:PATH=/usr/local
+CMAKE_INSTALL_PREFIX:PATH=/home/lennart-k-hler/projects/dolphin/lib/cpu_backend
 
 //Path to a program.
 CMAKE_LINKER:FILEPATH=/usr/bin/ld
@@ -149,6 +149,21 @@ CMAKE_PROJECT_HOMEPAGE_URL:STATIC=
 
 //Value Computed by CMake
 CMAKE_PROJECT_NAME:STATIC=CPUBackend
+
+//Value Computed by CMake
+CMAKE_PROJECT_VERSION:STATIC=1.0.0
+
+//Value Computed by CMake
+CMAKE_PROJECT_VERSION_MAJOR:STATIC=1
+
+//Value Computed by CMake
+CMAKE_PROJECT_VERSION_MINOR:STATIC=0
+
+//Value Computed by CMake
+CMAKE_PROJECT_VERSION_PATCH:STATIC=0
+
+//Value Computed by CMake
+CMAKE_PROJECT_VERSION_TWEAK:STATIC=
 
 //Path to a program.
 CMAKE_RANLIB:FILEPATH=/usr/bin/ranlib
@@ -224,14 +239,17 @@ CPUBackend_IS_TOP_LEVEL:STATIC=ON
 //Value Computed by CMake
 CPUBackend_SOURCE_DIR:STATIC=/home/lennart-k-hler/projects/dolphin/backends/cpu
 
+//Enable tests
+ENABLE_TESTS:BOOL=ON
+
 //Path to a library.
-FFTW3_LIB:FILEPATH=/usr/lib/x86_64-linux-gnu/libfftw3.so
+FFTW3_LIB:FILEPATH=/usr/local/lib/libfftw3f.a
 
 //Path to a library.
 FFTW3_THREADS_LIB:FILEPATH=/usr/lib/x86_64-linux-gnu/libfftw3_threads.so
 
 //Dependencies for the target
-cpu_backend_LIB_DEPENDS:STATIC=general;/usr/lib/x86_64-linux-gnu/libfftw3.so;general;/usr/lib/x86_64-linux-gnu/libfftw3_threads.so;general;backendlib;
+cpu_backend_LIB_DEPENDS:STATIC=general;/usr/local/lib/libfftw3f.a;general;/usr/lib/x86_64-linux-gnu/libfftw3_threads.so;general;dolphinbackend;
 
 
 ########################
@@ -338,7 +356,7 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_NM
 CMAKE_NM-ADVANCED:INTERNAL=1
 //number of local generators
-CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=1
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=2
 //ADVANCED property for variable: CMAKE_OBJCOPY
 CMAKE_OBJCOPY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_OBJDUMP

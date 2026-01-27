@@ -24,7 +24,7 @@ ComplexData Preprocessor::convertImageToComplexData(
 
 
     RectangleShape shape = input.getShape();
-    ComplexData result = DefaultBackendMemoryManager::getInstance().allocateMemoryOnDevice(shape);
+    ComplexData result = defaultBackendMemoryManager.allocateMemoryOnDevice(shape);
 
     int width = shape.width;
     int height = shape.height;

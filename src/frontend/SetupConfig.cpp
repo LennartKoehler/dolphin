@@ -126,9 +126,9 @@ void SetupConfig::registerAllParameters(){
     // parameters.push_back({ParameterType::Bool, &savePsf, "savePsf", false, "savePsf", "--savePsf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::Bool, &showExampleLayers, "showExampleLayers", false, "showExampleLayers", "--showExampleLayers", "Show example layers", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::Bool, &printInfo, "info", false, "info", "--info", "Print info about input image", false, false, 0.0, 0.0, nullptr});
-    static std::vector<std::string> backendOptions =
-        BackendFactory::getInstance().getAvailableBackends();
-    static void* backendOptionsVoid = static_cast<void*>(&backendOptions);
+    // static std::vector<std::string> backendOptions =
+    //     BackendFactory::getInstance().getAvailableBackends();
+    // static void* backendOptionsVoid = static_cast<void*>(&backendOptions);
     parameters.push_back({ParameterType::FilePath, &imagePath, "image_path", false, "image_path", "-i,--image_path", "Input image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &outputDir, "outputDir", true, "outputDir", "--outputDir", "Output directory", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &psfConfigPath, "psf_config_path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
@@ -138,7 +138,7 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::String, &strategyType, "strategyType", true, "strategyType", "--strategyType", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &labeledImage, "labeledImage", true, "labeledImage", "--labeledImage", "Labeled image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &labelPSFMap, "labelPSFMap", true, "labelPSFMap", "--labelPSFMap", "Label PSF map path", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::VectorString, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, backendOptionsVoid});
+    parameters.push_back({ParameterType::FilePath, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Int, &nThreads, "nThreads", false, "nThreads", "--nThreads", "Number of threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nWorkerThreads, "nWorkerThreads", true, "nWorkerThreads", "--nWorkerThreads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nIOThreads, "nIOThreads", true, "nIOThreads", "--nIOThreads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});

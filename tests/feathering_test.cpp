@@ -1,7 +1,7 @@
-#include "Image3D.h"  // Use explicit path to local header
-#include "deconvolution/Postprocessor.h"
-#include "IO/TiffReader.h"
-#include "IO/TiffWriter.h"
+#include <dolphin/Image3D.h>  // Use explicit path to local header
+#include <dolphin/deconvolution/Postprocessor.h>
+#include <dolphin/IO/TiffReader.h>
+#include <dolphin/IO/TiffWriter.h>
 
 int main(){
 
