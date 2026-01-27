@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include <iostream>
 
 #include <cassert>
+#include <spdlog/spdlog.h>
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
@@ -23,7 +24,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const Deconvoluti
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
     if (!backend) {
-        std::cerr << "[ERROR] No backend available for Regularized Inverse Filter algorithm initialization" << std::endl;
+        spdlog::error("No backend available for Regularized Inverse Filter algorithm initialization");
         return;
     }
     
@@ -43,12 +44,12 @@ bool RegularizedInverseFilterDeconvolutionAlgorithm::isInitialized() const {
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
-        std::cerr << "[ERROR] No backend available for Regularized Inverse Filter algorithm" << std::endl;
+        spdlog::error("No backend available for Regularized Inverse Filter algorithm");
         return;
     }
     
     if (!initialized) {
-        std::cerr << "[ERROR] Regularized Inverse Filter algorithm not initialized. Call init() first." << std::endl;
+        spdlog::error("Regularized Inverse Filter algorithm not initialized. Call init() first.");
         return;
     }
     complex_t lambdacomplex = {static_cast<real_t>(lambda), 0};

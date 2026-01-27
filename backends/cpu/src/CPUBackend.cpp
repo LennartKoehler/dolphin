@@ -735,7 +735,7 @@ void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, co
             real_t dy = gy.data[index][0];
             real_t dz = gz.data[index][0];
 
-            tv.data[index][0] = static_cast<float>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+            tv.data[index][0] = static_cast<real_t>(1.0 / ((dx + dy + dz) * lambda + 1.0));
             tv.data[index][1] = 0.0;
         }
     }

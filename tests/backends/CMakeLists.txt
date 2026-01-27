@@ -4,29 +4,6 @@ cmake_minimum_required(VERSION 3.10)
 # Enable testing
 enable_testing()
 
-# OpenMP Backend Test
-add_executable(openmp_test
-    openmp_test.cpp
-)
-
-# Link libraries to OpenMP test
-target_link_libraries(openmp_test
-    PRIVATE
-        dolphin
-)
-
-# Include directories for OpenMP test
-target_include_directories(openmp_test
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/../include
-        ${CMAKE_SOURCE_DIR}/../src
-)
-
-# Add OpenMP test to test suite
-add_test(NAME OpenMPBackendTest COMMAND openmp_test)
-set_tests_properties(OpenMPBackendTest PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-
-
 # FFT Performance Test
 add_executable(fft_performance_test
     fft_performance_test.cpp

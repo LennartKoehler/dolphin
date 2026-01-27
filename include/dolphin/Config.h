@@ -49,7 +49,6 @@ struct ConfigParameter{
     double maxVal;
     void* selection;
     int ID = ParameterIDGenerator::getNextID();
-
 };
 
 
@@ -64,68 +63,17 @@ class Config{
     using ParamVisitor = std::function<void(ConfigParameter)>;
 
 public:
-    Config() = default;
+    Config(){
 
-
-    virtual bool loadFromJSON(const json& jsonData){
-        bool success = true;
-        try{
-            // First, collect all valid json tags from registered parameters
-            std::unordered_set<std::string> validTags;
-            for (const auto& param : parameters) {
-                if (param.jsonTag) {
-                    validTags.insert(param.jsonTag);
-                }
-            }
-            
-            // Check for unknown keys in JSON
-            std::vector<std::string> unknownKeys;
-            for (auto it = jsonData.begin(); it != jsonData.end(); ++it) {
-                if (validTags.find(it.key()) == validTags.end()) {
-                    unknownKeys.push_back(it.key());
-                }
-            }
-            
-            // Report unknown keys
-            if (!unknownKeys.empty()) {
-                std::cout << "[WARNING] Unknown configuration keys found in JSON:";
-                for (const auto& key : unknownKeys) {
-                    std::cout << " '" << key << "'";
-                }
-                std::cout << std::endl;
-
-            }
-            
-            visitParams([&jsonData]<typename T>(T& value, ConfigParameter& param) {
-                if (jsonData.contains(param.jsonTag)) {
-                    value = jsonData.at(param.jsonTag).get<T>();
-                }
-            });
-        }
-        catch (const std::exception& e){
-            std::cout << "Error in reading config from json: " << e.what() << std::endl;
-            success = false;
-        }
-
-        return success;
-    }
-    virtual json writeToJSON(){
-        json jsonData;
-        visitParams([&jsonData]<typename T>(T& value, ConfigParameter& param) {
-            if (!param.value)
-                return;
-            jsonData[param.jsonTag] = value;
-
-        });
-
-        return jsonData;
     }
 
-    void printValues(){
-        visitParams([]<typename T>(T& value, ConfigParameter& param){
-            std::cout << param.name << ": " << value << std::endl;
-        });
-    }
+    virtual std::string getName() const = 0;
+
+
+    virtual bool loadFromJSON(const json& jsonData);
+    virtual json writeToJSON();
+
+    void printValues();
 
     template<typename Visitor>
     void visitParams(Visitor&& visitor){
@@ -143,17 +91,7 @@ protected:
 
 
 
-    static json loadJSONFile(const std::string& filePath) {
-        std::ifstream configFile(filePath);
-        if (!configFile.is_open()) {
-            throw std::runtime_error("Could not open config file: " + filePath);
-        }
-        
-        json jsonData;
-        configFile >> jsonData;
-        return jsonData;
-    }
-
+    static json loadJSONFile(const std::string& filePath);
 
     template<typename Visitor>
     bool visitParamValue(ConfigParameter& param, Visitor&& visitor, std::function<bool(ConfigParameter&)> specialVisitor) {
@@ -183,4 +121,6 @@ protected:
 
     std::vector<ConfigParameter> parameters;
     std::vector<ConfigParameter>& getParameters() { return parameters;};
+
+
 };

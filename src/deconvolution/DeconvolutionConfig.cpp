@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "deconvolution/DeconvolutionConfig.h"
 #include "deconvolution/DeconvolutionAlgorithmFactory.h"
+#include <spdlog/spdlog.h>
 
 DeconvolutionConfig::DeconvolutionConfig() {
     registerAllParameters();
@@ -48,7 +49,7 @@ bool DeconvolutionConfig::loadFromJSON(const json& jsonData) {
             layerPSFMap.loadFromJSON(jsonData.at("layerPSFMap"));
         }
     } catch (const std::exception& e) {
-        std::cerr << "Failed to load RangeMap parameters: " << e.what() << std::endl;
+        spdlog::error("Failed to load RangeMap parameters: {}", e.what());
         success = false;
     }
     
@@ -145,7 +146,7 @@ json DeconvolutionConfig::writeToJSON() {
 //             labelPSFMap.loadFromJSON(jsonData.at("labelPSFMap"));
 //         }
 //     } catch (const std::exception& e) {
-//         std::cerr << "Failed to load labelPSFMap parameter: " << e.what() << std::endl;
+//         spdlog::error("Failed to load labelPSFMap parameter: {}", e.what());
 //         success = false;
 //     }
     

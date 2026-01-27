@@ -19,9 +19,7 @@ GibsonLanniPSFConfig::GibsonLanniPSFConfig()
     registerAllParameters();
 }
 
-std::string GibsonLanniPSFConfig::getName() const {
-    return this->psfModelName;
-}
+
 
 
 void GibsonLanniPSFConfig::registerAllParameters(){

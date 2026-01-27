@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include <cassert>
 #include <sstream>
 #include <filesystem>
+#include <spdlog/spdlog.h>
 
 
 std::shared_ptr<PSFConfig> PSFCreator::generatePSFConfigFromConfigPath(const std::string& psfConfigPath){
@@ -84,7 +85,7 @@ std::vector<std::shared_ptr<PSFConfig>> PSFCreator::generatePSFsFromDir(const st
             throw std::runtime_error("Path is not a directory: " + psfDirPath);
         }
         
-        std::cout << "[STATUS] Reading PSF configs from directory: " << psfDirPath << std::endl;
+        spdlog::debug("Reading PSF configs from directory: {}", psfDirPath);
         
         // Iterate through all files in directory
         for (const auto& entry : std::filesystem::directory_iterator(psfDirPath)) {
@@ -94,19 +95,18 @@ std::vector<std::shared_ptr<PSFConfig>> PSFCreator::generatePSFsFromDir(const st
                 // Check if file is a JSON file
                 if (isJSONFile(filePath)) {
                     try {
-                        std::cout << "[STATUS] Processing config file: " << entry.path().filename().string() << std::endl;
+                        spdlog::debug("Processing config file: {}", entry.path().filename().string());
                         
                         // Generate PSF from this config file
                         std::shared_ptr<PSFConfig> psf = generatePSFConfigFromConfigPath(filePath);
                         psfs.push_back(std::move(psf));
                         
                     } catch (const std::exception& e) {
-                        std::cerr << "[WARNING] Failed to generate PSF from " << filePath 
-                                  << ": " << e.what() << std::endl;
+                        spdlog::warn("Failed to generate PSF from {}: {}", filePath, e.what());
                         // Continue processing other files instead of stopping
                     }
                 } else {
-                    std::cout << "[INFO] Skipping non-JSON file: " << entry.path().filename().string() << std::endl;
+                    spdlog::info("Skipping non-JSON file: {}", entry.path().filename().string());
                 }
             }
         }
@@ -115,7 +115,7 @@ std::vector<std::shared_ptr<PSFConfig>> PSFCreator::generatePSFsFromDir(const st
             throw std::runtime_error("No valid PSF config files found in directory: " + psfDirPath);
         }
         
-        std::cout << "[STATUS] Generated " << psfs.size() << " PSF(s) from directory" << std::endl;
+        spdlog::debug("Generated {} PSF(s) from directory", psfs.size());
         
     } catch (const std::filesystem::filesystem_error& e) {
         throw std::runtime_error("Filesystem error while reading directory " + psfDirPath + ": " + e.what());
@@ -230,11 +230,11 @@ json PSFCreator::loadJSONFile(const std::string& filePath){
 //     for (int i = 0; i < psfpackage.psfs.size(); i++) {
 //         if(firstPsfX != psfpackage.psfs[i].image.slices[0].cols || firstPsfY != psfpackage.psfs[i].image.slices[0].rows || firstPsfZ != psfpackage.psfs[i].image.slices.size()) {
 //             throw std::runtime_error("PSF sizes do not match");
-//             std::cout << firstPsfX << " " << firstPsfY << " " << firstPsfZ << " " << psfpackage.psfs[i].image.slices[0].cols << " " << psfpackage.psfs[i].image.slices[0].rows << " "<<psfpackage.psfs[i].image.slices.size()<<std::endl;
+//             spdlog::info(" {} {} {} {} {}", firstPsfY, firstPsfZ, psfpackage.psfs[i].image.slices[0].cols, psfpackage.psfs[i].image.slices[0].rows, psfpackage.psfs[i].image.slices.size());
             
 //         }
 //     }
-//     std::cout << "[INFO] " << psfpackage.psfs.size() << " PSF(s) loaded" << std::endl;
+//     spdlog::info("{} PSF(s) loaded", psfpackage.psfs.size());
 // }
 
 

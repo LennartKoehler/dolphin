@@ -19,7 +19,6 @@ class GaussianPSFConfig : public PSFConfig{
 public:
     GaussianPSFConfig();
     GaussianPSFConfig(const GaussianPSFConfig& other);
-    std::string getName() const override;
 
 
     float convertSigma(float sigma);

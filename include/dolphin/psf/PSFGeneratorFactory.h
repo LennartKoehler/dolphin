@@ -71,7 +71,7 @@ public:
     }
 
     std::shared_ptr<BasePSFGenerator> createGenerator(std::shared_ptr<PSFConfig> config) {
-        std::string modelName = config->getName();
+        std::string modelName = config->getModelName();
         
         auto it = generators_.find(modelName);
         if (it == generators_.end()) {

@@ -26,6 +26,7 @@ See the LICENSE file provided with the code for the full license.
 #include "itkImageSliceIteratorWithIndex.h"
 #include "itkImageRegionIterator.h"
 #include "itkMinimumMaximumImageFilter.h"
+#include <spdlog/spdlog.h>
 
 namespace fs = std::filesystem;
 
@@ -59,7 +60,7 @@ TiffWriter::~TiffWriter() {
 bool TiffWriter::setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const {
     RectangleShape imageShape = image.getShape();
     if (imageShape.depth == 0 || imageShape.width == 0 || imageShape.height == 0) {
-        std::cerr << "[ERROR] Cannot set subimage: Image3D has invalid dimensions" << std::endl;
+        spdlog::error("Cannot set subimage: Image3D has invalid dimensions");
         return false;
     }
     
@@ -210,7 +211,7 @@ bool TiffWriter::saveToFile(const std::string& filename, int z, int depth, const
 
     // TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, stripHeight);
     if (!tif) {
-        std::cerr << "[ERROR] Cannot create TIFF file: " << filename << std::endl;
+        spdlog::error("Cannot create TIFF file: {}", filename);
         return false;
     }
     
@@ -227,7 +228,7 @@ bool TiffWriter::saveToFile(const std::string& filename, int z, int depth, const
          // Set directory for this slice
         if (!TIFFWriteDirectory(tif)) {
             TIFFClose(tif);
-            std::cerr << "[ERROR] Failed to set directory for slice " << i << std::endl;
+            spdlog::error("Failed to set directory for slice {}", i);
             return false;
         }
         
@@ -237,7 +238,7 @@ bool TiffWriter::saveToFile(const std::string& filename, int z, int depth, const
     // TIFFClose(tif);
     writtenToDepth = z + depth;
 
-    std::cout << "[INFO] Successfully saved ImageFileDirectory (" << filename << "): " << z << " - " << z + depth << std::endl;
+    spdlog::info("Successfully saved ImageFileDirectory ({}): {} - {}", filename, z, z + depth);
     return true;
 }
 
@@ -245,7 +246,7 @@ bool TiffWriter::saveToFile(const std::string& filename, int z, int depth, const
 bool TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceIndex){
     RectangleShape imageShape = image.getShape();
     if (sliceIndex >= imageShape.depth) {
-        std::cerr << "[ERROR] Slice index out of bounds: " << sliceIndex << std::endl;
+        spdlog::error("Slice index out of bounds: {}", sliceIndex);
         return false;
     }
     
@@ -254,7 +255,7 @@ bool TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceInd
     extractSliceData(image, sliceIndex, sliceData);
     
     if (sliceData.empty()) {
-        std::cerr << "[ERROR] Cannot write empty slice to TIFF" << std::endl;
+        spdlog::error("Cannot write empty slice to TIFF");
         return false;
     }
     
@@ -267,7 +268,7 @@ bool TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceInd
     // Allocate buffer for scanlines
     char* buf = (char*)_TIFFmalloc(scanlineSize);
     if (!buf) {
-        std::cerr << "[ERROR] Memory allocation failed for scanline buffer" << std::endl;
+        spdlog::error("Memory allocation failed for scanline buffer");
         return false;
     }
     
@@ -278,7 +279,7 @@ bool TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceInd
         memcpy(buf, &sliceData[srcOffset], scanlineSize);
         if (TIFFWriteScanline(tif, buf, row, 0) == -1) {
             _TIFFfree(buf);
-            std::cerr << "[ERROR] Failed to write scanline " << row << std::endl;
+            spdlog::error("Failed to write scanline {}", row);
             return false;
         }
     }
@@ -347,7 +348,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) 
     RectangleShape imageShape = image.getShape();
     
     if (imageShape.depth == 0 || imageShape.width == 0 || imageShape.height == 0) {
-        std::cerr << "[ERROR] Cannot write Image3D: Invalid image dimensions" << std::endl;
+        spdlog::error("Cannot write Image3D: Invalid image dimensions");
         return false;
     }
     
@@ -357,7 +358,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) 
     // Create or open the TIFF file
     TIFF* tif = TIFFOpen(filename.c_str(), "w");
     if (!tif) {
-        std::cerr << "[ERROR] Cannot create TIFF file: " << filename << std::endl;
+        spdlog::error("Cannot create TIFF file: {}", filename);
         return false;
     }
     
@@ -389,7 +390,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) 
         // Set directory for next slice (except for the last one)
         if (!TIFFWriteDirectory(tif)) {
             TIFFClose(tif);
-            std::cerr << "[ERROR] Failed to set directory for slice " << zIndex << std::endl;
+            spdlog::error("Failed to set directory for slice {}", zIndex);
             return false;
         }
     }
@@ -397,7 +398,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) 
     // Close the TIFF file
     TIFFClose(tif);
     
-    std::cout << "[INFO] Successfully wrote Image3D to TIFF file: " << filename << std::endl;
+    spdlog::info("Successfully wrote Image3D to TIFF file: {}", filename);
     return true;
 }
 
@@ -415,7 +416,7 @@ int TiffWriter::getTargetItkType(const ImageMetaData& metadata) {
     } else if (metadata.bitsPerSample == 32) {
         return 32; // 32-bit float
     } else {
-        std::cerr << "[ERROR] Unsupported bit depth from metadata: " << metadata.bitsPerSample << std::endl;
+        spdlog::error("Unsupported bit depth from metadata: {}", metadata.bitsPerSample);
         return 8; // fallback to 8-bit
     }
 }
@@ -423,7 +424,7 @@ int TiffWriter::getTargetItkType(const ImageMetaData& metadata) {
 void TiffWriter::extractSliceData(const Image3D& image, int sliceIndex, std::vector<float>& sliceData) {
     RectangleShape shape = image.getShape();
     if (sliceIndex >= shape.depth) {
-        std::cerr << "[ERROR] Slice index out of bounds: " << sliceIndex << std::endl;
+        spdlog::error("Slice index out of bounds: {}", sliceIndex);
         return;
     }
     
@@ -486,7 +487,7 @@ void TiffWriter::convertSliceDataToTargetType(const std::vector<float>& sourceDa
             data32[i] = sourceData[i];
         }
     } else {
-        std::cerr << "[ERROR] Unsupported bit depth: " << metadata.bitsPerSample << std::endl;
+        spdlog::error("Unsupported bit depth: {}", metadata.bitsPerSample);
         // Fallback to 8-bit
         targetData.resize(numPixels);
         for (size_t i = 0; i < numPixels; ++i) {

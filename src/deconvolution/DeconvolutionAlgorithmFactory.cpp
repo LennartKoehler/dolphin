@@ -26,6 +26,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <stdexcept>
 #include <iostream>
+#include <spdlog/spdlog.h>
 
 DeconvolutionAlgorithmFactory& DeconvolutionAlgorithmFactory::getInstance() {
     static DeconvolutionAlgorithmFactory instance;
@@ -38,7 +39,7 @@ DeconvolutionAlgorithmFactory& DeconvolutionAlgorithmFactory::getInstance() {
 
 void DeconvolutionAlgorithmFactory::registerAlgorithm(const std::string& name, AlgorithmCreator creator) {
     if (algorithms_.find(name) != algorithms_.end()) {
-        std::cerr << "[WARNING] Algorithm '" << name << "' is already registered. Overwriting." << std::endl;
+        spdlog::warn("Algorithm '{}' is already registered. Overwriting.", name);
     }
     algorithms_[name] = std::move(creator);
 }

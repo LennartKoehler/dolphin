@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #include "deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
 #include <iostream>
 #include <cassert>
+#include <spdlog/spdlog.h>
 
 void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Set epsilon for stabilized division
@@ -22,7 +23,7 @@ void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& c
 
 void InverseFilterDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
     if (!backend) {
-        std::cerr << "[ERROR] No backend available for Inverse Filter algorithm initialization" << std::endl;
+        spdlog::error("No backend available for Inverse Filter algorithm initialization");
         return;
     }
     
@@ -37,12 +38,12 @@ bool InverseFilterDeconvolutionAlgorithm::isInitialized() const {
 
 void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     if (!backend) {
-        std::cerr << "[ERROR] No backend available for Inverse Filter algorithm" << std::endl;
+        spdlog::error("No backend available for Inverse Filter algorithm");
         return;
     }
     
     if (!initialized) {
-        std::cerr << "[ERROR] Inverse Filter algorithm not initialized. Call init() first." << std::endl;
+        spdlog::error("Inverse Filter algorithm not initialized. Call init() first.");
         return;
     }
 

@@ -24,7 +24,13 @@ public:
     PSFConfig();
     virtual ~PSFConfig(){};
     PSFConfig(const PSFConfig& other);
-    virtual std::string getName() const = 0;
+    virtual std::string getName() const override{
+        return std::string("PSFConfig " + getModelName());
+    }
+
+    std::string getModelName() const {
+        return psfModelName;
+    }
     static std::shared_ptr<PSFConfig> createFromJSON(const json& jsonData);
 
     bool compareDim(const PSFConfig &other);

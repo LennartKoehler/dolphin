@@ -19,10 +19,6 @@ See the LICENSE file provided with the code for the full license.
 
 using json = nlohmann::json;
 
-std::string GaussianPSFConfig::getName() const{
-    return this->psfModelName;
-}
-
 GaussianPSFConfig::GaussianPSFConfig() : PSFConfig() {
     psfModelName = "Gaussian";
     registerAllParameters();

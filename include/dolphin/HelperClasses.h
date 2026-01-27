@@ -26,6 +26,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <nlohmann/json.hpp>
 #include "dolphinbackend/RectangleShape.h"
+#include <spdlog/spdlog.h>
 using json = nlohmann::json;struct Padding{
     RectangleShape before;
     RectangleShape after;
@@ -207,7 +208,7 @@ public:
             try {
                 parseCustomRangeFormat(config);
             } catch (const std::exception& e2) {
-                // std::cerr << "[ERROR] Failed to parse string as JSON or custom format: " << e.what() << std::endl;
+                // spdlog::error("Failed to parse string as JSON or custom format: {}", e.what());
                 throw std::invalid_argument("Invalid string format: " + config);
             }
         // }
@@ -237,8 +238,7 @@ public:
                     addRange(start, end, value);
                 }
             } catch (const std::exception& e) {
-                std::cerr << "[ERROR] Failed to parse range '" << rangeKey 
-                          << "': " << e.what() << std::endl;
+                spdlog::error("Failed to parse range '{}': {}", rangeKey, e.what());
             }
         }
     }
@@ -327,19 +327,19 @@ public:
 
     // Debug method
     void debugPrint() const {
-        std::cout << "[DEBUG] RangeMap contents:" << std::endl;
+        spdlog::info("[DEBUG] RangeMap contents:");
         for (const auto& range : ranges) {
-            std::cout << "[DEBUG] Range " << range.start << ":";
+            spdlog::info("[DEBUG] Range {}:", range.start);
             if (range.end == -1) {
-                std::cout << "END";
+                spdlog::info("END");
             } else {
-                std::cout << range.end;
+                spdlog::info("{}", range.end);
             }
-            std::cout << " -> ";
+            spdlog::info(" -> ");
             for (const auto& value : range.values) {
-                std::cout << "'" << value << "' ";
+                spdlog::info("'{}' ", value);
             }
-            std::cout << std::endl;
+            spdlog::info("");
         }
     }
 
