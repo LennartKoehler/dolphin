@@ -8,28 +8,36 @@
 namespace Logging{
 
     static void init(){
-        auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-        auto debugLogSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("debug.log", true);
-        std::vector<spdlog::sink_ptr> sinks {consoleSink, debugLogSink};
-        debugLogSink->set_level(spdlog::level::trace);
-        consoleSink->set_level(spdlog::level::warn);
+        static bool isInitialized;
+        if (!isInitialized){
+            isInitialized = true;
+            spdlog::init_thread_pool(8192, 1);
+            auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+            auto debugLogSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("debug.log", true);
+            std::vector<spdlog::sink_ptr> sinks {consoleSink, debugLogSink};
+            debugLogSink->set_level(spdlog::level::trace);
+            consoleSink->set_level(spdlog::level::warn);
+            
 
 
-        std::shared_ptr<spdlog::async_logger> configlogger = std::make_shared<spdlog::async_logger>("config", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
-        std::shared_ptr<spdlog::async_logger> psflogger = std::make_shared<spdlog::async_logger>("psf", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
-        std::shared_ptr<spdlog::async_logger> deconvolutionlogger = std::make_shared<spdlog::async_logger>("deconvolution", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
-        std::shared_ptr<spdlog::async_logger> defaultlogger = std::make_shared<spdlog::async_logger>("default", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
+            std::shared_ptr<spdlog::async_logger> configlogger = std::make_shared<spdlog::async_logger>("config", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
+            std::shared_ptr<spdlog::async_logger> psflogger = std::make_shared<spdlog::async_logger>("psf", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
+            std::shared_ptr<spdlog::async_logger> deconvolutionlogger = std::make_shared<spdlog::async_logger>("deconvolution", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
+            std::shared_ptr<spdlog::async_logger> defaultlogger = std::make_shared<spdlog::async_logger>("default", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
 
 
 
+            defaultlogger->flush_on(spdlog::level::trace);  // so that we have logs even if it crashes
 
-        spdlog::register_logger(deconvolutionlogger);
+            spdlog::register_logger(deconvolutionlogger);
 
-        spdlog::register_logger(configlogger);
+            spdlog::register_logger(configlogger);
 
-        spdlog::register_logger(psflogger);
+            spdlog::register_logger(psflogger);
 
-        spdlog::set_default_logger(defaultlogger);
+            spdlog::set_default_logger(defaultlogger);
+        }
+        
 
     }
 
