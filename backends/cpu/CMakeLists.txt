@@ -42,12 +42,13 @@ target_link_libraries(cpu_backend PUBLIC
     dolphinbackend)
 
 
-target_compile_options(cpu_backend PRIVATE
-    -O3
-    -march=native
-    -fopt-info-vec-optimized
-    -g -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma
-)
+# target_compile_options(cpu_backend PRIVATE
+#     -O3
+#     -march=native
+#     -fopt-info-vec-optimized
+#     -g -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma
+# )
+
 # # Specify library output directory
 # set_target_properties(cpu_backend PROPERTIES
 #     OUTPUT_NAME "cpu_backend"

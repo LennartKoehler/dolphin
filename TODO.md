@@ -1,4 +1,5 @@
-fix cpubackend and perhaps make it ship with dolphin library
+exception handling
+
 
 split library in public and private: currently the include paths are wrong after installation, i want the installed headers inside the library named directory in /usr/local/include/dolphin but then when using the code in the frontend dolphin doesnt find its own libraries because it looks in /usr/local/include, not in .../dolphin so private headers should stay as is while public headers i need to use the namespaced include <dolphin/PSFConfig.h> etc 
 
@@ -17,10 +18,6 @@ make backend into ABI? correctly seperate backend from application? If it stays 
 
 Reader/Writer:
     should the reader actually have a lot of padding logic? i think no but its much easier because it has all the dimensionality information and its easir to pass as padding something that goes out of bounds of image instead of passing e.g. as negative values. Also it can load data however it sees fit. i dont think the executor should know about imagemetadata and determine itself what part of the image can be read and what has to padded after having read the image. I still believe that the reader should not do padding, but think about this before implementing
-
-
-    Think about imagePadding, if i want to cut images out of the image, the deconvstrategy expects the originalImage to already be padded. How do i pad the image without having to load everything. The coordinates of how the cubes are requested are also for a padded image, think about this. Pad individual strips if they are at the edge of the image. Think about how coordinates are translated from unpadded to padded image psf padding is just zeros, so this doesnt actually matter. 
-
 
 
 some weird padding problems, causing sufficient padding to still produce boundary conditions

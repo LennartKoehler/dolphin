@@ -66,4 +66,5 @@ void PSFConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Float, &resLateral_nm, "resLateral_nm", false, "resLateral[nm]", "--resLateral_nm", "Lateral resolution in nm", false, true, 10.0, 500.0, nullptr});
     parameters.push_back({ParameterType::Float, &resAxial_nm, "resAxial_nm", false, "resAxial[nm]", "--resAxial_nm", "Axial resolution in nm", false, true, 50.0, 2000.0, nullptr});
     parameters.push_back({ParameterType::String, &ID, "ID", true, "ID", "--ID", "PSF identifier", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::String, &psfModelName, "modelName", true, "modelName", "--modelName", "PSF model name", false, false, 0.0, 0.0, nullptr});
 }
