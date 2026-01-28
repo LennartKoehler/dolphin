@@ -12,8 +12,8 @@ See the LICENSE file provided with the code for the full license.
 */
 
 
-#include "PSFCreator.h"
-#include "psf/PSFGeneratorFactory.h"
+#include "dolphin/PSFCreator.h"
+#include "dolphin/psf/PSFGeneratorFactory.h"
 #include <fstream>
 #include <cassert>
 #include <sstream>

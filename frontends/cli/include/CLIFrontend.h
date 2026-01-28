@@ -1,8 +1,8 @@
 #pragma once
 #include "CLI/CLI.hpp"
 
-#include "frontend/IFrontend.h"
-#include "frontend/SetupConfig.h"
+#include "dolphin/frontend/IFrontend.h"
+#include "dolphin/frontend/SetupConfig.h"
 
 #include <dolphin/deconvolution/DeconvolutionConfig.h>
 #include <dolphin/ServiceAbstractions.h>

@@ -11,8 +11,8 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "deconvolution/DeconvolutionConfig.h"
-#include "deconvolution/DeconvolutionAlgorithmFactory.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include <spdlog/spdlog.h>
 
 DeconvolutionConfig::DeconvolutionConfig() {

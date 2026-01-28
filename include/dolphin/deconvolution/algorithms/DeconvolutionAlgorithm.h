@@ -12,9 +12,9 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
-#include "../DeconvolutionConfig.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphinbackend/ComplexData.h"
-#include "backend/BackendFactory.h"
+#include "dolphin/backend/BackendFactory.h"
 
 class DeconvolutionAlgorithm{
 public:

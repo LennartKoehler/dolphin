@@ -11,11 +11,11 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "DeconvolutionStrategyFactory.h"
-#include "deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
-#include "deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h"
-#include "deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
-#include "frontend/SetupConfig.h"
+#include "dolphin/DeconvolutionStrategyFactory.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
+#include "dolphin/frontend/SetupConfig.h"
 #include <stdexcept>
 
 DeconvolutionStrategyFactory::DeconvolutionStrategyFactory() {

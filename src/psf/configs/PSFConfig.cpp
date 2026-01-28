@@ -11,8 +11,8 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "psf/configs/PSFConfig.h"
-#include "psf/PSFGeneratorFactory.h"
+#include "dolphin/psf/configs/PSFConfig.h"
+#include "dolphin/psf/PSFGeneratorFactory.h"
 #include <spdlog/spdlog.h>
 
 PSFConfig::PSFConfig(){

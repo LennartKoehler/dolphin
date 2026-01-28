@@ -17,7 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include <vector>
 #include <iostream>
 
-#include "Config.h"
+#include "dolphin/Config.h"
 
 class PSFConfig : public Config{
 public:

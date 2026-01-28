@@ -77,12 +77,6 @@ target_link_libraries(tiff_generation_test
         dolphin
 )
 
-# Include directories for TIFF generation test
-target_include_directories(tiff_generation_test
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/../include
-        ${CMAKE_SOURCE_DIR}/../src
-)
 
 # Add TIFF generation test to test suite
 add_test(NAME TiffGenerationTest COMMAND tiff_generation_test)

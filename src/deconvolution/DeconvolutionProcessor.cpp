@@ -11,10 +11,10 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "deconvolution/DeconvolutionProcessor.h"
-#include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
-#include "ThreadPool.h"
-#include "deconvolution/Preprocessor.h"
+#include "dolphin/deconvolution/DeconvolutionProcessor.h"
+#include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphin/ThreadPool.h"
+#include "dolphin/deconvolution/Preprocessor.h"
 
 
 

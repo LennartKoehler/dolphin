@@ -11,16 +11,16 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
-#include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
+#include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <stdexcept>
 #include <iostream>
-#include "deconvolution/Preprocessor.h"
-#include "deconvolution/Postprocessor.h"
-#include "backend/BackendFactory.h"
+#include "dolphin/deconvolution/Preprocessor.h"
+#include "dolphin/deconvolution/Postprocessor.h"
+#include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/Exceptions.h"
-#include "HelperClasses.h"
-#include "frontend/SetupConfig.h"
+#include "dolphin/HelperClasses.h"
+#include "dolphin/frontend/SetupConfig.h"
 
 
 

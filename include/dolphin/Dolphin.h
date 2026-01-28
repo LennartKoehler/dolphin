@@ -16,8 +16,8 @@ See the LICENSE file provided with the code for the full license.
 #include <vector>
 #include <memory>
 
-#include "ServiceAbstractions.h"
-#include "ServiceFactory.h"
+#include "dolphin/ServiceAbstractions.h"
+#include "dolphin/ServiceFactory.h"
 #include <unordered_map>
 
 

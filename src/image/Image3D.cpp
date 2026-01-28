@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include <iostream>
-#include "Image3D.h"
+#include "dolphin/Image3D.h"
 
 // Image3D Constructor implementations
 Image3D::Image3D(const RectangleShape& shape) {

@@ -2,7 +2,7 @@
 #include <string>
 #include <unordered_map>
 #include <imgui.h>
-#include "Config.h"
+#include "dolphin/Config.h"
 
 template <typename T>
 struct SelectionHelper{

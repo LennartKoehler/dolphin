@@ -13,8 +13,8 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
-#include "IDeconvolutionStrategy.h"
-#include "IDeconvolutionExecutor.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/IDeconvolutionExecutor.h"
 #include <memory>
 
 /**

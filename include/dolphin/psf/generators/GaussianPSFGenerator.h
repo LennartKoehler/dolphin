@@ -14,9 +14,9 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 
-#include "psf/PSF.h"
-#include "psf/configs/PSFConfig.h"
-#include "BasePSFGenerator.h"
+#include "dolphin/psf/PSF.h"
+#include "dolphin/psf/configs/PSFConfig.h"
+#include "dolphin/psf/generators/BasePSFGenerator.h"
 
 class GaussianPSFConfig;
 

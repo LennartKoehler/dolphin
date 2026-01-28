@@ -19,8 +19,8 @@ See the LICENSE file provided with the code for the full license.
 #include <chrono>
 #include <stdexcept>
 #include <functional>
-#include <nlohmann/json.hpp>
-#include "frontend/SetupConfig.h"
+#include "nlohmann/json.hpp"
+#include "dolphin/frontend/SetupConfig.h"
 #include <future>
 
 using json = nlohmann::json;

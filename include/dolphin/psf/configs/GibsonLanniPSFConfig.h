@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
-#include "PSFConfig.h"
+#include "dolphin/psf/configs/PSFConfig.h"
 
 
 

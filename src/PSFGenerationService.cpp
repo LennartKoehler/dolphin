@@ -11,12 +11,12 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "PSFGenerationService.h"
-#include "PSFCreator.h"
-#include "psf/PSFGeneratorFactory.h"
-#include "psf/configs/GaussianPSFConfig.h"
-#include "psf/configs/GibsonLanniPSFConfig.h"
-#include "ThreadPool.h"
+#include "dolphin/PSFGenerationService.h"
+#include "dolphin/PSFCreator.h"
+#include "dolphin/psf/PSFGeneratorFactory.h"
+#include "dolphin/psf/configs/GaussianPSFConfig.h"
+#include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
+#include "dolphin/ThreadPool.h"
 #include <chrono>
 #include <fstream>
 #include <sstream>

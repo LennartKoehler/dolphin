@@ -12,9 +12,9 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
-#include "DeconvolutionPlan.h"
-#include "psf/PSF.h"
-#include "../DeconvolutionConfig.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
+#include "dolphin/psf/PSF.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include <memory>
 
 class SetupConfig;

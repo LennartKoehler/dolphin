@@ -24,7 +24,7 @@ See the LICENSE file provided with the code for the full license.
 #include <memory>
 #include <string>
 
-#include <nlohmann/json.hpp>
+#include "nlohmann/json.hpp"
 #include "dolphinbackend/RectangleShape.h"
 #include <spdlog/spdlog.h>
 using json = nlohmann::json;struct Padding{

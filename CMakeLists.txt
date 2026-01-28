@@ -107,7 +107,7 @@ add_library(dolphin STATIC ${DOLPHIN_SOURCES})
 
 target_include_directories(dolphin
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/dolphin>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cpu/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/dolphinbackend/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>

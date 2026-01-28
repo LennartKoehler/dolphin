@@ -1,9 +1,9 @@
 
 #pragma once
 
-#include "ReaderWriter.h"
-#include "TiffReader.h"
-#include "TiffWriter.h"
+#include "dolphin/ReaderWriter.h"
+#include "dolphin/TiffReader.h"
+#include "dolphin/TiffWriter.h"
 
 
 

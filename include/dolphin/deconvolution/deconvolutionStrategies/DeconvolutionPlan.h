@@ -13,16 +13,16 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 #include <vector>
-#include "deconvolution/DeconvolutionConfig.h"
-#include "psf/PSF.h"
-#include "Image3D.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/psf/PSF.h"
+#include "dolphin/Image3D.h"
 #include <atomic>
-#include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
-#include "ThreadPool.h"
-#include "deconvolution/DeconvolutionProcessor.h"
-#include "deconvolution/Preprocessor.h"
-#include "IO/TiffWriter.h"
-#include "IO/TiffReader.h"
+#include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphin/ThreadPool.h"
+#include "dolphin/deconvolution/DeconvolutionProcessor.h"
+#include "dolphin/deconvolution/Preprocessor.h"
+#include "dolphin/IO/TiffWriter.h"
+#include "dolphin/IO/TiffReader.h"
 #include <spdlog/spdlog.h>
 
 

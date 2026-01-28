@@ -56,12 +56,12 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "psf/generators/GibsonLanniPSFGenerator.h"
-#include "psf/configs/GibsonLanniPSFConfig.h"
-#include "ThreadPool.h"
-#include "psf/generators/BesselHelper.h"
-#include "itkImage.h"
-#include "itkImageRegionIterator.h"
+#include "dolphin/psf/generators/GibsonLanniPSFGenerator.h"
+#include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
+#include "dolphin/ThreadPool.h"
+#include "dolphin/psf/generators/BesselHelper.h"
+#include <itkImage.h>
+#include <itkImageRegionIterator.h>
 #include <cmath>
 #include <future>
 #include <spdlog/spdlog.h>
