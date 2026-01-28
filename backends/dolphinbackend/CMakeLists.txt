@@ -12,9 +12,11 @@ add_library(dolphinbackend STATIC ${SOURCES})
 
 
 target_include_directories(dolphinbackend
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/dolphinbackend
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/dolphinbackend>
-        )
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 
 
 

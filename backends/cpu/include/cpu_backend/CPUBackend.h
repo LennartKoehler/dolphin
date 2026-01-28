@@ -1,7 +1,7 @@
 #pragma once
-#include <dolphinbackend/IBackend.h>
-#include <dolphinbackend/IDeconvolutionBackend.h>
-#include <dolphinbackend/IBackendMemoryManager.h>
+#include "dolphinbackend/IBackend.h"
+#include "dolphinbackend/IDeconvolutionBackend.h"
+#include "dolphinbackend/IBackendMemoryManager.h"
 #include <fftw3.h>
 #include <map>
 
