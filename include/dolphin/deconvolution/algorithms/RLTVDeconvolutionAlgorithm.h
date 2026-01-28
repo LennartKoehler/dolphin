@@ -13,7 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
-#include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <memory>
 
 class RLTVDeconvolutionAlgorithm : public DeconvolutionAlgorithm {

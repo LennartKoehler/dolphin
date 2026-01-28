@@ -14,10 +14,10 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <string>
-#include "psf/configs/PSFConfig.h"
-#include "psf/generators/BasePSFGenerator.h"
-#include "frontend/SetupConfig.h"
-#include <nlohmann/json.hpp>
+#include "dolphin/psf/configs/PSFConfig.h"
+#include "dolphin/psf/generators/BasePSFGenerator.h"
+#include "dolphin/frontend/SetupConfig.h"
+#include "nlohmann/json.hpp"
 using json = nlohmann::json;
 
 

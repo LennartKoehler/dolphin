@@ -17,9 +17,9 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include <unordered_map>
 #include <functional>
-#include "deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h"
-#include "deconvolution/deconvolutionStrategies/IDeconvolutionExecutor.h"
-#include "deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/IDeconvolutionExecutor.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.h"
 
 // Forward declarations
 class SetupConfig;

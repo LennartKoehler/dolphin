@@ -11,11 +11,11 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "psf/configs/GaussianPSFConfig.h"
+#include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include <fstream>
 #include <iostream>
 
-#include <nlohmann/json.hpp>
+#include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
 

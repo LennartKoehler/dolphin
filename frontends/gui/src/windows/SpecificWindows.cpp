@@ -15,10 +15,10 @@ See the LICENSE file provided with the code for the full license.
 #include "windows/FunctionContent.h"
 #include "GUIFrontend.h"
 
-#include "psf/configs/GaussianPSFConfig.h"
-#include "psf/configs/GibsonLanniPSFConfig.h"
-#include "deconvolution/DeconvolutionConfig.h"
-#include "frontend/SetupConfig.h"
+#include "dolphin/psf/configs/GaussianPSFConfig.h"
+#include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/frontend/SetupConfig.h"
 
 #include "imgui.h"
 

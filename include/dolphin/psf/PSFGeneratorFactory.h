@@ -19,12 +19,12 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include <stdexcept>
 
-#include "psf/generators/GaussianPSFGenerator.h"
-#include "psf/generators/GibsonLanniPSFGenerator.h"
-#include "psf/configs/GibsonLanniPSFConfig.h"
-#include "psf/configs/GaussianPSFConfig.h"
-#include "psf/generators/BasePSFGenerator.h"
-#include "psf/configs/PSFConfig.h"
+#include "dolphin/psf/generators/GaussianPSFGenerator.h"
+#include "dolphin/psf/generators/GibsonLanniPSFGenerator.h"
+#include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
+#include "dolphin/psf/configs/GaussianPSFConfig.h"
+#include "dolphin/psf/generators/BasePSFGenerator.h"
+#include "dolphin/psf/configs/PSFConfig.h"
 
 
 // factory singleton which creates either PSFConfigs or PSFGenerators, usually using the string name

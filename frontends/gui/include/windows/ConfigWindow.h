@@ -1,6 +1,6 @@
 #pragma once
 #include "windows/Window.h"
-#include "Config.h"
+#include "dolphin/Config.h"
 
 
 class ConfigBase {

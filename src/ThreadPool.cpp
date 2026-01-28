@@ -11,7 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "ThreadPool.h"
+#include "dolphin/ThreadPool.h"
 #include <iostream>
 
 ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc) : stop(false) {

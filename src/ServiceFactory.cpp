@@ -11,9 +11,9 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "ServiceFactory.h"
-#include "PSFGenerationService.h"
-#include "DeconvolutionService.h"
+#include "dolphin/ServiceFactory.h"
+#include "dolphin/PSFGenerationService.h"
+#include "dolphin/DeconvolutionService.h"
 
 // Thread-local singleton instance using Meyer's pattern
 thread_local static ServiceFactoryImpl* tls_instance = nullptr;

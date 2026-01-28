@@ -1,6 +1,6 @@
 #pragma once
-#include "Dolphin.h"
-#include "frontend/IFrontend.h"
+#include "dolphin/Dolphin.h"
+#include "dolphin/frontend/IFrontend.h"
 #include "GUIStyleConfig.h"
 
 

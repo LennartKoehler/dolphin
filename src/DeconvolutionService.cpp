@@ -11,18 +11,18 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "DeconvolutionService.h"
-#include "PSFCreator.h"
-#include "deconvolution/DeconvolutionProcessor.h"
-#include "deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h"
-#include "deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.h"
-#include "deconvolution/DeconvolutionAlgorithmFactory.h"
-#include "DeconvolutionStrategyFactory.h"
-#include "ThreadPool.h"
+#include "dolphin/DeconvolutionService.h"
+#include "dolphin/PSFCreator.h"
+#include "dolphin/deconvolution/DeconvolutionProcessor.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.h"
+#include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
+#include "dolphin/DeconvolutionStrategyFactory.h"
+#include "dolphin/ThreadPool.h"
 #include <chrono>
 #include <fstream>
-#include "IO/TiffReader.h"
-#include "IO/TiffWriter.h"
+#include "dolphin/IO/TiffReader.h"
+#include "dolphin/IO/TiffWriter.h"
 #include <spdlog/spdlog.h>
 
 DeconvolutionService::DeconvolutionService() 

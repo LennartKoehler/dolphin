@@ -14,8 +14,8 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <string>
-#include "HelperClasses.h"
-#include "Config.h"
+#include "dolphin/HelperClasses.h"
+#include "dolphin/Config.h"
 
 
 enum class PaddingType{

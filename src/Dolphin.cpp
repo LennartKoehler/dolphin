@@ -11,8 +11,8 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "Dolphin.h"
-#include "Logging.h"
+#include "dolphin/Dolphin.h"
+#include "dolphin/Logging.h"
 #include <iostream>
 #include <chrono>
 #include <fstream>

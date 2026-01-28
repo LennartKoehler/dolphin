@@ -11,14 +11,14 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "frontend/SetupConfig.h"
+#include "dolphin/frontend/SetupConfig.h"
 #include <sys/stat.h>
 #include <iostream>
 #include <fstream>
-#include "deconvolution/DeconvolutionConfig.h"
-#include "psf/configs/PSFConfig.h"
-#include "psf/PSFGeneratorFactory.h"
-#include "backend/BackendFactory.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/psf/configs/PSFConfig.h"
+#include "dolphin/psf/PSFGeneratorFactory.h"
+#include "dolphin/backend/BackendFactory.h"
 
 SetupConfig::SetupConfig() {
     registerAllParameters();

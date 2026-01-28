@@ -1,6 +1,6 @@
-#include "deconvolution/Postprocessor.h"
-#include "IO/TiffReader.h"
-#include "IO/TiffWriter.h"
+#include "dolphin/deconvolution/Postprocessor.h"
+#include "dolphin/IO/TiffReader.h"
+#include "dolphin/IO/TiffWriter.h"
 
 int main(){
 

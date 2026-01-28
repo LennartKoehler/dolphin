@@ -11,7 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "psf/configs/GibsonLanniPSFConfig.h"
+#include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
 
 GibsonLanniPSFConfig::GibsonLanniPSFConfig()
     : PSFConfig(){

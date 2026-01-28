@@ -13,8 +13,8 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
-#include "ServiceAbstractions.h"
-#include "psf/configs/PSFConfig.h"
+#include "dolphin/ServiceAbstractions.h"
+#include "dolphin/psf/configs/PSFConfig.h"
 #include <memory>
 
 class ThreadPool;

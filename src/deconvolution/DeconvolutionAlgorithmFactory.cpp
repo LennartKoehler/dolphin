@@ -11,18 +11,18 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "deconvolution/DeconvolutionAlgorithmFactory.h"
+#include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 
 // Include algorithm headers
-#include "deconvolution/algorithms/DeconvolutionAlgorithm.h"
-#include "deconvolution/DeconvolutionConfig.h"
+#include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
 
-#include "deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
-#include "deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
-#include "deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
-#include "deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
-#include "deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
-#include "deconvolution/algorithms/TestAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/TestAlgorithm.h"
 
 #include <stdexcept>
 #include <iostream>

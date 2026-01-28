@@ -11,20 +11,20 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "deconvolution/Postprocessor.h"
+#include "dolphin/deconvolution/Postprocessor.h"
 #include <stdexcept>
 #include <functional>
-#include "HelperClasses.h"
-#include "itkImage.h"
-#include "itkDanielssonDistanceMapImageFilter.h"
-#include "itkCastImageFilter.h"
-#include "itkImageRegionIterator.h"
-#include "itkImageRegionConstIterator.h"
-#include "itkPasteImageFilter.h"
-#include "itkExtractImageFilter.h"
-#include "itkCropImageFilter.h"
-#include "itkConstantPadImageFilter.h"
-#include "itkImageDuplicator.h"
+#include "dolphin/HelperClasses.h"
+#include <itkImage.h>
+#include <itkDanielssonDistanceMapImageFilter.h>
+#include <itkCastImageFilter.h>
+#include <itkImageRegionIterator.h>
+#include <itkImageRegionConstIterator.h>
+#include <itkPasteImageFilter.h>
+#include <itkExtractImageFilter.h>
+#include <itkCropImageFilter.h>
+#include <itkConstantPadImageFilter.h>
+#include <itkImageDuplicator.h>
 
 void Postprocessor::insertCubeInImage(
     const Image3D& cube,

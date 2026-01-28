@@ -18,12 +18,12 @@ See the LICENSE file provided with the code for the full license.
 #include <mutex>
 #include <iostream>
 
-#include "DeconvolutionConfig.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphinbackend/ComplexData.h"
-#include "psf/PSF.h"
+#include "dolphin/psf/PSF.h"
 #include "dolphinbackend/IBackend.h"
-#include "Image3D.h"
-#include "backend/BackendFactory.h"
+#include "dolphin/Image3D.h"
+#include "dolphin/backend/BackendFactory.h"
 
 class IBackend;
 

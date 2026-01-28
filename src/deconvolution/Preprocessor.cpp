@@ -11,12 +11,12 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "deconvolution/Preprocessor.h"
+#include "dolphin/deconvolution/Preprocessor.h"
 #include <stdexcept>
-#include "itkConstantPadImageFilter.h"
-#include "itkMirrorPadImageFilter.h"
-#include "itkRegionOfInterestImageFilter.h"
-#include "itkImageDuplicator.h"
+#include <itkConstantPadImageFilter.h>
+#include <itkMirrorPadImageFilter.h>
+#include <itkRegionOfInterestImageFilter.h>
+#include <itkImageDuplicator.h>
 
 
 ComplexData Preprocessor::convertImageToComplexData(

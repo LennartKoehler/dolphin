@@ -11,7 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "IO/TiffWriter.h"
+#include "dolphin/IO/TiffWriter.h"
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>
@@ -21,11 +21,11 @@ See the LICENSE file provided with the code for the full license.
 #include <cstdarg>
 #include <climits>
 #include <queue>
-#include "deconvolution/Preprocessor.h"
-#include "deconvolution/Postprocessor.h"
-#include "itkImageSliceIteratorWithIndex.h"
-#include "itkImageRegionIterator.h"
-#include "itkMinimumMaximumImageFilter.h"
+#include <dolphin/deconvolution/Preprocessor.h>
+#include "dolphin/deconvolution/Postprocessor.h"
+#include <itkImageSliceIteratorWithIndex.h>
+#include <itkImageRegionIterator.h>
+#include <itkMinimumMaximumImageFilter.h>
 #include <spdlog/spdlog.h>
 
 namespace fs = std::filesystem;

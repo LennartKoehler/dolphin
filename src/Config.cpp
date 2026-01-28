@@ -1,4 +1,4 @@
-#include "Config.h"
+#include "dolphin/Config.h"
 
 #include <spdlog/spdlog.h>
 

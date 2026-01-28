@@ -12,10 +12,10 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include <cmath>
-#include "itkImage.h"
-#include "itkImageRegionIterator.h"
-#include "psf/generators/GaussianPSFGenerator.h"
-#include "psf/configs/GaussianPSFConfig.h"
+#include <itkImage.h>
+#include <itkImageRegionIterator.h>
+#include "dolphin/psf/generators/GaussianPSFGenerator.h"
+#include "dolphin/psf/configs/GaussianPSFConfig.h"
 
 
 

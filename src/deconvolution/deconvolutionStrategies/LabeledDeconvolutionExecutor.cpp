@@ -11,17 +11,17 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
-#include "deconvolution/Postprocessor.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
+#include "dolphin/deconvolution/Postprocessor.h"
 #include <set>
 #include <stdexcept>
 #include <iostream>
-#include "deconvolution/Preprocessor.h"
-#include "backend/BackendFactory.h"
+#include "dolphin/deconvolution/Preprocessor.h"
+#include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/Exceptions.h"
-#include "HelperClasses.h"
-#include "frontend/SetupConfig.h"
-#include "itkImageRegionConstIterator.h"
+#include "dolphin/HelperClasses.h"
+#include "dolphin/frontend/SetupConfig.h"
+#include <itkImageRegionConstIterator.h>
 #include <spdlog/spdlog.h>
 
 LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){

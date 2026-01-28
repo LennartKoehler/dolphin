@@ -11,7 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
 #include <iostream>
 #include <cassert>
 #include <spdlog/spdlog.h>

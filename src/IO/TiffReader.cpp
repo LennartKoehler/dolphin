@@ -11,17 +11,17 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "IO/TiffReader.h"
+#include "dolphin/IO/TiffReader.h"
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>
 #include <filesystem>
 #include <fstream>
 #include <cstdarg>
-#include "deconvolution/Preprocessor.h"
+#include "dolphin/deconvolution/Preprocessor.h"
 #include <chrono>
 #include <thread>
-#include "itkImageRegionIterator.h"
+#include <itkImageRegionIterator.h>
 #include <spdlog/spdlog.h>
 namespace fs = std::filesystem;
 
@@ -221,7 +221,7 @@ Image3D TiffReader::managedReader(const BoxCoord& coord) const {
     return result;
 }
 
-#include "IO/TiffWriter.h"
+#include "dolphin/IO/TiffWriter.h"
 PaddedImage TiffReader::getFromBuffer(const BoxCoordWithPadding& coord, int bufferIndex) const {
     
     PaddedImage result;

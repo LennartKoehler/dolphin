@@ -13,7 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 #include <vector>
-#include "Config.h"
+#include "dolphin/Config.h"
 
 class DeconvolutionConfig;
 
