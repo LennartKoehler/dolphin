@@ -25,9 +25,13 @@ find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS /usr/lib /usr/lib/x86_
 add_library(cpu_backend STATIC
     src/CPUBackend.cpp
 )
+
 target_include_directories(cpu_backend
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/cpu_backend
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/cpu_backend>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 
 
 
