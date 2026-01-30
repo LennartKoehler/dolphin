@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend
+CXX_INCLUDES = -I/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend -I/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include
 
-CXX_FLAGS = -std=gnu++20
+CXX_FLAGS = -g -std=gnu++20
 

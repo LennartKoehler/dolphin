@@ -17,12 +17,14 @@ See the LICENSE file provided with the code for the full license.
 #include <fstream>
 #include <iostream>
 #include <unordered_set>
+#include <vector>
+#include <array>
 
 using json = nlohmann::json;
 using ordered_json = nlohmann::ordered_json;
 
 enum class ParameterType{
- Float, Int, String, VectorInt, Bool, VectorString, FilePath, RangeMap, DeconvolutionConfig
+ Float, Int, String, VectorInt, Bool, VectorString, FilePath, RangeMap, DeconvolutionConfig, IntArray3
 };
 
 class ParameterIDGenerator {
@@ -48,6 +50,7 @@ struct ConfigParameter{
     double minVal;
     double maxVal;
     void* selection;
+    size_t size = 0;
     int ID = ParameterIDGenerator::getNextID();
 };
 
@@ -64,16 +67,18 @@ class Config{
 
 public:
     Config(){
-
     }
 
     virtual std::string getName() const = 0;
 
 
     virtual bool loadFromJSON(const json& jsonData);
-    virtual json writeToJSON();
+    virtual json writeToJSON() const ;
 
-    void printValues();
+    void printValues() const;
+
+    bool logUnvalidParameters(const json& jsonData) const ;
+
 
     template<typename Visitor>
     void visitParams(Visitor&& visitor){
@@ -113,7 +118,16 @@ protected:
                 case ParameterType::VectorString:
                     visitor.template operator()<std::string>(*reinterpret_cast<std::string*>(param.value), param);
                     break;
-
+                // case ParameterType::VectorInt:
+                //     auto* data = static_cast<int*>(param.value);
+                //     std::vector<int> vec(data, data + param.size);
+                //     visitor.template operator()<std::vector<int>>(vec, param);
+                //     break;
+                
+                case ParameterType::IntArray3:
+                    // int* intdata = static_cast<int*>(param.value);
+                    visitor.template operator()<std::array<int, 3>>(*reinterpret_cast<std::array<int, 3>*>(param.value), param);
+                    break;
             }
         }
         return handled;

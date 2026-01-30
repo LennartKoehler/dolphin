@@ -13,7 +13,8 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
-
+#include <string>
+#include <array>
 
 struct RectangleShape{
     int width;
@@ -28,8 +29,17 @@ struct RectangleShape{
         depth(depth){
            updateVolume(); 
         }
+    RectangleShape(const std::array<int, 3>& dimensions)
+        : width(dimensions[0]),
+        height(dimensions[1]),
+        depth(dimensions[2]){}
+
     inline void updateVolume(){
         volume = width * height * depth;
+    }
+
+    std::string print() const{
+        return std::to_string(width) + " x " + std::to_string(height) + " x " + std::to_string(depth);
     }
 
     inline void clamp(const RectangleShape& maxSize) {

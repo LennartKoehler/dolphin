@@ -42,8 +42,8 @@ private:
  
     // Service layer components (abstracted)
     ServiceFactory* service_factory_;
-    std::unique_ptr<IPSFGenerationService> psf_service_;
-    std::unique_ptr<IDeconvolutionService> deconv_service_;
+    std::unique_ptr<PSFGenerationService> psf_service_;
+    std::unique_ptr<DeconvolutionService> deconv_service_;
     
     // Flag to track if service layer is initialized
     bool service_layer_initialized_;

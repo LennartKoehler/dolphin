@@ -73,7 +73,7 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
 
         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
 
-        defaultBackendMemoryManager.freeMemoryOnDevice(g_host);
+        BackendFactory::getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
 
 
         std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
@@ -96,7 +96,7 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
             if (psfs.size() != 0){
                 ComplexData local_g_device = iobackend->getMemoryManager().copyData(g_device);
 
-                ComplexData f_host{&defaultBackendMemoryManager, nullptr, RectangleShape()};
+                ComplexData f_host;
 
                 ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
 
@@ -112,7 +112,7 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
                         *context->psfpreprocessor.get());
 
                     resultDone.get(); //wait for result
-                    f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, defaultBackendMemoryManager);
+                    f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getDefaultBackendMemoryManager());
                 }
                 catch (...) {
                     throw; // dont overwrite image if exception

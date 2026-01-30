@@ -60,7 +60,12 @@ add_library(dolphinbackend::dolphinbackend STATIC IMPORTED)
 
 set_target_properties(dolphinbackend::dolphinbackend PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include"
+  INTERFACE_LINK_LIBRARIES "project_options"
 )
+
+if(CMAKE_VERSION VERSION_LESS 2.8.12)
+  message(FATAL_ERROR "This file relies on consumers using CMake 2.8.12 or greater.")
+endif()
 
 # Load information for each installed configuration.
 file(GLOB _cmake_config_files "${CMAKE_CURRENT_LIST_DIR}/dolphinbackendTargets-*.cmake")

@@ -39,7 +39,7 @@ SetupConfig SetupConfig::createFromJSONFile(const std::string& filePath) {
 }
 
 SetupConfig::SetupConfig(const SetupConfig& other) 
-    : Config(other)  // Copy base class
+    : Config()  // Copy base class
 {
     // First, register all parameters to set up the infrastructure
     registerAllParameters();
@@ -61,6 +61,9 @@ SetupConfig::SetupConfig(const SetupConfig& other)
     strategyType = other.strategyType;
     labeledImage = other.labeledImage;
     labelPSFMap = other.labelPSFMap;
+
+    savePsf = other.savePsf;
+    cubeSize = other.cubeSize;
 
     // Deep copy the shared_ptr content
     if (other.deconvolutionConfig != nullptr) {
@@ -91,6 +94,9 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         strategyType = other.strategyType;
         labeledImage = other.labeledImage;
         labelPSFMap = other.labelPSFMap; 
+
+        savePsf = other.savePsf;
+        cubeSize = other.cubeSize;
         // Deep copy the shared_ptr content
         if (other.deconvolutionConfig != nullptr) {
             deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
@@ -104,9 +110,9 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
 bool SetupConfig::loadFromJSON(const json& jsonData){
     bool success = Config::loadFromJSON(jsonData);
 
-    if (jsonData.contains("Deconvolution")){
+    if (jsonData.contains("DeconvolutionConfig")){
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
-        deconvolutionConfig->loadFromJSON(jsonData["Deconvolution"]);
+        deconvolutionConfig->loadFromJSON(jsonData["DeconvolutionConfig"]);
     }
     else{
 
@@ -123,7 +129,7 @@ void SetupConfig::registerAllParameters(){
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
     // parameters.push_back({ParameterType::Bool, &sep, "sep", false, "sep", "--sep", "Save layer separate", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::Bool, &time, "time", false, "time", "--time", "Show duration", false, false, 0.0, 0.0, nullptr});
-    // parameters.push_back({ParameterType::Bool, &savePsf, "savePsf", false, "savePsf", "--savePsf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
+    
     // parameters.push_back({ParameterType::Bool, &showExampleLayers, "showExampleLayers", false, "showExampleLayers", "--showExampleLayers", "Show example layers", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::Bool, &printInfo, "info", false, "info", "--info", "Print info about input image", false, false, 0.0, 0.0, nullptr});
     // static std::vector<std::string> backendOptions =
@@ -145,8 +151,10 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Int, &nDevices, "nDevices", true, "nDevices", "--nDevices", "Number of devices", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Float, &maxMem_GB, "maxMem_GB", false, "maxMem_GB", "--maxMem_GB", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
     
+    parameters.push_back({ParameterType::IntArray3, &cubeSize, "cubeSize", false, "cubeSize", "--cubeSize", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
+    parameters.push_back({ParameterType::Bool, &savePsf, "savePsf", false, "savePsf", "--savePsf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
 
-    parameters.push_back({ParameterType::DeconvolutionConfig, &deconvolutionConfig, "Deconvolution", true, "DeconConfig", "--deconvConfig", "Deconv Config", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::DeconvolutionConfig, &deconvolutionConfig, "Deconvolution", true, "DeconvolutionConfig", "--deconvConfig", "Deconv Config", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::Bool, &saveSubimages, "saveSubimages", true, "saveSubimages", "--saveSubimages", "Save subimages separate", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::String, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
     

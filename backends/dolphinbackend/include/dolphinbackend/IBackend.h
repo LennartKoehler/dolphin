@@ -10,10 +10,16 @@ Copyright by Lennart Koehler
 #include <memory>
 #include <string>
 #include <stdexcept>
+#include <functional>
+#include <format>
 #include "IDeconvolutionBackend.h"
 #include "IBackendMemoryManager.h"
 
 
+
+enum LogLevel { DEBUG = 0, INFO, WARN, ERROR };
+
+using LogCallback = std::function<void(const std::string& message, LogLevel level)>;
 
 class Owner{
 public:
@@ -76,10 +82,13 @@ public:
     // Abstract Owner class manages the actual lifetime of both deconvolution backend and memory manager
 
 
+
+
 public:
     virtual ~IBackend(){
 
     }
+    // virtual void set_logger(LogCallback cb) = 0; 
     // Pure virtual methods that must be implemented by concrete backends
     virtual std::string getDeviceString() const noexcept = 0;
     virtual int getNumberDevices() const = 0;

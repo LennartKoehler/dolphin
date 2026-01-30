@@ -14,7 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include <vector>
 #include "dolphin/Config.h"
-
+#include <array>
 class DeconvolutionConfig;
 
 class SetupConfig : public Config{
@@ -38,6 +38,8 @@ public:
     std::string labelPSFMap;
     std::string strategyType = "normal";
     std::string backend = "libcpu_backend.so";
+    bool savePsf = false;
+    std::array<int, 3> cubeSize = {128,128,64};
 
     int nThreads = 1;
     int nIOThreads = 1;

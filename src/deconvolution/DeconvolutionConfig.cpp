@@ -20,7 +20,7 @@ DeconvolutionConfig::DeconvolutionConfig() {
 }
 
 DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
-    : Config(other),
+    : Config(),
     algorithmName(other.algorithmName),
     subimageSize(other.subimageSize),
     iterations(other.iterations),
@@ -59,11 +59,8 @@ bool DeconvolutionConfig::loadFromJSON(const json& jsonData) {
 void DeconvolutionConfig::registerAllParameters() {
     static std::vector<std::string> algorithmOptions =
         DeconvolutionAlgorithmFactory::getInstance().getAvailableAlgorithms();
-
-
     static void* algorithmOptionsVoid = static_cast<void*>(&algorithmOptions);
     
-
     // Register each parameter as a ConfigParameter struct
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
     parameters.push_back({ParameterType::VectorString, &algorithmName, "algorithmName", false, "algorithmName", "-a,--algorithm", "Algorithm selection", true, false, 0.0, 0.0, algorithmOptionsVoid});
@@ -78,7 +75,7 @@ void DeconvolutionConfig::registerAllParameters() {
     // Note: RangeMap parameters are not yet supported in the base Config parameter system
 }
 
-json DeconvolutionConfig::writeToJSON() {
+json DeconvolutionConfig::writeToJSON() const {
     json jsonData = Config::writeToJSON();
     
     // Handle RangeMap parameters separately since they're not in the base Config system yet

@@ -1,4 +1,14 @@
+somehow the exceptions can be out of order, i assume bc of async
+
+does padding with really large cubes actually work? check the logs for a cubesize of 512 512 512, there is 
+
+somewhewr in cudababackend/cudabackendmanager there is a problem with static and singleton pattern i think, the current debug dolphin test just silently crashes
+
+logging of backend really a good implementation?
+
 exception handling
+
+make bordertypes in config into string
 
 
 split library in public and private: currently the include paths are wrong after installation, i want the installed headers inside the library named directory in /usr/local/include/dolphin but then when using the code in the frontend dolphin doesnt find its own libraries because it looks in /usr/local/include, not in .../dolphin so private headers should stay as is while public headers i need to use the namespaced include <dolphin/PSFConfig.h> etc 

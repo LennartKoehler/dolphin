@@ -27,7 +27,8 @@ See the LICENSE file provided with the code for the full license.
 #include "nlohmann/json.hpp"
 #include "dolphinbackend/RectangleShape.h"
 #include <spdlog/spdlog.h>
-using json = nlohmann::json;struct Padding{
+using json = nlohmann::json;
+struct Padding{
     RectangleShape before;
     RectangleShape after;
 };

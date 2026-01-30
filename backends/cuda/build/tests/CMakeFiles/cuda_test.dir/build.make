@@ -69,28 +69,28 @@ include tests/CMakeFiles/cuda_test.dir/progress.make
 # Include the compile flags for this target's objects.
 include tests/CMakeFiles/cuda_test.dir/flags.make
 
-tests/CMakeFiles/cuda_test.dir/test.cpp.o: tests/CMakeFiles/cuda_test.dir/flags.make
-tests/CMakeFiles/cuda_test.dir/test.cpp.o: /home/lennart-k-hler/projects/dolphin/backends/cuda/tests/test.cpp
-tests/CMakeFiles/cuda_test.dir/test.cpp.o: tests/CMakeFiles/cuda_test.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lennart-k-hler/projects/dolphin/backends/cuda/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object tests/CMakeFiles/cuda_test.dir/test.cpp.o"
-	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/cuda_test.dir/test.cpp.o -MF CMakeFiles/cuda_test.dir/test.cpp.o.d -o CMakeFiles/cuda_test.dir/test.cpp.o -c /home/lennart-k-hler/projects/dolphin/backends/cuda/tests/test.cpp
+tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.o: tests/CMakeFiles/cuda_test.dir/flags.make
+tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.o: /home/lennart-k-hler/projects/dolphin/backends/cuda/tests/cuda_test.cpp
+tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.o: tests/CMakeFiles/cuda_test.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lennart-k-hler/projects/dolphin/backends/cuda/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.o"
+	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.o -MF CMakeFiles/cuda_test.dir/cuda_test.cpp.o.d -o CMakeFiles/cuda_test.dir/cuda_test.cpp.o -c /home/lennart-k-hler/projects/dolphin/backends/cuda/tests/cuda_test.cpp
 
-tests/CMakeFiles/cuda_test.dir/test.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/cuda_test.dir/test.cpp.i"
-	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lennart-k-hler/projects/dolphin/backends/cuda/tests/test.cpp > CMakeFiles/cuda_test.dir/test.cpp.i
+tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/cuda_test.dir/cuda_test.cpp.i"
+	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lennart-k-hler/projects/dolphin/backends/cuda/tests/cuda_test.cpp > CMakeFiles/cuda_test.dir/cuda_test.cpp.i
 
-tests/CMakeFiles/cuda_test.dir/test.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/cuda_test.dir/test.cpp.s"
-	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lennart-k-hler/projects/dolphin/backends/cuda/tests/test.cpp -o CMakeFiles/cuda_test.dir/test.cpp.s
+tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/cuda_test.dir/cuda_test.cpp.s"
+	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lennart-k-hler/projects/dolphin/backends/cuda/tests/cuda_test.cpp -o CMakeFiles/cuda_test.dir/cuda_test.cpp.s
 
 # Object files for target cuda_test
 cuda_test_OBJECTS = \
-"CMakeFiles/cuda_test.dir/test.cpp.o"
+"CMakeFiles/cuda_test.dir/cuda_test.cpp.o"
 
 # External object files for target cuda_test
 cuda_test_EXTERNAL_OBJECTS =
 
-tests/cuda_test: tests/CMakeFiles/cuda_test.dir/test.cpp.o
+tests/cuda_test: tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.o
 tests/cuda_test: tests/CMakeFiles/cuda_test.dir/build.make
 tests/cuda_test: libcuda_backend.so
 tests/cuda_test: /usr/local/cuda-13.0/targets/x86_64-linux/lib/libcufft.so

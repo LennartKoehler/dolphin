@@ -8,7 +8,7 @@ enable_testing()
 
 
 add_executable(cuda_test
-    test.cpp
+    cuda_test.cpp
 )
 
 add_executable(multiple_devices_test

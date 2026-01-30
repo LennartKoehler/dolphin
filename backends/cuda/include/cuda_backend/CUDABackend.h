@@ -12,10 +12,10 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
-#include <dolphinbackend/IBackend.h>
-#include <dolphinbackend/IDeconvolutionBackend.h>
-#include <dolphinbackend/IBackendMemoryManager.h>
-#include <dolphinbackend/Exceptions.h>
+#include "dolphinbackend/IBackend.h"
+#include "dolphinbackend/IDeconvolutionBackend.h"
+#include "dolphinbackend/IBackendMemoryManager.h"
+#include "dolphinbackend/Exceptions.h"
 #include <cufft.h>
 #include <CUBE.h>
 #include <cuda_runtime.h>
@@ -25,10 +25,19 @@ See the LICENSE file provided with the code for the full license.
 // Unified CUDA error check macro
 #define CUDA_CHECK(err, operation) { \
     if (err != cudaSuccess) { \
-        std::cerr << cudaGetErrorString(err) << operation << std::endl; \
         throw dolphin::backend::BackendException( \
             std::string("CUDA error: ") + cudaGetErrorString(err), \
             "CUDA", \
+            operation \
+        ); \
+    } \
+}
+#define CUDA_MEMORY_ALLOC_CHECK(err, size, operation) { \
+    if (err != cudaSuccess){ \
+        throw dolphin::backend::MemoryException( \
+            "Memory allocation failed with " + std::string("CUDA error: ") + cudaGetErrorString(err), \
+            "CUDA", \
+            size, \
             operation \
         ); \
     } \
@@ -46,6 +55,7 @@ See the LICENSE file provided with the code for the full license.
     } \
 }
 
+extern LogCallback g_logger;
 
 using cudaDeviceID = int;
 struct CUDADevice{
@@ -178,6 +188,8 @@ class CUDABackendManager;
 class CUDABackend : public IBackend {
     friend CUDABackendManager;
 private:
+
+
     // Constructor for external ownership (references to externally-owned components)
     CUDABackend(CUDADeconvolutionBackend& deconv,
                 CUDABackendMemoryManager& mem)
@@ -229,6 +241,7 @@ private:
 
 public:
     // Factory method to create CUDABackend with
+    
     static CUDABackend* create() {
         try {
             auto deconv = std::make_unique<CUDADeconvolutionBackend>();
@@ -252,6 +265,7 @@ public:
                 "Failed to create CUDABackend", "CUDA", "create");
         }
     }
+
 
     // Implementation of pure virtual methods
     std::string getDeviceString() const noexcept override {

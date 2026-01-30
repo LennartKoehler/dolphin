@@ -12,8 +12,8 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
-#include <dolphinbackend/IDeconvolutionBackend.h>
-#include <dolphinbackend/IBackendMemoryManager.h>
+#include "dolphinbackend/IDeconvolutionBackend.h"
+#include "dolphinbackend/IBackendMemoryManager.h"
 #include "CUDABackend.h"
 #include <memory>
 #include <vector>
@@ -138,8 +138,9 @@ private:
             
             devices.push_back(CUDADevice{device, new MemoryTracking(totalMem)});
 
-            printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
-            device, deviceProp.major, deviceProp.minor, (totalMem/1e9));
+            g_logger(std::format("Device {} has compute capability {}.{} and {:.2f} GB memory", device, deviceProp.major, deviceProp.minor, (totalMem/1e9)), LogLevel::INFO);
+            // printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
+            // device, deviceProp.major, deviceProp.minor, (totalMem/1e9));
             
         }
         

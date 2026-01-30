@@ -21,9 +21,7 @@ void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     iterations = config.iterations;
     lambda = config.lambda;
     
-    spdlog::info("Richardson-Lucy Total Variation algorithm");
-    spdlog::info("iterations: {}", iterations);
-    spdlog::info("lambda: {}", lambda);
+
 }
 
 void RLTVDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {

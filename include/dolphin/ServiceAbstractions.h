@@ -23,6 +23,10 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/frontend/SetupConfig.h"
 #include <future>
 
+#include <spdlog/spdlog.h>
+class DeconvolutionService;
+class PSFGenerationService;
+
 using json = nlohmann::json;
 
 // Forward declarations
@@ -37,8 +41,7 @@ public:
     virtual bool isInitialized() const = 0;
     virtual void shutdown() = 0;
     
-    virtual void setDefaultLogger(std::function<void(const std::string&)> logger) = 0;
-    virtual void setErrorHandler(std::function<void(const std::string&)> handler) = 0;
+    virtual void setLogger(std::shared_ptr<spdlog::logger> logger) = 0;
 };
 
 // --- Service Result Types ---
@@ -105,18 +108,18 @@ public:
     std::string generated_path;
 };
 
-class IPSFGenerationService : public IService{
-public:
-    virtual ~IPSFGenerationService() = default;
+// class IPSFGenerationService : public IService{
+// public:
+//     virtual ~IPSFGenerationService() = default;
     
-    virtual std::unique_ptr<PSFGenerationResult> generatePSF(const PSFGenerationRequest& request) = 0;
-    virtual std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(const PSFGenerationRequest& request) = 0;
-    virtual std::vector<std::string> getSupportedPSFTypes() const = 0;
-    virtual bool validateConfig(const json& config) const = 0;
+//     virtual std::unique_ptr<PSFGenerationResult> generatePSF(const PSFGenerationRequest& request) = 0;
+//     virtual std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(const PSFGenerationRequest& request) = 0;
+//     virtual std::vector<std::string> getSupportedPSFTypes() const = 0;
+//     virtual bool validateConfig(const json& config) const = 0;
     
-    virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
-    virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
-};
+//     virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
+//     virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
+// };
 
 // --- Deconvolution Service Abstractions ---
 class DeconvolutionRequest {
@@ -165,38 +168,38 @@ public:
     AlgorithmStats stats;
 };
 
-class IDeconvolutionService : public IService {
-public:
-    virtual ~IDeconvolutionService() = default;
+// class IDeconvolutionService : public IService {
+// public:
+//     virtual ~IDeconvolutionService() = default;
     
-    virtual std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request) = 0;
-    // Asynchronous  
-    virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request) = 0;
+//     virtual std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request) = 0;
+//     // Asynchronous  
+//     virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request) = 0;
     
-    // Batch processing
-    virtual std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> deconvolveBatchAsync(
-        const std::vector<DeconvolutionRequest>& requests) = 0;
+//     // Batch processing
+//     virtual std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> deconvolveBatchAsync(
+//         const std::vector<DeconvolutionRequest>& requests) = 0;
         
-    virtual void setProgressCallback(std::function<void(int)> callback) = 0;
+//     virtual void setProgressCallback(std::function<void(int)> callback) = 0;
 
-    // virtual std::unique_ptr<DeconvolutionResult> deconvolveFromConfig(const json& config) = 0;
-    virtual std::vector<std::string> getSupportedAlgorithms() const = 0;
-    virtual bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const = 0;
+//     // virtual std::unique_ptr<DeconvolutionResult> deconvolveFromConfig(const json& config) = 0;
+//     virtual std::vector<std::string> getSupportedAlgorithms() const = 0;
+//     virtual bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const = 0;
     
-    virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
-    virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
-};
+//     virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
+//     virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
+// };
 
 // --- Service Factory ---
 class ServiceFactory {
 public:
     virtual ~ServiceFactory() = default;
     
-    virtual std::unique_ptr<IPSFGenerationService> createPSFGenerationService() = 0;
-    virtual std::unique_ptr<IDeconvolutionService> createDeconvolutionService() = 0;
+    virtual std::unique_ptr<PSFGenerationService> createPSFGenerationService() = 0;
+    virtual std::unique_ptr<DeconvolutionService> createDeconvolutionService() = 0;
     
-    virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
-    virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
+    // virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
+    // virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
     
     static ServiceFactory* create();
 };

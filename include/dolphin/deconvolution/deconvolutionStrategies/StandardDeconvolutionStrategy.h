@@ -64,6 +64,7 @@ protected:
     virtual RectangleShape getCubeShape(
         size_t memoryPerCube,
         size_t numberThreads,
+        const RectangleShape& configCubeSize,
         const RectangleShape& imageOriginalShape,
         const Padding& cubePadding);
 

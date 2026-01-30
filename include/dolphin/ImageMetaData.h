@@ -15,7 +15,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <string>
 #include <cstdint>
-#include <dolphinbackend/RectangleShape.h>
+#include "dolphinbackend/RectangleShape.h"
 
 struct ImageMetaData {
     // Image Attributes

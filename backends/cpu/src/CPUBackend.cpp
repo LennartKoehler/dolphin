@@ -5,7 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <cassert>
-#include <dolphinbackend/Exceptions.h>
+#include "dolphinbackend/Exceptions.h"
 #ifdef __linux__
 #include <unistd.h>
 #endif
@@ -38,6 +38,11 @@
 // Static member definition
 MemoryTracking CPUBackendMemoryManager::memory;
 
+static LogCallback g_logger;
+
+void set_backend_logger(LogCallback cb) {
+    g_logger = cb;
+}
 extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
     return new CPUDeconvolutionBackend();
 }
@@ -63,6 +68,29 @@ CPUBackendMemoryManager::~CPUBackendMemoryManager() {
 
 }
 
+
+size_t CPUBackendMemoryManager::staticGetAvailableMemory(){
+    // For CPU backend, return available system memory
+    size_t memory = 0;
+    #ifdef __linux__
+        long pagesize = sysconf(_SC_PAGESIZE);
+        long pages = sysconf(_SC_AVPHYS_PAGES);
+        if (pagesize > 0 && pages > 0) {
+            memory = static_cast<size_t>(pagesize) * static_cast<size_t>(pages);
+        }
+    #elif _WIN32
+        #include <windows.h>
+        MEMORYSTATUSEX status;
+        status.dwLength = sizeof(status);
+        GlobalMemoryStatusEx(&status);
+        memory = static_cast<size_t>(status.ullAvailPhys);
+    #endif
+    
+    if (memory == 0) {
+        throw std::runtime_error("Failed to get available memory");
+    }
+    return memory;
+}
 void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
     std::unique_lock<std::mutex> lock(memory.memoryMutex);
     memory.maxMemorySize = maxMemorySize;
@@ -71,7 +99,7 @@ void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
 void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
     std::unique_lock<std::mutex> lock(memory.memoryMutex);
     if ((memory.totalUsedMemory + requiredSize) > memory.maxMemorySize){
-        std::cerr << "CPUBackend out of memory, waiting for memory to free up" << std::endl;
+        g_logger(std::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::ERROR);
     }
     memory.memoryCondition.wait(lock, [this, requiredSize]() {
         return memory.maxMemorySize == 0 || (memory.totalUsedMemory + requiredSize) <= memory.maxMemorySize;
@@ -170,28 +198,9 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
 
 size_t CPUBackendMemoryManager::getAvailableMemory() const {
     try {
-        // For CPU backend, return available system memory
-        size_t memory = 0;
-        #ifdef __linux__
-            long pagesize = sysconf(_SC_PAGESIZE);
-            long pages = sysconf(_SC_AVPHYS_PAGES);
-            if (pagesize > 0 && pages > 0) {
-                memory = static_cast<size_t>(pagesize) * static_cast<size_t>(pages);
-            }
-        #elif _WIN32
-            #include <windows.h>
-            MEMORYSTATUSEX status;
-            status.dwLength = sizeof(status);
-            GlobalMemoryStatusEx(&status);
-            memory = static_cast<size_t>(status.ullAvailPhys);
-        #endif
-        
-        if (memory == 0) {
-            throw std::runtime_error("Failed to get available memory");
-        }
-        return memory;
+        return staticGetAvailableMemory();
     } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in getAvailableMemory: " << e.what() << std::endl;
+        g_logger(std::format("Exception in getAvailableMemory: {}", e.what()), LogLevel::ERROR);
         throw; // Re-throw to propagate the exception
     }
 }
@@ -216,20 +225,20 @@ void CPUDeconvolutionBackend::initializeGlobal() {
     if (!globalInitialized){
         fftwf_init_threads();
         fftwf_plan_with_nthreads(1); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
-        std::cout << "[STATUS] CPU global initialization done" << std::endl;
+        g_logger(std::format("CPU global initialization done"), LogLevel::DEBUG);
         globalInitialized = true;
     }
 }
 
 void CPUDeconvolutionBackend::init() {
     initializeGlobal();
-    std::cout << "[STATUS] CPU backend initialized for lazy plan creation" << std::endl;
+    g_logger(std::format("CPU backend initialized for lazy plan creation"), LogLevel::DEBUG);
 }
 
 void CPUDeconvolutionBackend::cleanup() {
     fftwf_cleanup_threads();
     destroyFFTPlans();
-    std::cout << "[STATUS] CPU backend postprocessing completed" << std::endl;
+    g_logger(std::format("CPU backend postprocessing completed"), LogLevel::DEBUG);
 }
 
 void CPUDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
@@ -260,8 +269,13 @@ void CPUDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
         
         fftwf_free(temp);
         
-        std::cout << "[DEBUG] Successfully created FFTW plan for shape: " 
-                  << shape.width << "x" << shape.height << "x" << shape.depth << std::endl;
+
+        std::string msg = std::format(
+            "Successfully created FFTW plan for shape: {}x{}x{}",
+            shape.width, shape.height, shape.depth
+        );
+
+        g_logger(msg, LogLevel::INFO);
     }
     catch (...){
         if (temp != nullptr){
@@ -589,7 +603,7 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
         if (std::isnan(real) || std::isnan(imag)) {
             nanCount++;
             if (nanCount <= 10) { // Only print first 10
-                std::cout << "NaN at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
+                g_logger(std::format("NaN at index {}: ({}, {})", i, real, imag), LogLevel::INFO);
             }
         }
         
@@ -597,7 +611,7 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
         if (std::isinf(real) || std::isinf(imag)) {
             infCount++;
             if (infCount <= 10) {
-                std::cout << "Inf at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
+                g_logger(std::format("Inf at index {}: ({}, {})", i, real, imag), LogLevel::INFO);
             }
         }
         
@@ -612,9 +626,9 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
         }
     }
     
-    std::cout << "[DEBUG] Data stats - NaN: " << nanCount << ", Inf: " << infCount << std::endl;
-    std::cout << "[DEBUG] Real range: [" << minReal << ", " << maxReal << "]" << std::endl;
-    std::cout << "[DEBUG] Imag range: [" << minImag << ", " << maxImag << "]" << std::endl;
+    g_logger(std::format("Data stats - NaN: {}, Inf: {}", nanCount, infCount), LogLevel::INFO);
+    g_logger(std::format("Real range: [{}, {}]", minReal, maxReal), LogLevel::INFO);
+    g_logger(std::format("Imag range: [{}, {}]", minImag, maxImag), LogLevel::INFO);
 }
 
 // Layer and Visualization Functions

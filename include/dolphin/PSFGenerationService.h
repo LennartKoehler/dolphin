@@ -21,37 +21,33 @@ class ThreadPool;
 class PSFGeneratorFactory;
 class BasePSFGenerator;
 
-class PSFGenerationService : public IPSFGenerationService{
+class PSFGenerationService : public IService{
 public:
     PSFGenerationService();
-    ~PSFGenerationService() override;
+    ~PSFGenerationService();
 
     // IPSFGenerationService interface
-    std::unique_ptr<PSFGenerationResult> generatePSF(const PSFGenerationRequest& request) override;
-    std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(const PSFGenerationRequest& request) override;
+    std::unique_ptr<PSFGenerationResult> generatePSF(const PSFGenerationRequest& request);
+    std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(const PSFGenerationRequest& request);
 
 
-    std::vector<std::string> getSupportedPSFTypes() const override;
-    bool validateConfig(const json& config) const override;
+    std::vector<std::string> getSupportedPSFTypes() const;
+    bool validateConfig(const json& config) const;
 
-    void setLogger(std::function<void(const std::string&)> logger) override;
-    void setConfigLoader(std::function<json(const std::string&)> loader) override;
 
     // IService interface
     void initialize() override;
     bool isInitialized() const override;
     void shutdown() override;
-
-    void setDefaultLogger(std::function<void(const std::string&)> logger) override;
-    void setErrorHandler(std::function<void(const std::string&)> handler) override;
+    void setLogger(std::shared_ptr<spdlog::logger> logger) override { logger_ = logger; }
 
 
 private:
     std::string savePSF(const std::string& path, const std::string& name, std::shared_ptr<PSF> psf);
     std::string savePSFConfig(const std::string& path, const std::string& name, std::shared_ptr<PSFConfig> psfconfig);
     std::string getExecutableDirectory();
-    void logMessage(const std::string& message);
-    void handleError(const std::string& error);
+    // void logMessage(const std::string& message);
+    // void handleError(const std::string& error);
     
     std::unique_ptr<PSFGenerationResult> createResult(
         bool success,
@@ -69,14 +65,8 @@ private:
     
     // Configuration
     bool initialized_;
-    std::function<void(const std::string&)> logger_;
-    std::function<void(const std::string&)> error_handler_;
-    std::function<json(const std::string&)> config_loader_;
-    
-    // Default handlers
-    std::function<void(const std::string&)> default_logger_;
-    std::function<void(const std::string&)> default_error_handler_;
-    
+    std::shared_ptr<spdlog::logger> logger_;
+
     // Cached data
     std::vector<std::string> supported_types_;
     std::string default_output_path_;

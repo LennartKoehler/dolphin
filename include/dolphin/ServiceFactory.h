@@ -20,11 +20,8 @@ See the LICENSE file provided with the code for the full license.
 class ServiceFactoryImpl : public ServiceFactory {
 public:
     // ServiceFactory interface
-    std::unique_ptr<IPSFGenerationService> createPSFGenerationService() override;
-    std::unique_ptr<IDeconvolutionService> createDeconvolutionService() override;
-
-    void setLogger(std::function<void(const std::string&)> logger) override;
-    void setConfigLoader(std::function<json(const std::string&)> loader) override;
+    std::unique_ptr<PSFGenerationService> createPSFGenerationService() override;
+    std::unique_ptr<DeconvolutionService> createDeconvolutionService() override;
 
     // Singleton instance access
     static ServiceFactoryImpl& getInstance();
@@ -35,12 +32,7 @@ private:
     ServiceFactoryImpl(const ServiceFactoryImpl&) = delete;
     ServiceFactoryImpl& operator=(const ServiceFactoryImpl&) = delete;
 
-    // Internal state
-    std::function<void(const std::string&)> logger_;
-    std::function<json(const std::string&)> config_loader_;
-    bool logger_set_ = false;
-    bool config_loader_set_ = false;
-    
+
     // Friend function for singleton access
     friend ServiceFactory* ServiceFactory::create();
 };

@@ -25,17 +25,7 @@ See the LICENSE file provided with the code for the full license.
 
 PSFGenerationService::PSFGenerationService()
     : initialized_(false),
-      logger_([](const std::string& msg) { spdlog::info("[PSF_SERVICE] {}", msg); }),
-      error_handler_([](const std::string& msg) { spdlog::error("[PSF_ERROR] {}", msg); }),
-      thread_pool_(std::make_unique<ThreadPool>(8))
-{
-    // Initialize supported PSF types
-    supported_types_ = {"Gaussian", "GibsonLanni", "BornWolf"};
-    
-    // Initialize default logger and error handler
-    default_logger_ = [](const std::string& msg) { spdlog::info("[DEFAULT] {}", msg); };
-    default_error_handler_ = [](const std::string& msg) { spdlog::error("{}", msg); };
-}
+      thread_pool_(std::make_unique<ThreadPool>(8)){}
 
 PSFGenerationService::~PSFGenerationService() {
     shutdown();
@@ -49,27 +39,14 @@ void PSFGenerationService::initialize() {
         
         // Initialize generator factory
         generator_factory_ = &(PSFGeneratorFactory::getInstance());
-        
-        // Create default config loader if not set
-        if (!config_loader_) {
-            config_loader_ = [](const std::string& path) {
-                std::ifstream file(path);
-                if (!file.is_open()) {
-                    throw std::runtime_error("Failed to open config file: " + path);
-                }
-                json j;
-                file >> j;
-                return j;
-            };
-        }
+
 
         default_output_path_ = getExecutableDirectory() + "/results/";
         
         initialized_ = true;
-        logMessage("PSF Generation Service initialized successfully");
+        logger_->info("PSF Generation Service initialized successfully");
 
     } catch (const std::exception& e) {
-        handleError("Failed to initialize PSF Generation Service: " + std::string(e.what()));
         initialized_ = false;
         throw;
     }
@@ -84,7 +61,7 @@ void PSFGenerationService::shutdown() {
     
     generator_factory_ = nullptr;  // Raw pointer, just set to nullptr
     initialized_ = false;
-    logMessage("PSF Generation Service shut down successfully");
+    logger_->info("PSF Generation Service shut down successfully");
 }
 
 std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSFGenerationRequest& request) {
@@ -95,19 +72,19 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
             throw std::runtime_error("PSF Generation Service not initialized");
         }
         
-        logMessage("Generating PSF with request");
+        logger_->info("Generating PSF with request");
         
         // PSF Generation logic based on request type
         std::shared_ptr<PSF> psf;
         
         // Check PSF config path
         if (!request.config_.config_path_.empty()) {
-            logMessage("Generating PSF from config file path: " + request.config_.config_path_);
+            logger_->info("Generating PSF from config file path: " + request.config_.config_path_);
             psf = createPSFFromFilePathInternal(request.config_.config_path_);
         }
         // Check PSF config object
         else if (request.config_.psf_config_ != nullptr) {
-            logMessage("Generating PSF from config object: " + request.config_.psf_config_->getName());
+            logger_->info("Generating PSF from config object: " + request.config_.psf_config_->getName());
             psf = createPSFFromConfigInternal(request.config_.psf_config_);
         }
         else {
@@ -133,10 +110,7 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
             }
         }
         
-        if (request.show_example) {
-            logMessage("Showing example PSF layer visualization");
-            // psf->showChannel(0); // Uncomment when Hyperstack display is available
-        }
+
         
         auto end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> duration = end_time - start_time;
@@ -152,7 +126,7 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         std::chrono::duration<double> duration = end_time - start_time;
         
         std::string error_msg = "PSF generation failed: " + std::string(e.what());
-        logMessage(error_msg);
+        logger_->error(error_msg);
         return createResult(false, error_msg, duration);
     }
 }
@@ -184,39 +158,6 @@ bool PSFGenerationService::validateConfig(const json& config) const {
     return true;
 }
 
-void PSFGenerationService::setLogger(std::function<void(const std::string&)> logger) {
-    logger_ = logger ? logger : default_logger_;
-}
-
-void PSFGenerationService::setConfigLoader(std::function<json(const std::string&)> loader) {
-    config_loader_ = loader;
-}
-
-void PSFGenerationService::setDefaultLogger(std::function<void(const std::string&)> logger) {
-    default_logger_ = logger;
-    if (!logger_) {
-        logger_ = default_logger_;
-    }
-}
-
-void PSFGenerationService::setErrorHandler(std::function<void(const std::string&)> handler) {
-    error_handler_ = handler ? handler : default_error_handler_;
-}
-
-
-
-void PSFGenerationService::logMessage(const std::string& message) {
-    if (logger_) {
-        logger_("INFO: " + message);
-    }
-}
-
-void PSFGenerationService::handleError(const std::string& error) {
-    if (error_handler_) {
-        error_handler_("ERROR: " + error);
-    }
-}
-
 std::unique_ptr<PSFGenerationResult> PSFGenerationService::createResult(
     bool success,
     const std::string& message,
@@ -228,27 +169,25 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::createResult(
 
 std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(std::shared_ptr<PSFConfig> psfConfig) {
     try {
-        logMessage("Creating PSF from config using PSFConfig");
+        logger_->info("Creating PSF from config using PSFConfig");
         return std::make_unique<PSF>(PSFCreator::generatePSFFromPSFConfig(psfConfig, thread_pool_.get()));
     } catch (const std::exception& e) {
         std::string error_msg = "Failed to create PSF from config: " + std::string(e.what());
-        logMessage(error_msg);
-        handleError(error_msg);
+        logger_->error(error_msg);
         throw;
     }
 }
 
 std::unique_ptr<PSF> PSFGenerationService::createPSFFromFilePathInternal(const std::string& path) {
     try {
-        logMessage("Creating PSF from file path using PSFCreator: " + path);
+        logger_->info("Creating PSF from file path using PSFCreator: " + path);
         std::shared_ptr<PSFConfig> config = PSFCreator::generatePSFConfigFromConfigPath(path);
         return std::make_unique<PSF>(PSFCreator::generatePSFFromPSFConfig(config, thread_pool_.get()));
         
     } catch (const std::exception& e) {
 
         std::string error_msg = "Failed to create PSF from file: " + std::string(e.what());
-        logMessage(error_msg);
-        handleError(error_msg);
+        logger_->error(error_msg);
         throw std::runtime_error(error_msg);
     }
 }
@@ -270,7 +209,7 @@ std::string PSFGenerationService::savePSF(const std::string& path, const std::st
     std::string output_path_str = output_path.string();
 
     psf->writeToTiffFile(output_path_str);
-    logMessage("PSF saved to: " + output_path_str);
+    logger_->info("PSF saved to: " + output_path_str);
     return output_path_str;
 }
 
@@ -286,7 +225,7 @@ std::string PSFGenerationService::savePSFConfig(const std::string& path, const s
     ordered_json jsonConfig = psfconfig->writeToJSON();
     std::ofstream o(output_path_str);
     o << std::setw(4) << jsonConfig << std::endl;
-    logMessage("PSFConfig saved to: " + output_path_str);
+    logger_->info("PSFConfig saved to: " + output_path_str);
     return output_path_str;
 }
 

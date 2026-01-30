@@ -68,6 +68,7 @@ PSF PSFCreator::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, T
     psfGenerator->setThreadPool(threadPool);
     PSF psf = psfGenerator->generatePSF();
     psf.ID = psfConfig->ID;
+    spdlog::info("Successfully created PSF of type {} with ID: {}", psfConfig->getModelName(), psf.ID);
     return psf;
     
 }
