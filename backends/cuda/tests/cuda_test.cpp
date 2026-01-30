@@ -1,7 +1,7 @@
 #include <iostream>
 #include <memory>
-#include <dolphinbackend/ComplexData.h>
-#include <dolphinbackend/RectangleShape.h>
+#include "dolphinbackend/ComplexData.h"
+#include "dolphinbackend/RectangleShape.h"
 #include <thread>
 #include "CUDABackend.h"
 

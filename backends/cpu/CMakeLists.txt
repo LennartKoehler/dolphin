@@ -2,16 +2,13 @@
 cmake_minimum_required(VERSION 3.10)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
-set(CMAKE_BUILD_TYPE Debug)
-
 
 project(CPUBackend VERSION 1.0.0)
 
 
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
-find_library(FFTW3_LIB NAMES fftw3f PATHS /usr/lib /usr/lib/x86_64-linux-gnu REQUIRED)
-find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS /usr/lib /usr/lib/x86_64-linux-gnu REQUIRED)
+find_library(FFTW3_LIB NAMES fftw3f PATHS /usr/local/fftw-release/lib NO_DEFAULT_PATH REQUIRED)
+find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS /usr/local/fftw-release/lib NO_DEFAULT_PATH REQUIRED)
 
 
 # add_library(dolphinbackend STATIC IMPORTED)
@@ -30,7 +27,7 @@ target_include_directories(cpu_backend
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include/cpu_backend
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
 )
 
 
@@ -41,6 +38,8 @@ target_link_libraries(cpu_backend PUBLIC
     ${FFTW3_LIB}
     ${FFTW3_THREADS_LIB}
     )
+
+target_link_libraries(cpu_backend PUBLIC project_options)
 
 target_link_libraries(cpu_backend PUBLIC
     dolphinbackend)

@@ -2,7 +2,7 @@
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/home/lennart-k-hler/projects/dolphin/backends/cpu/lib/dolphinbackend")
+  set(CMAKE_INSTALL_PREFIX "/usr/local")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -12,7 +12,7 @@ if(NOT DEFINED CMAKE_INSTALL_CONFIG_NAME)
     string(REGEX REPLACE "^[^A-Za-z0-9_]+" ""
            CMAKE_INSTALL_CONFIG_NAME "${BUILD_TYPE}")
   else()
-    set(CMAKE_INSTALL_CONFIG_NAME "")
+    set(CMAKE_INSTALL_CONFIG_NAME "Debug")
   endif()
   message(STATUS "Install configuration: \"${CMAKE_INSTALL_CONFIG_NAME}\"")
 endif()
@@ -68,8 +68,8 @@ if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT
     unset(_cmake_export_file_changed)
   endif()
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/dolphinbackend" TYPE FILE FILES "/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/build/CMakeFiles/Export/401f77d22467082705794a0b85dc4dac/dolphinbackendTargets.cmake")
-  if(CMAKE_INSTALL_CONFIG_NAME MATCHES "^()$")
-    file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/dolphinbackend" TYPE FILE FILES "/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/build/CMakeFiles/Export/401f77d22467082705794a0b85dc4dac/dolphinbackendTargets-noconfig.cmake")
+  if(CMAKE_INSTALL_CONFIG_NAME MATCHES "^([Dd][Ee][Bb][Uu][Gg])$")
+    file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/dolphinbackend" TYPE FILE FILES "/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/build/CMakeFiles/Export/401f77d22467082705794a0b85dc4dac/dolphinbackendTargets-debug.cmake")
   endif()
 endif()
 

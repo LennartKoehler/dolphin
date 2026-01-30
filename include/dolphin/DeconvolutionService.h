@@ -25,51 +25,36 @@ class DeconvolutionStrategy;
 class DeconvolutionStrategyPair;
 class DeconvolutionAlgorithmFactory;
 
-class DeconvolutionService : public IDeconvolutionService{
+class DeconvolutionService : public IService{
 public:
     DeconvolutionService();
     ~DeconvolutionService() override;
 
     // IDeconvolutionService interface
-    std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request) override;
+    std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request);
 
-    virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request) override;
+    virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request);
     
-    virtual std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> deconvolveBatchAsync(const std::vector<DeconvolutionRequest>& requests) override;
+    virtual std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> deconvolveBatchAsync(const std::vector<DeconvolutionRequest>& requests);
         
 
-    virtual void setProgressCallback(std::function<void(int)> callback) override;
-    std::vector<std::string> getSupportedAlgorithms() const override;
+    virtual void setProgressCallback(std::function<void(int)> callback);
+    std::vector<std::string> getSupportedAlgorithms() const;
     std::vector<std::string> getSupportedStrategyTypes() const; 
 
-    bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const override;
+    bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const;
 
-    void setLogger(std::function<void(const std::string&)> logger) override;
-    void setConfigLoader(std::function<json(const std::string&)> loader) override;
 
     // IService interface
     void initialize() override;
     bool isInitialized() const override;
     void shutdown() override;
+    void setLogger(std::shared_ptr<spdlog::logger> logger) override { logger_ = logger; }
 
-    void setDefaultLogger(std::function<void(const std::string&)> logger) override;
-    void setErrorHandler(std::function<void(const std::string&)> handler) override;
-
-    // Additional methods for advanced deconvolution
-    // std::unique_ptr<DeconvolutionResult> batchDeconvolute(
-    //     const std::vector<DeconvolutionRequest>& requests);
-    
-    // std::unique_ptr<DeconvolutionResult> hybridDeconvolution(
-    //     const DeconvolutionRequest& request,
-    //     const std::vector<std::string>& algorithm_sequence);
-    
-    // std::vector<std::unique_ptr<DeconvolutionResult>> experimentDeconvolution(
-    //     const DeconvolutionRequest& base_request,
-    //     const std::vector<std::string>& algorithms_to_test);
 
 private:
-    void logMessage(const std::string& message);
-    void handleError(const std::string& error);
+    // void logMessage(const std::string& message);
+    // void handleError(const std::string& error);
     
     std::unique_ptr<DeconvolutionResult> createResult(
         bool success,
@@ -78,7 +63,7 @@ private:
 
     
     bool validateDeconvolutionRequest(const DeconvolutionRequest& request) const;
-    bool validateImageConfig(const json& config) const;
+    // bool validateImageConfig(const json& config) const;
     
     // Algorithm management
     std::unique_ptr<DeconvolutionStrategyPair> deconvolutionStrategyPair;
@@ -87,17 +72,11 @@ private:
     std::vector<PSF> createPSFsFromSetup(
         std::shared_ptr<SetupConfig> setupConfig);
 
-
+    
     // Configuration
     bool initialized_;
-    std::function<void(const std::string&)> logger_;
-    std::function<void(const std::string&)> error_handler_;
-    std::function<json(const std::string&)> config_loader_;
-    
-    // Default handlers
-    std::function<void(const std::string&)> default_logger_;
-    std::function<void(const std::string&)> default_error_handler_;
-    
+    std::shared_ptr<spdlog::logger> logger_;
+
     // Cached data
     std::vector<std::string> supported_algorithms_;
 

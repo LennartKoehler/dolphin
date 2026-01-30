@@ -199,6 +199,30 @@ multiple_devices_test/fast:
 	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/multiple_devices_test.dir/build.make tests/CMakeFiles/multiple_devices_test.dir/build
 .PHONY : multiple_devices_test/fast
 
+cuda_test.o: cuda_test.cpp.o
+.PHONY : cuda_test.o
+
+# target to build an object file
+cuda_test.cpp.o:
+	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/cuda_test.dir/build.make tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.o
+.PHONY : cuda_test.cpp.o
+
+cuda_test.i: cuda_test.cpp.i
+.PHONY : cuda_test.i
+
+# target to preprocess a source file
+cuda_test.cpp.i:
+	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/cuda_test.dir/build.make tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.i
+.PHONY : cuda_test.cpp.i
+
+cuda_test.s: cuda_test.cpp.s
+.PHONY : cuda_test.s
+
+# target to generate assembly for a file
+cuda_test.cpp.s:
+	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/cuda_test.dir/build.make tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.s
+.PHONY : cuda_test.cpp.s
+
 multiple_devices_test.o: multiple_devices_test.cpp.o
 .PHONY : multiple_devices_test.o
 
@@ -223,30 +247,6 @@ multiple_devices_test.cpp.s:
 	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/multiple_devices_test.dir/build.make tests/CMakeFiles/multiple_devices_test.dir/multiple_devices_test.cpp.s
 .PHONY : multiple_devices_test.cpp.s
 
-test.o: test.cpp.o
-.PHONY : test.o
-
-# target to build an object file
-test.cpp.o:
-	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/cuda_test.dir/build.make tests/CMakeFiles/cuda_test.dir/test.cpp.o
-.PHONY : test.cpp.o
-
-test.i: test.cpp.i
-.PHONY : test.i
-
-# target to preprocess a source file
-test.cpp.i:
-	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/cuda_test.dir/build.make tests/CMakeFiles/cuda_test.dir/test.cpp.i
-.PHONY : test.cpp.i
-
-test.s: test.cpp.s
-.PHONY : test.s
-
-# target to generate assembly for a file
-test.cpp.s:
-	cd /home/lennart-k-hler/projects/dolphin/backends/cuda/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/cuda_test.dir/build.make tests/CMakeFiles/cuda_test.dir/test.cpp.s
-.PHONY : test.cpp.s
-
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -262,12 +262,12 @@ help:
 	@echo "... test"
 	@echo "... cuda_test"
 	@echo "... multiple_devices_test"
+	@echo "... cuda_test.o"
+	@echo "... cuda_test.i"
+	@echo "... cuda_test.s"
 	@echo "... multiple_devices_test.o"
 	@echo "... multiple_devices_test.i"
 	@echo "... multiple_devices_test.s"
-	@echo "... test.o"
-	@echo "... test.i"
-	@echo "... test.s"
 .PHONY : help
 
 

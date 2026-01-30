@@ -6,11 +6,8 @@ project(CUBE LANGUAGES CXX CUDA)
 # Set C++ and CUDA Standards
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CUDA_STANDARD 14)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -march=native")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3") # -rdc=true
 set(CMAKE_CUDA_ARCHITECTURES "86;75") # TODO TESTVALUE
-set(CMAKE_BUILD_TYPE Debug)  # or Debug
+
 
 option(DOUBLE_PRECISION "Enable double precision" OFF)
 
@@ -27,6 +24,9 @@ set(CUDA_SOURCES
 
 # Create the executable
 add_library(CUBE STATIC ${CPP_SOURCES} ${CUDA_SOURCES})
+
+
+target_link_libraries(CUBE PUBLIC project_options)
 
 if(DOUBLE_PRECISION)
     target_compile_definitions(myapp PRIVATE DOUBLE_PRECISION)

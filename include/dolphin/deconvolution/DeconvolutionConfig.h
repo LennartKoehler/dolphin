@@ -48,7 +48,7 @@ public:
 
 
     virtual bool loadFromJSON(const json& jsonData) override;
-    virtual json writeToJSON() override;
+    virtual json writeToJSON() const override;
 
 private:
     virtual void registerAllParameters();

@@ -23,17 +23,24 @@ See the LICENSE file provided with the code for the full license.
 
 
 
+LogCallback g_logger;
 
+extern "C" void set_backend_logger(LogCallback cb) {
+    g_logger = cb;
+}
 
 extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
+    assert(g_logger && "g_logger not set");
     return new CUDADeconvolutionBackend();
 }
 
 extern "C" IBackendMemoryManager* createBackendMemoryManager() {
+    assert(g_logger && "g_logger not set");
     return new CUDABackendMemoryManager();
 }
 
 extern "C" IBackend* createBackend(){
+    assert(g_logger && "g_logger not set");
     return CUDABackend::create();
 }
 
@@ -53,7 +60,7 @@ void CUDABackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
 void CUDABackendMemoryManager::waitForMemory(size_t requiredSize) const {
     std::unique_lock<std::mutex> lock(device.memory->memoryMutex);
     if ((device.memory->totalUsedMemory + requiredSize) > device.memory->maxMemorySize){
-        std::cerr << "CUDABackend out of device.memory-> waiting for memory to free up" << std::endl;
+        g_logger(std::format("CUDABackend out of device.memory-> waiting for memory to free up"), LogLevel::ERROR);
     }
     device.memory->memoryCondition.wait(lock, [this, requiredSize]() {
         return device.memory->maxMemorySize == 0 || (device.memory->totalUsedMemory + requiredSize) <= device.memory->maxMemorySize;
@@ -171,7 +178,7 @@ void CUDABackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
 
     void* devicePtr = nullptr;
     cudaError_t err = cudaMallocAsync(&devicePtr, requested_size, stream);
-    CUDA_CHECK(err, "allocateMemoryOnDevice - cudaMallocAsync");
+    CUDA_MEMORY_ALLOC_CHECK(err, requested_size, "allocateMemoryOnDevice - cudaMallocAsync");
     
     data.data = static_cast<complex_t*>(devicePtr);
     
@@ -252,7 +259,7 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
         std::unique_lock<std::mutex> lock(device.memory->memoryMutex);
         if (device.memory->totalUsedMemory < requested_size) {
             device.memory->totalUsedMemory = static_cast<size_t>(0); // this should never happen
-            std::cerr << "[WARNING] Memory tracking inconsistency detected in freeMemoryOnDevice" << std::endl;
+            g_logger(std::format("Memory tracking inconsistency detected in freeMemoryOnDevice"), LogLevel::WARN);
         } else {
             device.memory->totalUsedMemory -= requested_size;
         }
@@ -270,8 +277,7 @@ size_t CUDABackendMemoryManager::getAvailableMemory() const {
     CUDA_CHECK(err, "getAvailableMemory - cudaMemGetInfo");
     
     if (freeMem > totalMem) {
-        std::cerr << "[WARNING] Available memory (" << freeMem
-                  << ") exceeds total memory (" << totalMem << ")" << std::endl;
+        g_logger(std::format("Available memory ({}) exceeds total memory ({})", freeMem, totalMem), LogLevel::WARN);
         return 0; // Return 0 to indicate error condition
     }
     
@@ -311,7 +317,7 @@ void CUDADeconvolutionBackend::initializeGlobal(){
 void CUDADeconvolutionBackend::cleanup(){
     // Clean up CUDA resources if needed
     destroyFFTPlans();
-    std::cout << "[STATUS] CUDA backend postprocessing completed" << std::endl;
+    g_logger(std::format("CUDA backend postprocessing completed"), LogLevel::DEBUG);
 }
 
 void CUDADeconvolutionBackend::initializePlan(const RectangleShape& shape){
@@ -340,8 +346,7 @@ void CUDADeconvolutionBackend::initializePlan(const RectangleShape& shape){
         CUFFT_CHECK(cufftSetStream(backward, stream), "initializePlan - backward plan stream setup");
 
         planSize = shape;
-        std::cout << "[DEBUG] Successfully created cuFFT plans for shape: "
-                  << shape.width << "x" << shape.height << "x" << shape.depth << std::endl;
+        g_logger(std::format("Successfully created cuFFT plans for shape: {}x{}x{}", shape.width, shape.height, shape.depth), LogLevel::DEBUG);
         
         // Synchronize to ensure plans are ready
         cudaError_t err = cudaStreamSynchronize(stream);
@@ -464,7 +469,7 @@ void CUDADeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, c
 // Specialized Functions
 void CUDADeconvolutionBackend::hasNAN(const ComplexData& data) const {
     // Implementation would go here
-    std::cout << "[DEBUG] hasNAN called on CUDA backend" << std::endl;
+    g_logger(std::format("hasNAN called on CUDA backend"), LogLevel::DEBUG);
 }
 
 void CUDADeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {

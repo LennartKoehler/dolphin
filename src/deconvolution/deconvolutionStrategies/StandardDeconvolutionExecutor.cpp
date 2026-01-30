@@ -63,11 +63,11 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
 
         ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
 
-        defaultBackendMemoryManager.freeMemoryOnDevice(g_host);
+        BackendFactory::getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
 
         ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
 
-        ComplexData f_host{&defaultBackendMemoryManager, nullptr, RectangleShape()};
+        ComplexData f_host;
         std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
 
@@ -82,10 +82,11 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
                 *context->psfpreprocessor.get());
 
             resultDone.get(); //wait for result
-            f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, defaultBackendMemoryManager);
+            f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getDefaultBackendMemoryManager());
         }
-        catch (...) {
-            throw; // dont overwrite image if exception
+        catch (const dolphin::backend::BackendException& e) {
+            spdlog::get("deconvolution")->error(e.getDetailedMessage());
+            throw std::runtime_error(e.what()); // dont overwrite image if exception
         }
 
         cubeImage.image = Preprocessor::convertComplexDataToImage(f_host);
@@ -114,6 +115,7 @@ void StandardDeconvolutionExecutor::parallelDeconvolution(
     }
 
     // Wait for all remaining tasks to finish
+
     for (auto& f : runningTasks)
         f.get();
 }

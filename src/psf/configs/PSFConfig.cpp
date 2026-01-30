@@ -20,7 +20,7 @@ PSFConfig::PSFConfig(){
 }
 
 PSFConfig::PSFConfig(const PSFConfig& other) 
-    : Config(other)  // Delegate to default constructor first (registers parameters)
+    : Config()  // Delegate to default constructor first (registers parameters)
 {
     // Then copy the values
     ID = other.ID;
@@ -63,8 +63,8 @@ void PSFConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Int, &sizeY, "sizeY", false, "sizeY", "--sizeY", "PSF size Y", false, true, 1, 1024, nullptr});
     parameters.push_back({ParameterType::Int, &sizeZ, "sizeZ", false, "sizeZ", "--sizeZ", "PSF size Z", false, true, 1, 512, nullptr});
     parameters.push_back({ParameterType::Float, &NA, "NA", false, "NA", "--NA", "Numerical aperture", false, true, 0.1, 2.0, nullptr});
-    parameters.push_back({ParameterType::Float, &resLateral_nm, "resLateral_nm", false, "resLateral[nm]", "--resLateral_nm", "Lateral resolution in nm", false, true, 10.0, 500.0, nullptr});
-    parameters.push_back({ParameterType::Float, &resAxial_nm, "resAxial_nm", false, "resAxial[nm]", "--resAxial_nm", "Axial resolution in nm", false, true, 50.0, 2000.0, nullptr});
+    parameters.push_back({ParameterType::Float, &resLateral_nm, "resLateral_nm", false, "resLateral_nm", "--resLateral_nm", "Lateral resolution in nm", false, true, 10.0, 500.0, nullptr});
+    parameters.push_back({ParameterType::Float, &resAxial_nm, "resAxial_nm", false, "resAxial_nm", "--resAxial_nm", "Axial resolution in nm", false, true, 50.0, 2000.0, nullptr});
     parameters.push_back({ParameterType::String, &ID, "ID", true, "ID", "--ID", "PSF identifier", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &psfModelName, "modelName", true, "modelName", "--modelName", "PSF model name", false, false, 0.0, 0.0, nullptr});
 }

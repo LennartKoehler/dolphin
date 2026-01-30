@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include <string>
 #include <stdexcept>
+#include <format>
 
 namespace dolphin {
 namespace backend {
@@ -58,7 +59,7 @@ public:
         return std::string(what()) + 
                " [Backend: " + backend_type_ + 
                ", Operation: " + operation_ + 
-               (requested_size_ > 0 ? ", Requested Size: " + std::to_string(requested_size_) : "") + "]";
+               (requested_size_ > 0 ? std::format(", Requested Size: {:.2f} GB", (static_cast<int>(requested_size_) / 1e9)) : "") + "]";
     }
 
 private:

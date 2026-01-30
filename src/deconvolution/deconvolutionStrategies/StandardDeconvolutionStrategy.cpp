@@ -39,6 +39,8 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
     ImageMetaData metadata = reader->getMetaData();
     RectangleShape imageSize = RectangleShape{metadata.imageWidth, metadata.imageLength, metadata.slices};
     std::shared_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(deconvConfig);
+    spdlog::get("deconvolution")->info("Using the following deconvolution config");
+    deconvConfig.printValues();
 
     std::shared_ptr<IBackend> backend = getBackend(setupConfig);
 
@@ -48,13 +50,14 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
     size_t nThreads = setupConfig.nThreads;
     size_t memoryPerCube = maxMemoryPerCube(nThreads, setupConfig.maxMem_GB * 1e9, algorithm.get());
     Padding cubePadding = getCubePadding(imageSize, psfs);
-    RectangleShape idealCubeSizeUnpadded = getCubeShape(memoryPerCube, setupConfig.nThreads, imageSize, cubePadding);
+    RectangleShape idealCubeSizeUnpadded = getCubeShape(memoryPerCube, setupConfig.nThreads, setupConfig.cubeSize, imageSize, cubePadding);
     Padding imagePadding = getImagePadding(imageSize, idealCubeSizeUnpadded, cubePadding);
 
     std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = splitImageHomogeneous(idealCubeSizeUnpadded, cubePadding, imageSize);
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     tasks.reserve(cubeCoordinatesWithPadding.size());
     
+
 
     for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
 
@@ -64,7 +67,7 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
             static_cast<int>(i),
             cubeCoordinatesWithPadding[i],
             algorithm,
-            estimateMemoryUsage(idealCubeSizeUnpadded, algorithm.get()),
+            estimateMemoryUsage(cubeCoordinatesWithPadding[i].box.dimensions, algorithm.get()),
             psfPointers,
             reader,
             writer,
@@ -73,6 +76,9 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
     }
     
     size_t totalTasks = tasks.size();
+    spdlog::get("deconvolution")
+        ->info("Successfully created deconvolution plan with {} total cubes. Each cube has size (width x height x depth) ({}) which includes padding (padding before, padding after) ({}, {})",
+        totalTasks, (idealCubeSizeUnpadded + imagePadding.before + imagePadding.after).print(), imagePadding.before.print(), imagePadding.after.print());
     return DeconvolutionPlan{
         std::move(imagePadding),
         std::move(tasks),
@@ -157,15 +163,12 @@ size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
 RectangleShape StandardDeconvolutionStrategy::getCubeShape(
     size_t memoryPerCube,
     size_t numberThreads,
+    const RectangleShape& configCubeSize,
     const RectangleShape& imageOriginalShape,
     const Padding& cubePadding
-){
-    size_t width = 256;
-    size_t height = 256; 
-    size_t depth = 64;
-
-    
-    RectangleShape cubeSize = RectangleShape(width, height, depth) - cubePadding.before - cubePadding.after;
+){    
+    RectangleShape cubeSize = configCubeSize - cubePadding.before - cubePadding.after;
+    cubeSize.clamp(imageOriginalShape);
     assert(cubeSize > RectangleShape(0,0,0));
     return cubeSize;
 }

@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/lennart-k-hler/projects/dolphin/backends/cuda/include -I/home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include -isystem /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include
+CXX_INCLUDES = -I/home/lennart-k-hler/projects/dolphin/backends/cuda/include/cuda_backend -I/home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include -isystem /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include
 
-CXX_FLAGS = -g -O0 -DDEBUG -std=gnu++20 -static-libstdc++ -static-libgcc
+CXX_FLAGS = -g -std=gnu++20 -static-libstdc++ -static-libgcc -g -O0 -fno-omit-frame-pointer
 

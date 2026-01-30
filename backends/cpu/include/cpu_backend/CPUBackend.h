@@ -8,12 +8,17 @@
 
 
 
+extern void set_backend_logger(LogCallback cb);
+
+
 class CPUBackendMemoryManager : public IBackendMemoryManager{
 public:
     CPUBackendMemoryManager();
     
     ~CPUBackendMemoryManager();
     
+
+    static size_t staticGetAvailableMemory();
     // Override device type method
     std::string getDeviceString() const noexcept override {
         return "cpu";
@@ -41,7 +46,7 @@ public:
 
 private:
     // Memory management
-    static MemoryTracking memory;
+    static MemoryTracking memory; // only implemented  cpu for a single cpu device
     
     // Helper method to wait for memory availability
     void waitForMemory(size_t requiredSize) const;
@@ -49,6 +54,7 @@ private:
     static MemoryTracking& getMemoryTracking() { return memory; }
 
 };
+
 
 class CPUDeconvolutionBackend : public IDeconvolutionBackend{
 public:
@@ -128,6 +134,7 @@ private:
 // Concrete CPU Backend Implementation
 class CPUBackend : public IBackend {
 private:
+
     // Constructor for external ownership (references to externally-owned components)
     CPUBackend(CPUDeconvolutionBackend& deconv,
                CPUBackendMemoryManager& mem)
@@ -185,6 +192,7 @@ public:
         auto memoryManager = std::make_unique<CPUBackendMemoryManager>();
         return new CPUBackend(std::move(deconv), std::move(memoryManager));
     }
+
         
     void sync() override {}
     // Implementation of pure virtual methods

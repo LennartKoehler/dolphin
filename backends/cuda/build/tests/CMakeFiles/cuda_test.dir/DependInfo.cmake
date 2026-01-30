@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/lennart-k-hler/projects/dolphin/backends/cuda/tests/test.cpp" "tests/CMakeFiles/cuda_test.dir/test.cpp.o" "gcc" "tests/CMakeFiles/cuda_test.dir/test.cpp.o.d"
+  "/home/lennart-k-hler/projects/dolphin/backends/cuda/tests/cuda_test.cpp" "tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.o" "gcc" "tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

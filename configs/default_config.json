@@ -1,39 +1,29 @@
 {
-  "Deconvolution": {
+  "DeconvolutionConfig": {
     "algorithmName": "RichardsonLucyTotalVariation",
     "iterations": 5,
     "epsilon": 1e-6,
-    "grid": false,
     "lambda": 0.015,
-    "borderType": 2,
-    "time": false,
-    "saveSubimages": false
-    
-
+    "borderType": 2
   },
   
+  "cubeSize": [512, 512, 512],
 
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
   "psf_file_path": "",
   "psf_dir_path": "",
+  "savePsf": true,
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   
-  "backend": "../backends/cpu/build/libcpu_backend.so",
-  "nIOThreads": 6,
-  "nWorkerThreads" : 6,
+  "backend": "../backends/cuda/build/libcuda_backend.so",
+  "nIOThreads": 2,
+  "nWorkerThreads" : 1,
   "nDevices" : 1,
   "maxMem_GB": 64,
 
-  "deconvolution_config_path": "",
-
   "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
-  "strategyType": "normal", 
-  "info": false,
-  "showExampleLayers": false,
-  "time": false,
-  "seperate": false,
+  "strategyType": "normal"
 
-  "savePsf": false
 
 
 }

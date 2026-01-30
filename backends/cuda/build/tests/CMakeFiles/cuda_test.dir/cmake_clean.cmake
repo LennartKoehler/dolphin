@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/cuda_test.dir/test.cpp.o"
-  "CMakeFiles/cuda_test.dir/test.cpp.o.d"
+  "CMakeFiles/cuda_test.dir/cuda_test.cpp.o"
+  "CMakeFiles/cuda_test.dir/cuda_test.cpp.o.d"
   "cuda_test"
   "cuda_test.pdb"
 )

@@ -1,36 +1,36 @@
 cmake_minimum_required(VERSION 3.10)
 project(Deconvtool VERSION 1.0.0)
 
+
+set(CMAKE_BUILD_TYPE Debug)
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-# Set build type to Release by default for performance
-# if(NOT CMAKE_BUILD_TYPE)
-#     set(CMAKE_BUILD_TYPE Release)
-# endif()
-set(CMAKE_BUILD_TYPE Debug)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+
+
 # Optimization flags for different build types
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -march=native")
+# set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-omit-frame-pointer")
 # set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma")
-# set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
 # set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma")
 # set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Compiler flags for Valgrind-safe build
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(
-        -O0             # Disable optimizations
-        -g              # Debug symbols
-        -march=x86-64   # Only baseline instructions
-        -mno-avx        # Disable AVX
-        -mno-avx2       # Disable AVX2
-        -mno-fma        # Disable FMA
-        -Wall           # Enable warnings
-        -Wextra
-    )
-endif()
+add_library(project_options INTERFACE)
+
+target_compile_options(project_options INTERFACE
+  # Debug
+  $<$<CONFIG:Debug>:-g;-O0;-fno-omit-frame-pointer>
+  # Release
+  $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops;-mavx2;-mfma>
+  # RelWithDebInfo
+  $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-DNDEBUG;-funroll-loops>
+)
+
+# architecture flags only for Release (avoid -march=native for Debug)
+target_compile_options(project_options INTERFACE
+  $<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:GNU>>:-mavx2;-mfma>
+)
 
 # link_directories(/usr/local/lib)
 set(BUILD_SHARED_LIBS OFF)
@@ -62,6 +62,7 @@ set(DOLPHIN_SOURCES
     src/image/Image3D.cpp
     src/image/ImageMetaData.cpp
 
+    src/backend/BackendFactory.cpp
 
     src/IO/TiffReader.cpp
     src/IO/TiffWriter.cpp
@@ -103,12 +104,14 @@ set(DOLPHIN_SOURCES
 # Create shared library for Dolphin API
 add_library(dolphin STATIC ${DOLPHIN_SOURCES})
 
+target_link_libraries(dolphin PUBLIC project_options)
+
 
 
 target_include_directories(dolphin
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cpu/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cpu/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/dolphinbackend/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/spdlog/include/>
@@ -123,8 +126,25 @@ target_link_libraries(dolphin
         cpu_backend
         ${TIFF_LIBRARIES}
         ${ITK_LIBRARIES}
-
 )
+
+# Compiler flags for Valgrind-safe build
+# if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+#     target_compile_options( dolphin PROPERTIES
+#         -O0             # Disable optimizations
+#         -g              # Debug symbols
+#         -march=x86-64   # Only baseline instructions
+#         -mno-avx        # Disable AVX
+#         -mno-avx2       # Disable AVX2
+#         -mno-fma        # Disable FMA
+#         -Wall           # Enable warnings
+#         -Wextra
+#         -g
+#         -O0
+#         -fno-omit-frame-pointer
+#     )
+# endif()
+
 
 # Set version for the library
 set_target_properties(dolphin PROPERTIES
@@ -139,7 +159,7 @@ set_target_properties(dolphin PROPERTIES
 
 
 # Install targets
-install(TARGETS dolphin dolphinbackend cpu_backend
+install(TARGETS project_options dolphin dolphinbackend cpu_backend
     EXPORT dolphinTargets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib

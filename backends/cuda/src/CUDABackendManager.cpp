@@ -15,7 +15,8 @@ See the LICENSE file provided with the code for the full license.
 #include <iostream>
 #include <stdexcept>
 #include "CUDABackend.h"
-#include <dolphinbackend/Exceptions.h>
+#include "dolphinbackend/Exceptions.h"
+
 CUDABackendManager& CUDABackendManager::getInstance() {
     static CUDABackendManager instance;
     return instance;
@@ -124,7 +125,7 @@ void CUDABackendManager::cleanup() {
     
 
     
-    std::cout << "[INFO] Cleaned up CUDA backend manager" << std::endl;
+    g_logger(std::format("Cleaned up CUDA backend manager"), LogLevel::INFO);
 }
 
 cudaStream_t CUDABackendManager::createStream() {
@@ -218,8 +219,7 @@ void CUDABackendManager::releaseBackendForCurrentThread(CUDABackend* backend) {
         it->second.inUse = false;
         
     } else {
-        std::cerr << "[WARNING] Attempted to release backend for thread " << currentThreadId
-                  << " that doesn't have an active backend" << std::endl;
+        // g_logger(std::format("Attempted to release backend for thread {} that doesn't have an active backend", std::string(currentThreadId)), LogLevel::WARN);
     }
 }
 
