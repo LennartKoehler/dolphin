@@ -100,7 +100,7 @@ void OpenMPBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const
         return; // Already allocated
     }
     
-    size_t requested_size = sizeof(complex_t) * data.size.volume;
+    size_t requested_size = sizeof(complex_t) * data.size.getVolume();
     
     // Wait for memory if max memory limit is set
     waitForMemory(requested_size);
@@ -117,7 +117,7 @@ void OpenMPBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const
     data.backend = this;
 }
 
-ComplexData OpenMPBackendMemoryManager::allocateMemoryOnDevice(const RectangleShape& shape) const {
+ComplexData OpenMPBackendMemoryManager::allocateMemoryOnDevice(const CuboidShape& shape) const {
     ComplexData result{this, nullptr, shape};
     allocateMemoryOnDevice(result);
     return result;
@@ -126,7 +126,7 @@ ComplexData OpenMPBackendMemoryManager::allocateMemoryOnDevice(const RectangleSh
 ComplexData OpenMPBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
     BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "OpenMP", "copyDataToDevice - source data");
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
-    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex_t));
+    std::memcpy(result.data, srcdata.data, srcdata.size.getVolume() * sizeof(complex_t));
     return result;
 }
 
@@ -153,13 +153,13 @@ ComplexData OpenMPBackendMemoryManager::copyData(const ComplexData& srcdata) con
 void OpenMPBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
     BACKEND_CHECK(srcData.data != nullptr, "Source data pointer is null", "OpenMP", "memCopy - source data");
     BACKEND_CHECK(destData.data != nullptr, "Destination data pointer is null", "OpenMP", "memCopy - destination data");
-    BACKEND_CHECK(destData.size.volume == srcData.size.volume, "Source and destination must have same size", "OpenMP", "memCopy");
-    std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex_t));
+    BACKEND_CHECK(destData.size.getVolume() == srcData.size.getVolume(), "Source and destination must have same size", "OpenMP", "memCopy");
+    std::memcpy(destData.data, srcData.data, srcData.size.getVolume() * sizeof(complex_t));
 }
 
 void OpenMPBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     BACKEND_CHECK(data.data != nullptr, "Data pointer is null", "OpenMP", "freeMemoryOnDevice - data pointer");
-    size_t requested_size = sizeof(complex_t) * data.size.volume;
+    size_t requested_size = sizeof(complex_t) * data.size.getVolume();
     fftw_free(data.data);
     
     // Update memory tracking
@@ -244,7 +244,7 @@ void OpenMPDeconvolutionBackend::cleanup() {
     std::cout << "[STATUS] OpenMP backend postprocessing completed" << std::endl;
 }
 
-void OpenMPDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
+void OpenMPDeconvolutionBackend::initializePlan(const CuboidShape& shape) {
     // This method assumes the mutex is already locked by the caller
     
     // Check if plan already exists for this shape (double-check pattern)
@@ -255,8 +255,8 @@ void OpenMPDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
     // Allocate temporary memory for plan creation
     complex_t* temp = nullptr;
     try{
-        temp = (complex_t*)fftw_malloc(sizeof(complex_t) * shape.volume);
-        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * shape.volume, "initializePlan");
+        temp = (complex_t*)fftw_malloc(sizeof(complex_t) * shape.getVolume());
+        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * shape.getVolume(), "initializePlan");
         
         FFTPlanPair& planPair = planMap[shape];
         
@@ -298,7 +298,7 @@ void OpenMPDeconvolutionBackend::destroyFFTPlans() {
     planMap.clear();
 }
 
-OpenMPDeconvolutionBackend::FFTPlanPair* OpenMPDeconvolutionBackend::getPlanPair(const RectangleShape& shape) {
+OpenMPDeconvolutionBackend::FFTPlanPair* OpenMPDeconvolutionBackend::getPlanPair(const CuboidShape& shape) {
     auto it = planMap.find(shape);
     if (it != planMap.end()) {
         return &it->second;
@@ -459,7 +459,7 @@ void OpenMPDeconvolutionBackend::complexMultiplication(const ComplexData& a, con
 //     }
 // #endif
     
-    const int volume = a.size.volume;
+    const int volume = a.size.getVolume();
     
     // Use restrict pointers to help compiler optimize
     complex_t* __restrict__ a_ptr = a.data;
@@ -485,7 +485,7 @@ void OpenMPDeconvolutionBackend::complexDivision(const ComplexData& a, const Com
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexDivision - result");
 
     #pragma omp parallel for
-    for (int i = 0; i < a.size.volume; ++i) {
+    for (int i = 0; i < a.size.getVolume(); ++i) {
         double real_a = a.data[i][0];
         double imag_a = a.data[i][1];
         double real_b = b.data[i][0];
@@ -508,7 +508,7 @@ void OpenMPDeconvolutionBackend::complexAddition(const ComplexData& a, const Com
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "OpenMP", "complexAddition - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexAddition - result");
 
-    const int volume = a.size.volume;
+    const int volume = a.size.getVolume();
     complex_t* __restrict__ a_ptr = a.data;
     complex_t* __restrict__ b_ptr = b.data;
     complex_t* __restrict__ result_ptr = result.data;
@@ -524,7 +524,7 @@ void OpenMPDeconvolutionBackend::scalarMultiplication(const ComplexData& a, doub
     BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "scalarMultiplication - input a");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "scalarMultiplication - result");
 
-    const int volume = a.size.volume;
+    const int volume = a.size.getVolume();
     complex_t* __restrict__ a_ptr = a.data;
     complex_t* __restrict__ result_ptr = result.data;
 
@@ -541,7 +541,7 @@ void OpenMPDeconvolutionBackend::complexMultiplicationWithConjugate(const Comple
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexMultiplicationWithConjugate - result");
 
     #pragma omp parallel for
-    for (int i = 0; i < a.size.volume; ++i) {
+    for (int i = 0; i < a.size.getVolume(); ++i) {
         double real_a = a.data[i][0];
         double imag_a = a.data[i][1];
         double real_b = b.data[i][0];
@@ -558,7 +558,7 @@ void OpenMPDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a,
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexDivisionStabilized - result");
 
     #pragma omp parallel for
-    for (int i = 0; i < a.size.volume; ++i) {
+    for (int i = 0; i < a.size.getVolume(); ++i) {
         double real_a = a.data[i][0];
         double imag_a = a.data[i][1];
         double real_b = b.data[i][0];
@@ -599,13 +599,13 @@ void OpenMPDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double
     double max_val = 0.0, max_val2 = 0.0;
     
     #pragma omp parallel for reduction(max:max_val, max_val2)
-    for (int j = 0; j < resultImage.size.volume; j++) {
+    for (int j = 0; j < resultImage.size.getVolume(); j++) {
         max_val = std::max(max_val, resultImage.data[j][0]);
         max_val2 = std::max(max_val2, resultImage.data[j][1]);
     }
     
     #pragma omp parallel for simd
-    for (int j = 0; j < resultImage.size.volume; j++) {
+    for (int j = 0; j < resultImage.size.getVolume(); j++) {
         resultImage.data[j][0] /= (max_val + epsilon);
         resultImage.data[j][1] /= (max_val2 + epsilon);
     }
@@ -613,7 +613,7 @@ void OpenMPDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double
 
 void OpenMPDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolume) const {
     #pragma omp parallel for simd
-    for (int i = 0; i < data.size.volume; ++i) {
+    for (int i = 0; i < data.size.getVolume(); ++i) {
         data.data[i][0] /= cubeVolume;
         data.data[i][1] /= cubeVolume;
     }
@@ -628,7 +628,7 @@ void OpenMPDeconvolutionBackend::hasNAN(const ComplexData& data) const {
     double maxImag = std::numeric_limits<double>::lowest();
     
     #pragma omp parallel for reduction(+:nanCount, infCount) reduction(min:minReal, minImag) reduction(max:maxReal, maxImag)
-    for (int i = 0; i < data.size.volume; i++) {
+    for (int i = 0; i < data.size.getVolume(); i++) {
         double real = data.data[i][0];
         double imag = data.data[i][1];
         
@@ -678,8 +678,8 @@ void OpenMPDeconvolutionBackend::reorderLayers(ComplexData& data) const {
     int layerSize = width * height;
     int halfDepth = depth / 2;
     
-    complex_t* temp = (complex_t*)fftw_malloc(sizeof(complex_t) * data.size.volume);
-    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * data.size.volume, "reorderLayers");
+    complex_t* temp = (complex_t*)fftw_malloc(sizeof(complex_t) * data.size.getVolume());
+    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * data.size.getVolume(), "reorderLayers");
 
     int destIndex = 0;
 
@@ -700,7 +700,7 @@ void OpenMPDeconvolutionBackend::reorderLayers(ComplexData& data) const {
     }
 
     // Copy reordered data back to the original array
-    std::memcpy(data.data, temp, sizeof(complex_t) * data.size.volume);
+    std::memcpy(data.data, temp, sizeof(complex_t) * data.size.getVolume());
     fftw_free(temp);
 }
 
@@ -833,7 +833,7 @@ void OpenMPDeconvolutionBackend::complexMultiplicationAVX2(const ComplexData& a,
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "OpenMP", "complexMultiplicationAVX2 - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexMultiplicationAVX2 - result");
     
-    const int volume = a.size.volume;
+    const int volume = a.size.getVolume();
     const double* __restrict__ a_ptr = reinterpret_cast<const double*>(a.data);
     const double* __restrict__ b_ptr = reinterpret_cast<const double*>(b.data);
     double* __restrict__ result_ptr = reinterpret_cast<double*>(result.data);

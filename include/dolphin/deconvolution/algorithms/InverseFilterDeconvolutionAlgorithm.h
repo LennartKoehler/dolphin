@@ -23,7 +23,7 @@ public:
 
     // Main algorithm interface
     void configure(const DeconvolutionConfig& config) override;
-    void init(const RectangleShape& dataSize) override;
+    void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) override;
     

@@ -15,7 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/Image3D.h"
 
 // Image3D Constructor implementations
-Image3D::Image3D(const RectangleShape& shape) {
+Image3D::Image3D(const CuboidShape& shape) {
     image = ImageType::New();
     
     ImageType::SizeType size;
@@ -406,11 +406,11 @@ void Image3D::setPixel(int x, int y, int z, float value) {
 }
 
 
-RectangleShape Image3D::getShape() const {
-    if (image.IsNull()) return RectangleShape{0, 0, 0};
+CuboidShape Image3D::getShape() const {
+    if (image.IsNull()) return CuboidShape{0, 0, 0};
     
     ImageType::SizeType size = image->GetLargestPossibleRegion().GetSize();
-    return RectangleShape{static_cast<int>(size[0]), static_cast<int>(size[1]), static_cast<int>(size[2])};
+    return CuboidShape{static_cast<int>(size[0]), static_cast<int>(size[1]), static_cast<int>(size[2])};
 }
 
 void Image3D::setSlice(int sliceindex, const void* data) {

@@ -55,7 +55,7 @@ public:
 
     
     // FFT plan management
-    virtual void initializePlan(const RectangleShape& cube){
+    virtual void initializePlan(const CuboidShape& cube){
         NOT_IMPLEMENTED(initializePlan);
     }
     

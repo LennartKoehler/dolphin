@@ -36,10 +36,11 @@ public:
     std::string outputDir;
     std::string labeledImage;
     std::string labelPSFMap;
-    std::string strategyType = "normal";
+    std::string deconvolutionType = "standard";
     std::string backend = "libcpu_backend.so";
     bool savePsf = false;
-    std::array<int, 3> cubeSize = {128,128,64};
+    std::array<int, 3> cubeSize{};
+    std::array<int, 3> cubePadding{}; // this padding is later doubled
 
     int nThreads = 1;
     int nIOThreads = 1;

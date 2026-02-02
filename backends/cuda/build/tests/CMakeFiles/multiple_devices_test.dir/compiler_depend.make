@@ -12,7 +12,7 @@ tests/CMakeFiles/multiple_devices_test.dir/multiple_devices_test.cpp.o: /home/le
   /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IBackend.h \
   /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IBackendMemoryManager.h \
   /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IDeconvolutionBackend.h \
-  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h \
+  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/CuboidShape.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
@@ -759,7 +759,7 @@ tests/CMakeFiles/multiple_devices_test.dir/multiple_devices_test.cpp.o: /home/le
 
 /usr/include/c++/13/tr1/exp_integral.tcc:
 
-/home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h:
+/home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/CuboidShape.h:
 
 /usr/include/wchar.h:
 

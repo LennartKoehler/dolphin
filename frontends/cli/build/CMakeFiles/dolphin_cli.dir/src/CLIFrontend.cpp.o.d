@@ -316,7 +316,7 @@ CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o: \
  /usr/include/c++/13/bits/unordered_set.h \
  /usr/local/include/dolphin/deconvolution/DeconvolutionConfig.h \
  /usr/local/include/HelperClasses.h \
- /usr/local/include/dolphinbackend/RectangleShape.h \
+ /usr/local/include/dolphinbackend/CuboidShape.h \
  /usr/local/include/dolphin/ServiceAbstractions.h \
  /usr/include/c++/13/chrono /usr/include/c++/13/bits/chrono_io.h \
  /usr/include/c++/13/format /usr/include/c++/13/charconv \

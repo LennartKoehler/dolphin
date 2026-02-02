@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <stdexcept>
 #include <iostream>
+#include <cmath>
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/deconvolution/Postprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
@@ -37,7 +38,7 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
     }
 
     ImageMetaData metadata = reader->getMetaData();
-    RectangleShape imageSize = RectangleShape{metadata.imageWidth, metadata.imageLength, metadata.slices};
+    CuboidShape imageSize = CuboidShape{metadata.imageWidth, metadata.imageLength, metadata.slices};
     std::shared_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(deconvConfig);
     spdlog::get("deconvolution")->info("Using the following deconvolution config");
     deconvConfig.printValues();
@@ -47,11 +48,15 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
 
     std::vector<std::shared_ptr<TaskContext>> contexts = createContexts(backend, setupConfig);
 
+
+
     size_t nThreads = setupConfig.nThreads;
     size_t memoryPerCube = maxMemoryPerCube(nThreads, setupConfig.maxMem_GB * 1e9, algorithm.get());
-    Padding cubePadding = getCubePadding(imageSize, psfs);
-    RectangleShape idealCubeSizeUnpadded = getCubeShape(memoryPerCube, setupConfig.nThreads, setupConfig.cubeSize, imageSize, cubePadding);
+    Padding cubePadding = getCubePadding(psfs, setupConfig.cubePadding);
+    CuboidShape idealCubeSizeUnpadded = getCubeShape(memoryPerCube, setupConfig.nThreads, setupConfig.cubeSize, imageSize, cubePadding);
     Padding imagePadding = getImagePadding(imageSize, idealCubeSizeUnpadded, cubePadding);
+
+    size_t memoryPerTask = estimateMemoryUsage(idealCubeSizeUnpadded, algorithm.get(), setupConfig);
 
     std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = splitImageHomogeneous(idealCubeSizeUnpadded, cubePadding, imageSize);
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
@@ -67,7 +72,7 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
             static_cast<int>(i),
             cubeCoordinatesWithPadding[i],
             algorithm,
-            estimateMemoryUsage(cubeCoordinatesWithPadding[i].box.dimensions, algorithm.get()),
+            memoryPerTask,
             psfPointers,
             reader,
             writer,
@@ -76,9 +81,11 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
     }
     
     size_t totalTasks = tasks.size();
+
     spdlog::get("deconvolution")
         ->info("Successfully created deconvolution plan with {} total cubes. Each cube has size (width x height x depth) ({}) which includes padding (padding before, padding after) ({}, {})",
         totalTasks, (idealCubeSizeUnpadded + imagePadding.before + imagePadding.after).print(), imagePadding.before.print(), imagePadding.after.print());
+
     return DeconvolutionPlan{
         std::move(imagePadding),
         std::move(tasks),
@@ -87,8 +94,9 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
 }
 
 std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreprocessor() const {
-    std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
-        const RectangleShape shape,
+
+    std::function<ComplexData*(const CuboidShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
+        const CuboidShape shape,
         std::shared_ptr<PSF> inputPSF,
         std::shared_ptr<IBackend> backend
             ) -> ComplexData* {
@@ -100,6 +108,7 @@ std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreproc
                 backend->sync();
                 return new ComplexData(std::move(h_device));
             };
+
     std::unique_ptr<PSFPreprocessor> preprocessor = std::make_unique<PSFPreprocessor>();
     preprocessor->setPreprocessingFunction(psfPreprocessFunction);
     return std::move(preprocessor);
@@ -154,32 +163,54 @@ size_t StandardDeconvolutionStrategy::maxMemoryPerCube(
 }
 
 size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
-    const RectangleShape& cubeSize,
-    const DeconvolutionAlgorithm* algorithm
+    const CuboidShape& cubeSize,
+    const DeconvolutionAlgorithm* algorithm,
+    const SetupConfig& config
 ){
-    return cubeSize.volume * algorithm->getMemoryMultiplier() * sizeof(complex_t);
+    int ioCopies = 3; //image, psf, result
+    size_t ioAllocations = config.nIOThreads * cubeSize.getVolume() * ioCopies * sizeof(complex_t);
+    size_t workerAllocations = config.nWorkerThreads * cubeSize.getVolume() * algorithm->getMemoryMultiplier() * sizeof(complex_t);
+    return ioAllocations + workerAllocations;
 }
 
-RectangleShape StandardDeconvolutionStrategy::getCubeShape(
+CuboidShape StandardDeconvolutionStrategy::getCubeShape(
     size_t memoryPerCube,
     size_t numberThreads,
-    const RectangleShape& configCubeSize,
-    const RectangleShape& imageOriginalShape,
+    const CuboidShape& configCubeSize,
+    const CuboidShape& imageOriginalShape,
     const Padding& cubePadding
 ){    
-    RectangleShape cubeSize = configCubeSize - cubePadding.before - cubePadding.after;
-    cubeSize.clamp(imageOriginalShape);
-    assert(cubeSize > RectangleShape(0,0,0));
+    CuboidShape cubeSize;
+    if (configCubeSize.getVolume() != 0){
+        cubeSize = configCubeSize - cubePadding.before - cubePadding.after;
+    }
+    else cubeSize = cubePadding.before * 2;
+    
+    // cubeSize.clamp(imageOriginalShape);
+
+    assert(cubeSize > CuboidShape(0,0,0));
+    // cubeSize.width = getNextPowerOfTwo(cubeSize.width);
+    // cubeSize.height = getNextPowerOfTwo(cubeSize.height);
+    // cubeSize.depth = getNextPowerOfTwo(cubeSize.depth);
+
     return cubeSize;
 }
 
+int StandardDeconvolutionStrategy::getNextPowerOfTwo(int v) const {
+    int p = 2;
+    while (p < v){
+        p <<= 1;
+    }
+    return p;
+}
+
 Padding StandardDeconvolutionStrategy::getImagePadding(
-    const RectangleShape& imageSize,
-    const RectangleShape& cubeSizeUnpadded,
+    const CuboidShape& imageSize,
+    const CuboidShape& cubeSizeUnpadded,
     const Padding& cubePadding
 ){
-    RectangleShape paddingBefore = cubePadding.before;
-    RectangleShape paddingAfter;
+    CuboidShape paddingBefore = cubePadding.before;
+    CuboidShape paddingAfter;
 
     paddingAfter.width = std::max(cubePadding.after.width, cubeSizeUnpadded.width - imageSize.width + cubePadding.before.width);
     paddingAfter.height = std::max(cubePadding.after.height, cubeSizeUnpadded.height - imageSize.height + cubePadding.before.height);
@@ -187,27 +218,28 @@ Padding StandardDeconvolutionStrategy::getImagePadding(
     return Padding{paddingBefore, paddingAfter};
 }
 
-Padding StandardDeconvolutionStrategy::getCubePadding(const RectangleShape& image, const std::vector<PSF> psfs){
-    std::vector<RectangleShape> psfSizes;
+std::vector<CuboidShape> StandardDeconvolutionStrategy::getPSFSizes(const std::vector<PSF>& psfs){
+    std::vector<CuboidShape> psfSizes;
     for (const auto& psf : psfs){
         psfSizes.push_back(psf.image.getShape());
     }
-    
-    RectangleShape maxPsfShape{0, 0, 0};
-    
-    for (const auto& psf : psfSizes) {
-        maxPsfShape.width = std::max(maxPsfShape.width, psf.width);
-        maxPsfShape.height = std::max(maxPsfShape.height, psf.height);
-        maxPsfShape.depth = std::max(maxPsfShape.depth, psf.depth);
+    return psfSizes;
+}
+
+Padding StandardDeconvolutionStrategy::getCubePadding(const std::vector<PSF> psfs, const CuboidShape& configPadding){
+    Padding padding;
+    std::vector<CuboidShape> psfSizes = getPSFSizes(psfs);
+    if (configPadding.getVolume() == 0){
+        DefaultPaddingStrategy stratd{};
+        stratd.init(configPadding);
+        padding = stratd.getPadding(psfSizes);
     }
-    
-    RectangleShape paddingbefore = RectangleShape(
-        static_cast<int>(maxPsfShape.width / 2),
-        static_cast<int>(maxPsfShape.height / 2),
-        static_cast<int>(maxPsfShape.depth / 2)
-    );
-    paddingbefore = paddingbefore + 1;
-    return Padding{paddingbefore, paddingbefore};
+    else{
+        ManualPaddingStrategy stratm{};
+        stratm.init(configPadding);
+        padding = stratm.getPadding(psfSizes);
+    } 
+    return padding;
 }
 
 void StandardDeconvolutionStrategy::configure(const SetupConfig& setupConfig) {

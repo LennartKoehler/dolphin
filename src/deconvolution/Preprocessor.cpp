@@ -23,7 +23,7 @@ ComplexData Preprocessor::convertImageToComplexData(
     const Image3D& input) {
 
 
-    RectangleShape shape = input.getShape();
+    CuboidShape shape = input.getShape();
     ComplexData result = BackendFactory::getDefaultBackendMemoryManager().allocateMemoryOnDevice(shape);
 
     int width = shape.width;
@@ -48,7 +48,7 @@ Image3D Preprocessor::convertComplexDataToImage(
     const int height = input.size.height;
     const int depth  = input.size.depth;
 
-    Image3D output(RectangleShape(width, height, depth));
+    Image3D output(CuboidShape(width, height, depth));
 
     const complex_t* in = input.data;
     int index = 0;
@@ -67,7 +67,7 @@ Image3D Preprocessor::convertComplexDataToImage(
 void Preprocessor::padImage(Image3D& image, const Padding& padding, PaddingType borderType){
     
     // Get current image dimensions using ITK
-    RectangleShape currentShape = image.getShape();
+    CuboidShape currentShape = image.getShape();
     int currentDepth = currentShape.depth;
     int currentHeight = currentShape.height;
     int currentWidth = currentShape.width;
@@ -169,9 +169,9 @@ void Preprocessor::padImage(Image3D& image, const Padding& padding, PaddingType 
 }
 
 
-Padding Preprocessor::padToShape(Image3D& image, const RectangleShape& targetShape, PaddingType borderType){
+Padding Preprocessor::padToShape(Image3D& image, const CuboidShape& targetShape, PaddingType borderType){
     // Get current image dimensions using ITK
-    RectangleShape currentShape = image.getShape();
+    CuboidShape currentShape = image.getShape();
     if (currentShape.width == 0 || currentShape.height == 0 || currentShape.depth == 0) {
         throw std::invalid_argument("Cannot pad empty image");
     }
@@ -209,12 +209,12 @@ Padding Preprocessor::padToShape(Image3D& image, const RectangleShape& targetSha
     }
     
     Padding padding{
-        RectangleShape{
+        CuboidShape{
             widthPaddingLeft,
             heightPaddingTop,
             depthPaddingBefore
         },
-        RectangleShape{
+        CuboidShape{
             widthPaddingRight,
             heightPaddingBottom,
             depthPaddingAfter
@@ -227,9 +227,9 @@ Padding Preprocessor::padToShape(Image3D& image, const RectangleShape& targetSha
 
 
 
-void Preprocessor::expandToMinSize(Image3D& image, const RectangleShape& minSize) {
+void Preprocessor::expandToMinSize(Image3D& image, const CuboidShape& minSize) {
     // Get current image dimensions using ITK
-    RectangleShape currentShape = image.getShape();
+    CuboidShape currentShape = image.getShape();
     if (currentShape.width == 0 || currentShape.height == 0 || currentShape.depth == 0) {
         return;
     }

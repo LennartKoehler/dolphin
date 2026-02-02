@@ -4,7 +4,7 @@
 CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.o: /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/src/ComplexData.cpp \
   /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/ComplexData.h \
   /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/IBackendMemoryManager.h \
-  /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/RectangleShape.h \
+  /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/CuboidShape.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
@@ -620,7 +620,7 @@ CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.o: /home/lennart-k-hler/projec
 
 /usr/include/c++/13/bits/parse_numbers.h:
 
-/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/RectangleShape.h:
+/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/CuboidShape.h:
 
 /usr/include/c++/13/exception:
 

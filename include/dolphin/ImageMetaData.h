@@ -15,7 +15,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <string>
 #include <cstdint>
-#include "dolphinbackend/RectangleShape.h"
+#include "dolphinbackend/CuboidShape.h"
 
 struct ImageMetaData {
     // Image Attributes
@@ -39,8 +39,8 @@ struct ImageMetaData {
     float minSampleValue = 0;
     int sampleFormat;
 
-    RectangleShape getShape() const {
-        return RectangleShape(imageWidth, imageLength, slices);
+    CuboidShape getShape() const {
+        return CuboidShape(imageWidth, imageLength, slices);
     }
 
 };

@@ -117,7 +117,7 @@ void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
         return; // Already allocated
     }
     
-    size_t requested_size = sizeof(complex_t) * data.size.volume;
+    size_t requested_size = sizeof(complex_t) * data.size.getVolume();
     
     // Wait for memory if max memory limit is set
     waitForMemory(requested_size);
@@ -134,7 +134,7 @@ void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     data.backend = this;
 }
 
-ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const RectangleShape& shape) const {
+ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const CuboidShape& shape) const {
     ComplexData result{this, nullptr, shape};
     allocateMemoryOnDevice(result);
     return result;
@@ -144,7 +144,7 @@ ComplexData CPUBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata
 
     BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data");
     ComplexData result = allocateMemoryOnDevice(srcdata.size);
-    std::memcpy(result.data, srcdata.data, srcdata.size.volume * sizeof(complex_t));
+    std::memcpy(result.data, srcdata.data, srcdata.size.getVolume() * sizeof(complex_t));
     return result;
 }
 
@@ -172,13 +172,13 @@ ComplexData CPUBackendMemoryManager::copyData(const ComplexData& srcdata) const 
 void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
     BACKEND_CHECK(srcData.data != nullptr, "Source data pointer is null", "CPU", "memCopy - source data");
     BACKEND_CHECK(destData.data != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data");
-    BACKEND_CHECK(destData.size.volume == srcData.size.volume, "Source and destination must have same size", "CPU", "memCopy");
-    std::memcpy(destData.data, srcData.data, srcData.size.volume * sizeof(complex_t));
+    BACKEND_CHECK(destData.size.getVolume() == srcData.size.getVolume(), "Source and destination must have same size", "CPU", "memCopy");
+    std::memcpy(destData.data, srcData.data, srcData.size.getVolume() * sizeof(complex_t));
 }
 
 void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     BACKEND_CHECK(data.data != nullptr, "Data pointer is null", "CPU", "freeMemoryOnDevice - data pointer");
-    size_t requested_size = sizeof(complex_t) * data.size.volume;
+    size_t requested_size = sizeof(complex_t) * data.size.getVolume();
     fftwf_free(data.data);
     
     // Update memory tracking
@@ -241,7 +241,7 @@ void CPUDeconvolutionBackend::cleanup() {
     g_logger(std::format("CPU backend postprocessing completed"), LogLevel::DEBUG);
 }
 
-void CPUDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
+void CPUDeconvolutionBackend::initializePlan(const CuboidShape& shape) {
     // This method assumes the mutex is already locked by the caller
     
     // Check if plan already exists for this shape (double-check pattern)
@@ -252,8 +252,8 @@ void CPUDeconvolutionBackend::initializePlan(const RectangleShape& shape) {
     // Allocate temporary memory for plan creation
     complex_t* temp = nullptr;
     try{
-        temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * shape.volume);
-        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * shape.volume, "initializePlan");
+        temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * shape.getVolume());
+        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * shape.getVolume(), "initializePlan");
         
         FFTPlanPair& planPair = planMap[shape];
         
@@ -300,7 +300,7 @@ void CPUDeconvolutionBackend::destroyFFTPlans() {
     planMap.clear();
 }
 
-CPUDeconvolutionBackend::FFTPlanPair* CPUDeconvolutionBackend::getPlanPair(const RectangleShape& shape) {
+CPUDeconvolutionBackend::FFTPlanPair* CPUDeconvolutionBackend::getPlanPair(const CuboidShape& shape) {
     auto it = planMap.find(shape);
     if (it != planMap.end()) {
         return &it->second;
@@ -451,7 +451,7 @@ void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const 
     real_t imag_a;
     real_t real_b;
     real_t imag_b;    
-    for (int i = 0; i < a.size.volume; ++i) {
+    for (int i = 0; i < a.size.getVolume(); ++i) {
         real_a = a.data[i][0];
         imag_a = a.data[i][1];
         real_b = b.data[i][0];
@@ -468,7 +468,7 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
 
     //#pragma omp parallel for
-    for (int i = 0; i < a.size.volume; ++i) {
+    for (int i = 0; i < a.size.getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
         real_t real_b = b.data[i][0];
@@ -491,7 +491,7 @@ void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const Comple
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexAddition - result");
 
-    for (int i = 0; i < a.size.volume; ++i) {
+    for (int i = 0; i < a.size.getVolume(); ++i) {
         result.data[i][0] = a.data[i][0] + b.data[i][0];
         result.data[i][1] = a.data[i][1] + b.data[i][1];
     }
@@ -503,7 +503,7 @@ void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex
 
     real_t rscalar = scalar[0];
     real_t iscalar = scalar[1];
-    for (int i = 0; i < a.size.volume; ++i) {
+    for (int i = 0; i < a.size.getVolume(); ++i) {
         result.data[i][0] = a.data[i][0] * rscalar;
         result.data[i][1] = a.data[i][1] * iscalar;
     }
@@ -515,7 +515,7 @@ void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexDa
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result");
 
     //#pragma omp parallel for
-    for (int i = 0; i < a.size.volume; ++i) {
+    for (int i = 0; i < a.size.getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
         real_t real_b = b.data[i][0];
@@ -532,7 +532,7 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result");
 
     //#pragma omp parallel for
-    for (int i = 0; i < a.size.volume; ++i) {
+    for (int i = 0; i < a.size.getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
         real_t real_b = b.data[i][0];
@@ -570,18 +570,18 @@ void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, Co
 
 void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
     real_t max_val = 0.0, max_val2 = 0.0;
-    for (int j = 0; j < resultImage.size.volume; j++) {
+    for (int j = 0; j < resultImage.size.getVolume(); j++) {
         max_val = std::max(max_val, resultImage.data[j][0]);
         max_val2 = std::max(max_val2, resultImage.data[j][1]);
     }
-    for (int j = 0; j < resultImage.size.volume; j++) {
+    for (int j = 0; j < resultImage.size.getVolume(); j++) {
         resultImage.data[j][0] /= (max_val + epsilon);
         resultImage.data[j][1] /= (max_val2 + epsilon);
     }
 }
 
 void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
-    for (int i = 0; i < data.size.volume; ++i) {
+    for (int i = 0; i < data.size.getVolume(); ++i) {
         data.data[i][0] /= cubeVolume;
         data.data[i][1] /= cubeVolume;
     }
@@ -595,7 +595,7 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
     real_t minImag = std::numeric_limits<real_t>::max();
     real_t maxImag = std::numeric_limits<real_t>::lowest();
     
-    for (int i = 0; i < data.size.volume; i++) {
+    for (int i = 0; i < data.size.getVolume(); i++) {
         real_t real = data.data[i][0];
         real_t imag = data.data[i][1];
         
@@ -639,8 +639,8 @@ void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
     int layerSize = width * height;
     int halfDepth = depth / 2;
     
-    complex_t* temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * data.size.volume);
-    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * data.size.volume, "reorderLayers");
+    complex_t* temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * data.size.getVolume());
+    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * data.size.getVolume(), "reorderLayers");
 
     int destIndex = 0;
 
@@ -661,7 +661,7 @@ void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
     }
 
     // Copy reordered data back to the original array
-    std::memcpy(data.data, temp, sizeof(complex_t) * data.size.volume);
+    std::memcpy(data.data, temp, sizeof(complex_t) * data.size.getVolume());
     fftwf_free(temp);
 }
 

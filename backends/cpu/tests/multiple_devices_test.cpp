@@ -1,7 +1,7 @@
 #include <iostream>
 #include <memory>
 #include "dolphinbackend/ComplexData.h"
-#include "dolphinbackend/RectangleShape.h"
+#include "dolphinbackend/CuboidShape.h"
 #include <thread>
 #include "dolphinbackend/IBackend.h"
 #include "CPUBackend.h"
@@ -45,7 +45,7 @@ void testMultipleDevices() {
         std::cout << "CPU backend initialized successfully" << std::endl;
         
         // Test with a simple shape
-        RectangleShape testShape(64, 64, 32);
+        CuboidShape testShape(64, 64, 32);
         std::cout << "Testing memory allocation with shape: "
                   << testShape.width << "x" << testShape.height << "x" << testShape.depth << std::endl;
         

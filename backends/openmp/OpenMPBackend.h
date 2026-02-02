@@ -28,7 +28,7 @@ public:
     // Data management
     void memCopy(const ComplexData& srcdata, ComplexData& destdata) const override;
     void allocateMemoryOnDevice(ComplexData& data) const override;
-    ComplexData allocateMemoryOnDevice(const RectangleShape& shape) const override;
+    ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const override;
     bool isOnDevice(void* data) const override;
     ComplexData copyData(const ComplexData& srcdata) const override;
     ComplexData copyDataToDevice(const ComplexData& srcdata) const override; // for openmp these are copy operations
@@ -71,7 +71,7 @@ public:
 
 
 
-    void initializePlan(const RectangleShape& cube) override;
+    void initializePlan(const CuboidShape& cube) override;
      // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;
@@ -117,9 +117,9 @@ private:
     
    void destroyFFTPlans();
 
-    FFTPlanPair* getPlanPair(const RectangleShape& shape);
+    FFTPlanPair* getPlanPair(const CuboidShape& shape);
     
-    std::map<RectangleShape, FFTPlanPair> planMap;
+    std::map<CuboidShape, FFTPlanPair> planMap;
     mutable std::mutex backendMutex;
 
 };

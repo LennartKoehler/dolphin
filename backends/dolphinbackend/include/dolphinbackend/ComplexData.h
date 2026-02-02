@@ -14,7 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include <array>
 #include <algorithm>
-#include "RectangleShape.h"
+#include "CuboidShape.h"
 
 class IBackendMemoryManager;
 
@@ -25,12 +25,12 @@ typedef real_t complex_t[2];
 class ComplexData{
 public:
     complex_t* data;
-    RectangleShape size;
+    CuboidShape size;
     const IBackendMemoryManager* backend;
 
     // Take ownership of pre-allocated memory
     ComplexData() = default;
-    ComplexData(const IBackendMemoryManager* b, complex_t* data, RectangleShape size);
+    ComplexData(const IBackendMemoryManager* b, complex_t* data, CuboidShape size);
     ~ComplexData();
     ComplexData(const ComplexData& other);
     ComplexData& operator=(const ComplexData& other);

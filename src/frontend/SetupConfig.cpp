@@ -58,12 +58,13 @@ SetupConfig::SetupConfig(const SetupConfig& other)
     maxMem_GB = other.maxMem_GB;
 
     outputDir = other.outputDir;
-    strategyType = other.strategyType;
+    deconvolutionType = other.deconvolutionType;
     labeledImage = other.labeledImage;
     labelPSFMap = other.labelPSFMap;
 
     savePsf = other.savePsf;
     cubeSize = other.cubeSize;
+    cubePadding = other.cubePadding;
 
     // Deep copy the shared_ptr content
     if (other.deconvolutionConfig != nullptr) {
@@ -91,12 +92,13 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         maxMem_GB = other.maxMem_GB;
 
         outputDir = other.outputDir;
-        strategyType = other.strategyType;
+        deconvolutionType = other.deconvolutionType;
         labeledImage = other.labeledImage;
         labelPSFMap = other.labelPSFMap; 
 
         savePsf = other.savePsf;
         cubeSize = other.cubeSize;
+        cubePadding = other.cubePadding;
         // Deep copy the shared_ptr content
         if (other.deconvolutionConfig != nullptr) {
             deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
@@ -141,7 +143,7 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::FilePath, &psfFilePath, "psf_file_path", true, "psf_file_path", "--psf_file_path", "PSF file path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
     
-    parameters.push_back({ParameterType::String, &strategyType, "strategyType", true, "strategyType", "--strategyType", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::String, &deconvolutionType, "deconvolutionType", true, "deconvolutionType", "--deconvolutionType", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &labeledImage, "labeledImage", true, "labeledImage", "--labeledImage", "Labeled image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &labelPSFMap, "labelPSFMap", true, "labelPSFMap", "--labelPSFMap", "Label PSF map path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
@@ -152,6 +154,7 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Float, &maxMem_GB, "maxMem_GB", false, "maxMem_GB", "--maxMem_GB", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
     
     parameters.push_back({ParameterType::IntArray3, &cubeSize, "cubeSize", false, "cubeSize", "--cubeSize", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
+    parameters.push_back({ParameterType::IntArray3, &cubePadding, "cubePadding", false, "cubePadding", "--cubePadding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::Bool, &savePsf, "savePsf", false, "savePsf", "--savePsf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
 
     parameters.push_back({ParameterType::DeconvolutionConfig, &deconvolutionConfig, "Deconvolution", true, "DeconvolutionConfig", "--deconvConfig", "Deconv Config", false, false, 0.0, 0.0, nullptr});

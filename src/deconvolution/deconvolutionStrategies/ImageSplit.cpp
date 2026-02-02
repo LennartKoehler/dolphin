@@ -16,9 +16,9 @@ See the LICENSE file provided with the code for the full license.
 
 
 std::vector<BoxCoordWithPadding> splitImageHomogeneous(
-    const RectangleShape& subimageShape,
+    const CuboidShape& subimageShape,
     const Padding& cubePadding,
-    const RectangleShape& imageOriginalShape)
+    const CuboidShape& imageOriginalShape)
     {
     std::vector<BoxCoordWithPadding> cubePositions;
     // Calculate number of cubes in each dimension
@@ -34,14 +34,14 @@ std::vector<BoxCoordWithPadding> splitImageHomogeneous(
         for (int h = 0; h < cubesInHeight; ++h) {
             for (int w = 0; w < cubesInWidth; ++w) {                
                 // Calculate current position in original image coordinates
-                RectangleShape currentPos(
+                CuboidShape currentPos(
                     w * subimageShape.width,
                     h * subimageShape.height,
                     d * subimageShape.depth
                 );
 
                 // Calculate remaining size for this cube
-                RectangleShape remainingSize(
+                CuboidShape remainingSize(
                     std::min(subimageShape.width, imageOriginalShape.width - w * subimageShape.width),
                     std::min(subimageShape.height, imageOriginalShape.height - h * subimageShape.height),
                     std::min(subimageShape.depth, imageOriginalShape.depth - d * subimageShape.depth)
@@ -53,12 +53,12 @@ std::vector<BoxCoordWithPadding> splitImageHomogeneous(
                 }
 
                 // Determine actual cube positions - use overlap for boundary cubes
-                RectangleShape actualPos = currentPos;
-                RectangleShape actualDimensions = subimageShape;
+                CuboidShape actualPos = currentPos;
+                CuboidShape actualDimensions = subimageShape;
                 Padding adjustedPadding = cubePadding;
                 
                 // Check if padded cube exceeds image size and adjust accordingly
-                RectangleShape paddedCubeSize = subimageShape + cubePadding.before + cubePadding.after;
+                CuboidShape paddedCubeSize = subimageShape + cubePadding.before + cubePadding.after;
                 
                 // If padded cube is larger than image in any dimension, adjust to make padding after larger while making dimensions of box smaller
                 if (subimageShape.width > imageOriginalShape.width) {

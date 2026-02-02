@@ -430,7 +430,7 @@ CMakeFiles/dolphin_cli.dir/src/CLIFrontend.cpp.o: /home/lennart-k-hler/projects/
   /usr/local/include/dolphin/ServiceAbstractions.h \
   /usr/local/include/dolphin/ServiceFactory.h \
   /usr/local/include/dolphin/deconvolution/DeconvolutionConfig.h \
-  /usr/local/include/dolphinbackend/RectangleShape.h \
+  /usr/local/include/dolphinbackend/CuboidShape.h \
   /usr/local/include/frontend/IFrontend.h \
   /usr/local/include/frontend/SetupConfig.h \
   /usr/local/include/nlohmann/json.hpp \
@@ -847,7 +847,7 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: /home/lennart-k-hler/projects/dolphin
   /usr/local/include/dolphin/ServiceFactory.h \
   /usr/local/include/dolphin/deconvolution/DeconvolutionConfig.h \
   /usr/local/include/dolphin/frontend/SetupConfig.h \
-  /usr/local/include/dolphinbackend/RectangleShape.h \
+  /usr/local/include/dolphinbackend/CuboidShape.h \
   /usr/local/include/frontend/IFrontend.h \
   /usr/local/include/nlohmann/json.hpp \
   /usr/local/include/psf/configs/PSFConfig.h
@@ -857,7 +857,7 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: /home/lennart-k-hler/projects/dolphin
 
 /home/lennart-k-hler/projects/dolphin/frontends/cli/src/main.cpp:
 
-/usr/local/include/dolphinbackend/RectangleShape.h:
+/usr/local/include/dolphinbackend/CuboidShape.h:
 
 /usr/local/include/dolphin/ServiceFactory.h:
 

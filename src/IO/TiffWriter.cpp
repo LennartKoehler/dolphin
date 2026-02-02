@@ -31,7 +31,7 @@ See the LICENSE file provided with the code for the full license.
 namespace fs = std::filesystem;
 
 // Constructor
-TiffWriter::TiffWriter(const std::string& filename, const RectangleShape& imageShape) 
+TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShape) 
     : outputFilename(filename),
     imageShape(imageShape){
     // this->metaData = metadata;
@@ -58,7 +58,7 @@ TiffWriter::~TiffWriter() {
 // }
 
 bool TiffWriter::setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const {
-    RectangleShape imageShape = image.getShape();
+    CuboidShape imageShape = image.getShape();
     if (imageShape.depth == 0 || imageShape.width == 0 || imageShape.height == 0) {
         spdlog::error("Cannot set subimage: Image3D has invalid dimensions");
         return false;
@@ -83,8 +83,8 @@ void TiffWriter::createNewTile(const BoxCoordWithPadding& coord) const {
     ImageBuffer tile;
     BoxCoordWithPadding source{
         BoxCoord{
-            RectangleShape{0,0,coord.box.position.depth},
-            RectangleShape{imageShape.width, imageShape.height, coord.box.dimensions.depth}},
+            CuboidShape{0,0,coord.box.position.depth},
+            CuboidShape{imageShape.width, imageShape.height, coord.box.dimensions.depth}},
         coord.padding
     };
     tile.source = source;
@@ -99,8 +99,8 @@ void TiffWriter::createNewTile(const BoxCoordWithPadding& coord) const {
 
 int TiffWriter::getStripIndex(const BoxCoordWithPadding& coord) const {
     BoxCoordWithPadding actualCoord = coord;
-    actualCoord.padding.before = RectangleShape(0,0,0);
-    actualCoord.padding.after = RectangleShape(0,0,0); // padding doesnt matter here
+    actualCoord.padding.before = CuboidShape(0,0,0);
+    actualCoord.padding.after = CuboidShape(0,0,0); // padding doesnt matter here
     for (int i = 0; i < tileBuffer.size(); i++){
         if (coord.isWithin(tileBuffer.find(i).source)){
             return i;
@@ -244,7 +244,7 @@ bool TiffWriter::saveToFile(const std::string& filename, int z, int depth, const
 
 
 bool TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceIndex){
-    RectangleShape imageShape = image.getShape();
+    CuboidShape imageShape = image.getShape();
     if (sliceIndex >= imageShape.depth) {
         spdlog::error("Slice index out of bounds: {}", sliceIndex);
         return false;
@@ -331,7 +331,7 @@ ImageMetaData TiffWriter::extractMetaData(const Image3D& image){
     // }
     // std::string cutted_description = oss.str();
     ImageMetaData metaData;
-    RectangleShape size = image.getShape();
+    CuboidShape size = image.getShape();
     metaData.imageWidth = size.width;
     metaData.imageLength = size.height;
     metaData.slices = size.depth;
@@ -345,7 +345,7 @@ ImageMetaData TiffWriter::extractMetaData(const Image3D& image){
 // Static method for writing entire Image3D to file
 bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) {
     ImageMetaData metadata = extractMetaData(image);
-    RectangleShape imageShape = image.getShape();
+    CuboidShape imageShape = image.getShape();
     
     if (imageShape.depth == 0 || imageShape.width == 0 || imageShape.height == 0) {
         spdlog::error("Cannot write Image3D: Invalid image dimensions");
@@ -422,7 +422,7 @@ int TiffWriter::getTargetItkType(const ImageMetaData& metadata) {
 }
 
 void TiffWriter::extractSliceData(const Image3D& image, int sliceIndex, std::vector<float>& sliceData) {
-    RectangleShape shape = image.getShape();
+    CuboidShape shape = image.getShape();
     if (sliceIndex >= shape.depth) {
         spdlog::error("Slice index out of bounds: {}", sliceIndex);
         return;

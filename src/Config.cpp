@@ -15,7 +15,7 @@ bool Config::loadFromJSON(const json& jsonData){
         });
     }
     catch (const std::exception& e){
-        spdlog::get("config")->info("({}) Error in reading config from json: {}", this->getName(), e.what());
+        spdlog::get("config")->error("({}) Error in reading config from json: {}", this->getName(), e.what());
         success = false;
     }
 

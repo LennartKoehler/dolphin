@@ -331,4 +331,4 @@ CMakeFiles/dolphin_cli.dir/src/main.cpp.o: \
  /usr/local/include/frontend/IFrontend.h \
  /usr/local/include/dolphin/deconvolution/DeconvolutionConfig.h \
  /usr/local/include/HelperClasses.h \
- /usr/local/include/dolphinbackend/RectangleShape.h
+ /usr/local/include/dolphinbackend/CuboidShape.h
