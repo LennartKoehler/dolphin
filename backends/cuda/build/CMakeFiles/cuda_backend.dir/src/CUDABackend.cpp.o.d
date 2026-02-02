@@ -228,7 +228,7 @@ CMakeFiles/cuda_backend.dir/src/CUDABackend.cpp.o: \
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/ComplexData.h \
  /usr/include/c++/13/algorithm /usr/include/c++/13/bits/ranges_algo.h \
  /usr/include/c++/13/pstl/glue_algorithm_defs.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h \
+ /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/CuboidShape.h \
  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IBackendMemoryManager.h \
  /usr/include/c++/13/condition_variable /usr/include/c++/13/stop_token \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/std_thread.h \

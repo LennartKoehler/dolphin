@@ -16,7 +16,7 @@ void fillComplexDataWithRandom(const ComplexData& result) {
 
     
     // Fill with random data
-    for (int i = 0; i < result.size.volume; ++i) {
+    for (int i = 0; i < result.size.getVolume(); ++i) {
         result.data[i][0] = real_dist(gen);  // Real part
         result.data[i][1] = imag_dist(gen);  // Imaginary part
     }
@@ -35,7 +35,7 @@ std::chrono::microseconds runLargeFFTTest(
     
     // Calculate dimensions for large FFT
     int largeDim = std::round(std::cbrt(totalElements));
-    RectangleShape largeShape(largeDim, largeDim, largeDim);
+    CuboidShape largeShape(largeDim, largeDim, largeDim);
     std::cout << "large FFT shape: " << largeShape.width << "x" << largeShape.height << "x" << largeShape.depth << std::endl;
     
     // Create and fill large data on CPU, then copy to test backend
@@ -77,7 +77,7 @@ std::chrono::microseconds runSmallFFTTest(
 ) {
     std::cout << "\n--- Test 2: " << numSmallFFTs << " Smaller FFTs ---" << std::endl;
     
-    RectangleShape smallShape(smallDim, smallDim, smallDim);
+    CuboidShape smallShape(smallDim, smallDim, smallDim);
     std::cout << "Small FFT shape: " << smallShape.width << "x" << smallShape.height << "x" << smallShape.depth << std::endl;
     
     // Create and fill small data on CPU, then copy to test backend

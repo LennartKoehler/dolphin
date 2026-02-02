@@ -1,3 +1,5 @@
+the memory transfer between host and device can be improved, as all tasks have same memory size
+
 somehow the exceptions can be out of order, i assume bc of async
 
 does padding with really large cubes actually work? check the logs for a cubesize of 512 512 512, there is 

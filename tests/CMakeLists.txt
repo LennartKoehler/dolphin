@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.10)
 enable_testing()
 
 add_subdirectory(mainTest)
+add_subdirectory(cubeShapeTest)
 add_executable(dolphin_tests
     memory_exception_example.cpp
     tiff_generation_test.cpp

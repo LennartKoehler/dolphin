@@ -13,17 +13,19 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 #include <vector>
+#include <spdlog/spdlog.h>
+#include <atomic>
+
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/psf/PSF.h"
 #include "dolphin/Image3D.h"
-#include <atomic>
+#include "dolphin/frontend/SetupConfig.h"
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphin/ThreadPool.h"
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/IO/TiffWriter.h"
 #include "dolphin/IO/TiffReader.h"
-#include <spdlog/spdlog.h>
 
 
 /*
@@ -163,8 +165,14 @@ private:
 
 class PaddingStrategy{
 public:
-    Padding getPadding(const RectangleShape& imageSize, const std::vector<RectangleShape>& psfSizes) const {
-        RectangleShape maxPsfShape{0, 0, 0};
+    virtual void init(const CuboidShape& configPadding) = 0;
+    virtual Padding getPadding(const std::vector<CuboidShape>& psfSizes) const = 0;
+};
+class DefaultPaddingStrategy : public PaddingStrategy{
+public:
+    void init(const CuboidShape& configPadding) override{}
+    Padding getPadding(const std::vector<CuboidShape>& psfSizes) const override {
+        CuboidShape maxPsfShape{0, 0, 0};
         
         // Find the largest PSF dimensions
         for (const auto& psf : psfSizes) {
@@ -175,20 +183,28 @@ public:
             maxPsfShape.depth = std::max(maxPsfShape.depth, psf.depth);
         }
         
-        RectangleShape paddingbefore = RectangleShape(
+        CuboidShape paddingbefore = CuboidShape(
             static_cast<int>(maxPsfShape.width / 2),
             static_cast<int>(maxPsfShape.height / 2),
             static_cast<int>(maxPsfShape.depth / 2)
         );
-        paddingbefore = paddingbefore + 1;
-        // paddingbefore = RectangleShape{10,10,20}; //TESTVALUE
+        // paddingbefore = paddingbefore + 1; // TODO necessary?
         return Padding{paddingbefore, paddingbefore};
     }
 };
-
-
+class ManualPaddingStrategy : public PaddingStrategy{
+public:
+    void init(const CuboidShape& configPadding) override{
+        padding = configPadding;
+    }
+    Padding getPadding(const std::vector<CuboidShape>& psfSizes) const {
+        return Padding(padding, padding);
+    }
+private:
+    CuboidShape padding;
+};
 
 std::vector<BoxCoordWithPadding> splitImageHomogeneous(
-    const RectangleShape& subimageShape,
+    const CuboidShape& subimageShape,
     const Padding& cubePadding,
-    const RectangleShape& imageOriginalShape);
+    const CuboidShape& imageOriginalShape);

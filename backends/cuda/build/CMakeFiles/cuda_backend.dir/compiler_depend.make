@@ -13,7 +13,7 @@ CMakeFiles/cuda_backend.dir/src/CUDABackend.cpp.o: /home/lennart-k-hler/projects
   /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IBackend.h \
   /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IBackendMemoryManager.h \
   /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IDeconvolutionBackend.h \
-  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h \
+  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/CuboidShape.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
@@ -380,7 +380,7 @@ CMakeFiles/cuda_backend.dir/src/CUDABackendManager.cpp.o: /home/lennart-k-hler/p
   /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IBackend.h \
   /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IBackendMemoryManager.h \
   /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/IDeconvolutionBackend.h \
-  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h \
+  /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/CuboidShape.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
@@ -1116,7 +1116,7 @@ CMakeFiles/cuda_backend.dir/src/CUDABackendManager.cpp.o: /home/lennart-k-hler/p
 
 /usr/include/c++/13/bits/codecvt.h:
 
-/home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h:
+/home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/CuboidShape.h:
 
 /usr/include/c++/13/bits/stl_uninitialized.h:
 

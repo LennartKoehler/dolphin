@@ -16,7 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include <vector>
 #include <memory>
 
-class RectangleShape;
+class CuboidShape;
 class IBackend;
 class IBackendMemoryManager;
 class DeconvolutionAlgorithm;
@@ -37,7 +37,7 @@ public:
     std::future<void> deconvolveSingleCube(
         std::shared_ptr<IBackend> backend,
         std::unique_ptr<DeconvolutionAlgorithm> algorithm,
-        const RectangleShape& workShape,
+        const CuboidShape& workShape,
         const std::vector<std::shared_ptr<PSF>>& psfs_host,
         ComplexData& g_device,
         ComplexData& f_device,
@@ -46,7 +46,7 @@ public:
     static ComplexData staticDeconvolveSingleCube(
         std::shared_ptr<IBackend> backend,
         std::unique_ptr<DeconvolutionAlgorithm> algorithm,
-        const RectangleShape& workShape,
+        const CuboidShape& workShape,
         const std::vector<std::shared_ptr<PSF>>& psfs_host,
         ComplexData& g_device,
         ComplexData& f_device,
@@ -56,7 +56,7 @@ public:
         std::shared_ptr<IBackend> backend,
         std::shared_ptr<IBackendMemoryManager> hostbackend,
         std::unique_ptr<DeconvolutionAlgorithm> algorithm,
-        const RectangleShape& workShape,
+        const CuboidShape& workShape,
         const std::vector<std::shared_ptr<PSF>>& psfs_host,
         ComplexData& g_host,
         PSFPreprocessor& psfpreprocessor);

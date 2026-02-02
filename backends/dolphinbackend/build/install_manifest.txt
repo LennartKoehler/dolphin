@@ -1,5 +1,5 @@
 /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/lib/libdolphinbackend.a
-/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h
+/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/include/dolphinbackend/CuboidShape.h
 /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/include/dolphinbackend/Exceptions.h
 /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/include/dolphinbackend/IBackendMemoryManager.h
 /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/include/dolphinbackend/IDeconvolutionBackend.h

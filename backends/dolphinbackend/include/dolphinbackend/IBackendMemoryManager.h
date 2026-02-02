@@ -84,7 +84,7 @@ public:
     }
 
    
-    virtual ComplexData allocateMemoryOnDevice(const RectangleShape& shape) const {
+    virtual ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const {
         NOT_IMPLEMENTED(allocateMemoryOnDevice);
     }
     

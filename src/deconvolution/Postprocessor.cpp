@@ -197,17 +197,17 @@ void Postprocessor::removePadding(Image3D& image, const Padding& padding) {
     image.setItkImage(std::move(cropFilter->GetOutput()));
 }
 
-void Postprocessor::cropToOriginalSize(Image3D& image, const RectangleShape& originalSize) {
-    RectangleShape currentSize = image.getShape();
+void Postprocessor::cropToOriginalSize(Image3D& image, const CuboidShape& originalSize) {
+    CuboidShape currentSize = image.getShape();
     
     // Calculate how much to crop from each dimension
-    RectangleShape cropAmount(std::max(0, currentSize.width - originalSize.width),
+    CuboidShape cropAmount(std::max(0, currentSize.width - originalSize.width),
                              std::max(0, currentSize.height - originalSize.height),
                              std::max(0, currentSize.depth - originalSize.depth));
     
     // For symmetric cropping, distribute evenly between start and end
-    RectangleShape cropStart(cropAmount.width / 2, cropAmount.height / 2, cropAmount.depth / 2);
-    RectangleShape cropEnd = cropAmount - cropStart;
+    CuboidShape cropStart(cropAmount.width / 2, cropAmount.height / 2, cropAmount.depth / 2);
+    CuboidShape cropEnd = cropAmount - cropStart;
     
     Padding padding{cropStart, cropEnd};
     removePadding(image, padding);

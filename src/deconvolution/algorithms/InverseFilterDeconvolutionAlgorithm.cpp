@@ -21,7 +21,7 @@ void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& c
     epsilon = config.epsilon;  // Assuming epsilon is in the config
 }
 
-void InverseFilterDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
+void InverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     if (!backend) {
         spdlog::error("No backend available for Inverse Filter algorithm initialization");
         return;
@@ -64,7 +64,7 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, Compl
     backend->getDeconvManager().backwardFFT(f, f);
 
     // Optional: Apply normalization if needed
-    // backend->getDeconvManager().scalarMultiplication(f, 1.0 / g.size.volume, f);
+    // backend->getDeconvManager().scalarMultiplication(f, 1.0 / g.size.getVolume(), f);
 
 
 }
@@ -79,5 +79,5 @@ std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::clo
 }
 
 size_t InverseFilterDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 4; // Allocates 1 additional array of input size + 3 input copies
+    return 1; // Allocates 1 additional array of input size
 }

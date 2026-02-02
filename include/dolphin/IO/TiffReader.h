@@ -68,7 +68,7 @@ private:
     Image3D managedReader(const BoxCoord& coord) const;
     
     // Static helper methods
-    static size_t getMemoryForShape(const RectangleShape& shape, const ImageMetaData& metaData);
+    static size_t getMemoryForShape(const CuboidShape& shape, const ImageMetaData& metaData);
     static void convertImageTo32F(Image3D& layers, const ImageMetaData& metaData);
     static ImageMetaData extractMetadataFromTiff(TIFF*& tifFile);
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);

@@ -22,7 +22,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const Deconvoluti
     lambda = config.lambda;
 }
 
-void RegularizedInverseFilterDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
+void RegularizedInverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     if (!backend) {
         spdlog::error("No backend available for Regularized Inverse Filter algorithm initialization");
         return;
@@ -88,5 +88,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlg
 }
 
 size_t RegularizedInverseFilterDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 8; // Allocates 5 additional arrays of input size (H2, L, L2, FA, FP) + 3 input copies
+    return 5; // Allocates 5 additional arrays of input size (H2, L, L2, FA, FP)
 }

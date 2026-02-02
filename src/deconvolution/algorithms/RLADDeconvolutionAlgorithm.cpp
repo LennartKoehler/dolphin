@@ -25,7 +25,7 @@ void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     beta = 0.01;         // Fixed as in original
 }
 
-void RLADDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
+void RLADDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     if (!backend) {
         spdlog::error("No backend available for RLAD algorithm initialization");
         return;
@@ -114,5 +114,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::cloneSpecifi
 }
 
 size_t RLADDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 4; // Allocates 1 additional array of input size + 3 input copies
+    return 1; // Allocates 1 additional array of input size
 }

@@ -55,7 +55,7 @@ public:
     }
     
     
-    Image3D(const RectangleShape& shape);
+    Image3D(const CuboidShape& shape);
     
     Image3D(const Image3D& other);
 
@@ -68,7 +68,7 @@ public:
     ImageType::Pointer getItkImage() const { return image; }
     void setItkImage(ImageType::Pointer&& itkImage) { image = std::move(itkImage); }
     
-    RectangleShape getShape() const;
+    CuboidShape getShape() const;
     void flip();
     void scale(int new_size_x, int new_size_y, int new_size_z);
 

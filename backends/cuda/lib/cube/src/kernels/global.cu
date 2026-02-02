@@ -122,7 +122,7 @@ void complexElementwiseMatDivGlobal(int Nx, int Ny, int Nz, complex_t* A, comple
         // Calculate the denominator (magnitude squared of B)
         real_t denominator = real_b * real_b + imag_b * imag_b;
 
-        // Apply stabilization: if denominator is smaller than epsilon, set to zero
+        // Apply stabilization: if denominator^2 is smaller than epsilon, set to zero
         if (denominator < epsilon) {
             C[index][0] = 0.0;  // Real part of C
             C[index][1] = 0.0;  // Imaginary part of C

@@ -26,7 +26,7 @@ See the LICENSE file provided with the code for the full license.
 class TiffWriter : public ImageWriter {
 public:
     // Constructor
-    explicit TiffWriter(const std::string& filename, const RectangleShape& imageShape);
+    explicit TiffWriter(const std::string& filename, const CuboidShape& imageShape);
     
     // Destructor
     ~TiffWriter();
@@ -48,7 +48,7 @@ private:
     // ImageMetaData metaData;
     std::string outputFilename;
     TIFF* tif;
-    RectangleShape imageShape;
+    CuboidShape imageShape;
     mutable int writtenToDepth = 0;
     mutable std::queue<int> readyToWriteQueue; // Queue of tile indices ready to write
     // mutable std::map<int, bool> directories;

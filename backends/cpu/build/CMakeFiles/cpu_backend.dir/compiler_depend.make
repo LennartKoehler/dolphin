@@ -8,7 +8,7 @@ CMakeFiles/cpu_backend.dir/src/CPUBackend.cpp.o: /home/lennart-k-hler/projects/d
   /home/lennart-k-hler/projects/dolphin/backends/cpu/lib/dolphinbackend/include/dolphinbackend/IBackend.h \
   /home/lennart-k-hler/projects/dolphin/backends/cpu/lib/dolphinbackend/include/dolphinbackend/IBackendMemoryManager.h \
   /home/lennart-k-hler/projects/dolphin/backends/cpu/lib/dolphinbackend/include/dolphinbackend/IDeconvolutionBackend.h \
-  /home/lennart-k-hler/projects/dolphin/backends/cpu/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h \
+  /home/lennart-k-hler/projects/dolphin/backends/cpu/lib/dolphinbackend/include/dolphinbackend/CuboidShape.h \
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
@@ -926,7 +926,7 @@ CMakeFiles/cpu_backend.dir/src/CPUBackend.cpp.o: /home/lennart-k-hler/projects/d
 
 /usr/include/x86_64-linux-gnu/bits/fp-fast.h:
 
-/home/lennart-k-hler/projects/dolphin/backends/cpu/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h:
+/home/lennart-k-hler/projects/dolphin/backends/cpu/lib/dolphinbackend/include/dolphinbackend/CuboidShape.h:
 
 /usr/include/x86_64-linux-gnu/bits/getopt_core.h:
 

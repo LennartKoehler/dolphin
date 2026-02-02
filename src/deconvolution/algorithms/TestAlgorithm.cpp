@@ -19,7 +19,7 @@ void TestAlgorithm::configure(const DeconvolutionConfig& config) {
     // Test algorithm has no configuration parameters
 }
 
-void TestAlgorithm::init(const RectangleShape& dataSize) {
+void TestAlgorithm::init(const CuboidShape& dataSize) {
     // Test algorithm doesn't need any special initialization or memory allocation
     initialized = true;
 }

@@ -55,7 +55,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
         std::shared_ptr<ImageWriter> writer = task.writer;
 
 
-        RectangleShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
+        CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
         PaddedImage cubeImage = reader->getSubimage(task.paddedBox);
 

@@ -30,25 +30,18 @@ public:
 
     // Use the struct for parameters
     std::string algorithmName = "RichardsonLucyTotalVariation";
-    int subimageSize = 0;
     int iterations = 10;
     float epsilon = 1e-6;
     float lambda = 0.001;
     PaddingType borderType = PaddingType::ZERO;
-
-
     int featheringRadius = 0;
-    bool verbose = false;
-    RangeMap<std::string> cubePSFMap; // 
-    RangeMap<std::string> layerPSFMap; // currently unused
-
-    std::string deconvolutionType = "normal";
 
 
 
 
-    virtual bool loadFromJSON(const json& jsonData) override;
-    virtual json writeToJSON() const override;
+
+    // virtual bool loadFromJSON(const json& jsonData) override;
+    // virtual json writeToJSON() const override;
 
 private:
     virtual void registerAllParameters();

@@ -85,7 +85,7 @@ CMakeFiles/dolphinbackend.dir/src/ComplexData.cpp.o: \
  /usr/include/c++/13/bits/invoke.h /usr/include/c++/13/bits/ranges_util.h \
  /usr/include/c++/13/pstl/glue_algorithm_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h \
- /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/RectangleShape.h \
+ /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/include/dolphinbackend/CuboidShape.h \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/c++/13/bits/stringfwd.h \
  /usr/include/c++/13/bits/memoryfwd.h \

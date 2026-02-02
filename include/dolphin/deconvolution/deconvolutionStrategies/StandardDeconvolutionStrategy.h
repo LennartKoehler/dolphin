@@ -58,19 +58,23 @@ protected:
     std::shared_ptr<IBackend> getBackend(const SetupConfig& config);
     
     virtual size_t estimateMemoryUsage(
-        const RectangleShape& cubeSize,
-        const DeconvolutionAlgorithm* algorithm);
+        const CuboidShape& cubeSize,
+        const DeconvolutionAlgorithm* algorithm,
+        const SetupConfig& config
+    );
+
+    std::vector<CuboidShape> getPSFSizes(const std::vector<PSF>& psfs);
     
-    virtual RectangleShape getCubeShape(
+    virtual CuboidShape getCubeShape(
         size_t memoryPerCube,
         size_t numberThreads,
-        const RectangleShape& configCubeSize,
-        const RectangleShape& imageOriginalShape,
+        const CuboidShape& configCubeSize,
+        const CuboidShape& imageOriginalShape,
         const Padding& cubePadding);
 
     virtual Padding getImagePadding(
-        const RectangleShape& imageSize,
-        const RectangleShape& cubeSizeUnpadded,
+        const CuboidShape& imageSize,
+        const CuboidShape& cubeSizeUnpadded,
         const Padding& cubePadding
     );
 
@@ -80,7 +84,9 @@ protected:
         std::shared_ptr<IBackend> backend,
 		const SetupConfig& config) const ;
 
-    virtual Padding getCubePadding(const RectangleShape& image, const std::vector<PSF> psfs);
+    virtual Padding getCubePadding(const std::vector<PSF> psfs, const CuboidShape& configPadding);
+
+    virtual int getNextPowerOfTwo(int v) const ;
 
 
 };

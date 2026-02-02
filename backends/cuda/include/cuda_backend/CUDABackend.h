@@ -84,7 +84,7 @@ public:
     // Data management
     void memCopy(const ComplexData& srcdata, ComplexData& destdata) const override;
     void allocateMemoryOnDevice(ComplexData& data) const override;
-    ComplexData allocateMemoryOnDevice(const RectangleShape& shape) const override;
+    ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const override;
     bool isOnDevice(void* data) const override;
     ComplexData copyData(const ComplexData& srcdata) const override;
     ComplexData copyDataToDevice(const ComplexData& srcdata) const override; // for gpu these are copy operations
@@ -125,7 +125,7 @@ public:
     // Static initialization method
     static void initializeGlobal();
 
-    void initializePlan(const RectangleShape& cube) override;
+    void initializePlan(const CuboidShape& cube) override;
     // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;
@@ -174,7 +174,7 @@ private:
    
     cufftHandle forward = 0;
     cufftHandle backward = 0;
-    RectangleShape planSize;
+    CuboidShape planSize;
     cudaStream_t stream = cudaStreamLegacy;
     CUDADevice device;
     bool initialized = false;

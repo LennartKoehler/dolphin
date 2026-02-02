@@ -25,20 +25,20 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 
 #include "nlohmann/json.hpp"
-#include "dolphinbackend/RectangleShape.h"
+#include "dolphinbackend/CuboidShape.h"
 #include <spdlog/spdlog.h>
 using json = nlohmann::json;
 struct Padding{
-    RectangleShape before;
-    RectangleShape after;
+    CuboidShape before;
+    CuboidShape after;
 };
 
 
 
 
 struct BoxCoord {
-    RectangleShape position;
-    RectangleShape dimensions;
+    CuboidShape position;
+    CuboidShape dimensions;
     bool isWithin(const BoxCoord& other) const {
         // Check if this box is completely within the other box
         return (position.width >= other.position.width &&
@@ -51,10 +51,10 @@ struct BoxCoord {
     // TODO i think there is a better way to do this
     Padding cropTo(const BoxCoord& other) {
         // Store original values to calculate what was cropped
-        RectangleShape originalPosition = position;
-        RectangleShape originalDimensions = dimensions;
+        CuboidShape originalPosition = position;
+        CuboidShape originalDimensions = dimensions;
 
-        RectangleShape positionDiff = position - other.position;
+        CuboidShape positionDiff = position - other.position;
         positionDiff.clamp({0,0,0});
         // Adjust position to be within the other box
         position.width = std::max(position.width, other.position.width);
@@ -73,7 +73,6 @@ struct BoxCoord {
         dimensions.height = std::min(dimensions.height + positionDiff.height, maxHeight);
         dimensions.depth = std::min(dimensions.depth + positionDiff.depth, maxDepth);
 
-        dimensions.updateVolume();
         
         // Calculate cropped amounts
         Padding croppedPadding;

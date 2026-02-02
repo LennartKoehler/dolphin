@@ -28,7 +28,7 @@ DeconvolutionStrategyFactory& DeconvolutionStrategyFactory::getInstance() {
 }
 
 std::unique_ptr<DeconvolutionStrategyPair> DeconvolutionStrategyFactory::createStrategyPair(std::shared_ptr<SetupConfig> config) {
-    std::string type = config->strategyType;
+    std::string type = config->deconvolutionType;
     auto it = strategy_creators_.find(type);
     if (it != strategy_creators_.end()) {
         return it->second(config);
@@ -39,7 +39,7 @@ std::unique_ptr<DeconvolutionStrategyPair> DeconvolutionStrategyFactory::createS
 }
 
 std::unique_ptr<IDeconvolutionStrategy> DeconvolutionStrategyFactory::createStrategy(std::shared_ptr<SetupConfig> config) {
-    std::string type = config->strategyType;
+    std::string type = config->deconvolutionType;
     auto it = strategy_creators_.find(type);
     if (it != strategy_creators_.end()) {
         // Extract just the strategy from the pair
@@ -79,7 +79,7 @@ std::vector<std::string> DeconvolutionStrategyFactory::getSupportedTypes() const
 }
 
 void DeconvolutionStrategyFactory::registerBuiltInStrategies() {
-    registerStrategy("normal", [](std::shared_ptr<SetupConfig> setupConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
+    registerStrategy("standard", [](std::shared_ptr<SetupConfig> setupConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
         auto strategy = std::make_unique<StandardDeconvolutionStrategy>();
         auto executor = std::make_unique<StandardDeconvolutionExecutor>();
         

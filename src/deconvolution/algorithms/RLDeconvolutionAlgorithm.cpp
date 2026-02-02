@@ -21,7 +21,7 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     iterations = config.iterations;
 }
 
-void RLDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
+void RLDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     if (!backend) {
         spdlog::error("No backend available for Richardson-Lucy algorithm initialization");
         return;
@@ -62,7 +62,7 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, 
 
         // fn' = IFFT(Fn') + NORMALIZE
         backend->getDeconvManager().backwardFFT(c, c);
-        // backend->getDeconvManager().scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
+        // backend->getDeconvManager().scalarMultiplication(c, 1.0 / g.size.getVolume(), c); // Add normalization
 
 
         // b) Calculation of the Correction Factor: c = g / fn'
@@ -76,11 +76,11 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, 
 
         // // c' = IFFT(C') + NORMALIZE
         backend->getDeconvManager().backwardFFT(c, c);
-        // backend->getDeconvManager().scalarMultiplication(c, 1.0 / g.size.volume, c); // Add normalization
+        // backend->getDeconvManager().scalarMultiplication(c, 1.0 / g.size.getVolume(), c); // Add normalization
 
 
         backend->getDeconvManager().backwardFFT(f, f);
-        // backend->getDeconvManager().scalarMultiplication(f, 1.0 / g.size.volume, f); // Add normalization
+        // backend->getDeconvManager().scalarMultiplication(f, 1.0 / g.size.getVolume(), f); // Add normalization
 
         backend->getDeconvManager().complexMultiplication(f, c, f);
  
@@ -101,5 +101,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RLDeconvolutionAlgorithm::cloneSpecific(
 }
 
 size_t RLDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 4; // Allocates 1 additional array of input size + 3 input copies
+    return 1; // Allocates 1 additional array of input size
 }

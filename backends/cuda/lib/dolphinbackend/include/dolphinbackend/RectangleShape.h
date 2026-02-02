@@ -16,20 +16,20 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include <array>
 
-struct RectangleShape{
+struct CuboidShape{
     int width;
     int height;
     int depth;
     int volume;
 
-    RectangleShape() = default;
-    RectangleShape(int width, int height, int depth)
+    CuboidShape() = default;
+    CuboidShape(int width, int height, int depth)
         : width(width),
         height(height),
         depth(depth){
            updateVolume(); 
         }
-    RectangleShape(const std::array<int, 3>& dimensions)
+    CuboidShape(const std::array<int, 3>& dimensions)
         : width(dimensions[0]),
         height(dimensions[1]),
         depth(dimensions[2]){}
@@ -42,7 +42,7 @@ struct RectangleShape{
         return std::to_string(width) + " x " + std::to_string(height) + " x " + std::to_string(depth);
     }
 
-    inline void clamp(const RectangleShape& maxSize) {
+    inline void clamp(const CuboidShape& maxSize) {
         width  = width  < maxSize.width  ? width  : maxSize.width;
         height = height < maxSize.height ? height : maxSize.height;
         depth  = depth  < maxSize.depth  ? depth  : maxSize.depth;
@@ -61,50 +61,50 @@ struct RectangleShape{
 
     //     return dims;
     // }
-    inline void cropTo(const RectangleShape& other) {
+    inline void cropTo(const CuboidShape& other) {
         width  = width  < other.width  ? width  : other.width;
         height = height < other.height ? height : other.height;
         depth  = depth  < other.depth  ? depth  : other.depth;
         updateVolume();
     }
 
-    inline bool operator==(const RectangleShape& other) const {
+    inline bool operator==(const CuboidShape& other) const {
         return (this->width == other.width && this->height == other.height && this->depth == other.depth);
     }
-    inline bool operator!=(const RectangleShape& other) const {
+    inline bool operator!=(const CuboidShape& other) const {
         return (this->width != other.width || this->height != other.height || this->depth != other.depth);
     }
-    inline RectangleShape operator-(const RectangleShape& other) const {
-        return RectangleShape(this->width - other.width,
+    inline CuboidShape operator-(const CuboidShape& other) const {
+        return CuboidShape(this->width - other.width,
             this->height - other.height,
             this->depth - other.depth);
     }
-    inline RectangleShape operator+(const RectangleShape& other) const {
-        return RectangleShape(this->width + other.width,
+    inline CuboidShape operator+(const CuboidShape& other) const {
+        return CuboidShape(this->width + other.width,
             this->height + other.height,
             this->depth + other.depth);
     }
-    inline RectangleShape operator/(const int value) const {
-        return RectangleShape(this->width/value, this->height/value, this->depth/value);
+    inline CuboidShape operator/(const int value) const {
+        return CuboidShape(this->width/value, this->height/value, this->depth/value);
     }
-    inline RectangleShape operator*(const int value) const {
-        return RectangleShape(this->width*value, this->height*value, this->depth*value);
+    inline CuboidShape operator*(const int value) const {
+        return CuboidShape(this->width*value, this->height*value, this->depth*value);
     }
-    inline RectangleShape operator*(const double value) const {
-        return RectangleShape(this->width*value, this->height*value, this->depth*value);
+    inline CuboidShape operator*(const double value) const {
+        return CuboidShape(this->width*value, this->height*value, this->depth*value);
     }
-    inline RectangleShape operator+(const int value) const {
-        return RectangleShape(this->width+value, this->height+value, this->depth+value);
+    inline CuboidShape operator+(const int value) const {
+        return CuboidShape(this->width+value, this->height+value, this->depth+value);
     }
-    inline bool operator>(const RectangleShape& other) const {
+    inline bool operator>(const CuboidShape& other) const {
         if (this->width > other.width && this->height > other.height && this->depth > other.depth) return true;
         else return false;
     }
-    inline bool operator>=(const RectangleShape& other) const {
+    inline bool operator>=(const CuboidShape& other) const {
         if (this->width >= other.width && this->height >= other.height && this->depth >= other.depth) return true;
         else return false;
     }
-    inline bool operator<(const RectangleShape& other) const {
+    inline bool operator<(const CuboidShape& other) const {
         if (this->width != other.width) return this->width < other.width;
         if (this->height != other.height) return this->height < other.height;
         return this->depth < other.depth;

@@ -31,7 +31,7 @@ class PSFPreprocessor{
 public:
 
     struct Key{
-        RectangleShape shape;
+        CuboidShape shape;
         std::string psf;
         std::string device;
     };
@@ -60,11 +60,11 @@ public:
         preprocessedPSFs.clear(); 
     };
 
-    void setPreprocessingFunction(std::function<ComplexData*(RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend> backend)> func) {
+    void setPreprocessingFunction(std::function<ComplexData*(CuboidShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend> backend)> func) {
         preprocessingFunction = std::move(func);
     }
 
-    const ComplexData* getPreprocessedPSF(const RectangleShape& shape, const std::shared_ptr<PSF> psf, std::shared_ptr<IBackend> backend) {
+    const ComplexData* getPreprocessedPSF(const CuboidShape& shape, const std::shared_ptr<PSF> psf, std::shared_ptr<IBackend> backend) {
         std::unique_lock<std::mutex> lock(mutex);
         Key key{shape, psf->ID, backend->getDeviceString()};
         auto it = preprocessedPSFs.find(key);
@@ -87,7 +87,7 @@ public:
     
 private:
     std::mutex mutex;
-    std::function<ComplexData*(const RectangleShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend> backend)> preprocessingFunction;
+    std::function<ComplexData*(const CuboidShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend> backend)> preprocessingFunction;
     std::unordered_map<Key, std::unique_ptr<ComplexData>, KeyHash, KeyEqual> preprocessedPSFs;
     std::vector<std::shared_ptr<IBackend>> psfBackends;
 
@@ -96,10 +96,10 @@ namespace Preprocessor{
 
     ComplexData convertImageToComplexData(const Image3D& image);
     Image3D convertComplexDataToImage(const ComplexData& data);
-    void expandToMinSize(Image3D& image, const RectangleShape& minSize);
+    void expandToMinSize(Image3D& image, const CuboidShape& minSize);
 
 
-    Padding padToShape(Image3D& image3D, const RectangleShape& targetShape, PaddingType borderType);
+    Padding padToShape(Image3D& image3D, const CuboidShape& targetShape, PaddingType borderType);
     void padImage(Image3D& image, const Padding& padding, PaddingType borderType);
 
 

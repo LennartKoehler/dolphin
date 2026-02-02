@@ -206,7 +206,7 @@ tests/CMakeFiles/cuda_test.dir/cuda_test.cpp.o: \
  /usr/include/c++/13/bits/uniform_int_dist.h \
  /usr/include/c++/13/bits/ranges_algo.h \
  /usr/include/c++/13/pstl/glue_algorithm_defs.h \
- /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/RectangleShape.h \
+ /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include/dolphinbackend/CuboidShape.h \
  /usr/include/c++/13/thread /usr/include/c++/13/stop_token \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/std_thread.h \
  /usr/include/c++/13/semaphore /usr/include/c++/13/bits/semaphore_base.h \

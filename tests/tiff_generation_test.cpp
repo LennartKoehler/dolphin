@@ -20,7 +20,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/Image3D.h"
 #include "dolphin/ImageMetaData.h"
-#include "dolphinbackend/RectangleShape.h"
+#include "dolphinbackend/CuboidShape.h"
 
 /**
  * Creates a 3D TIFF image with a constant value throughout

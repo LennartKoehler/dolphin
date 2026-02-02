@@ -15,7 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "IBackendMemoryManager.h"
 // Take ownership of pre-allocated memory
 
-ComplexData::ComplexData(const IBackendMemoryManager* b, complex_t* data, RectangleShape size)
+ComplexData::ComplexData(const IBackendMemoryManager* b, complex_t* data, CuboidShape size)
     : backend(b), data(data), size(size) {}
 
 ComplexData::~ComplexData() {

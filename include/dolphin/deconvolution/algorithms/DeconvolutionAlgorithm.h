@@ -23,7 +23,7 @@ public:
     virtual void configure(const DeconvolutionConfig& config) = 0;
     
     // Initialize algorithm-specific data allocations
-    virtual void init(const RectangleShape& dataSize) = 0;
+    virtual void init(const CuboidShape& dataSize) = 0;
     virtual bool isInitialized() const = 0;
     
     // it is assumed that the input of convolve is already located on the backend device

@@ -24,7 +24,7 @@ void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 
 }
 
-void RLTVDeconvolutionAlgorithm::init(const RectangleShape& dataSize) {
+void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     if (!backend) {
         spdlog::error("No backend available for Richardson-Lucy TV algorithm initialization");
         return;
@@ -118,5 +118,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecifi
 }
 
 size_t RLTVDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 8; // Allocates 5 additional arrays of input size (c, gx, gy, gz, tv) + 3 input copies
+    return 5; // Allocates 5 additional arrays of input size (c, gx, gy, gz, tv) 
 }

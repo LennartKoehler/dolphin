@@ -58,7 +58,7 @@ Image3D TiffReader::readTiffFile(const std::string& filename, int channel) {
     ImageMetaData metaData = extractMetadataStatic(filename);
     
     Image3D image;
-    BoxCoord fullImage{RectangleShape{0,0,0}, RectangleShape{metaData.imageWidth, metaData.imageLength, metaData.slices}};
+    BoxCoord fullImage{CuboidShape{0,0,0}, CuboidShape{metaData.imageWidth, metaData.imageLength, metaData.slices}};
     
     if (!readSubimageFromTiffFileStatic(filename, metaData, fullImage.position.height, fullImage.position.depth, 
                      fullImage.dimensions.height, fullImage.dimensions.depth, fullImage.dimensions.width, image, channel)) {
@@ -146,7 +146,7 @@ bool TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& me
     }
     
     // Create ITK image with the specified dimensions
-    RectangleShape imageShape(width, height, depth);
+    CuboidShape imageShape(width, height, depth);
     image = Image3D(imageShape);
     
     // Read the specific region using scanline API
@@ -201,10 +201,10 @@ void TiffReader::updateCurrentMemoryBuffer(size_t memory) const {
     currentBufferMemory_bytes = memory;
 }
 
-size_t TiffReader::getMemoryForShape(const RectangleShape& shape, const ImageMetaData& metaData){
+size_t TiffReader::getMemoryForShape(const CuboidShape& shape, const ImageMetaData& metaData){
     // Calculate memory requirement based on metaData's bit depth and samples per pixel
     size_t bytesPerPixel = (metaData.bitsPerSample / 8) * metaData.samplesPerPixel;
-    return shape.volume * bytesPerPixel;
+    return shape.getVolume() * bytesPerPixel;
 }
 
 Image3D TiffReader::managedReader(const BoxCoord& coord) const {
@@ -250,7 +250,7 @@ int TiffReader::getStripIndex(const BoxCoordWithPadding& coord) const {
     return -1;
 }
 void TiffReader::readStripWithPadding(const BoxCoordWithPadding& coord) const {
-    BoxCoord image{RectangleShape{0,0,0}, RectangleShape{metaData.imageWidth, metaData.imageLength, metaData.slices}};
+    BoxCoord image{CuboidShape{0,0,0}, CuboidShape{metaData.imageWidth, metaData.imageLength, metaData.slices}};
     BoxCoord requestedRegion = coord.getBox();
     Padding padding = requestedRegion.cropTo(image);
     padding.before.width = coord.padding.before.width;
@@ -297,12 +297,12 @@ const ImageMetaData& TiffReader::getMetaData() const {
 }
 
 void TiffReader::convertImageTo32F(Image3D& image, const ImageMetaData& metaData){
-    RectangleShape shape = image.getShape();
+    CuboidShape shape = image.getShape();
     double scale = 1.0 / (metaData.maxSampleValue - metaData.minSampleValue);
     double offset = -metaData.minSampleValue * scale;
     
     int pixelCount = 0;
-    int totalPixels = shape.volume;
+    int totalPixels = shape.getVolume();
     
     // Use ITK iterator to convert pixel values
     for (auto it = image.begin(); it != image.end(); ++it) {

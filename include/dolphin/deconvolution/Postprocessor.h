@@ -38,7 +38,7 @@ namespace Postprocessor{
     );
     
     void removePadding(Image3D& image, const Padding& padding);
-    void cropToOriginalSize(Image3D& image, const RectangleShape& originalSize);
+    void cropToOriginalSize(Image3D& image, const CuboidShape& originalSize);
 
     void postprocessChannel(Image3D& image);
 }

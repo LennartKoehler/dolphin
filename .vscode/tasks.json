@@ -40,6 +40,20 @@
                 "focus": false,
                 "panel": "shared"
             }
-        }
+        },
+        {
+
+            "label": "Run my executable",
+            "type": "shell",
+            "group": "build",
+            "command": "${workspaceFolder}/build/tests/cubeShapeTest/cube_shape_test",
+            "args": [
+                "${workspaceFolder}/configs/default_config.json"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            },
+            "problemMatcher": []
+            }
     ]
 }

@@ -65,7 +65,7 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
         std::shared_ptr<ImageWriter> writer = task.writer;
         
 
-        RectangleShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
+        CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
         PaddedImage cubeImage = reader->getSubimage(task.paddedBox);
         PaddedImage labelImage = labelReader->getSubimage(task.paddedBox);
 
@@ -80,7 +80,7 @@ std::function<void()> LabeledDeconvolutionExecutor::createTask(
 
         // TODO is this async safe?
         std::vector<Label> tasklabels = getLabelGroups(
-            BoxCoord{RectangleShape(0,0,0), workShape},
+            BoxCoord{CuboidShape(0,0,0), workShape},
             task.psfs,
             labelImage.image,
             psfLabelMap
@@ -157,7 +157,7 @@ std::vector<Label> LabeledDeconvolutionExecutor::getLabelGroups(
     
     std::set<int> uniqueLabels;
     
-    RectangleShape imageSize = image.getShape();
+    CuboidShape imageSize = image.getShape();
     int endZ = std::min(roi.position.depth + roi.dimensions.depth, imageSize.depth);
 
     // Get the ITK image for direct access

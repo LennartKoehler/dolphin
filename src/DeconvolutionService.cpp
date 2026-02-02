@@ -107,7 +107,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         auto strategyPair = factory.createStrategyPair(setupConfig);
         
         if (!strategyPair) {
-            std::string error_msg = "Unsupported deconvolution type: " + deconvConfig->deconvolutionType;
+            std::string error_msg = "Unsupported deconvolution type: " + setupConfig->deconvolutionType;
             logger_->error(error_msg);
             return createResult(false, error_msg,
                               std::chrono::duration<double>::zero());
