@@ -46,14 +46,23 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
     std::shared_ptr<IBackend> backend = getBackend(setupConfig);
 
 
-    std::vector<std::shared_ptr<TaskContext>> contexts = createContexts(backend, setupConfig);
 
+    size_t totalThreads;
+    size_t ioThreads;
+    size_t workerThreads;
+    configureThreads(totalThreads, ioThreads, workerThreads, backend, setupConfig);
 
+    std::vector<std::shared_ptr<TaskContext>> contexts = createContexts(backend, setupConfig.nDevices, ioThreads, workerThreads);
 
-    size_t nThreads = setupConfig.nThreads;
-    size_t memoryPerCube = maxMemoryPerCube(nThreads, setupConfig.maxMem_GB * 1e9, algorithm.get());
+    size_t maxMemoryPerCube = getMaxMemoryPerCube(
+        ioThreads,
+        workerThreads,
+        backend,
+        algorithm
+    );
+
     Padding cubePadding = getCubePadding(psfs, setupConfig.cubePadding);
-    CuboidShape idealCubeSizeUnpadded = getCubeShape(memoryPerCube, setupConfig.nThreads, setupConfig.cubeSize, imageSize, cubePadding);
+    CuboidShape idealCubeSizeUnpadded = getCubeShape(maxMemoryPerCube, setupConfig.cubeSize, imageSize, cubePadding, workerThreads);
     Padding imagePadding = getImagePadding(imageSize, idealCubeSizeUnpadded, cubePadding);
 
     size_t memoryPerTask = estimateMemoryUsage(idealCubeSizeUnpadded, algorithm.get(), setupConfig);
@@ -61,8 +70,6 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
     std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = splitImageHomogeneous(idealCubeSizeUnpadded, cubePadding, imageSize);
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     tasks.reserve(cubeCoordinatesWithPadding.size());
-    
-
 
     for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
 
@@ -81,16 +88,36 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
     }
     
     size_t totalTasks = tasks.size();
+    assert (totalTasks > 0 && "No tasks in deconvolution plan");
 
     spdlog::get("deconvolution")
         ->info("Successfully created deconvolution plan with {} total cubes. Each cube has size (width x height x depth) ({}) which includes padding (padding before, padding after) ({}, {})",
-        totalTasks, (idealCubeSizeUnpadded + imagePadding.before + imagePadding.after).print(), imagePadding.before.print(), imagePadding.after.print());
+        totalTasks, (idealCubeSizeUnpadded + cubePadding.before + cubePadding.after).print(), cubePadding.before.print(), cubePadding.after.print());
 
     return DeconvolutionPlan{
         std::move(imagePadding),
         std::move(tasks),
         totalTasks
     };
+}
+
+void StandardDeconvolutionStrategy::configureThreads(
+    size_t& totalThreads,
+    size_t& ioThreads,
+    size_t& workerThreads,
+    std::shared_ptr<IBackend> backend,
+    const SetupConfig& config
+){
+    if (config.nIOThreads == 0 || config.nWorkerThreads == 0){
+        backend->setThreadDistribution(config.nThreads, ioThreads, workerThreads);
+    }
+    else{
+        ioThreads = config.nIOThreads;
+        workerThreads = config.nWorkerThreads;
+    }
+    totalThreads = ioThreads + workerThreads;
+    
+
 }
 
 std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreprocessor() const {
@@ -116,16 +143,19 @@ std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreproc
 
 std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createContexts(
     std::shared_ptr<IBackend> backend,
-    const SetupConfig& config) const {
+    const int nDevices,
+    const size_t nWorkerThreads,
+    const size_t nIOThreads) const
+{
         int numberDevices = backend->getNumberDevices();
-        numberDevices = std::min(numberDevices, config.nDevices);
+        numberDevices = std::min(numberDevices, nDevices);
         numberDevices = numberDevices < 1 ? 1 : numberDevices;
 
         std::vector<std::shared_ptr<TaskContext>> contexts;
         
         for (int i = 0; i < numberDevices; i++){        
             std::shared_ptr<IBackend> prototypebackend = backend->onNewThread(backend);
-            std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(prototypebackend, config.nWorkerThreads, config.nIOThreads);
+            std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(prototypebackend, nWorkerThreads, nIOThreads);
 
             std::unique_ptr<PSFPreprocessor> preprocessor = createPSFPreprocessor(); // new psfpreprocessor for each context because the psfs live on device
             context->setPreprocessor(std::move(preprocessor));
@@ -149,16 +179,23 @@ std::shared_ptr<IBackend> StandardDeconvolutionStrategy::getBackend(const SetupC
 }
 
 
-size_t StandardDeconvolutionStrategy::maxMemoryPerCube(
-    size_t maxNumberThreads, 
-    size_t maxMemory,
-    const DeconvolutionAlgorithm* algorithm){
+size_t StandardDeconvolutionStrategy::getMaxMemoryPerCube(
+    size_t ioThreads,
+    size_t workerThreads,
+    std::shared_ptr<IBackend> backend,
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm){
     
-    size_t algorithmMemoryMultiplier = algorithm->getMemoryMultiplier();
+    size_t availableMemory = backend->getMemoryManager().getAvailableMemory();
+
     size_t memoryBuffer = 1e9;
-    maxNumberThreads = maxNumberThreads == 0 ? 1 : maxNumberThreads;
-    size_t memoryPerThread = maxMemory / maxNumberThreads;
-    size_t memoryPerCube = memoryPerThread / algorithmMemoryMultiplier;
+    availableMemory =- memoryBuffer;
+
+    int ioCopies = 3; //image, psf, result
+    size_t ioAllocations = ioThreads * ioCopies;
+    size_t workerAllocations = workerThreads * algorithm->getMemoryMultiplier();
+
+    size_t memoryPerCube = availableMemory / (ioAllocations * workerAllocations);
+
     return memoryPerCube; 
 }
 
@@ -174,24 +211,44 @@ size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
 }
 
 CuboidShape StandardDeconvolutionStrategy::getCubeShape(
-    size_t memoryPerCube,
-    size_t numberThreads,
+    size_t maxMemoryPerCube,
     const CuboidShape& configCubeSize,
     const CuboidShape& imageOriginalShape,
-    const Padding& cubePadding
+    const Padding& cubePadding,
+    size_t nWorkerThreads
 ){    
     CuboidShape cubeSize;
     if (configCubeSize.getVolume() != 0){
-        cubeSize = configCubeSize - cubePadding.before - cubePadding.after;
+        configCubeSize - cubePadding.before - cubePadding.after;
     }
-    else cubeSize = cubePadding.before * 2;
-    
-    // cubeSize.clamp(imageOriginalShape);
+    else{
+        size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(complex_t); // cut into pieces so that they still fit on memory
+
+        size_t cubes = nWorkerThreads + 1;
+        size_t volume = 0;
+        while (volume < maxMemCubeVolume && cubes > nWorkerThreads){
+            cubeSize.width = getNextPowerOfTwo(cubeSize.width);
+            cubeSize.height = getNextPowerOfTwo(cubeSize.height);
+            cubeSize.depth = getNextPowerOfTwo(cubeSize.depth);
+            volume = cubeSize.getVolume();
+            cubes = imageOriginalShape.getNumberSubcubes(cubeSize);
+
+        } 
+        
+        // cubeSize = cubeSize / 2;
+
+        // cubeSize.width = getNextPowerOfTwo(cubeSize.width);
+        // cubeSize.height = getNextPowerOfTwo(cubeSize.height);
+        // cubeSize.depth = getNextPowerOfTwo(cubeSize.depth);
+
+        cubeSize.clamp(imageOriginalShape);
+    }
 
     assert(cubeSize > CuboidShape(0,0,0));
-    // cubeSize.width = getNextPowerOfTwo(cubeSize.width);
-    // cubeSize.height = getNextPowerOfTwo(cubeSize.height);
-    // cubeSize.depth = getNextPowerOfTwo(cubeSize.depth);
+
+    spdlog::get("deconvolution")->info("The unpadded cuboid for deconvolution is set to {}", cubeSize.print());
+
+
 
     return cubeSize;
 }
@@ -212,6 +269,7 @@ Padding StandardDeconvolutionStrategy::getImagePadding(
     CuboidShape paddingBefore = cubePadding.before;
     CuboidShape paddingAfter;
 
+    // if image is smaller than one single cubeSizeUnpadded, then we pad after
     paddingAfter.width = std::max(cubePadding.after.width, cubeSizeUnpadded.width - imageSize.width + cubePadding.before.width);
     paddingAfter.height = std::max(cubePadding.after.height, cubeSizeUnpadded.height - imageSize.height + cubePadding.before.height);
     paddingAfter.depth = std::max(cubePadding.after.depth, cubeSizeUnpadded.depth - imageSize.depth + cubePadding.before.depth);

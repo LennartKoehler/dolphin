@@ -6,5 +6,5 @@ CXX_DEFINES = -Dcuda_backend_EXPORTS
 
 CXX_INCLUDES = -I/home/lennart-k-hler/projects/dolphin/backends/cuda/include/cuda_backend -I/home/lennart-k-hler/projects/dolphin/backends/cuda/lib/cube/include -isystem /home/lennart-k-hler/projects/dolphin/backends/cuda/lib/dolphinbackend/include
 
-CXX_FLAGS = -g -std=gnu++20 -fPIC -g -O0 -fno-omit-frame-pointer
+CXX_FLAGS = -O3 -DNDEBUG -std=gnu++20 -fPIC -O3 -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma
 

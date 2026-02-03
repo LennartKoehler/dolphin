@@ -300,5 +300,11 @@ public:
     std::shared_ptr<IBackend> onNewThreadSharedMemory(std::shared_ptr<IBackend> original) const override {
         return original;
     }
+
+    void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) const override{
+        ioThreads = totalThreads;
+        workerThreads = static_cast<size_t>(2*totalThreads/3);
+        workerThreads = workerThreads == 0 ? 1 : workerThreads;
+    }
 };
 

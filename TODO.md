@@ -1,3 +1,7 @@
+getBackendmemory in getMaxMemorypercube bugged for cudabackend, idk why
+
+for test for different cubeSizes how much the fft speeds up / slows down and consider how the padding is affected by such cube sizes. Figure out if its actually beneficial to maximize the cubeSize
+
 the memory transfer between host and device can be improved, as all tasks have same memory size
 
 somehow the exceptions can be out of order, i assume bc of async

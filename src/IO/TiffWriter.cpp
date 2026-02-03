@@ -385,7 +385,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) 
     
 
     // Write each slice as a separate directory in the TIFF file
-    for (int zIndex = 0; zIndex < imageShape.depth - 1; ++zIndex) {
+    for (int zIndex = 0; zIndex < imageShape.depth; ++zIndex) {
         TiffWriter::writeSliceToTiff(tif, image, zIndex);
         // Set directory for next slice (except for the last one)
         if (!TIFFWriteDirectory(tif)) {

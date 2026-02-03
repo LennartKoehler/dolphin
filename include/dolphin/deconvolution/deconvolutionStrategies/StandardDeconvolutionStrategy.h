@@ -48,10 +48,11 @@ public:
 
 protected:
     // Helper methods for plan creation
-    virtual size_t maxMemoryPerCube(
-        size_t maxNumberThreads, 
-        size_t maxMemory,
-        const DeconvolutionAlgorithm* algorithm);
+    virtual size_t getMaxMemoryPerCube(
+        size_t ioThreads,
+        size_t workerThreads,
+        std::shared_ptr<IBackend> backend,
+        std::shared_ptr<DeconvolutionAlgorithm> algorithm);
 
 
     std::shared_ptr<DeconvolutionAlgorithm> getAlgorithm(const DeconvolutionConfig& config);
@@ -67,10 +68,11 @@ protected:
     
     virtual CuboidShape getCubeShape(
         size_t memoryPerCube,
-        size_t numberThreads,
         const CuboidShape& configCubeSize,
         const CuboidShape& imageOriginalShape,
-        const Padding& cubePadding);
+        const Padding& cubePadding,
+        size_t nWorkerThreads
+    );
 
     virtual Padding getImagePadding(
         const CuboidShape& imageSize,
@@ -82,9 +84,19 @@ protected:
 
     virtual std::vector<std::shared_ptr<TaskContext>> createContexts(
         std::shared_ptr<IBackend> backend,
-		const SetupConfig& config) const ;
+        const int nDevices,
+        const size_t nWorkerThreads,
+        const size_t nIOThreads) const ;
 
     virtual Padding getCubePadding(const std::vector<PSF> psfs, const CuboidShape& configPadding);
+
+    void configureThreads(
+        size_t& totalThreads,
+        size_t& ioThreads,
+        size_t& workerThreads,
+        std::shared_ptr<IBackend> backend,
+        const SetupConfig& config
+    );
 
     virtual int getNextPowerOfTwo(int v) const ;
 

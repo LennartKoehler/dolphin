@@ -127,16 +127,7 @@ bool SetupConfig::loadFromJSON(const json& jsonData){
 
 
 void SetupConfig::registerAllParameters(){
-    // Register each parameter as a ConfigParameter struct
-    // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
-    // parameters.push_back({ParameterType::Bool, &sep, "sep", false, "sep", "--sep", "Save layer separate", false, false, 0.0, 0.0, nullptr});
-    // parameters.push_back({ParameterType::Bool, &time, "time", false, "time", "--time", "Show duration", false, false, 0.0, 0.0, nullptr});
-    
-    // parameters.push_back({ParameterType::Bool, &showExampleLayers, "showExampleLayers", false, "showExampleLayers", "--showExampleLayers", "Show example layers", false, false, 0.0, 0.0, nullptr});
-    // parameters.push_back({ParameterType::Bool, &printInfo, "info", false, "info", "--info", "Print info about input image", false, false, 0.0, 0.0, nullptr});
-    // static std::vector<std::string> backendOptions =
-    //     BackendFactory::getInstance().getAvailableBackends();
-    // static void* backendOptionsVoid = static_cast<void*>(&backendOptions);
+
     parameters.push_back({ParameterType::FilePath, &imagePath, "image_path", false, "image_path", "-i,--image_path", "Input image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &outputDir, "outputDir", true, "outputDir", "--outputDir", "Output directory", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &psfConfigPath, "psf_config_path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
@@ -158,7 +149,5 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Bool, &savePsf, "savePsf", false, "savePsf", "--savePsf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
 
     parameters.push_back({ParameterType::DeconvolutionConfig, &deconvolutionConfig, "Deconvolution", true, "DeconvolutionConfig", "--deconvConfig", "Deconv Config", false, false, 0.0, 0.0, nullptr});
-    // parameters.push_back({ParameterType::Bool, &saveSubimages, "saveSubimages", true, "saveSubimages", "--saveSubimages", "Save subimages separate", false, false, 0.0, 0.0, nullptr});
-    // parameters.push_back({ParameterType::String, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
-    
+
 }
