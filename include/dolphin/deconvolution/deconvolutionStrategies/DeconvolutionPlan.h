@@ -183,11 +183,7 @@ public:
             maxPsfShape.depth = std::max(maxPsfShape.depth, psf.depth);
         }
         
-        CuboidShape paddingbefore = CuboidShape(
-            static_cast<int>(maxPsfShape.width / 2),
-            static_cast<int>(maxPsfShape.height / 2),
-            static_cast<int>(maxPsfShape.depth / 2)
-        );
+        CuboidShape paddingbefore = maxPsfShape / 2;
         // paddingbefore = paddingbefore + 1; // TODO necessary?
         return Padding{paddingbefore, paddingbefore};
     }
@@ -198,7 +194,9 @@ public:
         padding = configPadding;
     }
     Padding getPadding(const std::vector<CuboidShape>& psfSizes) const {
-        return Padding(padding, padding);
+        CuboidShape paddingHalf = padding / 2;
+        return Padding(paddingHalf, paddingHalf);
+    
     }
 private:
     CuboidShape padding;

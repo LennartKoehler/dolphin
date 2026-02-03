@@ -14,7 +14,7 @@
   "savePsf": true,
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   
-  "backend": "../backends/cuda/build/libcuda_backend.sotest",
+  "backend": "../backends/cuda/build/libcuda_backend.so",
   "nIOThreads": 10,
   "nWorkerThreads" : 8,
   "nDevices" : 1,

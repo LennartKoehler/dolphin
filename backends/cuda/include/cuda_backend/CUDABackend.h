@@ -383,6 +383,12 @@ public:
     // Overloaded version for CUDA: use backend manager to potentially return a different backend
     std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const override;
     std::shared_ptr<IBackend> onNewThreadSharedMemory(std::shared_ptr<IBackend> original) const override;
+
+    void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) const override{
+        workerThreads = 2;
+        ioThreads = totalThreads - workerThreads;
+
+    } 
     
     void releaseBackend() override;
 };

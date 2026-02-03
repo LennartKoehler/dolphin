@@ -31,14 +31,12 @@ int main(int argc, char** argv) {
     int base = 64;
     config.cubePadding = std::array<int, 3>{base, base, base};
 
-    std::vector<std::array<int, 3>> cubeSizes{
-        std::array<int, 3>{3 * base, 3 * base, 3 * base},
-        std::array<int, 3>{4 * base, 4* base -1, 4 * base},
-        std::array<int, 3>{8 * base, 8 * base, 8 * base},
-    };
-    for (auto cubeSize : cubeSizes){
 
-        config.cubeSize = cubeSize;
+    for (int i = 2; i < 8; i++){
+
+        int v = static_cast<int>(base + (base*i)/2 );
+        config.cubeSize = std::array<int, 3>{v, v, v};
+        // config.cubeSize = std::array<int, 3>{180 + base, 360 + base, 50 + base};
         auto start = std::chrono::high_resolution_clock::now();
         runWithConfig(config);
 

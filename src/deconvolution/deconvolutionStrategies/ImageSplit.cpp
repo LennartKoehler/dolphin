@@ -74,7 +74,7 @@ std::vector<BoxCoordWithPadding> splitImageHomogeneous(
                     adjustedPadding.after.depth = cubePadding.after.depth + subimageShape.depth - imageOriginalShape.depth;
                 }
                 
-                // If this would be the last cube and doesn't fit completely, shift it back to create overlap
+                // If this would be the last cube and doesn't fit completely, shift it back to create overlap with the previous cube
                 if (remainingSize.depth < actualDimensions.depth && remainingSize.depth > 0) {
                     actualPos.depth = currentPos.depth - (actualDimensions.depth - remainingSize.depth);
                 }

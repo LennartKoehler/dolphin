@@ -127,11 +127,6 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         DeconvolutionPlan plan = strategyPair->getStrategy().createPlan(reader, writer, psfs, *deconvConfig, *setupConfig);
 
 
-        if (setupConfig->savePsf){
-            for (auto psf : psfs){
-                psf.writeToTiffFile(output_path);
-            }
-        }
 
         strategyPair->getExecutor().execute(plan);
         
@@ -143,6 +138,11 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         auto result_obj = createResult(true, "Deconvolution completed successfully", duration);
         result_obj->output_path = path;
         
+        if (setupConfig->savePsf){
+            for (auto psf : psfs){
+                psf.writeToTiffFile(output_path);
+            }
+        }
         return result_obj;
         
     } catch (const std::exception& e) {

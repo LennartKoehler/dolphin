@@ -63,13 +63,6 @@ struct CuboidShape{
 
     //     return dims;
     // }
-
-    inline int getNumberSubcubes(const CuboidShape& other) const {
-        CuboidShape temp = this->operator/(other);
-        return temp.getVolume();
-
-    }
-
     inline void cropTo(const CuboidShape& other) {
         width  = width  < other.width  ? width  : other.width;
         height = height < other.height ? height : other.height;
@@ -92,15 +85,6 @@ struct CuboidShape{
             this->height + other.height,
             this->depth + other.depth);
     }
-
-    inline CuboidShape operator/(const CuboidShape& other) const {
-        return CuboidShape(
-            this->width/other.width,
-            this->height/other.height,
-            this->depth/other.depth
-        );
-    }
-
     inline CuboidShape operator/(const int value) const {
         return CuboidShape(this->width/value, this->height/value, this->depth/value);
     }

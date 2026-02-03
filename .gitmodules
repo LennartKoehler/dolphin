@@ -1,4 +1,4 @@
-[submodule "lib/imgui"]
+[submodule "frontends/gui/lib/imgui"]
 	path = frontends/gui/lib/imgui
 	url = https://github.com/ocornut/imgui
 [submodule "frontends/gui/lib/imgui-filebrowser"]

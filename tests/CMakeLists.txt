@@ -141,6 +141,9 @@ set_tests_properties(FFTWMultithreadingTest PROPERTIES WORKING_DIRECTORY ${CMAKE
 add_executable(fftw_size_decomposition_test
     fftw_size_decomposition_test.cpp
 )
+target_link_libraries(fftw_size_decomposition_test
+    PRIVATE
+    project_options)
 
 # Set C++ standard and compiler flags
 set_property(TARGET fftw_size_decomposition_test PROPERTY CXX_STANDARD 17)

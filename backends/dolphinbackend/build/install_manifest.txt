@@ -6,6 +6,6 @@
 /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/include/dolphinbackend/ComplexData.h
 /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/include/dolphinbackend/IBackend.h
 /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/lib/cmake/dolphinbackend/dolphinbackendTargets.cmake
-/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/lib/cmake/dolphinbackend/dolphinbackendTargets-debug.cmake
+/home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/lib/cmake/dolphinbackend/dolphinbackendTargets-release.cmake
 /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/lib/cmake/dolphinbackend/dolphinbackendConfig.cmake
 /home/lennart-k-hler/projects/dolphin/backends/dolphinbackend/../cuda/lib/dolphinbackend/lib/cmake/dolphinbackend/dolphinbackendConfigVersion.cmake
