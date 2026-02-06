@@ -29,7 +29,6 @@ namespace CUBE_TILED {
 
 namespace CUBE_FTT {
     // Fourier Shift, Padding and Normalization
-    cudaError_t octantFourierShiftCPU(int Nx, int Ny, int Nz, complex_t* data);
     cudaError_t octantFourierShift(int Nx, int Ny, int Nz, complex_t* data, cudaStream_t stream = 0);
     cudaError_t padMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, complex_t* oldMat, complex_t* newMat);
     cudaError_t normalizeData(int Nx, int Ny, int Nz, complex_t* d_data, cudaStream_t stream = 0);

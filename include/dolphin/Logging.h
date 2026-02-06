@@ -37,16 +37,26 @@ namespace Logging{
             std::shared_ptr<spdlog::async_logger> configlogger = std::make_shared<spdlog::async_logger>("config", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
             std::shared_ptr<spdlog::async_logger> psflogger = std::make_shared<spdlog::async_logger>("psf", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
             std::shared_ptr<spdlog::async_logger> deconvolutionlogger = std::make_shared<spdlog::async_logger>("deconvolution", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
-            std::shared_ptr<spdlog::async_logger> defaultlogger = std::make_shared<spdlog::async_logger>("default", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
+            std::shared_ptr<spdlog::async_logger> defaultlogger = std::make_shared<spdlog::async_logger>("default", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block); 
+            std::shared_ptr<spdlog::async_logger> readerlogger = std::make_shared<spdlog::async_logger>("reader", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
+            std::shared_ptr<spdlog::async_logger> writerlogger = std::make_shared<spdlog::async_logger>("writer", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
 
 
-            defaultlogger->flush_on(spdlog::level::trace);  // so that we have logs even if it crashes
-
+            backendlogger->flush_on(spdlog::level::trace);
             spdlog::register_logger(backendlogger);
+            deconvolutionlogger->flush_on(spdlog::level::trace);
             spdlog::register_logger(deconvolutionlogger);
+            configlogger->flush_on(spdlog::level::trace);
             spdlog::register_logger(configlogger);
+            psflogger->flush_on(spdlog::level::trace);
             spdlog::register_logger(psflogger);
+            readerlogger->flush_on(spdlog::level::trace);
+            spdlog::register_logger(readerlogger);
+            writerlogger->flush_on(spdlog::level::trace);
+            spdlog::register_logger(writerlogger);
+            defaultlogger->flush_on(spdlog::level::trace);
             spdlog::set_default_logger(defaultlogger);
+
         }
         
 

@@ -66,6 +66,7 @@ struct CuboidShape{
 
     inline int getNumberSubcubes(const CuboidShape& other) const {
         CuboidShape temp = this->operator/(other);
+        temp.setMin(CuboidShape{1, 1, 1});
         return temp.getVolume();
 
     }
@@ -74,6 +75,12 @@ struct CuboidShape{
         width  = width  < other.width  ? width  : other.width;
         height = height < other.height ? height : other.height;
         depth  = depth  < other.depth  ? depth  : other.depth;
+    }
+
+    inline void setMin(const CuboidShape& other){
+        this->width = this->width > other.width ? this->width : other.width;
+        this->height = this->height > other.height ? this->height : other.height;
+        this->depth = this->depth > other.depth ? this->depth : other.depth;
     }
 
     inline bool operator==(const CuboidShape& other) const {

@@ -52,95 +52,98 @@ Deconvolution using a labelimage which allows for different psfs for different p
 For each unique label within a cube the deconvolution is performed, and at the end the deconvolved images are stitched together
 according to the specifications in the labelimage.
 */
-std::function<void()> LabeledDeconvolutionExecutor::createTask(
-    const std::unique_ptr<CubeTaskDescriptor>& taskDesc) {
+
+
+void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
+
+    TaskContext* context = task.context.get();
+    thread_local std::shared_ptr<IBackend> iobackend = context->prototypebackend->onNewThreadSharedMemory(context->prototypebackend);
+
+    std::shared_ptr<ImageReader> reader = task.reader;
+    std::shared_ptr<ImageWriter> writer = task.writer;
     
-    return [this, task = *taskDesc]() {
 
-        TaskContext* context = task.context.get();
+    CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
-        thread_local std::shared_ptr<IBackend> iobackend = context->prototypebackend->onNewThreadSharedMemory(context->prototypebackend);
+    std::optional<PaddedImage> cubeImage_o = reader->getSubimage(task.paddedBox);
+    std::optional<PaddedImage> labelImage_o = labelReader->getSubimage(task.paddedBox); 
+    if (!cubeImage_o.has_value()){
+    }
+    if (!labelImage_o.has_value()){
+    }
+    PaddedImage& cubeImage = *cubeImage_o;
+    const PaddedImage& labelImage = *labelImage_o;
 
-        std::shared_ptr<ImageReader> reader = task.reader;
-        std::shared_ptr<ImageWriter> writer = task.writer;
+    ComplexData g_host = Preprocessor::convertImageToComplexData(cubeImage.image);
+
+    ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
+
+    BackendFactory::getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
+
+
+    std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
+
+    // TODO is this async safe?
+    std::vector<Label> tasklabels = getLabelGroups(
+        BoxCoord{CuboidShape(0,0,0), workShape},
+        task.psfs,
+        labelImage.image,
+        psfLabelMap
+    );
+
+    std::vector<ImageMaskPair> tempResults;
+    tempResults.reserve(tasklabels.size());
+    Image3D result = cubeImage.image;
+
+    for (const Label& labelgroup : tasklabels){
+        std::vector<std::shared_ptr<PSF>> psfs = labelgroup.getPSFs();
         
+        if (psfs.size() != 0){
+            ComplexData local_g_device = iobackend->getMemoryManager().copyData(g_device);
 
-        CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
-        PaddedImage cubeImage = reader->getSubimage(task.paddedBox);
-        PaddedImage labelImage = labelReader->getSubimage(task.paddedBox);
+            ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
 
-        ComplexData g_host = Preprocessor::convertImageToComplexData(cubeImage.image);
+            std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
-        ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
+            std::future<void> resultDone = context->processor.deconvolveSingleCube(
+                iobackend,
+                std::move(algorithm),
+                workShape,
+                psfs,
+                local_g_device,
+                f_device,
+                *context->psfpreprocessor.get());
 
-        BackendFactory::getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
+            resultDone.get(); //wait for result
 
-
-        std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
-
-        // TODO is this async safe?
-        std::vector<Label> tasklabels = getLabelGroups(
-            BoxCoord{CuboidShape(0,0,0), workShape},
-            task.psfs,
-            labelImage.image,
-            psfLabelMap
-        );
-
-        std::vector<ImageMaskPair> tempResults;
-        tempResults.reserve(tasklabels.size());
-        Image3D result = cubeImage.image;
-
-        for (const Label& labelgroup : tasklabels){
-            std::vector<std::shared_ptr<PSF>> psfs = labelgroup.getPSFs();
-            
-            if (psfs.size() != 0){
-                ComplexData local_g_device = iobackend->getMemoryManager().copyData(g_device);
-
-                ComplexData f_host;
-
-                ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
-
-                std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
-                try {
-                    std::future<void> resultDone = context->processor.deconvolveSingleCube(
-                        iobackend,
-                        std::move(algorithm),
-                        workShape,
-                        psfs,
-                        local_g_device,
-                        f_device,
-                        *context->psfpreprocessor.get());
-
-                    resultDone.get(); //wait for result
-                    f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getDefaultBackendMemoryManager());
-                }
-                catch (...) {
-                    throw; // dont overwrite image if exception
-                }
-                PaddedImage resultCube;
-                resultCube.padding = task.paddedBox.padding;
-                cubeImage.image = Preprocessor::convertComplexDataToImage(f_host);
-
-                ImageMaskPair pair{resultCube.image, labelgroup.getMask(labelImage.image)};
-                tempResults.push_back(pair);
-            }
-
-
-        }
-        float epsilon = 5;
+            ComplexData f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getDefaultBackendMemoryManager());
         
-        if (tempResults.size() > 1){
-            result = Postprocessor::addFeathering(tempResults, featheringRadius, epsilon);
+            PaddedImage resultCube;
+            resultCube.padding = task.paddedBox.padding;
+            cubeImage.image = Preprocessor::convertComplexDataToImage(f_host);
+
+            ImageMaskPair pair{resultCube.image, labelgroup.getMask(labelImage.image)};
+            tempResults.push_back(pair);
         }
-        else if (tempResults.size() == 1){
-            result = tempResults[0].image;
+        else {
+            spdlog::get("deconvolution")->warn("No deconvolution of cube {} because no PSFs were found for that cubes labels", task.paddedBox.box.print());
         }
 
-        writer->setSubimage(result, task.paddedBox);
-        iobackend->releaseBackend();
-        loadingBar.addOne();
-    };
+
+    }
+    float epsilon = 5;
+    
+    if (tempResults.size() > 1){
+        result = Postprocessor::addFeathering(tempResults, featheringRadius, epsilon);
+    }
+    else if (tempResults.size() == 1){
+        result = tempResults[0].image;
+    }
+
+    writer->setSubimage(result, task.paddedBox);
 }
+
+
 
 
 

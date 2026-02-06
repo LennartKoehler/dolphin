@@ -30,7 +30,13 @@ int main(int argc, char** argv){
     }
 
     try{
-        Image3D image = TiffReader::readTiffFile(input, channel);
+        auto maybeImage = TiffReader::readTiffFile(input, channel);
+        if(!maybeImage.has_value()){
+            std::cerr << "Failed to read input TIFF file: " << input << std::endl;
+            return 4;
+        }
+        Image3D image = std::move(*maybeImage);
+
         bool ok = TiffWriter::writeToFile(output, image);
         if(!ok){
             std::cerr << "Failed to write output file: " << output << std::endl;

@@ -23,7 +23,11 @@ std::string getFilenameFromPath(const std::string& path) {
 }
 
 void PSF::readFromTiffFile(const std::string& path){
-    image = TiffReader::readTiffFile(path, 0);
+    std::optional<Image3D> image_o = TiffReader::readTiffFile(path, 0);
+    if (image_o.has_value()){
+        image = image_o.value();
+    }
+    else throw std::runtime_error("Unable to read psf");
     ID = getFilenameFromPath(path);
 }
 

@@ -55,6 +55,64 @@ public:
     virtual ~ServiceResult() = default;
 };
 
+
+template<typename T>
+struct Result {
+
+    Result() = default;
+    template<typename U>
+    Result(U&& value, std::string error, bool success)
+    : value(std::forward<U>(value)),
+    success(success){
+        if (!success) errors.push_back(error);
+    }
+
+
+
+    Result(const Result&) = delete;
+    Result& operator=(const Result&) = delete;
+
+    Result(Result&&) = default;
+    Result& operator=(Result&&) = default;
+
+
+    static Result<T> ok(T&& v){
+        Result<T> r;
+        r.value = std::move(v);
+        r.success = true;
+        return r;
+    }
+
+    static Result<T> fail(std::string e){
+        Result<T> r;
+        r.success = false;
+        r.errors.push_back(std::move(e));
+        return r;
+    }
+
+    template<typename otherT>
+    Result(const Result<otherT>& other){
+        if( !other.success){
+            success = false;
+            errors.insert(errors.end(),
+                          other.errors.begin(),
+                          other.errors.end());
+        }
+    }
+
+    std::string getErrorString() const {
+        std::string s;
+        for (std::string error : errors){
+            s += error;
+        }
+        return s;
+    }
+
+    T value;
+    std::vector<std::string> errors;
+    bool success{true};
+};
+
 class ServiceResultBase : public ServiceResult {
 protected:
     bool success_;

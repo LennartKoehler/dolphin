@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include <memory>
 
+#include "dolphin/ServiceAbstractions.h"
 class SetupConfig;
 
 /*
@@ -32,7 +33,7 @@ public:
     virtual void configure(const SetupConfig& setupConfig) = 0;
     
     // Creates a computational plan for deconvolution
-    virtual DeconvolutionPlan createPlan(
+    virtual Result<DeconvolutionPlan> createPlan(
         std::shared_ptr<ImageReader> reader,
         std::shared_ptr<ImageWriter> writer, 
         const std::vector<PSF>& psfs,

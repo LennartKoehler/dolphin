@@ -27,7 +27,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IBackendMemoryManager.h"
 
-// Forward declaration
+
 class SetupConfig;
 
 class StandardDeconvolutionStrategy : public IDeconvolutionStrategy {
@@ -38,7 +38,7 @@ public:
     // IDeconvolutionStrategy interface
     virtual void configure(const SetupConfig& setupConfig) override;
     
-    virtual DeconvolutionPlan createPlan(
+    virtual Result<DeconvolutionPlan> createPlan(
         std::shared_ptr<ImageReader> reader,
         std::shared_ptr<ImageWriter> writer,
         const std::vector<PSF>& psfs,
@@ -66,7 +66,7 @@ protected:
 
     std::vector<CuboidShape> getPSFSizes(const std::vector<PSF>& psfs);
     
-    virtual CuboidShape getCubeShape(
+    virtual Result<CuboidShape> getCubeShape(
         size_t memoryPerCube,
         const CuboidShape& configCubeSize,
         const CuboidShape& imageOriginalShape,
@@ -88,7 +88,7 @@ protected:
         const size_t nWorkerThreads,
         const size_t nIOThreads) const ;
 
-    virtual Padding getCubePadding(const std::vector<PSF> psfs, const CuboidShape& configPadding);
+    virtual Result<Padding> getCubePadding(const std::vector<PSF> psfs, const CuboidShape& configPadding);
 
     void configureThreads(
         size_t& totalThreads,

@@ -86,6 +86,9 @@ struct BoxCoord {
 
         return croppedPadding;
     }
+    std::string print() const {
+        return "Position: " + position.print() + "; Dimensions: " + dimensions.print();
+    }
 };
 
 struct BoxCoordWithPadding {

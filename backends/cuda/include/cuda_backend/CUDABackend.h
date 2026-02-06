@@ -24,7 +24,15 @@ See the LICENSE file provided with the code for the full license.
 
 // Unified CUDA error check macro
 #define CUDA_CHECK(err, operation) { \
-    if (err != cudaSuccess) { \
+    if (err == cudaErrorMemoryAllocation){ \
+        throw dolphin::backend::MemoryException( \
+            "Temoprary buffer allocation failed with " + std::string("CUDA error: ") + cudaGetErrorString(err), \
+            "CUDA", \
+            0, \
+            operation \
+        ); \
+    } \
+    else if (err != cudaSuccess) { \
         throw dolphin::backend::BackendException( \
             std::string("CUDA error: ") + cudaGetErrorString(err), \
             "CUDA", \
@@ -99,6 +107,8 @@ private:
     CUDADevice device; 
     // Helper method to wait for memory availability
     void waitForMemory(size_t requiredSize) const;
+
+    void* allocateMemoryOnDevice(size_t requested_size) const ;
     
     // Static method to get memory tracking instance
     MemoryTracking* getMemoryTracking() { return device.memory; }

@@ -63,10 +63,24 @@ struct CuboidShape{
 
     //     return dims;
     // }
+
+    inline int getNumberSubcubes(const CuboidShape& other) const {
+        CuboidShape temp = this->operator/(other);
+        temp.setMin(CuboidShape{1, 1, 1});
+        return temp.getVolume();
+
+    }
+
     inline void cropTo(const CuboidShape& other) {
         width  = width  < other.width  ? width  : other.width;
         height = height < other.height ? height : other.height;
         depth  = depth  < other.depth  ? depth  : other.depth;
+    }
+
+    inline void setMin(const CuboidShape& other){
+        this->width = this->width > other.width ? this->width : other.width;
+        this->height = this->height > other.height ? this->height : other.height;
+        this->depth = this->depth > other.depth ? this->depth : other.depth;
     }
 
     inline bool operator==(const CuboidShape& other) const {
@@ -85,6 +99,15 @@ struct CuboidShape{
             this->height + other.height,
             this->depth + other.depth);
     }
+
+    inline CuboidShape operator/(const CuboidShape& other) const {
+        return CuboidShape(
+            this->width/other.width,
+            this->height/other.height,
+            this->depth/other.depth
+        );
+    }
+
     inline CuboidShape operator/(const int value) const {
         return CuboidShape(this->width/value, this->height/value, this->depth/value);
     }

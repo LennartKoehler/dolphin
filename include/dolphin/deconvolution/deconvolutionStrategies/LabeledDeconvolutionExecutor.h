@@ -47,8 +47,7 @@ public:
 
 
 protected:
-    virtual std::function<void()> createTask(
-        const std::unique_ptr<CubeTaskDescriptor>& taskDesc) override;
+    void runTask(const CubeTaskDescriptor& task) override;
 
     std::vector<Label> getLabelGroups(
 		const BoxCoord& roi,

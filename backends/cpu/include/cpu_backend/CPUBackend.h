@@ -49,6 +49,7 @@ private:
     static MemoryTracking memory; // only implemented  cpu for a single cpu device
     
     // Helper method to wait for memory availability
+    void* allocateMemoryOnDevice(size_t) const;
     void waitForMemory(size_t requiredSize) const;
           // Static method to get memory tracking instance
     static MemoryTracking& getMemoryTracking() { return memory; }

@@ -14,7 +14,9 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/ThreadPool.h"
 #include <iostream>
 
-ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc) : stop(false) {
+ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc)
+    : stop(false),
+    activeWorkers(std::atomic<int>(numThreads)) {
     newTaskCondition = [](){return true;};
     for(size_t i = 0; i < numThreads; ++i) {
         workers.emplace_back([this, threadInitFunc] {
@@ -23,8 +25,15 @@ ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc) 
                 std::function<void()> task;
                 {
                     std::unique_lock<std::mutex> lock(tasks_mutex);
-                    condition.wait(lock, [this]{ return stop || !tasks.empty(); });
-                    if(stop && tasks.empty()) return;
+                    condition.wait(lock, [this]{ return stopThreads > 0 || stop || !tasks.empty(); });
+                    if(stopThreads > 0){
+                        stopThreads -= 1;
+                        return;
+                    }
+                    if(stop && tasks.empty()){
+                        activeWorkers -= 1;
+                        return;
+                    }
                     task = std::move(tasks.front());
                     tasks.pop();
                 }
@@ -50,3 +59,23 @@ ThreadPool::~ThreadPool() {
 void ThreadPool::setCondition(std::function<bool()> condition){
     newTaskCondition = condition;
 }
+
+bool ThreadPool::reduceActiveWorkers(int amount){
+    activeWorkers -= amount;
+    return activeWorkers < 1;
+}
+//returns max reached
+//TODO messy function, technically the thread isnt deactivated yet, but in executor it just waits,
+// move the deactivation to the deconvolution
+bool ThreadPool::reduceNumberThreads(int amount){
+    
+    if (stopThreads == 0){
+        stopThreads += amount;
+    }
+    condition.notify_one();
+    if (stopThreads >= activeWorkers){
+        return true;
+    }
+    return false;
+}
+

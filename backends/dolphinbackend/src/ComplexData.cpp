@@ -52,3 +52,23 @@ ComplexData::ComplexData(ComplexData&& other) noexcept
     : data(other.data), backend(other.backend), size(other.size) {
     other.data = nullptr;
 }
+
+ComplexData& ComplexData::operator=(ComplexData&& other) noexcept {
+    if (this != &other) {
+        // Free existing data if any
+        if (data) {
+            try { backend->freeMemoryOnDevice(*this); } catch(...) {}
+        }
+
+        // Move data
+        data = other.data;
+        backend = other.backend;
+        size = other.size;
+
+        // Leave other in a valid state
+        other.data = nullptr;
+        other.backend = nullptr;
+        other.size = CuboidShape{};
+    }
+    return *this;
+}
