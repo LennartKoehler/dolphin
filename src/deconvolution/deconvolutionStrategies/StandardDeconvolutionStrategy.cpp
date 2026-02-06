@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include <stdexcept>
 #include <iostream>
 #include <cmath>
+#include <expected>
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/deconvolution/Postprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
@@ -25,7 +26,7 @@ See the LICENSE file provided with the code for the full license.
 
 
 
-DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
+Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     std::shared_ptr<ImageReader> reader,
     std::shared_ptr<ImageWriter> writer,
     const std::vector<PSF>& psfs,
@@ -61,13 +62,21 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
         algorithm
     );
 
-    Padding cubePadding = getCubePadding(psfs, setupConfig.cubePadding);
-    CuboidShape idealCubeSizeUnpadded = getCubeShape(maxMemoryPerCube, setupConfig.cubeSize, imageSize, cubePadding, workerThreads);
-    Padding imagePadding = getImagePadding(imageSize, idealCubeSizeUnpadded, cubePadding);
+    Result<Padding> cubePaddingResult = getCubePadding(psfs, setupConfig.cubePadding);
+    Padding cubePadding = std::move(cubePaddingResult.value);
+    if (!cubePaddingResult.success) {
+        return Result<DeconvolutionPlan>(cubePaddingResult); 
+    }
+    Result<CuboidShape> idealCubeSizeUnpaddedResult = getCubeShape(maxMemoryPerCube, setupConfig.cubeSize, imageSize, cubePadding, workerThreads);
+    if (!idealCubeSizeUnpaddedResult.success) {
+        return Result<DeconvolutionPlan>(idealCubeSizeUnpaddedResult); 
+    }
 
-    size_t memoryPerTask = estimateMemoryUsage(idealCubeSizeUnpadded, algorithm.get(), setupConfig);
+    Padding imagePadding = getImagePadding(imageSize, idealCubeSizeUnpaddedResult.value, cubePadding);
 
-    std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = splitImageHomogeneous(idealCubeSizeUnpadded, cubePadding, imageSize);
+    size_t memoryPerTask = estimateMemoryUsage(idealCubeSizeUnpaddedResult.value, algorithm.get(), setupConfig);
+
+    std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = splitImageHomogeneous(idealCubeSizeUnpaddedResult.value, cubePadding, imageSize);
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     tasks.reserve(cubeCoordinatesWithPadding.size());
 
@@ -92,13 +101,14 @@ DeconvolutionPlan StandardDeconvolutionStrategy::createPlan(
 
     spdlog::get("deconvolution")
         ->info("Successfully created deconvolution plan with {} total cubes. Each cube has size (width x height x depth) ({}) which includes padding (padding before, padding after) ({}, {})",
-        totalTasks, (idealCubeSizeUnpadded + cubePadding.before + cubePadding.after).print(), cubePadding.before.print(), cubePadding.after.print());
+        totalTasks, (idealCubeSizeUnpaddedResult.value + cubePadding.before + cubePadding.after).print(), cubePadding.before.print(), cubePadding.after.print());
 
-    return DeconvolutionPlan{
+    DeconvolutionPlan plan {
         std::move(imagePadding),
         std::move(tasks),
         totalTasks
     };
+    return std::move(Result<DeconvolutionPlan>::ok(std::move(plan)));
 }
 
 void StandardDeconvolutionStrategy::configureThreads(
@@ -210,16 +220,17 @@ size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
     return ioAllocations + workerAllocations;
 }
 
-CuboidShape StandardDeconvolutionStrategy::getCubeShape(
+Result<CuboidShape> StandardDeconvolutionStrategy::getCubeShape(
     size_t maxMemoryPerCube,
     const CuboidShape& configCubeSize,
     const CuboidShape& imageOriginalShape,
     const Padding& cubePadding,
     size_t nWorkerThreads
 ){    
-    CuboidShape cubeSize;
+
+    CuboidShape cubeSize{2,2,2};
     if (configCubeSize.getVolume() != 0){
-        configCubeSize - cubePadding.before - cubePadding.after;
+        cubeSize = configCubeSize - cubePadding.before - cubePadding.after;
     }
     else{
         size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(complex_t); // cut into pieces so that they still fit on memory
@@ -227,15 +238,12 @@ CuboidShape StandardDeconvolutionStrategy::getCubeShape(
         size_t cubes = nWorkerThreads + 1;
         size_t volume = 0;
         while (volume < maxMemCubeVolume && cubes > nWorkerThreads){
-            cubeSize.width = getNextPowerOfTwo(cubeSize.width);
-            cubeSize.height = getNextPowerOfTwo(cubeSize.height);
-            cubeSize.depth = getNextPowerOfTwo(cubeSize.depth);
+            cubeSize = cubeSize * 2;
             volume = cubeSize.getVolume();
             cubes = imageOriginalShape.getNumberSubcubes(cubeSize);
-
-        } 
+        }
         
-        // cubeSize = cubeSize / 2;
+        cubeSize = cubeSize / 2; // because we increase until its too large
 
         // cubeSize.width = getNextPowerOfTwo(cubeSize.width);
         // cubeSize.height = getNextPowerOfTwo(cubeSize.height);
@@ -244,13 +252,13 @@ CuboidShape StandardDeconvolutionStrategy::getCubeShape(
         cubeSize.clamp(imageOriginalShape);
     }
 
-    assert(cubeSize > CuboidShape(0,0,0));
+    if (cubeSize < CuboidShape{1,1,1})
+    {
+        return Result<CuboidShape>::fail(
+            "Cube has invalid shape: " + cubeSize.print());
+    }
 
-    spdlog::get("deconvolution")->info("The unpadded cuboid for deconvolution is set to {}", cubeSize.print());
-
-
-
-    return cubeSize;
+    return Result<CuboidShape>::ok(std::move(cubeSize));
 }
 
 int StandardDeconvolutionStrategy::getNextPowerOfTwo(int v) const {
@@ -284,7 +292,7 @@ std::vector<CuboidShape> StandardDeconvolutionStrategy::getPSFSizes(const std::v
     return psfSizes;
 }
 
-Padding StandardDeconvolutionStrategy::getCubePadding(const std::vector<PSF> psfs, const CuboidShape& configPadding){
+Result<Padding> StandardDeconvolutionStrategy::getCubePadding(const std::vector<PSF> psfs, const CuboidShape& configPadding){
     Padding padding;
     std::vector<CuboidShape> psfSizes = getPSFSizes(psfs);
     if (configPadding.getVolume() == 0){
@@ -297,7 +305,15 @@ Padding StandardDeconvolutionStrategy::getCubePadding(const std::vector<PSF> psf
         stratm.init(configPadding);
         padding = stratm.getPadding(psfSizes);
     } 
-    return padding;
+
+    if (padding.before < CuboidShape{0,0,0} ||
+        padding.after  < CuboidShape{0,0,0})
+    {
+        return Result<Padding>::fail(
+            "Padding for cubes is smaller than zero");
+    }
+
+    return Result<Padding>::ok(std::move(padding));
 }
 
 void StandardDeconvolutionStrategy::configure(const SetupConfig& setupConfig) {

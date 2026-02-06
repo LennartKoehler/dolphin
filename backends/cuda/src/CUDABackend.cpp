@@ -60,11 +60,12 @@ void CUDABackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
 void CUDABackendMemoryManager::waitForMemory(size_t requiredSize) const {
     std::unique_lock<std::mutex> lock(device.memory->memoryMutex);
     if ((device.memory->totalUsedMemory + requiredSize) > device.memory->maxMemorySize){
-        g_logger(std::format("CUDABackend out of device.memory-> waiting for memory to free up"), LogLevel::ERROR);
+        throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CUDA", requiredSize, "Memory Allocation");
+        // g_logger(std::format("CUDABackend out of device.memory-> waiting for memory to free up"), LogLevel::ERROR);
     }
-    device.memory->memoryCondition.wait(lock, [this, requiredSize]() {
-        return device.memory->maxMemorySize == 0 || (device.memory->totalUsedMemory + requiredSize) <= device.memory->maxMemorySize;
-    });
+    // device.memory->memoryCondition.wait(lock, [this, requiredSize]() {
+    //     return device.memory->maxMemorySize == 0 || (device.memory->totalUsedMemory + requiredSize) <= device.memory->maxMemorySize;
+    // });
 }
 
 bool CUDABackendMemoryManager::isOnDevice(void* ptr) const {
@@ -173,17 +174,24 @@ void CUDABackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     BACKEND_CHECK(requested_size / sizeof(complex_t) == data.size.getVolume(),
                   "Size overflow detected in memory allocation", "CUDA", "allocateMemoryOnDevice");
     
+    void* rawdata = allocateMemoryOnDevice(requested_size);
+    data.data = (complex_t*) rawdata;
+
+    data.backend = this;
+}
+void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) const {
     // Wait for memory if max memory limit is set
     waitForMemory(requested_size);
 
     void* devicePtr = nullptr;
-    cudaError_t err = cudaMallocAsync(&devicePtr, requested_size, stream);
+    cudaError_t err = cudaMallocAsync(&devicePtr, requested_size, stream); 
+    
     CUDA_MEMORY_ALLOC_CHECK(err, requested_size, "allocateMemoryOnDevice - cudaMallocAsync");
-    
-    data.data = static_cast<complex_t*>(devicePtr);
-    
+
     // Synchronize to ensure allocation is complete
     err = cudaStreamSynchronize(stream);
+    
+    
     CUDA_CHECK(err, "allocateMemoryOnDevice - cudaStreamSynchronize");
 
     // Update memory tracking
@@ -192,15 +200,17 @@ void CUDABackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
         device.memory->totalUsedMemory += requested_size;
     }
     
-    data.backend = this;
+    return devicePtr;
+
 }
 
 ComplexData CUDABackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
 
     ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
     if (srcdata.data != nullptr) {
-        CUBE_UTL_COPY::copyDataFromHostToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
+        cudaError_t err = CUBE_UTL_COPY::copyDataFromHostToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
                                                destdata.data, srcdata.data, stream);
+        CUDA_CHECK(err, "copyDataFromHostToDevice")
     }
     destdata.backend = this;
 
@@ -212,11 +222,11 @@ ComplexData CUDABackendMemoryManager::moveDataFromDevice(const ComplexData& srcd
     if (&destBackend == this){
         return srcdata;
     }
- 
     ComplexData destdata = destBackend.allocateMemoryOnDevice(srcdata.size);
 
     if (srcdata.data != nullptr){
-        CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, destdata.data, srcdata.data, stream);
+        cudaError_t err = CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, destdata.data, srcdata.data, stream);
+        CUDA_CHECK(err, "copyDataFromDeviceToHost");
     
     }
     cudaStreamSynchronize(stream);
@@ -225,10 +235,13 @@ ComplexData CUDABackendMemoryManager::moveDataFromDevice(const ComplexData& srcd
 }
 
 ComplexData CUDABackendMemoryManager::copyData(const ComplexData& srcdata) const {
+
     ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
+
     if (srcdata.data != nullptr) {
-        CUBE_UTL_COPY::copyDataFromDeviceToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
+        cudaError_t err = CUBE_UTL_COPY::copyDataFromDeviceToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
                                                  destdata.data, srcdata.data, stream);
+        CUDA_CHECK(err, "copyDataFromDeviceToDevice");
     }
     cudaStreamSynchronize(stream);
     return destdata;
@@ -271,7 +284,9 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
 }
 
 size_t CUDABackendMemoryManager::getAvailableMemory() const {
-    // For CUDA backend, return available GPU memory
+    cudaError_t sync_err = cudaStreamSynchronize(stream);
+    CUDA_CHECK(sync_err, "getAvailableMemory - sync");
+    
     size_t freeMem, totalMem;
     cudaError_t err = cudaMemGetInfo(&freeMem, &totalMem);
     CUDA_CHECK(err, "getAvailableMemory - cudaMemGetInfo");
@@ -491,6 +506,9 @@ void CUDADeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, C
 
 // Gradient and TV Functions
 void CUDADeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
+    cudaError_t err1 = cudaStreamSynchronize(stream);
+    CUDA_CHECK(err1, "found it");
+     
     cudaError_t err = CUBE_REG::gradX(image.size.width, image.size.height, image.size.depth, image.data, gradX.data, stream);
     CUDA_CHECK(err, "gradientX");
 }

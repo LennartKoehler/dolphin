@@ -1,3 +1,7 @@
+include fft plans in the memory calculattion
+
+if the setup is extremely cpu memory bound then using multiple openmp backends might be useful, then it uses less memory but e.g. one can still have two threads working on a task
+
 getBackendmemory in getMaxMemorypercube bugged for cudabackend, idk why
 
 for test for different cubeSizes how much the fft speeds up / slows down and consider how the padding is affected by such cube sizes. Figure out if its actually beneficial to maximize the cubeSize
@@ -6,9 +10,7 @@ the memory transfer between host and device can be improved, as all tasks have s
 
 somehow the exceptions can be out of order, i assume bc of async
 
-does padding with really large cubes actually work? check the logs for a cubesize of 512 512 512, there is 
-
-somewhewr in cudababackend/cudabackendmanager there is a problem with static and singleton pattern i think, the current debug dolphin test just silently crashes
+check padding with different padding sizes if theyre the same
 
 logging of backend really a good implementation?
 

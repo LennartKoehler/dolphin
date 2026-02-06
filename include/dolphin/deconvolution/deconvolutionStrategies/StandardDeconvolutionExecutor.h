@@ -44,6 +44,7 @@ protected:
     virtual std::function<void()> createTask(
         const std::unique_ptr<CubeTaskDescriptor>& taskDesc);
     
+    virtual void runTask(const CubeTaskDescriptor& task);
     // Parallel execution
     virtual void parallelDeconvolution(
         const DeconvolutionPlan& channelPlan);

@@ -37,5 +37,6 @@ public:
 
 
     ComplexData(ComplexData&& other) noexcept;
+    ComplexData& operator=(ComplexData&& other) noexcept;
 };
 

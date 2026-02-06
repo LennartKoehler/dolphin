@@ -20,33 +20,24 @@ See the LICENSE file provided with the code for the full license.
 #include <tiffio.h>
 #include <itkImageRegionIterator.h>
 #include "dolphin/IO/ReaderWriter.h"
+#include "dolphin/IO/TiffExceptions.h"
 
 
 
 class TiffReader : public ImageReader {
 public:
-    // Constructor with filename - now only for buffered reading
     explicit TiffReader(const std::string& filename, int channel);
     
-    // Destructor
     ~TiffReader();
     
-    // Main static methods    static Image3D readTiffFile(const std::string& filename, int channel);
-    static Image3D readTiffFile(const std::string& filename, int channel);
-    static ImageMetaData extractMetadataStatic(const std::string& filename);
-    static bool readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers, int channel);
+    static std::optional<Image3D> readTiffFile(const std::string& filename, int channel);
+    static std::optional<ImageMetaData> readMetadata(const std::string& filename);
     
-    // Non-static version that uses member TIFF* variable
-    static bool readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers, int channel);
-    
-    ImageMetaData extractMetadata();
     // Non-static buffered reading methods
-    PaddedImage getSubimage(const BoxCoordWithPadding& box) const override;
+    std::optional<PaddedImage> getSubimage(const BoxCoordWithPadding& box) const override;
     const ImageMetaData& getMetaData() const override;
     
-    // Legacy methods (deprecated)
-    
-    // Getters
+
     
     
 private:
@@ -61,13 +52,18 @@ private:
     TIFF* tif; // Member variable to keep TIFF file open
     
     // Non-static helper methods for buffered reading
+
+
     void readStripWithPadding(const BoxCoordWithPadding& coord) const;
     int getStripIndex(const BoxCoordWithPadding& coord) const;
     PaddedImage getFromBuffer(const BoxCoordWithPadding& coord, int bufferIndex) const;
     void updateCurrentMemoryBuffer(size_t memory) const;
     Image3D managedReader(const BoxCoord& coord) const;
     
-    // Static helper methods
+
+    static ImageMetaData readMetadata_(const std::string& filename);
+    static void readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers, int channel);
+    static void readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers, int channel);
     static size_t getMemoryForShape(const CuboidShape& shape, const ImageMetaData& metaData);
     static void convertImageTo32F(Image3D& layers, const ImageMetaData& metaData);
     static ImageMetaData extractMetadataFromTiff(TIFF*& tifFile);

@@ -21,26 +21,20 @@ See the LICENSE file provided with the code for the full license.
 #include <itkImageSliceIteratorWithIndex.h>
 #include <itkImageRegionIterator.h>
 #include "dolphin/IO/ReaderWriter.h"
+#include "dolphin/IO/TiffExceptions.h"
 
 
 class TiffWriter : public ImageWriter {
 public:
-    // Constructor
     explicit TiffWriter(const std::string& filename, const CuboidShape& imageShape);
     
-    // Destructor
     ~TiffWriter();
     
-    // Main methods
     bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const override;
-    
-    bool saveToFile(const std::string& filename, int z, int depth, const Image3D& layers) const;
     
     // Static method for writing entire Image3D to file
     static bool writeToFile(const std::string& filename, const Image3D& image);
     
-    // Getters
-    // const ImageMetaData& getMetaData() const;
     
 private:
     mutable std::mutex writerMutex;
@@ -51,19 +45,20 @@ private:
     CuboidShape imageShape;
     mutable int writtenToDepth = 0;
     mutable std::queue<int> readyToWriteQueue; // Queue of tile indices ready to write
-    // mutable std::map<int, bool> directories;
     
     // Helper methods
-    static ImageMetaData extractMetaData(const Image3D& image);
+
+    bool writeToFile_(const std::string& filename, int z, int depth, const Image3D& layers) const; 
     void createNewTile(const BoxCoordWithPadding& coord) const;
     bool isTileFull(const ImageBuffer& strip) const;
     bool writeTile(const std::string& filename, const ImageBuffer& strip) const;
-    bool copyToTile(const Image3D& image, const BoxCoordWithPadding& coord, int index) const;
-    void postprocessChannel(Image3D& image);
+    void copyToTile(const Image3D& image, const BoxCoordWithPadding& coord, int index) const;
     int getStripIndex(const BoxCoordWithPadding& coord) const;
     void processReadyToWriteQueue() const;
+
+    static ImageMetaData extractMetaData(const Image3D& image);
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
-    static bool writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceIndex);
+    static void writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceIndex);
     static void setTiffFields(TIFF* tif, const ImageMetaData& metaData);
     
     // Helper functions for ITK-based operations

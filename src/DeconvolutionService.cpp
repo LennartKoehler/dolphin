@@ -42,8 +42,6 @@ void DeconvolutionService::initialize() {
     try {
         DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
         supported_algorithms_ = fact.getAvailableAlgorithms();
-
-
         
         initialized_ = true;
         logger_->info("Deconvolution Service initialized successfully");
@@ -122,13 +120,22 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         
         int channel = 0;
         std::shared_ptr<TiffReader> reader = std::make_shared<TiffReader>(setupConfig->imagePath, channel);
-        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(path, reader->getMetaData().getShape());
+        std::optional<ImageMetaData> metadata = reader->getMetaData();
+
+        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(path, metadata.value().getShape());
        
-        DeconvolutionPlan plan = strategyPair->getStrategy().createPlan(reader, writer, psfs, *deconvConfig, *setupConfig);
+        Result<DeconvolutionPlan> plan = strategyPair->getStrategy().createPlan(reader, writer, psfs, *deconvConfig, *setupConfig);
+        if (!plan.success){
+            logger_->error(plan.getErrorString());
+            return createResult(false, plan.getErrorString(), std::chrono::duration<double>::zero());
+        }
 
-
-
-        strategyPair->getExecutor().execute(plan);
+        if (setupConfig->savePsf){
+            for (auto psf : psfs){
+                psf.writeToTiffFile(output_path);
+            }
+        }
+        strategyPair->getExecutor().execute(plan.value);
         
         
         // Create result
@@ -138,11 +145,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         auto result_obj = createResult(true, "Deconvolution completed successfully", duration);
         result_obj->output_path = path;
         
-        if (setupConfig->savePsf){
-            for (auto psf : psfs){
-                psf.writeToTiffFile(output_path);
-            }
-        }
+
         return result_obj;
         
     } catch (const std::exception& e) {

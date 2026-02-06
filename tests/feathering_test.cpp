@@ -1,14 +1,27 @@
 #include "dolphin/deconvolution/Postprocessor.h"
 #include "dolphin/IO/TiffReader.h"
 #include "dolphin/IO/TiffWriter.h"
+#include <iostream>
 
 int main(){
 
     std::string filename1 = "/home/lennart-k-hler/data/labeledImage/simpleMaskSmall.tif";
     int channel = 0;
-    Image3D image1 = TiffReader::readTiffFile(filename1, channel);
+    auto maybeImage1 = TiffReader::readTiffFile(filename1, channel);
+    if(!maybeImage1.has_value()){
+        std::cerr << "Failed to read TIFF file: " << filename1 << std::endl;
+        return 1;
+    }
+    Image3D image1 = std::move(*maybeImage1);
+
     std::string filename2 = "/home/lennart-k-hler/data/labeledImage/simpleMaskSmall_darker.tif";
-    Image3D image2 = TiffReader::readTiffFile(filename2, channel);
+    auto maybeImage2 = TiffReader::readTiffFile(filename2, channel);
+    if(!maybeImage2.has_value()){
+        std::cerr << "Failed to read TIFF file: " << filename2 << std::endl;
+        return 1;
+    }
+    Image3D image2 = std::move(*maybeImage2);
+
     PaddedImage pImage1{image1};
 
     PaddedImage pImage2{image2};

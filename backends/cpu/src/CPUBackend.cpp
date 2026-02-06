@@ -99,11 +99,13 @@ void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
 void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
     std::unique_lock<std::mutex> lock(memory.memoryMutex);
     if ((memory.totalUsedMemory + requiredSize) > memory.maxMemorySize){
-        g_logger(std::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::ERROR);
+
+        throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CPU", requiredSize, "Memory Allocation");
+        // g_logger(std::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::ERROR);
     }
-    memory.memoryCondition.wait(lock, [this, requiredSize]() {
-        return memory.maxMemorySize == 0 || (memory.totalUsedMemory + requiredSize) <= memory.maxMemorySize;
-    });
+    // memory.memoryCondition.wait(lock, [this, requiredSize]() {
+    //     return memory.maxMemorySize == 0 || (memory.totalUsedMemory + requiredSize) <= memory.maxMemorySize;
+    // });
 }
 
 // CPUBackendMemoryManager implementation
@@ -118,20 +120,24 @@ void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     }
     
     size_t requested_size = sizeof(complex_t) * data.size.getVolume();
-    
+    void* rawdata = allocateMemoryOnDevice(requested_size);
+    data.data = (complex_t*) rawdata;
+    data.backend = this;
+}
+void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) const{
     // Wait for memory if max memory limit is set
     waitForMemory(requested_size);
     
-    data.data = (complex_t*)fftwf_malloc(requested_size);
-    MEMORY_ALLOC_CHECK(data.data, requested_size, "CPU", "allocateMemoryOnDevice");
+    void* data = fftwf_malloc(requested_size);
+    MEMORY_ALLOC_CHECK(data, requested_size, "CPU", "allocateMemoryOnDevice");
     
     // Update memory tracking
     {
         std::unique_lock<std::mutex> lock(memory.memoryMutex);
         memory.totalUsedMemory += requested_size;
     }
+    return data;
     
-    data.backend = this;
 }
 
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const CuboidShape& shape) const {
@@ -252,7 +258,7 @@ void CPUDeconvolutionBackend::initializePlan(const CuboidShape& shape) {
     // Allocate temporary memory for plan creation
     complex_t* temp = nullptr;
     try{
-        temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * shape.getVolume());
+        temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * shape.getVolume()); // TODO doenst have access to backendmemorymanager, bt this should be allocated there
         FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * shape.getVolume(), "initializePlan");
         
         FFTPlanPair& planPair = planMap[shape];

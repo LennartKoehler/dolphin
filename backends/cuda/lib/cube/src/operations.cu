@@ -4,11 +4,7 @@
 #include <thread>
 #include <iostream>
 
-#ifdef ENABLE_CUBE_DEBUG
-#define DEBUG_LOG(msg) std::cout << msg << std::endl
-#else
-#define DEBUG_LOG(msg) // Nichts tun
-#endif
+
 
 // Global CUDA kernel configuration
 namespace {
@@ -32,30 +28,28 @@ namespace CUBE_MAT {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start);
-
         complexMatMulGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C);
-
-        
-        cudaEventRecord(stop);
-        cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
+            cudaEventDestroy(event);
             return err;
         }
 
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] MatMul in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
+        cudaEventDestroy(event);
         return cudaSuccess;
     }
 
@@ -64,27 +58,29 @@ namespace CUBE_MAT {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
-        cudaError_t err = cudaGetLastError();
-
-        cudaEventRecord(start, stream);
 
         complexScalarMulGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C);
 
-        
-        cudaEventRecord(stop, stream);
-        //cudaEventSynchronize(stop);
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
 
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] scalar Mul in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return err;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
     
     cudaError_t complexAddition(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream){
@@ -92,27 +88,29 @@ namespace CUBE_MAT {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
-        cudaError_t err = cudaGetLastError();
-
-        cudaEventRecord(start, stream);
 
         complexAdditionGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C);
 
-        
-        cudaEventRecord(stop, stream);
-        //cudaEventSynchronize(stop);
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
 
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] add in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return err;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
 
 
@@ -122,27 +120,29 @@ namespace CUBE_MAT {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
-        cudaError_t err = cudaGetLastError();
-
-        cudaEventRecord(start, stream);
 
         complexElementwiseMatMulGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C);
 
-        
-        cudaEventRecord(stop, stream);
-        //cudaEventSynchronize(stop);
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
 
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return err;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
     
     cudaError_t complexElementwiseMatMulConjugate(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream) {
@@ -150,30 +150,28 @@ namespace CUBE_MAT {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start, stream);
-
         complexElementwiseMatMulConjugateGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C);
-
-        
-        cudaEventRecord(stop, stream);
-        //cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
+            cudaEventDestroy(event);
             return err;
         }
 
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatMul conjugated in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
+        cudaEventDestroy(event);
         return cudaSuccess;
     }
     
@@ -182,30 +180,28 @@ namespace CUBE_MAT {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start, stream);
-
         complexElementwiseMatDivGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C, epsilon);
-
-        
-        cudaEventRecord(stop, stream);
-        //cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
+            cudaEventDestroy(event);
             return err;
         }
 
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise MatDiv in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
+        cudaEventDestroy(event);
         return cudaSuccess;
     }
     
@@ -214,30 +210,28 @@ namespace CUBE_MAT {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start, stream);
-
         complexElementwiseMatDivStabilizedGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C, epsilon);
-
-        
-        cudaEventRecord(stop, stream);
-        //cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
+            cudaEventDestroy(event);
             return err;
         }
 
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] elementwise stabilized MatDiv in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
+        cudaEventDestroy(event);
         return cudaSuccess;
     }
 }
@@ -249,27 +243,29 @@ namespace CUBE_REG {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start);
-
         calculateLaplacianGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, psf, laplacian_fft);
-        
-
-        cudaEventRecord(stop, stream);
-        //cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return err;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
     
     cudaError_t gradX(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradX, cudaStream_t stream) {
@@ -277,27 +273,29 @@ namespace CUBE_REG {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start);
-
         gradientXGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradX);
-        
-
-        cudaEventRecord(stop, stream);
-        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientX in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return err;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
     
     cudaError_t gradY(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradY, cudaStream_t stream) {
@@ -305,27 +303,29 @@ namespace CUBE_REG {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start);
-
         gradientYGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradY);
-        
-
-        cudaEventRecord(stop, stream);
-        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientY in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return err;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
     
     cudaError_t gradZ(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradZ, cudaStream_t stream) {
@@ -333,27 +333,29 @@ namespace CUBE_REG {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start);
-
         gradientZGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradZ);
-        
-
-        cudaEventRecord(stop, stream);
-        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating GradientZ in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return err;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
     
     cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* tv, cudaStream_t stream) {
@@ -361,27 +363,29 @@ namespace CUBE_REG {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start);
-
         computeTVGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, lambda, gx, gy, gz, tv);
-        
-
-        cudaEventRecord(stop, stream);
-        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Total Variation in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return err;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
     
     cudaError_t normalizeTV(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon, cudaStream_t stream) {
@@ -389,27 +393,29 @@ namespace CUBE_REG {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start);
-
         normalizeTVGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, gradX, gradY, gradZ, epsilon);
-        
-
-        cudaEventRecord(stop, stream);
-        // cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] normalizing Total Variation in CUDA ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return err;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
 }
 
@@ -420,87 +426,42 @@ namespace CUBE_TILED {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        cudaEventRecord(start);
-
         calculateLaplacianTiledGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK>>>(Nx, Ny, Nz, Afft, laplacianfft);
-        
-
-        cudaEventRecord(stop);
-        //cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] calculating Laplacian in CUDA tiled with shared mem ("<<GLOBAL_THREADS_PER_BLOCK.x*GLOBAL_THREADS_PER_BLOCK.y*GLOBAL_THREADS_PER_BLOCK.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return err;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
 }
 
 namespace CUBE_FTT {
-    // Fourier Shift, Padding and Normalization
-    cudaError_t octantFourierShiftCPU(int Nx, int Ny, int Nz, complex_t* data) {
-        if (!data) {
-            return cudaErrorInvalidValue;
-        }
 
-        int width = Nx;
-        int height = Ny;
-        int depth = Nz;
-        auto start = std::chrono::high_resolution_clock::now();
-
-        int halfWidth = width / 2;
-        int halfHeight = height / 2;
-        int halfDepth = depth / 2;
-
-        // Sequential version (removed OpenMP parallelization)
-        for (int z = 0; z < halfDepth; ++z) {
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    // Calculate the indices for the swap
-                    int idx1 = z * height * width + y * width + x;
-                    int idx2 = ((z + halfDepth) % depth) * height * width + ((y + halfHeight) % height) * width + ((x + halfWidth) % width);
-
-                    // Perform the swap only if the indices are different
-                    if (idx1 != idx2) {
-                        // Swap real parts
-                        real_t temp_real = data[idx1][0];
-                        data[idx1][0] = data[idx2][0];
-                        data[idx2][0] = temp_real;
-
-                        // Swap imaginary parts
-                        real_t temp_imag = data[idx1][1];
-                        data[idx1][1] = data[idx2][1];
-                        data[idx2][1] = temp_imag;
-                    }
-                }
-            }
-        }
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-        float time = duration.count();
-
-        DEBUG_LOG("[TIME]["<<time/1000000<<" ms] Octant(Fourier)Shift in CPP");
-        
-        return cudaSuccess;
-    }
     
     cudaError_t octantFourierShift(int Nx, int Ny, int Nz, complex_t* data, cudaStream_t stream) {
         if (!data) {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
-
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
         dim3 threadsPerBlock(2, 2, 2); //=6 //TODO with more threads artefacts visible
@@ -508,22 +469,22 @@ namespace CUBE_FTT {
                            (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
                            (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
-
-        cudaEventRecord(start, stream);
-
         octantFourierShiftGlobal<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(Nx, Ny, Nz, data);
         cudaError_t errp = cudaPeekAtLastError();
-        
+        if (errp != cudaSuccess) {
+            cudaEventDestroy(event);
+            return errp;
+        }
 
-        cudaEventRecord(stop, stream);
-        //cudaEventSynchronize(stop);
-
-        cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] Octant(Fouriere)Shift in CUDA ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return (errp == cudaSuccess) ? err : errp;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
     
     cudaError_t padMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, complex_t* oldMat, complex_t* newMat)
@@ -572,7 +533,7 @@ namespace CUBE_FTT {
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
         float time = duration.count();
 
-        DEBUG_LOG("[TIME]["<<time/1000000<<" ms] padded Mat in CPP");
+        
         
         return cudaSuccess;
     }
@@ -582,29 +543,29 @@ namespace CUBE_FTT {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         int num_elements = Nx * Ny * Nz;  // Beispiel: Gesamtzahl der Elemente
         int block_size = 1024;
         int num_blocks = (num_elements + block_size - 1) / block_size;
 
-        cudaEventRecord(start, stream);
-
         normalizeDataGlobal<<<num_blocks, block_size, 0, stream>>>(Nx, Ny, Nz, d_data);
         cudaError_t errp = cudaPeekAtLastError();
-        
+        if (errp != cudaSuccess) {
+            cudaEventDestroy(event);
+            return errp;
+        }
 
-        cudaEventRecord(stop, stream);
-        //cudaEventSynchronize(stop);
-
-        cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] Normalizing data in CUDA ("<<block_size*num_blocks<< " Threads)");
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return (errp == cudaSuccess) ? err : errp;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
 }
 
@@ -615,9 +576,8 @@ namespace CUBE_DEVICE_KERNEL {
             return cudaErrorInvalidValue;
         }
 
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+        cudaEvent_t event;
+        cudaEventCreate(&event);
 
         // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
         dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
@@ -625,19 +585,22 @@ namespace CUBE_DEVICE_KERNEL {
                            (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
                            (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
-        cudaEventRecord(start);
-
         deviceTestKernelGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
-        
-
-        cudaEventRecord(stop);
-        //cudaEventSynchronize(stop);
 
         cudaError_t err = cudaGetLastError();
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        DEBUG_LOG("[TIME][" << milliseconds << " ms] Device kernel(s) finished ("<<threadsPerBlock.x*threadsPerBlock.y*threadsPerBlock.z<<"x"<<blocksPerGrid.x*blocksPerGrid.y*blocksPerGrid.z<<")");
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
         
-        return err;
+        cudaEventDestroy(event);
+        return cudaSuccess;
     }
 }

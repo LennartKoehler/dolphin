@@ -6,5 +6,5 @@ CUDA_DEFINES =
 
 CUDA_INCLUDES = --options-file CMakeFiles/CUBE.dir/includes_CUDA.rsp
 
-CUDA_FLAGS = -O3 -DNDEBUG -std=c++14 "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_75,code=[compute_75,sm_75]" -Xcompiler=-fPIC -O3 -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma
+CUDA_FLAGS = -g -std=c++14 "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_75,code=[compute_75,sm_75]" -Xcompiler=-fPIC -g -O0 -fno-omit-frame-pointer
 

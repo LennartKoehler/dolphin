@@ -4,7 +4,7 @@
 
 class ImageReader{
 public:
-    virtual PaddedImage getSubimage(const BoxCoordWithPadding& box) const = 0;
+    virtual std::optional<PaddedImage> getSubimage(const BoxCoordWithPadding& box) const = 0;
     virtual const ImageMetaData& getMetaData() const = 0;
     static std::string getFilename(const std::string& path) {
         size_t pos = path.find_last_of("/\\");

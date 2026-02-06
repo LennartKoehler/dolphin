@@ -31,11 +31,11 @@ void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     }
     
     // Allocate memory for intermediate arrays
-    c = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
-    gx = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
-    gy = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
-    gz = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
-    tv = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    c = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    gx = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    gy = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    gz = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    tv = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
     
     initialized = true;
 }
@@ -65,6 +65,7 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g
     backend->getMemoryManager().memCopy(g, f);
 
     // Calculate gradients and the Total Variation (one-time computation)
+
     backend->getDeconvManager().gradientX(g, gx);
     backend->getDeconvManager().gradientY(g, gy);
     backend->getDeconvManager().gradientZ(g, gz);

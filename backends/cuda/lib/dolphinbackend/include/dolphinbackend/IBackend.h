@@ -123,5 +123,6 @@ public:
     virtual std::shared_ptr<IBackend> onNewThreadSharedMemory(std::shared_ptr<IBackend> original) const = 0;
     virtual void releaseBackend() = 0;
     virtual void sync() = 0;
+    virtual void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) const = 0;
     
 };

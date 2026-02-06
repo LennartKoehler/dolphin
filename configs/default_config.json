@@ -1,12 +1,11 @@
 {
   "DeconvolutionConfig": {
-    "algorithmName": "RichardsonLucyTotalVariation",
-    "iterations": 10,
+    "algorithmName": "RichardsonLucy",
+    "iterations": 100,
     "epsilon": 1e-6,
     "lambda": 0.015,
     "borderType": 1
   },
-  
 
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
   "psf_file_path": "",
