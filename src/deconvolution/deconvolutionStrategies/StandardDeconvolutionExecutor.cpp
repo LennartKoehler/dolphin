@@ -56,6 +56,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     std::optional<PaddedImage> cubeImage_o = reader->getSubimage(task.paddedBox); 
     if (!cubeImage_o.has_value()){
     }
+    
     PaddedImage& cubeImage = *cubeImage_o;
 
     ComplexData g_host = Preprocessor::convertImageToComplexData(cubeImage.image);

@@ -64,7 +64,10 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, Compl
     backend->getDeconvManager().backwardFFT(f, f);
 
     // Optional: Apply normalization if needed
-    // backend->getDeconvManager().scalarMultiplication(f, 1.0 / g.size.getVolume(), f);
+
+    complex_t norm = { 1.0 / g.size.getVolume(), 0.0};
+    backend->getDeconvManager().scalarMultiplication(f, norm, f); // Add normalization
+
 
 
 }

@@ -25,10 +25,9 @@
         {
             "label": "Run dolphin config",
             "type": "shell",
-            "command": "${command:cmake.launchTargetPath}",
+            "command": "${workspaceFolder}/build/tests/mainTest/main_test",
             "args": [
-                "deconvolution",
-                "-c", "../configs/default_config.json"
+                "../configs/default_config.json"
             ],
             "options": {
                 "cwd": "${workspaceFolder}/build"
@@ -43,7 +42,7 @@
         },
         {
 
-            "label": "Run my executable",
+            "label": "Cube Shape Test",
             "type": "shell",
             "group": "build",
             "command": "${workspaceFolder}/build/tests/cubeShapeTest/cube_shape_test",

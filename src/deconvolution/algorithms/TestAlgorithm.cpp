@@ -28,8 +28,17 @@ bool TestAlgorithm::isInitialized() const {
     return initialized;
 }
 
+/// @brief literally convolution theorem
 void TestAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
-    backend->getMemoryManager().memCopy(H, f); 
+    // backend->getMemoryManager().memCopy(H, f); 
+    backend->getDeconvManager().forwardFFT(g, f);
+    backend->getDeconvManager().complexMultiplication(f, H, f);
+    backend->getDeconvManager().backwardFFT(f, f);
+
+    complex_t norm = { 1.0 / g.size.getVolume(), 0.0};
+    backend->getDeconvManager().scalarMultiplication(f, norm, f); // Add normalization
+    // backend->getDeconvManager().forwardFFT(f, f);
+    // backend->getDeconvManager().backwardFFT(f, f);
     
     // Test algorithm implementation - placeholder that does nothing
 }

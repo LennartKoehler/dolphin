@@ -16,10 +16,12 @@ See the LICENSE file provided with the code for the full license.
 
 
 std::vector<BoxCoordWithPadding> splitImageHomogeneous(
-    const CuboidShape& subimageShape,
+    const CuboidShape& workShape,
     const Padding& cubePadding,
     const CuboidShape& imageOriginalShape)
     {
+    // workshape is the subimage + padding, this depends mainly on performance
+    CuboidShape subimageShape = workShape - cubePadding.before - cubePadding.after; 
     std::vector<BoxCoordWithPadding> cubePositions;
     // Calculate number of cubes in each dimension
     int cubesInDepth = std::max(1,(imageOriginalShape.depth + subimageShape.depth - 1) / subimageShape.depth);
