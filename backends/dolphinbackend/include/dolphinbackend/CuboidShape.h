@@ -15,6 +15,8 @@ See the LICENSE file provided with the code for the full license.
 
 #include <string>
 #include <array>
+#include <bit>
+#include <cassert>
 
 struct CuboidShape{
     int width;
@@ -34,6 +36,10 @@ struct CuboidShape{
     
     std::array<int, 3> getArray() const {
         return std::array<int, 3>{width, height, depth};
+    }
+
+    std::array<int*, 3> getReference() {
+        return std::array<int*, 3>{&width, &height, &depth};
     }
 
     int getVolume() const {
@@ -71,10 +77,24 @@ struct CuboidShape{
 
     }
 
+    inline void toNextPowerOfTwo(){
+        assert(*this > CuboidShape(0,0,0));
+        width = std::bit_ceil(static_cast<uint>(width));
+        height = std::bit_ceil(static_cast<uint>(height));
+        depth = std::bit_ceil(static_cast<uint>(depth));
+    }
+
     inline void cropTo(const CuboidShape& other) {
         width  = width  < other.width  ? width  : other.width;
         height = height < other.height ? height : other.height;
         depth  = depth  < other.depth  ? depth  : other.depth;
+    }
+
+
+    inline void setMax(const CuboidShape& other){
+        this->width = this->width < other.width ? this->width : other.width;
+        this->height = this->height < other.height ? this->height : other.height;
+        this->depth = this->depth < other.depth ? this->depth : other.depth;
     }
 
     inline void setMin(const CuboidShape& other){

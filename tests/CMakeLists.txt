@@ -49,6 +49,21 @@ target_include_directories(read_write_test
 
 add_test(NAME ReadWriteTest COMMAND read_write_test)
 
+
+add_executable(mirror_padding_test
+    mirror_padding_test.cpp)
+target_link_libraries(mirror_padding_test
+    PRIVATE
+        dolphin
+
+)
+
+
+add_test(NAME MirrorPaddingTest COMMAND mirror_padding_test)
+
+
+
+
 add_executable(feathering_test
     feathering_test.cpp)
 

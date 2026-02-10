@@ -1,19 +1,21 @@
 {
   "DeconvolutionConfig": {
-    "algorithmName": "RichardsonLucy",
-    "iterations": 100,
+    "algorithmName": "TestAlgorithm",
+    "iterations": 5,
     "epsilon": 1e-6,
     "lambda": 0.015,
     "borderType": 1
   },
 
+  "cubePadding" : [10, 10, 40],
+  "cubeSize": [200, 200, 200],
   "psf_config_path": "../configs/default_psf_config_gaussian.json",
   "psf_file_path": "",
   "psf_dir_path": "",
-  "savePsf": true,
+  "savePsf": false,
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   
-  "backend": "../backends/cuda/build/libcuda_backend.so",
+  "backend": "../backends/cuda/build/libcuda_backend.sotest",
   "nIOThreads": 10,
   "nWorkerThreads" : 8,
   "nDevices" : 1,

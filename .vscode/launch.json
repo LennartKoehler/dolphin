@@ -133,13 +133,37 @@
 
         },
         {
-            "name": "Debug read_write_test",
+            "name": "Debug mirror_padding_test",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tests/read_write_test",
+            "program": "${workspaceFolder}/debug_build/tests/mirror_padding_test",
             "args": [
-                "~/data/dolphin_test_data/CElegans-CY3.tif", "~/data/dolphin_results/yesttest.tiff", "1"
+                "~/data/dolphin_test_data/CElegans-CY3.tif", "~/data/dolphin_results/yesttest.tiff"
             ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/debug_build/tests",
+ 
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+            {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            },
+            {
+                "description": "Disassemble in intel syntax",
+                "text": "-gdb-set disassembly-flavor intel",
+                "ignoreFailures": true
+            }
+            ]
+        },
+        {
+            "name": "Debug fftw_test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/debug_build/tests/fftw_multithreading_test",
+ 
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build/tests",
  

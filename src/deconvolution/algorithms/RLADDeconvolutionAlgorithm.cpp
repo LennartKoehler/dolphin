@@ -32,7 +32,7 @@ void RLADDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     }
     
     // Allocate memory for intermediate arrays
-    c = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    c = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
     
     initialized = true;
 }

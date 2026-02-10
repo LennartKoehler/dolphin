@@ -1,20 +1,19 @@
+
+
 include fft plans in the memory calculattion
 
-if the setup is extremely cpu memory bound then using multiple openmp backends might be useful, then it uses less memory but e.g. one can still have two threads working on a task
+if the setup is extremely cpu memory bound then using multiple openmp backends might be useful, then it uses less memory but one can still have two threads working on a task
 
 getBackendmemory in getMaxMemorypercube bugged for cudabackend, idk why
 
-for test for different cubeSizes how much the fft speeds up / slows down and consider how the padding is affected by such cube sizes. Figure out if its actually beneficial to maximize the cubeSize
-
 the memory transfer between host and device can be improved, as all tasks have same memory size
+cna i somehow make the memory used for the workerbackend in a fixed position and pinned, e.g. for cuda i can always reuse the same location to load data into (or 2 locations if 2 iothreads). Is there a speedup of memory reading writing that this would get?
 
-somehow the exceptions can be out of order, i assume bc of async
 
-check padding with different padding sizes if theyre the same
 
 logging of backend really a good implementation?
 
-exception handling
+
 
 make bordertypes in config into string
 
@@ -22,9 +21,6 @@ make bordertypes in config into string
 split library in public and private: currently the include paths are wrong after installation, i want the installed headers inside the library named directory in /usr/local/include/dolphin but then when using the code in the frontend dolphin doesnt find its own libraries because it looks in /usr/local/include, not in .../dolphin so private headers should stay as is while public headers i need to use the namespaced include <dolphin/PSFConfig.h> etc 
 
 work on labeled deconvolution, make faster
-
-cna i somehow make the memory used for the workerbackend in a fixed position and pinned, e.g. for cuda i can always reuse the same location to load data into (or 2 locations if 2 iothreads). Is there a speedup of memory reading writing that this would get?
-
 
 make check that feathering radius is smaller than padding (psf size) so that there are no boundary conditions caused by too much feathering
 
@@ -49,11 +45,7 @@ think about how the rangemap for labelpsfmap is loaded. create a base loading fu
 
 
 
-
-- currently setting number threads to max will be slower than e.g. 8/12 because I assume the overhead is larger and there is no longer a benefit to having a 
 - add threads and memory restrictions to psfgenerator and the corresponding conifg
-- can i get around using the cpumemorymanager? somehow directly convert from cv mat to fftw?
-
 
 - only difference between dolphins implementation of gibsonlanni and big psf generator is it doesnt scale the max to 1
 
@@ -67,8 +59,6 @@ think about how the rangemap for labelpsfmap is loaded. create a base loading fu
 
 questions to ask:
 
-
-- do we need a flag for padding dimensions -> with padding smaller than psf there would be grid artifacts due to cyclic convolution
     
 - psf normalization
     - should each psf, before using it for deconvolution be scaled to sum to 1?

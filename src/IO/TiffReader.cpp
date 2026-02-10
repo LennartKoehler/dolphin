@@ -285,8 +285,13 @@ PaddedImage TiffReader::getFromBuffer(const BoxCoordWithPadding& coord, int buff
     PaddedImage result;
     ImageBuffer& buffer = loadedImageStrips.find(bufferIndex);
     buffer.interactedValue += coord.box.dimensions.width;
+    // convertedCoords is what part of the buffer correlates to the requested region coord. The buffer coordinates are offset
+    // by the amount of padding included in the buffer, so getting pixel(0,0) of the real image is equivalent to getting pixel(p.before+0,p.before+0) of the buffer
+    // where p.before is the padding before the image. The buffer.source.box.position already has the padding offset within. So if a image at (50,50) with padding(20,20)
+    // was requested then the buffer.source.box.position is (50, 50) even though it actuall has the image at position (30,30). This is so that it is clear
+    // what part of the image might be padding and which part is truly image. This is also why the padding offset might need to be taken into account(usually is the same though)
     BoxCoord convertedCoords{
-        coord.box.position - buffer.source.box.position,
+        coord.box.position - buffer.source.box.position - coord.padding.before + buffer.source.padding.before,
         coord.box.dimensions + coord.padding.before + coord.padding.after
     };
         // the images stored in the ImageBuffer are basically shifted to the bottom right due to the padding

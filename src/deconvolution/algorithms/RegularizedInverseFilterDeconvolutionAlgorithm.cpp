@@ -29,11 +29,11 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dat
     }
     
     // Allocate memory for intermediate arrays
-    H2 = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
-    L = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
-    L2 = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
-    FA = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
-    FP = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    H2 = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    L = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    L2 = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    FA = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    FP = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
     
     initialized = true;
 }

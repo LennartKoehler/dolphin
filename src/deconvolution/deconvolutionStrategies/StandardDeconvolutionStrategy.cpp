@@ -67,16 +67,16 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     if (!cubePaddingResult.success) {
         return Result<DeconvolutionPlan>(cubePaddingResult); 
     }
-    Result<CuboidShape> idealCubeSizeUnpaddedResult = getCubeShape(maxMemoryPerCube, setupConfig.cubeSize, imageSize, cubePadding, workerThreads);
-    if (!idealCubeSizeUnpaddedResult.success) {
-        return Result<DeconvolutionPlan>(idealCubeSizeUnpaddedResult); 
+    Result<CuboidShape> idealCubeSize = getCubeShape(maxMemoryPerCube, setupConfig.cubeSize, imageSize, cubePadding, workerThreads);
+    if (!idealCubeSize.success) {
+        return Result<DeconvolutionPlan>(idealCubeSize); 
     }
 
-    Padding imagePadding = getImagePadding(imageSize, idealCubeSizeUnpaddedResult.value, cubePadding);
+    Padding imagePadding = getImagePadding(imageSize, idealCubeSize.value, cubePadding);
 
-    size_t memoryPerTask = estimateMemoryUsage(idealCubeSizeUnpaddedResult.value, algorithm.get(), setupConfig);
+    size_t memoryPerTask = estimateMemoryUsage(idealCubeSize.value, algorithm.get(), setupConfig);
 
-    std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = splitImageHomogeneous(idealCubeSizeUnpaddedResult.value, cubePadding, imageSize);
+    std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = splitImageHomogeneous(idealCubeSize.value, cubePadding, imageSize);
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     tasks.reserve(cubeCoordinatesWithPadding.size());
 
@@ -101,7 +101,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     spdlog::get("deconvolution")
         ->info("Successfully created deconvolution plan with {} total cubes. Each cube has size (width x height x depth) ({}) which includes padding (padding before, padding after) ({}, {})",
-        totalTasks, (idealCubeSizeUnpaddedResult.value + cubePadding.before + cubePadding.after).print(), cubePadding.before.print(), cubePadding.after.print());
+        totalTasks, (idealCubeSize.value).print(), cubePadding.before.print(), cubePadding.after.print());
 
     DeconvolutionPlan plan {
         std::move(imagePadding),
@@ -133,11 +133,11 @@ void StandardDeconvolutionStrategy::configureThreads(
 std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreprocessor() const {
 
     std::function<ComplexData*(const CuboidShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
-        const CuboidShape shape,
+        const CuboidShape targetShape,
         std::shared_ptr<PSF> inputPSF,
         std::shared_ptr<IBackend> backend
             ) -> ComplexData* {
-                Preprocessor::padToShape(inputPSF->image, shape, PaddingType::ZERO);
+                Preprocessor::padToShape(inputPSF->image, targetShape, PaddingType::ZERO);
                 ComplexData h = Preprocessor::convertImageToComplexData(inputPSF->image);
                 ComplexData h_device = backend->getMemoryManager().copyDataToDevice(h);
                 backend->getDeconvManager().octantFourierShift(h_device);
@@ -228,34 +228,35 @@ Result<CuboidShape> StandardDeconvolutionStrategy::getCubeShape(
     size_t nWorkerThreads
 ){    
 
-    CuboidShape cubeSize{2,2,2};
+    CuboidShape cubeSize{cubePadding.before + cubePadding.after + 1};
+    cubeSize.toNextPowerOfTwo();
     if (configCubeSize.getVolume() != 0){
-        cubeSize = configCubeSize - cubePadding.before - cubePadding.after;
+        cubeSize = configCubeSize;
     }
     else{
         size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(complex_t); // cut into pieces so that they still fit on memory
 
-        size_t cubes = nWorkerThreads + 1;
+        size_t ncubes = nWorkerThreads + 1;
         size_t volume = 0;
-        while (volume < maxMemCubeVolume && cubes > nWorkerThreads){
-            cubeSize = cubeSize * 2;
-            volume = cubeSize.getVolume();
-            cubes = imageOriginalShape.getNumberSubcubes(cubeSize);
-        }
+        CuboidShape tempCubeSize = cubeSize;
+        std::array<int*, 3> tempCubeAccessor  = tempCubeSize.getReference();
+        int dimIterator = 2;
         
-        cubeSize = cubeSize / 2; // because we increase until its too large
-
-        // cubeSize.width = getNextPowerOfTwo(cubeSize.width);
-        // cubeSize.height = getNextPowerOfTwo(cubeSize.height);
-        // cubeSize.depth = getNextPowerOfTwo(cubeSize.depth);
-
-        cubeSize.clamp(imageOriginalShape);
+        while (volume < maxMemCubeVolume && ncubes > nWorkerThreads){
+            dimIterator = (++dimIterator) % 3;
+            cubeSize = tempCubeSize;
+            *tempCubeAccessor[dimIterator] *= 2;
+            tempCubeSize.setMax(imageOriginalShape + cubePadding.after + cubePadding.before); 
+            volume = tempCubeSize.getVolume();
+            ncubes = imageOriginalShape.getNumberSubcubes(tempCubeSize - cubePadding.after - cubePadding.before);
+        }
+        cubeSize.toNextPowerOfTwo(); // in case it was clamped to image size still take next power of two -> faster?
     }
 
-    if (cubeSize < CuboidShape{1,1,1})
+    if (cubeSize < cubePadding.before + cubePadding.after)
     {
         return Result<CuboidShape>::fail(
-            "Cube has invalid shape: " + cubeSize.print());
+            "Cube has invalid shape as it needs to be larger than padding, cubeSize: " + cubeSize.print() + " padding: " + cubePadding.before.print() + cubePadding.after.print());
     }
 
     return Result<CuboidShape>::ok(std::move(cubeSize));
