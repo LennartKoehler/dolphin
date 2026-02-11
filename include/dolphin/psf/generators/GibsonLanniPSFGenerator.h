@@ -16,7 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include <memory>
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
-#include "dolphin/SimpsonIntegrator.h"
+#include "dolphin/psf/generators/SimpsonIntegrator.h"
 
 class GibsonLanniPSFConfig;
 

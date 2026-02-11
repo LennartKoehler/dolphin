@@ -25,6 +25,9 @@ See the LICENSE file provided with the code for the full license.
 #include <itkCropImageFilter.h>
 #include <itkConstantPadImageFilter.h>
 #include <itkImageDuplicator.h>
+#include "itkSubtractImageFilter.h"
+
+
 
 void Postprocessor::insertCubeInImage(
     const Image3D& cube,
@@ -75,7 +78,6 @@ void Postprocessor::insertCubeInImage(
 }
 
 
-
 // this also merges the images
 Image3D Postprocessor::addFeathering(
     std::vector<ImageMaskPair>& pairs,
@@ -86,19 +88,6 @@ Image3D Postprocessor::addFeathering(
     constexpr unsigned int Dimension = 3;
     using ImageType = itk::Image<PixelType, Dimension>;
     using DistanceFilterType = itk::DanielssonDistanceMapImageFilter<ImageType, ImageType>;
-    using IteratorType = itk::ImageRegionIterator<ImageType>;
-
-    struct ImageHelper {
-        ImageType::Pointer image;
-        ImageType::Pointer mask;
-        IteratorType imageIt;
-        IteratorType maskIt;
-        
-        ImageHelper(ImageType::Pointer img, ImageType::Pointer msk)
-            : image(img), mask(msk),
-              imageIt(img, img->GetLargestPossibleRegion()),
-              maskIt(msk, msk->GetLargestPossibleRegion()) {}
-    };
 
     std::vector<ImageHelper> itkImageMasks;
     for (auto& pair : pairs) {
@@ -106,10 +95,16 @@ Image3D Postprocessor::addFeathering(
         itkImageMasks.emplace_back(pair.image.getItkImage(), pair.mask.getItkImage());
     }
 
-    ImageType::Pointer output = itkImageMasks[0].image;
+    using DuplicatorType = itk::ImageDuplicator<ImageType>;
+    DuplicatorType::Pointer duplicator = DuplicatorType::New();
+    duplicator->SetInputImage(itkImageMasks[0].image);
+    duplicator->Update();
+    ImageType::Pointer output = duplicator->GetOutput();
 
     // Process distance maps for all masks
-    for (auto& imagemask : itkImageMasks) {
+    for (size_t i = 0; i < itkImageMasks.size() - 1; ++i) {// the last one is the "background"
+    // for (auto& imagemask : itkImageMasks) {
+        ImageHelper& imagemask = itkImageMasks[i];
         // Create the distance filter
         DistanceFilterType::Pointer distanceFilter = DistanceFilterType::New();
         distanceFilter->SetInput(imagemask.mask);
@@ -130,6 +125,44 @@ Image3D Postprocessor::addFeathering(
         // Recreate the mask iterator since we replaced the mask image
         imagemask.maskIt = IteratorType(imagemask.mask, imagemask.mask->GetLargestPossibleRegion());
     }
+
+
+
+    // last mask can be seen as the background and is just 1 - all other masks
+
+    using SubtractFilterType = itk::SubtractImageFilter<ImageType, ImageType, ImageType>;
+
+    ImageHelper& background = itkImageMasks.back();
+    for (background.maskIt.GoToBegin(); !background.maskIt.IsAtEnd(); ++background.maskIt)
+    {
+        background.maskIt.Set(1.0);  // set every pixel to 1
+    }
+
+    for (size_t i = 0; i < itkImageMasks.size() - 1; i++){
+        ImageHelper& otherImageMask = itkImageMasks[i];
+        SubtractFilterType::Pointer subtractFilter = SubtractFilterType::New();
+
+        subtractFilter->SetInput1(background.mask);
+        subtractFilter->SetInput2(otherImageMask.mask);
+        subtractFilter->Update();
+        background.mask = subtractFilter->GetOutput();
+        
+    }
+    background.maskIt = IteratorType(background.mask, background.mask->GetLargestPossibleRegion());
+    
+    performWeightedBlending(
+        itkImageMasks,
+        output
+    );
+
+    // background.mask->DisconnectPipeline();
+    return Image3D(std::move(output));
+
+}
+void Postprocessor::performWeightedBlending(
+    std::vector<ImageHelper>& itkImageMasks,
+    ImageType::Pointer output
+){
 
     // Perform weighted blending
     IteratorType outIt(output, output->GetLargestPossibleRegion());
@@ -169,7 +202,6 @@ Image3D Postprocessor::addFeathering(
         outIt.Set(resultValue);
         ++outIt;
     }
-    return output;
 }
 
 void Postprocessor::removePadding(Image3D& image, const Padding& padding) {

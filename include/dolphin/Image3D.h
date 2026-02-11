@@ -50,15 +50,20 @@ public:
         image = ImageType::New();
     }
     
-    Image3D(ImageType::Pointer&& itkImage) {
-        this->image = std::move(itkImage);
+    Image3D(ImageType::Pointer itkImage) {
+        this->image = itkImage;
     }
+    // Image3D(ImageType::Pointer&& itkImage) {
+    //     this->image = std::move(itkImage);
+    // }
     
     
     Image3D(const CuboidShape& shape);
     
     Image3D(const Image3D& other);
-
+    Image3D(Image3D&& other);
+    Image3D& operator=(Image3D&&) noexcept;
+    Image3D& operator=(const Image3D&);
     Image3D getInRange(float min, float max) const;
 
     

@@ -38,6 +38,15 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
+message(STATUS "ITK version: ${ITK_VERSION}")
+message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message(STATUS "ITK_BUILD_TYPE: ${ITK_BUILD_TYPE}")
+message(STATUS "ITK_DIR: ${ITK_DIR}")
+get_target_property(itk_release ITKCommon IMPORTED_LOCATION_RELEASE)
+get_target_property(itk_debug   ITKCommon IMPORTED_LOCATION_DEBUG)
+
+message(STATUS "ITKCommon RELEASE: ${itk_release}")
+message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
 
 add_subdirectory(backends/dolphinbackend)
 add_subdirectory(backends/cpu)
@@ -58,6 +67,7 @@ set(DOLPHIN_SOURCES
     src/DeconvolutionStrategyFactory.cpp
     src/ThreadPool.cpp
     src/Config.cpp
+    src/SetupConfig.cpp
     
     src/image/Image3D.cpp
     src/image/ImageMetaData.cpp
@@ -88,15 +98,13 @@ set(DOLPHIN_SOURCES
     src/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.cpp
     src/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.cpp
 
+    src/deconvolution/algorithms/ConvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/TestAlgorithm.cpp
-
-
-    src/frontend/SetupConfig.cpp
 )
 
 

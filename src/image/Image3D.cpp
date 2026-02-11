@@ -14,7 +14,6 @@ See the LICENSE file provided with the code for the full license.
 #include <iostream>
 #include "dolphin/Image3D.h"
 
-// Image3D Constructor implementations
 Image3D::Image3D(const CuboidShape& shape) {
     image = ImageType::New();
     
@@ -35,6 +34,7 @@ Image3D::Image3D(const CuboidShape& shape) {
     image->FillBuffer(-1.0f);
 }
 
+
 Image3D::Image3D(const Image3D& other) {
     using DuplicatorType = itk::ImageDuplicator< ImageType >;
     if (other.image.IsNotNull()) {
@@ -46,6 +46,36 @@ Image3D::Image3D(const Image3D& other) {
         image = ImageType::New();
     }
 }
+
+
+Image3D::Image3D(Image3D&& other){
+    image = other.image;
+    
+}
+
+Image3D& Image3D::operator=(Image3D&& other) noexcept {
+
+    if (this != &other){
+        image = other.image;
+    }
+    return *this;
+}
+
+Image3D& Image3D::operator=(const Image3D& other) {
+    using DuplicatorType = itk::ImageDuplicator< ImageType >;
+    if (this != &other){
+        if (other.image.IsNotNull()) {
+            auto duplicator = DuplicatorType::New();
+            duplicator->SetInputImage(other.image);
+            duplicator->Update();
+            image = duplicator->GetOutput();
+        } else {
+            image = ImageType::New();
+        }  
+    }
+    return *this;
+}
+
 
 // Image3D Method implementations
 Image3D Image3D::getInRange(float min, float max) const {
@@ -384,7 +414,6 @@ PixelData Image3D::ConstIterator::getNeighborData(int dx, int dy, int dz) const 
 // Legacy methods - these seem to be from an older version and need updating
 void Image3D::flip() {
     // TODO: This method needs to be updated to work with ITK images
-    // Current implementation seems to be using OpenCV Mat structure which doesn't match header
 }
 
 void Image3D::scale(int new_size_x, int new_size_y, int new_size_z) {

@@ -11,7 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "dolphin/frontend/SetupConfig.h"
+#include "dolphin/SetupConfig.h"
 #include <sys/stat.h>
 #include <iostream>
 #include <fstream>

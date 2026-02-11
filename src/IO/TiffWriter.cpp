@@ -339,8 +339,7 @@ void TiffWriter::customTifWarningHandler(const char* module, const char* fmt, va
     message.resize(static_cast<size_t>(required));
     vsnprintf(&message[0], static_cast<size_t>(required) + 1, fmt, ap);
 
-    // Use "{}" to avoid passing the preformatted string back into fmt as a format pattern
-    logger->warn("{}", message);
+    logger->warn("Tiff Warning Handler: {}", message);
 }
 
 

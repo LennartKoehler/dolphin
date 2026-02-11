@@ -2,7 +2,7 @@
 #include "CLI/CLI.hpp"
 
 #include "dolphin/frontend/IFrontend.h"
-#include "dolphin/frontend/SetupConfig.h"
+#include "dolphin/SetupConfig.h"
 
 #include <dolphin/deconvolution/DeconvolutionConfig.h>
 #include <dolphin/ServiceAbstractions.h>

@@ -18,7 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
-#include "dolphin/frontend/SetupConfig.h"
+#include "dolphin/SetupConfig.h"
 
 #include "imgui.h"
 

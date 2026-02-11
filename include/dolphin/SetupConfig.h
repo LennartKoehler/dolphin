@@ -37,7 +37,7 @@ public:
     std::string labeledImage;
     std::string labelPSFMap;
     std::string deconvolutionType = "standard";
-    std::string backend = "libcpu_backend.so";
+    std::string backend = "default";
     bool savePsf = false;
     std::array<int, 3> cubeSize{};
     std::array<int, 3> cubePadding{}; // this padding is later doubled

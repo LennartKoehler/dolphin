@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
-#include "dolphin/NumericalIntegrator.h"
+#include "dolphin/psf/generators/NumericalIntegrator.h"
 
 class SimpsonIntegrator : public NumericalIntegrator {
 public:

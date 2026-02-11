@@ -11,6 +11,8 @@
 #endif
 
 
+
+
 // Unified FFTW error check macro
 #define FFTW_UNIFIED_CHECK(fftw_result, operation) { \
     if ((fftw_result) == nullptr) { \
@@ -372,7 +374,7 @@ void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
 
-    //#pragma omp parallel for collapse(3)
+
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
@@ -473,7 +475,7 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
 
-    //#pragma omp parallel for
+
     for (int i = 0; i < a.size.getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
@@ -520,7 +522,7 @@ void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexDa
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplicationWithConjugate - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result");
 
-    //#pragma omp parallel for
+
     for (int i = 0; i < a.size.getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
@@ -537,7 +539,7 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexDivisionStabilized - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result");
 
-    //#pragma omp parallel for
+
     for (int i = 0; i < a.size.getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];

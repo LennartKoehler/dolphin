@@ -335,7 +335,8 @@ void TiffReader::readStripWithPadding(const BoxCoordWithPadding& coord) const {
     source.box.dimensions.width = image.dimensions.width;
     result.source = source;
 
-    loadedImageStrips.push_back(result);
+    loadedImageStrips.push_back(std::move(result));
+
 }
 
 std::optional<PaddedImage> TiffReader::getSubimage(const BoxCoordWithPadding& coord) const {
@@ -494,8 +495,28 @@ int TiffReader::countTiffDirectories(TIFF* tif) {
 
 
 void TiffReader::customTifWarningHandler(const char* module, const char* fmt, va_list ap) {
-    // Ignoriere alle Warnungen oder filtere nach bestimmten Tags
-    // Beispiel: printf(fmt, ap); // Um die Warnungen anzuzeigen
+    auto logger = spdlog::get("writer");
+    if (!logger) {
+        return;
+    }
+
+    // Make a copy of ap for size estimation since vsnprintf may consume it
+    va_list ap_copy;
+    va_copy(ap_copy, ap);
+    int required = vsnprintf(nullptr, 0, fmt, ap_copy);
+    va_end(ap_copy);
+
+    if (required < 0) {
+        // Fallback: log the raw format string if formatting failed
+        logger->warn("TIFF warning (format error): {}", fmt);
+        return;
+    }
+
+    std::string message;
+    message.resize(static_cast<size_t>(required));
+    vsnprintf(&message[0], static_cast<size_t>(required) + 1, fmt, ap);
+
+    logger->warn("Tiff Warning Handler: {}", message);
 }
 
 void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, int width, const ImageMetaData& metaData, int channel) {

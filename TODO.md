@@ -1,4 +1,4 @@
-
+Danielssondistancemapimagefilter very slow in labeled image deconvolution, takes 50% of the total runtime, apparently even in release mode, check if itk is actually in release mode
 
 include fft plans in the memory calculattion
 
@@ -59,6 +59,7 @@ think about how the rangemap for labelpsfmap is loaded. create a base loading fu
 
 questions to ask:
 
+- where should memory handling be?
     
 - psf normalization
     - should each psf, before using it for deconvolution be scaled to sum to 1?

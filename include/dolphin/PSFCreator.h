@@ -16,7 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
-#include "dolphin/frontend/SetupConfig.h"
+#include "dolphin/SetupConfig.h"
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
 
