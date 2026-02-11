@@ -22,7 +22,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/Exceptions.h"
 #include "dolphin/HelperClasses.h"
-#include "dolphin/frontend/SetupConfig.h"
+#include "dolphin/SetupConfig.h"
 
 
 
@@ -293,7 +293,7 @@ std::vector<CuboidShape> StandardDeconvolutionStrategy::getPSFSizes(const std::v
     return psfSizes;
 }
 
-Result<Padding> StandardDeconvolutionStrategy::getCubePadding(const std::vector<PSF> psfs, const CuboidShape& configPadding){
+Result<Padding> StandardDeconvolutionStrategy::getCubePadding(const std::vector<PSF>& psfs, const CuboidShape& configPadding){
     Padding padding;
     std::vector<CuboidShape> psfSizes = getPSFSizes(psfs);
     if (configPadding.getVolume() == 0){

@@ -8,15 +8,17 @@ enable_testing()
 
 add_executable(main_test
     main_test.cpp)
-target_compile_options(main_test PRIVATE
-    -g
-    -O0
-    -fno-omit-frame-pointer
+
+target_link_options(main_test PRIVATE
+    -static-libstdc++
+    -static-libgcc
+)
+target_link_libraries(main_test PRIVATE
+    -Wl,-Bstatic m mvec -Wl,-Bdynamic
 )
 target_link_libraries(main_test
     PRIVATE
         dolphin)
-
 
 
 add_test(NAME MainTest COMMAND main_test)

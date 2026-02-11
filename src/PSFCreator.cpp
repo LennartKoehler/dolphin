@@ -56,7 +56,7 @@ std::vector<PSF> PSFCreator::readPSFsFromFilePath(const std::string& psfFilePath
             psf.readFromTiffFile(psffilepath);
         }
         
-        psfs.push_back(psf);
+        psfs.push_back(std::move(psf));
     }
     return psfs;
 }

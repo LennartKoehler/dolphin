@@ -20,7 +20,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/Exceptions.h"
 #include "dolphin/HelperClasses.h"
-#include "dolphin/frontend/SetupConfig.h"
+#include "dolphin/SetupConfig.h"
 #include <itkImageRegionConstIterator.h>
 #include <spdlog/spdlog.h>
 
@@ -51,9 +51,8 @@ void LabeledDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfig
 Deconvolution using a labelimage which allows for different psfs for different parts of the image.
 For each unique label within a cube the deconvolution is performed, and at the end the deconvolved images are stitched together
 according to the specifications in the labelimage.
+TODO still slow
 */
-
-
 void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     TaskContext* context = task.context.get();
@@ -93,7 +92,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     std::vector<ImageMaskPair> tempResults;
     tempResults.reserve(tasklabels.size());
-    Image3D result = cubeImage.image;
+    Image3D result;
 
     for (const Label& labelgroup : tasklabels){
         std::vector<std::shared_ptr<PSF>> psfs = labelgroup.getPSFs();
@@ -118,15 +117,16 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
             ComplexData f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getDefaultBackendMemoryManager());
         
-            PaddedImage resultCube;
-            resultCube.padding = task.paddedBox.padding;
-            cubeImage.image = Preprocessor::convertComplexDataToImage(f_host);
+            PaddedImage resultCube{
+                Preprocessor::convertComplexDataToImage(f_host),
+                task.paddedBox.padding
+            };
 
-            ImageMaskPair pair{resultCube.image, labelgroup.getMask(labelImage.image)};
-            tempResults.push_back(pair);
+            ImageMaskPair pair{std::move(resultCube.image), std::move(labelgroup.getMask(labelImage.image))};
+            tempResults.push_back(std::move(pair));
         }
         else {
-            spdlog::get("deconvolution")->warn("No deconvolution of cube {} because no PSFs were found for that cubes labels", task.paddedBox.box.print());
+            spdlog::get("deconvolution")->warn("No deconvolution of cube {} because no PSFs were found for a specific label of that cube", task.paddedBox.box.print());
         }
 
 
@@ -134,10 +134,10 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     float epsilon = 5;
     
     if (tempResults.size() > 1){
-        result = Postprocessor::addFeathering(tempResults, featheringRadius, epsilon);
+        result = std::move(Postprocessor::addFeathering(tempResults, featheringRadius, epsilon));
     }
     else if (tempResults.size() == 1){
-        result = tempResults[0].image;
+        result = std::move(tempResults[0].image);
     }
 
     writer->setSubimage(result, task.paddedBox);
@@ -214,7 +214,7 @@ std::vector<Label> LabeledDeconvolutionExecutor::getLabelGroups(
                 int end = psfids[0].end;
                 end = end ? start == end : end - 1; // because in rangemap the end is exclusive while in range its inclusive;
                 labelgroup.setRange(Range<std::shared_ptr<PSF>>(psfids[0].start, psfids[0].end, getPSFForLabel(psfids[0], psfs)));
-                labelGroups.push_back(labelgroup);
+                labelGroups.push_back(std::move(labelgroup));
                 addedRanges.insert(rangeKey);
             }
         }

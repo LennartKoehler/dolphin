@@ -28,7 +28,7 @@ ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc)
                     condition.wait(lock, [this]{ return stopThreads > 0 || stop || !tasks.empty(); });
                     if(stopThreads > 0){
                         stopThreads -= 1;
-                        return;
+                        return; // thread basically "removing" itself from threadpool
                     }
                     if(stop && tasks.empty()){
                         activeWorkers -= 1;

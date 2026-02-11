@@ -15,7 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
-#include "dolphin/frontend/SetupConfig.h"
+#include "dolphin/SetupConfig.h"
 #include <stdexcept>
 
 DeconvolutionStrategyFactory::DeconvolutionStrategyFactory() {

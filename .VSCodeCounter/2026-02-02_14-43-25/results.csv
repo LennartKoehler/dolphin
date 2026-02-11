@@ -840,7 +840,7 @@
 "/home/lennart-k-hler/projects/dolphin/include/dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h", "C++", 0, 31, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 7, 53
 "/home/lennart-k-hler/projects/dolphin/include/dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h", "C++", 0, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 19, 92
 "/home/lennart-k-hler/projects/dolphin/include/dolphin/frontend/IFrontend.h", "C++", 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 3, 25
-"/home/lennart-k-hler/projects/dolphin/include/dolphin/frontend/SetupConfig.h", "C++", 0, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 16, 68
+"/home/lennart-k-hler/projects/dolphin/include/dolphin/SetupConfig.h", "C++", 0, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 16, 68
 "/home/lennart-k-hler/projects/dolphin/include/dolphin/psf/PSF.h", "C++", 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 7, 29
 "/home/lennart-k-hler/projects/dolphin/include/dolphin/psf/PSFGeneratorFactory.h", "C++", 0, 89, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 22, 127
 "/home/lennart-k-hler/projects/dolphin/include/dolphin/psf/configs/GaussianPSFConfig.h", "C++", 0, 19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 11, 42

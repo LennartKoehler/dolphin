@@ -11,6 +11,10 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
+#include <chrono>
+#include <fstream>
+#include <spdlog/spdlog.h>
+
 #include "dolphin/DeconvolutionService.h"
 #include "dolphin/PSFCreator.h"
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
@@ -19,11 +23,9 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "dolphin/DeconvolutionStrategyFactory.h"
 #include "dolphin/ThreadPool.h"
-#include <chrono>
-#include <fstream>
 #include "dolphin/IO/TiffReader.h"
 #include "dolphin/IO/TiffWriter.h"
-#include <spdlog/spdlog.h>
+
 
 DeconvolutionService::DeconvolutionService() 
     : initialized_(false),
@@ -249,7 +251,7 @@ std::vector<PSF> DeconvolutionService::createPSFsFromSetup(
     }
     if (!setupConfig->psfFilePath.empty()){
         std::vector<PSF> filePsfs = PSFCreator::readPSFsFromFilePath(setupConfig->psfFilePath);
-        psfs.insert(psfs.end(), filePsfs.begin(), filePsfs.end());
+        psfs.insert(psfs.end(), std::make_move_iterator(filePsfs.begin()), std::make_move_iterator(filePsfs.end()));
     }
     if (!setupConfig->psfDirPath.empty()){
         std::vector<std::shared_ptr<PSFConfig>> psfconfigs = PSFCreator::generatePSFsFromDir(setupConfig->psfDirPath);

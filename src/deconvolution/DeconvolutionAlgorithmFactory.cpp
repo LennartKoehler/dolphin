@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 
+#include "dolphin/deconvolution/algorithms/ConvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
@@ -96,6 +97,11 @@ bool DeconvolutionAlgorithmFactory::isAlgorithmAvailable(const std::string& name
 }
 
 void DeconvolutionAlgorithmFactory::registerAlgorithms() {
+
+    
+    registerAlgorithm("Convolution", []() {
+        return new ConvolutionAlgorithm();
+    });
     
     registerAlgorithm("RichardsonLucy", []() {
         return new RLDeconvolutionAlgorithm();

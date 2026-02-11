@@ -30,11 +30,31 @@ namespace Postprocessor{
         const BoxCoord& srcBox
     );
     
+    using IteratorType = itk::ImageRegionIterator<ImageType>;
+    struct ImageHelper {
+
+
+        ImageType::Pointer image;
+        ImageType::Pointer mask;
+        IteratorType imageIt;
+        IteratorType maskIt;
+        
+        ImageHelper(ImageType::Pointer img, ImageType::Pointer msk)
+            : image(img), mask(msk),
+                imageIt(img, img->GetLargestPossibleRegion()),
+                maskIt(msk, msk->GetLargestPossibleRegion()) {}
+    };
+
+
 
     Image3D addFeathering(
         std::vector<ImageMaskPair>& pair,
         int radius,
         double epsilon
+    );
+    void performWeightedBlending(
+        std::vector<ImageHelper>& inputs,
+        ImageType::Pointer output
     );
     
     void removePadding(Image3D& image, const Padding& padding);

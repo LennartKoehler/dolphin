@@ -16,8 +16,8 @@
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   
   "backend": "../backends/cuda/build/libcuda_backend.sotest",
-  "nIOThreads": 10,
-  "nWorkerThreads" : 8,
+  "nIOThreads": 1,
+  "nWorkerThreads" : 1,
   "nDevices" : 1,
   "maxMem_GB": 64,
 

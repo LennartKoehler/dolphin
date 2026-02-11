@@ -16,7 +16,6 @@ See the LICENSE file provided with the code for the full license.
 #include <iostream>
 #include <algorithm>
 #include <sstream>
-#include <cmath>
 #include <cassert>
 
 

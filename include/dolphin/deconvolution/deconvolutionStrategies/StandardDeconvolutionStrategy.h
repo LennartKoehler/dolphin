@@ -88,7 +88,7 @@ protected:
         const size_t nWorkerThreads,
         const size_t nIOThreads) const ;
 
-    virtual Result<Padding> getCubePadding(const std::vector<PSF> psfs, const CuboidShape& configPadding);
+    virtual Result<Padding> getCubePadding(const std::vector<PSF>& psfs, const CuboidShape& configPadding);
 
     void configureThreads(
         size_t& totalThreads,
