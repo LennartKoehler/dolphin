@@ -5,10 +5,12 @@
 #include <cmath>
 #include <cstring>
 #include <cassert>
-#include "backend/Exceptions.h"
+#include "dolphinbackend/Exceptions.h"
 #ifdef __linux__
 #include <unistd.h>
 #endif
+
+#include <omp.h>
 
 // Include SIMD headers for high-performance implementations
 #ifdef __AVX2__
@@ -21,10 +23,9 @@
 #define SIMD_ALIGNMENT 8
 #endif
 
-
 // Unified FFTW error check macro
-#define FFTW_UNIFIED_CHECK(fftw_result, operation) { \
-    if ((fftw_result) == nullptr) { \
+#define FFTW_UNIFIED_CHECK(fftwf_result, operation) { \
+    if ((fftwf_result) == nullptr) { \
         throw dolphin::backend::BackendException( \
             "FFTW operation failed", \
             "OpenMP", \
@@ -44,7 +45,12 @@
     } \
 }
 
+// Logger support
+static LogCallback g_logger;
 
+void set_backend_logger(LogCallback cb) {
+    g_logger = cb;
+}
 
 // Static member definition
 MemoryTracking OpenMPBackendMemoryManager::memory;
@@ -82,11 +88,8 @@ void OpenMPBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
 void OpenMPBackendMemoryManager::waitForMemory(size_t requiredSize) const {
     std::unique_lock<std::mutex> lock(memory.memoryMutex);
     if ((memory.totalUsedMemory + requiredSize) > memory.maxMemorySize){
-        std::cerr << "OpenMPBackend out of memory, waiting for memory to free up" << std::endl;
+        throw dolphin::backend::MemoryException("Exceeded set memory constraint", "OpenMP", requiredSize, "Memory Allocation");
     }
-    memory.memoryCondition.wait(lock, [this, requiredSize]() {
-        return memory.maxMemorySize == 0 || (memory.totalUsedMemory + requiredSize) <= memory.maxMemorySize;
-    });
 }
 
 // OpenMPBackendMemoryManager implementation
@@ -105,7 +108,7 @@ void OpenMPBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const
     // Wait for memory if max memory limit is set
     waitForMemory(requested_size);
     
-    data.data = (complex_t*)fftw_malloc(requested_size);
+    data.data = (complex_t*)fftwf_malloc(requested_size);
     MEMORY_ALLOC_CHECK(data.data, requested_size, "OpenMP", "allocateMemoryOnDevice");
     
     // Update memory tracking
@@ -160,7 +163,7 @@ void OpenMPBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData
 void OpenMPBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     BACKEND_CHECK(data.data != nullptr, "Data pointer is null", "OpenMP", "freeMemoryOnDevice - data pointer");
     size_t requested_size = sizeof(complex_t) * data.size.getVolume();
-    fftw_free(data.data);
+    fftwf_free(data.data);
     
     // Update memory tracking
     {
@@ -200,7 +203,9 @@ size_t OpenMPBackendMemoryManager::getAvailableMemory() const {
         }
         return memory;
     } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception in getAvailableMemory: " << e.what() << std::endl;
+        if (g_logger) {
+            g_logger(std::format("Exception in getAvailableMemory: {}", e.what()), LogLevel::ERROR);
+        }
         throw; // Re-throw to propagate the exception
     }
 }
@@ -223,31 +228,37 @@ OpenMPDeconvolutionBackend::~OpenMPDeconvolutionBackend() {
 void OpenMPDeconvolutionBackend::initializeGlobal() {
     static bool globalInitialized = false;
     if (!globalInitialized){
-        fftw_init_threads();
+        fftwf_init_threads();
 
         int num_threads = omp_get_max_threads() - 4;
         omp_set_num_threads(num_threads);
-        fftw_plan_with_nthreads(num_threads);
-        std::cout << "[STATUS] OpenMP global initialization done with " << num_threads << " threads" << std::endl;
+        fftwf_plan_with_nthreads(num_threads);
+        if (g_logger) {
+            g_logger(std::format("OpenMP global initialization done with {} threads", num_threads), LogLevel::DEBUG);
+        }
         globalInitialized = true;
     }
 }
 
 void OpenMPDeconvolutionBackend::init() {
     initializeGlobal();
-    std::cout << "[STATUS] OpenMP backend initialized for lazy plan creation" << std::endl;
+    if (g_logger) {
+        g_logger("OpenMP backend initialized for lazy plan creation", LogLevel::DEBUG);
+    }
 }
 
 void OpenMPDeconvolutionBackend::cleanup() {
-    fftw_cleanup_threads();
+    fftwf_cleanup_threads();
     destroyFFTPlans();
-    std::cout << "[STATUS] OpenMP backend postprocessing completed" << std::endl;
+    if (g_logger) {
+        g_logger("OpenMP backend postprocessing completed", LogLevel::DEBUG);
+    }
 }
 
 void OpenMPDeconvolutionBackend::initializePlan(const CuboidShape& shape) {
     // This method assumes the mutex is already locked by the caller
     
-    // Check if plan already exists for this shape (double-check pattern)
+    // Check if plan already exists for this shape (real_t-check pattern)
     if (planMap.find(shape) != planMap.end()) {
         return; // Plan already exists
     }
@@ -255,29 +266,36 @@ void OpenMPDeconvolutionBackend::initializePlan(const CuboidShape& shape) {
     // Allocate temporary memory for plan creation
     complex_t* temp = nullptr;
     try{
-        temp = (complex_t*)fftw_malloc(sizeof(complex_t) * shape.getVolume());
+        temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * shape.getVolume());
         FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * shape.getVolume(), "initializePlan");
         
         FFTPlanPair& planPair = planMap[shape];
         
         // Create forward FFT plan with OpenMP threading
-        planPair.forward = fftw_plan_dft_3d(shape.depth, shape.height, shape.width,
+        planPair.forward = fftwf_plan_dft_3d(shape.depth, shape.height, shape.width,
                                            temp, temp, FFTW_FORWARD, FFTW_MEASURE);
         FFTW_UNIFIED_CHECK(planPair.forward, "initializePlan - forward plan");
-    
+
+        g_logger(std::string("FFTWF3 plan using ") + fftwf_sprint_plan(planPair.forward), LogLevel::DEBUG);
+        
         // Create backward FFT plan with OpenMP threading  
-        planPair.backward = fftw_plan_dft_3d(shape.depth, shape.height, shape.width,
+        planPair.backward = fftwf_plan_dft_3d(shape.depth, shape.height, shape.width,
                                             temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
         FFTW_UNIFIED_CHECK(planPair.backward, "initializePlan - backward plan");
         
-        fftw_free(temp);
+        fftwf_free(temp);
         
-        std::cout << "[DEBUG] Successfully created FFTW plan for shape: " 
-                  << shape.width << "x" << shape.height << "x" << shape.depth << std::endl;
+        if (g_logger) {
+            std::string msg = std::format(
+                "Successfully created FFTW plan for shape: {}x{}x{}",
+                shape.width, shape.height, shape.depth
+            );
+            g_logger(msg, LogLevel::INFO);
+        }
     }
     catch (...){
         if (temp != nullptr){
-            fftw_free(temp);
+            fftwf_free(temp);
         }
         throw;
     }
@@ -287,11 +305,11 @@ void OpenMPDeconvolutionBackend::destroyFFTPlans() {
     std::unique_lock<std::mutex> lock(backendMutex);
     for (auto& pair : planMap) {
         if (pair.second.forward) {
-            fftw_destroy_plan(pair.second.forward);
+            fftwf_destroy_plan(pair.second.forward);
             pair.second.forward = nullptr;
         }
         if (pair.second.backward) {
-            fftw_destroy_plan(pair.second.backward);
+            fftwf_destroy_plan(pair.second.backward);
             pair.second.backward = nullptr;
         }
     }
@@ -317,7 +335,7 @@ void OpenMPDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& 
     // If plan doesn't exist, create it (slow path, with lock)
     if (planPair == nullptr) {
         std::unique_lock<std::mutex> lock(const_cast<OpenMPDeconvolutionBackend*>(this)->backendMutex);
-        // Double-check pattern: another thread might have created it while we waited for the lock
+        // real_t-check pattern: another thread might have created it while we waited for the lock
         planPair = const_cast<OpenMPDeconvolutionBackend*>(this)->getPlanPair(in.size);
         if (planPair == nullptr) {
             const_cast<OpenMPDeconvolutionBackend*>(this)->initializePlan(in.size);
@@ -328,7 +346,7 @@ void OpenMPDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& 
     BACKEND_CHECK(planPair != nullptr, "Failed to create FFT plan for shape", "OpenMP", "forwardFFT - plan creation");
     BACKEND_CHECK(planPair->forward != nullptr, "Forward FFT plan is null", "OpenMP", "forwardFFT - FFT plan");
     
-    fftw_execute_dft(planPair->forward, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
+    fftwf_execute_dft(planPair->forward, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
 }
 
 void OpenMPDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
@@ -341,7 +359,7 @@ void OpenMPDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData&
     // If plan doesn't exist, create it (slow path, with lock)
     if (planPair == nullptr) {
         std::unique_lock<std::mutex> lock(const_cast<OpenMPDeconvolutionBackend*>(this)->backendMutex);
-        // Double-check pattern: another thread might have created it while we waited for the lock
+        // real_t-check pattern: another thread might have created it while we waited for the lock
         planPair = const_cast<OpenMPDeconvolutionBackend*>(this)->getPlanPair(in.size);
         if (planPair == nullptr) {
             const_cast<OpenMPDeconvolutionBackend*>(this)->initializePlan(in.size);
@@ -352,7 +370,7 @@ void OpenMPDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData&
     BACKEND_CHECK(planPair != nullptr, "Failed to create FFT plan for shape", "OpenMP", "backwardFFT - plan creation");
     BACKEND_CHECK(planPair->backward != nullptr, "Backward FFT plan is null", "OpenMP", "backwardFFT - FFT plan");
     
-    fftw_execute_dft(planPair->backward, reinterpret_cast<fftw_complex*>(in.data), reinterpret_cast<fftw_complex*>(out.data));
+    fftwf_execute_dft(planPair->backward, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
 }
 
 // Shift Operations
@@ -449,16 +467,6 @@ void OpenMPDeconvolutionBackend::complexMultiplication(const ComplexData& a, con
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "OpenMP", "complexMultiplication - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexMultiplication - result");
     
-// #ifdef __AVX2__
-//     // Use AVX2 implementation if available and data is properly aligned
-//     if (reinterpret_cast<uintptr_t>(a.data) % 32 == 0 && 
-//         reinterpret_cast<uintptr_t>(b.data) % 32 == 0 && 
-//         reinterpret_cast<uintptr_t>(result.data) % 32 == 0) {
-//         complexMultiplicationAVX2(a, b, result);
-//         return;
-//     }
-// #endif
-    
     const int volume = a.size.getVolume();
     
     // Use restrict pointers to help compiler optimize
@@ -469,29 +477,29 @@ void OpenMPDeconvolutionBackend::complexMultiplication(const ComplexData& a, con
     #pragma omp parallel for simd //aligned(a_ptr, b_ptr, result_ptr:SIMD_ALIGNMENT) schedule(static)
     for (int i = 0; i < volume; ++i) {
         // Direct access without intermediate variables for better vectorization
-        const double real_a = a_ptr[i][0];
-        const double imag_a = a_ptr[i][1];
-        const double real_b = b_ptr[i][0];
-        const double imag_b = b_ptr[i][1];
+        const real_t real_a = a_ptr[i][0];
+        const real_t imag_a = a_ptr[i][1];
+        const real_t real_b = b_ptr[i][0];
+        const real_t imag_b = b_ptr[i][1];
 
         result_ptr[i][0] = real_a * real_b - imag_a * imag_b;
         result_ptr[i][1] = real_a * imag_b + imag_a * real_b;
     }
 }
 
-void OpenMPDeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
+void OpenMPDeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
     BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "complexDivision - input a");
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "OpenMP", "complexDivision - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexDivision - result");
 
     #pragma omp parallel for
     for (int i = 0; i < a.size.getVolume(); ++i) {
-        double real_a = a.data[i][0];
-        double imag_a = a.data[i][1];
-        double real_b = b.data[i][0];
-        double imag_b = b.data[i][1];
+        real_t real_a = a.data[i][0];
+        real_t imag_a = a.data[i][1];
+        real_t real_b = b.data[i][0];
+        real_t imag_b = b.data[i][1];
 
-        double denominator = real_b * real_b + imag_b * imag_b;
+        real_t denominator = real_b * real_b + imag_b * imag_b;
 
         if (denominator < epsilon) {
             result.data[i][0] = 0.0;
@@ -520,18 +528,20 @@ void OpenMPDeconvolutionBackend::complexAddition(const ComplexData& a, const Com
     }
 }
 
-void OpenMPDeconvolutionBackend::scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) const {
+void OpenMPDeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
     BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "scalarMultiplication - input a");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "scalarMultiplication - result");
 
     const int volume = a.size.getVolume();
     complex_t* __restrict__ a_ptr = a.data;
     complex_t* __restrict__ result_ptr = result.data;
+    real_t scalar_real = scalar[0];
+    real_t scalar_imag = scalar[1];
 
     #pragma omp parallel for simd aligned(a_ptr, result_ptr:SIMD_ALIGNMENT) schedule(static)
     for (int i = 0; i < volume; ++i) {
-        result_ptr[i][0] = a_ptr[i][0] * scalar;
-        result_ptr[i][1] = a_ptr[i][1] * scalar;
+        result_ptr[i][0] = a_ptr[i][0] * scalar_real;
+        result_ptr[i][1] = a_ptr[i][1] * scalar_imag;
     }
 }
 
@@ -542,29 +552,29 @@ void OpenMPDeconvolutionBackend::complexMultiplicationWithConjugate(const Comple
 
     #pragma omp parallel for
     for (int i = 0; i < a.size.getVolume(); ++i) {
-        double real_a = a.data[i][0];
-        double imag_a = a.data[i][1];
-        double real_b = b.data[i][0];
-        double imag_b = -b.data[i][1];  // Conjugate
+        real_t real_a = a.data[i][0];
+        real_t imag_a = a.data[i][1];
+        real_t real_b = b.data[i][0];
+        real_t imag_b = -b.data[i][1];  // Conjugate
 
         result.data[i][0] = real_a * real_b - imag_a * imag_b;
         result.data[i][1] = real_a * imag_b + imag_a * real_b;
     }
 }
 
-void OpenMPDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const {
+void OpenMPDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
     BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "OpenMP", "complexDivisionStabilized - input a");
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "OpenMP", "complexDivisionStabilized - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexDivisionStabilized - result");
 
     #pragma omp parallel for
     for (int i = 0; i < a.size.getVolume(); ++i) {
-        double real_a = a.data[i][0];
-        double imag_a = a.data[i][1];
-        double real_b = b.data[i][0];
-        double imag_b = b.data[i][1];
+        real_t real_a = a.data[i][0];
+        real_t imag_a = a.data[i][1];
+        real_t real_b = b.data[i][0];
+        real_t imag_b = b.data[i][1];
 
-        double mag = std::max(epsilon, real_b * real_b + imag_b * imag_b);
+        real_t mag = std::max(epsilon, real_b * real_b + imag_b * imag_b);
 
         result.data[i][0] = (real_a * real_b + imag_a * imag_b) / mag;
         result.data[i][1] = (imag_a * real_b - real_a * imag_b) / mag;
@@ -581,10 +591,10 @@ void OpenMPDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf,
     for (int z = 0; z < depth; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
-                float wz = 2 * M_PI * z / depth;
-                float wy = 2 * M_PI * y / height;
-                float wx = 2 * M_PI * x / width;
-                float laplacian_value = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
+                 wz = 2 * M_PI * z / depth;
+                 wy = 2 * M_PI * y / height;
+                 wx = 2 * M_PI * x / width;
+                 laplacian_value = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
 
                 int index = (z * height + y) * width + x;
 
@@ -595,8 +605,8 @@ void OpenMPDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf,
     }
 }
 
-void OpenMPDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double epsilon) const {
-    double max_val = 0.0, max_val2 = 0.0;
+void OpenMPDeconvolutionBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
+    real_t max_val = 0.0, max_val2 = 0.0;
     
     #pragma omp parallel for reduction(max:max_val, max_val2)
     for (int j = 0; j < resultImage.size.getVolume(); j++) {
@@ -611,7 +621,7 @@ void OpenMPDeconvolutionBackend::normalizeImage(ComplexData& resultImage, double
     }
 }
 
-void OpenMPDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeVolume) const {
+void OpenMPDeconvolutionBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
     #pragma omp parallel for simd
     for (int i = 0; i < data.size.getVolume(); ++i) {
         data.data[i][0] /= cubeVolume;
@@ -621,53 +631,7 @@ void OpenMPDeconvolutionBackend::rescaledInverse(ComplexData& data, double cubeV
 
 // Debug functions
 void OpenMPDeconvolutionBackend::hasNAN(const ComplexData& data) const {
-    int nanCount = 0, infCount = 0;
-    double minReal = std::numeric_limits<double>::max();
-    double maxReal = std::numeric_limits<double>::lowest();
-    double minImag = std::numeric_limits<double>::max();
-    double maxImag = std::numeric_limits<double>::lowest();
-    
-    #pragma omp parallel for reduction(+:nanCount, infCount) reduction(min:minReal, minImag) reduction(max:maxReal, maxImag)
-    for (int i = 0; i < data.size.getVolume(); i++) {
-        double real = data.data[i][0];
-        double imag = data.data[i][1];
-        
-        // Check for NaN
-        if (std::isnan(real) || std::isnan(imag)) {
-            #pragma omp critical
-            {
-                nanCount++;
-                if (nanCount <= 10) { // Only print first 10
-                    std::cout << "NaN at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
-                }
-            }
-        }
-        
-        // Check for infinity
-        if (std::isinf(real) || std::isinf(imag)) {
-            #pragma omp critical
-            {
-                infCount++;
-                if (infCount <= 10) {
-                    std::cout << "Inf at index " << i << ": (" << real << ", " << imag << ")" << std::endl;
-                }
-            }
-        }
-        
-        // Track min/max for valid values
-        if (std::isfinite(real)) {
-            minReal = std::min(minReal, real);
-            maxReal = std::max(maxReal, real);
-        }
-        if (std::isfinite(imag)) {
-            minImag = std::min(minImag, imag);
-            maxImag = std::max(maxImag, imag);
-        }
-    }
-    
-    std::cout << "[DEBUG] Data stats - NaN: " << nanCount << ", Inf: " << infCount << std::endl;
-    std::cout << "[DEBUG] Real range: [" << minReal << ", " << maxReal << "]" << std::endl;
-    std::cout << "[DEBUG] Imag range: [" << minImag << ", " << maxImag << "]" << std::endl;
+
 }
 
 // Layer and Visualization Functions
@@ -678,7 +642,7 @@ void OpenMPDeconvolutionBackend::reorderLayers(ComplexData& data) const {
     int layerSize = width * height;
     int halfDepth = depth / 2;
     
-    complex_t* temp = (complex_t*)fftw_malloc(sizeof(complex_t) * data.size.getVolume());
+    complex_t* temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * data.size.getVolume());
     FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * data.size.getVolume(), "reorderLayers");
 
     int destIndex = 0;
@@ -701,7 +665,7 @@ void OpenMPDeconvolutionBackend::reorderLayers(ComplexData& data) const {
 
     // Copy reordered data back to the original array
     std::memcpy(data.data, temp, sizeof(complex_t) * data.size.getVolume());
-    fftw_free(temp);
+    fftwf_free(temp);
 }
 
 // Gradient and TV Functions
@@ -780,7 +744,7 @@ void OpenMPDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData
     }
 }
 
-void OpenMPDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
+void OpenMPDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
     int nxy = gx.size.width * gx.size.height;
 
     #pragma omp parallel for
@@ -788,11 +752,11 @@ void OpenMPDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx,
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
 
-            double dx = gx.data[index][0];
-            double dy = gy.data[index][0];
-            double dz = gz.data[index][0];
+            real_t dx = gx.data[index][0];
+            real_t dy = gy.data[index][0];
+            real_t dz = gz.data[index][0];
 
-            tv.data[index][0] = static_cast<float>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+            tv.data[index][0] = 1.0 / ((dx + dy + dz) * lambda + 1.0);
             tv.data[index][1] = 0.0;
         }
     }
@@ -800,7 +764,7 @@ void OpenMPDeconvolutionBackend::computeTV(double lambda, const ComplexData& gx,
 
 
 
-void OpenMPDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, double epsilon) const {
+void OpenMPDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const {
     int nxy = gradX.size.width * gradX.size.height;
 
     #pragma omp parallel for
@@ -808,7 +772,7 @@ void OpenMPDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gr
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
 
-            double norm = std::sqrt(
+            real_t norm = std::sqrt(
                 gradX.data[index][0] * gradX.data[index][0] + gradX.data[index][1] * gradX.data[index][1] +
                 gradY.data[index][0] * gradY.data[index][0] + gradY.data[index][1] * gradY.data[index][1] +
                 gradZ.data[index][0] * gradZ.data[index][0] + gradZ.data[index][1] * gradZ.data[index][1]
@@ -834,11 +798,11 @@ void OpenMPDeconvolutionBackend::complexMultiplicationAVX2(const ComplexData& a,
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "OpenMP", "complexMultiplicationAVX2 - result");
     
     const int volume = a.size.getVolume();
-    const double* __restrict__ a_ptr = reinterpret_cast<const double*>(a.data);
-    const double* __restrict__ b_ptr = reinterpret_cast<const double*>(b.data);
-    double* __restrict__ result_ptr = reinterpret_cast<double*>(result.data);
+    const real_t* __restrict__ a_ptr = reinterpret_cast<const real_t*>(a.data);
+    const real_t* __restrict__ b_ptr = reinterpret_cast<const real_t*>(b.data);
+    real_t* __restrict__ result_ptr = reinterpret_cast<real_t*>(result.data);
     
-    const int simd_end = (volume * 2) & ~7; // Process 4 complex_t numbers (8 doubles) at a time
+    const int simd_end = (volume * 2) & ~7; // Process 4 complex_t numbers (8 real_ts) at a time
     
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < simd_end; i += 8) {
@@ -868,10 +832,10 @@ void OpenMPDeconvolutionBackend::complexMultiplicationAVX2(const ComplexData& a,
     
     // Handle remaining elements
     for (int i = simd_end / 2; i < volume; ++i) {
-        const double real_a = a.data[i][0];
-        const double imag_a = a.data[i][1];
-        const double real_b = b.data[i][0];
-        const double imag_b = b.data[i][1];
+        const real_t real_a = a.data[i][0];
+        const real_t imag_a = a.data[i][1];
+        const real_t real_b = b.data[i][0];
+        const real_t imag_b = b.data[i][1];
 
         result.data[i][0] = real_a * real_b - imag_a * imag_b;
         result.data[i][1] = real_a * imag_b + imag_a * real_b;

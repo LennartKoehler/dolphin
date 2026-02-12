@@ -16,9 +16,10 @@ namespace Logging{
             auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
             bool truncate = true;
             auto debugLogSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("debug.log", truncate);
-            std::vector<spdlog::sink_ptr> sinks {consoleSink, debugLogSink};
-            debugLogSink->set_level(spdlog::level::trace);
+            debugLogSink->set_level(spdlog::level::debug);
             consoleSink->set_level(spdlog::level::warn);
+            std::vector<spdlog::sink_ptr> sinks {consoleSink, debugLogSink};
+
 
             std::unique_ptr<spdlog::pattern_formatter> formatterConsole = std::make_unique<spdlog::pattern_formatter>(
                 "[%^%l%$] [%n] [%d-%m-%Y %H:%M:%S] %v"
@@ -40,6 +41,14 @@ namespace Logging{
             std::shared_ptr<spdlog::async_logger> defaultlogger = std::make_shared<spdlog::async_logger>("default", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block); 
             std::shared_ptr<spdlog::async_logger> readerlogger = std::make_shared<spdlog::async_logger>("reader", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
             std::shared_ptr<spdlog::async_logger> writerlogger = std::make_shared<spdlog::async_logger>("writer", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
+
+            backendlogger->set_level(spdlog::level::debug);
+            configlogger->set_level(spdlog::level::debug);
+            psflogger->set_level(spdlog::level::debug);
+            deconvolutionlogger->set_level(spdlog::level::debug);
+            defaultlogger->set_level(spdlog::level::debug);
+            readerlogger->set_level(spdlog::level::debug);
+            writerlogger->set_level(spdlog::level::debug);
 
 
             backendlogger->flush_on(spdlog::level::trace);

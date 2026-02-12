@@ -1,5 +1,0 @@
-        if (param.type == ParameterType::VectorInt){
-            auto* data = static_cast<int*>(param.value);
-            std::vector<int> vec(data, data + param.size);
-            spdlog::get("config")->info("({}) {}: {}", this->getName(), param.name, fmt::join(vec, " "));
-        }

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(Deconvtool VERSION 1.0.0)
 
 
-set(CMAKE_BUILD_TYPE Debug)
+# set(CMAKE_BUILD_TYPE NoVectorization)
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -21,6 +21,10 @@ add_library(project_options INTERFACE)
 target_compile_options(project_options INTERFACE
   # Debug
   $<$<CONFIG:Debug>:-g;-O0;-fno-omit-frame-pointer>
+  # DebugVectorization
+  $<$<CONFIG:DebugVectorization>:-g;-O0;-fno-omit-frame-pointer>
+  #NoVectorization
+  $<$<CONFIG:NoVectorization>:-O3;-ffast-math;-DNDEBUG;-fno-tree-vectorize;-fno-tree-slp-vectorize>
   # Release
   $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops;-mavx2;-mfma>
   # RelWithDebInfo
