@@ -1,3 +1,5 @@
+make configuration for openmp backend so that the number of threads can be set. The problem is currently cpubackend is just a singleton and doesnt care. Where for cuda i have one backend per stream. But for openmp i need a mix. I want multiple openmp backends each with multiple threads
+
 Danielssondistancemapimagefilter very slow in labeled image deconvolution, takes 50% of the total runtime, apparently even in release mode, check if itk is actually in release mode
 
 include fft plans in the memory calculattion
@@ -8,10 +10,6 @@ getBackendmemory in getMaxMemorypercube bugged for cudabackend, idk why
 
 the memory transfer between host and device can be improved, as all tasks have same memory size
 cna i somehow make the memory used for the workerbackend in a fixed position and pinned, e.g. for cuda i can always reuse the same location to load data into (or 2 locations if 2 iothreads). Is there a speedup of memory reading writing that this would get?
-
-
-
-logging of backend really a good implementation?
 
 
 

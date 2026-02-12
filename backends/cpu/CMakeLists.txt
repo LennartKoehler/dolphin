@@ -7,8 +7,8 @@ project(CPUBackend VERSION 1.0.0)
 
 
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
-find_library(FFTW3_LIB NAMES fftw3f PATHS /usr/local/fftw-release/lib NO_DEFAULT_PATH REQUIRED)
-find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS /usr/local/fftw-release/lib NO_DEFAULT_PATH REQUIRED)
+find_library(FFTW3_LIB NAMES fftw3f PATHS /usr/local/fftw-debug-vectorized/lib NO_DEFAULT_PATH REQUIRED)
+find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS /usr/local/fftw-debug-vectorized/lib NO_DEFAULT_PATH REQUIRED)
 
 
 # add_library(dolphinbackend STATIC IMPORTED)

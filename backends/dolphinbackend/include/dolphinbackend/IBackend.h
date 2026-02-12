@@ -1,9 +1,3 @@
-/*
-Copyright by Lennart Koehler
-*/
-
-
-
 #pragma once
 
 

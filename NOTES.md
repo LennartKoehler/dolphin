@@ -1,3 +1,7 @@
+VECTORIZATION:
+   having built fftw with vectorization (dont know if it always builds with vectorization) it tests in the plan creation with different vectorization levels at runtime and then decides which is fastest for the given input sizes. Apparently atleas avx512 even thought its supported on this machine its not fast enough so during fft execution its actually not used
+
+
 operations between cuda memcopy are cuda and cpu read/write operations
 cube sizes must be power of 2 so that fft is fast. if e.g. size is prime then fft is 10x slower
 CUDA:

@@ -1,10 +1,9 @@
 #pragma once
-#include "backend/IBackend.h"
-#include "backend/IDeconvolutionBackend.h"
-#include "backend/IBackendMemoryManager.h"
+#include "dolphinbackend/IBackend.h"
+#include "dolphinbackend/IDeconvolutionBackend.h"
+#include "dolphinbackend/IBackendMemoryManager.h"
 #include <fftw3.h>
 #include <map>
-#include <omp.h>
 
 
 
@@ -84,7 +83,7 @@ public:
     void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const override;
     void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
-    void scalarMultiplication(const ComplexData& a, double scalar, ComplexData& result) const override;
+    void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const override;
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, double epsilon) const override;
 
@@ -122,7 +121,7 @@ private:
     std::map<CuboidShape, FFTPlanPair> planMap;
     mutable std::mutex backendMutex;
 
-};
+}
 
 
 
@@ -191,6 +190,10 @@ public:
     // Implementation of pure virtual methods
     std::string getDeviceString() const noexcept override {
         return "openmp";
+    }
+
+    int getNumberDevices() const noexcept override {
+        return 1;
     }
 
     // Ownership query methods
@@ -285,5 +288,15 @@ public:
     // Overloaded version for OpenMP: simply return the original since OpenMP doesn't need complex_t thread management
     std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const override {
         return original;
+    }
+
+    std::shared_ptr<IBackend> onNewThreadSharedMemory(std::shared_ptr<IBackend> original) const override {
+        return original;
+    }
+
+    void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) const override {
+        ioThreads = totalThreads;
+        workerThreads = static_cast<size_t>(2*totalThreads/3);
+        workerThreads = workerThreads == 0 ? 1 : workerThreads;
     }
 };

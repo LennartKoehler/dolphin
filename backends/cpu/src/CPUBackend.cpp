@@ -269,6 +269,8 @@ void CPUDeconvolutionBackend::initializePlan(const CuboidShape& shape) {
         planPair.forward = fftwf_plan_dft_3d(shape.depth, shape.height, shape.width,
                                            temp, temp, FFTW_FORWARD, FFTW_MEASURE);
         FFTW_UNIFIED_CHECK(planPair.forward, "initializePlan - forward plan");
+        g_logger(std::string("FFTWF3 forward plan:\n") + fftwf_sprint_plan(planPair.forward), LogLevel::DEBUG);
+
     
         // Create backward FFT plan  
         planPair.backward = fftwf_plan_dft_3d(shape.depth, shape.height, shape.width,
