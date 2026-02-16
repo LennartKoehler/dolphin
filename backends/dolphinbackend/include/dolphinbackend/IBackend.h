@@ -11,9 +11,17 @@
 
 
 
-enum LogLevel { DEBUG = 0, INFO, WARN, ERROR };
 
+enum LogLevel { DEBUG = 0, INFO, WARN, ERROR };
 using LogCallback = std::function<void(const std::string& message, LogLevel level)>;
+struct BackendConfig{
+    std::string backendName = "default";
+    int nThreadsPerBackend;
+    LogCallback loggingFunction;
+};
+
+
+
 
 class Owner{
 public:
@@ -82,6 +90,7 @@ public:
     virtual ~IBackend(){
 
     }
+    virtual void init(const BackendConfig& config) = 0;
     // virtual void set_logger(LogCallback cb) = 0; 
     // Pure virtual methods that must be implemented by concrete backends
     virtual std::string getDeviceString() const noexcept = 0;

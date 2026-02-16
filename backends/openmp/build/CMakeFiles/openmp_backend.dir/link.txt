@@ -1,0 +1,2 @@
+/usr/bin/ar qc libopenmp_backend.a CMakeFiles/openmp_backend.dir/src/OpenMPBackend.cpp.o
+/usr/bin/ranlib libopenmp_backend.a

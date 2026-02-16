@@ -238,7 +238,7 @@ void CPUDeconvolutionBackend::initializeGlobal() {
     }
 }
 
-void CPUDeconvolutionBackend::init() {
+void CPUDeconvolutionBackend::init(const BackendConfig& config) {
     initializeGlobal();
     g_logger(std::format("CPU backend initialized for lazy plan creation"), LogLevel::DEBUG);
 }
@@ -792,3 +792,10 @@ void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY
     }
 }
 
+
+
+void CPUBackend::init(const BackendConfig& config){
+    set_backend_logger(config.loggingFunction);
+    memoryManager.init(config);
+    deconvBackend.init(config);
+}

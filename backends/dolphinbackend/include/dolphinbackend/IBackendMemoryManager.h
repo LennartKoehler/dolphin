@@ -20,7 +20,7 @@ See the LICENSE file provided with the code for the full license.
 #include <condition_variable>
 #include "ComplexData.h"
 
-
+class BackendConfig;
 
 // Helper macro for cleaner not-implemented exceptions
 #define NOT_IMPLEMENTED(func_name) \
@@ -51,6 +51,10 @@ public:
     // Synchronization - default implementation for non-async backends
     virtual void sync() {
         // Default no-op implementation for backends that don't need synchronization
+    }
+
+    virtual void init(const BackendConfig& config){
+
     }
     
     // Memory management initialization

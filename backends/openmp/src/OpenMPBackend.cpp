@@ -229,7 +229,7 @@ void OpenMPDeconvolutionBackend::initializeGlobal() {
     static bool globalInitialized = false;
     if (!globalInitialized){
         fftwf_init_threads();
-        //TODO how does this work which is globale tec. how do i do this with normal cpubackend, they kind of init the same fftw each?
+
         int num_threads = nThreads < omp_get_max_threads() ? nThreads : omp_get_max_threads();
         omp_set_num_threads(num_threads);
         fftwf_plan_with_nthreads(num_threads);
