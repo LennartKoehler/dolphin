@@ -1,3 +1,5 @@
+openmp and cpubackend thread initialization, both init fftw, this is problematic, check how the thread init works et
+
 make configuration for openmp backend so that the number of threads can be set. The problem is currently cpubackend is just a singleton and doesnt care. Where for cuda i have one backend per stream. But for openmp i need a mix. I want multiple openmp backends each with multiple threads
 
 Danielssondistancemapimagefilter very slow in labeled image deconvolution, takes 50% of the total runtime, apparently even in release mode, check if itk is actually in release mode

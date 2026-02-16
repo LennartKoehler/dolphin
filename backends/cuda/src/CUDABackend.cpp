@@ -320,7 +320,7 @@ CUDADeconvolutionBackend::~CUDADeconvolutionBackend() {
 
 }
 
-void CUDADeconvolutionBackend::init(){
+void CUDADeconvolutionBackend::init(const BackendConfig& config){
  }
 
 void CUDADeconvolutionBackend::initializeGlobal(){
@@ -557,4 +557,11 @@ std::shared_ptr<IBackend> CUDABackend::onNewThreadSharedMemory(std::shared_ptr<I
 void CUDABackend::releaseBackend(){
     sync();
     CUDABackendManager::getInstance().releaseBackendForCurrentThread(this);
+}
+
+
+void CUDABackend::init(const BackendConfig& config){
+    set_backend_logger(config.loggingFunction);
+    memoryManager.init(config);
+    deconvBackend.init(config);
 }

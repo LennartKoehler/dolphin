@@ -6,9 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 project(CPUBackend VERSION 1.0.0)
 
 
+if (NOT DEFINED FFTW_PATH)
+    set(FFTW_PATH "/usr/local/fftw-debug/lib" CACHE PATH "Path to FFTW installation")
+endif()
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
-find_library(FFTW3_LIB NAMES fftw3f PATHS /usr/local/fftw-debug-vectorized/lib NO_DEFAULT_PATH REQUIRED)
-find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS /usr/local/fftw-debug-vectorized/lib NO_DEFAULT_PATH REQUIRED)
+find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
+find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
 
 
 # add_library(dolphinbackend STATIC IMPORTED)

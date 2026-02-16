@@ -1,2 +1,0 @@
-/usr/bin/ar qc libcpu_backend.a CMakeFiles/cpu_backend.dir/src/CPUBackend.cpp.o
-/usr/bin/ranlib libcpu_backend.a

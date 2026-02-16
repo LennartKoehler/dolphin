@@ -42,6 +42,9 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
+set(FFTW_PATH "/usr/local/fftw-debug/lib" CACHE PATH "Path to FFTW installation")
+message(STATUS "Using the followinf FFTW lib: ${FFTW_PATH}")
+
 message(STATUS "ITK version: ${ITK_VERSION}")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 message(STATUS "ITK_BUILD_TYPE: ${ITK_BUILD_TYPE}")
@@ -53,6 +56,7 @@ message(STATUS "ITKCommon RELEASE: ${itk_release}")
 message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
 
 add_subdirectory(backends/dolphinbackend)
+add_subdirectory(backends/openmp)
 add_subdirectory(backends/cpu)
 
 
@@ -115,6 +119,7 @@ set(DOLPHIN_SOURCES
 
 # Create shared library for Dolphin API
 add_library(dolphin STATIC ${DOLPHIN_SOURCES})
+
 
 target_link_libraries(dolphin PUBLIC project_options)
 

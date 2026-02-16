@@ -20,6 +20,8 @@ See the LICENSE file provided with the code for the full license.
 #include "ComplexData.h"
 
 
+class BackendConfig;
+
 // currently the backends implement lazy initialization of the fftw plans, the user should be careful of the input shapes
 // as initialization of plans takes very long, so usually its best to stick to 1 shape or as little as possible, to most profit from reusing plans
 // the lazy initialization should however enable one thread to init a new plan for the shape it needs and all other threads to keep using initialized threads
@@ -45,7 +47,7 @@ public:
     }
 
     // Core functions - still pure virtual (must implement)
-    virtual void init() = 0;
+    virtual void init(const BackendConfig& config) = 0;
     virtual void cleanup() = 0;
 
     // Synchronization - default implementation for non-async backends

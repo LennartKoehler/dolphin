@@ -1,19 +1,26 @@
 # backends/openmp/CMakeLists.txt
 cmake_minimum_required(VERSION 3.10)
-cmake_minimum_required(VERSION 3.10)
 
 project(OpenMPBackend VERSION 1.0)
-
-# OpenMP backend is always a shared library (plugin)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-
-
+if (NOT DEFINED FFTW_PATH)
+    set(FFTW_PATH "/usr/local/fftw-debug/lib" CACHE PATH "Path to FFTW installation")
+endif()
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
-find_library(FFTW3_LIB NAMES fftw3f PATHS /usr/local/fftw-debug-vectorized/lib NO_DEFAULT_PATH REQUIRED)
-find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS /usr/local/fftw-debug-vectorized/lib NO_DEFAULT_PATH REQUIRED)
+message(STATUS "FFTW_PATH=${FFTW_PATH}")
+
+find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
+find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
+
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
+
+# find_library(OpenMP REQUIRED)
+
 
 
 # add_library(dolphinbackend STATIC IMPORTED)
@@ -42,7 +49,7 @@ target_include_directories(openmp_backend
 target_link_libraries(openmp_backend PUBLIC
     ${FFTW3_LIB}
     ${FFTW3_THREADS_LIB}
-    OpenMP::OpenMP_CXX
+    # OpenMP::OpenMP_CXX
     )
 
 target_link_libraries(openmp_backend PUBLIC project_options)

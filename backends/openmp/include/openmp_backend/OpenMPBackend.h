@@ -7,25 +7,18 @@
 
 
 
-
-extern void set_backend_logger(LogCallback cb);
-
-
-class CPUBackendMemoryManager : public IBackendMemoryManager{
+class OpenMPBackendMemoryManager : public IBackendMemoryManager{
 public:
-    CPUBackendMemoryManager();
+    OpenMPBackendMemoryManager();
     
-    ~CPUBackendMemoryManager();
+    ~OpenMPBackendMemoryManager();
     
-
-    static size_t staticGetAvailableMemory();
     // Override device type method
     std::string getDeviceString() const noexcept override {
-        return "cpu";
+        return "openmp";
     }
-
     
-    // Synchronization method - CPU implementation (no-op)
+    // Synchronization method - OpenMP implementation (no-op)
     void sync() override {}
     void init(const BackendConfig& config) override {}
     
@@ -38,8 +31,8 @@ public:
     ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const override;
     bool isOnDevice(void* data) const override;
     ComplexData copyData(const ComplexData& srcdata) const override;
-    ComplexData copyDataToDevice(const ComplexData& srcdata) const override; // for cpu these are copy operations
-    ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const override; // for cpu these are copy operations
+    ComplexData copyDataToDevice(const ComplexData& srcdata) const override; // for openmp these are copy operations
+    ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const override; // for openmp these are copy operations
     void freeMemoryOnDevice(ComplexData& data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
@@ -47,28 +40,26 @@ public:
 
 private:
     // Memory management
-    static MemoryTracking memory; // only implemented  cpu for a single cpu device
+    static MemoryTracking memory;
     
     // Helper method to wait for memory availability
-    void* allocateMemoryOnDevice(size_t) const;
     void waitForMemory(size_t requiredSize) const;
           // Static method to get memory tracking instance
     static MemoryTracking& getMemoryTracking() { return memory; }
 
 };
 
-
-class CPUDeconvolutionBackend : public IDeconvolutionBackend{
+class OpenMPDeconvolutionBackend : public IDeconvolutionBackend{
 public:
-    CPUDeconvolutionBackend();
-    ~CPUDeconvolutionBackend() override;
+    OpenMPDeconvolutionBackend();
+    ~OpenMPDeconvolutionBackend() override;
     
     // Override device type method
     std::string getDeviceString() const noexcept override {
-        return "cpu";
+        return "openmp";
     }
 
-    // Synchronization method - CPU implementation (no-op)
+    // Synchronization method - OpenMP implementation (no-op)
     void sync() override {}
 
     // Core processing functions
@@ -97,6 +88,8 @@ public:
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
 
+
+    void complexMultiplicationAVX2(const ComplexData& a, const ComplexData& b, ComplexData& result) const;
     // Specialized functions
     void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const override;
     void normalizeImage(ComplexData& resultImage, real_t epsilon) const override;
@@ -116,6 +109,7 @@ public:
     void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const override;
 
 private:
+    int nThreads;
     struct FFTPlanPair {
         fftwf_plan forward;
         fftwf_plan backward;
@@ -133,75 +127,75 @@ private:
 
 
 
-// Concrete CPU Backend Implementation
-class CPUBackend : public IBackend {
+// Concrete OpenMP Backend Implementation
+class OpenMPBackend : public IBackend {
 private:
-
     // Constructor for external ownership (references to externally-owned components)
-    CPUBackend(CPUDeconvolutionBackend& deconv,
-               CPUBackendMemoryManager& mem)
+    OpenMPBackend(OpenMPDeconvolutionBackend& deconv,
+               OpenMPBackendMemoryManager& mem)
         : deconvBackend(deconv),
           memoryManager(mem),
           owner(deconv, mem) {}
 
     // Constructor for self-ownership (takes ownership of both components)
-    CPUBackend(std::unique_ptr<CPUDeconvolutionBackend> deconv,
-               std::unique_ptr<CPUBackendMemoryManager> mem)
+    OpenMPBackend(std::unique_ptr<OpenMPDeconvolutionBackend> deconv,
+               std::unique_ptr<OpenMPBackendMemoryManager> mem)
         : deconvBackend(*deconv),
           memoryManager(*mem),
           owner(std::move(deconv), std::move(mem)) {}
 
     // Constructor for mixed ownership (takes ownership of deconv, external memory)
-    CPUBackend(std::unique_ptr<CPUDeconvolutionBackend> deconv,
-               CPUBackendMemoryManager& mem)
+    OpenMPBackend(std::unique_ptr<OpenMPDeconvolutionBackend> deconv,
+               OpenMPBackendMemoryManager& mem)
         : deconvBackend(*deconv),
           memoryManager(mem),
           owner(std::move(deconv), mem) {}
 
-    CPUDeconvolutionBackend& deconvBackend;
-    CPUBackendMemoryManager& memoryManager;
+    OpenMPDeconvolutionBackend& deconvBackend;
+    OpenMPBackendMemoryManager& memoryManager;
     Owner owner;  // Always uses unique_ptr, nullptr for non-owned components
 
 
 
     // Type-safe factory methods for different ownership models
     
-    // Create CPUBackend with external ownership (references to externally-owned components)
-    static std::shared_ptr<CPUBackend> createWithExternalOwnership(
-        CPUDeconvolutionBackend& deconv,
-        CPUBackendMemoryManager& mem) {
-        return std::shared_ptr<CPUBackend>(new CPUBackend(deconv, mem));
+    // Create OpenMPBackend with external ownership (references to externally-owned components)
+    static std::shared_ptr<OpenMPBackend> createWithExternalOwnership(
+        OpenMPDeconvolutionBackend& deconv,
+        OpenMPBackendMemoryManager& mem) {
+        return std::shared_ptr<OpenMPBackend>(new OpenMPBackend(deconv, mem));
     }
 
-    // Create CPUBackend with self-ownership (takes ownership of both components)
-    static std::shared_ptr<CPUBackend> createWithSelfOwnership(
-        std::unique_ptr<CPUDeconvolutionBackend> deconv,
-        std::unique_ptr<CPUBackendMemoryManager> mem) {
-        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(deconv), std::move(mem)));
+    // Create OpenMPBackend with self-ownership (takes ownership of both components)
+    static std::shared_ptr<OpenMPBackend> createWithSelfOwnership(
+        std::unique_ptr<OpenMPDeconvolutionBackend> deconv,
+        std::unique_ptr<OpenMPBackendMemoryManager> mem) {
+        return std::shared_ptr<OpenMPBackend>(new OpenMPBackend(std::move(deconv), std::move(mem)));
     }
 
-    // Create CPUBackend with mixed ownership (takes ownership of deconv, external memory)
-    static std::shared_ptr<CPUBackend> createWithMixedOwnership(
-        std::unique_ptr<CPUDeconvolutionBackend> deconv,
-        CPUBackendMemoryManager& mem) {
-        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(deconv), mem));
+    // Create OpenMPBackend with mixed ownership (takes ownership of deconv, external memory)
+    static std::shared_ptr<OpenMPBackend> createWithMixedOwnership(
+        std::unique_ptr<OpenMPDeconvolutionBackend> deconv,
+        OpenMPBackendMemoryManager& mem) {
+        return std::shared_ptr<OpenMPBackend>(new OpenMPBackend(std::move(deconv), mem));
     }
 
 public:
-    // Factory method to create CPUBackend with individual memory manager
-    static CPUBackend* create() {
-        auto deconv = std::make_unique<CPUDeconvolutionBackend>();
-        auto memoryManager = std::make_unique<CPUBackendMemoryManager>();
-        return new CPUBackend(std::move(deconv), std::move(memoryManager));
+    // Factory method to create OpenMPBackend with individual memory manager
+    static OpenMPBackend* create() {
+        auto deconv = std::make_unique<OpenMPDeconvolutionBackend>();
+        auto memoryManager = std::make_unique<OpenMPBackendMemoryManager>();
+        return new OpenMPBackend(std::move(deconv), std::move(memoryManager));
     }
-
-    void init(const BackendConfig& config) override; 
+        
     void sync() override {}
+    void init(const BackendConfig& config) override;
     // Implementation of pure virtual methods
     std::string getDeviceString() const noexcept override {
-        return "cpu";
+        return "openmp";
     }
-    int getNumberDevices() const noexcept override{
+
+    int getNumberDevices() const noexcept override {
         return 1;
     }
 
@@ -226,14 +220,14 @@ public:
     // Ownership transfer methods for both components
     std::unique_ptr<IDeconvolutionBackend> releaseDeconvolutionBackend() override {
         if (!ownsDeconvolutionBackend()) {
-            throw std::runtime_error("Cannot release deconvolution backend: not owned by this CPUBackend");
+            throw std::runtime_error("Cannot release deconvolution backend: not owned by this OpenMPBackend");
         }
         return owner.releaseDeconvBackend();
     }
 
     std::unique_ptr<IBackendMemoryManager> releaseMemoryManager() override {
         if (!ownsMemoryManager()) {
-            throw std::runtime_error("Cannot release memory manager: not owned by this CPUBackend");
+            throw std::runtime_error("Cannot release memory manager: not owned by this OpenMPBackend");
         }
         return owner.releaseMemoryManager();
     }
@@ -244,7 +238,7 @@ public:
             throw std::runtime_error("Cannot take ownership: provided deconv backend is not the one currently referenced");
         }
         if (!owner.ownsDeconvBackend()) {
-            throw std::runtime_error("Cannot take ownership: deconv backend is not owned by this CPUBackend");
+            throw std::runtime_error("Cannot take ownership: deconv backend is not owned by this OpenMPBackend");
         }
         owner.takeOwnership(std::move(deconv));
     }
@@ -254,7 +248,7 @@ public:
             throw std::runtime_error("Cannot take ownership: provided memory manager is not the one currently referenced");
         }
         if (!owner.ownsMemoryManager()) {
-            throw std::runtime_error("Cannot take ownership: memory manager is not owned by this CPUBackend");
+            throw std::runtime_error("Cannot take ownership: memory manager is not owned by this OpenMPBackend");
         }
         owner.takeOwnership(std::move(mem));
     }
@@ -294,7 +288,7 @@ public:
 
 
     
-    // Overloaded version for CPU: simply return the original since CPU doesn't need complex_t thread management
+    // Overloaded version for OpenMP: simply return the original since OpenMP doesn't need complex_t thread management
     std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const override {
         return original;
     }
@@ -303,10 +297,10 @@ public:
         return original;
     }
 
-    void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) const override{
+    void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) const override {
         ioThreads = totalThreads;
         workerThreads = static_cast<size_t>(2*totalThreads/3);
         workerThreads = workerThreads == 0 ? 1 : workerThreads;
     }
-};
 
+};

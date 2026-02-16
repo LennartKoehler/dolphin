@@ -125,11 +125,12 @@ public:
     }
 
     // Core processing functions
-    virtual void init() override;
+    virtual void init(const BackendConfig& config) override;
     virtual void cleanup() override;
 
 
     void sync() override {cudaStreamSynchronize(stream);}
+    void init(const BackendConfig& config) override {}
     void setStream(cudaStream_t stream){ this->stream = stream;}
     void setDevice(CUDADevice device) {this->device = device;}
     // Static initialization method
@@ -288,6 +289,7 @@ public:
     void sync() override{
         memoryBackend.sync();
     }
+    void init(const BackendConfig& config) override; 
 
     void setStream(cudaStream_t stream){
         deconvBackend.setStream(stream);
