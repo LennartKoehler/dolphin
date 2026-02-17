@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include <mutex>
 #include <memory>
 #include <condition_variable>
+#include <vector>
 #include "ComplexData.h"
 
 class BackendConfig;
@@ -74,6 +75,10 @@ public:
         NOT_IMPLEMENTED(copyDataToDevice);
     }
     
+
+    virtual complex_t** createDataArray(std::vector<ComplexData*>& data) const{
+        NOT_IMPLEMENTED(createDataArray);
+    }
     // move data to cpu and then run destBackend.copyDataToDevice
     virtual ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const {
         NOT_IMPLEMENTED(moveDataFromDevice);

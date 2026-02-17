@@ -97,6 +97,8 @@ public:
     ComplexData copyData(const ComplexData& srcdata) const override;
     ComplexData copyDataToDevice(const ComplexData& srcdata) const override; // for gpu these are copy operations
     ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const override; // for gpu these are copy operations
+
+    complex_t** createDataArray(std::vector<ComplexData*>& data) const override ;
     void freeMemoryOnDevice(ComplexData& data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
@@ -148,7 +150,9 @@ public:
     void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
     void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
+    void complexAddition(complex_t** data, ComplexData& sum, int nImages) const override;
     void scalarMultiplication(const ComplexData& a, complex_t  scalar, ComplexData& result) const override;
+    void sumToOneReal(complex_t** data, int nImages, int imageVolume) const override;
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
 

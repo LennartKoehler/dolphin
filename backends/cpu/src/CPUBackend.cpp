@@ -204,6 +204,17 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     data.data = nullptr;
 }
 
+
+complex_t** CPUBackendMemoryManager::createDataArray(std::vector<ComplexData*>& data) const{
+    int N = data.size();
+    //TODO add check etc.
+    size_t size = sizeof(complex_t*) * N;
+    complex_t** dataPointer = (complex_t**) allocateMemoryOnDevice(size);
+    for (int i = 0; i < N; ++i){
+        dataPointer[i] = data[i]->data;
+    }
+    return dataPointer;
+}
 size_t CPUBackendMemoryManager::getAvailableMemory() const {
     try {
         return staticGetAvailableMemory();
@@ -496,6 +507,21 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
     }
 }
 
+
+void CPUDeconvolutionBackend::complexAddition(complex_t** data, ComplexData& sum, int nImages) const {
+    BACKEND_CHECK(sum.data != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
+
+    int imageSize = sum.size.getVolume();
+    for (int imageindex = 0; imageindex < nImages; ++imageindex){
+
+        complex_t* a = data[imageindex];
+        for (int i = 0; i < imageSize; ++i) {
+            sum.data[i][0] += a[i][0];
+            sum.data[i][1] += a[i][1]; 
+        }
+    }
+}
+
 void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexAddition - input a");
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
@@ -507,6 +533,22 @@ void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const Comple
     }
 }
 
+void CPUDeconvolutionBackend::sumToOneReal(complex_t** data, int nImages, int imageVolume) const {
+
+    for (int i = 0; i < imageVolume; ++i) {
+        real_t sum{0};
+
+        for (int imageindex = 0; imageindex < nImages; ++imageindex){
+            sum += data[imageindex][i][0];
+        }
+
+        for (int imageindex = 0; imageindex < nImages; ++imageindex){
+            if (sum == 0.0f) data[imageindex][i][0] = 0.0f;
+            data[imageindex][i][0] /= sum;
+            data[imageindex][i][1] = 0;
+        }
+    }
+}
 void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
     BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");

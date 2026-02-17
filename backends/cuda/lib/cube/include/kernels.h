@@ -9,6 +9,8 @@ __global__ void complexElementwiseMatMulConjugateGlobal(int Nx, int Ny, int Nz, 
 __global__ void complexElementwiseMatDivGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon);
 __global__ void complexElementwiseMatDivStabilizedGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon);
 __global__ void complexAdditionGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C);
+__global__ void complexAdditionGlobal(int Nx, int Ny, int Nz, complex_t** data, complex_t* sums, int N);
+__global__ void sumToOneReal(int Nx, int Ny, int Nz, complex_t** data, int nImages, int imageVolume);
 
 // Regularization
 __global__ void calculateLaplacianGlobal(int Nx, int Ny, int Nz, complex_t* Afft, complex_t* laplacianfft);

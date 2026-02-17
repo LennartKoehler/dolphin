@@ -27,7 +27,7 @@
             "type": "shell",
             "command": "${workspaceFolder}/build/tests/mainTest/main_test",
             "args": [
-                "../configs/default_config.json"
+                "../configs/labeled_image_test.json"
             ],
             "options": {
                 "cwd": "${workspaceFolder}/build"

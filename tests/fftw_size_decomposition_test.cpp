@@ -194,10 +194,10 @@ void calcExtraPaddingWork(const TestConfig& config){
 }
 // Comprehensive comparison test
 void runDecompositionTest(const TestConfig& config) {
-    if (!config.isValid()) {
-        std::cerr << "Invalid test configuration: total sizes don't match!" << std::endl;
-        return;
-    }
+    // if (!config.isValid()) {
+    //     std::cerr << "Invalid test configuration: total sizes don't match!" << std::endl;
+    //     return;
+    // }
     
     std::cout << "\n===========================================" << std::endl;
     std::cout << "FFT Size Decomposition Comparison Test" << std::endl;
@@ -241,10 +241,10 @@ void runDecompositionTest(const TestConfig& config) {
     std::vector<std::vector<std::complex<float>>> small_outputs;
     
     LIKWID_MARKER_START("MultipleSmallFFTs_Async");
-    std::ofstream file;
-    file.open("speed.txt", std::ios_base::app);
-    file << config.large_dim_x << "\t" << large_fft_time << "\n";
-    file.close();
+    // std::ofstream file;
+    // file.open("speed.txt", std::ios_base::app);
+    // file << config.large_dim_x << "\t" << large_fft_time << "\n";
+    // file.close();
     double small_ffts_time = runMultipleSmallFFTs(large_input, large_output,
                                                 config.small_dim_x, config.small_dim_y, config.small_dim_z,
                                                 config.large_dim_x, config.large_dim_y, config.large_dim_z,
@@ -309,27 +309,27 @@ int main() {
     // std::cout << "Hardware concurrency: " << max_threads << " threads" << std::endl;
     
     // Test configurations - same total size, different decompositions
-    int num_iterations = 5;
-    // std::vector<TestConfig> test_configs = {
-    // //     // 128^3 vs 8 x 64^3 (same total size: 2,097,152 elements)
+    int num_iterations = 20;
+    std::vector<TestConfig> test_configs = {
+    //     // 128^3 vs 8 x 64^3 (same total size: 2,097,152 elements)
 
-    // //     // {512, 512, 512, 256, 256, 256, 8, std::min(8, max_threads), 10},
-    //     {256, 256, 256, 128, 128, 128, 8, 8, num_iterations},
-    // //     {128, 128, 128, 64, 64, 64, 8, std::min(8, max_threads), num_iterations},
+    //     // {512, 512, 512, 256, 256, 256, 8, std::min(8, max_threads), 10},
+        {512, 512, 64, 128, 128, 128, 8, 8, num_iterations},
+    //     {128, 128, 128, 64, 64, 64, 8, std::min(8, max_threads), num_iterations},
         
-    // //     // // 256x128x64 vs 4 x 128^3 (same total size: 2,097,152 elements)
-    // //     // {256, 128, 64, 128, 128, 128, 4, std::min(8, max_threads), 10},
+    //     // // 256x128x64 vs 4 x 128^3 (same total size: 2,097,152 elements)
+    //     // {256, 128, 64, 128, 128, 128, 4, std::min(8, max_threads), 10},
         
-    // //     // // 512x64x64 vs 16 x 64^3 (same total size: 2,097,152 elements)
-    // //     // {512, 64, 64, 64, 64, 64, 16, std::min(16, max_threads), 10},
+    //     // // 512x64x64 vs 16 x 64^3 (same total size: 2,097,152 elements)
+    //     // {512, 64, 64, 64, 64, 64, 16, std::min(16, max_threads), 10},
         
-    // //     // 64^3 vs 8 x 32^3 (smaller test case: 262,144 elements)
-    // //     {64, 64, 64, 32, 32, 32, 8, std::min(8, max_threads), num_iterations}
-    // };
-    std::vector<TestConfig> test_configs;
-    for (int i = 260; i < 500; i+=2){
-        test_configs.emplace_back(TestConfig{i,i,i,i,i,i,1,1, num_iterations});
-    }
+    //     // 64^3 vs 8 x 32^3 (smaller test case: 262,144 elements)
+    //     {64, 64, 64, 32, 32, 32, 8, std::min(8, max_threads), num_iterations}
+    };
+    // std::vector<TestConfig> test_configs;
+    // for (int i = 260; i < 500; i+=2){
+    //     test_configs.emplace_back(TestConfig{i,i,i,i,i,i,1,1, num_iterations});
+    // }
     
     // Run all test configurations
     for (const auto& config : test_configs) {

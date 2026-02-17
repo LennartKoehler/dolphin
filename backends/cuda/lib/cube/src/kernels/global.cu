@@ -42,6 +42,29 @@ void complexScalarMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t B, c
 }
 
 
+
+__global__
+void complexAdditionGlobal(int Nx, int Ny, int Nz, complex_t** data, complex_t* sums, int nImages) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    complex_t sum{0,0};
+
+    int position = z * (Nx * Ny) + y * Nx + x;
+    if (x < Nx && y < Ny && z < Nz) {
+
+
+        for (int i = 0; i < nImages, ++i){
+            sum[0] += data[i][position][0];
+            sum[1] += data[i][position][1];
+        }
+
+        sums[position] = sum;
+    }
+    
+}
+
 __global__
 void complexAdditionGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -53,6 +76,30 @@ void complexAdditionGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, c
         C[index][0] = B[index][0] + C[index][0];
         C[index][1] = B[index][1] + C[index][1];
     }
+}
+__global__
+void sumToOneReal(int Nx, int Ny, int Nz, complex_t** data, int nImages, int imageVolume) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    complex_t sum{0,0};
+
+    int position = z * (Nx * Ny) + y * Nx + x;
+    if (x < Nx && y < Ny && z < Nz) {
+
+
+        for (int i = 0; i < nImages, ++i){
+            sum[0] += data[i][position][0];
+            sum[1] += data[i][position][1];
+        }
+
+        for (int i = 0; i < nImages, ++i){
+            data[imageindex][i][0] /= sum[0];
+            data[imageindex][i][1] /= sum[1];
+        }
+    }
+    
 }
 
 __global__

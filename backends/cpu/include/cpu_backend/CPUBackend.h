@@ -11,6 +11,7 @@
 extern void set_backend_logger(LogCallback cb);
 
 
+
 class CPUBackendMemoryManager : public IBackendMemoryManager{
 public:
     CPUBackendMemoryManager();
@@ -43,6 +44,8 @@ public:
     void freeMemoryOnDevice(ComplexData& data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
+
+    complex_t** createDataArray(std::vector<ComplexData*>& data) const override;
 
 
 private:
@@ -93,6 +96,8 @@ public:
     void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
     void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
+    void complexAddition(complex_t** data, ComplexData& sum, int nImages) const override;
+    void sumToOneReal(complex_t** data, int nImages, int imageVolume) const override;
     void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const override;
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
@@ -121,7 +126,7 @@ private:
         fftwf_plan backward;
         FFTPlanPair() : forward(nullptr), backward(nullptr) {}
     };
-    
+   
    void destroyFFTPlans();
 
     FFTPlanPair* getPlanPair(const CuboidShape& shape);
@@ -309,4 +314,3 @@ public:
         workerThreads = workerThreads == 0 ? 1 : workerThreads;
     }
 };
-

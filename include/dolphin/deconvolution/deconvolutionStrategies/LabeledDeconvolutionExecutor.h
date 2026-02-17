@@ -49,6 +49,12 @@ public:
 protected:
     void runTask(const CubeTaskDescriptor& task) override;
 
+    void makeMasksWeighted(
+        std::vector<Label>& labels,
+        const Image3D& labelImage,
+        const ComplexData& frequencyFeatheringKernel,
+        std::shared_ptr<IBackend> backend) const ;
+        
     std::vector<Label> getLabelGroups(
 		const BoxCoord& roi,
 		const std::vector<std::shared_ptr<PSF>>& psfs,

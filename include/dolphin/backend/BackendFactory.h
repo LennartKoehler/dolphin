@@ -61,16 +61,16 @@ struct BackendFactory {
 
     // ---------------- Templated create ----------------
     template <typename T>
-    static std::shared_ptr<T> createShared(const std::string& backendName) {
-        T* raw = loadTypedBackend<T>(backendName);
+    static std::shared_ptr<T> createShared(const BackendConfig& config) {
+        T* raw = loadTypedBackend<T>(config);
         return std::shared_ptr<T>(raw, [](T* ptr){
             if(ptr) delete ptr;  // cleanup
         });
     }
 
     template <typename T>
-    static std::unique_ptr<T> createUnique(const std::string& backendName) {
-        T* raw = loadTypedBackend<T>(backendName);
+    static std::unique_ptr<T> createUnique(const BackendConfig& config) {
+        T* raw = loadTypedBackend<T>(config);
         return std::unique_ptr<T>(raw);  // unique_ptr uses delete by default
     }
 
@@ -123,7 +123,7 @@ private:
     }
 
     template <typename T>
-    static T* loadTypedBackend(const BackendConfig& config) {
+    static T* loadTypedBackend(BackendConfig config) {
         const std::string& backendName = config.backendName;
         T* result = nullptr;
         
@@ -153,7 +153,7 @@ private:
         }
         
         if (result) {            
-            config.loggingFunction = logCallback_fn;
+            config.setLoggingFunction(logCallback_fn);
             result->init(config);
         }
     
