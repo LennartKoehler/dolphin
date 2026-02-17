@@ -58,6 +58,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     TaskContext* context = task.context.get();
     thread_local std::shared_ptr<IBackend> iobackend = context->prototypebackend->onNewThreadSharedMemory(context->prototypebackend);
 
+
     std::shared_ptr<ImageReader> reader = task.reader;
     std::shared_ptr<ImageWriter> writer = task.writer;
     
@@ -67,18 +68,21 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     std::optional<PaddedImage> cubeImage_o = reader->getSubimage(task.paddedBox);
     std::optional<PaddedImage> labelImage_o = labelReader->getSubimage(task.paddedBox); 
     if (!cubeImage_o.has_value()){
+        throw std::runtime_error("LabeledDeconvolutionExecutor: No input image recieved from reader");
     }
     if (!labelImage_o.has_value()){
+        throw std::runtime_error("LabeledDeconvolutionExecutor: No label image recieved from reader");
     }
-    PaddedImage& cubeImage = *cubeImage_o;
+    PaddedImage& inputCube = *cubeImage_o;
     const PaddedImage& labelImage = *labelImage_o;
 
-    ComplexData g_host = Preprocessor::convertImageToComplexData(cubeImage.image);
+
+
+    ComplexData g_host = Preprocessor::convertImageToComplexData(inputCube.image);
 
     ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
 
     BackendFactory::getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
-
 
     std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
@@ -92,12 +96,21 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     std::vector<ImageMaskPair> tempResults;
     tempResults.reserve(tasklabels.size());
-    Image3D result;
+    Image3D result(workShape);
+
+
+    // const ComplexData& frequencyFeatheringKernel = *(task.context->psfpreprocessor->getPreprocessedPSF(workShape, task.psfs[0], iobackend)); //TODO TESTVALUE
+    // makeMasksWeighted(tasklabels, labelImage.image, frequencyFeatheringKernel, iobackend);
+
+
 
     for (const Label& labelgroup : tasklabels){
         std::vector<std::shared_ptr<PSF>> psfs = labelgroup.getPSFs();
         
-        if (psfs.size() != 0){
+        if (psfs.size() == 0){
+            spdlog::get("deconvolution")->warn("No deconvolution of cube {} because no PSFs were found for a specific label of that cube", task.paddedBox.box.print());
+        }
+        else{
             ComplexData local_g_device = iobackend->getMemoryManager().copyData(g_device);
 
             ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
@@ -115,29 +128,15 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
             resultDone.get(); //wait for result
 
+            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
+
+            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/mask.tif", Preprocessor::convertComplexDataToImage(*labelgroup.getMask()));
+            iobackend->getDeconvManager().complexMultiplication(f_device, *labelgroup.getMask(), f_device); // multiply with weighted mask to get weighted values
             ComplexData f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getDefaultBackendMemoryManager());
         
-            PaddedImage resultCube{
-                Preprocessor::convertComplexDataToImage(f_host),
-                task.paddedBox.padding
-            };
-
-            ImageMaskPair pair{std::move(resultCube.image), std::move(labelgroup.getMask(labelImage.image))};
-            tempResults.push_back(std::move(pair));
+            Postprocessor::addCubeToImage(Preprocessor::convertComplexDataToImage(f_host), result);
+            
         }
-        else {
-            spdlog::get("deconvolution")->warn("No deconvolution of cube {} because no PSFs were found for a specific label of that cube", task.paddedBox.box.print());
-        }
-
-
-    }
-    float epsilon = 5;
-    
-    if (tempResults.size() > 1){
-        result = std::move(Postprocessor::addFeathering(tempResults, featheringRadius, epsilon));
-    }
-    else if (tempResults.size() == 1){
-        result = std::move(tempResults[0].image);
     }
 
     writer->setSubimage(result, task.paddedBox);
@@ -146,6 +145,25 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
 
 
+void LabeledDeconvolutionExecutor::makeMasksWeighted(
+    std::vector<Label>& labels,
+    const Image3D& labelImage,
+    const ComplexData& frequencyFeatheringKernel,
+    std::shared_ptr<IBackend> backend
+) const {
+    std::vector<ComplexData*> binaryMasks;
+    for (auto& label : labels){
+        Image3D image = label.getMask(labelImage);
+        ComplexData mask = Preprocessor::convertImageToComplexData(image);
+        label.setMask(std::move(mask));
+        binaryMasks.push_back(label.getMask());
+    }
+
+    Postprocessor::createWeightMasks(
+        binaryMasks,
+        frequencyFeatheringKernel,
+        backend);
+}
 
 
 std::vector<Label> LabeledDeconvolutionExecutor::getLabelGroups(

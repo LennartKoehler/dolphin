@@ -102,6 +102,11 @@ public:
     Label() = default;
 
     void setRange(Range<std::shared_ptr<PSF>> psfs) {this->psfs = psfs;}
+    void setMask(ComplexData&& mask) { this->weightedMask = std::make_unique<ComplexData>(std::move(mask));}
+
+    const ComplexData* getMask() const { return weightedMask.get();}
+
+    ComplexData* getMask() { return weightedMask.get();}
 
 
     Image3D getMask(const Image3D& labelImage) const {
@@ -115,7 +120,7 @@ public:
 private:
     Range<std::shared_ptr<PSF>> psfs; 
     // Image3D* labelImage;
-    Image3D mask;
+    std::unique_ptr<ComplexData> weightedMask;
 
 
 };

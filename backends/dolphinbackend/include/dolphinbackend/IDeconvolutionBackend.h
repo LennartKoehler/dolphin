@@ -94,15 +94,25 @@ public:
     virtual void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
         NOT_IMPLEMENTED(complexMultiplication);
     }
+
+    virtual void sumToOne(std::vector<ComplexData>& data) const {
+        NOT_IMPLEMENTED(sumToOneReal);
+    }
     
     virtual void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
         NOT_IMPLEMENTED(complexDivision);
     }
     
+    virtual void complexAddition(complex_t** data, ComplexData& sum, int nImagse) const {
+        NOT_IMPLEMENTED(complexAddition);
+    }
     virtual void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
         NOT_IMPLEMENTED(complexAddition);
     }
     
+    virtual void sumToOneReal(complex_t** data, int nImages, int imageVolume) const {
+        NOT_IMPLEMENTED(sumToOneReal);
+    }
     virtual void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
         NOT_IMPLEMENTED(scalarMultiplication);
     }

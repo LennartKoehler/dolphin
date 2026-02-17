@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/HelperClasses.h"
 #include <itkImage.h>
 #include <itkDanielssonDistanceMapImageFilter.h>
+// #include <itkSignedMaurerDistanceMapImageFilter.h>
 #include <itkCastImageFilter.h>
 #include <itkImageRegionIterator.h>
 #include <itkImageRegionConstIterator.h>
@@ -25,8 +26,8 @@ See the LICENSE file provided with the code for the full license.
 #include <itkCropImageFilter.h>
 #include <itkConstantPadImageFilter.h>
 #include <itkImageDuplicator.h>
-#include "itkSubtractImageFilter.h"
-
+#include <itkSubtractImageFilter.h>
+#include <itkAddImageFilter.h>
 
 
 void Postprocessor::insertCubeInImage(
@@ -76,9 +77,47 @@ void Postprocessor::insertCubeInImage(
     // Update the image with the result
     image.setItkImage(pasteFilter->GetOutput());
 }
+void Postprocessor::addCubeToImage(
+    const Image3D& cube,
+    Image3D& image
+) {
+
+    // Use PasteImageFilter to paste the extracted region into the target image
+    using AddFilterType = itk::AddImageFilter<ImageType, ImageType, ImageType>;
+
+    auto addFilter = AddFilterType::New();
+    addFilter->SetInput1(cube.getItkImage());
+    addFilter->SetInput2(image.getItkImage());
+    addFilter->Update();
+
+    ImageType::Pointer temp = addFilter->GetOutput();
+    image.setItkImage(temp); 
+}
+
+//binary masks are converted into masks whose weight resembles (1 - distance to label) because label is 1 and backgorund 0
+// the feathering kernel is used for convolution with the binary mask. This creates a blue at the edge
+// then all masks are summed to one so that the total weight is one
+void Postprocessor::createWeightMasks(
+    std::vector<ComplexData*>& masks,
+    const ComplexData& frequencyFeatheringKernel,
+    std::shared_ptr<IBackend> backend
+){
+    for (ComplexData* mask_p : masks){
+        ComplexData& mask = *mask_p;
+        // convolution
+        backend->getDeconvManager().forwardFFT(mask, mask);
+        backend->getDeconvManager().complexMultiplication(mask,  frequencyFeatheringKernel, mask);
+        backend->getDeconvManager().backwardFFT(mask, mask);
+    }
+
+    complex_t** masksarray = backend->getMemoryManager().createDataArray(masks);
+    backend->getDeconvManager().sumToOneReal(masksarray, masks.size(), masks[0]->size.getVolume());
+}
+
 
 
 // this also merges the images
+// this could be implemented as another option for createWeight masks, and not do the merging
 Image3D Postprocessor::addFeathering(
     std::vector<ImageMaskPair>& pairs,
     int radius,
@@ -129,7 +168,7 @@ Image3D Postprocessor::addFeathering(
 
 
     // last mask can be seen as the background and is just 1 - all other masks
-
+    // this is wrong, 
     using SubtractFilterType = itk::SubtractImageFilter<ImageType, ImageType, ImageType>;
 
     ImageHelper& background = itkImageMasks.back();

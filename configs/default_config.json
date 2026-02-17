@@ -1,7 +1,7 @@
 {
   "DeconvolutionConfig": {
-    "algorithmName": "RichardsonLucyTotalVariation",
-    "iterations": 10,
+    "algorithmName": "RichardsonLucy",
+    "iterations": 5,
     "epsilon": 1e-6,
     "lambda": 0.015,
     "borderType": 1
@@ -14,12 +14,12 @@
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   
   "backend": "../backends/cuda/build/libcuda_backend.sotest",
-  "nIOThreads": 4,
-  "nWorkerThreads" : 8,
+  "nIOThreads": 1,
+  "nWorkerThreads" : 1,
   "nDevices" : 1,
   "maxMem_GB": 64,
 
-  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
+  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/cropped.tif",
   "deconvolutionType": "standard"
 
 

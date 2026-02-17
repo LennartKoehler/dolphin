@@ -55,6 +55,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     std::optional<PaddedImage> cubeImage_o = reader->getSubimage(task.paddedBox); 
     if (!cubeImage_o.has_value()){
+        throw std::runtime_error("StandardDeconvolutionExecutor: No input image recieved from reader");
     }
     
     PaddedImage& cubeImage = *cubeImage_o;
@@ -69,6 +70,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
 
     std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
+
 
     std::future<void> resultDone = context->processor.deconvolveSingleCube(
         iobackend,

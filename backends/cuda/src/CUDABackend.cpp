@@ -21,7 +21,6 @@ See the LICENSE file provided with the code for the full license.
 
 
 
-
 LogCallback g_logger;
 
 extern "C" void set_backend_logger(LogCallback cb) {
@@ -203,6 +202,17 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
 
 }
 
+complex_t** CUDABackendMemoryManager::createDataArray(std::vector<ComplexData*>& data) const {
+    int N = data.size();
+    //TODO add check etc.
+    size_t size = sizeof(complex_t*) * N;
+    complex_t** dataPointer = (complex_t**) allocateMemoryOnDevice(size);
+    for (int i = 0; i < N; ++i){
+        dataPointer[i] = data[i]->data;
+    }
+    return dataPointer;
+}
+
 ComplexData CUDABackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
 
     ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
@@ -226,7 +236,7 @@ ComplexData CUDABackendMemoryManager::moveDataFromDevice(const ComplexData& srcd
     if (srcdata.data != nullptr){
         cudaError_t err = CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, destdata.data, srcdata.data, stream);
         CUDA_CHECK(err, "copyDataFromDeviceToHost");
-    
+
     }
     cudaStreamSynchronize(stream);
 
@@ -302,8 +312,6 @@ size_t CUDABackendMemoryManager::getAllocatedMemory() const {
     std::lock_guard<std::mutex> lock(device.memory->memoryMutex);
     return device.memory->totalUsedMemory;
 }
-
-
 
 
 
@@ -418,6 +426,7 @@ void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& o
     
     CUFFT_CHECK(cufftExecC2C(backward, reinterpret_cast<cufftComplex*>(in.data), reinterpret_cast<cufftComplex*>(out.data), CUFFT_INVERSE), "backwardFFT");
 }
+
 // Shift Operations
 void CUDADeconvolutionBackend::octantFourierShift(ComplexData& data) const {
     cudaError_t err = CUBE_FTT::octantFourierShift(data.size.width, data.size.height, data.size.depth, data.data, stream);
@@ -427,6 +436,14 @@ void CUDADeconvolutionBackend::octantFourierShift(ComplexData& data) const {
 
 
 
+void CUDADeconvolutionBackend::complexAddition(complex_t** dataPointer, ComplexData& sums, int N) const {
+
+    cudaError_t err = CUBE_MAT::complexAddition(a.size.width, a.size.height, a.size.depth, dataPointer, sums.data, N, stream);
+}
+
+void CUDADeconvolutionBackend::sumToOne(complex_t** data, int nImages, int imageVolume) const {
+    cudaErrot_t err = CUBE_MAT::sumToOne(data, nImages, imageVolume, stream);
+}
 
 // Complex Arithmetic Operations
 void CUDADeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
@@ -475,7 +492,6 @@ void CUDADeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, c
     cudaError_t err = CUBE_MAT::complexElementwiseMatDivStabilized(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, epsilon, stream);
     CUDA_CHECK(err, "complexDivisionStabilized");
 }
-
 
 
 
@@ -562,6 +578,6 @@ void CUDABackend::releaseBackend(){
 
 void CUDABackend::init(const BackendConfig& config){
     set_backend_logger(config.loggingFunction);
-    memoryManager.init(config);
+    memoryBackend.init(config);
     deconvBackend.init(config);
 }

@@ -183,7 +183,8 @@ std::shared_ptr<DeconvolutionAlgorithm> StandardDeconvolutionStrategy::getAlgori
 
 std::shared_ptr<IBackend> StandardDeconvolutionStrategy::getBackend(const SetupConfig& config){
     BackendFactory& bf = BackendFactory::getInstance();
-    std::shared_ptr<IBackend> backend = bf.createShared<IBackend>(config.backend);
+    BackendConfig bConfig(config.backend, 1);
+    std::shared_ptr<IBackend> backend = bf.createShared<IBackend>(bConfig);
     // backend->mutableMemoryManager().setMemoryLimit(config.maxMem_GB * 1e9); // TESTVALUE
     return backend;
 }

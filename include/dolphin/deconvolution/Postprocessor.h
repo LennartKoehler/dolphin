@@ -23,12 +23,19 @@ class PaddedImage;
 
 
 namespace Postprocessor{
+
+    void addCubeToImage(
+        const Image3D& cube,
+        Image3D& image
+    );
+
     void insertCubeInImage(
         const Image3D& cube,
         const BoxCoord& cubeBox,
         Image3D& image,
         const BoxCoord& srcBox
     );
+
     
     using IteratorType = itk::ImageRegionIterator<ImageType>;
     struct ImageHelper {
@@ -45,6 +52,11 @@ namespace Postprocessor{
                 maskIt(msk, msk->GetLargestPossibleRegion()) {}
     };
 
+
+    void createWeightMasks(
+        std::vector<ComplexData*>& masks,
+        const ComplexData& frequencyFeatheringKernel,
+        std::shared_ptr<IBackend> backend);
 
 
     Image3D addFeathering(

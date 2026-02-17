@@ -1,4 +1,13 @@
+make background mask for the original image, so if there are some regions where no psfs are used the original image is just pasted there
+
 openmp and cpubackend thread initialization, both init fftw, this is problematic, check how the thread init works et
+work on the labeled image mask pipeline of using weighted masks
+
+make some operations doable in the image (convert image to complexdata)transofrmation function which does pixelwise operation anyway. When looping over each pixel, may aswell already do an operation on it, both directions. Perhaps make the conversion part of the Image3D object and then directly access a vector of functions?
+
+feathering: last mask can not be seen as the background, because if there is a section where 3 masks meet, the 2 earlier masks would have weight ~0.5 and therefore the last mask would get 1 - 0.5 - 0.5 = 0. It should however be 1/3 for all. Only if there are only 2 masks can i do this.
+
+distance map can be computed before deconvolution, then i can just copy in the pixel value multiplied by its weight
 
 make configuration for openmp backend so that the number of threads can be set. The problem is currently cpubackend is just a singleton and doesnt care. Where for cuda i have one backend per stream. But for openmp i need a mix. I want multiple openmp backends each with multiple threads
 
@@ -24,10 +33,6 @@ work on labeled deconvolution, make faster
 
 make check that feathering radius is smaller than padding (psf size) so that there are no boundary conditions caused by too much feathering
 
-make backend into ABI? correctly seperate backend from application? If it stays dlopen, then there is no real use inregistering backends, but rather we can just select a backend library through cli. Then there is no need for someone to have backend libraries that he doesnt use, just somehow always include cpubackend, as the default, and as its needed for the deconvolutionexecutor
-    - create an IBackend abi which also declares a complexdata interface
-    - in the implementations (cuda and cpu) the complexdata can have a definition (could be same definition for all)
-
 
 
 Reader/Writer:
@@ -35,7 +40,7 @@ Reader/Writer:
 
 
 some weird padding problems, causing sufficient padding to still produce boundary conditions
-    somehow caused by padding for whatever reason, should have nothing to do with how data is read or written as when i init the result as zero the whole image is filled,
+rdata is read or written as when i init the result as zero the whole image is filled,
     for some reason half of the psf on both sides id not anough although mathematically it should be
     should also have nothing to do with normalization within the cube as i also tested that
 

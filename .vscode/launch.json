@@ -102,12 +102,12 @@
             "name": "Debug dolphin labeled",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/debug_build_vectorized/tests/mainTest/main_test",
+            "program": "${workspaceFolder}/debug_build/tests/mainTest/main_test",
             "args": [
                 "${workspaceFolder}/configs/labeled_image_test.json"
             ],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/debug_build_vectorized",
+            "cwd": "${workspaceFolder}/debug_build",
             "environment": [
             {
                 "name": "LD_LIBRARY_PATH",

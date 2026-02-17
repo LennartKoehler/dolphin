@@ -71,7 +71,7 @@ public:
     
     // Accessor methods
     ImageType::Pointer getItkImage() const { return image; }
-    void setItkImage(ImageType::Pointer&& itkImage) { image = std::move(itkImage); }
+    void setItkImage(ImageType::Pointer itkImage) { image = itkImage; }
     
     CuboidShape getShape() const;
     void flip();

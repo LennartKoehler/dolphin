@@ -1,6 +1,7 @@
 #pragma once
 #include "CUBE.h"
 
+
 namespace CUBE_MAT {
 
     cudaError_t complexMatMul(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream = 0);
@@ -10,6 +11,8 @@ namespace CUBE_MAT {
     cudaError_t complexElementwiseMatDivStabilized(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon, cudaStream_t stream = 0);
     cudaError_t complexScalarMul(int Nx, int Ny, int Nz, complex_t* A, complex_t scalar , complex_t* C, cudaStream_t stream = 0);
     cudaError_t complexAddition(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream = 0);
+    cudaError_t complexAddition(int Nx, int Ny, int Nz, complex_t** data, complex_t* sums, int nImages, cudaStream_t stream = 0);
+    cudaError_t sumToOneReal(int Nx, int Ny, int Nz, complex_t** data, int nImages, int imageVolume, cudaStream_t stream = 0);
 }
 
 namespace CUBE_REG {

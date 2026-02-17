@@ -83,6 +83,68 @@ namespace CUBE_MAT {
         return cudaSuccess;
     }
     
+
+
+    cudaError_t sumToOneReal(int Nx, int Ny, int Nz, complex_t** A, int nImages, int imageVolume, cudaStream_t stream){
+        if (!A ) {
+            return cudaErrorInvalidValue;
+        }
+
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+
+        sumToOneReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, nImages, imageVolume);
+
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
+        
+        cudaEventDestroy(event);
+        return cudaSuccess;
+    }
+
+    cudaError_t complexAddition(int Nx, int Ny, int Nz, complex_t** A, complex_t* sums, int nImages, cudaStream_t stream){
+        if (!A ) {
+            return cudaErrorInvalidValue;
+        }
+
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+
+        // Use global kernel configuration
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+
+        complexAdditionGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, sums, nImages);
+
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
+        
+        cudaEventDestroy(event);
+        return cudaSuccess;
+    }
+
     cudaError_t complexAddition(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream){
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;

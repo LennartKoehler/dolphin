@@ -325,7 +325,7 @@ int main() {
     // populate configs for the sizes we want to test
     {
         FFTWConfig c;
-        c.dim_x = 64; c.dim_y = 64; c.dim_z = 64; c.num_iterations = num_iterations;
+        c.dim_x = 512; c.dim_y = 512; c.dim_z = 64; c.num_iterations = num_iterations;
         configs.push_back(c);
     }
     {

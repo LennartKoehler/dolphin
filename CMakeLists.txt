@@ -56,7 +56,7 @@ message(STATUS "ITKCommon RELEASE: ${itk_release}")
 message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
 
 add_subdirectory(backends/dolphinbackend)
-add_subdirectory(backends/openmp)
+# add_subdirectory(backends/openmp)
 add_subdirectory(backends/cpu)
 
 

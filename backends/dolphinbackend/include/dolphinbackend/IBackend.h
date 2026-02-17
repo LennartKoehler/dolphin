@@ -15,6 +15,11 @@
 enum LogLevel { DEBUG = 0, INFO, WARN, ERROR };
 using LogCallback = std::function<void(const std::string& message, LogLevel level)>;
 struct BackendConfig{
+    BackendConfig(std::string backendName, int nThreads, LogCallback fn) : backendName(backendName), nThreadsPerBackend(nThreads), loggingFunction(fn){}
+    BackendConfig(std::string backendName, int nThreads) : backendName(backendName), nThreadsPerBackend(nThreads){}
+
+    void setLoggingFunction(LogCallback function) { this->loggingFunction = function; }
+    
     std::string backendName = "default";
     int nThreadsPerBackend;
     LogCallback loggingFunction;

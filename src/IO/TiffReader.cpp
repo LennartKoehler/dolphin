@@ -495,7 +495,7 @@ int TiffReader::countTiffDirectories(TIFF* tif) {
 
 
 void TiffReader::customTifWarningHandler(const char* module, const char* fmt, va_list ap) {
-    auto logger = spdlog::get("writer");
+    auto logger = spdlog::get("reader");
     if (!logger) {
         return;
     }
