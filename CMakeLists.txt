@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.10)
 project(Deconvtool VERSION 1.0.0)
 
 
-# set(CMAKE_BUILD_TYPE NoVectorization)
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -41,6 +40,7 @@ set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
+
 
 set(FFTW_PATH "/usr/local/fftw-debug/lib" CACHE PATH "Path to FFTW installation")
 message(STATUS "Using the followinf FFTW lib: ${FFTW_PATH}")

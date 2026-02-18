@@ -56,7 +56,7 @@ TODO still slow
 void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     TaskContext* context = task.context.get();
-    thread_local std::shared_ptr<IBackend> iobackend = context->prototypebackend->onNewThreadSharedMemory(context->prototypebackend);
+    thread_local std::shared_ptr<IBackend> iobackend = context->prototypebackend->cloneSharedMemory(context->prototypebackend);
 
 
     std::shared_ptr<ImageReader> reader = task.reader;
@@ -128,9 +128,9 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
             resultDone.get(); //wait for result
 
-            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
+            TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
 
-            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/mask.tif", Preprocessor::convertComplexDataToImage(*labelgroup.getMask()));
+            TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/mask.tif", Preprocessor::convertComplexDataToImage(*labelgroup.getMask()));
             iobackend->getDeconvManager().complexMultiplication(f_device, *labelgroup.getMask(), f_device); // multiply with weighted mask to get weighted values
             ComplexData f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getDefaultBackendMemoryManager());
         

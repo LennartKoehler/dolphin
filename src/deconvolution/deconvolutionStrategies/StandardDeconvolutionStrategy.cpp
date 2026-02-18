@@ -164,7 +164,7 @@ std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createC
         std::vector<std::shared_ptr<TaskContext>> contexts;
         
         for (int i = 0; i < numberDevices; i++){        
-            std::shared_ptr<IBackend> prototypebackend = backend->onNewThread(backend);
+            std::shared_ptr<IBackend> prototypebackend = backend->clone(backend);
             std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(prototypebackend, nWorkerThreads, nIOThreads);
 
             std::unique_ptr<PSFPreprocessor> preprocessor = createPSFPreprocessor(); // new psfpreprocessor for each context because the psfs live on device

@@ -40,7 +40,7 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         &psfPreprocessor
     ]() mutable {
 
-        thread_local std::shared_ptr<IBackend> threadbackend = prototypebackend->onNewThreadSharedMemory(prototypebackend);
+        thread_local std::shared_ptr<IBackend> threadbackend = prototypebackend->cloneSharedMemory(prototypebackend);
         algorithm->setBackend(threadbackend);
         algorithm->init(workShape);
         std::vector<const ComplexData*> preprocessedPSFs;
@@ -76,7 +76,7 @@ ComplexData DeconvolutionProcessor::staticDeconvolveSingleCube(
 
 
 
-        // std::shared_ptr<IBackend> prototypebackend = prototypebackend->onNewThreadSharedMemory(prototypebackend);
+        // std::shared_ptr<IBackend> prototypebackend = prototypebackend->cloneSharedMemory(prototypebackend);
         
         algorithm->setBackend(prototypebackend);
         algorithm->init(workShape);
@@ -107,7 +107,7 @@ ComplexData DeconvolutionProcessor::staticDeconvolveSingleCubeWithCopying(
     ComplexData& g_host,
     PSFPreprocessor& psfPreprocessor){
 
-        thread_local std::shared_ptr<IBackend> workerbackend = prototypebackend->onNewThread(prototypebackend); //TODO with thread local the task.backend is irrelevant (except the first few)
+        thread_local std::shared_ptr<IBackend> workerbackend = prototypebackend->clone(prototypebackend); //TODO with thread local the task.backend is irrelevant (except the first few)
         ComplexData g_device = workerbackend->getMemoryManager().copyDataToDevice(g_host);
 
         // cpuMemoryManager->freeMemoryOnDevice(g_host);
@@ -116,7 +116,7 @@ ComplexData DeconvolutionProcessor::staticDeconvolveSingleCubeWithCopying(
 
 
 
-        // std::shared_ptr<IBackend> prototypebackend = prototypebackend->onNewThreadSharedMemory(prototypebackend);
+        // std::shared_ptr<IBackend> prototypebackend = prototypebackend->cloneSharedMemory(prototypebackend);
         
         algorithm->setBackend(workerbackend);
         algorithm->init(workShape);

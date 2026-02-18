@@ -47,7 +47,6 @@ static std::function<void(const std::string&, LogLevel)> logCallback_fn = [](con
     } 
 };
 
-// doesnt actually have a state though :)
 struct BackendFactory {
     // ---------------- Singleton ----------------
     static BackendFactory& getInstance() {
@@ -83,41 +82,32 @@ private:
 
     // ---------------- Internal loader ----------------
     template <typename T>
-    static T* loadBackendFromLibrary(const std::string& backendName, const char* symbolName) {
+    static T* loadSymbolFromLibrary(const std::string& backendName, const char* symbolName) {
         void* handle = getHandle(backendName);
         if (!handle) {
             spdlog::warn("Could not load backend library '{}'", backendName);
             return nullptr;
         }
 
-        // using setlogger_fn = void(LogCallback fn);
-        // auto setlogger = reinterpret_cast<setlogger_fn*>(dlsym(handle, "set_backend_logger"));
-        // if (!setlogger) {
-        //     spdlog::warn("Could not find symbol 'set_backend_logger' in backend library '{}'", backendName);
-        //     dlclose(handle);
-        //     return nullptr;
-        // }
-
-        // setlogger(logCallback_fn);
         using create_fn = T*();
-        auto create_backend = reinterpret_cast<create_fn*>(dlsym(handle, symbolName));
-        if (!create_backend) {
+        auto create_symbol = reinterpret_cast<create_fn*>(dlsym(handle, symbolName));
+        if (!create_symbol) {
             spdlog::warn("Could not find symbol '{}' in backend library '{}'", symbolName, backendName);
             dlclose(handle);
             return nullptr;
         }
 
-        return create_backend();
+        return create_symbol();
     }
 
     template <typename T>
-    static T* createDefaultBackend() {
+    static T* getBackend(IBackendManager* manager, BackendConfig config) {
         if constexpr (std::is_same_v<T, IBackend>) {
-            return CPUBackend::create();
+            return manager->getBackend(config)
         } else if constexpr (std::is_same_v<T, IBackendMemoryManager>) {
-            return new CPUBackendMemoryManager();
+            return manager->getBackendMemoryManager(config);
         } else if constexpr (std::is_same_v<T, IDeconvolutionBackend>) {
-            return new CPUDeconvolutionBackend();
+            return manager->getDeconvolutionBackend(config);
         }
         return nullptr;
     }
@@ -125,41 +115,45 @@ private:
     template <typename T>
     static T* loadTypedBackend(BackendConfig config) {
         const std::string& backendName = config.backendName;
-        T* result = nullptr;
         
+        IBackendManager* manager = findBackendManager(config.backendName);
+        if (!manager) addBackendManager(config.backendName);
+        manager = findBackendManager(config.backendName);
+
+        if (!manager) {
+            spdlog::warn("Failed to load backend '{}', using default instead", backendName);
+            manager = findBackendManager("default");
+        }
+
+        return getBackend<T>(manager, config);
+        
+
+    }
+
+    void addBackendManager(const std::string& backendName){
+        IBackendManager* result = nullptr;
         // Check if we should use the default backend
         if (backendName == "default" || backendName.empty()) {
-            result = createDefaultBackend<T>();
+            result = new CPUBackendManager();
         } else {
             // Try to load from library
             const char* symbolName = nullptr;
-            if constexpr (std::is_same_v<T, IBackend>) {
-                symbolName = "createBackend";
-            } else if constexpr (std::is_same_v<T, IBackendMemoryManager>) {
-                symbolName = "createBackendMemoryManager";
-            } else if constexpr (std::is_same_v<T, IDeconvolutionBackend>) {
-                symbolName = "createDeconvolutionBackend";
-            }
-            
-            if (symbolName) {
-                result = loadBackendFromLibrary<T>(backendName, symbolName);
-            }
-            
-            // Fallback to default if loading failed
-            if (result == nullptr) {
-                spdlog::warn("Failed to load backend '{}', using default instead", backendName);
-                result = createDefaultBackend<T>();
-            }
-        }
-        
+            symbolName = "createBackendManager";
+            result = loadSymbolFromLibrary<IBackendManager>(backendName, symbolName);
+        }    
+    
         if (result) {            
-            config.setLoggingFunction(logCallback_fn);
-            result->init(config);
+            loadedManagers[backendName] = std::unique_ptr<IBackendManager>(result);
+            result->setLogger(logCallback_fn);
         }
     
-        return result;
     }
 
+    IBackendManager* findBackendManager(const std::string& name){
+        auto it = loadedManagers.find(name);
+        if (it != loadedManagers.end()) return it->second.get();
+        else return nullptr;
+    }
 
     // ---------------- Shared library handle loader ----------------
     static void* getHandle(const std::string& backendName) {
@@ -169,4 +163,6 @@ private:
         }
         return handle;
     }
+
+    std::unordered_map<std::string, std::unique_ptr<IBackendManager>> loadedManagers;
 };

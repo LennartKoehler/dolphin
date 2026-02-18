@@ -13,9 +13,9 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
 find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
 
+find_package(OpenMP REQUIRED) # TODO make optional
 
 # add_library(dolphinbackend STATIC IMPORTED)
-
 # set_target_properties(dolphinbackend PROPERTIES
 #     IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/lib/libdolphinbackend.a"
 #     INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/include"
@@ -40,6 +40,7 @@ target_include_directories(cpu_backend
 target_link_libraries(cpu_backend PUBLIC
     ${FFTW3_LIB}
     ${FFTW3_THREADS_LIB}
+    OpenMP::OpenMP_CXX
     )
 
 target_link_libraries(cpu_backend PUBLIC project_options)

@@ -289,11 +289,11 @@ public:
 
     
     // Overloaded version for OpenMP: simply return the original since OpenMP doesn't need complex_t thread management
-    std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const override {
+    std::shared_ptr<IBackend> clone(std::shared_ptr<IBackend> original) const override {
         return original;
     }
 
-    std::shared_ptr<IBackend> onNewThreadSharedMemory(std::shared_ptr<IBackend> original) const override {
+    std::shared_ptr<IBackend> cloneSharedMemory(std::shared_ptr<IBackend> original) const override {
         return original;
     }
 
