@@ -1,20 +1,17 @@
 #pragma once
 #include "dolphinbackend/IBackend.h"
-#include "dolphinbackend/IDeconvolutionBackend.h"
-#include "dolphinbackend/IBackendMemoryManager.h"
+#include "CPUBackendManager.h"
 #include <fftw3.h>
 #include <map>
 
 
-
-
-extern void set_backend_logger(LogCallback cb);
+// extern void set_backend_logger(LogCallback cb);
 
 
 
 class CPUBackendMemoryManager : public IBackendMemoryManager{
 public:
-    CPUBackendMemoryManager();
+    CPUBackendMemoryManager(CPUBackendManager& manager);
     
     ~CPUBackendMemoryManager();
     
@@ -49,6 +46,7 @@ public:
 
 
 private:
+    CPUBackendManager& backendManager;
     // Memory management
     static MemoryTracking memory; // only implemented  cpu for a single cpu device
     
@@ -63,7 +61,7 @@ private:
 
 class CPUDeconvolutionBackend : public IDeconvolutionBackend{
 public:
-    CPUDeconvolutionBackend();
+    CPUDeconvolutionBackend(CPUBackendManager& manager);
     ~CPUDeconvolutionBackend() override;
     
     // Override device type method
@@ -121,14 +119,16 @@ public:
     void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const override;
 
 private:
+    CPUBackendManager& backendManager;
     struct FFTPlanPair {
         fftwf_plan forward;
         fftwf_plan backward;
         FFTPlanPair() : forward(nullptr), backward(nullptr) {}
     };
+    bool useOMP = true;
+    int nThreads = 2;
    
-   void destroyFFTPlans();
-
+    void destroyFFTPlans();
     FFTPlanPair* getPlanPair(const CuboidShape& shape);
     
     std::map<CuboidShape, FFTPlanPair> planMap;
@@ -142,31 +142,44 @@ private:
 class CPUBackend : public IBackend {
 private:
 
+    static CPUBackend* create(CPUBackendManager& manager) {
+        auto deconv = std::make_unique<CPUDeconvolutionBackend>(manager);
+        auto memoryManager = std::make_unique<CPUBackendMemoryManager>(manager);
+        return new CPUBackend(std::move(deconv), std::move(memoryManager), manager);
+    }
+
+
     // Constructor for external ownership (references to externally-owned components)
     CPUBackend(CPUDeconvolutionBackend& deconv,
-               CPUBackendMemoryManager& mem)
-        : deconvBackend(deconv),
-          memoryManager(mem),
-          owner(deconv, mem) {}
+                            CPUBackendMemoryManager& mem,
+                            CPUBackendManager& manager)
+            : deconvBackend(deconv),
+                memoryManager(mem),
+                owner(deconv, mem),
+                backendManager(manager) {}
 
     // Constructor for self-ownership (takes ownership of both components)
     CPUBackend(std::unique_ptr<CPUDeconvolutionBackend> deconv,
-               std::unique_ptr<CPUBackendMemoryManager> mem)
-        : deconvBackend(*deconv),
-          memoryManager(*mem),
-          owner(std::move(deconv), std::move(mem)) {}
+                            std::unique_ptr<CPUBackendMemoryManager> mem,
+                            CPUBackendManager& manager)
+            : deconvBackend(*deconv),
+                memoryManager(*mem),
+                owner(std::move(deconv), std::move(mem)),
+                backendManager(manager) {}
 
     // Constructor for mixed ownership (takes ownership of deconv, external memory)
     CPUBackend(std::unique_ptr<CPUDeconvolutionBackend> deconv,
-               CPUBackendMemoryManager& mem)
-        : deconvBackend(*deconv),
-          memoryManager(mem),
-          owner(std::move(deconv), mem) {}
+                            CPUBackendMemoryManager& mem,
+                            CPUBackendManager& manager)
+            : deconvBackend(*deconv),
+                memoryManager(mem),
+                owner(std::move(deconv), mem),
+                backendManager(manager) {}
 
     CPUDeconvolutionBackend& deconvBackend;
     CPUBackendMemoryManager& memoryManager;
     Owner owner;  // Always uses unique_ptr, nullptr for non-owned components
-
+    CPUBackendManager& backendManager;
 
 
     // Type-safe factory methods for different ownership models
@@ -174,32 +187,29 @@ private:
     // Create CPUBackend with external ownership (references to externally-owned components)
     static std::shared_ptr<CPUBackend> createWithExternalOwnership(
         CPUDeconvolutionBackend& deconv,
-        CPUBackendMemoryManager& mem) {
-        return std::shared_ptr<CPUBackend>(new CPUBackend(deconv, mem));
+        CPUBackendMemoryManager& mem,
+        CPUBackendManager& manager) {
+        return std::shared_ptr<CPUBackend>(new CPUBackend(deconv, mem, manager));
     }
 
     // Create CPUBackend with self-ownership (takes ownership of both components)
     static std::shared_ptr<CPUBackend> createWithSelfOwnership(
         std::unique_ptr<CPUDeconvolutionBackend> deconv,
-        std::unique_ptr<CPUBackendMemoryManager> mem) {
-        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(deconv), std::move(mem)));
+        std::unique_ptr<CPUBackendMemoryManager> mem,
+        CPUBackendManager& manager) {
+        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(deconv), std::move(mem), manager));
     }
 
     // Create CPUBackend with mixed ownership (takes ownership of deconv, external memory)
     static std::shared_ptr<CPUBackend> createWithMixedOwnership(
         std::unique_ptr<CPUDeconvolutionBackend> deconv,
-        CPUBackendMemoryManager& mem) {
-        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(deconv), mem));
+        CPUBackendMemoryManager& mem,
+        CPUBackendManager& manager) {
+        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(deconv), mem, manager));
     }
 
 public:
     // Factory method to create CPUBackend with individual memory manager
-    static CPUBackend* create() {
-        auto deconv = std::make_unique<CPUDeconvolutionBackend>();
-        auto memoryManager = std::make_unique<CPUBackendMemoryManager>();
-        return new CPUBackend(std::move(deconv), std::move(memoryManager));
-    }
-
     void init(const BackendConfig& config) override; 
     void sync() override {}
     // Implementation of pure virtual methods
@@ -300,11 +310,11 @@ public:
 
     
     // Overloaded version for CPU: simply return the original since CPU doesn't need complex_t thread management
-    std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const override {
+    std::shared_ptr<IBackend> clone(std::shared_ptr<IBackend> original) const override {
         return original;
     }
 
-    std::shared_ptr<IBackend> onNewThreadSharedMemory(std::shared_ptr<IBackend> original) const override {
+    std::shared_ptr<IBackend> cloneSharedMemory(std::shared_ptr<IBackend> original) const override {
         return original;
     }
 

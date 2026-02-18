@@ -45,7 +45,7 @@ void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig) {
 void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     TaskContext* context = task.context.get();
-    thread_local std::shared_ptr<IBackend> iobackend = context->prototypebackend->onNewThreadSharedMemory(context->prototypebackend);
+    thread_local std::shared_ptr<IBackend> iobackend = context->prototypebackend->cloneSharedMemory(context->prototypebackend);
 
     std::shared_ptr<ImageReader> reader = task.reader;
     std::shared_ptr<ImageWriter> writer = task.writer;

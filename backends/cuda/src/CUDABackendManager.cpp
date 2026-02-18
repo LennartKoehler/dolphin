@@ -17,11 +17,52 @@ See the LICENSE file provided with the code for the full license.
 #include "CUDABackend.h"
 #include "dolphinbackend/Exceptions.h"
 
-CUDABackendManager& CUDABackendManager::getInstance() {
-    static CUDABackendManager instance;
-    return instance;
-}
 
+
+
+CUDABackendManager::CUDABackendManager(){
+    cudaError_t err = cudaGetDeviceCount(&nDevices);
+    CUDA_CHECK(err, "cudaGetDeviceCount");
+    
+    if (nDevices <= 0) {
+        throw dolphin::backend::BackendException(
+            "No CUDA devices found", "CUDA", "CUDABackendManager constructor");
+    }
+    
+    int device;
+    // int nDevices = 1;
+    for (device = 0; device < nDevices; ++device) {
+        cudaDeviceProp deviceProp;
+        err = cudaGetDeviceProperties(&deviceProp, device);
+        CUDA_CHECK(err, "cudaGetDeviceProperties");
+        
+
+        
+        err = cudaSetDevice(device);
+        CUDA_CHECK(err, "cudaSetDevice");
+
+        size_t freeMem, totalMem;
+        err = cudaMemGetInfo(&freeMem, &totalMem);
+        CUDA_CHECK(err, "cudaMemGetInfo");
+        
+        if (totalMem == 0) {
+            throw dolphin::backend::BackendException(
+                "Device " + std::to_string(device) + " reports zero memory",
+                "CUDA", "CUDABackendManager constructor");
+        }
+        
+        devices.push_back(CUDADevice{device, new MemoryTracking(totalMem)});
+
+        g_logger(std::format("Device {} has compute capability {}.{} and {:.2f} GB memory", device, deviceProp.major, deviceProp.minor, (totalMem/1e9)), LogLevel::INFO);
+        // printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
+        // device, deviceProp.major, deviceProp.minor, (totalMem/1e9));
+        
+    }
+    
+    // Reset to device 0 for default operations
+    err = cudaSetDevice(0);
+    CUDA_CHECK(err, "cudaSetDevice");
+};
 
 
 void CUDABackendManager::initializeGlobalCUDA() {
@@ -137,91 +178,6 @@ cudaStream_t CUDABackendManager::createStream() {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-// unused
-std::shared_ptr<CUDABackend> CUDABackendManager::getBackendForCurrentThread() {
-    std::unique_lock<std::mutex> lock(managerMutex_);
-    
-    std::thread::id currentThreadId = std::this_thread::get_id();
-
-    // Check if we already have a backend for this thread
-    auto it = threadBackends_.find(currentThreadId);
-    if (it != threadBackends_.end() && !it->second.inUse) {
-        it->second.inUse = true;
-        return it->second.backend;
-    }
-    
-    // Check if we can create a new backend
-    if (threadBackends_.size() < maxThreads_) {
-        CUDADevice device = devices[usedDeviceCounter];
-        usedDeviceCounter = ++usedDeviceCounter % nDevices; // keep looping
-
-        auto backend = createNewBackend(device);
-        threadBackends_[currentThreadId].backend = std::move(backend);
-        totalCreated_++;
-
-        threadBackends_[currentThreadId].inUse = true;
-        return threadBackends_[currentThreadId].backend;
-    }
-
-    
-    // Try again after waiting
-    return getBackendForCurrentThread();
-}
-std::shared_ptr<CUDABackend> CUDABackendManager::getBackendForCurrentThreadSameDevice(CUDADevice device) {
-    std::unique_lock<std::mutex> lock(managerMutex_);
-    
-    std::thread::id currentThreadId = std::this_thread::get_id();
-
-    // Check if we already have a backend for this thread
-    auto it = threadBackends_.find(currentThreadId);
-    if (it != threadBackends_.end() && !it->second.inUse) {
-        it->second.inUse = true;
-        return it->second.backend;
-    }
-    
-    // Check if we can create a new backend
-    if (threadBackends_.size() < maxThreads_) {
-
-        auto backend = createNewBackend(device);
-        threadBackends_[currentThreadId].backend = std::move(backend);
-        totalCreated_++;
-
-        threadBackends_[currentThreadId].inUse = true;
-        return threadBackends_[currentThreadId].backend;
-    }
-
-    
-    // Try again after waiting
-    return getBackendForCurrentThread();
-}
-
-
-void CUDABackendManager::releaseBackendForCurrentThread(CUDABackend* backend) {
-    std::unique_lock<std::mutex> lock(managerMutex_);
-    
-    std::thread::id currentThreadId = std::this_thread::get_id();
-    
-    // Check if this thread has an active backend
-    auto it = threadBackends_.find(currentThreadId);
-    if (it != threadBackends_.end() && it->second.inUse) {
-        // Move the backend to the available pool
-        it->second.inUse = false;
-        
-    } else {
-        // g_logger(std::format("Attempted to release backend for thread {} that doesn't have an active backend", std::string(currentThreadId)), LogLevel::WARN);
-    }
-}
 
 void CUDABackendManager::setMaxThreads(size_t maxThreads) {
     std::unique_lock<std::mutex> lock(managerMutex_);

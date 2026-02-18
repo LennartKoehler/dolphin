@@ -22,13 +22,13 @@ void testCPUBackendInitialization() {
             return;
         }
         
-        backend->onNewThread(backend);
+        backend->clone(backend);
 
         std::thread testThread = std::thread([backend](){
-            backend->onNewThread(backend);
+            backend->clone(backend);
         });
         std::thread testThread2([backend](){
-            backend->onNewThread(backend);
+            backend->clone(backend);
         });
 
 

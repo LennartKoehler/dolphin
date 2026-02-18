@@ -119,8 +119,8 @@ public:
     virtual IBackendMemoryManager& mutableMemoryManager() noexcept = 0;
 
     // Clone method - creates a new thread-specific backend
-    virtual std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const = 0;
-    virtual std::shared_ptr<IBackend> onNewThreadSharedMemory(std::shared_ptr<IBackend> original) const = 0;
+    virtual std::shared_ptr<IBackend> clone(std::shared_ptr<IBackend> original) const = 0;
+    virtual std::shared_ptr<IBackend> cloneSharedMemory(std::shared_ptr<IBackend> original) const = 0;
     virtual void releaseBackend() = 0;
     virtual void sync() = 0;
     virtual void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) const = 0;

@@ -549,7 +549,7 @@ void CUDADeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& grad
 }
 
 // this should be run on the host thread that will use this backend
-std::shared_ptr<IBackend> CUDABackend::onNewThread(std::shared_ptr<IBackend> original) const {
+std::shared_ptr<IBackend> CUDABackend::clone(std::shared_ptr<IBackend> original) const {
     // For CUDA, use the backend manager to get the appropriate backend for this thread
     // This might return the original or a different backend depending on the manager's logic
     std::shared_ptr<CUDABackend> threadBackend = CUDABackendManager::getInstance().getNewBackendDifferentDevice(this->getDevice());
@@ -564,7 +564,7 @@ int CUDABackend::getNumberDevices() const {
     return nDevices; 
 }
 
-std::shared_ptr<IBackend> CUDABackend::onNewThreadSharedMemory(std::shared_ptr<IBackend> original) const {
+std::shared_ptr<IBackend> CUDABackend::cloneSharedMemory(std::shared_ptr<IBackend> original) const {
     std::shared_ptr<CUDABackend> threadBackend = CUDABackendManager::getInstance().getNewBackendSameDevice(this->getDevice());
     threadBackend->configureThreadLocalDevice();
     return threadBackend;

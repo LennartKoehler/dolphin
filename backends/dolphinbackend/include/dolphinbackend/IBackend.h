@@ -10,22 +10,7 @@
 #include "IBackendMemoryManager.h"
 
 
-
-
-enum LogLevel { DEBUG = 0, INFO, WARN, ERROR };
-using LogCallback = std::function<void(const std::string& message, LogLevel level)>;
-struct BackendConfig{
-    BackendConfig(std::string backendName, int nThreads, LogCallback fn) : backendName(backendName), nThreadsPerBackend(nThreads), loggingFunction(fn){}
-    BackendConfig(std::string backendName, int nThreads) : backendName(backendName), nThreadsPerBackend(nThreads){}
-
-    void setLoggingFunction(LogCallback function) { this->loggingFunction = function; }
-    
-    std::string backendName = "default";
-    int nThreadsPerBackend;
-    LogCallback loggingFunction;
-};
-
-
+class IBackendManager;
 
 
 class Owner{
@@ -81,20 +66,14 @@ private:
 // to prevent mismatches between different backends the constructor is private
 class IBackend {
 
-    friend class BackendFactory;
-    friend class IDeconvolutionBackend;
-    friend class IBackendMemoryManager;
-
-public:
-    // Abstract Owner class manages the actual lifetime of both deconvolution backend and memory manager
-
-
+    friend class IBackendManager;
+    // friend class BackendFactory;
+    // friend class IDeconvolutionBackend;
+    // friend class IBackendMemoryManager;
 
 
 public:
-    virtual ~IBackend(){
-
-    }
+    virtual ~IBackend() = default;
     virtual void init(const BackendConfig& config) = 0;
     // virtual void set_logger(LogCallback cb) = 0; 
     // Pure virtual methods that must be implemented by concrete backends
@@ -127,10 +106,11 @@ public:
     virtual IBackendMemoryManager& mutableMemoryManager() noexcept = 0;
 
     // Clone method - creates a new thread-specific backend
-    virtual std::shared_ptr<IBackend> onNewThread(std::shared_ptr<IBackend> original) const = 0;
-    virtual std::shared_ptr<IBackend> onNewThreadSharedMemory(std::shared_ptr<IBackend> original) const = 0;
+    virtual std::shared_ptr<IBackend> clone(std::shared_ptr<IBackend> original) const = 0;
+    virtual std::shared_ptr<IBackend> cloneSharedMemory(std::shared_ptr<IBackend> original) const = 0;
     virtual void releaseBackend() = 0;
     virtual void sync() = 0;
     virtual void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) const = 0;
+
     
 };

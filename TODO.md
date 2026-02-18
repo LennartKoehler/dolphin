@@ -1,3 +1,7 @@
+make a backendmanager interface, which will create a backend, manage multiple devices and threads/streams
+
+cpu backend, to use openmp the backends need to be indivudual objects, they cant all use the same cpubackend. Perhaps have a cpubackendmanager, which does the fftw configuration, because plan creation (and deletion?) is not thread safe. So then each cpubackend object is actually an object with member variables like nThread for openmp threads. perhaps i can also make openmp a simple wrapper to cpubackend instead of using these flags. Just use the flags and then run the function
+
 make background mask for the original image, so if there are some regions where no psfs are used the original image is just pasted there
 
 openmp and cpubackend thread initialization, both init fftw, this is problematic, check how the thread init works et
