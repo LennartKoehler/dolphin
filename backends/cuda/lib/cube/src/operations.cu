@@ -7,19 +7,20 @@
 
 
 // Global CUDA kernel configuration
-namespace {
-    // Global thread block configuration
-    const dim3 GLOBAL_THREADS_PER_BLOCK(4, 8, 8);
-    
-    // Helper function to compute blocks per grid
-    inline dim3 computeBlocksPerGrid(int Nx, int Ny, int Nz) {
-        return dim3(
-            (Nx + GLOBAL_THREADS_PER_BLOCK.x - 1) / GLOBAL_THREADS_PER_BLOCK.x,
-            (Ny + GLOBAL_THREADS_PER_BLOCK.y - 1) / GLOBAL_THREADS_PER_BLOCK.y,
-            (Nz + GLOBAL_THREADS_PER_BLOCK.z - 1) / GLOBAL_THREADS_PER_BLOCK.z
-        );
-    }
+// Global thread block configuration
+const dim3 GLOBAL_THREADS_PER_BLOCK(4, 8, 8);
+const int GLOBAL_THREADS_PER_BLOCK_1D = 256;
+
+// Helper function to compute blocks per grid
+inline dim3 computeBlocksPerGrid(int Nx, int Ny, int Nz) {
+    return dim3(
+        (Nx + GLOBAL_THREADS_PER_BLOCK.x - 1) / GLOBAL_THREADS_PER_BLOCK.x,
+        (Ny + GLOBAL_THREADS_PER_BLOCK.y - 1) / GLOBAL_THREADS_PER_BLOCK.y,
+        (Nz + GLOBAL_THREADS_PER_BLOCK.z - 1) / GLOBAL_THREADS_PER_BLOCK.z
+    );
 }
+
+
 
 namespace CUBE_MAT {
 
@@ -85,7 +86,7 @@ namespace CUBE_MAT {
     
 
 
-    cudaError_t sumToOneReal(int Nx, int Ny, int Nz, complex_t** A, int nImages, int imageVolume, cudaStream_t stream){
+    cudaError_t sumToOneReal(complex_t** A, int nImages, int imageVolume, cudaStream_t stream){
         if (!A ) {
             return cudaErrorInvalidValue;
         }
@@ -94,9 +95,9 @@ namespace CUBE_MAT {
         cudaEventCreate(&event);
 
         // Use global kernel configuration
-        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
-
-        sumToOneReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, nImages, imageVolume);
+        
+        int blocksPerGrid = GLOBAL_THREADS_PER_BLOCK_1D + GLOBAL_THREADS_PER_BLOCK_1D - 1 / (imageVolume * nImages);
+        sumToOneRealGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK_1D, 0, stream>>>(A, nImages, imageVolume);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -115,7 +116,7 @@ namespace CUBE_MAT {
         return cudaSuccess;
     }
 
-    cudaError_t complexAddition(int Nx, int Ny, int Nz, complex_t** A, complex_t* sums, int nImages, cudaStream_t stream){
+    cudaError_t complexAddition(complex_t** A, complex_t* sums, int nImages, int imageVolume, cudaStream_t stream){
         if (!A ) {
             return cudaErrorInvalidValue;
         }
@@ -124,9 +125,9 @@ namespace CUBE_MAT {
         cudaEventCreate(&event);
 
         // Use global kernel configuration
-        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+        int blocksPerGrid = GLOBAL_THREADS_PER_BLOCK_1D + GLOBAL_THREADS_PER_BLOCK_1D - 1 / (imageVolume * nImages);
 
-        complexAdditionGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, sums, nImages);
+        complexAdditionGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK_1D, 0, stream>>>(A, sums, nImages, imageVolume);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {

@@ -14,7 +14,7 @@ public:
     virtual ~IBackendManager() = default;
 
 
-    virtual void setLogger(LogCallback fn) = 0;
+    virtual void init(LogCallback fn) = 0;
 
     virtual IDeconvolutionBackend& getDeconvolutionBackend(const BackendConfig& config) = 0;
     virtual IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) = 0;

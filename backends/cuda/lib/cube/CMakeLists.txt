@@ -35,8 +35,10 @@ endif()
 #add_definitions(-DENABLE_CUBEUTL_DEBUG)
 
 target_include_directories(CUBE
-   PUBLIC
-        include)
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+)
 
 # Link your executable with the required libraries
 target_link_libraries(CUBE

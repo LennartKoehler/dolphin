@@ -44,23 +44,21 @@ void complexScalarMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t B, c
 
 
 __global__
-void complexAdditionGlobal(int Nx, int Ny, int Nz, complex_t** data, complex_t* sums, int nImages) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void complexAdditionGlobal(complex_t** data, complex_t* sums, int nImages, int imageVolume) {
+    int position = blockIdx.x * blockDim.x + threadIdx.x;
 
     complex_t sum{0,0};
 
-    int position = z * (Nx * Ny) + y * Nx + x;
-    if (x < Nx && y < Ny && z < Nz) {
+    if (position < imageVolume) {
 
 
-        for (int i = 0; i < nImages, ++i){
+        for (int i = 0; i < nImages; ++i){
             sum[0] += data[i][position][0];
             sum[1] += data[i][position][1];
         }
 
-        sums[position] = sum;
+        sums[position][0] = sum[0];
+        sums[position][1] = sum[1];
     }
     
 }
@@ -78,25 +76,22 @@ void complexAdditionGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, c
     }
 }
 __global__
-void sumToOneReal(int Nx, int Ny, int Nz, complex_t** data, int nImages, int imageVolume) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void sumToOneRealGlobal(complex_t** data, int nImages, int imageVolume) {
+    int position = blockIdx.x * blockDim.x + threadIdx.x;
 
     complex_t sum{0,0};
 
-    int position = z * (Nx * Ny) + y * Nx + x;
-    if (x < Nx && y < Ny && z < Nz) {
+    if (position < imageVolume) {
 
 
-        for (int i = 0; i < nImages, ++i){
+        for (int i = 0; i < nImages; ++i){
             sum[0] += data[i][position][0];
             sum[1] += data[i][position][1];
         }
 
-        for (int i = 0; i < nImages, ++i){
-            data[imageindex][i][0] /= sum[0];
-            data[imageindex][i][1] /= sum[1];
+        for (int i = 0; i < nImages; ++i){
+            data[i][position][0] /= sum[0];
+            data[i][position][1] /= sum[1];
         }
     }
     

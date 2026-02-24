@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
+#include <vector>
 #include <string>
 #include <stdexcept>
 #include <mutex>
@@ -46,8 +47,6 @@ public:
         return "unknown";
     }
 
-    // Core functions - still pure virtual (must implement)
-    virtual void cleanup() = 0;
 
     // Synchronization - default implementation for non-async backends
     virtual void sync() {
@@ -102,7 +101,7 @@ public:
         NOT_IMPLEMENTED(complexDivision);
     }
     
-    virtual void complexAddition(complex_t** data, ComplexData& sum, int nImagse) const {
+    virtual void complexAddition(complex_t** data, ComplexData& sum, int nImagse, int imageVolume) const {
         NOT_IMPLEMENTED(complexAddition);
     }
     virtual void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {

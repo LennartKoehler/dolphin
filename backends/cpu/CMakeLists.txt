@@ -48,7 +48,8 @@ if(OpenMP)
     OpenMP::OpenMP_CXX)
 endif()
 
-target_link_libraries(cpu_backend PUBLIC project_options)
+target_link_libraries(cpu_backend PUBLIC
+    project_options)
 
 target_link_libraries(cpu_backend PUBLIC
     dolphinbackend)

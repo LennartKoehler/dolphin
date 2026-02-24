@@ -98,9 +98,6 @@ public:
     // Synchronization method - CPU implementation (no-op)
     void sync() override {}
 
-    // Core processing functions
-    void cleanup() override;
-
 
     void initializePlan(const CuboidShape& cube) override;
      // FFT functions
@@ -115,7 +112,7 @@ public:
     void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
     void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
-    void complexAddition(complex_t** data, ComplexData& sum, int nImages) const override;
+    void complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const override;
     void sumToOneReal(complex_t** data, int nImages, int imageVolume) const override;
     void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const override;
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;

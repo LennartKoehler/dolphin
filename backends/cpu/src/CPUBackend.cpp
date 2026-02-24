@@ -225,12 +225,6 @@ CPUDeconvolutionBackend::~CPUDeconvolutionBackend() {
 }
 
 
-
-
-void CPUDeconvolutionBackend::cleanup() {
-    // fftwf_cleanup_threads();
-}
-
 void CPUDeconvolutionBackend::initializePlan(const CuboidShape& shape) {
 }
 
@@ -387,7 +381,7 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
 }
 
 
-void CPUDeconvolutionBackend::complexAddition(complex_t** data, ComplexData& sum, int nImages) const {
+void CPUDeconvolutionBackend::complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const {
     BACKEND_CHECK(sum.data != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
 
     int imageSize = sum.size.getVolume();

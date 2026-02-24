@@ -19,8 +19,14 @@ See the LICENSE file provided with the code for the full license.
 
 
 
+extern LogCallback g_logger_cuda;
 
-CUDABackendManager::CUDABackendManager(){
+void CUDABackendManager::init(LogCallback fn) {
+    
+    std::lock_guard<std::mutex> lock(mutex_);
+    g_logger_cuda = std::move(fn);
+
+
     cudaError_t err = cudaGetDeviceCount(&nDevices);
     CUDA_CHECK(err, "cudaGetDeviceCount");
     
@@ -53,7 +59,7 @@ CUDABackendManager::CUDABackendManager(){
         
         devices.push_back(CUDADevice{device, new MemoryTracking(totalMem)});
 
-        g_logger(std::format("Device {} has compute capability {}.{} and {:.2f} GB memory", device, deviceProp.major, deviceProp.minor, (totalMem/1e9)), LogLevel::INFO);
+        g_logger_cuda(std::format("Device {} has compute capability {}.{} and {:.2f} GB memory", device, deviceProp.major, deviceProp.minor, (totalMem/1e9)), LogLevel::INFO);
         // printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
         // device, deviceProp.major, deviceProp.minor, (totalMem/1e9));
         
@@ -62,13 +68,27 @@ CUDABackendManager::CUDABackendManager(){
     // Reset to device 0 for default operations
     err = cudaSetDevice(0);
     CUDA_CHECK(err, "cudaSetDevice");
+
+
+}
+
+extern "C" IBackendManager* createBackendManager() {
+    return new CUDABackendManager();
+}
+
+
+
+
+CUDABackendManager::CUDABackendManager(){
+
 };
 
+int CUDABackendManager::getNumberDevices() const {
+    return nDevices;
+}
 
-extern LogCallback g_logger;
-void CUDABackendManager::setLogger(LogCallback fn) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    g_logger = std::move(fn);
+void CUDABackendManager::setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads, BackendConfig& ioconfig, BackendConfig& workerConfig){
+
 }
 
 IDeconvolutionBackend& CUDABackendManager::getDeconvolutionBackend(const BackendConfig& config) {
@@ -97,7 +117,8 @@ IBackend& CUDABackendManager::getBackend(const BackendConfig& config) {
 }
 
 CUDABackendConfig CUDABackendManager::configToConfig(const BackendConfig& config) const {
-    CUDABackendConfig cudaconfig{true, config.nThreads};
+    CUDADevice device = devices[0];
+    CUDABackendConfig cudaconfig{device, createStream()};
     return cudaconfig;
 }
 
@@ -107,18 +128,18 @@ IBackend& CUDABackendManager::clone(IBackend& backend, const BackendConfig& conf
     CUDADevice newdevice = devices[usedDeviceCounter];
     usedDeviceCounter = ++usedDeviceCounter % nDevices; // keep looping
 
-    return createNewBackend(newdevice);    
+    CUDABackendConfig cudaconfig{newdevice, 0};
+    return createNewBackend(cudaconfig);    
 }
 
 
-std::shared_ptr<CUDABackend> CUDABackendManager::cloneSharedMemory(IBackend& backend, const BackendConfig& config){
+IBackend& CUDABackendManager::cloneSharedMemory(IBackend& backend, const BackendConfig& config){
     CUDABackend& backend_ = dynamic_cast<CUDABackend&>(backend);
-    CUDADevice device = backend_.getConfig().device;
-    return createNewBackend(device);
+    return createNewBackend(backend_.config);
 }
 
 // TODO make stream management more native, different streams in one cuda backend should not be permitted, one origin of truth
-CUDABackend& CUDABackendManager::createNewBackend(CUDADevice device) {
+CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
     // initializeGlobalCUDA();
     
     if (nDevices == 0) {
@@ -131,34 +152,29 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDADevice device) {
             "No CUDA devices configured", "CUDA", "createNewBackend");
     }
     
-    cudaError_t err = cudaSetDevice(device.id);
+    cudaError_t err = cudaSetDevice(config.device.id);
     CUDA_CHECK(err, "createNewBackend - cudaSetDevice");
     
-    cudaStream_t stream;
-    err = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+    err = cudaStreamCreateWithFlags(&config.stream, cudaStreamNonBlocking);
     CUDA_CHECK(err, "createNewBackend - cudaStreamCreateWithFlags");
     
     try {
-        CUDABackend* backend = CUDABackend::create();
+        std::unique_ptr<CUDABackend> backend = std::unique_ptr<CUDABackend>(CUDABackend::create(config));
         if (!backend) {
             throw dolphin::backend::BackendException(
                 "Failed to create CUDABackend", "CUDA", "createNewBackend");
         }
-        
-        backend->setStream(stream);
-        backend->setDevice(device);
         
 
 
         // cudaDeviceSynchronize();
         CUDA_CHECK(err, "createNewBackend - cudaSetDevice reset");
 
-        std::shared_ptr<CUDABackend> cudabackend = std::shared_ptr<CUDABackend>(backend);
-        backends.push_back(cudabackend);
-        return cudabackend;
+        backends.push_back(std::move(backend));
+        return *backends.back();
     } catch (...) {
         // Clean up stream if backend creation fails
-        cudaStreamDestroy(stream);
+        cudaStreamDestroy(config.stream);
         throw;
     }
 }
@@ -166,23 +182,23 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDADevice device) {
 
 
 
-void CUDABackendManager::cleanup() {
-    std::unique_lock<std::mutex> lock(mutex_);
+// void CUDABackendManager::cleanup() {
+//     std::unique_lock<std::mutex> lock(mutex_);
     
-    // Clean up all active thread backends
-    for (auto& pair : threadBackends_) {
-        if (pair.second.backend) {
-            pair.second.backend->mutableDeconvManager().cleanup();
-        }
-    }
-    threadBackends_.clear();
+//     // Clean up all active thread backends
+//     for (auto& pair : threadBackends_) {
+//         if (pair.second.backend) {
+//             pair.second.backend->mutableDeconvManager().cleanup();
+//         }
+//     }
+//     threadBackends_.clear();
     
 
     
-    g_logger(std::format("Cleaned up CUDA backend manager"), LogLevel::INFO);
-}
+//     g_logger_cuda(std::format("Cleaned up CUDA backend manager"), LogLevel::INFO);
+// }
 
-cudaStream_t CUDABackendManager::createStream() {
+cudaStream_t CUDABackendManager::createStream() const {
     cudaStream_t stream;
     cudaError_t err = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
     CUDA_CHECK(err, "createStream - cudaStreamCreateWithFlags");
@@ -192,7 +208,3 @@ cudaStream_t CUDABackendManager::createStream() {
 
 
 
-void CUDABackendManager::setMaxThreads(size_t maxThreads) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    maxThreads_ = maxThreads;
-}
