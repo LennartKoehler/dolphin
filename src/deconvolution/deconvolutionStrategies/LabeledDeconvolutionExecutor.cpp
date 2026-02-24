@@ -56,7 +56,9 @@ TODO still slow
 void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     TaskContext* context = task.context.get();
-    thread_local std::shared_ptr<IBackend> iobackend = context->prototypebackend->cloneSharedMemory(context->prototypebackend);
+    thread_local IBackend& iobackend = context->manager.getBackend(context->ioconfig); 
+    thread_local IBackend& workerbackend = context->manager.cloneSharedMemory(iobackend, context->workerconfig); // copied in deconvolutionprocessor
+
 
 
     std::shared_ptr<ImageReader> reader = task.reader;
@@ -80,9 +82,9 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     ComplexData g_host = Preprocessor::convertImageToComplexData(inputCube.image);
 
-    ComplexData g_device = iobackend->getMemoryManager().copyDataToDevice(g_host);
+    ComplexData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
 
-    BackendFactory::getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
+    BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
 
     std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
@@ -111,14 +113,14 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
             spdlog::get("deconvolution")->warn("No deconvolution of cube {} because no PSFs were found for a specific label of that cube", task.paddedBox.box.print());
         }
         else{
-            ComplexData local_g_device = iobackend->getMemoryManager().copyData(g_device);
+            ComplexData local_g_device = iobackend.getMemoryManager().copyData(g_device);
 
-            ComplexData f_device = iobackend->getMemoryManager().allocateMemoryOnDevice(workShape);
+            ComplexData f_device = iobackend.getMemoryManager().allocateMemoryOnDevice(workShape);
 
             std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
             std::future<void> resultDone = context->processor.deconvolveSingleCube(
-                iobackend,
+                workerbackend,
                 std::move(algorithm),
                 workShape,
                 psfs,
@@ -131,8 +133,8 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
             TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
 
             TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/mask.tif", Preprocessor::convertComplexDataToImage(*labelgroup.getMask()));
-            iobackend->getDeconvManager().complexMultiplication(f_device, *labelgroup.getMask(), f_device); // multiply with weighted mask to get weighted values
-            ComplexData f_host = iobackend->getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getDefaultBackendMemoryManager());
+            iobackend.getDeconvManager().complexMultiplication(f_device, *labelgroup.getMask(), f_device); // multiply with weighted mask to get weighted values
+            ComplexData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
         
             Postprocessor::addCubeToImage(Preprocessor::convertComplexDataToImage(f_host), result);
             
@@ -149,7 +151,7 @@ void LabeledDeconvolutionExecutor::makeMasksWeighted(
     std::vector<Label>& labels,
     const Image3D& labelImage,
     const ComplexData& frequencyFeatheringKernel,
-    std::shared_ptr<IBackend> backend
+    IBackend& backend
 ) const {
     std::vector<ComplexData*> binaryMasks;
     for (auto& label : labels){

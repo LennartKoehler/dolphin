@@ -289,17 +289,18 @@ public:
 
     
     // Overloaded version for OpenMP: simply return the original since OpenMP doesn't need complex_t thread management
-    std::shared_ptr<IBackend> clone(std::shared_ptr<IBackend> original) const override {
+    IBackend& clone(IBackend& original) const override {
         return original;
     }
 
-    std::shared_ptr<IBackend> cloneSharedMemory(std::shared_ptr<IBackend> original) const override {
+    IBackend& cloneSharedMemory(IBackend& original) const override {
         return original;
     }
 
     void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) const override {
-        ioThreads = totalThreads;
-        workerThreads = static_cast<size_t>(2*totalThreads/3);
+
+        ioThreads = ioThreads == 0 ? totalThreads : ioThreads;
+        workerThreads = workerThreads == 0 ? static_cast<size_t>(2*totalThreads/3) : workerThreads;
         workerThreads = workerThreads == 0 ? 1 : workerThreads;
     }
 

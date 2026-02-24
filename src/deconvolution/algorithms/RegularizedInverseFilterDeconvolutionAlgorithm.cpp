@@ -13,7 +13,6 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
 #include <iostream>
-
 #include <cassert>
 #include <spdlog/spdlog.h>
 
@@ -23,10 +22,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const Deconvoluti
 }
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
-    if (!backend) {
-        spdlog::error("No backend available for Regularized Inverse Filter algorithm initialization");
-        return;
-    }
+    assert(backend && "No backend available for Regularized Inverse Filter algorithm initialization");\
     
     // Allocate memory for intermediate arrays
     H2 = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
@@ -43,26 +39,19 @@ bool RegularizedInverseFilterDeconvolutionAlgorithm::isInitialized() const {
 }
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
-    if (!backend) {
-        spdlog::error("No backend available for Regularized Inverse Filter algorithm");
-        return;
-    }
+    assert(backend && "No backend available for Regularized Inverse Filter algorithm");\
     
-    if (!initialized) {
-        spdlog::error("Regularized Inverse Filter algorithm not initialized. Call init() first.");
-        return;
-    }
+    assert(initialized && "Regularized Inverse Filter algorithm not initialized. Call init() first.");\
     complex_t lambdacomplex = {static_cast<real_t>(lambda), 0};
     // Use pre-allocated memory for intermediate arrays
     assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
-
     backend->getMemoryManager().memCopy(g, f);
     // Forward FFT on image
     backend->getDeconvManager().forwardFFT(f, f);
 
     // H*H
     backend->getDeconvManager().complexMultiplication(H, H, H2);
-    
+
     // Laplacian L
     backend->getDeconvManager().calculateLaplacianOfPSF(H, L);
     backend->getDeconvManager().complexMultiplication(L, L, L2);
@@ -74,8 +63,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
 
     // Inverse FFT
     backend->getDeconvManager().backwardFFT(f, f);
-    backend->getDeconvManager().octantFourierShift(f);   
-
+    backend->getDeconvManager().octantFourierShift(f);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlgorithm::cloneSpecific() const {
@@ -88,5 +76,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlg
 }
 
 size_t RegularizedInverseFilterDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 5; // Allocates 5 additional arrays of input size (H2, L, L2, FA, FP)
+    return 4; // Allocates 4 additional arrays of input size
 }

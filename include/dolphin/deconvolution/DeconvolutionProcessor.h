@@ -35,7 +35,7 @@ public:
     }
 
     std::future<void> deconvolveSingleCube(
-        std::shared_ptr<IBackend> backend,
+        IBackend& backend,
         std::unique_ptr<DeconvolutionAlgorithm> algorithm,
         const CuboidShape& workShape,
         const std::vector<std::shared_ptr<PSF>>& psfs_host,
@@ -44,7 +44,7 @@ public:
         PSFPreprocessor& psfpreprocessor);
     
     static ComplexData staticDeconvolveSingleCube(
-        std::shared_ptr<IBackend> backend,
+        IBackend& backend,
         std::unique_ptr<DeconvolutionAlgorithm> algorithm,
         const CuboidShape& workShape,
         const std::vector<std::shared_ptr<PSF>>& psfs_host,
@@ -53,7 +53,7 @@ public:
         PSFPreprocessor& psfpreprocessor);
  
     static ComplexData staticDeconvolveSingleCubeWithCopying(
-        std::shared_ptr<IBackend> backend,
+        IBackend& backend,
         std::shared_ptr<IBackendMemoryManager> hostbackend,
         std::unique_ptr<DeconvolutionAlgorithm> algorithm,
         const CuboidShape& workShape,
@@ -64,6 +64,7 @@ public:
 
 
 private:
+
     std::unique_ptr<ThreadPool> workerPool;
     
 };

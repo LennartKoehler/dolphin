@@ -100,18 +100,18 @@ void Postprocessor::addCubeToImage(
 void Postprocessor::createWeightMasks(
     std::vector<ComplexData*>& masks,
     const ComplexData& frequencyFeatheringKernel,
-    std::shared_ptr<IBackend> backend
+    IBackend& backend
 ){
     for (ComplexData* mask_p : masks){
         ComplexData& mask = *mask_p;
         // convolution
-        backend->getDeconvManager().forwardFFT(mask, mask);
-        backend->getDeconvManager().complexMultiplication(mask,  frequencyFeatheringKernel, mask);
-        backend->getDeconvManager().backwardFFT(mask, mask);
+        backend.getDeconvManager().forwardFFT(mask, mask);
+        backend.getDeconvManager().complexMultiplication(mask,  frequencyFeatheringKernel, mask);
+        backend.getDeconvManager().backwardFFT(mask, mask);
     }
 
-    complex_t** masksarray = backend->getMemoryManager().createDataArray(masks);
-    backend->getDeconvManager().sumToOneReal(masksarray, masks.size(), masks[0]->size.getVolume());
+    complex_t** masksarray = backend.getMemoryManager().createDataArray(masks);
+    backend.getDeconvManager().sumToOneReal(masksarray, masks.size(), masks[0]->size.getVolume());
 }
 
 

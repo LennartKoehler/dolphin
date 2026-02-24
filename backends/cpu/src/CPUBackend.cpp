@@ -5,19 +5,21 @@
 #include <cmath>
 #include <cstring>
 #include <cassert>
-#include "dolphinbackend/Exceptions.h"
+
 #ifdef __linux__
 #include <unistd.h>
 #endif
 
+#include "CPUBackendManager.h"
 
 #ifdef _OPENMP
 
+#include <omp.h>
 #define OMP_STRINGIFY(x) #x
 #define OMP_PRAGMA(x) _Pragma(OMP_STRINGIFY(x))
 
 #define OMP(openmp_directive, useOMP, threads) \
-    OMP_PRAGMA(openmp_directive if(useOMP) num_threads(threads))
+    if(false && threads>1) OMP_PRAGMA(openmp_directive num_threads(threads))
 
 #else
 
@@ -26,57 +28,21 @@
 #endif
 
 
-// Unified FFTW error check macro
-#define FFTW_UNIFIED_CHECK(fftw_result, operation) { \
-    if ((fftw_result) == nullptr) { \
-        throw dolphin::backend::BackendException( \
-            "FFTW operation failed", \
-            "CPU", \
-            operation \
-        ); \
-    } \
-}
-// Unified FFTW malloc error check macro
-#define FFTW_MALLOC_UNIFIED_CHECK(ptr, size, operation) { \
-    if ((ptr) == nullptr) { \
-        throw dolphin::backend::MemoryException( \
-            "FFTW memory allocation failed", \
-            "CPU", \
-            size, \
-            operation \
-        ); \
-    } \
-}
 
 
+// if more than one device then these shouldnt be static
+FFTWManager CPUDeconvolutionBackend::fftwManager;
+MemoryTracking CPUBackendMemoryManager::cpuMemory;
 
-// Static member definition
-MemoryTracking CPUBackendMemoryManager::memory;
-
-static LogCallback g_logger;
-
-void set_backend_logger(LogCallback cb) {
-    g_logger = cb;
-}
-extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
-    return new CPUDeconvolutionBackend();
-}
-
-extern "C" IBackendMemoryManager* createBackendMemoryManager() {
-    return new CPUBackendMemoryManager();
-}
-
-extern "C" IBackend* createBackend() {
-    return CPUBackend::create();
-}
+LogCallback g_logger;
 
 // CPUBackendMemoryManager implementation
-CPUBackendMemoryManager::CPUBackendMemoryManager(CPUBackendManager& manager)
-    : backendManager(manager) {
-    // Initialize memory tracking if not already done
-    std::unique_lock<std::mutex> lock(memory.memoryMutex);
-    if (memory.maxMemorySize == 0) {
-        memory.maxMemorySize = getAvailableMemory();
+CPUBackendMemoryManager::CPUBackendMemoryManager(CPUBackendConfig config){
+
+    // Initialize memory tracking using getAccess()
+    auto access = cpuMemory.getAccess();
+    if (access.data.maxMemorySize == 0) {
+        access.data.maxMemorySize = getAvailableMemory();
     }
 }
 
@@ -108,19 +74,19 @@ size_t CPUBackendMemoryManager::staticGetAvailableMemory() {
     return memory;
 }
 void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
-    std::unique_lock<std::mutex> lock(memory.memoryMutex);
-    memory.maxMemorySize = maxMemorySize;
+    auto access = cpuMemory.getAccess();
+    access.data.maxMemorySize = maxMemorySize;
 }
 
 void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
-    std::unique_lock<std::mutex> lock(memory.memoryMutex);
-    if ((memory.totalUsedMemory + requiredSize) > memory.maxMemorySize) {
+    auto access = cpuMemory.getAccess();
+    if ((access.data.totalUsedMemory + requiredSize) > access.data.maxMemorySize) {
 
         throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CPU", requiredSize, "Memory Allocation");
         // g_logger(std::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::ERROR);
     }
-    // memory.memoryCondition.wait(lock, [this, requiredSize]() {
-    //     return memory.maxMemorySize == 0 || (memory.totalUsedMemory + requiredSize) <= memory.maxMemorySize;
+    // device.memory.memoryCondition.wait(lock, [this, requiredSize]() {
+    //     return device.memory.maxMemorySize == 0 || (device.memory.totalUsedMemory + requiredSize) <= device.memory.maxMemorySize;
     // });
 }
 
@@ -147,11 +113,9 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
     void* data = fftwf_malloc(requested_size);
     MEMORY_ALLOC_CHECK(data, requested_size, "CPU", "allocateMemoryOnDevice");
 
-    // Update memory tracking
-    {
-        std::unique_lock<std::mutex> lock(memory.memoryMutex);
-        memory.totalUsedMemory += requested_size;
-    }
+    // Update memory tracking using getAccess()
+    auto access = cpuMemory.getAccess();
+    access.data.totalUsedMemory += requested_size;
     return data;
 
 }
@@ -203,18 +167,16 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
     size_t requested_size = sizeof(complex_t) * data.size.getVolume();
     fftwf_free(data.data);
 
-    // Update memory tracking
-    {
-        std::unique_lock<std::mutex> lock(memory.memoryMutex);
-        if (memory.totalUsedMemory < requested_size) {
-            memory.totalUsedMemory = static_cast<size_t>(0); // this should never happen
-        }
-        else {
-            memory.totalUsedMemory -= requested_size;
-        }
-        // Notify waiting threads that memory is now available
-        memory.memoryCondition.notify_all();
+    // Update memory tracking using getAccess()
+    auto access = cpuMemory.getAccess();
+    if (access.data.totalUsedMemory < requested_size) {
+        access.data.totalUsedMemory = static_cast<size_t>(0); // this should never happen
     }
+    else {
+        access.data.totalUsedMemory -= requested_size;
+    }
+    // Notify waiting threads that memory is now available
+    // device.memory.memoryCondition.notify_all(); // This would need to be handled differently with the new system
 
     data.data = nullptr;
 }
@@ -241,158 +203,52 @@ size_t CPUBackendMemoryManager::getAvailableMemory() const {
 }
 
 size_t CPUBackendMemoryManager::getAllocatedMemory() const {
-    std::lock_guard<std::mutex> lock(memory.memoryMutex);
-    return memory.totalUsedMemory;
+    auto access = cpuMemory.getAccess();
+    return access.data.totalUsedMemory;
 }
 
 
 // #####################################################################################################
 // CPUDeconvolutionBackend implementation
-CPUDeconvolutionBackend::CPUDeconvolutionBackend(CPUBackendManager& manager)
-    : backendManager(manager) {
+CPUDeconvolutionBackend::CPUDeconvolutionBackend(CPUBackendConfig config)
+    : config(config) {
+
+    
+    #ifdef  _OPENMP
+        omp_set_num_threads(1);
+        omp_set_nested(0);
+    #endif
 }
 
 CPUDeconvolutionBackend::~CPUDeconvolutionBackend() {
-    destroyFFTPlans();
+
 }
 
-void CPUDeconvolutionBackend::initializeGlobal() {
-    static bool globalInitialized = false;
-    if (!globalInitialized) {
-        fftwf_init_threads();
-        fftwf_plan_with_nthreads(1); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
-        g_logger(std::format("CPU global initialization done"), LogLevel::DEBUG);
-        globalInitialized = true;
-    }
-}
 
-void CPUDeconvolutionBackend::init(const BackendConfig& config) {
-    initializeGlobal();
-    g_logger(std::format("CPU backend initialized for lazy plan creation"), LogLevel::DEBUG);
-}
+
 
 void CPUDeconvolutionBackend::cleanup() {
-    fftwf_cleanup_threads();
-    destroyFFTPlans();
-    g_logger(std::format("CPU backend postprocessing completed"), LogLevel::DEBUG);
+    // fftwf_cleanup_threads();
 }
 
 void CPUDeconvolutionBackend::initializePlan(const CuboidShape& shape) {
-    // This method assumes the mutex is already locked by the caller
-
-    // Check if plan already exists for this shape (double-check pattern)
-    if (planMap.find(shape) != planMap.end()) {
-        return; // Plan already exists
-    }
-
-    // Allocate temporary memory for plan creation
-    complex_t* temp = nullptr;
-    try {
-        temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * shape.getVolume()); // TODO doenst have access to backendmemorymanager, bt this should be allocated there
-        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * shape.getVolume(), "initializePlan");
-
-        FFTPlanPair& planPair = planMap[shape];
-
-        // Create forward FFT plan
-        planPair.forward = fftwf_plan_dft_3d(shape.depth, shape.height, shape.width,
-            temp, temp, FFTW_FORWARD, FFTW_MEASURE);
-        FFTW_UNIFIED_CHECK(planPair.forward, "initializePlan - forward plan");
-        g_logger(std::string("FFTWF3 forward plan:\n") + fftwf_sprint_plan(planPair.forward), LogLevel::DEBUG);
-
-
-        // Create backward FFT plan  
-        planPair.backward = fftwf_plan_dft_3d(shape.depth, shape.height, shape.width,
-            temp, temp, FFTW_BACKWARD, FFTW_MEASURE);
-        FFTW_UNIFIED_CHECK(planPair.backward, "initializePlan - backward plan");
-
-        fftwf_free(temp);
-
-
-        std::string msg = std::format(
-            "Successfully created FFTW plan for shape: {}x{}x{}",
-            shape.width, shape.height, shape.depth
-        );
-
-        g_logger(msg, LogLevel::INFO);
-    }
-    catch (...) {
-        if (temp != nullptr) {
-            fftwf_free(temp);
-        }
-        throw;
-    }
 }
 
-void CPUDeconvolutionBackend::destroyFFTPlans() {
-    std::unique_lock<std::mutex> lock(backendMutex);
-    for (auto& pair : planMap) {
-        if (pair.second.forward) {
-            fftwf_destroy_plan(pair.second.forward);
-            pair.second.forward = nullptr;
-        }
-        if (pair.second.backward) {
-            fftwf_destroy_plan(pair.second.backward);
-            pair.second.backward = nullptr;
-        }
-    }
-    planMap.clear();
-}
 
-CPUDeconvolutionBackend::FFTPlanPair* CPUDeconvolutionBackend::getPlanPair(const CuboidShape& shape) {
-    auto it = planMap.find(shape);
-    if (it != planMap.end()) {
-        return &it->second;
-    }
-    return nullptr;
-}
 
 // FFT Operations
 void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
 
-    // First, try to get existing plan (fast path, no lock)
-    auto* planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
-
-    // If plan doesn't exist, create it (slow path, with lock)
-    if (planPair == nullptr) {
-        std::unique_lock<std::mutex> lock(const_cast<CPUDeconvolutionBackend*>(this)->backendMutex);
-        // Double-check pattern: another thread might have created it while we waited for the lock
-        planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
-        if (planPair == nullptr) {
-            const_cast<CPUDeconvolutionBackend*>(this)->initializePlan(in.size);
-            planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
-        }
-    }
-
-    BACKEND_CHECK(planPair != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
-    BACKEND_CHECK(planPair->forward != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
-
-    fftwf_execute_dft(planPair->forward, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
+    fftwManager.executeForwardFFT(config.ompThreads, in.size, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
 }
 
 void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
 
-    // First, try to get existing plan (fast path, no lock)
-    auto* planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
-
-    // If plan doesn't exist, create it (slow path, with lock)
-    if (planPair == nullptr) {
-        std::unique_lock<std::mutex> lock(const_cast<CPUDeconvolutionBackend*>(this)->backendMutex);
-        // Double-check pattern: another thread might have created it while we waited for the lock
-        planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
-        if (planPair == nullptr) {
-            const_cast<CPUDeconvolutionBackend*>(this)->initializePlan(in.size);
-            planPair = const_cast<CPUDeconvolutionBackend*>(this)->getPlanPair(in.size);
-        }
-    }
-
-    BACKEND_CHECK(planPair != nullptr, "Failed to create FFT plan for shape", "CPU", "backwardFFT - plan creation");
-    BACKEND_CHECK(planPair->backward != nullptr, "Backward FFT plan is null", "CPU", "backwardFFT - FFT plan");
-
-    fftwf_execute_dft(planPair->backward, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
+    fftwManager.executeBackwardFFT(config.ompThreads, in.size, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
 }
 
 // Shift Operations
@@ -405,23 +261,23 @@ void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
     int halfDepth = depth / 2;
 
 
-    OMP(omp parallel for, useOMP, nThreads)
-        // #pragma omp parallel for num_threads(nThreads) collapse(3)
-        for (int z = 0; z < halfDepth; ++z) {
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    int idx1 = z * height * width + y * width + x;
-                    int idx2 = ((z + halfDepth) % depth) * height * width +
-                        ((y + halfHeight) % height) * width +
-                        ((x + halfWidth) % width);
+    // OMP(omp parallel for, useOMP, nThreads)
+    // #pragma omp parallel for num_threads(nThreads) collapse(3)
+    for (int z = 0; z < halfDepth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int idx1 = z * height * width + y * width + x;
+                int idx2 = ((z + halfDepth) % depth) * height * width +
+                    ((y + halfHeight) % height) * width +
+                    ((x + halfWidth) % width);
 
-                    if (idx1 != idx2) {
-                        std::swap(data.data[idx1][0], data.data[idx2][0]);
-                        std::swap(data.data[idx1][1], data.data[idx2][1]);
-                    }
+                if (idx1 != idx2) {
+                    std::swap(data.data[idx1][0], data.data[idx2][0]);
+                    std::swap(data.data[idx1][1], data.data[idx2][1]);
                 }
             }
         }
+    }
 }
 
 void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
@@ -432,6 +288,7 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
 
+    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = 0; y < halfHeight; ++y) {
             for (int x = 0; x < halfWidth; ++x) {
@@ -444,6 +301,7 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
         }
     }
 
+    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = 0; y < halfHeight; ++y) {
             for (int x = halfWidth; x < width; ++x) {
@@ -456,6 +314,7 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
         }
     }
 
+    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = halfHeight; y < height; ++y) {
             for (int x = 0; x < halfWidth; ++x) {
@@ -468,6 +327,7 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
         }
     }
 
+    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = halfHeight; y < height; ++y) {
             for (int x = halfWidth; x < width; ++x) {
@@ -487,15 +347,13 @@ void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const 
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
 
-    real_t real_a;
-    real_t imag_a;
-    real_t real_b;
-    real_t imag_b;
+
+    // OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.size.getVolume(); ++i) {
-        real_a = a.data[i][0];
-        imag_a = a.data[i][1];
-        real_b = b.data[i][0];
-        imag_b = b.data[i][1];
+        real_t real_a = a.data[i][0];
+        real_t imag_a = a.data[i][1];
+        real_t real_b = b.data[i][0];
+        real_t imag_b = b.data[i][1];
 
         result.data[i][0] = real_a * real_b - imag_a * imag_b;
         result.data[i][1] = real_a * imag_b + imag_a * real_b;
@@ -508,6 +366,7 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
 
 
+    // OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.size.getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
@@ -532,11 +391,15 @@ void CPUDeconvolutionBackend::complexAddition(complex_t** data, ComplexData& sum
     BACKEND_CHECK(sum.data != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
 
     int imageSize = sum.size.getVolume();
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int imageindex = 0; imageindex < nImages; ++imageindex) {
 
         complex_t* a = data[imageindex];
         for (int i = 0; i < imageSize; ++i) {
+            // Use atomic to prevent race conditions when multiple threads write to sum.data[i]
+            #pragma omp atomic
             sum.data[i][0] += a[i][0];
+            #pragma omp atomic
             sum.data[i][1] += a[i][1];
         }
     }
@@ -547,6 +410,7 @@ void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const Comple
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexAddition - result");
 
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.size.getVolume(); ++i) {
         result.data[i][0] = a.data[i][0] + b.data[i][0];
         result.data[i][1] = a.data[i][1] + b.data[i][1];
@@ -555,6 +419,7 @@ void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const Comple
 
 void CPUDeconvolutionBackend::sumToOneReal(complex_t** data, int nImages, int imageVolume) const {
 
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < imageVolume; ++i) {
         real_t sum{ 0 };
 
@@ -575,6 +440,7 @@ void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex
 
     real_t rscalar = scalar[0];
     real_t iscalar = scalar[1];
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.size.getVolume(); ++i) {
         result.data[i][0] = a.data[i][0] * rscalar;
         result.data[i][1] = a.data[i][1] * iscalar;
@@ -587,6 +453,7 @@ void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexDa
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result");
 
 
+    // OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.size.getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
@@ -604,6 +471,7 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result");
 
 
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.size.getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
@@ -623,6 +491,7 @@ void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, Co
     int height = psf.size.height;
     int depth = psf.size.depth;
 
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
         float wz = 2 * M_PI * z / depth;
         for (int y = 0; y < height; ++y) {
@@ -642,10 +511,12 @@ void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, Co
 
 void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
     real_t max_val = 0.0, max_val2 = 0.0;
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int j = 0; j < resultImage.size.getVolume(); j++) {
         max_val = std::max(max_val, resultImage.data[j][0]);
         max_val2 = std::max(max_val2, resultImage.data[j][1]);
     }
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int j = 0; j < resultImage.size.getVolume(); j++) {
         resultImage.data[j][0] /= (max_val + epsilon);
         resultImage.data[j][1] /= (max_val2 + epsilon);
@@ -653,6 +524,7 @@ void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, real_t ep
 }
 
 void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < data.size.getVolume(); ++i) {
         data.data[i][0] /= cubeVolume;
         data.data[i][1] /= cubeVolume;
@@ -667,6 +539,7 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
     real_t minImag = std::numeric_limits<real_t>::max();
     real_t maxImag = std::numeric_limits<real_t>::lowest();
 
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < data.size.getVolume(); i++) {
         real_t real = data.data[i][0];
         real_t imag = data.data[i][1];
@@ -737,25 +610,28 @@ void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
     fftwf_free(temp);
 }
 
-// Gradient and TV Functions
+// Gradient and TV Functions - Updated to match OpenMPBackend pattern
 void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
     int width = image.size.width;
     int height = image.size.height;
     int depth = image.size.depth;
-
+    
+    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
         for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width - 1; ++x) {
+            for (int x = 0; x < width; ++x) {
                 int index = z * height * width + y * width + x;
-                int nextIndex = index + 1;
-
-                gradX.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                gradX.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                
+                if (x < width - 1) {
+                    int nextIndex = index + 1;
+                    gradX.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                    gradX.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                } else {
+                    // Boundary condition: last column
+                    gradX.data[index][0] = 0.0;
+                    gradX.data[index][1] = 0.0;
+                }
             }
-
-            int lastIndex = z * height * width + y * width + (width - 1);
-            gradX.data[lastIndex][0] = 0.0;
-            gradX.data[lastIndex][1] = 0.0;
         }
     }
 }
@@ -764,22 +640,23 @@ void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& g
     int width = image.size.width;
     int height = image.size.height;
     int depth = image.size.depth;
-
+    
+    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height - 1; ++y) {
+        for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 int index = z * height * width + y * width + x;
-                int nextIndex = index + width;
-
-                gradY.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                gradY.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                
+                if (y < height - 1) {
+                    int nextIndex = index + width;
+                    gradY.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                    gradY.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                } else {
+                    // Boundary condition: last row
+                    gradY.data[index][0] = 0.0;
+                    gradY.data[index][1] = 0.0;
+                }
             }
-        }
-
-        for (int x = 0; x < width; ++x) {
-            int lastIndex = z * height * width + (height - 1) * width + x;
-            gradY.data[lastIndex][0] = 0.0;
-            gradY.data[lastIndex][1] = 0.0;
         }
     }
 }
@@ -788,24 +665,23 @@ void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& g
     int width = image.size.width;
     int height = image.size.height;
     int depth = image.size.depth;
-
-    for (int z = 0; z < depth - 1; ++z) {
+    
+    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
+    for (int z = 0; z < depth; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 int index = z * height * width + y * width + x;
-                int nextIndex = index + height * width;
-
-                gradZ.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                gradZ.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                
+                if (z < depth - 1) {
+                    int nextIndex = index + height * width;
+                    gradZ.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
+                    gradZ.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                } else {
+                    // Boundary condition: last depth layer
+                    gradZ.data[index][0] = 0.0;
+                    gradZ.data[index][1] = 0.0;
+                }
             }
-        }
-    }
-
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            int lastIndex = (depth - 1) * height * width + y * width + x;
-            gradZ.data[lastIndex][0] = 0.0;
-            gradZ.data[lastIndex][1] = 0.0;
         }
     }
 }
@@ -813,6 +689,7 @@ void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& g
 void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
     int nxy = gx.size.width * gx.size.height;
 
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int z = 0; z < gx.size.depth; ++z) {
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
@@ -832,6 +709,7 @@ void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, co
 void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const {
     int nxy = gradX.size.width * gradX.size.height;
 
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int z = 0; z < gradX.size.depth; ++z) {
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
@@ -856,8 +734,22 @@ void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY
 
 
 
-void CPUBackend::init(const BackendConfig& config) {
-    set_backend_logger(config.loggingFunction);
-    memoryManager.init(config);
-    deconvBackend.init(config);
-}
+
+// IBackend& CPUBackend::clone() {
+//     return backendManager.clone(*this);
+// }
+
+// IBackend& CPUBackend::cloneSharedMemory() {
+//     return backendManager.cloneSharedMemory(*this);
+// }
+
+// void CPUBackend::setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) {
+//     // workerThreads = static_cast<size_t>(2*totalThreads/3);
+//     // config.ompThreads = static_cast<int>(workerThreads);
+
+//     ioThreads = ioThreads == 0 ? totalThreads : ioThreads;
+//     config.ompThreads = workerThreads == 0 ? static_cast<size_t>(2*totalThreads/3) : workerThreads;
+//     // workerThreads = workerThreads == 0 ? 1 : workerThreads;
+//     workerThreads = 1;
+//     deconvBackend.init(config);
+// }

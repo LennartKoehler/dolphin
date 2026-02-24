@@ -22,13 +22,13 @@ void testMultipleDevices() {
             return;
         }
         
-        backend->clone(backend);
+        backend->clone();
 
         std::thread testThread = std::thread([backend](){
-            backend->clone(backend);
+            backend->clone();
         });
         std::thread testThread2([backend](){
-            backend->clone(backend);
+            backend->clone();
         });
 
 

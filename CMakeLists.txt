@@ -25,7 +25,7 @@ target_compile_options(project_options INTERFACE
   #NoVectorization
   $<$<CONFIG:NoVectorization>:-O3;-ffast-math;-DNDEBUG;-fno-tree-vectorize;-fno-tree-slp-vectorize>
   # Release
-  $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops;-mavx2;-mfma>
+  $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops;-mavx2;-mfma> #TESTVALUE -g
   # RelWithDebInfo
   $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-DNDEBUG;-funroll-loops>
 )

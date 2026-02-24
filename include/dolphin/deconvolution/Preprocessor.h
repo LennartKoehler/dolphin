@@ -57,16 +57,18 @@ public:
         cleanup();
     }
     void cleanup(){
-        preprocessedPSFs.clear(); 
+        for (auto& [key, psf] : preprocessedPSFs){
+            psf.reset();
+        }
     };
 
-    void setPreprocessingFunction(std::function<ComplexData*(CuboidShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend> backend)> func) {
+    void setPreprocessingFunction(std::function<ComplexData*(CuboidShape, std::shared_ptr<PSF>, IBackend& backend)> func) {
         preprocessingFunction = std::move(func);
     }
 
-    const ComplexData* getPreprocessedPSF(const CuboidShape& shape, const std::shared_ptr<PSF> psf, std::shared_ptr<IBackend> backend) {
+    const ComplexData* getPreprocessedPSF(const CuboidShape& shape, const std::shared_ptr<PSF> psf, IBackend& backend) {
         std::unique_lock<std::mutex> lock(mutex);
-        Key key{shape, psf->ID, backend->getDeviceString()};
+        Key key{shape, psf->ID, backend.getDeviceString()};
         auto it = preprocessedPSFs.find(key);
         if (it != preprocessedPSFs.end()) {
             return it->second.get();
@@ -77,7 +79,7 @@ public:
         ComplexData* rawPtr = preprocessingFunction(shape, psfCopy, backend);
         
         // Insert into map
-        psfBackends.push_back(backend); // hold on to backends until the psfs are also deleted
+        // psfBackends.push_back(backend); // hold on to backends until the psfs are also deleted
         auto [insertedIt, _] = preprocessedPSFs.emplace(
             Key{key},  // Copy the key
             std::unique_ptr<ComplexData>(rawPtr)
@@ -87,9 +89,9 @@ public:
     
 private:
     std::mutex mutex;
-    std::function<ComplexData*(const CuboidShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend> backend)> preprocessingFunction;
+    std::function<ComplexData*(const CuboidShape, std::shared_ptr<PSF>, IBackend& backend)> preprocessingFunction;
     std::unordered_map<Key, std::unique_ptr<ComplexData>, KeyHash, KeyEqual> preprocessedPSFs;
-    std::vector<std::shared_ptr<IBackend>> psfBackends;
+    // std::vector<IBackend&> psfBackends;
 
 };
 namespace Preprocessor{

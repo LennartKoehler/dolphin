@@ -56,7 +56,7 @@ namespace Postprocessor{
     void createWeightMasks(
         std::vector<ComplexData*>& masks,
         const ComplexData& frequencyFeatheringKernel,
-        std::shared_ptr<IBackend> backend);
+        IBackend& backend);
 
 
     Image3D addFeathering(

@@ -19,17 +19,17 @@ See the LICENSE file provided with the code for the full license.
 
 class TestAlgorithm : public DeconvolutionAlgorithm {
 public:
+    // Constructor that takes a backend parameter
     TestAlgorithm() = default;
-    virtual ~TestAlgorithm() = default;
-
+    ~TestAlgorithm() = default;
+    
     void configure(const DeconvolutionConfig& config) override;
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) override;
     size_t getMemoryMultiplier() const override;
-
 private:
-    std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
     bool initialized = false;
+    
+    std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };
-

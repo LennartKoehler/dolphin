@@ -15,31 +15,30 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <memory>
+#include <iostream>
 
 class RLTVDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
 public:
+    // Constructor that takes a backend parameter
     RLTVDeconvolutionAlgorithm() = default;
-    virtual ~RLTVDeconvolutionAlgorithm() = default;
-
-    // Main algorithm interface
+    ~RLTVDeconvolutionAlgorithm() = default;
+    
     void configure(const DeconvolutionConfig& config) override;
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) override;
-    
     size_t getMemoryMultiplier() const override;
-
 private:
-    std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
-    int iterations = 10;        // Number of RL iterations
-    double lambda = 0.01;       // TV regularization parameter
-    double complexDivisionEpsilon = 1e-6;  // Stabilization for division
+    int iterations;
+    double lambda;
     bool initialized = false;
     
     // Algorithm-specific data members for intermediate calculations
     ComplexData c;
     ComplexData gx;
-    ComplexData gy; 
+    ComplexData gy;
     ComplexData gz;
     ComplexData tv;
+    
+    std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };

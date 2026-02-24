@@ -24,8 +24,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/IO/TiffReader.h"
 #include "dolphin/IO/TiffWriter.h"
 #include "dolphin/backend/BackendFactory.h"
-#include "dolphinbackend/IBackend.h"
-#include "dolphinbackend/IBackendMemoryManager.h"
+#include "dolphinbackend/IBackendManager.h"
 
 
 class SetupConfig;
@@ -51,12 +50,12 @@ protected:
     virtual size_t getMaxMemoryPerCube(
         size_t ioThreads,
         size_t workerThreads,
-        std::shared_ptr<IBackend> backend,
+        IBackendManager& manager,
         std::shared_ptr<DeconvolutionAlgorithm> algorithm);
 
 
     std::shared_ptr<DeconvolutionAlgorithm> getAlgorithm(const DeconvolutionConfig& config);
-    std::shared_ptr<IBackend> getBackend(const SetupConfig& config);
+    IBackendManager& getBackendManager(const SetupConfig& config);
     
     virtual size_t estimateMemoryUsage(
         const CuboidShape& cubeSize,
@@ -83,20 +82,20 @@ protected:
     virtual std::unique_ptr<PSFPreprocessor> createPSFPreprocessor() const ;
 
     virtual std::vector<std::shared_ptr<TaskContext>> createContexts(
-        std::shared_ptr<IBackend> backend,
-        const int nDevices,
-        const size_t nWorkerThreads,
-        const size_t nIOThreads) const ;
+        IBackendManager& manager,
+        int nDevices,
+        size_t& nWorkerThreads,
+        size_t& nIOThreads,
+        size_t& totalThreads) const ;
 
     virtual Result<Padding> getCubePadding(const std::vector<PSF>& psfs, const CuboidShape& configPadding);
 
-    void configureThreads(
-        size_t& totalThreads,
-        size_t& ioThreads,
-        size_t& workerThreads,
-        std::shared_ptr<IBackend> backend,
-        const SetupConfig& config
-    );
+    // void configureThreads(
+    //     size_t& totalThreads,
+    //     size_t& ioThreads,
+    //     size_t& workerThreads,
+    //     IBackendManager& manager
+    // );
 
     virtual int getNextPowerOfTwo(int v) const ;
 

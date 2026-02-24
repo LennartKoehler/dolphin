@@ -26,15 +26,39 @@ class BackendConfig;
 // Helper macro for cleaner not-implemented exceptions
 #define NOT_IMPLEMENTED(func_name) \
     throw std::runtime_error(std::string(#func_name) + " not implemented in " + typeid(*this).name())
-struct MemoryTracking{
-    // Memory management
+
+struct MemoryData {
     size_t maxMemorySize;
     size_t totalUsedMemory;
-    std::mutex memoryMutex;
-    std::condition_variable memoryCondition;
-    MemoryTracking() : maxMemorySize(0), totalUsedMemory(0) {}
-    MemoryTracking(size_t maxMemory) : maxMemorySize(maxMemory), totalUsedMemory(0){}
+
+    MemoryData(size_t maxMemory = 0)
+        : maxMemorySize(maxMemory), totalUsedMemory(0) {}
 };
+struct MemoryTracking {
+private:
+    MemoryData data;
+    std::mutex memoryMutex;
+
+    struct LockedAccess {
+        std::unique_lock<std::mutex> lock;
+        MemoryData& data;
+
+        LockedAccess(std::mutex& m, MemoryData& d)
+            : lock(m), data(d) {}
+    };
+
+
+
+public:
+    MemoryTracking() : data(0) {}
+
+    MemoryTracking(size_t maxMemory)
+        : data(maxMemory) {}
+    LockedAccess getAccess() {
+        return LockedAccess(memoryMutex, data);
+    }
+};
+
 class IBackendMemoryManager{
 public:
     // Data management - provide default implementations
@@ -54,10 +78,6 @@ public:
         // Default no-op implementation for backends that don't need synchronization
     }
 
-    virtual void init(const BackendConfig& config){
-
-    }
-    
     // Memory management initialization
     virtual void setMemoryLimit(size_t maxMemorySize = 0) {
         NOT_IMPLEMENTED(setMemoryLimit);
@@ -109,10 +129,6 @@ public:
         NOT_IMPLEMENTED(getAllocatedMemory);
     }
 
-
-
-protected:
-    mutable std::mutex backendMutex;
 
 };
 #undef NOT_IMPLEMENTED

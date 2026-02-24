@@ -17,18 +17,13 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/spdlog.h>
 
 void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Configure algorithm-specific parameters
+    // Call base class configure to set up common parameters
     iterations = config.iterations;
     lambda = config.lambda;
-    
-
 }
 
 void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
-    if (!backend) {
-        spdlog::error("No backend available for Richardson-Lucy TV algorithm initialization");
-        return;
-    }
+    assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm initialization");\
     
     // Allocate memory for intermediate arrays
     c = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
@@ -45,27 +40,19 @@ bool RLTVDeconvolutionAlgorithm::isInitialized() const {
 }
 
 void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
-    if (!backend) {
-        spdlog::error("No backend available for Richardson-Lucy TV algorithm");
-        return;
-    }
+    assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm");\
     
-    if (!initialized) {
-        spdlog::error("Richardson-Lucy TV algorithm not initialized. Call init() first.");
-        return;
-    }
+    assert(initialized && "Richardson-Lucy with TV regularization algorithm not initialized. Call init() first.");\
 
     // Verify inputs are on device
     assert(backend->getMemoryManager().isOnDevice(H.data) && "PSF is not on device");
     assert(backend->getMemoryManager().isOnDevice(g.data) && "Input image is not on device");
     assert(backend->getMemoryManager().isOnDevice(f.data) && "Output buffer is not on device");
 
-    // Use pre-allocated memory for intermediate arrays
     // Initialize result with input data
     backend->getMemoryManager().memCopy(g, f);
 
-    // Calculate gradients and the Total Variation (one-time computation)
-
+    // Pre-compute TV regularization term
     backend->getDeconvManager().gradientX(g, gx);
     backend->getDeconvManager().gradientY(g, gy);
     backend->getDeconvManager().gradientZ(g, gz);
@@ -76,35 +63,35 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g
     backend->getDeconvManager().computeTV(lambda, gx, gy, gz, tv);
 
     for (int n = 0; n < iterations; ++n) {
+
         // a) First transformation: Fn = FFT(fn)
         backend->getDeconvManager().forwardFFT(f, c);
 
-        // Fn' = Fn * H
+        // Fn\' = Fn * H
         backend->getDeconvManager().complexMultiplication(c, H, c);
 
-        // fn' = IFFT(Fn')
+        // fn\' = IFFT(Fn\')
         backend->getDeconvManager().backwardFFT(c, c);
 
-        // b) Calculation of the Correction Factor: c = g / fn'
+        // b) Calculation of the Correction Factor: c = g / fn\'
         backend->getDeconvManager().complexDivision(g, c, c, complexDivisionEpsilon);
 
         // c) Second transformation: C = FFT(c)
         backend->getDeconvManager().forwardFFT(c, c);
 
-        // C' = C * conj(H)
+        // C\' = C * conj(H)
         backend->getDeconvManager().complexMultiplicationWithConjugate(c, H, c);
 
-        // c' = IFFT(C')
+        // c\' = IFFT(C\')
         backend->getDeconvManager().backwardFFT(c, c);
 
-        // d) Update the estimated image: fn+1' = fn * c'
+        // d) Update the estimated image: fn+1\' = fn * c\'
         backend->getDeconvManager().complexMultiplication(f, c, f);
 
-        // fn+1 = fn+1' * tv (apply TV regularization)
+        // fn+1 = fn+1\' * tv (apply TV regularization)
         backend->getDeconvManager().complexMultiplication(f, tv, f);
     }
-
-
+    // backend->getMemoryManager().freeMemoryOnDevice(c); // dont need because it is managed within complexdatas destructor
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecific() const {
@@ -112,12 +99,11 @@ std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecifi
     // Copy all relevant state
     copy->iterations = this->iterations;
     copy->lambda = this->lambda;
-    copy->complexDivisionEpsilon = this->complexDivisionEpsilon;
     copy->initialized = false; // Clone needs to be re-initialized
     // Don't copy backend - each thread needs its own
     return copy;
 }
 
 size_t RLTVDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 5; // Allocates 5 additional arrays of input size (c, gx, gy, gz, tv) 
+    return 4; // Allocates 4 additional arrays of input size
 }

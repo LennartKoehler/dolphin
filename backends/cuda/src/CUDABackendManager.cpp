@@ -65,19 +65,45 @@ CUDABackendManager::CUDABackendManager(){
 };
 
 
-void CUDABackendManager::initializeGlobalCUDA() {
-    // static bool globalInitialized = false;
-    // static std::mutex initMutex;
-    // static std::condition_variable initCondition;
-    // static bool initInProgress = false;
+extern LogCallback g_logger;
+void CUDABackendManager::setLogger(LogCallback fn) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    g_logger = std::move(fn);
+}
+
+IDeconvolutionBackend& CUDABackendManager::getDeconvolutionBackend(const BackendConfig& config) {
+    auto deconv = std::make_unique<CUDADeconvolutionBackend>(configToConfig(config));
+    std::unique_lock<std::mutex> lock(mutex_);
+    deconvBackends.push_back(std::move(deconv));
+    return *deconvBackends.back();
+}
+
+IBackendMemoryManager& CUDABackendManager::getBackendMemoryManager(const BackendConfig& config) {
+    auto manager = std::make_unique<CUDABackendMemoryManager>(configToConfig(config));
+    std::unique_lock<std::mutex> lock(mutex_);
+    memoryManagers.push_back(std::move(manager));
+    return *memoryManagers.back();
+}
+
+IBackend& CUDABackendManager::getBackend(const BackendConfig& config) {
+
+    auto backend = std::unique_ptr<CUDABackend>(
+        CUDABackend::create(configToConfig(config))
+    );
+    std::unique_lock<std::mutex> lock(mutex_);
+    IBackend& ref = *backend;
+    backends.push_back(std::move(backend));
+    return ref;
+}
+
+CUDABackendConfig CUDABackendManager::configToConfig(const BackendConfig& config) const {
+    CUDABackendConfig cudaconfig{true, config.nThreads};
+    return cudaconfig;
+}
+
+
+IBackend& CUDABackendManager::clone(IBackend& backend, const BackendConfig& config){
     
-    // std::unique_lock<std::mutex> lock(initMutex);
-    // cudaStream_t stream1;
-    // cudaStreamCreate(&stream1);
-
-} 
-
-std::shared_ptr<CUDABackend> CUDABackendManager::getNewBackendDifferentDevice(const CUDADevice& device){
     CUDADevice newdevice = devices[usedDeviceCounter];
     usedDeviceCounter = ++usedDeviceCounter % nDevices; // keep looping
 
@@ -85,12 +111,14 @@ std::shared_ptr<CUDABackend> CUDABackendManager::getNewBackendDifferentDevice(co
 }
 
 
-std::shared_ptr<CUDABackend> CUDABackendManager::getNewBackendSameDevice(const CUDADevice& device){
+std::shared_ptr<CUDABackend> CUDABackendManager::cloneSharedMemory(IBackend& backend, const BackendConfig& config){
+    CUDABackend& backend_ = dynamic_cast<CUDABackend&>(backend);
+    CUDADevice device = backend_.getConfig().device;
     return createNewBackend(device);
 }
 
 // TODO make stream management more native, different streams in one cuda backend should not be permitted, one origin of truth
-std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend(CUDADevice device) {
+CUDABackend& CUDABackendManager::createNewBackend(CUDADevice device) {
     // initializeGlobalCUDA();
     
     if (nDevices == 0) {
@@ -138,23 +166,8 @@ std::shared_ptr<CUDABackend> CUDABackendManager::createNewBackend(CUDADevice dev
 
 
 
-size_t CUDABackendManager::getMaxThreads() const {
-    std::unique_lock<std::mutex> lock(managerMutex_);
-    return maxThreads_;
-}
-
-size_t CUDABackendManager::getActiveThreads() const {
-    std::unique_lock<std::mutex> lock(managerMutex_);
-    return threadBackends_.size();
-}
-
-size_t CUDABackendManager::getTotalBackends() const {
-    std::unique_lock<std::mutex> lock(managerMutex_);
-    return totalCreated_;
-}
-
 void CUDABackendManager::cleanup() {
-    std::unique_lock<std::mutex> lock(managerMutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
     
     // Clean up all active thread backends
     for (auto& pair : threadBackends_) {
@@ -180,6 +193,6 @@ cudaStream_t CUDABackendManager::createStream() {
 
 
 void CUDABackendManager::setMaxThreads(size_t maxThreads) {
-    std::unique_lock<std::mutex> lock(managerMutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
     maxThreads_ = maxThreads;
 }

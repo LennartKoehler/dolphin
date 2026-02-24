@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include "dolphinbackend/IDeconvolutionBackend.h"
 #include "dolphinbackend/IBackendMemoryManager.h"
+#include "dolphinbackend/IBackendManager.h"
 #include "CUDABackend.h"
 #include <memory>
 #include <vector>
@@ -36,10 +37,10 @@ class CUDABackend;
  * This singleton class ensures each host thread gets its own CUDA backend,
  * providing clear ownership semantics and lifetime management.
  */
-class CUDABackendManager {
+class CUDABackendManager : public IBackendManager{
 public:
 
-    CUDABackendManager();
+    explicit CUDABackendManager(CUDABackendConfig config);
     ~CUDABackendManager() override = default;
     void setLogger(LogCallback fn) override;
 
@@ -48,22 +49,16 @@ public:
     IBackend* getBackend(const BackendConfig& config) override;
 
 
+    IBackend& clone(IBackend& backend, const BackendConfig& config) override ;
+    IBackend& cloneSharedMemory(IBackend& backend, const BackendConfig& config) override;
 
-    std::shared_ptr<CUDABackend> getNewBackendDifferentDevice(const CUDADevice& device);
-    std::shared_ptr<CUDABackend> getNewBackendSameDevice(const CUDADevice& device);
-    
-    void setMaxThreads(size_t maxThreads);
 
-    size_t getMaxThreads() const;
+    void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads, BackendConfig& ioconfig, BackendConfig& workerConfig) override;
 
-    size_t getActiveThreads() const;
-
-    size_t getTotalBackends() const;
-
-    void cleanup();
-
+    int getNumberDevices() const override;
 private:
 
+    CUDABackendConfig config;
     std::vector<CUDADevice> devices;
 
     std::vector<std::shared_ptr<CUDABackend>> backends;
@@ -71,17 +66,14 @@ private:
     std::vector<std::unique_ptr<CUDABackendMemoryManager>> memoryManagers;
 
     // Threading synchronization
-    mutable std::mutex managerMutex_;
-    mutable std::condition_variable backendAvailable_;
-    
+
+    LogCallback logger_;
+    std::mutex mutex_; 
     // Configuration
     int nDevices;
     int usedDeviceCounter = 0;
-    size_t maxThreads_ = 32;  // Default maximum number of threads
-    size_t totalCreated_ = 0; // Total backends created
     
     // Helper methods
-    void initializeGlobalCUDA();
     std::shared_ptr<CUDABackend> createNewBackend(CUDADevice device);
     cudaStream_t createStream();
 };
