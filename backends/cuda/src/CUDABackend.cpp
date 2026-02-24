@@ -13,36 +13,16 @@ See the LICENSE file provided with the code for the full license.
 
 #include "CUDABackend.h"
 #include "CUDABackendManager.h"
-#include <ioconfig.stream>
+// #include <ioconfig.stream>
 #include <algorithm>
-#include <sconfig.stream>
+// #include <sconfig.stream>
 #include <cassert>
 
 
 
 
-LogCallback g_logger;
+LogCallback g_logger_cuda;
 
-extern "C" void set_backend_logger(LogCallback cb) {
-    g_logger = cb;
-}
-
-extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
-    assert(g_logger && "g_logger not set");
-    CUDABackendConfig defaultConfig;
-    return new CUDADeconvolutionBackend(defaultConfig);
-}
-
-extern "C" IBackendMemoryManager* createBackendMemoryManager() {
-    assert(g_logger && "g_logger not set");
-    CUDABackendConfig defaultConfig;
-    return new CUDABackendMemoryManager(defaultConfig);
-}
-
-extern "C" IBackend* createBackend(){
-    assert(g_logger && "g_logger not set");
-    return CUDABackend::create();
-}
 
 
 // CUDABackendMemoryManager implementation
@@ -53,20 +33,10 @@ CUDABackendMemoryManager::~CUDABackendMemoryManager() {
 }
 
 void CUDABackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
-    std::unique_lock<std::mutex> lock(device.memory->memoryMutex);
-    device.memory->maxMemorySize = maxMemorySize;
+    auto access = getMemoryTracking()->getAccess();
+    access.data.maxMemorySize = maxMemorySize;
 }
 
-void CUDABackendMemoryManager::waitForMemory(size_t requiredSize) const {
-    std::unique_lock<std::mutex> lock(device.memory->memoryMutex);
-    if ((device.memory->totalUsedMemory + requiredSize) > config.device.memory->maxMemorySize){
-        throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CUDA", requiredSize, "Memory Allocation");
-        // g_logger(std::format("CUDABackend out of device.memory-> waiting for memory to free up"), LogLevel::ERROR);
-    }
-    // device.memory->memoryCondition.wait(lock, [this, requiredSize]() {
-    //     return device.memory->maxMemorySize == 0 || (device.memory->totalUsedMemory + requiredSize) <= device.memory->maxMemorySize;
-    // });
-}
 
 bool CUDABackendMemoryManager::isOnDevice(void* ptr) const {
     if (ptr == nullptr) return false;
@@ -144,10 +114,10 @@ void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& 
     }
     
     // Execute the copy
-    cudaError_t err = cudaMemcpy3DAsync(&copyParams, config.config.stream);
+    cudaError_t err = cudaMemcpy3DAsync(&copyParams, config.stream);
     CUDA_CHECK(err, "memCopy - cudaMemcpy3DAsync");
     
-    err = cudaStreamSynchronize(config.config.stream);
+    err = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(err, "memCopy - cudaStreamSynchronize");
     
     destData.backend = this;
@@ -181,7 +151,7 @@ void CUDABackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
 }
 void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) const {
     // Wait for memory if max memory limit is set
-    waitForMemory(requested_size);
+    // waitForMemory(requested_size);
 
     void* devicePtr = nullptr;
     cudaError_t err = cudaMallocAsync(&devicePtr, requested_size, config.stream); 
@@ -194,11 +164,9 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
     
     CUDA_CHECK(err, "allocateMemoryOnDevice - cudaStreamSynchronize");
 
-    // Update memory tracking
-    {
-        std::unique_lock<std::mutex> lock(device.memory->memoryMutex);
-        device.memory->totalUsedMemory += requested_size;
-    }
+    // Update memory tracking using getAccess()
+    auto access = getMemoryTracking()->getAccess();
+    access.data.totalUsedMemory += requested_size;
     
     return devicePtr;
 
@@ -278,17 +246,13 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
     err = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(err, "freeMemoryOnDevice - cudaStreamSynchronize");
 
-    // Update memory tracking
-    {
-        std::unique_lock<std::mutex> lock(device.memory->memoryMutex);
-        if (device.memory->totalUsedMemory < requested_size) {
-            device.memory->totalUsedMemory = static_cast<size_t>(0); // this should never happen
-            g_logger(std::format("Memory tracking inconsistency detected in freeMemoryOnDevice"), LogLevel::WARN);
-        } else {
-            device.memory->totalUsedMemory -= requested_size;
-        }
-        // Notify waiting threads that device.memory->is now available
-        device.memory->memoryCondition.notify_all();
+    // Update memory tracking using getAccess()
+    auto access = getMemoryTracking()->getAccess();
+    if (access.data.totalUsedMemory < requested_size) {
+        access.data.totalUsedMemory = static_cast<size_t>(0); // this should never happen
+        g_logger_cuda(std::format("Memory tracking inconsistency detected in freeMemoryOnDevice"), LogLevel::WARN);
+    } else {
+        access.data.totalUsedMemory -= requested_size;
     }
     
     srcdata.data = nullptr;
@@ -303,7 +267,7 @@ size_t CUDABackendMemoryManager::getAvailableMemory() const {
     CUDA_CHECK(err, "getAvailableMemory - cudaMemGetInfo");
     
     if (freeMem > totalMem) {
-        g_logger(std::format("Available memory ({}) exceeds total memory ({})", freeMem, totalMem), LogLevel::WARN);
+        g_logger_cuda(std::format("Available memory ({}) exceeds total memory ({})", freeMem, totalMem), LogLevel::WARN);
         return 0; // Return 0 to indicate error condition
     }
     
@@ -311,8 +275,8 @@ size_t CUDABackendMemoryManager::getAvailableMemory() const {
 }
 
 size_t CUDABackendMemoryManager::getAllocatedMemory() const {
-    std::lock_guard<std::mutex> lock(device.memory->memoryMutex);
-    return device.memory->totalUsedMemory;
+    auto access = getMemoryTracking()->getAccess();
+    return access.data.totalUsedMemory;
 }
 
 
@@ -324,6 +288,7 @@ CUDADeconvolutionBackend::CUDADeconvolutionBackend(CUDABackendConfig config) : c
 }
 
 CUDADeconvolutionBackend::~CUDADeconvolutionBackend() {
+    destroyPlans();
 
 }
 
@@ -341,7 +306,6 @@ void CUDADeconvolutionBackend::initializePlan(const CuboidShape& shape){
                   "Size overflow detected in FFT plan initialization", "CUDA", "initializePlan");
     
     // Destroy existing plans first
-    destroyFFTPlans();
     
     try {
         // Create forward FFT plan
@@ -355,19 +319,19 @@ void CUDADeconvolutionBackend::initializePlan(const CuboidShape& shape){
         CUFFT_CHECK(cufftSetStream(backward, config.stream), "initializePlan - backward plan config.stream setup");
 
         planSize = shape;
-        g_logger(std::format("Successfully created cuFFT plans for shape: {}x{}x{}", shape.width, shape.height, shape.depth), LogLevel::DEBUG);
+        g_logger_cuda(std::format("Successfully created cuFFT plans for shape: {}x{}x{}", shape.width, shape.height, shape.depth), LogLevel::DEBUG);
         
         // Synchronize to ensure plans are ready
         cudaError_t err = cudaStreamSynchronize(config.stream);
         CUDA_CHECK(err, "initializePlan - cudaStreamSynchronize");
     } catch (...) {
         // Clean up plans if creation fails
-        destroyFFTPlans();
+        destroyPlans();
         throw;
     }
 }
 
-void CUDADeconvolutionBackend::destroyFFTPlans(){
+void CUDADeconvolutionBackend::destroyPlans(){
     if (forward != 0){
         CUFFT_CHECK(cufftDestroy(forward), "destroyFFTPlans - forward plan");
         forward = 0;
@@ -423,12 +387,12 @@ void CUDADeconvolutionBackend::octantFourierShift(ComplexData& data) const {
 
 
 
-void CUDADeconvolutionBackend::complexAddition(complex_t** dataPointer, ComplexData& sums, int N) const {
-    cudaError_t err = CUBE_MAT::complexAddition(a.size.width, a.size.height, a.size.depth, dataPointer, sums.data, N, config.stream);
+void CUDADeconvolutionBackend::complexAddition(complex_t** dataPointer, ComplexData& sums, int nImages, int imageVolume) const {
+    cudaError_t err = CUBE_MAT::complexAddition(dataPointer, sums.data, nImages, imageVolume, config.stream);
 }
 
-void CUDADeconvolutionBackend::sumToOne(complex_t** data, int nImages, int imageVolume) const {
-    cudaErrot_t err = CUBE_MAT::sumToOne(data, nImages, imageVolume, config.stream);
+void CUDADeconvolutionBackend::sumToOneReal(complex_t** data, int nImages, int imageVolume) const {
+    cudaError_t err = CUBE_MAT::sumToOneReal(data, nImages, imageVolume, config.stream);
 }
 
 // Complex Arithmetic Operations
@@ -485,7 +449,7 @@ void CUDADeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, c
 // Specialized Functions
 void CUDADeconvolutionBackend::hasNAN(const ComplexData& data) const {
     // Implementation would go here
-    g_logger(std::format("hasNAN called on CUDA backend"), LogLevel::DEBUG);
+    g_logger_cuda(std::format("hasNAN called on CUDA backend"), LogLevel::DEBUG);
 }
 
 void CUDADeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {

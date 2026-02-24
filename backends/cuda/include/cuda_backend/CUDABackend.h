@@ -91,7 +91,7 @@ public:
         return std::string("cuda") + std::to_string(config.device.id);
     }
     
-    void sync() override {cudaStreamSynchronize(stream);}
+    void sync() override {cudaStreamSynchronize(config.stream);}
     // Memory management initialization
     void setMemoryLimit(size_t maxMemorySize = 0) override;
     
@@ -112,13 +112,11 @@ private:
 
     // CUDA stream for memory operations
     CUDABackendConfig config; 
-    // Helper method to wait for memory availability
-    void waitForMemory(size_t requiredSize) const;
 
     void* allocateMemoryOnDevice(size_t requested_size) const ;
     
-    // Static method to get memory tracking instance
-    MemoryTracking* getMemoryTracking() { return config.device.memory; }
+    // Method to get memory tracking instance
+    MemoryTracking* getMemoryTracking() const { return config.device.memory; }
 };
 
 //these actually own the plan as the plan is streamspecific, and i should never have more than one of these on a stream
@@ -129,11 +127,11 @@ public:
     
     // Override device type method
     std::string getDeviceString() const noexcept override {
-        return (std::string("cuda") + std::to_string(device.id));
+        return (std::string("cuda") + std::to_string(config.device.id));
     }
 
 
-    void sync() override {cudaStreamSynchronize(stream);}
+    void sync() override {cudaStreamSynchronize(config.stream);}
     // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;
@@ -145,7 +143,7 @@ public:
     void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
     void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
-    void complexAddition(complex_t** data, ComplexData& sum, int nImages) const override;
+    void complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const override;
     void scalarMultiplication(const ComplexData& a, complex_t  scalar, ComplexData& result) const override;
     void sumToOneReal(complex_t** data, int nImages, int imageVolume) const override;
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
@@ -180,6 +178,7 @@ public:
 private:
     
     void initializePlan(const CuboidShape& shape); 
+    void destroyPlans();
     cufftHandle forward = 0;
     cufftHandle backward = 0;
     CuboidShape planSize;
@@ -283,7 +282,7 @@ public:
 
     // Implementation of pure virtual methods
     std::string getDeviceString() const noexcept override {
-        return std::string("cuda") + std::to_string(static_cast<int>(device.id));
+        return std::string("cuda") + std::to_string(static_cast<int>(config.device.id));
     }
     void sync() override{
         memoryBackend.sync();

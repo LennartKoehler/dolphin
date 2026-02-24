@@ -1,4 +1,5 @@
 
+threadpool destructor sometimes fails to join all threads. idk why, im guessing they might be stuck somewhere or lost?
 
 
 adjust cuda backend

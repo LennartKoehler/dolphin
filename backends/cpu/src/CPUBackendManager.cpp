@@ -5,7 +5,7 @@
 #include <format>
 
 extern LogCallback g_logger;
-void CPUBackendManager::setLogger(LogCallback fn) {
+void CPUBackendManager::init(LogCallback fn) {
     std::lock_guard<std::mutex> lock(mutex_);
     g_logger = std::move(fn);
 }

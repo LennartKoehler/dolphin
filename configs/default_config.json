@@ -13,13 +13,13 @@
   "savePsf": false,
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   
-  "backend": "../backends/cuda/build/libcuda_backend.sotest",
-  "nIOThreads": 2,
-  "nWorkerThreads" : 10,
+  "backend": "cuda",
+  "nIOThreads": 10,
+  "nWorkerThreads" : 2,
   "nDevices" : 1,
   "maxMem_GB": 64,
 
-  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/cropped.tif",
+  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
   "deconvolutionType": "standard"
 
 

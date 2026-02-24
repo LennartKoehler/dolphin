@@ -40,13 +40,13 @@ class CUDABackend;
 class CUDABackendManager : public IBackendManager{
 public:
 
-    explicit CUDABackendManager(CUDABackendConfig config);
+    explicit CUDABackendManager();
     ~CUDABackendManager() override = default;
-    void setLogger(LogCallback fn) override;
+    void init(LogCallback fn) override;
 
-    IDeconvolutionBackend* getDeconvolutionBackend(const BackendConfig& config) override;
-    IBackendMemoryManager* getBackendMemoryManager(const BackendConfig& config) override;
-    IBackend* getBackend(const BackendConfig& config) override;
+    IDeconvolutionBackend& getDeconvolutionBackend(const BackendConfig& config) override;
+    IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;
+    IBackend& getBackend(const BackendConfig& config) override;
 
 
     IBackend& clone(IBackend& backend, const BackendConfig& config) override ;
@@ -61,7 +61,7 @@ private:
     CUDABackendConfig config;
     std::vector<CUDADevice> devices;
 
-    std::vector<std::shared_ptr<CUDABackend>> backends;
+    std::vector<std::unique_ptr<CUDABackend>> backends;
     std::vector<std::unique_ptr<CUDADeconvolutionBackend>> deconvBackends;
     std::vector<std::unique_ptr<CUDABackendMemoryManager>> memoryManagers;
 
@@ -73,7 +73,8 @@ private:
     int nDevices;
     int usedDeviceCounter = 0;
     
+    CUDABackendConfig configToConfig(const BackendConfig& config) const;
     // Helper methods
-    std::shared_ptr<CUDABackend> createNewBackend(CUDADevice device);
-    cudaStream_t createStream();
+    CUDABackend& createNewBackend(CUDABackendConfig config);
+    cudaStream_t createStream() const ;
 };

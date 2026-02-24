@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Deconvtool VERSION 1.0.0)
+project(dolphin VERSION 1.0.0)
 
 
 # Set C++ standard
@@ -58,6 +58,7 @@ message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
 add_subdirectory(backends/dolphinbackend)
 # add_subdirectory(backends/openmp)
 add_subdirectory(backends/cpu)
+add_subdirectory(backends/cuda)
 
 
 
@@ -79,8 +80,6 @@ set(DOLPHIN_SOURCES
     
     src/image/Image3D.cpp
     src/image/ImageMetaData.cpp
-
-    src/backend/BackendFactory.cpp
 
     src/IO/TiffReader.cpp
     src/IO/TiffWriter.cpp
@@ -129,6 +128,7 @@ target_include_directories(dolphin
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cpu/include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cuda/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/dolphinbackend/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/spdlog/include/>
@@ -141,6 +141,7 @@ target_link_libraries(dolphin
     PUBLIC
         dolphinbackend
         cpu_backend
+        cuda_backend
         ${TIFF_LIBRARIES}
         ${ITK_LIBRARIES}
 )
@@ -175,8 +176,9 @@ set_target_properties(dolphin PROPERTIES
 
 
 
+
 # Install targets
-install(TARGETS project_options dolphin dolphinbackend cpu_backend
+install(TARGETS project_options dolphin dolphinbackend cuda_backend CUBE cpu_backend
     EXPORT dolphinTargets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib

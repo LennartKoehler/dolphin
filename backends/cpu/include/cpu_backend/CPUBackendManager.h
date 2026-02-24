@@ -14,7 +14,7 @@ public:
 
     CPUBackendManager() = default;
     ~CPUBackendManager() override = default;
-    void setLogger(LogCallback fn) override;
+    void init(LogCallback fn) override;
 
     IDeconvolutionBackend& getDeconvolutionBackend(const BackendConfig& config) override;
     IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;

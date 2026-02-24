@@ -20,9 +20,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/ServiceFactory.h"
 #include <unordered_map>
 
-
 using json = nlohmann::json;
-
 
 class Dolphin{
 public:

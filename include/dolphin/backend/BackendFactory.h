@@ -21,6 +21,7 @@ See the LICENSE file provided with the code for the full license.
 #include <dlfcn.h>
 #include <iostream>
 #include "cpu_backend/CPUBackendManager.h"
+#include "cuda_backend/CUDABackendManager.h"
 #include <spdlog/spdlog.h>
 
 // Helper macro for cleaner not-implemented exceptions
@@ -73,7 +74,7 @@ struct BackendFactory {
 
     IBackendManager& getBackendManager(const std::string& backendName){
         IBackendManager* manager = findBackendManager(backendName);
-        if (!manager) manager = addBackendManager(backendName);
+        if (!manager) manager = loadBackendManager(backendName);
         if (!manager){
             spdlog::warn("Failed to load backend '{}', using default instead", backendName);
             return getBackendManager(DEFAULT_BACKEND);
@@ -94,10 +95,16 @@ struct BackendFactory {
 
 private:
 
-    BackendFactory() = default;
+    BackendFactory(){registerStaticBackends();} 
     ~BackendFactory() = default;
     BackendFactory(const BackendFactory&) = delete;
     BackendFactory& operator=(const BackendFactory&) = delete;
+
+    void registerStaticBackends(){
+        
+        addBackendManager("default", new CPUBackendManager());
+        addBackendManager("cuda", new CUDABackendManager());
+    }
 
     // ---------------- Internal loader ----------------
     template <typename T>
@@ -143,22 +150,20 @@ private:
 
     }
 
-    IBackendManager* addBackendManager(const std::string& backendName){
+    void addBackendManager(const std::string& backendName, IBackendManager* manager){
+        manager->init(logCallback_fn);
+
+        loadedManagers[backendName] = std::unique_ptr<IBackendManager>(manager);
+    }
+
+    IBackendManager* loadBackendManager(const std::string& backendName){
         IBackendManager* result = nullptr;
-        // Check if we should use the default backend
-        if (backendName == DEFAULT_BACKEND || backendName.empty()) {
-            result = new CPUBackendManager();
-        } else {
-            // Try to load from library
-            const char* symbolName = nullptr;
-            symbolName = "createBackendManager";
-            result = loadSymbolFromLibrary<IBackendManager>(backendName, symbolName);
-        }    
+        // Try to load from library
+        const char* symbolName = nullptr;
+        symbolName = "createBackendManager";
+        result = loadSymbolFromLibrary<IBackendManager>(backendName, symbolName);
     
-        if (result) {            
-            loadedManagers[backendName] = std::unique_ptr<IBackendManager>(result);
-            result->setLogger(logCallback_fn);
-        }
+        addBackendManager(backendName, result);
         return result;
     
     }
