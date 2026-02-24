@@ -22,10 +22,7 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 }
 
 void RLDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
-    if (!backend) {
-        spdlog::error("No backend available for Richardson-Lucy algorithm initialization");
-        return;
-    }
+    assert(backend && "No backend available for Richardson-Lucy algorithm initialization");
     
     // Allocate memory for intermediate arrays
     c = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
@@ -38,15 +35,9 @@ bool RLDeconvolutionAlgorithm::isInitialized() const {
 }
 
 void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
-    if (!backend) {
-        spdlog::error("No backend available for Richardson-Lucy algorithm");
-        return;
-    }
+    assert(backend && "No backend available for Richardson-Lucy algorithm");
     
-    if (!initialized) {
-        spdlog::error("Richardson-Lucy algorithm not initialized. Call init() first.");
-        return;
-    }
+    assert(initialized && "Richardson-Lucy algorithm not initialized. Call init() first.");
 
     // Use pre-allocated memory for intermediate arrays
     assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
@@ -54,27 +45,28 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, 
 
     for (int n = 0; n < iterations; ++n) {
 
+        progressFunction(iterations);
         // a) First transformation: Fn = FFT(fn)
         backend->getDeconvManager().forwardFFT(f, f);
 
-        // Fn' = Fn * H
+        // Fn\' = Fn * H
         backend->getDeconvManager().complexMultiplication(f, H, c);
 
-        // fn' = IFFT(Fn') + NORMALIZE
+        // fn\' = IFFT(Fn\') + NORMALIZE
         backend->getDeconvManager().backwardFFT(c, c);
         // backend->getDeconvManager().scalarMultiplication(c, 1.0 / g.size.getVolume(), c); // Add normalization
 
 
-        // b) Calculation of the Correction Factor: c = g / fn'
+        // b) Calculation of the Correction Factor: c = g / fn\'
         backend->getDeconvManager().complexDivision(g, c, c, complexDivisionEpsilon);
 
         // // c) Second transformation: C = FFT(c)
         backend->getDeconvManager().forwardFFT(c, c);
 
-        // // C' = C * conj(H)
+        // // C\' = C * conj(H)
         backend->getDeconvManager().complexMultiplicationWithConjugate(c, H, c);
 
-        // // c' = IFFT(C') + NORMALIZE
+        // // c\' = IFFT(C\') + NORMALIZE
         backend->getDeconvManager().backwardFFT(c, c);
         // backend->getDeconvManager().scalarMultiplication(c, 1.0 / g.size.getVolume(), c); // Add normalization
 
@@ -83,11 +75,10 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, 
         // backend->getDeconvManager().scalarMultiplication(f, 1.0 / g.size.getVolume(), f); // Add normalization
 
         backend->getDeconvManager().complexMultiplication(f, c, f);
- 
+        
     }
     // backend->getMemoryManager().freeMemoryOnDevice(c); // dont need because it is managed within complexdatas destructor
 }
-
 
 
 

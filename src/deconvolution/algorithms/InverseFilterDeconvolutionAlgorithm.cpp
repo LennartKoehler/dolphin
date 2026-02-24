@@ -17,18 +17,13 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/spdlog.h>
 
 void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Set epsilon for stabilized division
-    epsilon = config.epsilon;  // Assuming epsilon is in the config
+    // Call base class configure to set up common parameters
+    epsilon = config.epsilon;
 }
 
 void InverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
-    if (!backend) {
-        spdlog::error("No backend available for Inverse Filter algorithm initialization");
-        return;
-    }
+    assert(backend && "No backend available for Inverse Filter algorithm initialization");\
     
-    // No additional memory allocations needed for this simple algorithm
-    // All operations are done in-place or using temporary variables from the backend
     initialized = true;
 }
 
@@ -37,22 +32,14 @@ bool InverseFilterDeconvolutionAlgorithm::isInitialized() const {
 }
 
 void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
-    if (!backend) {
-        spdlog::error("No backend available for Inverse Filter algorithm");
-        return;
-    }
+    assert(backend && "No backend available for Inverse Filter algorithm");\
     
-    if (!initialized) {
-        spdlog::error("Inverse Filter algorithm not initialized. Call init() first.");
-        return;
-    }
+    assert(initialized && "Inverse Filter algorithm not initialized. Call init() first.");\
 
     // Verify inputs are on device
     assert(backend->getMemoryManager().isOnDevice(H.data) && "PSF is not on device");
     assert(backend->getMemoryManager().isOnDevice(g.data) && "Input image is not on device");
     assert(backend->getMemoryManager().isOnDevice(f.data) && "Output buffer is not on device");
-
-
 
     // Forward FFT on image
     backend->getDeconvManager().forwardFFT(g, g);
@@ -63,13 +50,9 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, Compl
     // Inverse FFT to get result
     backend->getDeconvManager().backwardFFT(f, f);
 
-    // Optional: Apply normalization if needed
-
+    // Normalize result
     complex_t norm = { static_cast<real_t>(1.0 / g.size.getVolume()), 0.0};
     backend->getDeconvManager().scalarMultiplication(f, norm, f); // Add normalization
-
-
-
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::cloneSpecific() const {
@@ -82,5 +65,5 @@ std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::clo
 }
 
 size_t InverseFilterDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 1; // Allocates 1 additional array of input size
+    return 0; // No additional memory allocation needed
 }

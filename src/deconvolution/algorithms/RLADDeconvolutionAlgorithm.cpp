@@ -13,7 +13,6 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
 #include <iostream>
-
 #include <cassert>
 #include <spdlog/spdlog.h>
 
@@ -26,10 +25,7 @@ void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 }
 
 void RLADDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
-    if (!backend) {
-        spdlog::error("No backend available for RLAD algorithm initialization");
-        return;
-    }
+    assert(backend && "No backend available for Richardson-Lucy with Adaptive Damping algorithm initialization");\
     
     // Allocate memory for intermediate arrays
     c = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
@@ -42,15 +38,9 @@ bool RLADDeconvolutionAlgorithm::isInitialized() const {
 }
 
 void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
-    if (!backend) {
-        spdlog::error("No backend available for RLAD algorithm");
-        return;
-    }
+    assert(backend && "No backend available for Richardson-Lucy with Adaptive Damping algorithm");\
     
-    if (!initialized) {
-        spdlog::error("RLAD algorithm not initialized. Call init() first.");
-        return;
-    }
+    assert(initialized && "Richardson-Lucy with Adaptive Damping algorithm not initialized. Call init() first.");\
     
     // Use pre-allocated memory for intermediate arrays
     assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
@@ -70,22 +60,22 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g
         // a) First transformation: Fn = FFT(fn)
         backend->getDeconvManager().forwardFFT(f, f);
 
-        // Fn' = Fn * H
+        // Fn\' = Fn * H
         backend->getDeconvManager().complexMultiplication(f, H, c);
 
-        // fn' = IFFT(Fn') + NORMALIZE
+        // fn\' = IFFT(Fn\') + NORMALIZE
         backend->getDeconvManager().backwardFFT(c, c);
 
-        // b) Calculation of the Correction Factor: c = g / fn'
+        // b) Calculation of the Correction Factor: c = g / fn\'
         backend->getDeconvManager().complexDivision(g, c, c, complexDivisionEpsilon);
 
         // c) Second transformation: C = FFT(c)
         backend->getDeconvManager().forwardFFT(c, c);
 
-        // C' = C * conj(H)
+        // C\' = C * conj(H)
         backend->getDeconvManager().complexMultiplicationWithConjugate(c, H, c);
 
-        // c' = IFFT(C') + NORMALIZE
+        // c\' = IFFT(C\') + NORMALIZE
         backend->getDeconvManager().backwardFFT(c, c);
 
         // d) Update the estimated image:
@@ -94,11 +84,11 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g
         // Apply adaptive damping: c = c * a
         backend->getDeconvManager().scalarMultiplication(c, acomplex, c);
 
-        // fn+1' = fn * c
+        // fn+1\' = fn * c
         backend->getDeconvManager().complexMultiplication(f, c, f);
-        
+
     }
-    
+    // backend->getMemoryManager().freeMemoryOnDevice(c); // dont need because it is managed within complexdatas destructor
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::cloneSpecific() const {

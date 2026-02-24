@@ -47,7 +47,6 @@ public:
     }
 
     // Core functions - still pure virtual (must implement)
-    virtual void init(const BackendConfig& config) = 0;
     virtual void cleanup() = 0;
 
     // Synchronization - default implementation for non-async backends

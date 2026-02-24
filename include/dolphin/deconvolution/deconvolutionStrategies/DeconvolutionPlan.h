@@ -34,11 +34,15 @@ Currently a TaskContext is created for each Device. So each device has its own w
 */
 struct TaskContext{
     TaskContext(
-        std::shared_ptr<IBackend> backend,
+        IBackendManager& manager,
+        BackendConfig ioconfig,
+        BackendConfig workerconfig,
         int nWorkerThreads,
         int nIOThreads
-    ) : prototypebackend(std::move(backend)),
-          processor(),
+    ) :     manager(manager), 
+            ioconfig(ioconfig),
+            workerconfig(workerconfig),
+            processor(),
           ioPool(nIOThreads)
     {
         processor.init(nWorkerThreads);
@@ -49,7 +53,9 @@ struct TaskContext{
     void setPreprocessor(std::unique_ptr<PSFPreprocessor> preprocessor){
         psfpreprocessor = std::move(preprocessor);
     }
-    std::shared_ptr<IBackend> prototypebackend;
+    BackendConfig ioconfig;
+    BackendConfig workerconfig;
+    IBackendManager& manager;
     DeconvolutionProcessor processor;
     ThreadPool ioPool;
     std::unique_ptr<PSFPreprocessor> psfpreprocessor;
@@ -130,16 +136,16 @@ private:
 class LoadingBar{
 public:
     LoadingBar() = default;
-    LoadingBar(size_t max) : max(max){}
-    void setMax(size_t max) {this->max = max;}
+    LoadingBar(float max) : max(max){}
+    void setMax(float max) {this->max = max;}
     void reset() {counter.store(0);}
     void update(){
         std::unique_lock<std::mutex> lock(mutex);
         // Calculate progress
-        size_t progress = (counter * 100) / max;
-        size_t barWidth = 50;
-        size_t pos = (counter * barWidth) / max;
         
+        float barWidth = 50;
+        int pos = static_cast<int>((counter * barWidth) / max); 
+        int progress = static_cast<int>((counter * 100) / max);
         // Print progress bar
         std::cerr << "\rDeconvoluting Image [ ";
         for (int i = 0; i < barWidth; ++i) {
@@ -147,20 +153,21 @@ public:
             else if (i == pos) std::cerr << ">";
             else std::cerr << " ";
         }
-        std::cerr <<  "] " << std::setw(3) << progress << "% (" 
-        
-                << counter << "/" << max << ")";
+        std::cerr << "] "
+          << std::setw(3)
+          << progress << "%";
         std::cerr.flush();
 
     }
     
-    void addOne(){
-        ++counter;
+
+    void add(float value){
+        counter += value;
         update();
     }
 private:
-    size_t max;
-    std::atomic<size_t> counter{0};
+    float max;
+    std::atomic<float> counter{0};
     std::mutex mutex;
 };
 

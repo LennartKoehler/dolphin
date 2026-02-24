@@ -1,3 +1,8 @@
+OPENMP FFTW:
+   so fftw uses the environment variable openmp nthreads for creating the plan and there is basically nothing you can do about it except setting that environment variable within the code. Either just let it run as is and use all threads or set environment variable
+
+   setenv("OMP_NUM_THREADS", std::to_string(3).c_str(), 1);   //TESTVALUE  // Force OpenMP to 3 threads
+
 VECTORIZATION:
    having built fftw with vectorization (dont know if it always builds with vectorization) it tests in the plan creation with different vectorization levels at runtime and then decides which is fastest for the given input sizes. Apparently atleas avx512 even thought its supported on this machine its not fast enough so during fft execution its actually not used
 

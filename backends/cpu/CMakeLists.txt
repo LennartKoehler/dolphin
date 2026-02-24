@@ -11,9 +11,10 @@ if (NOT DEFINED FFTW_PATH)
 endif()
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
-find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
 
-find_package(OpenMP REQUIRED) # TODO make optional
+find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads fftw3f_omp PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
+
+# find_package(OpenMP REQUIRED) # TODO make optional
 
 # add_library(dolphinbackend STATIC IMPORTED)
 # set_target_properties(dolphinbackend PROPERTIES
@@ -24,6 +25,7 @@ find_package(OpenMP REQUIRED) # TODO make optional
 
 add_library(cpu_backend STATIC
     src/CPUBackend.cpp
+    src/CPUBackendManager.cpp
 )
 
 target_include_directories(cpu_backend
@@ -40,8 +42,11 @@ target_include_directories(cpu_backend
 target_link_libraries(cpu_backend PUBLIC
     ${FFTW3_LIB}
     ${FFTW3_THREADS_LIB}
-    OpenMP::OpenMP_CXX
     )
+if(OpenMP)
+    target_link_libraries(cpu_backend PUBLIC
+    OpenMP::OpenMP_CXX)
+endif()
 
 target_link_libraries(cpu_backend PUBLIC project_options)
 

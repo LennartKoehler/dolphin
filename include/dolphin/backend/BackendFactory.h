@@ -18,10 +18,9 @@ See the LICENSE file provided with the code for the full license.
 #include <stdexcept>
 #include <map>
 #include <functional>
-#include "dolphinbackend/IBackend.h"
 #include <dlfcn.h>
 #include <iostream>
-#include "cpu_backend/CPUBackend.h"
+#include "cpu_backend/CPUBackendManager.h"
 #include <spdlog/spdlog.h>
 
 // Helper macro for cleaner not-implemented exceptions
@@ -46,32 +45,52 @@ static std::function<void(const std::string&, LogLevel)> logCallback_fn = [](con
         break;
     } 
 };
+//helper
+template <typename T>
+inline constexpr bool always_false = false;
+template <typename T>
+[[noreturn]] T& unsupported_type() {
+    static_assert(always_false<T>, "Unsupported type for getBackend");
+}
+
+#define DEFAULT_BACKEND "default"
+
 
 struct BackendFactory {
     // ---------------- Singleton ----------------
     static BackendFactory& getInstance() {
         static BackendFactory instance;
-        (void)getDefaultBackendMemoryManager(); // initialize default memory manager (avoid copying non-copyable type)
         return instance;
     }
 
-    // Access the default backend memory manager (single shared instance)
-    static CPUBackendMemoryManager& getDefaultBackendMemoryManager();
+    // Access the default backend memory manager (single shared instance) // does this work
+    IBackendMemoryManager& getDefaultBackendMemoryManager(){
+        BackendConfig config{1, DEFAULT_BACKEND};
+        static IBackendMemoryManager& mgr = getBackend<IBackendMemoryManager>(config);
+        return mgr;
+    }
+
+
+    IBackendManager& getBackendManager(const std::string& backendName){
+        IBackendManager* manager = findBackendManager(backendName);
+        if (!manager) manager = addBackendManager(backendName);
+        if (!manager){
+            spdlog::warn("Failed to load backend '{}', using default instead", backendName);
+            return getBackendManager(DEFAULT_BACKEND);
+        }
+        assert(manager && "Couldnt even load default manager");
+        return *manager;
+
+    }
 
     // ---------------- Templated create ----------------
     template <typename T>
-    static std::shared_ptr<T> createShared(const BackendConfig& config) {
-        T* raw = loadTypedBackend<T>(config);
-        return std::shared_ptr<T>(raw, [](T* ptr){
-            if(ptr) delete ptr;  // cleanup
-        });
+    T& getBackend(const BackendConfig& config) {
+        T& b= loadTypedBackend<T>(config);
+        return b;
     }
 
-    template <typename T>
-    static std::unique_ptr<T> createUnique(const BackendConfig& config) {
-        T* raw = loadTypedBackend<T>(config);
-        return std::unique_ptr<T>(raw);  // unique_ptr uses delete by default
-    }
+
 
 private:
 
@@ -82,58 +101,52 @@ private:
 
     // ---------------- Internal loader ----------------
     template <typename T>
-    static T* loadSymbolFromLibrary(const std::string& backendName, const char* symbolName) {
+    T* loadSymbolFromLibrary(const std::string& backendName, const char* symbolName) {
         void* handle = getHandle(backendName);
         if (!handle) {
-            spdlog::warn("Could not load backend library '{}'", backendName);
+            // spdlog::warn("Could not load backend library '{}'", backendName);
             return nullptr;
         }
 
         using create_fn = T*();
         auto create_symbol = reinterpret_cast<create_fn*>(dlsym(handle, symbolName));
         if (!create_symbol) {
-            spdlog::warn("Could not find symbol '{}' in backend library '{}'", symbolName, backendName);
             dlclose(handle);
             return nullptr;
         }
 
         return create_symbol();
     }
-
     template <typename T>
-    static T* getBackend(IBackendManager* manager, BackendConfig config) {
+    T& getBackend(IBackendManager& manager, const BackendConfig& config) {
         if constexpr (std::is_same_v<T, IBackend>) {
-            return manager->getBackend(config)
+            return manager.getBackend(config);
         } else if constexpr (std::is_same_v<T, IBackendMemoryManager>) {
-            return manager->getBackendMemoryManager(config);
+            return manager.getBackendMemoryManager(config);
         } else if constexpr (std::is_same_v<T, IDeconvolutionBackend>) {
-            return manager->getDeconvolutionBackend(config);
+            return manager.getDeconvolutionBackend(config);
+        } else {
+            static_assert(always_false<T>, "Unsupported interface type");
         }
-        return nullptr;
     }
 
-    template <typename T>
-    static T* loadTypedBackend(BackendConfig config) {
-        const std::string& backendName = config.backendName;
-        
-        IBackendManager* manager = findBackendManager(config.backendName);
-        if (!manager) addBackendManager(config.backendName);
-        manager = findBackendManager(config.backendName);
 
-        if (!manager) {
-            spdlog::warn("Failed to load backend '{}', using default instead", backendName);
-            manager = findBackendManager("default");
-        }
+
+
+    template <typename T>
+    T& loadTypedBackend(const BackendConfig& config) {
+        const std::string& backendName = config.backendName;
+        IBackendManager& manager = getBackendManager(config.backendName);
 
         return getBackend<T>(manager, config);
         
 
     }
 
-    void addBackendManager(const std::string& backendName){
+    IBackendManager* addBackendManager(const std::string& backendName){
         IBackendManager* result = nullptr;
         // Check if we should use the default backend
-        if (backendName == "default" || backendName.empty()) {
+        if (backendName == DEFAULT_BACKEND || backendName.empty()) {
             result = new CPUBackendManager();
         } else {
             // Try to load from library
@@ -146,6 +159,7 @@ private:
             loadedManagers[backendName] = std::unique_ptr<IBackendManager>(result);
             result->setLogger(logCallback_fn);
         }
+        return result;
     
     }
 
@@ -164,5 +178,5 @@ private:
         return handle;
     }
 
-    std::unordered_map<std::string, std::unique_ptr<IBackendManager>> loadedManagers;
+    std::map<std::string, std::unique_ptr<IBackendManager>> loadedManagers;
 };

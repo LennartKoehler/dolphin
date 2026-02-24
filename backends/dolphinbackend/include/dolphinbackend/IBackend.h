@@ -12,6 +12,15 @@
 
 class IBackendManager;
 
+enum LogLevel { DEBUG = 0, INFO, WARN, ERROR };
+
+using LogCallback = std::function<void(const std::string& message, LogLevel level)>;
+
+struct BackendConfig{
+    
+    size_t nThreads = 1; // whatever this means for the backendmanager. But manager has the opportunity to configure this 
+    std::string backendName = "default"; //TODO
+};
 
 class Owner{
 public:
@@ -74,11 +83,9 @@ class IBackend {
 
 public:
     virtual ~IBackend() = default;
-    virtual void init(const BackendConfig& config) = 0;
-    // virtual void set_logger(LogCallback cb) = 0; 
     // Pure virtual methods that must be implemented by concrete backends
     virtual std::string getDeviceString() const noexcept = 0;
-    virtual int getNumberDevices() const = 0;
+    
     
     // Ownership query methods
     virtual bool ownsDeconvolutionBackend() const noexcept = 0;
@@ -105,12 +112,8 @@ public:
     virtual IDeconvolutionBackend& mutableDeconvManager() noexcept = 0;
     virtual IBackendMemoryManager& mutableMemoryManager() noexcept = 0;
 
-    // Clone method - creates a new thread-specific backend
-    virtual std::shared_ptr<IBackend> clone(std::shared_ptr<IBackend> original) const = 0;
-    virtual std::shared_ptr<IBackend> cloneSharedMemory(std::shared_ptr<IBackend> original) const = 0;
-    virtual void releaseBackend() = 0;
     virtual void sync() = 0;
-    virtual void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) const = 0;
+
 
     
 };

@@ -13,9 +13,9 @@ See the LICENSE file provided with the code for the full license.
 
 #include "CUDABackend.h"
 #include "CUDABackendManager.h"
-#include <iostream>
+#include <ioconfig.stream>
 #include <algorithm>
-#include <sstream>
+#include <sconfig.stream>
 #include <cassert>
 
 
@@ -29,12 +29,14 @@ extern "C" void set_backend_logger(LogCallback cb) {
 
 extern "C" IDeconvolutionBackend* createDeconvolutionBackend() {
     assert(g_logger && "g_logger not set");
-    return new CUDADeconvolutionBackend();
+    CUDABackendConfig defaultConfig;
+    return new CUDADeconvolutionBackend(defaultConfig);
 }
 
 extern "C" IBackendMemoryManager* createBackendMemoryManager() {
     assert(g_logger && "g_logger not set");
-    return new CUDABackendMemoryManager();
+    CUDABackendConfig defaultConfig;
+    return new CUDABackendMemoryManager(defaultConfig);
 }
 
 extern "C" IBackend* createBackend(){
@@ -44,7 +46,7 @@ extern "C" IBackend* createBackend(){
 
 
 // CUDABackendMemoryManager implementation
-CUDABackendMemoryManager::CUDABackendMemoryManager(){
+CUDABackendMemoryManager::CUDABackendMemoryManager(CUDABackendConfig config) : config(config) {
 }
 
 CUDABackendMemoryManager::~CUDABackendMemoryManager() {
@@ -57,7 +59,7 @@ void CUDABackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
 
 void CUDABackendMemoryManager::waitForMemory(size_t requiredSize) const {
     std::unique_lock<std::mutex> lock(device.memory->memoryMutex);
-    if ((device.memory->totalUsedMemory + requiredSize) > device.memory->maxMemorySize){
+    if ((device.memory->totalUsedMemory + requiredSize) > config.device.memory->maxMemorySize){
         throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CUDA", requiredSize, "Memory Allocation");
         // g_logger(std::format("CUDABackend out of device.memory-> waiting for memory to free up"), LogLevel::ERROR);
     }
@@ -142,10 +144,10 @@ void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& 
     }
     
     // Execute the copy
-    cudaError_t err = cudaMemcpy3DAsync(&copyParams, stream);
+    cudaError_t err = cudaMemcpy3DAsync(&copyParams, config.config.stream);
     CUDA_CHECK(err, "memCopy - cudaMemcpy3DAsync");
     
-    err = cudaStreamSynchronize(stream);
+    err = cudaStreamSynchronize(config.config.stream);
     CUDA_CHECK(err, "memCopy - cudaStreamSynchronize");
     
     destData.backend = this;
@@ -182,12 +184,12 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
     waitForMemory(requested_size);
 
     void* devicePtr = nullptr;
-    cudaError_t err = cudaMallocAsync(&devicePtr, requested_size, stream); 
+    cudaError_t err = cudaMallocAsync(&devicePtr, requested_size, config.stream); 
     
     CUDA_MEMORY_ALLOC_CHECK(err, requested_size, "allocateMemoryOnDevice - cudaMallocAsync");
 
     // Synchronize to ensure allocation is complete
-    err = cudaStreamSynchronize(stream);
+    err = cudaStreamSynchronize(config.stream);
     
     
     CUDA_CHECK(err, "allocateMemoryOnDevice - cudaStreamSynchronize");
@@ -218,12 +220,12 @@ ComplexData CUDABackendMemoryManager::copyDataToDevice(const ComplexData& srcdat
     ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
     if (srcdata.data != nullptr) {
         cudaError_t err = CUBE_UTL_COPY::copyDataFromHostToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
-                                               destdata.data, srcdata.data, stream);
+                                               destdata.data, srcdata.data, config.stream);
         CUDA_CHECK(err, "copyDataFromHostToDevice")
     }
     destdata.backend = this;
 
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize(config.stream);
     return destdata;
 }
 
@@ -234,11 +236,11 @@ ComplexData CUDABackendMemoryManager::moveDataFromDevice(const ComplexData& srcd
     ComplexData destdata = destBackend.allocateMemoryOnDevice(srcdata.size);
 
     if (srcdata.data != nullptr){
-        cudaError_t err = CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, destdata.data, srcdata.data, stream);
+        cudaError_t err = CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, destdata.data, srcdata.data, config.stream);
         CUDA_CHECK(err, "copyDataFromDeviceToHost");
 
     }
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize(config.stream);
 
     return destdata;
 }
@@ -249,10 +251,10 @@ ComplexData CUDABackendMemoryManager::copyData(const ComplexData& srcdata) const
 
     if (srcdata.data != nullptr) {
         cudaError_t err = CUBE_UTL_COPY::copyDataFromDeviceToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
-                                                 destdata.data, srcdata.data, stream);
+                                                 destdata.data, srcdata.data, config.stream);
         CUDA_CHECK(err, "copyDataFromDeviceToDevice");
     }
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize(config.stream);
     return destdata;
 }
 
@@ -270,10 +272,10 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
     BACKEND_CHECK(requested_size / sizeof(complex_t) == srcdata.size.getVolume(),
                   "Size overflow detected in memory deallocation", "CUDA", "freeMemoryOnDevice");
     
-    cudaError_t err = cudaFreeAsync(srcdata.data, stream);
+    cudaError_t err = cudaFreeAsync(srcdata.data, config.stream);
     CUDA_CHECK(err, "freeMemoryOnDevice - cudaFreeAsync");
     
-    err = cudaStreamSynchronize(stream);
+    err = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(err, "freeMemoryOnDevice - cudaStreamSynchronize");
 
     // Update memory tracking
@@ -293,7 +295,7 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
 }
 
 size_t CUDABackendMemoryManager::getAvailableMemory() const {
-    cudaError_t sync_err = cudaStreamSynchronize(stream);
+    cudaError_t sync_err = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(sync_err, "getAvailableMemory - sync");
     
     size_t freeMem, totalMem;
@@ -317,30 +319,15 @@ size_t CUDABackendMemoryManager::getAllocatedMemory() const {
 
 
 
-CUDADeconvolutionBackend::CUDADeconvolutionBackend(){
-
-//    cudaSetDevice(0);
+CUDADeconvolutionBackend::CUDADeconvolutionBackend(CUDABackendConfig config) : config(config){
 
 }
 
 CUDADeconvolutionBackend::~CUDADeconvolutionBackend() {
-    destroyFFTPlans();
 
 }
 
-void CUDADeconvolutionBackend::init(const BackendConfig& config){
- }
 
-void CUDADeconvolutionBackend::initializeGlobal(){
-}
-
-
-
-void CUDADeconvolutionBackend::cleanup(){
-    // Clean up CUDA resources if needed
-    destroyFFTPlans();
-    g_logger(std::format("CUDA backend postprocessing completed"), LogLevel::DEBUG);
-}
 
 void CUDADeconvolutionBackend::initializePlan(const CuboidShape& shape){
     // Validate input shape
@@ -360,18 +347,18 @@ void CUDADeconvolutionBackend::initializePlan(const CuboidShape& shape){
         // Create forward FFT plan
         CUFFT_CHECK(cufftCreate(&forward), "initializePlan - forward plan creation");
         CUFFT_CHECK(cufftMakePlan3d(forward, shape.depth, shape.height, shape.width, CUFFT_C2C, &tempSize), "initializePlan - forward plan setup");
-        CUFFT_CHECK(cufftSetStream(forward, stream), "initializePlan - forward plan stream setup");
+        CUFFT_CHECK(cufftSetStream(forward, config.stream), "initializePlan - forward plan config.stream setup");
 
         // Create backward FFT plan
         CUFFT_CHECK(cufftCreate(&backward), "initializePlan - backward plan creation");
         CUFFT_CHECK(cufftMakePlan3d(backward, shape.depth, shape.height, shape.width, CUFFT_C2C, &tempSize), "initializePlan - backward plan setup");
-        CUFFT_CHECK(cufftSetStream(backward, stream), "initializePlan - backward plan stream setup");
+        CUFFT_CHECK(cufftSetStream(backward, config.stream), "initializePlan - backward plan config.stream setup");
 
         planSize = shape;
         g_logger(std::format("Successfully created cuFFT plans for shape: {}x{}x{}", shape.width, shape.height, shape.depth), LogLevel::DEBUG);
         
         // Synchronize to ensure plans are ready
-        cudaError_t err = cudaStreamSynchronize(stream);
+        cudaError_t err = cudaStreamSynchronize(config.stream);
         CUDA_CHECK(err, "initializePlan - cudaStreamSynchronize");
     } catch (...) {
         // Clean up plans if creation fails
@@ -429,7 +416,7 @@ void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& o
 
 // Shift Operations
 void CUDADeconvolutionBackend::octantFourierShift(ComplexData& data) const {
-    cudaError_t err = CUBE_FTT::octantFourierShift(data.size.width, data.size.height, data.size.depth, data.data, stream);
+    cudaError_t err = CUBE_FTT::octantFourierShift(data.size.width, data.size.height, data.size.depth, data.data, config.stream);
     CUDA_CHECK(err, "octantFourierShift");
 }
 
@@ -437,12 +424,11 @@ void CUDADeconvolutionBackend::octantFourierShift(ComplexData& data) const {
 
 
 void CUDADeconvolutionBackend::complexAddition(complex_t** dataPointer, ComplexData& sums, int N) const {
-
-    cudaError_t err = CUBE_MAT::complexAddition(a.size.width, a.size.height, a.size.depth, dataPointer, sums.data, N, stream);
+    cudaError_t err = CUBE_MAT::complexAddition(a.size.width, a.size.height, a.size.depth, dataPointer, sums.data, N, config.stream);
 }
 
 void CUDADeconvolutionBackend::sumToOne(complex_t** data, int nImages, int imageVolume) const {
-    cudaErrot_t err = CUBE_MAT::sumToOne(data, nImages, imageVolume, stream);
+    cudaErrot_t err = CUBE_MAT::sumToOne(data, nImages, imageVolume, config.stream);
 }
 
 // Complex Arithmetic Operations
@@ -453,7 +439,7 @@ void CUDADeconvolutionBackend::complexMultiplication(const ComplexData& a, const
     BACKEND_CHECK(result.size.getVolume() > 0, "Invalid output data size for complexMultiplication", "CUDA", "complexMultiplication");
     BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexMultiplication", "CUDA", "complexMultiplication");
     
-    cudaError_t err = CUBE_MAT::complexElementwiseMatMul(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, stream);
+    cudaError_t err = CUBE_MAT::complexElementwiseMatMul(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, config.stream);
     CUDA_CHECK(err, "complexMultiplication");
 }
 
@@ -465,31 +451,31 @@ void CUDADeconvolutionBackend::complexDivision(const ComplexData& a, const Compl
     BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexDivision", "CUDA", "complexDivision");
     BACKEND_CHECK(epsilon >= 0.0, "Invalid epsilon value for complexDivision", "CUDA", "complexDivision");
     
-    cudaError_t err = CUBE_MAT::complexElementwiseMatDiv(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, epsilon, stream);
+    cudaError_t err = CUBE_MAT::complexElementwiseMatDiv(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, epsilon, config.stream);
     CUDA_CHECK(err, "complexDivision");
 }
 
 void CUDADeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexAddition", "CUDA", "complexAddition");
-    cudaError_t err = CUBE_MAT::complexAddition(a.size.width, a.size.height, a.size.depth, a.data, b.data , result.data, stream);
+    cudaError_t err = CUBE_MAT::complexAddition(a.size.width, a.size.height, a.size.depth, a.data, b.data , result.data, config.stream);
     CUDA_CHECK(err, "complexAddition");
 }
 
 void CUDADeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
     BACKEND_CHECK(a.size.getVolume() == result.size.getVolume(), "Size mismatch in scalarMultiplication", "CUDA", "scalarMultiplication");
-    cudaError_t err = CUBE_MAT::complexScalarMul(a.size.width, a.size.height, a.size.depth, a.data, scalar , result.data, stream);
+    cudaError_t err = CUBE_MAT::complexScalarMul(a.size.width, a.size.height, a.size.depth, a.data, scalar , result.data, config.stream);
     CUDA_CHECK(err, "scalarMultiplication");
 }
 
 void CUDADeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexMultiplicationWithConjugate", "CUDA", "complexMultiplicationWithConjugate");
-    cudaError_t err = CUBE_MAT::complexElementwiseMatMulConjugate(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, stream);
+    cudaError_t err = CUBE_MAT::complexElementwiseMatMulConjugate(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, config.stream);
     CUDA_CHECK(err, "complexMultiplicationWithConjugate");
 }
 
 void CUDADeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
     BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexDivisionStabilized", "CUDA", "complexDivisionStabilized");
-    cudaError_t err = CUBE_MAT::complexElementwiseMatDivStabilized(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, epsilon, stream);
+    cudaError_t err = CUBE_MAT::complexElementwiseMatDivStabilized(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, epsilon, config.stream);
     CUDA_CHECK(err, "complexDivisionStabilized");
 }
 
@@ -503,12 +489,12 @@ void CUDADeconvolutionBackend::hasNAN(const ComplexData& data) const {
 }
 
 void CUDADeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
-    cudaError_t err = CUBE_REG::calculateLaplacian(psf.size.width, psf.size.height, psf.size.depth, psf.data, laplacian.data, stream);
+    cudaError_t err = CUBE_REG::calculateLaplacian(psf.size.width, psf.size.height, psf.size.depth, psf.data, laplacian.data, config.stream);
     CUDA_CHECK(err, "calculateLaplacianOfPSF");
 }
 
 // void CUDADeconvolutionBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
-//     cudaError_t err = CUBE_FTT::normalizeData(1, 1, 1, resultImage.data, stream);
+//     cudaError_t err = CUBE_FTT::normalizeData(1, 1, 1, resultImage.data, config.stream);
 //     CUDA_CHECK(err, "normalizeImage");
 // }
 
@@ -521,63 +507,30 @@ void CUDADeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, C
 
 // Gradient and TV Functions
 void CUDADeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
-    cudaError_t err1 = cudaStreamSynchronize(stream);
+    cudaError_t err1 = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(err1, "found it");
      
-    cudaError_t err = CUBE_REG::gradX(image.size.width, image.size.height, image.size.depth, image.data, gradX.data, stream);
+    cudaError_t err = CUBE_REG::gradX(image.size.width, image.size.height, image.size.depth, image.data, gradX.data, config.stream);
     CUDA_CHECK(err, "gradientX");
 }
 
 void CUDADeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
-    cudaError_t err = CUBE_REG::gradY(image.size.width, image.size.height, image.size.depth, image.data, gradY.data, stream);
+    cudaError_t err = CUBE_REG::gradY(image.size.width, image.size.height, image.size.depth, image.data, gradY.data, config.stream);
     CUDA_CHECK(err, "gradientY");
 }
 
 void CUDADeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
-    cudaError_t err = CUBE_REG::gradZ(image.size.width, image.size.height, image.size.depth, image.data, gradZ.data, stream);
+    cudaError_t err = CUBE_REG::gradZ(image.size.width, image.size.height, image.size.depth, image.data, gradZ.data, config.stream);
     CUDA_CHECK(err, "gradientZ");
 }
 
 void CUDADeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
-    cudaError_t err = CUBE_REG::computeTV(gx.size.width, gx.size.height, gx.size.depth, lambda, gx.data, gy.data, gz.data, tv.data, stream);
+    cudaError_t err = CUBE_REG::computeTV(gx.size.width, gx.size.height, gx.size.depth, lambda, gx.data, gy.data, gz.data, tv.data, config.stream);
     CUDA_CHECK(err, "computeTV");
 }
 
 void CUDADeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const {
-    cudaError_t err = CUBE_REG::normalizeTV(gradX.size.width, gradX.size.height, gradX.size.depth, gradX.data, gradY.data, gradZ.data, epsilon, stream);
+    cudaError_t err = CUBE_REG::normalizeTV(gradX.size.width, gradX.size.height, gradX.size.depth, gradX.data, gradY.data, gradZ.data, epsilon, config.stream);
     CUDA_CHECK(err, "normalizeTV");
 }
 
-// this should be run on the host thread that will use this backend
-std::shared_ptr<IBackend> CUDABackend::clone(std::shared_ptr<IBackend> original) const {
-    // For CUDA, use the backend manager to get the appropriate backend for this thread
-    // This might return the original or a different backend depending on the manager's logic
-    std::shared_ptr<CUDABackend> threadBackend = CUDABackendManager::getInstance().getNewBackendDifferentDevice(this->getDevice());
-    threadBackend->configureThreadLocalDevice(); // cudasetdevice
-
-    return threadBackend;
-}
-
-int CUDABackend::getNumberDevices() const {
-    int nDevices;
-    cudaError_t err = cudaGetDeviceCount(&nDevices);
-    return nDevices; 
-}
-
-std::shared_ptr<IBackend> CUDABackend::cloneSharedMemory(std::shared_ptr<IBackend> original) const {
-    std::shared_ptr<CUDABackend> threadBackend = CUDABackendManager::getInstance().getNewBackendSameDevice(this->getDevice());
-    threadBackend->configureThreadLocalDevice();
-    return threadBackend;
-}
-
-void CUDABackend::releaseBackend(){
-    sync();
-    CUDABackendManager::getInstance().releaseBackendForCurrentThread(this);
-}
-
-
-void CUDABackend::init(const BackendConfig& config){
-    set_backend_logger(config.loggingFunction);
-    memoryBackend.init(config);
-    deconvBackend.init(config);
-}

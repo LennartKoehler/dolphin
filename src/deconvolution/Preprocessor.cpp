@@ -24,7 +24,7 @@ ComplexData Preprocessor::convertImageToComplexData(
 
 
     CuboidShape shape = input.getShape();
-    ComplexData result = BackendFactory::getDefaultBackendMemoryManager().allocateMemoryOnDevice(shape);
+    ComplexData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDevice(shape);
 
     int width = shape.width;
     int height = shape.height;

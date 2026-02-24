@@ -18,9 +18,8 @@ See the LICENSE file provided with the code for the full license.
 
 
 
-
 std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
-    std::shared_ptr<IBackend> prototypebackend,
+    IBackend& prototypebackend,
     std::unique_ptr<DeconvolutionAlgorithm> algorithm, 
     const CuboidShape& workShape,
     const std::vector<std::shared_ptr<PSF>>& psfs_host, // dont pass psfs as ComplexData, because the workerbackend might be needed to preprocess psfs
@@ -40,7 +39,7 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         &psfPreprocessor
     ]() mutable {
 
-        thread_local std::shared_ptr<IBackend> threadbackend = prototypebackend->cloneSharedMemory(prototypebackend);
+        thread_local IBackend& threadbackend = prototypebackend;
         algorithm->setBackend(threadbackend);
         algorithm->init(workShape);
         std::vector<const ComplexData*> preprocessedPSFs;
@@ -48,13 +47,13 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         for (auto& psf : psfs_host){
 
             preprocessedPSFs.push_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, threadbackend));
-            threadbackend->sync();
+            threadbackend.sync();
         
         }
         for (const auto* psf_device : preprocessedPSFs){
             algorithm->deconvolve(*psf_device, g_device, f_device);
-            // threadbackend->getDeconvManager().scalarMultiplication(f_device, 1.0 / f_device.size.getVolume(), f_device); // Add normalization
-            threadbackend->sync();
+            // threadbackend.getDeconvManager().scalarMultiplication(f_device, 1.0 / f_device.size.getVolume(), f_device); // Add normalization
+            threadbackend.sync();
         }
 
 
@@ -65,8 +64,9 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
 
 
 
+
 ComplexData DeconvolutionProcessor::staticDeconvolveSingleCube(
-    std::shared_ptr<IBackend> prototypebackend,
+    IBackend& prototypebackend,
     std::unique_ptr<DeconvolutionAlgorithm> algorithm, 
     const CuboidShape& workShape,
     const std::vector<std::shared_ptr<PSF>>& psfs_host, // dont pass psfs as ComplexData, because the workerbackend might be needed to preprocess psfs
@@ -76,7 +76,8 @@ ComplexData DeconvolutionProcessor::staticDeconvolveSingleCube(
 
 
 
-        // std::shared_ptr<IBackend> prototypebackend = prototypebackend->cloneSharedMemory(prototypebackend);
+
+        // IBackend& prototypebackend = prototypebackend.cloneSharedMemory(prototypebackend);
         
         algorithm->setBackend(prototypebackend);
         algorithm->init(workShape);
@@ -85,58 +86,16 @@ ComplexData DeconvolutionProcessor::staticDeconvolveSingleCube(
         for (auto& psf : psfs_host){
 
             preprocessedPSFs.push_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, prototypebackend));
-            prototypebackend->sync();
+            prototypebackend.sync();
         
         }
         for (const auto* psf_device : preprocessedPSFs){
             algorithm->deconvolve(*psf_device, g_device, f_device);
-            // prototypebackend->getDeconvManager().scalarMultiplication(f_device, 1.0 / f_device.size.getVolume(), f_device); // Add normalization
-            prototypebackend->sync();
+            // prototypebackend.getDeconvManager().scalarMultiplication(f_device, 1.0 / f_device.size.getVolume(), f_device); // Add normalization
+            prototypebackend.sync();
         }
         
-        // prototypebackend->releaseBackend();
+        // prototypebackend.releaseBackend();
 
         return std::move(f_device);
-}
-ComplexData DeconvolutionProcessor::staticDeconvolveSingleCubeWithCopying(
-    std::shared_ptr<IBackend> prototypebackend,
-    std::shared_ptr<IBackendMemoryManager> hostbackend,
-    std::unique_ptr<DeconvolutionAlgorithm> algorithm, 
-    const CuboidShape& workShape,
-    const std::vector<std::shared_ptr<PSF>>& psfs_host, // dont pass psfs as ComplexData, because the workerbackend might be needed to preprocess psfs
-    ComplexData& g_host,
-    PSFPreprocessor& psfPreprocessor){
-
-        thread_local std::shared_ptr<IBackend> workerbackend = prototypebackend->clone(prototypebackend); //TODO with thread local the task.backend is irrelevant (except the first few)
-        ComplexData g_device = workerbackend->getMemoryManager().copyDataToDevice(g_host);
-
-        // cpuMemoryManager->freeMemoryOnDevice(g_host);
-
-        ComplexData f_device = workerbackend->getMemoryManager().allocateMemoryOnDevice(workShape);
-
-
-
-        // std::shared_ptr<IBackend> prototypebackend = prototypebackend->cloneSharedMemory(prototypebackend);
-        
-        algorithm->setBackend(workerbackend);
-        algorithm->init(workShape);
-        std::vector<const ComplexData*> preprocessedPSFs;
-
-        for (auto& psf : psfs_host){
-
-            preprocessedPSFs.push_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, workerbackend));
-            workerbackend->sync();
-        
-        }
-        for (const auto* psf_device : preprocessedPSFs){
-            algorithm->deconvolve(*psf_device, g_device, f_device);
-            // prototypebackend->getDeconvManager().scalarMultiplication(f_device, 1.0 / f_device.size.getVolume(), f_device); // Add normalization
-            workerbackend->sync();
-        }
-        
-        // prototypebackend->releaseBackend();
-        
-        ComplexData f_host = workerbackend->getMemoryManager().moveDataFromDevice(f_device, *hostbackend);
-
-        return std::move(f_host);
 }

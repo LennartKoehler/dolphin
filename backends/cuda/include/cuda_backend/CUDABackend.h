@@ -22,6 +22,9 @@ See the LICENSE file provided with the code for the full license.
 #include <map>
 #include <iostream>
 
+
+class CUDABackendManager;
+
 // Unified CUDA error check macro
 #define CUDA_CHECK(err, operation) { \
     if (err == cudaErrorMemoryAllocation){ \
@@ -63,7 +66,7 @@ See the LICENSE file provided with the code for the full license.
     } \
 }
 
-extern LogCallback g_logger;
+
 
 using cudaDeviceID = int;
 struct CUDADevice{
@@ -71,18 +74,21 @@ struct CUDADevice{
     MemoryTracking* memory;
 };
 
+struct CUDABackendConfig{
+    CUDADevice device;
+    cudaStream_t stream = cudaStreamLegacy;
+};
+
 
 class CUDABackendMemoryManager : public IBackendMemoryManager{
 public:
     // Constructor
-    CUDABackendMemoryManager();
+    explicit CUDABackendMemoryManager(CUDABackendConfig config);
     ~CUDABackendMemoryManager();
     
-    void setStream(cudaStream_t stream){ this->stream = stream;}
-    void setDevice(CUDADevice device) { this->device = device;}
     // Override device type method
     std::string getDeviceString() const noexcept override {
-        return std::string("cuda") + std::to_string(device.id);
+        return std::string("cuda") + std::to_string(config.device.id);
     }
     
     void sync() override {cudaStreamSynchronize(stream);}
@@ -105,20 +111,20 @@ public:
 private:
 
     // CUDA stream for memory operations
-    cudaStream_t stream = cudaStreamLegacy;
-    CUDADevice device; 
+    CUDABackendConfig config; 
     // Helper method to wait for memory availability
     void waitForMemory(size_t requiredSize) const;
 
     void* allocateMemoryOnDevice(size_t requested_size) const ;
     
     // Static method to get memory tracking instance
-    MemoryTracking* getMemoryTracking() { return device.memory; }
+    MemoryTracking* getMemoryTracking() { return config.device.memory; }
 };
 
+//these actually own the plan as the plan is streamspecific, and i should never have more than one of these on a stream
 class CUDADeconvolutionBackend : public IDeconvolutionBackend{
 public:
-    CUDADeconvolutionBackend();
+    explicit CUDADeconvolutionBackend(CUDABackendConfig config);
     ~CUDADeconvolutionBackend() override;
     
     // Override device type method
@@ -126,19 +132,8 @@ public:
         return (std::string("cuda") + std::to_string(device.id));
     }
 
-    // Core processing functions
-    virtual void init(const BackendConfig& config) override;
-    virtual void cleanup() override;
-
 
     void sync() override {cudaStreamSynchronize(stream);}
-    void init(const BackendConfig& config) override {}
-    void setStream(cudaStream_t stream){ this->stream = stream;}
-    void setDevice(CUDADevice device) {this->device = device;}
-    // Static initialization method
-    static void initializeGlobal();
-
-    void initializePlan(const CuboidShape& cube) override;
     // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;
@@ -184,20 +179,16 @@ public:
 
 private:
     
-    
-    void destroyFFTPlans();
-   
+    void initializePlan(const CuboidShape& shape); 
     cufftHandle forward = 0;
     cufftHandle backward = 0;
     CuboidShape planSize;
-    cudaStream_t stream = cudaStreamLegacy;
-    CUDADevice device;
-    bool initialized = false;
+    CUDABackendConfig config;
 
 };
 
 
-class CUDABackendManager;
+
 
 // Concrete CUDA Backend Implementation
 class CUDABackend : public IBackend {
@@ -206,73 +197,81 @@ private:
 
 
     // Constructor for external ownership (references to externally-owned components)
-    CUDABackend(CUDADeconvolutionBackend& deconv,
+    CUDABackend(CUDABackendConfig config, CUDADeconvolutionBackend& deconv,
                 CUDABackendMemoryManager& mem)
-        : deconvBackend(deconv),
+        : config(config),
+          deconvBackend(deconv),
           memoryBackend(mem),
           owner(deconv, mem) {}
 
     // Constructor for self-ownership (takes ownership of both components)
-    CUDABackend(std::unique_ptr<CUDADeconvolutionBackend> deconv,
+    CUDABackend(CUDABackendConfig config,
+                std::unique_ptr<CUDADeconvolutionBackend> deconv,
                 std::unique_ptr<CUDABackendMemoryManager> mem)
-        : deconvBackend(*deconv),
+        : config(config),
+          deconvBackend(*deconv),
           memoryBackend(*mem),
           owner(std::move(deconv), std::move(mem)) {}
 
     // Constructor for mixed ownership (takes ownership of deconv, external memory)
-    CUDABackend(std::unique_ptr<CUDADeconvolutionBackend> deconv,
+    CUDABackend(CUDABackendConfig config,
+                std::unique_ptr<CUDADeconvolutionBackend> deconv,
                 CUDABackendMemoryManager& mem)
-        : deconvBackend(*deconv),
+        : config(config),
+          deconvBackend(*deconv),
           memoryBackend(mem),
           owner(std::move(deconv), mem) {}
 
     CUDADeconvolutionBackend& deconvBackend;
     CUDABackendMemoryManager& memoryBackend;
     Owner owner;  // Specialized CUDA owner
-    CUDADevice device;
+    CUDABackendConfig config;
 
     // Type-safe factory methods for different ownership models
     
     // Create CUDABackend with external ownership (references to externally-owned components)
     static std::shared_ptr<CUDABackend> createWithExternalOwnership(
+        CUDABackendConfig config,
         CUDADeconvolutionBackend& deconv,
         CUDABackendMemoryManager& mem) {
-        return std::shared_ptr<CUDABackend>(new CUDABackend(deconv, mem));
+        return std::shared_ptr<CUDABackend>(new CUDABackend(config, deconv, mem));
     }
 
     // Create CUDABackend with self-ownership (takes ownership of both components)
     static std::shared_ptr<CUDABackend> createWithSelfOwnership(
+        CUDABackendConfig config,
         std::unique_ptr<CUDADeconvolutionBackend> deconv,
         std::unique_ptr<CUDABackendMemoryManager> mem) {
-        return std::shared_ptr<CUDABackend>(new CUDABackend(std::move(deconv), std::move(mem)));
+        return std::shared_ptr<CUDABackend>(new CUDABackend(config, std::move(deconv), std::move(mem)));
     }
 
     // Create CUDABackend with mixed ownership (takes ownership of deconv, external memory)
     static std::shared_ptr<CUDABackend> createWithMixedOwnership(
+        CUDABackendConfig config,
         std::unique_ptr<CUDADeconvolutionBackend> deconv,
         CUDABackendMemoryManager& mem) {
-        return std::shared_ptr<CUDABackend>(new CUDABackend(std::move(deconv), mem));
+        return std::shared_ptr<CUDABackend>(new CUDABackend(config, std::move(deconv), mem));
     }
 
 public:
     // Factory method to create CUDABackend with
     
-    static CUDABackend* create() {
+    static CUDABackend* create(CUDABackendConfig config) {
         try {
-            auto deconv = std::make_unique<CUDADeconvolutionBackend>();
-            auto memoryManager = std::make_unique<CUDABackendMemoryManager>();
-            CUDABackend* backend = new CUDABackend(std::move(deconv), std::move(memoryManager));
+            auto deconv = std::make_unique<CUDADeconvolutionBackend>(config);
+            auto memoryManager = std::make_unique<CUDABackendMemoryManager>(config);
+            CUDABackend* backend = new CUDABackend(config, std::move(deconv), std::move(memoryManager));
             
-            size_t freeMem, totalMem;
-            cudaError_t err = cudaMemGetInfo(&freeMem, &totalMem);
-            CUDA_CHECK(err, "create - cudaMemGetInfo");
+            // size_t freeMem, totalMem;
+            // cudaError_t err = cudaMemGetInfo(&freeMem, &totalMem);
+            // CUDA_CHECK(err, "create - cudaMemGetInfo");
             
-            if (totalMem == 0) {
-                throw dolphin::backend::BackendException(
-                    "Device 0 reports zero memory", "CUDA", "create");
-            }
+            // if (totalMem == 0) {
+            //     throw dolphin::backend::BackendException(
+            //         "Device 0 reports zero memory", "CUDA", "create");
+            // }
             
-            backend->setDevice(CUDADevice{0, new MemoryTracking(totalMem)});
+            // backend->setDevice(CUDADevice{0, new MemoryTracking(totalMem)});
             return backend;
         } catch (...) {
             // Clean up any allocated resources if creation fails
@@ -286,31 +285,13 @@ public:
     std::string getDeviceString() const noexcept override {
         return std::string("cuda") + std::to_string(static_cast<int>(device.id));
     }
-    CUDADevice getDevice() const noexcept {
-        return device;
-    }
-    int getNumberDevices()const override;
     void sync() override{
         memoryBackend.sync();
     }
-    void init(const BackendConfig& config) override; 
 
-    void setStream(cudaStream_t stream){
-        deconvBackend.setStream(stream);
-        memoryBackend.setStream(stream);
+    const CUDABackendConfig& getConfig() const{
+        return config;
     }
-
-    void setDevice(CUDADevice device) {
-        deconvBackend.setDevice(device);
-        memoryBackend.setDevice(device);
-        this->device = device;
-    }
-
-    void configureThreadLocalDevice(){
-        cudaError_t err = cudaSetDevice(device.id);
-        CUDA_CHECK(err, "configureThreadLocalDevice");
-    }
-
 
     // Ownership query methods
     bool ownsDeconvolutionBackend() const noexcept override {
@@ -394,17 +375,4 @@ public:
     IBackendMemoryManager& mutableMemoryManager() noexcept override {
         return memoryBackend;
     }
-
-
-    // Overloaded version for CUDA: use backend manager to potentially return a different backend
-    std::shared_ptr<IBackend> clone(std::shared_ptr<IBackend> original) const override;
-    std::shared_ptr<IBackend> cloneSharedMemory(std::shared_ptr<IBackend> original) const override;
-
-    void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) const override{
-        workerThreads = 2;
-        ioThreads = totalThreads - workerThreads;
-
-    } 
-    
-    void releaseBackend() override;
 };

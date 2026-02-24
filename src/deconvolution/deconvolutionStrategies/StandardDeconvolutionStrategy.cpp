@@ -44,21 +44,18 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     spdlog::get("deconvolution")->info("Using the following deconvolution config");
     deconvConfig.printValues();
 
-    std::shared_ptr<IBackend> backend = getBackend(setupConfig);
+    IBackendManager& manager = getBackendManager(setupConfig);
 
+    size_t totalThreads = setupConfig.nThreads;
+    size_t ioThreads = setupConfig.nIOThreads;
+    size_t workerThreads = setupConfig.nWorkerThreads;
 
-
-    size_t totalThreads;
-    size_t ioThreads;
-    size_t workerThreads;
-    configureThreads(totalThreads, ioThreads, workerThreads, backend, setupConfig);
-
-    std::vector<std::shared_ptr<TaskContext>> contexts = createContexts(backend, setupConfig.nDevices, ioThreads, workerThreads);
+    std::vector<std::shared_ptr<TaskContext>> contexts = createContexts(manager, setupConfig.nDevices, workerThreads, ioThreads, totalThreads);
 
     size_t maxMemoryPerCube = getMaxMemoryPerCube(
         ioThreads,
         workerThreads,
-        backend,
+        manager,
         algorithm
     );
 
@@ -111,38 +108,21 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     return std::move(Result<DeconvolutionPlan>::ok(std::move(plan)));
 }
 
-void StandardDeconvolutionStrategy::configureThreads(
-    size_t& totalThreads,
-    size_t& ioThreads,
-    size_t& workerThreads,
-    std::shared_ptr<IBackend> backend,
-    const SetupConfig& config
-){
-    if (config.nIOThreads == 0 || config.nWorkerThreads == 0){
-        backend->setThreadDistribution(config.nThreads, ioThreads, workerThreads);
-    }
-    else{
-        ioThreads = config.nIOThreads;
-        workerThreads = config.nWorkerThreads;
-    }
-    totalThreads = ioThreads + workerThreads;
-    
 
-}
 
 std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreprocessor() const {
 
-    std::function<ComplexData*(const CuboidShape, std::shared_ptr<PSF>, std::shared_ptr<IBackend>)> psfPreprocessFunction = [&](
+    std::function<ComplexData*(const CuboidShape, std::shared_ptr<PSF>, IBackend&)> psfPreprocessFunction = [&](
         const CuboidShape targetShape,
         std::shared_ptr<PSF> inputPSF,
-        std::shared_ptr<IBackend> backend
+        IBackend& backend
             ) -> ComplexData* {
                 Preprocessor::padToShape(inputPSF->image, targetShape, PaddingType::ZERO);
                 ComplexData h = Preprocessor::convertImageToComplexData(inputPSF->image);
-                ComplexData h_device = backend->getMemoryManager().copyDataToDevice(h);
-                backend->getDeconvManager().octantFourierShift(h_device);
-                backend->getDeconvManager().forwardFFT(h_device, h_device);
-                backend->sync();
+                ComplexData h_device = backend.getMemoryManager().copyDataToDevice(h);
+                backend.getDeconvManager().octantFourierShift(h_device);
+                backend.getDeconvManager().forwardFFT(h_device, h_device);
+                backend.sync();
                 return new ComplexData(std::move(h_device));
             };
 
@@ -152,20 +132,32 @@ std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreproc
 }
 
 std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createContexts(
-    std::shared_ptr<IBackend> backend,
-    const int nDevices,
-    const size_t nWorkerThreads,
-    const size_t nIOThreads) const
+    IBackendManager& manager,
+    int configNDevices,
+    size_t& nWorkerThreads,
+    size_t& nIOThreads,
+    size_t& totalThreads) const
 {
-        int numberDevices = backend->getNumberDevices();
-        numberDevices = std::min(numberDevices, nDevices);
+        int numberDevices = manager.getNumberDevices();
+        numberDevices = std::min(numberDevices, configNDevices);
         numberDevices = numberDevices < 1 ? 1 : numberDevices;
 
-        std::vector<std::shared_ptr<TaskContext>> contexts;
+        BackendConfig ioconfig;
+        BackendConfig workerconfig;
+        // TODO the backendmanager knows best the ratio between workers and io, however this is not really a responsibility of the backend
+        // so this is like a question to backend: How would you use these number of io and worker threads
+        // and then this implicitly can also impact the number of threadpools used in the execution as the total number of threads shouldnt be larger than what is in the context
+        // then the backendconfig which got incluenced by the manager is passed to the taskcontext, where it is later used for the same manager
+        // to init new backends
+        // so nIOThreads and nWorkerThreads are the number of threads in the respective threadpool
+        // while the backendconfigs might e.g. the number of ompbackends
+        manager.setThreadDistribution(totalThreads, nIOThreads, nWorkerThreads, ioconfig, workerconfig);
         
-        for (int i = 0; i < numberDevices; i++){        
-            std::shared_ptr<IBackend> prototypebackend = backend->clone(backend);
-            std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(prototypebackend, nWorkerThreads, nIOThreads);
+        
+        std::vector<std::shared_ptr<TaskContext>> contexts;
+
+        for (int i = 0; i < numberDevices; i++){ 
+            std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(manager, ioconfig, workerconfig, nWorkerThreads, nIOThreads);
 
             std::unique_ptr<PSFPreprocessor> preprocessor = createPSFPreprocessor(); // new psfpreprocessor for each context because the psfs live on device
             context->setPreprocessor(std::move(preprocessor));
@@ -181,22 +173,24 @@ std::shared_ptr<DeconvolutionAlgorithm> StandardDeconvolutionStrategy::getAlgori
     return algorithm; 
 }
 
-std::shared_ptr<IBackend> StandardDeconvolutionStrategy::getBackend(const SetupConfig& config){
+IBackendManager& StandardDeconvolutionStrategy::getBackendManager(const SetupConfig& config){
     BackendFactory& bf = BackendFactory::getInstance();
-    BackendConfig bConfig(config.backend, 1);
-    std::shared_ptr<IBackend> backend = bf.createShared<IBackend>(bConfig);
-    // backend->mutableMemoryManager().setMemoryLimit(config.maxMem_GB * 1e9); // TESTVALUE
-    return backend;
+    IBackendManager& mgr = bf.getBackendManager(config.backend);
+    // backend.mutableMemoryManager().setMemoryLimit(config.maxMem_GB * 1e9); // TESTVALUE
+    return mgr;
 }
 
 
 size_t StandardDeconvolutionStrategy::getMaxMemoryPerCube(
     size_t ioThreads,
     size_t workerThreads,
-    std::shared_ptr<IBackend> backend,
-    std::shared_ptr<DeconvolutionAlgorithm> algorithm){
+    IBackendManager& manager,
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm
+){
+    BackendConfig backendConfig; //TODO TESTVALUE
+    IBackendMemoryManager& backend = manager.getBackendMemoryManager(backendConfig);
     
-    size_t availableMemory = backend->getMemoryManager().getAvailableMemory();
+    size_t availableMemory = backend.getAvailableMemory();
 
     size_t memoryBuffer = 1e9;
     availableMemory =- memoryBuffer;
@@ -205,7 +199,10 @@ size_t StandardDeconvolutionStrategy::getMaxMemoryPerCube(
     size_t ioAllocations = ioThreads * ioCopies;
     size_t workerAllocations = workerThreads * algorithm->getMemoryMultiplier();
 
-    size_t memoryPerCube = availableMemory / (ioAllocations * workerAllocations);
+    size_t threadallocations = ioAllocations + workerAllocations;
+    assert(threadallocations != 0 && "Error, no threadallocations");
+
+    size_t memoryPerCube = availableMemory / threadallocations ;
 
     return memoryPerCube; 
 }

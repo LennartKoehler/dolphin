@@ -72,12 +72,12 @@
             "name": "Debug dolphin",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/debug_build/tests/mainTest/main_test",
+            "program": "${workspaceFolder}/build/tests/mainTest/main_test",
             "args": [
                 "${workspaceFolder}/configs/default_config.json"
             ],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/debug_build",
+            "cwd": "${workspaceFolder}/build",
             "environment": [
             {
                 "name": "LD_LIBRARY_PATH",

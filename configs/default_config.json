@@ -1,7 +1,7 @@
 {
   "DeconvolutionConfig": {
     "algorithmName": "RichardsonLucy",
-    "iterations": 5,
+    "iterations": 50,
     "epsilon": 1e-6,
     "lambda": 0.015,
     "borderType": 1
@@ -14,8 +14,8 @@
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   
   "backend": "../backends/cuda/build/libcuda_backend.sotest",
-  "nIOThreads": 1,
-  "nWorkerThreads" : 1,
+  "nIOThreads": 2,
+  "nWorkerThreads" : 10,
   "nDevices" : 1,
   "maxMem_GB": 64,
 
