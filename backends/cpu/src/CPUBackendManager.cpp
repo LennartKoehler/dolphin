@@ -57,10 +57,10 @@ void CPUBackendManager::setThreadDistribution(const size_t& totalThreads, size_t
     ioconfig.nThreads = 1;
     workerConfig.nThreads = workerThreads == 0 ? static_cast<size_t>(2*totalThreads/3) : workerThreads;
     workerConfig.nThreads = workerConfig.nThreads == 0 ? 1 : workerConfig.nThreads;
-    // workerConfig.nThreads = 1; //TESTVALUE
+    workerConfig.nThreads = 1; //TESTVALUE
     
     ioThreads = ioThreads == 0 ? totalThreads : ioThreads;
-    workerThreads = 1;
+    // workerThreads = 1; //TESTVALUE
 }
 
 

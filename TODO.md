@@ -1,21 +1,13 @@
 
 threadpool destructor sometimes fails to join all threads. idk why, im guessing they might be stuck somewhere or lost?
 
-
-adjust cuda backend
-
 make background mask for the original image, so if there are some regions where no psfs are used the original image is just pasted there
-
-openmp and cpubackend thread initialization, both init fftw, this is problematic, check how the thread init works et
-work on the labeled image mask pipeline of using weighted masks
 
 make some operations doable in the image (convert image to complexdata)transofrmation function which does pixelwise operation anyway. When looping over each pixel, may aswell already do an operation on it, both directions. Perhaps make the conversion part of the Image3D object and then directly access a vector of functions?
 
 feathering: last mask can not be seen as the background, because if there is a section where 3 masks meet, the 2 earlier masks would have weight ~0.5 and therefore the last mask would get 1 - 0.5 - 0.5 = 0. It should however be 1/3 for all. Only if there are only 2 masks can i do this.
 
 distance map can be computed before deconvolution, then i can just copy in the pixel value multiplied by its weight
-
-make configuration for openmp backend so that the number of threads can be set. The problem is currently cpubackend is just a singleton and doesnt care. Where for cuda i have one backend per stream. But for openmp i need a mix. I want multiple openmp backends each with multiple threads
 
 Danielssondistancemapimagefilter very slow in labeled image deconvolution, takes 50% of the total runtime, apparently even in release mode, check if itk is actually in release mode
 

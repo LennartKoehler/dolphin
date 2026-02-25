@@ -1,5 +1,4 @@
-/*
-Copyright by Lennart Koehler
+/* Copyright by Lennart Koehler
 
 Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
 https://www.leibniz-hki.de/en/applied-systems-biology.html
@@ -21,7 +20,7 @@ See the LICENSE file provided with the code for the full license.
 #include <dlfcn.h>
 #include <iostream>
 #include "cpu_backend/CPUBackendManager.h"
-#include "cuda_backend/CUDABackendManager.h"
+// #include "cuda_backend/CUDABackendManager.h"
 #include <spdlog/spdlog.h>
 
 // Helper macro for cleaner not-implemented exceptions
@@ -76,7 +75,7 @@ struct BackendFactory {
         IBackendManager* manager = findBackendManager(backendName);
         if (!manager) manager = loadBackendManager(backendName);
         if (!manager){
-            spdlog::warn("Failed to load backend '{}', using default instead", backendName);
+            spdlog::get("backend")->warn("Failed to load backend '{}', using default instead", backendName);
             return getBackendManager(DEFAULT_BACKEND);
         }
         assert(manager && "Couldnt even load default manager");
@@ -102,8 +101,8 @@ private:
 
     void registerStaticBackends(){
         
-        addBackendManager("default", new CPUBackendManager());
-        addBackendManager("cuda", new CUDABackendManager());
+        addBackendManager(DEFAULT_BACKEND, new CPUBackendManager());
+        // addBackendManager("cuda", new CUDABackendManager());
     }
 
     // ---------------- Internal loader ----------------
@@ -111,7 +110,7 @@ private:
     T* loadSymbolFromLibrary(const std::string& backendName, const char* symbolName) {
         void* handle = getHandle(backendName);
         if (!handle) {
-            // spdlog::warn("Could not load backend library '{}'", backendName);
+            // spdlog::get("backend")->warn("Could not load backend library '{}'", backendName);
             return nullptr;
         }
 
@@ -163,7 +162,11 @@ private:
         symbolName = "createBackendManager";
         result = loadSymbolFromLibrary<IBackendManager>(backendName, symbolName);
     
-        addBackendManager(backendName, result);
+        if (!result){
+            spdlog::get("backend")->warn("Unable to load backend {}, using default instead", backendName);
+            result = findBackendManager(DEFAULT_BACKEND);
+        }
+        else addBackendManager(backendName, result);
         return result;
     
     }
@@ -177,9 +180,6 @@ private:
     // ---------------- Shared library handle loader ----------------
     static void* getHandle(const std::string& backendName) {
         void* handle = dlopen(backendName.c_str(), RTLD_LAZY);
-        if (!handle) {
-            spdlog::warn("Failed to open library '{}': {}", backendName, dlerror());
-        }
         return handle;
     }
 

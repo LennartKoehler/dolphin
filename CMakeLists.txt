@@ -58,7 +58,7 @@ message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
 add_subdirectory(backends/dolphinbackend)
 # add_subdirectory(backends/openmp)
 add_subdirectory(backends/cpu)
-add_subdirectory(backends/cuda)
+# add_subdirectory(backends/cuda)
 
 
 
@@ -141,7 +141,7 @@ target_link_libraries(dolphin
     PUBLIC
         dolphinbackend
         cpu_backend
-        cuda_backend
+#        cuda_backend
         ${TIFF_LIBRARIES}
         ${ITK_LIBRARIES}
 )
@@ -178,7 +178,7 @@ set_target_properties(dolphin PROPERTIES
 
 
 # Install targets
-install(TARGETS project_options dolphin dolphinbackend cuda_backend CUBE cpu_backend
+install(TARGETS project_options dolphin dolphinbackend cpu_backend
     EXPORT dolphinTargets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
