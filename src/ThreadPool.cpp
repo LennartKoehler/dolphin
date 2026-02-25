@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/ThreadPool.h"
 #include <iostream>
+#include <spdlog/spdlog.h>
 
 ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc)
     : stop(false),
@@ -37,7 +38,9 @@ ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc)
                     task = std::move(tasks.front());
                     tasks.pop();
                 }
+                spdlog::get("default")->debug("Thread ({}) starting task", std::hash<std::thread::id>{}(std::this_thread::get_id()));
                 task();
+                spdlog::get("default")->debug("Thread ({}) finished task", std::hash<std::thread::id>{}(std::this_thread::get_id()));
                 queueSpace.notify_one();
 
             }
@@ -53,7 +56,15 @@ ThreadPool::~ThreadPool() {
         stop = true;
     }
     condition.notify_all();
-    for(std::thread &worker: workers) worker.join();
+    for(std::thread &worker: workers){
+        if(worker.joinable()){
+            worker.join();
+        }
+        else spdlog::get("default")->critical("thread not joinable");
+        if (std::this_thread::get_id() == worker.get_id()) {
+            spdlog::get("default")->critical("Attempting to join self!");
+        }
+    } 
 }
 
 void ThreadPool::setCondition(std::function<bool()> condition){
@@ -72,7 +83,7 @@ bool ThreadPool::reduceNumberThreads(int amount){
     if (stopThreads == 0){
         stopThreads += amount;
     }
-    condition.notify_one();
+    condition.notify_all();
     if (stopThreads >= activeWorkers){
         return true;
     }

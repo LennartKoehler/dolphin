@@ -147,6 +147,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         auto result_obj = createResult(true, "Deconvolution completed successfully", duration);
         result_obj->output_path = path;
         
+        logger_->info("Deconvolution finished successfully");
 
         return result_obj;
         

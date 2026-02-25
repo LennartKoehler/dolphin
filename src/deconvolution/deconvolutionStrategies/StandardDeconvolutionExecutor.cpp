@@ -16,7 +16,6 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <stdexcept>
 #include <iostream>
-#include <omp.h>
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/deconvolution/Postprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
