@@ -31,11 +31,22 @@ std::shared_ptr<PSFConfig> PSFCreator::generatePSFConfigFromConfigPath(const std
     return psfConfig;
 }
 
-std::vector<PSF> PSFCreator::readPSFsFromFilePath(const std::string& psfFilePath){
+std::vector<std::shared_ptr<PSFConfig>> PSFCreator::generatePSFConfigsFromConfigPath(const std::vector<std::string>& paths){
+
+    std::vector<std::shared_ptr<PSFConfig>> psfsConfigs;
+    for(const auto&  configpath : paths){
+        psfsConfigs.push_back(generatePSFConfigFromConfigPath(configpath));
+    }
+    return psfsConfigs;
+}
+
+
+std::vector<std::string> PSFCreator::stringSplit(const std::string& paths){
+
     std::vector<std::string> tokens;
-    std::stringstream ss(psfFilePath);
+    std::stringstream ss(paths);
     std::string token;
-    
+
     // Split by comma and trim whitespace from each token
     while (std::getline(ss, token, ',')) {
         // Trim leading and trailing whitespace
@@ -45,17 +56,21 @@ std::vector<PSF> PSFCreator::readPSFsFromFilePath(const std::string& psfFilePath
             tokens.push_back(token);
         }
     }
+    return tokens;
+}
+
+std::vector<PSF> PSFCreator::readPSFsFromFilePath(const std::vector<std::string>& paths){
 
     std::vector<PSF> psfs;
-    for (const auto& psffilepath : tokens){
+    for (const auto& psffilepath : paths){
         PSF psf;
-        
+
         // Determine if the path is a file or directory and read accordingly
         std::string ext = psffilepath.substr(psffilepath.find_last_of(".") + 1);
         if (ext == "tif" || ext == "tiff" || ext == "ometif") {
             psf.readFromTiffFile(psffilepath);
         }
-        
+
         psfs.push_back(std::move(psf));
     }
     return psfs;
@@ -70,38 +85,38 @@ PSF PSFCreator::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, T
     psf.ID = psfConfig->ID;
     spdlog::info("Successfully created PSF of type {} with ID: {}", psfConfig->getModelName(), psf.ID);
     return psf;
-    
+
 }
 
 std::vector<std::shared_ptr<PSFConfig>> PSFCreator::generatePSFsFromDir(const std::string& psfDirPath){
     std::vector<std::shared_ptr<PSFConfig>> psfs;
-    
+
     try {
         // Check if directory exists
         if (!std::filesystem::exists(psfDirPath)) {
             throw std::runtime_error("Directory does not exist: " + psfDirPath);
         }
-        
+
         if (!std::filesystem::is_directory(psfDirPath)) {
             throw std::runtime_error("Path is not a directory: " + psfDirPath);
         }
-        
+
         spdlog::debug("Reading PSF configs from directory: {}", psfDirPath);
-        
+
         // Iterate through all files in directory
         for (const auto& entry : std::filesystem::directory_iterator(psfDirPath)) {
             if (entry.is_regular_file()) {
                 std::string filePath = entry.path().string();
-                
+
                 // Check if file is a JSON file
                 if (isJSONFile(filePath)) {
                     try {
                         spdlog::debug("Processing config file: {}", entry.path().filename().string());
-                        
+
                         // Generate PSF from this config file
                         std::shared_ptr<PSFConfig> psf = generatePSFConfigFromConfigPath(filePath);
                         psfs.push_back(std::move(psf));
-                        
+
                     } catch (const std::exception& e) {
                         spdlog::warn("Failed to generate PSF from {}: {}", filePath, e.what());
                         // Continue processing other files instead of stopping
@@ -111,17 +126,17 @@ std::vector<std::shared_ptr<PSFConfig>> PSFCreator::generatePSFsFromDir(const st
                 }
             }
         }
-        
+
         if (psfs.empty()) {
             throw std::runtime_error("No valid PSF config files found in directory: " + psfDirPath);
         }
-        
+
         spdlog::debug("Generated {} PSF(s) from directory", psfs.size());
-        
+
     } catch (const std::filesystem::filesystem_error& e) {
         throw std::runtime_error("Filesystem error while reading directory " + psfDirPath + ": " + e.what());
     }
-    
+
     return psfs;
 }
 bool PSFCreator::isJSONFile(const std::string& path) {
@@ -133,7 +148,7 @@ json PSFCreator::loadJSONFile(const std::string& filePath){
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open configuration file: " + filePath);
     }
-    
+
 
     json jsonFile;
     try{
@@ -158,7 +173,7 @@ json PSFCreator::loadJSONFile(const std::string& filePath){
 
 
 // PSFPackage PSFCreator::generatePackage(const std::string& psfConfigPath){
-//     PSFPackage psfpackage;    
+//     PSFPackage psfpackage;
 //     if (isJSONFile(psfConfigPath)) {
 //         json configJson = loadJSONFile(psfConfigPath);
 //         if (configJson.contains("path") && configJson["path"].get<std::string>() != "") {
@@ -199,40 +214,7 @@ json PSFCreator::loadJSONFile(const std::string& filePath){
 //     psfpackage.psfLayerVec.push_back(configJson["layers"].get<std::vector<int>>());
 
 //     std::shared_ptr<PSFConfig> psfConfig = PSFConfig::createFromJSON(configJson);
-    
-//     psfpackage.psfs.push_back(createfromConfig(psfConfig));
-//     return psfpackage;
-// }
 
-
-
-
-
-
-
-
-
-// //TODO
-// PSFPackage PSFCreator::fromDirPath(const std::string& psfDirPath) {
-//     for (const auto& element : psfDirPath) {
-//         // if (element.is_string()) {
-//         //     std::string elementStr = element.get<std::string>();
-//         //     processSinglePSFPath(elementStr);
-//         // }
-//     }
-// }
-
-
-
-// void PSFCreator::PSFDimensionCheck(const PSFPackage& psfpackage){
-//     int firstPsfX = psfpackage.psfs[0].image.slices[0].cols;
-//     int firstPsfY = psfpackage.psfs[0].image.slices[0].rows;
-//     int firstPsfZ = psfpackage.psfs[0].image.slices.size();
-//     for (int i = 0; i < psfpackage.psfs.size(); i++) {
-//         if(firstPsfX != psfpackage.psfs[i].image.slices[0].cols || firstPsfY != psfpackage.psfs[i].image.slices[0].rows || firstPsfZ != psfpackage.psfs[i].image.slices.size()) {
-//             throw std::runtime_error("PSF sizes do not match");
-//             spdlog::info(" {} {} {} {} {}", firstPsfY, firstPsfZ, psfpackage.psfs[i].image.slices[0].cols, psfpackage.psfs[i].image.slices[0].rows, psfpackage.psfs[i].image.slices.size());
-            
 //         }
 //     }
 //     spdlog::info("{} PSF(s) loaded", psfpackage.psfs.size());

@@ -30,7 +30,7 @@
 
 
 
-// if more than one device then these shouldnt be static
+// if more than one backend then these shouldnt be static
 FFTWManager CPUDeconvolutionBackend::fftwManager;
 MemoryTracking CPUBackendMemoryManager::cpuMemory;
 
@@ -85,14 +85,14 @@ void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
         throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CPU", requiredSize, "Memory Allocation");
         // g_logger(std::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::ERROR);
     }
-    // device.memory.memoryCondition.wait(lock, [this, requiredSize]() {
-    //     return device.memory.maxMemorySize == 0 || (device.memory.totalUsedMemory + requiredSize) <= device.memory.maxMemorySize;
+    // backend.memory.memoryCondition.wait(lock, [this, requiredSize]() {
+    //     return backend.memory.maxMemorySize == 0 || (backend.memory.totalUsedMemory + requiredSize) <= backend.memory.maxMemorySize;
     // });
 }
 
 // CPUBackendMemoryManager implementation
 bool CPUBackendMemoryManager::isOnDevice(void* ptr) const {
-    // For CPU backend, all valid pointers are "on device"
+    // For CPU backend, all valid pointers are "on backend"
     return ptr != nullptr;
 }
 
@@ -134,15 +134,15 @@ ComplexData CPUBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata
     return result;
 }
 
-ComplexData CPUBackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const {
+ComplexData CPUBackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destDevice) const {
     BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "moveDataFromDevice - source data");
-    if (&destBackend == this) {
+    if (&destDevice == this) {
         return srcdata;
     }
     else {
         // For cross-backend transfer, use the destination backend's copy method
         // since cpubackend is the "default" it is simple, be careful how this works for other backends though
-        return destBackend.copyDataToDevice(srcdata);
+        return destDevice.copyDataToDevice(srcdata);
     }
 }
 
@@ -176,7 +176,7 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
         access.data.totalUsedMemory -= requested_size;
     }
     // Notify waiting threads that memory is now available
-    // device.memory.memoryCondition.notify_all(); // This would need to be handled differently with the new system
+    // backend.memory.memoryCondition.notify_all(); // This would need to be handled differently with the new system
 
     data.data = nullptr;
 }
@@ -213,7 +213,7 @@ size_t CPUBackendMemoryManager::getAllocatedMemory() const {
 CPUDeconvolutionBackend::CPUDeconvolutionBackend(CPUBackendConfig config)
     : config(config) {
 
-    
+
     #ifdef  _OPENMP
         omp_set_num_threads(1);
         omp_set_nested(0);
@@ -243,6 +243,9 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& ou
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
 
     fftwManager.executeBackwardFFT(config.ompThreads, in.size, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
+
+    complex_t normFactor{1.0f / out.size.getVolume(), 1.0f / out.size.getVolume()};
+    scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
 // Shift Operations
@@ -609,13 +612,13 @@ void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& g
     int width = image.size.width;
     int height = image.size.height;
     int depth = image.size.depth;
-    
+
     OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 int index = z * height * width + y * width + x;
-                
+
                 if (x < width - 1) {
                     int nextIndex = index + 1;
                     gradX.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
@@ -634,13 +637,13 @@ void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& g
     int width = image.size.width;
     int height = image.size.height;
     int depth = image.size.depth;
-    
+
     OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 int index = z * height * width + y * width + x;
-                
+
                 if (y < height - 1) {
                     int nextIndex = index + width;
                     gradY.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
@@ -659,13 +662,13 @@ void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& g
     int width = image.size.width;
     int height = image.size.height;
     int depth = image.size.depth;
-    
+
     OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 int index = z * height * width + y * width + x;
-                
+
                 if (z < depth - 1) {
                     int nextIndex = index + height * width;
                     gradZ.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
@@ -745,5 +748,5 @@ void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY
 //     config.ompThreads = workerThreads == 0 ? static_cast<size_t>(2*totalThreads/3) : workerThreads;
 //     // workerThreads = workerThreads == 0 ? 1 : workerThreads;
 //     workerThreads = 1;
-//     deconvBackend.init(config);
+//     deconvDevice.init(config);
 // }

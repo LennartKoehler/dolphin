@@ -7,7 +7,7 @@ bool Config::loadFromJSON(const json& jsonData){
     bool success = true;
     try{
         logUnvalidParameters(jsonData);
-        
+
         visitParams([&jsonData]<typename T>(T& value, ConfigParameter& param) {
             if (jsonData.contains(param.jsonTag)) {
                 value = jsonData.at(param.jsonTag).get<T>();
@@ -79,7 +79,7 @@ json Config::loadJSONFile(const std::string& filePath) {
     if (!configFile.is_open()) {
         throw std::runtime_error("Could not open config file: " + filePath);
     }
-    
+
     json jsonData;
     configFile >> jsonData;
     return jsonData;
@@ -93,7 +93,7 @@ bool Config::logUnvalidParameters(const json& jsonData) const {
             validTags.insert(param.jsonTag);
         }
     }
-    
+
     // Check for unknown keys in JSON
     std::vector<std::string> unknownKeys;
     for (auto it = jsonData.begin(); it != jsonData.end(); ++it) {
@@ -101,7 +101,7 @@ bool Config::logUnvalidParameters(const json& jsonData) const {
             unknownKeys.push_back(it.key());
         }
     }
-    
+
     // Report unknown keys
     if (!unknownKeys.empty()) {
         for (const auto& key : unknownKeys) {

@@ -33,7 +33,7 @@ struct CuboidShape{
         : width(dimensions[0]),
         height(dimensions[1]),
         depth(dimensions[2]){}
-    
+
     std::array<int, 3> getArray() const {
         return std::array<int, 3>{width, height, depth};
     }
@@ -70,9 +70,9 @@ struct CuboidShape{
     //     return dims;
     // }
 
-    inline int getNumberSubcubes(const CuboidShape& other) const {
-        CuboidShape temp = this->operator/(other);
-        temp.setMin(CuboidShape{1, 1, 1});
+    inline int getNumberSubcubes(CuboidShape other) const {
+        other.setMin(CuboidShape{1, 1, 1});
+        CuboidShape temp = this->ceilingDivide(other);
         return temp.getVolume();
 
     }
@@ -120,6 +120,14 @@ struct CuboidShape{
             this->depth + other.depth);
     }
 
+    inline CuboidShape ceilingDivide(const CuboidShape& other) const {
+        return CuboidShape(
+            (this->width + other.width - 1) / other.width,
+            (this->height + other.height - 1) / other.height,
+            (this->depth + other.depth - 1) / other.depth
+        );
+    }
+
     inline CuboidShape operator/(const CuboidShape& other) const {
         return CuboidShape(
             this->width/other.width,
@@ -148,10 +156,12 @@ struct CuboidShape{
         if (this->width >= other.width && this->height >= other.height && this->depth >= other.depth) return true;
         else return false;
     }
-    inline bool operator<(const CuboidShape& other) const {
-        if (this->width != other.width) return this->width < other.width;
-        if (this->height != other.height) return this->height < other.height;
-        return this->depth < other.depth;
+    inline bool operator<(int size){
+        return (this->width < size && this->height < size && this->depth < size);
     }
+    inline bool operator<(const CuboidShape& other) const {
+        return (this->width < other.width && this->height < other.height && this->depth < other.depth);
+    }
+
 };
 

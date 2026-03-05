@@ -23,7 +23,7 @@ void TestAlgorithm::configure(const DeconvolutionConfig& config) {
 
 void TestAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Test algorithm initialization");\
-    
+
     initialized = true;
 }
 
@@ -33,7 +33,7 @@ bool TestAlgorithm::isInitialized() const {
 
 void TestAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     assert(backend && "No backend available for Test algorithm");\
-    
+
     assert(initialized && "Test algorithm not initialized. Call init() first.");\
     backend->getDeconvManager().complexMultiplicationWithConjugate(g, H, f);
 

@@ -20,7 +20,9 @@ See the LICENSE file provided with the code for the full license.
 #include <dlfcn.h>
 #include <iostream>
 #include "cpu_backend/CPUBackendManager.h"
-// #include "cuda_backend/CUDABackendManager.h"
+#ifdef ENABLE_CUDA
+    #include "cuda_backend/CUDABackendManager.h"
+#endif
 #include <spdlog/spdlog.h>
 
 // Helper macro for cleaner not-implemented exceptions
@@ -43,7 +45,7 @@ static std::function<void(const std::string&, LogLevel)> logCallback_fn = [](con
         break;
     default:
         break;
-    } 
+    }
 };
 //helper
 template <typename T>
@@ -53,7 +55,7 @@ template <typename T>
     static_assert(always_false<T>, "Unsupported type for getBackend");
 }
 
-#define DEFAULT_BACKEND "default"
+#define DEFAULT_BACKEND "cpu"
 
 
 struct BackendFactory {
@@ -75,7 +77,7 @@ struct BackendFactory {
         IBackendManager* manager = findBackendManager(backendName);
         if (!manager) manager = loadBackendManager(backendName);
         if (!manager){
-            spdlog::get("backend")->warn("Failed to load backend '{}', using default instead", backendName);
+            spdlog::get("backend")->warn("Failed to get backend '{}' out of selection {}, using default instead", backendName, printRegisteredBackends());
             return getBackendManager(DEFAULT_BACKEND);
         }
         assert(manager && "Couldnt even load default manager");
@@ -94,15 +96,18 @@ struct BackendFactory {
 
 private:
 
-    BackendFactory(){registerStaticBackends();} 
+    BackendFactory(){registerStaticBackends();}
     ~BackendFactory() = default;
     BackendFactory(const BackendFactory&) = delete;
     BackendFactory& operator=(const BackendFactory&) = delete;
 
     void registerStaticBackends(){
-        
-        addBackendManager(DEFAULT_BACKEND, new CPUBackendManager());
-        // addBackendManager("cuda", new CUDABackendManager());
+
+        addBackendManager(DEFAULT_BACKEND, std::make_unique<CPUBackendManager>());
+
+#ifdef ENABLE_CUDA
+        addDeviceManager("cuda", std::make_unique<CUDABackendManager>());
+#endif
     }
 
     // ---------------- Internal loader ----------------
@@ -136,6 +141,18 @@ private:
         }
     }
 
+    std::string printRegisteredBackends(){
+        std::string s{"["};
+        for(auto const& [name, _] : loadedManagers){
+            s.append(name);
+            s.append(", ");
+        }
+        s.pop_back();
+        s.pop_back();
+        s.append("]");
+        return s;
+    }
+
 
 
 
@@ -145,14 +162,13 @@ private:
         IBackendManager& manager = getBackendManager(config.backendName);
 
         return getBackend<T>(manager, config);
-        
 
     }
 
     void addBackendManager(const std::string& backendName, IBackendManager* manager){
         manager->init(logCallback_fn);
 
-        loadedManagers[backendName] = std::unique_ptr<IBackendManager>(manager);
+        loadedManagers[backendName] = std::move(manager);
     }
 
     IBackendManager* loadBackendManager(const std::string& backendName){
@@ -161,14 +177,14 @@ private:
         const char* symbolName = nullptr;
         symbolName = "createBackendManager";
         result = loadSymbolFromLibrary<IBackendManager>(backendName, symbolName);
-    
+
         if (!result){
-            spdlog::get("backend")->warn("Unable to load backend {}, using default instead", backendName);
-            result = findBackendManager(DEFAULT_BACKEND);
+            spdlog::get("backend")->warn("Unable to load backend '{}'", backendName);
+            result = nullptr;
         }
         else addBackendManager(backendName, result);
         return result;
-    
+
     }
 
     IBackendManager* findBackendManager(const std::string& name){

@@ -32,14 +32,14 @@ See the LICENSE file provided with the code for the full license.
 namespace fs = std::filesystem;
 
 // Constructor
-TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShape) 
+TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShape)
     : outputFilename(filename),
     imageShape(imageShape){
     // this->metaData = metadata;
     // metaData.filename = filename;
-    
+
     TIFFSetWarningHandler(TiffWriter::customTifWarningHandler);
-    
+
     // Create or open the TIFF file
     TIFF* tif = TIFFOpen(filename.c_str(), "w");
     if (!tif) {
@@ -51,8 +51,8 @@ TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShap
 
 
 // Destructor
-TiffWriter::~TiffWriter() {  
-    assert (tileBuffer.size() == 0 && "TileBuffer not empty but done writing, should not happen"); 
+TiffWriter::~TiffWriter() {
+    assert (tileBuffer.size() == 0 && "TileBuffer not empty but done writing, should not happen");
     if (tif) {
         TIFFClose(tif);
     }
@@ -65,7 +65,7 @@ TiffWriter::~TiffWriter() {
 bool TiffWriter::setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const {
     CuboidShape imageShape = image.getShape();
     assert(imageShape.depth != 0|| imageShape.width != 0 || imageShape.height != 0 && "Cannot set subimage: Image3D has invalid dimensions");
-    
+
     std::unique_lock<std::mutex> lock(writerMutex);
 
     int bufferIndex;
@@ -105,7 +105,7 @@ void TiffWriter::createNewTile(const BoxCoordWithPadding& coord) const {
     };
     tile.source = source;
 
-    Image3D image(tile.source.box.dimensions);
+    Image3D image(tile.source.box.dimensions, -1.0f);
     tile.image = std::move(image);
 
     tileBuffer.push_back(std::move(tile));
@@ -141,7 +141,7 @@ void TiffWriter::copyToTile(const Image3D& image, const BoxCoordWithPadding& coo
 
         // Add tile to ready queue instead of writing immediately
         readyToWriteQueue.push(index);
-        
+
         // Process queue to write tiles in correct order
         processReadyToWriteQueue();
     }
@@ -167,34 +167,34 @@ void TiffWriter::processReadyToWriteQueue() const {
         // Find the tile with the smallest z-position among ready tiles
         int nextTileIndex = -1;
         int minZPosition = INT_MAX;
-        
+
         // Create a temporary queue to check all ready tiles
         std::queue<int> tempQueue = readyToWriteQueue;
         std::vector<int> queuedTiles;
-        
+
         while (!tempQueue.empty()) {
             int tileIndex = tempQueue.front();
             tempQueue.pop();
             queuedTiles.push_back(tileIndex);
-            
+
             const ImageBuffer& tile = tileBuffer.find(tileIndex);
             int zPos = tile.source.box.position.depth;
-            
+
             // Check if this tile is the next one to write
             if (zPos <= writtenToDepth && zPos < minZPosition) {
                 minZPosition = zPos;
                 nextTileIndex = tileIndex;
             }
         }
-        
+
         // If we found a tile that can be written next, write it
         if (nextTileIndex != -1) {
             const ImageBuffer& tileToWrite = tileBuffer.find(nextTileIndex);
             writeTile(outputFilename, tileToWrite);
-            
+
             // Remove the written tile from buffer and queue
             tileBuffer.deleteIndex(nextTileIndex);
-            
+
             // Rebuild the queue without the written tile
             std::queue<int> newQueue;
             for (int idx : queuedTiles) {
@@ -230,7 +230,7 @@ bool TiffWriter::writeToFile_(const std::string& filename, int z, int depth, con
     if (!tif) {
         throw TiffWriteException("TIFF file handle is null");
     }
-    
+
     // Write each slice as a separate directory in the TIFF file
     for (size_t i = writtenToDepth - z; i < depth; ++i) {
         // Write the slice
@@ -240,7 +240,7 @@ bool TiffWriter::writeToFile_(const std::string& filename, int z, int depth, con
             throw TiffWriteException("Failed to set directory for slice " + std::to_string(i));
         }
     }
-    
+
     writtenToDepth = z + depth;
     spdlog::info("Successfully saved ImageFileDirectory ({}): {} - {}", filename, z, z + depth);
     return true;
@@ -262,26 +262,26 @@ void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceInd
     if (sliceIndex >= imageShape.depth) {
         throw TiffWriteException("Slice index out of bounds: " + std::to_string(sliceIndex));
     }
-    
+
     // Extract slice data
     std::vector<float> sliceData;
     extractSliceData(image, sliceIndex, sliceData);
-    
+
     if (sliceData.empty()) {
         throw TiffWriteException("Slice data is empty for slice index: " + std::to_string(sliceIndex));
     }
-    
+
     ImageMetaData metaData = extractMetaData(image);
-    setTiffFields(tif, metaData); 
+    setTiffFields(tif, metaData);
 
     tsize_t scanlineSize = TIFFScanlineSize(tif);
-    
+
     // Allocate buffer for scanlines
     char* buf = (char*)_TIFFmalloc(scanlineSize);
     if (!buf) {
         throw TiffMemoryException("Memory allocation failed for scanline buffer");
     }
-    
+
     // Write scanlines
     // size_t bytesPerPixel = bitsPerSample / 8 * samplesPerPixel;
     for (uint32_t row = 0; row < imageShape.height; ++row) {
@@ -292,9 +292,9 @@ void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceInd
             throw TiffWriteException("Failed to write scanline " + std::to_string(row));
         }
     }
-    
+
     // Clean up
-    _TIFFfree(buf);   
+    _TIFFfree(buf);
 
 }
 
@@ -331,7 +331,7 @@ void TiffWriter::customTifWarningHandler(const char* module, const char* fmt, va
 
     if (required < 0) {
         // Fallback: log the raw format string if formatting failed
-        logger->warn("TIFF warning (format error): {}", fmt);
+        logger->debug("TIFF warning (format error): {}", fmt);
         return;
     }
 
@@ -339,7 +339,7 @@ void TiffWriter::customTifWarningHandler(const char* module, const char* fmt, va
     message.resize(static_cast<size_t>(required));
     vsnprintf(&message[0], static_cast<size_t>(required) + 1, fmt, ap);
 
-    logger->warn("Tiff Warning Handler: {}", message);
+    logger->debug("Tiff Warning Handler: {}", message);
 }
 
 
@@ -348,12 +348,12 @@ ImageMetaData TiffWriter::extractMetaData(const Image3D& image){
     // Convert to target type based on metadata
     // std::vector<uint8_t> convertedData;
     // convertSliceDataToTargetType(sliceData, convertedData, imageShape.width, imageShape.height, metaData);
-    
+
     // Use metadata values for TIFF fields
     // uint16_t bitsPerSample = metaData.bitsPerSample;
     // uint16_t samplesPerPixel = metaData.samplesPerPixel;
     // int sampleFormat = metaData.sampleFormat;
-    
+
     // Process description to remove min/max/mode lines
     // std::istringstream iss(metaData.description);
     // std::ostringstream oss;
@@ -382,21 +382,21 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) 
     try {
         ImageMetaData metadata = extractMetaData(image);
         CuboidShape imageShape = image.getShape();
-        
+
         if (imageShape.depth == 0 || imageShape.width == 0 || imageShape.height == 0) {
             throw TiffWriteException("Cannot write Image3D: Invalid image dimensions");
         }
-        
+
         // Set up warning handler
         TIFFSetWarningHandler(TiffWriter::customTifWarningHandler);
-        
+
         // Create or open the TIFF file
         TIFF* tif = TIFFOpen(filename.c_str(), "w");
         if (!tif) {
             throw TiffFileOpenException(filename);
         }
 
-        
+
         // Process description to remove min/max/mode lines
         std::string cutted_description = metadata.description;
         if (!metadata.description.empty()) {
@@ -412,7 +412,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) 
             }
             cutted_description = oss.str();
         }
-        
+
 
         // Write each slice as a separate directory in the TIFF file
         for (int zIndex = 0; zIndex < imageShape.depth; ++zIndex) {
@@ -424,10 +424,10 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) 
                 }
             }
         }
-        
+
         // Close the TIFF file
         TIFFClose(tif);
-        
+
         spdlog::info("Successfully wrote Image3D to TIFF file: {}", filename);
         return true;
 
@@ -464,29 +464,29 @@ void TiffWriter::extractSliceData(const Image3D& image, int sliceIndex, std::vec
     if (sliceIndex >= shape.depth) {
         throw TiffWriteException("Slice index out of bounds: " + std::to_string(sliceIndex));
     }
-    
+
     sliceData.resize(shape.width * shape.height);
-    
+
     // Use ITK slice iterator to extract slice data
     ImageType::Pointer itkImage = image.getItkImage();
-    
+
     // Define the slice region
     ImageType::IndexType start;
     start[0] = 0;
     start[1] = 0;
     start[2] = sliceIndex;
-    
+
     ImageType::SizeType size;
     size[0] = shape.width;
     size[1] = shape.height;
     size[2] = 1;
-    
+
     ImageType::RegionType sliceRegion;
     sliceRegion.SetIndex(start);
     sliceRegion.SetSize(size);
-    
+
     itk::ImageRegionIterator<ImageType> it(itkImage, sliceRegion);
-    
+
     int pixelIndex = 0;
     for (it.GoToBegin(); !it.IsAtEnd(); ++it, ++pixelIndex) {
         sliceData[pixelIndex] = it.Get();
@@ -494,12 +494,12 @@ void TiffWriter::extractSliceData(const Image3D& image, int sliceIndex, std::vec
 
 }
 
-void TiffWriter::convertSliceDataToTargetType(const std::vector<float>& sourceData, 
-                                            std::vector<uint8_t>& targetData, 
+void TiffWriter::convertSliceDataToTargetType(const std::vector<float>& sourceData,
+                                            std::vector<uint8_t>& targetData,
                                             int width, int height,
                                             const ImageMetaData& metadata) {
     size_t numPixels = width * height;
-    
+
     if (metadata.bitsPerSample == 8) {
         // Convert float to 8-bit unsigned
         targetData.resize(numPixels);

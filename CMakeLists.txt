@@ -5,6 +5,7 @@ project(dolphin VERSION 1.0.0)
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_EXPORT_COMPILE_COMMANDS On)
 
 
 
@@ -18,14 +19,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_library(project_options INTERFACE)
 
 target_compile_options(project_options INTERFACE
+  # Release
+  $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops;-mavx2;-mfma> #TESTVALUE -g
   # Debug
   $<$<CONFIG:Debug>:-g;-O0;-fno-omit-frame-pointer>
   # DebugVectorization
   $<$<CONFIG:DebugVectorization>:-g;-O0;-fno-omit-frame-pointer>
   #NoVectorization
   $<$<CONFIG:NoVectorization>:-O3;-ffast-math;-DNDEBUG;-fno-tree-vectorize;-fno-tree-slp-vectorize>
-  # Release
-  $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops;-mavx2;-mfma> #TESTVALUE -g
   # RelWithDebInfo
   $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-DNDEBUG;-funroll-loops>
 )
@@ -58,7 +59,16 @@ message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
 add_subdirectory(backends/dolphinbackend)
 # add_subdirectory(backends/openmp)
 add_subdirectory(backends/cpu)
-# add_subdirectory(backends/cuda)
+
+option(BUILD_CUDA "Build cuda backend" ON)
+if(NOT BUILD_CUDA)
+    message(STATUS "Not building CUDA features")
+    return()
+else()
+    message(STATUS "Trying to build CUDA features")
+    add_subdirectory(backends/cuda)
+endif()
+
 
 
 
@@ -77,7 +87,7 @@ set(DOLPHIN_SOURCES
     src/ThreadPool.cpp
     src/Config.cpp
     src/SetupConfig.cpp
-    
+
     src/image/Image3D.cpp
     src/image/ImageMetaData.cpp
 
@@ -98,7 +108,7 @@ set(DOLPHIN_SOURCES
     src/deconvolution/Preprocessor.cpp
     src/deconvolution/Postprocessor.cpp
     src/deconvolution/DeconvolutionProcessor.cpp
-    
+
     src/deconvolution/deconvolutionStrategies/ImageSplit.cpp
     src/deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.cpp
     src/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.cpp
@@ -128,7 +138,6 @@ target_include_directories(dolphin
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cpu/include/>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cuda/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/dolphinbackend/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/spdlog/include/>
@@ -141,10 +150,34 @@ target_link_libraries(dolphin
     PUBLIC
         dolphinbackend
         cpu_backend
-#        cuda_backend
         ${TIFF_LIBRARIES}
         ${ITK_LIBRARIES}
 )
+
+
+
+if(BUILD_CUDA)
+    target_compile_definitions(dolphin PRIVATE ENABLE_CUDA=1)
+    target_link_libraries(dolphin
+        PUBLIC
+        cuda_backend)
+
+    target_include_directories(dolphin
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cuda/include/>
+    )
+    install(TARGETS CUBE cuda_backend
+        EXPORT dolphinTargets
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+        INCLUDES DESTINATION include
+    )
+else()
+    target_compile_definitions(dolphin PRIVATE ENABLE_CUDA=0)
+endif()
+
+
 
 # Compiler flags for Valgrind-safe build
 # if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND CMAKE_BUILD_TYPE STREQUAL "Debug")

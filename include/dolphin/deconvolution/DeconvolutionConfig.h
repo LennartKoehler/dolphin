@@ -18,10 +18,12 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/Config.h"
 
 
-enum class PaddingType{
+enum PaddingType {
     ZERO,
-    MIRROR
+    MIRROR,
 };
+
+
 class DeconvolutionConfig : public Config{
 public:
     DeconvolutionConfig();
@@ -35,9 +37,6 @@ public:
     float lambda = 0.001;
     PaddingType borderType = PaddingType::ZERO;
     int featheringRadius = 0;
-
-
-
 
 
     // virtual bool loadFromJSON(const json& jsonData) override;
