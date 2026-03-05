@@ -29,21 +29,21 @@ SetupConfig::SetupConfig() {
 
 SetupConfig SetupConfig::createFromJSONFile(const std::string& filePath) {
     json jsonData = loadJSONFile(filePath);
-    
+
     SetupConfig config;
     if (!config.loadFromJSON(jsonData)) {
         throw std::runtime_error("Failed to parse config file: " + filePath);
     }
-    
+
     return config;
 }
 
-SetupConfig::SetupConfig(const SetupConfig& other) 
+SetupConfig::SetupConfig(const SetupConfig& other)
     : Config()  // Copy base class
 {
     // First, register all parameters to set up the infrastructure
     registerAllParameters();
-    
+
     // Then copy all the values
     imagePath = other.imagePath;
     psfConfigPath = other.psfConfigPath;
@@ -78,12 +78,12 @@ SetupConfig::SetupConfig(const SetupConfig& other)
 SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
     if (this != &other) {  // Self-assignment check
         Config::operator=(other);  // Copy base class
-        
+
         imagePath = other.imagePath;
         psfConfigPath = other.psfConfigPath;
         psfFilePath = other.psfFilePath;
         psfDirPath = other.psfDirPath;
-         
+
         backend = other.backend;
         nThreads = other.nThreads;
         nWorkerThreads = other.nWorkerThreads;
@@ -94,7 +94,7 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         outputDir = other.outputDir;
         deconvolutionType = other.deconvolutionType;
         labeledImage = other.labeledImage;
-        labelPSFMap = other.labelPSFMap; 
+        labelPSFMap = other.labelPSFMap;
 
         savePsf = other.savePsf;
         cubeSize = other.cubeSize;
@@ -120,7 +120,7 @@ bool SetupConfig::loadFromJSON(const json& jsonData){
 
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
     }
- 
+
     return success;
 
 }
@@ -130,20 +130,20 @@ void SetupConfig::registerAllParameters(){
 
     parameters.push_back({ParameterType::FilePath, &imagePath, "image_path", false, "image_path", "-i,--image_path", "Input image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &outputDir, "outputDir", true, "outputDir", "--outputDir", "Output directory", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::FilePath, &psfConfigPath, "psf_config_path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::FilePath, &psfFilePath, "psf_file_path", true, "psf_file_path", "--psf_file_path", "PSF file path", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::VectorString, &psfConfigPath, "psf_config_path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::VectorString, &psfFilePath, "psf_file_path", true, "psf_file_path", "--psf_file_path", "PSF file path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
-    
+
     parameters.push_back({ParameterType::String, &deconvolutionType, "deconvolutionType", true, "deconvolutionType", "--deconvolutionType", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &labeledImage, "labeledImage", true, "labeledImage", "--labeledImage", "Labeled image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &labelPSFMap, "labelPSFMap", true, "labelPSFMap", "--labelPSFMap", "Label PSF map path", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::FilePath, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &device, "device", true, "device", "--device", "Device type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Int, &nThreads, "nThreads", false, "nThreads", "--nThreads", "Number of threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nWorkerThreads, "nWorkerThreads", true, "nWorkerThreads", "--nWorkerThreads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nIOThreads, "nIOThreads", true, "nIOThreads", "--nIOThreads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nDevices, "nDevices", true, "nDevices", "--nDevices", "Number of devices", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Float, &maxMem_GB, "maxMem_GB", false, "maxMem_GB", "--maxMem_GB", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
-    
+
     parameters.push_back({ParameterType::IntArray3, &cubeSize, "cubeSize", false, "cubeSize", "--cubeSize", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::IntArray3, &cubePadding, "cubePadding", false, "cubePadding", "--cubePadding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::Bool, &savePsf, "savePsf", false, "savePsf", "--savePsf", "Save used PSF", false, false, 0.0, 0.0, nullptr});

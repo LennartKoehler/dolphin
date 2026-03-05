@@ -62,12 +62,16 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     Result<Padding> cubePaddingResult = getCubePadding(psfs, setupConfig.cubePadding);
     Padding cubePadding = std::move(cubePaddingResult.value);
     if (!cubePaddingResult.success) {
-        return Result<DeconvolutionPlan>(cubePaddingResult); 
+        return Result<DeconvolutionPlan>(cubePaddingResult);
     }
     Result<CuboidShape> idealCubeSize = getCubeShape(maxMemoryPerCube, setupConfig.cubeSize, imageSize, cubePadding, workerThreads);
     if (!idealCubeSize.success) {
-        return Result<DeconvolutionPlan>(idealCubeSize); 
+        return Result<DeconvolutionPlan>(idealCubeSize);
     }
+
+    if(cubePadding.before + cubePadding.after < deconvConfig.featheringRadius)
+        spdlog::get("deconvolution")->warn("Feathering radius ({}) is smaller than padding (which is probably the size of the psf) ({}), which can cause artifacts",
+            deconvConfig.featheringRadius, (cubePadding.before + cubePadding.after).print());
 
     Padding imagePadding = getImagePadding(imageSize, idealCubeSize.value, cubePadding);
 
@@ -92,7 +96,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
             context
         ));
     }
-    
+
     size_t totalTasks = tasks.size();
     assert (totalTasks > 0 && "No tasks in deconvolution plan");
 
@@ -152,11 +156,11 @@ std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createC
         // so nIOThreads and nWorkerThreads are the number of threads in the respective threadpool
         // while the backendconfigs might e.g. the number of ompbackends
         manager.setThreadDistribution(totalThreads, nIOThreads, nWorkerThreads, ioconfig, workerconfig);
-        
-        
+
+
         std::vector<std::shared_ptr<TaskContext>> contexts;
 
-        for (int i = 0; i < numberDevices; i++){ 
+        for (int i = 0; i < numberDevices; i++){
             std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(manager, ioconfig, workerconfig, nWorkerThreads, nIOThreads);
 
             std::unique_ptr<PSFPreprocessor> preprocessor = createPSFPreprocessor(); // new psfpreprocessor for each context because the psfs live on device
@@ -167,10 +171,10 @@ std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createC
 }
 
 
-std::shared_ptr<DeconvolutionAlgorithm> StandardDeconvolutionStrategy::getAlgorithm(const DeconvolutionConfig& config) {    
+std::shared_ptr<DeconvolutionAlgorithm> StandardDeconvolutionStrategy::getAlgorithm(const DeconvolutionConfig& config) {
     DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
     std::shared_ptr<DeconvolutionAlgorithm> algorithm = fact.createShared(config);
-    return algorithm; 
+    return algorithm;
 }
 
 IBackendManager& StandardDeconvolutionStrategy::getBackendManager(const SetupConfig& config){
@@ -189,7 +193,7 @@ size_t StandardDeconvolutionStrategy::getMaxMemoryPerCube(
 ){
     BackendConfig backendConfig; //TODO TESTVALUE
     IBackendMemoryManager& backend = manager.getBackendMemoryManager(backendConfig);
-    
+
     size_t availableMemory = backend.getAvailableMemory();
 
     size_t memoryBuffer = 1e9;
@@ -204,7 +208,7 @@ size_t StandardDeconvolutionStrategy::getMaxMemoryPerCube(
 
     size_t memoryPerCube = availableMemory / threadallocations ;
 
-    return memoryPerCube; 
+    return memoryPerCube;
 }
 
 size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
@@ -224,31 +228,29 @@ Result<CuboidShape> StandardDeconvolutionStrategy::getCubeShape(
     const CuboidShape& imageOriginalShape,
     const Padding& cubePadding,
     size_t nWorkerThreads
-){    
-
-    CuboidShape cubeSize{cubePadding.before + cubePadding.after + 1};
-    cubeSize.toNextPowerOfTwo();
+){
+    CuboidShape cubeSize;
     if (configCubeSize.getVolume() != 0){
         cubeSize = configCubeSize;
     }
     else{
         size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(complex_t); // cut into pieces so that they still fit on memory
 
-        size_t ncubes = nWorkerThreads + 1;
-        size_t volume = 0;
-        CuboidShape tempCubeSize = cubeSize;
-        std::array<int*, 3> tempCubeAccessor  = tempCubeSize.getReference();
+        size_t ncubes = 0;
+        size_t volume = 999999;
+        cubeSize = imageOriginalShape;
+        cubeSize.toNextPowerOfTwo();
+        std::array<int*, 3> tempCubeAccessor  = cubeSize.getReference();
         int dimIterator = 2;
-        
-        while (volume < maxMemCubeVolume && ncubes > nWorkerThreads){
+
+        while (volume > maxMemCubeVolume || ncubes < nWorkerThreads){
             dimIterator = (++dimIterator) % 3;
-            cubeSize = tempCubeSize;
-            *tempCubeAccessor[dimIterator] *= 2;
-            tempCubeSize.setMax(imageOriginalShape + cubePadding.after + cubePadding.before); 
-            volume = tempCubeSize.getVolume();
-            ncubes = imageOriginalShape.getNumberSubcubes(tempCubeSize - cubePadding.after - cubePadding.before);
+            *tempCubeAccessor[dimIterator] /= 2; //always only reduce one dimension
+            volume = (cubeSize + cubePadding.before + cubePadding.after).getVolume();
+            ncubes = imageOriginalShape.getNumberSubcubes(cubeSize);
         }
-        cubeSize.toNextPowerOfTwo(); // in case it was clamped to image size still take next power of two -> faster?
+        cubeSize = cubeSize + cubePadding.before + cubePadding.after;
+        // cubeSize.toNextPowerOfTwo();
     }
 
     if (cubeSize < cubePadding.before + cubePadding.after)
@@ -303,7 +305,7 @@ Result<Padding> StandardDeconvolutionStrategy::getCubePadding(const std::vector<
         ManualPaddingStrategy stratm{};
         stratm.init(configPadding);
         padding = stratm.getPadding(psfSizes);
-    } 
+    }
 
     if (padding.before < CuboidShape{0,0,0} ||
         padding.after  < CuboidShape{0,0,0})
@@ -314,6 +316,7 @@ Result<Padding> StandardDeconvolutionStrategy::getCubePadding(const std::vector<
 
     return Result<Padding>::ok(std::move(padding));
 }
+
 
 void StandardDeconvolutionStrategy::configure(const SetupConfig& setupConfig) {
     // Base configuration for standard strategy - no special setup needed

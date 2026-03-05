@@ -6,43 +6,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_BUILD_TYPE Debug)
 project(cudaBackend)
 
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/cube ${CMAKE_BINARY_DIR}/cube/build)
 set(DOUBLE_PRECISION OFF) # explicit
 
-
-
-# #---------------------------------------
-# add_library(project_options INTERFACE)
-
-# target_compile_options(project_options INTERFACE
-#   # Debug
-#   $<$<CONFIG:Debug>:-g;-O0;-fno-omit-frame-pointer>
-#   # Release
-#   $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops;-mavx2;-mfma>
-#   # RelWithDebInfo
-#   $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-DNDEBUG;-funroll-loops>
-# )
-
-# # architecture flags only for Release (avoid -march=native for Debug)
-# target_compile_options(project_options INTERFACE
-#   $<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:GNU>>:-mavx2;-mfma>
-# )
-
-#---------------------------------------
+find_package(CUDAToolkit 12.8 QUIET)
 
 
 
+if(NOT CUDAToolkit_FOUND)
+    message(STATUS "CUDAToolkit not found. Disabling CUDA features.")
 
+    set(BUILD_CUDA OFF)
 
-# add_library(dolphinbackend STATIC IMPORTED)
-
-# set_target_properties(dolphinbackend PROPERTIES
-#     IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/lib/libdolphinbackend.a"
-#     INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/include"
-# )
-
-
-find_package(CUDAToolkit 12.8 REQUIRED)
+    return()
+endif()
 
 add_library(cuda_backend STATIC
     src/CUDABackend.cpp
@@ -58,7 +36,7 @@ target_include_directories(cuda_backend
 
 
 
-target_link_libraries(cuda_backend PUBLIC 
+target_link_libraries(cuda_backend PUBLIC
     CUDA::cufft
     CUBE
     dolphinbackend
@@ -88,4 +66,32 @@ if (${ENABLE_TESTS})
 
 endif()
 
+
+
+# #---------------------------------------
+# add_library(project_options INTERFACE)
+
+# target_compile_options(project_options INTERFACE
+#   # Debug
+#   $<$<CONFIG:Debug>:-g;-O0;-fno-omit-frame-pointer>
+#   # Release
+#   $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops;-mavx2;-mfma>
+#   # RelWithDebInfo
+#   $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-DNDEBUG;-funroll-loops>
+# )
+
+# # architecture flags only for Release (avoid -march=native for Debug)
+# target_compile_options(project_options INTERFACE
+#   $<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:GNU>>:-mavx2;-mfma>
+# )
+
+#---------------------------------------
+
+
+# add_library(dolphinbackend STATIC IMPORTED)
+
+# set_target_properties(dolphinbackend PROPERTIES
+#     IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/lib/libdolphinbackend.a"
+#     INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/lib/dolphinbackend/include"
+# )
 

@@ -21,37 +21,39 @@ See the LICENSE file provided with the code for the full license.
 
 #include <thread>
 void Dolphin::init(){
-    
+
     // Initialize service layer
     Logging::init();
     if (!service_layer_initialized_) {
         service_factory_ = ServiceFactory::create();
-        
+
         psf_service_ = service_factory_->createPSFGenerationService();
-        psf_service_->initialize();
-        
+
         deconv_service_ = service_factory_->createDeconvolutionService();
-        deconv_service_->initialize();
-        
+
         service_layer_initialized_ = true;
-        
+
         spdlog::info("Abstract service layer initialized successfully");
     }
 }
 
 std::unique_ptr<PSFGenerationResult> Dolphin::generatePSF(PSFGenerationRequest request){
+    psf_service_->initialize();
     return psf_service_->generatePSF(request);
 }
 
 std::unique_ptr<DeconvolutionResult> Dolphin::deconvolve(DeconvolutionRequest request){
+    deconv_service_->initialize();
     return deconv_service_->deconvolve(request);
 }
 
 std::future<std::unique_ptr<PSFGenerationResult>> Dolphin::generatePSFAsync(PSFGenerationRequest request){
+    psf_service_->initialize();
     return psf_service_->generatePSFAsync(request);
 }
 
 std::future<std::unique_ptr<DeconvolutionResult>> Dolphin::deconvolveAsync(DeconvolutionRequest request){
+    deconv_service_->initialize();
     return deconv_service_->deconvolveAsync(request);
 }
 

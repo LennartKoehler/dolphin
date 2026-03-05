@@ -30,14 +30,15 @@ public:
 
     // Arguments
     std::string imagePath;
-    std::string psfConfigPath;
-    std::string psfFilePath;
+    std::vector<std::string> psfConfigPath;
+    // std::string psfFilePath;
+    std::vector<std::string> psfFilePath;
     std::string psfDirPath;
     std::string outputDir;
     std::string labeledImage;
     std::string labelPSFMap;
     std::string deconvolutionType = "standard";
-    std::string backend = "default";
+    std::string device = "cpu";
     bool savePsf = false;
     std::array<int, 3> cubeSize{};
     std::array<int, 3> cubePadding{}; // this padding is later doubled
@@ -48,12 +49,6 @@ public:
     int nDevices = 1;
     float maxMem_GB = 1;
 
-
-    // bool sep = false; //save layer separate (TIF dir)
-    // bool savePsf = false; //save PSF
-    // bool showExampleLayers = false; //show random example layer of image and PSF
-    // bool printInfo = false; //show metadata of image
-    // bool saveSubimages = false;
 
     std::shared_ptr<DeconvolutionConfig> deconvolutionConfig;
 

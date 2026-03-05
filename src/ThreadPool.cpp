@@ -38,33 +38,39 @@ ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc)
                     task = std::move(tasks.front());
                     tasks.pop();
                 }
-                spdlog::get("default")->debug("Thread ({}) starting task", std::hash<std::thread::id>{}(std::this_thread::get_id()));
+                spdlog::get("default")->trace("Thread ({}) starting task", std::hash<std::thread::id>{}(std::this_thread::get_id()));
                 task();
-                spdlog::get("default")->debug("Thread ({}) finished task", std::hash<std::thread::id>{}(std::this_thread::get_id()));
+                spdlog::get("default")->trace("Thread ({}) finished task", std::hash<std::thread::id>{}(std::this_thread::get_id()));
                 queueSpace.notify_one();
 
             }
         });
     }
 }
-    
 
-    
+
+
 ThreadPool::~ThreadPool() {
     {
         std::unique_lock<std::mutex> lock(tasks_mutex);
         stop = true;
     }
     condition.notify_all();
-    for(std::thread &worker: workers){
-        if(worker.joinable()){
-            worker.join();
-        }
-        else spdlog::get("default")->critical("thread not joinable");
-        if (std::this_thread::get_id() == worker.get_id()) {
-            spdlog::get("default")->critical("Attempting to join self!");
-        }
-    } 
+for (std::thread &worker : workers) {
+
+    if (std::this_thread::get_id() == worker.get_id()) {
+        if (auto logger = spdlog::get("default"))
+            logger->critical("Thread ({}) attempting to join self", std::hash<std::thread::id>{}(std::this_thread::get_id()));
+        continue;
+    }
+
+    if (worker.joinable()) {
+        worker.join();
+    }
+    else if (auto logger = spdlog::get("default"))
+        logger->critical("Thread ({}) is not joinable", std::hash<std::thread::id>{}(std::this_thread::get_id()));
+    continue;
+}
 }
 
 void ThreadPool::setCondition(std::function<bool()> condition){
@@ -79,7 +85,7 @@ bool ThreadPool::reduceActiveWorkers(int amount){
 //TODO messy function, technically the thread isnt deactivated yet, but in executor it just waits,
 // move the deactivation to the deconvolution
 bool ThreadPool::reduceNumberThreads(int amount){
-    
+
     if (stopThreads == 0){
         stopThreads += amount;
     }

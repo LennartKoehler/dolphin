@@ -31,7 +31,7 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig){
     int channel = 0;
     this->labelReader = std::make_unique<TiffReader>(setupConfig.labeledImage, channel);
-    
+
     // Load PSF label map if provided
     if (!setupConfig.labelPSFMap.empty()) {
         RangeMap<std::string> labelPSFMap;
@@ -56,19 +56,19 @@ TODO still slow
 void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     TaskContext* context = task.context.get();
-    thread_local IBackend& iobackend = context->manager.getBackend(context->ioconfig); 
+    thread_local IBackend& iobackend = context->manager.getBackend(context->ioconfig);
     thread_local IBackend& workerbackend = context->manager.cloneSharedMemory(iobackend, context->workerconfig); // copied in deconvolutionprocessor
 
 
 
     std::shared_ptr<ImageReader> reader = task.reader;
     std::shared_ptr<ImageWriter> writer = task.writer;
-    
+
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
     std::optional<PaddedImage> cubeImage_o = reader->getSubimage(task.paddedBox);
-    std::optional<PaddedImage> labelImage_o = labelReader->getSubimage(task.paddedBox); 
+    std::optional<PaddedImage> labelImage_o = labelReader->getSubimage(task.paddedBox);
     if (!cubeImage_o.has_value()){
         throw std::runtime_error("LabeledDeconvolutionExecutor: No input image recieved from reader");
     }
@@ -79,48 +79,46 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     const PaddedImage& labelImage = *labelImage_o;
 
 
-
     ComplexData g_host = Preprocessor::convertImageToComplexData(inputCube.image);
 
     ComplexData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
 
     BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
 
-    std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
-
-    // TODO is this async safe?
     std::vector<Label> tasklabels = getLabelGroups(
-        BoxCoord{CuboidShape(0,0,0), workShape},
+        BoxCoord{CuboidShape(0,0,0), workShape}, // because the subimage is already the correct part of the image, so take entire subimage
         task.psfs,
         labelImage.image,
         psfLabelMap
     );
 
-    std::vector<ImageMaskPair> tempResults;
-    tempResults.reserve(tasklabels.size());
-    Image3D result(workShape);
+    Image3D result(workShape, 0.0f);
 
-
-    // const ComplexData& frequencyFeatheringKernel = *(task.context->psfpreprocessor->getPreprocessedPSF(workShape, task.psfs[0], iobackend)); //TODO TESTVALUE
-    // makeMasksWeighted(tasklabels, labelImage.image, frequencyFeatheringKernel, iobackend);
-
-
+    const ComplexData& frequencyFeatheringKernel = *(task.context->psfpreprocessor->getPreprocessedPSF(workShape, task.psfs[0], iodevice)); //TODO TESTVALUE
+    makeMasksWeighted(tasklabels, labelImage.image, frequencyFeatheringKernel, iodevice);
 
     for (const Label& labelgroup : tasklabels){
         std::vector<std::shared_ptr<PSF>> psfs = labelgroup.getPSFs();
-        
+
+        using progressFunction = std::function<void(int)>;
+        progressFunction tracker = [this, numberLabels = tasklabels.size(), numPsfs = psfs.size()](int maxiterations){
+            float iteration = 1.0 / (maxiterations * numberLabels * numPsfs);
+            this->loadingBar.add(iteration);
+        };
+
         if (psfs.size() == 0){
             spdlog::get("deconvolution")->warn("No deconvolution of cube {} because no PSFs were found for a specific label of that cube", task.paddedBox.box.print());
         }
+
         else{
             ComplexData local_g_device = iobackend.getMemoryManager().copyData(g_device);
-
             ComplexData f_device = iobackend.getMemoryManager().allocateMemoryOnDevice(workShape);
 
             std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
+            algorithm->setProgressTracker(tracker);
 
             std::future<void> resultDone = context->processor.deconvolveSingleCube(
-                workerbackend,
+                workerdevice,
                 std::move(algorithm),
                 workShape,
                 psfs,
@@ -130,17 +128,15 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
             resultDone.get(); //wait for result
 
-            TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
+            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
 
-            TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/mask.tif", Preprocessor::convertComplexDataToImage(*labelgroup.getMask()));
             iobackend.getDeconvManager().complexMultiplication(f_device, *labelgroup.getMask(), f_device); // multiply with weighted mask to get weighted values
             ComplexData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
-        
+
             Postprocessor::addCubeToImage(Preprocessor::convertComplexDataToImage(f_host), result);
-            
+
         }
     }
-
     writer->setSubimage(result, task.paddedBox);
 }
 
@@ -177,37 +173,37 @@ std::vector<Label> LabeledDeconvolutionExecutor::getLabelGroups(
 
     // Track which label ranges we've already added to avoid duplicates
     std::set<std::pair<int, int>> addedRanges;
-    
+
     std::set<int> uniqueLabels;
-    
+
     CuboidShape imageSize = image.getShape();
     int endZ = std::min(roi.position.depth + roi.dimensions.depth, imageSize.depth);
 
     // Get the ITK image for direct access
     ImageType::Pointer itkImage = image.getItkImage();
-    
+
     // Define the region to iterate over based on the ROI
     ImageType::IndexType roiStart;
     roiStart[0] = roi.position.width;
     roiStart[1] = roi.position.height;
     roiStart[2] = roi.position.depth;
-    
+
     ImageType::SizeType roiSize;
     roiSize[0] = roi.dimensions.width;
     roiSize[1] = roi.dimensions.height;
     roiSize[2] = std::min(roi.dimensions.depth, imageSize.depth - roi.position.depth);
-    
+
     ImageType::RegionType roiRegion;
     roiRegion.SetIndex(roiStart);
     roiRegion.SetSize(roiSize);
-    
+
     // Ensure the region is within image bounds
     ImageType::RegionType imageRegion = itkImage->GetLargestPossibleRegion();
     if (!imageRegion.IsInside(roiRegion)) {
         // Crop the ROI to fit within the image bounds
         roiRegion.Crop(imageRegion);
     }
-    
+
     // Iterate through the ROI using ITK iterator
     itk::ImageRegionConstIterator<ImageType> iterator(itkImage, roiRegion);
     for (iterator.GoToBegin(); !iterator.IsAtEnd(); ++iterator) {
@@ -226,7 +222,7 @@ std::vector<Label> LabeledDeconvolutionExecutor::getLabelGroups(
         if (psfids.size() != 0){
             // Create a unique key for this label range
             std::pair<int, int> rangeKey = {psfids[0].start, psfids[0].end};
-            
+
             // Only add if we haven't already added this range
             if (addedRanges.find(rangeKey) == addedRanges.end()) {
                 Label labelgroup;
@@ -238,7 +234,7 @@ std::vector<Label> LabeledDeconvolutionExecutor::getLabelGroups(
                 addedRanges.insert(rangeKey);
             }
         }
-        
+
     }
 
     return labelGroups;
@@ -256,6 +252,6 @@ std::vector<std::shared_ptr<PSF>> LabeledDeconvolutionExecutor::getPSFForLabel(R
     if (assignedpsfs.size() == 0){
         spdlog::info("Cant find a PSF for the desired Label, please check your input");
     }
-    
+
     return assignedpsfs;
 }
