@@ -103,10 +103,11 @@ private:
 
     void registerStaticBackends(){
 
-        addBackendManager(DEFAULT_BACKEND, std::make_unique<CPUBackendManager>());
+        addBackendManager(DEFAULT_BACKEND, std::move(std::make_unique<CPUBackendManager>()));
 
 #ifdef ENABLE_CUDA
-        addDeviceManager("cuda", std::make_unique<CUDABackendManager>());
+        addBackendManager("cuda", std::move(std::make_unique<CUDABackendManager>()));
+
 #endif
     }
 
@@ -165,7 +166,7 @@ private:
 
     }
 
-    void addBackendManager(const std::string& backendName, IBackendManager* manager){
+    void addBackendManager(const std::string& backendName, std::unique_ptr<IBackendManager> manager){
         manager->init(logCallback_fn);
 
         loadedManagers[backendName] = std::move(manager);
@@ -182,7 +183,7 @@ private:
             spdlog::get("backend")->warn("Unable to load backend '{}'", backendName);
             result = nullptr;
         }
-        else addBackendManager(backendName, result);
+        else addBackendManager(backendName, std::move(std::unique_ptr<IBackendManager>(result)));
         return result;
 
     }

@@ -7,11 +7,17 @@
 void runWithConfig(std::string configpath){
     Dolphin* dolphin = new Dolphin();
     dolphin->init();
-    SetupConfig config = SetupConfig::createFromJSONFile(configpath); 
+    try{
+        SetupConfig config = SetupConfig::createFromJSONFile(configpath); 
+        DeconvolutionRequest request(std::make_shared<SetupConfig>(config));
+        dolphin->deconvolve(request);
+    }
+    catch(const std::exception& e){
+        std::cout << e.what() << std::endl;
+        return;
+    }
 
-    DeconvolutionRequest request(std::make_shared<SetupConfig>(config));
     
-    dolphin->deconvolve(request);
 }
 
 
