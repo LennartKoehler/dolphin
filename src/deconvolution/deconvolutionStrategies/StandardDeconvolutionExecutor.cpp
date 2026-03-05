@@ -52,7 +52,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     TaskContext* context = task.context.get();
     // thread_local IBackend& iodevice = context->iodevice.cloneSharedMemory();
-    thread_local IBackend& iodevice = context->manager.getDevice(context->ioconfig);
+    thread_local IBackend& iodevice = context->manager.getBackend(context->ioconfig);
     thread_local IBackend& workerdevice = context->manager.cloneSharedMemory(iodevice, context->workerconfig); // copied in deconvolutionprocessor
 
     std::shared_ptr<ImageReader> reader = task.reader;
@@ -68,7 +68,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     ComplexData g_host = Preprocessor::convertImageToComplexData(cubeImage.image);
     ComplexData g_device = iodevice.getMemoryManager().copyDataToDevice(g_host);
-    BackendFactory::getInstance().getDefaultDeviceMemoryManager().freeMemoryOnDevice(g_host);
+    BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
     ComplexData f_device = iodevice.getMemoryManager().allocateMemoryOnDevice(workShape);
     std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
@@ -94,7 +94,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
 
-    ComplexData f_host = iodevice.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultDeviceMemoryManager());
+    ComplexData f_host = iodevice.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
 
     cubeImage.image = Preprocessor::convertComplexDataToImage(f_host);
 
@@ -111,7 +111,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
         try {
             runTask(task);
         }
-        catch (const dolphin::device::MemoryException& e){
+        catch (const dolphin::backend::MemoryException& e){
             // log the exception,  then enqueue the task in another thread, while this thread simply waits for the result
             // This effectively removes this thread from the pool until the other thread is done. Then just reduce NumberThreads(1)
             // will remove the first thread that finishes a task (probably this one as its basically )
@@ -124,7 +124,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
             bool maxReached = context->ioPool.reduceNumberThreads(1);
             if (maxReached) throw std::runtime_error("Can't fit a single cube for deconvolution onto the device");
         }
-        catch (const dolphin::device::DeviceException& e) {
+        catch (const dolphin::backend::BackendException& e) {
             spdlog::get("deconvolution")->error(e.getDetailedMessage());
             throw std::runtime_error(e.what()); // dont overwrite image if exception
         }

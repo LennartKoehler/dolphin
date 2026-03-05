@@ -94,8 +94,8 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     Image3D result(workShape, 0.0f);
 
-    const ComplexData& frequencyFeatheringKernel = *(task.context->psfpreprocessor->getPreprocessedPSF(workShape, task.psfs[0], iodevice)); //TODO TESTVALUE
-    makeMasksWeighted(tasklabels, labelImage.image, frequencyFeatheringKernel, iodevice);
+    const ComplexData& frequencyFeatheringKernel = *(task.context->psfpreprocessor->getPreprocessedPSF(workShape, task.psfs[0], iobackend)); //TODO TESTVALUE
+    makeMasksWeighted(tasklabels, labelImage.image, frequencyFeatheringKernel, iobackend);
 
     for (const Label& labelgroup : tasklabels){
         std::vector<std::shared_ptr<PSF>> psfs = labelgroup.getPSFs();
@@ -118,7 +118,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
             algorithm->setProgressTracker(tracker);
 
             std::future<void> resultDone = context->processor.deconvolveSingleCube(
-                workerdevice,
+                workerbackend,
                 std::move(algorithm),
                 workShape,
                 psfs,

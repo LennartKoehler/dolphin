@@ -114,7 +114,7 @@ bool SetupConfig::loadFromJSON(const json& jsonData){
 
     if (jsonData.contains("DeconvolutionConfig")){
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
-        deconvolutionConfig->loadFromJSON(jsonData["DeconvolutionConfig"]);
+        success = success && deconvolutionConfig->loadFromJSON(jsonData["DeconvolutionConfig"]);
     }
     else{
 
@@ -137,7 +137,7 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::String, &deconvolutionType, "deconvolutionType", true, "deconvolutionType", "--deconvolutionType", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &labeledImage, "labeledImage", true, "labeledImage", "--labeledImage", "Labeled image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &labelPSFMap, "labelPSFMap", true, "labelPSFMap", "--labelPSFMap", "Label PSF map path", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::FilePath, &device, "device", true, "device", "--device", "Device type", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &backend, "device", true, "device", "--device", "Device type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Int, &nThreads, "nThreads", false, "nThreads", "--nThreads", "Number of threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nWorkerThreads, "nWorkerThreads", true, "nWorkerThreads", "--nWorkerThreads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nIOThreads, "nIOThreads", true, "nIOThreads", "--nIOThreads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});

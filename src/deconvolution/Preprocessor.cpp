@@ -48,7 +48,7 @@ Image3D Preprocessor::convertComplexDataToImage(
     const int height = input.size.height;
     const int depth  = input.size.depth;
 
-    Image3D output(CuboidShape(width, height, depth));
+    Image3D output(CuboidShape(width, height, depth), 0.0f);
 
     const complex_t* in = input.data;
     int index = 0;

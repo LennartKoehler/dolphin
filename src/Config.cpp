@@ -7,15 +7,20 @@ bool Config::loadFromJSON(const json& jsonData){
     bool success = true;
     try{
         logUnvalidParameters(jsonData);
-
-        visitParams([&jsonData]<typename T>(T& value, ConfigParameter& param) {
-            if (jsonData.contains(param.jsonTag)) {
-                value = jsonData.at(param.jsonTag).get<T>();
+        
+        visitParams([this, &jsonData]<typename T>(T& value, ConfigParameter& param) {
+            try{
+                if (jsonData.contains(param.jsonTag)) {
+                    value = jsonData.at(param.jsonTag).get<T>();
+                }
+            }
+            catch (const std::exception& e){
+                spdlog::get("config")->error("({}) Error in reading config from json: {}. Error occured in json parameter '{}'", this->getName(), e.what(), param.jsonTag);
+                throw std::runtime_error("Config parameter error");
             }
         });
     }
     catch (const std::exception& e){
-        spdlog::get("config")->error("({}) Error in reading config from json: {}", this->getName(), e.what());
         success = false;
     }
 

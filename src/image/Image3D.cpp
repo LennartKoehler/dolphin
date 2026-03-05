@@ -14,7 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #include <iostream>
 #include "dolphin/Image3D.h"
 
-Image3D::Image3D(const CuboidShape& shape) {
+Image3D::Image3D(const CuboidShape& shape, float fillValue) {
     image = ImageType::New();
     
     ImageType::SizeType size;
@@ -31,7 +31,7 @@ Image3D::Image3D(const CuboidShape& shape) {
 
     image->SetRegions(region);
     image->Allocate();
-    image->FillBuffer(-1.0f);
+    image->FillBuffer(fillValue);
 }
 
 
