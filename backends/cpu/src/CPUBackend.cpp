@@ -244,7 +244,7 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& ou
 
     fftwManager.executeBackwardFFT(config.ompThreads, in.size, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
 
-    complex_t normFactor{1.0f / out.size.getVolume(), 1.0f / out.size.getVolume()};
+    complex_t normFactor{1.0f / out.size.getVolume(), 1.0f / out.size.getVolume()};//TESTVALUE
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 

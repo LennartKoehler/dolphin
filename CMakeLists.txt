@@ -43,8 +43,8 @@ find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
 
-set(FFTW_PATH "/usr/local/fftw-debug/lib" CACHE PATH "Path to FFTW installation")
-message(STATUS "Using the followinf FFTW lib: ${FFTW_PATH}")
+set(FFTW_PATH "/usr/local/fftw-release/lib" CACHE PATH "Path to FFTW installation")
+message(STATUS "Using the following FFTW lib: ${FFTW_PATH}")
 
 message(STATUS "ITK version: ${ITK_VERSION}")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")

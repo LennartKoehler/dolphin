@@ -157,6 +157,12 @@ void FFTWManager::destroyFFTPlans() {
 //TODO this findPlan needs to be somewhat fast
 const fftwf_plan* FFTWManager::findPlan(std::vector<FFTWPlan>& plans, int direction, const CuboidShape& shape, int ompThreads) {
     
+    for (FFTWPlan& plan : plans){
+        if (shape == plan.shape && ompThreads == plan.ompThreads){
+            return &plan.plan;
+        }
+    }
+    
     std::unique_lock<std::mutex> lock(mutex_); // the lookup is thread safe, one could do double search and give lock to init if not found
     for (FFTWPlan& plan : plans){
         if (shape == plan.shape && ompThreads == plan.ompThreads){

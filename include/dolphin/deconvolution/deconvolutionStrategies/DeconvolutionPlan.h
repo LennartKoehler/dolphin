@@ -140,7 +140,6 @@ public:
     void setMax(float max) {this->max = max;}
     void reset() {counter.store(0);}
     void update(){
-        std::unique_lock<std::mutex> lock(mutex);
         // Calculate progress
         
         float barWidth = 50;
@@ -163,7 +162,7 @@ public:
 
     void add(float value){
         counter += value;
-        update();
+        if(mutex.try_lock()) {update(); mutex.unlock();}
     }
 private:
     float max;

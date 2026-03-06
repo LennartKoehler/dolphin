@@ -237,10 +237,12 @@ Result<CuboidShape> StandardDeconvolutionStrategy::getCubeShape(
     else{
         size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(complex_t); // cut into pieces so that they still fit on memory
 
-        size_t ncubes = 0;
-        size_t volume = 999999;
+        size_t ncubes = 1;
         cubeSize = imageOriginalShape;
-        cubeSize.toNextPowerOfTwo();
+
+        // cubeSize.toNextPowerOfTwo();
+
+        size_t volume = (cubeSize + cubePadding.before + cubePadding.after).getVolume();
         std::array<int*, 3> tempCubeAccessor  = cubeSize.getReference();
         int dimIterator = 2;
 
@@ -250,6 +252,7 @@ Result<CuboidShape> StandardDeconvolutionStrategy::getCubeShape(
             volume = (cubeSize + cubePadding.before + cubePadding.after).getVolume();
             ncubes = imageOriginalShape.getNumberSubcubes(cubeSize);
         }
+        // cubeSize = cubeSize / 2; //TESTVALUE
         cubeSize = cubeSize + cubePadding.before + cubePadding.after;
         // cubeSize.toNextPowerOfTwo();
     }
