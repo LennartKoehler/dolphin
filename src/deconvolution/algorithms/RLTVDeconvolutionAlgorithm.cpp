@@ -64,6 +64,7 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g
 
     for (int n = 0; n < iterations; ++n) {
 
+        progressFunction(iterations);
         // a) First transformation: Fn = FFT(fn)
         backend->getDeconvManager().forwardFFT(f, c);
 

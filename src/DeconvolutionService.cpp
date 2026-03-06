@@ -92,9 +92,6 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
 
         // Create PSFs
         std::vector<PSF> psfs = createPSFsFromSetup(setupConfig);
-        if (request.getPSFConfig() != nullptr){
-            psfs.push_back(PSFCreator::generatePSFFromPSFConfig(request.getPSFConfig(), thread_pool_.get()));
-        }
         if (psfs.empty()) {
             std::string error_msg = "No valid PSFs provided";
             logger_->error(error_msg);
