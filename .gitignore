@@ -1,4 +1,5 @@
 .vscode/*
+.cache/*
 .roo/*
 *build*/
 profiling/*

@@ -1,4 +1,5 @@
-fix the backend / device rename, have fun :)
+backwardfft in cuda divide by number of elementds
+
 
 license -> under gnu, not mit? ->psf generator code
 

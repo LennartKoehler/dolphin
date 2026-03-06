@@ -197,7 +197,8 @@ size_t StandardDeconvolutionStrategy::getMaxMemoryPerCube(
     size_t availableMemory = backend.getAvailableMemory();
 
     size_t memoryBuffer = 1e9;
-    availableMemory =- memoryBuffer;
+    if (availableMemory < memoryBuffer) throw std::runtime_error("Available memory too low");
+    availableMemory -= memoryBuffer;
 
     int ioCopies = 3; //image, psf, result
     size_t ioAllocations = ioThreads * ioCopies;

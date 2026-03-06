@@ -1,25 +1,25 @@
 {
   "DeconvolutionConfig": {
     "algorithmName": "RichardsonLucy",
-    "iterations": 1,
+    "iterations": 5,
     "epsilon": 1e-6,
     "lambda": 0.015,
-    "borderType": 1
+    "borderType": "mirror"
   },
 
-  "psf_config_path": "../configs/default_psf_config_gaussian.json",
-  "psf_file_path": "",
+  "psf_config_path": ["../configs/default_psf_config_gaussian.json"],
+  "psf_file_path": [],
   "psf_dir_path": "",
-  "savePsf": false,
-  "outputDir": "/home/lennart-koehler/data/dolphin_results",
+  "savePsf": true,
+  "outputDir": "/home/lennart-k-hler/data/dolphin_results",
   
-  "backend": "cuda",
-  "nIOThreads": 5,
+  "backend": "cpu",
+  "nIOThreads": 10,
   "nWorkerThreads" : 8,
   "nDevices" : 1,
   "maxMem_GB": 64,
 
-  "image_path": "/home/lennart-koehler/data/dolphin_test_data/bacteria.tif",
+  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
   "deconvolutionType": "standard"
 
 

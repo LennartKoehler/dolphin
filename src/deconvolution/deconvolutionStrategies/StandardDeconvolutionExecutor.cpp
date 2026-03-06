@@ -52,8 +52,8 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     TaskContext* context = task.context.get();
     // thread_local IBackend& iodevice = context->iodevice.cloneSharedMemory();
-    thread_local IBackend& iodevice = context->manager.getBackend(context->ioconfig);
-    thread_local IBackend& workerdevice = context->manager.cloneSharedMemory(iodevice, context->workerconfig); // copied in deconvolutionprocessor
+    thread_local IBackend& iobackend = context->manager.getBackend(context->ioconfig);
+    thread_local IBackend& workerbackend = context->manager.cloneSharedMemory(iobackend, context->workerconfig); // copied in deconvolutionprocessor
 
     std::shared_ptr<ImageReader> reader = task.reader;
     std::shared_ptr<ImageWriter> writer = task.writer;
@@ -67,9 +67,9 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     PaddedImage& cubeImage = *cubeImage_o;
 
     ComplexData g_host = Preprocessor::convertImageToComplexData(cubeImage.image);
-    ComplexData g_device = iodevice.getMemoryManager().copyDataToDevice(g_host);
+    ComplexData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
     BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
-    ComplexData f_device = iodevice.getMemoryManager().allocateMemoryOnDevice(workShape);
+    ComplexData f_device = iobackend.getMemoryManager().allocateMemoryOnDevice(workShape);
     std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
 
@@ -81,7 +81,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     algorithm->setProgressTracker(tracker);
 
     std::future<void> resultDone = context->processor.deconvolveSingleCube(
-        workerdevice,
+        workerbackend,
         std::move(algorithm),
         workShape,
         task.psfs,
@@ -90,11 +90,11 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         *context->psfpreprocessor.get());
 
     resultDone.get(); //wait for result
-    iodevice.sync();
+    iobackend.sync();
 
     // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
 
-    ComplexData f_host = iodevice.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
+    ComplexData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
 
     cubeImage.image = Preprocessor::convertComplexDataToImage(f_host);
 
