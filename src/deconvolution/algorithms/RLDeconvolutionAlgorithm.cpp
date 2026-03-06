@@ -45,7 +45,6 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, 
 
     for (int n = 0; n < iterations; ++n) {
 
-        progressFunction(iterations);
         // a) First transformation: Fn = FFT(fn)
         backend->getDeconvManager().forwardFFT(f, f);
 
@@ -75,7 +74,9 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, 
         // backend->getDeconvManager().scalarMultiplication(f, 1.0 / g.size.getVolume(), f); // Add normalization
 
         backend->getDeconvManager().complexMultiplication(f, c, f);
-        
+
+        backend->sync(); //TESTVALUE
+        progressFunction(iterations);
     }
     // backend->getMemoryManager().freeMemoryOnDevice(c); // dont need because it is managed within complexdatas destructor
 }
