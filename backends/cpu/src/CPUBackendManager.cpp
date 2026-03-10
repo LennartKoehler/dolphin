@@ -58,7 +58,7 @@ void CPUBackendManager::setThreadDistribution(const size_t& totalThreads, size_t
     workerConfig.nThreads = workerThreads == 0 ? static_cast<size_t>(2*totalThreads/3) : workerThreads;
     workerConfig.nThreads = workerConfig.nThreads == 0 ? 1 : workerConfig.nThreads;
     workerConfig.nThreads = 1; //TESTVALUE
-    
+
     ioThreads = ioThreads == 0 ? totalThreads : ioThreads;
     // workerThreads = 1; //TESTVALUE
 }
@@ -98,7 +98,7 @@ fftwf_plan FFTWManager::initializePlan(const CuboidShape& shape, int direction, 
 
 
     fftwf_plan_with_nthreads(ompThreads); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
-    
+
     // Allocate temporary memory for plan creation
     complex_t* temp = nullptr;
     try {
@@ -108,10 +108,10 @@ fftwf_plan FFTWManager::initializePlan(const CuboidShape& shape, int direction, 
         // Create FFT plan
         fftwf_plan plan = fftwf_plan_dft_3d(shape.depth, shape.height, shape.width,
             temp, temp, direction, FFTW_MEASURE);
-        
-        
+
+
         FFTW_UNIFIED_CHECK(plan, "initializePlan - forward plan");
-        
+
         if (logger_) {
             std::string planInfo = std::string("FFTWF3 plan:\n") + fftwf_sprint_plan(plan);
             logger_(planInfo, LogLevel::DEBUG);
@@ -125,7 +125,7 @@ fftwf_plan FFTWManager::initializePlan(const CuboidShape& shape, int direction, 
         if (logger_) {
             logger_(msg, LogLevel::INFO);
         }
-        
+
         fftwf_free(temp);
         return plan;
     }
@@ -156,24 +156,24 @@ void FFTWManager::destroyFFTPlans() {
 }
 //TODO this findPlan needs to be somewhat fast
 const fftwf_plan* FFTWManager::findPlan(std::vector<FFTWPlan>& plans, int direction, const CuboidShape& shape, int ompThreads) {
-    
+
     for (FFTWPlan& plan : plans){
         if (shape == plan.shape && ompThreads == plan.ompThreads){
             return &plan.plan;
         }
     }
-    
+
     std::unique_lock<std::mutex> lock(mutex_); // the lookup is thread safe, one could do double search and give lock to init if not found
     for (FFTWPlan& plan : plans){
         if (shape == plan.shape && ompThreads == plan.ompThreads){
             return &plan.plan;
         }
     }
-    
+
     // Create new plan and store it in the map
     fftwf_plan newPlan = initializePlan(shape, direction, ompThreads);
     FFTWPlan plan{ std::move(newPlan), ompThreads, shape };
     plans.push_back(std::move(plan));
     return &plans.back().plan;  // Return reference to the stored plan
 }
-    
+

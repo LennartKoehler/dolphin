@@ -40,10 +40,10 @@ void CUDABackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
 
 bool CUDABackendMemoryManager::isOnDevice(void* ptr) const {
     if (ptr == nullptr) return false;
-    
+
     cudaPointerAttributes attributes;
     cudaError_t result = cudaPointerGetAttributes(&attributes, ptr);
-    
+
     if (result == cudaSuccess) {
         return (attributes.type == cudaMemoryTypeDevice ||
                 attributes.type == cudaMemoryTypeManaged);
@@ -62,18 +62,18 @@ void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& 
     // Validate input data
     BACKEND_CHECK(srcData.size.getVolume() > 0, "Invalid source data size in memCopy", "CUDA", "memCopy");
     BACKEND_CHECK(destData.size.getVolume() > 0, "Invalid destination data size in memCopy", "CUDA", "memCopy");
-    
+
     // Check if sizes match
     BACKEND_CHECK(srcData.size.getVolume() == destData.size.getVolume(), "Size mismatch in memCopy", "CUDA", "memCopy");
-    
+
     // Ensure destination has memory allocated
     if (destData.data == nullptr) {
         allocateMemoryOnDevice(destData);
     }
-    
+
     // Setup cudaMemcpy3D parameters
     cudaMemcpy3DParms copyParams = {0};
-    
+
     // Source parameters
     copyParams.srcPtr = make_cudaPitchedPtr(
         srcData.data,                           // Source pointer
@@ -82,7 +82,7 @@ void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& 
         srcData.size.height                     // Height in elements
     );
     copyParams.srcPos = make_cudaPos(0, 0, 0); // Start from origin
-    
+
     // Destination parameters
     copyParams.dstPtr = make_cudaPitchedPtr(
         destData.data,                          // Destination pointer
@@ -91,18 +91,18 @@ void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& 
         destData.size.height                    // Height in elements
     );
     copyParams.dstPos = make_cudaPos(0, 0, 0); // Start from origin
-    
+
     // Copy extent (how much to copy)
     copyParams.extent = make_cudaExtent(
         srcData.size.width * sizeof(complex_t),  // Width in bytes
         srcData.size.height,                    // Height in elements
         srcData.size.depth                      // Depth in elements
     );
-    
+
     // Determine copy direction
     bool srcIsDevice = isOnDevice(srcData.data);
     bool dstIsDevice = isOnDevice(destData.data);
-    
+
     if (srcIsDevice && dstIsDevice) {
         copyParams.kind = cudaMemcpyDeviceToDevice;
     } else if (!srcIsDevice && dstIsDevice) {
@@ -112,20 +112,20 @@ void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& 
     } else {
         copyParams.kind = cudaMemcpyHostToHost;
     }
-    
+
     // Execute the copy
     cudaError_t err = cudaMemcpy3DAsync(&copyParams, config.stream);
     CUDA_CHECK(err, "memCopy - cudaMemcpy3DAsync");
-    
+
     err = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(err, "memCopy - cudaStreamSynchronize");
-    
+
     destData.backend = this;
 }
 
 ComplexData CUDABackendMemoryManager::allocateMemoryOnDevice(const CuboidShape& shape) const {
     ComplexData result{this, nullptr, shape};
-    allocateMemoryOnDevice(result); 
+    allocateMemoryOnDevice(result);
     return result;
 }
 
@@ -133,17 +133,17 @@ void CUDABackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
     if (data.data != nullptr && isOnDevice(data.data)) {
         return; // Already on device
     }
-    
+
     // Validate data size
     BACKEND_CHECK(data.size.getVolume() > 0, "Invalid data size for allocation", "CUDA", "allocateMemoryOnDevice");
-    
+
     // Allocate CUDA memory with unified exception handling
     size_t requested_size = data.size.getVolume() * sizeof(complex_t);
-    
+
     // Check for potential overflow
     BACKEND_CHECK(requested_size / sizeof(complex_t) == data.size.getVolume(),
                   "Size overflow detected in memory allocation", "CUDA", "allocateMemoryOnDevice");
-    
+
     void* rawdata = allocateMemoryOnDevice(requested_size);
     data.data = (complex_t*) rawdata;
 
@@ -154,20 +154,20 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
     // waitForMemory(requested_size);
 
     void* devicePtr = nullptr;
-    cudaError_t err = cudaMallocAsync(&devicePtr, requested_size, config.stream); 
-    
+    cudaError_t err = cudaMallocAsync(&devicePtr, requested_size, config.stream);
+
     CUDA_MEMORY_ALLOC_CHECK(err, requested_size, "allocateMemoryOnDevice - cudaMallocAsync");
 
     // Synchronize to ensure allocation is complete
     err = cudaStreamSynchronize(config.stream);
-    
-    
+
+
     CUDA_CHECK(err, "allocateMemoryOnDevice - cudaStreamSynchronize");
 
     // Update memory tracking using getAccess()
     auto access = getMemoryTracking()->getAccess();
     access.data.totalUsedMemory += requested_size;
-    
+
     return devicePtr;
 
 }
@@ -230,19 +230,19 @@ ComplexData CUDABackendMemoryManager::copyData(const ComplexData& srcdata) const
 
 void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
     BACKEND_CHECK(srcdata.data != nullptr, "Attempting to free null pointer", "CUDA", "freeMemoryOnDevice");
-    
+
     // Validate data size before freeing
     BACKEND_CHECK(srcdata.size.getVolume() > 0, "Invalid data size for deallocation", "CUDA", "freeMemoryOnDevice");
-    
+
     size_t requested_size = srcdata.size.getVolume() * sizeof(complex_t);
-    
+
     // Check for potential overflow
     BACKEND_CHECK(requested_size / sizeof(complex_t) == srcdata.size.getVolume(),
                   "Size overflow detected in memory deallocation", "CUDA", "freeMemoryOnDevice");
-    
+
     cudaError_t err = cudaFreeAsync(srcdata.data, config.stream);
     CUDA_CHECK(err, "freeMemoryOnDevice - cudaFreeAsync");
-    
+
     err = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(err, "freeMemoryOnDevice - cudaStreamSynchronize");
 
@@ -254,23 +254,23 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
     } else {
         access.data.totalUsedMemory -= requested_size;
     }
-    
+
     srcdata.data = nullptr;
 }
 
 size_t CUDABackendMemoryManager::getAvailableMemory() const {
     cudaError_t sync_err = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(sync_err, "getAvailableMemory - sync");
-    
+
     size_t freeMem, totalMem;
     cudaError_t err = cudaMemGetInfo(&freeMem, &totalMem);
     CUDA_CHECK(err, "getAvailableMemory - cudaMemGetInfo");
-    
+
     if (freeMem > totalMem) {
         g_logger_cuda(std::format("Available memory ({}) exceeds total memory ({})", freeMem, totalMem), LogLevel::WARN);
         return 0; // Return 0 to indicate error condition
     }
-    
+
     return freeMem;
 }
 
@@ -299,14 +299,14 @@ void CUDADeconvolutionBackend::initializePlan(const CuboidShape& shape){
     BACKEND_CHECK(shape.getVolume() > 0, "Invalid shape for FFT plan initialization", "CUDA", "initializePlan");
     BACKEND_CHECK(shape.width > 0 && shape.height > 0 && shape.depth > 0,
                   "Invalid dimensions for FFT plan initialization", "CUDA", "initializePlan");
-    
+
     // Check for potential overflow
     size_t tempSize = sizeof(complex_t) * shape.getVolume();
     BACKEND_CHECK(tempSize / sizeof(complex_t) == shape.getVolume(),
                   "Size overflow detected in FFT plan initialization", "CUDA", "initializePlan");
-    
+
     // Destroy existing plans first
-    
+
     try {
         // Create forward FFT plan
         CUFFT_CHECK(cufftCreate(&forward), "initializePlan - forward plan creation");
@@ -320,7 +320,7 @@ void CUDADeconvolutionBackend::initializePlan(const CuboidShape& shape){
 
         planSize = shape;
         g_logger_cuda(std::format("Successfully created cuFFT plans for shape: {}x{}x{}", shape.width, shape.height, shape.depth), LogLevel::DEBUG);
-        
+
         // Synchronize to ensure plans are ready
         cudaError_t err = cudaStreamSynchronize(config.stream);
         CUDA_CHECK(err, "initializePlan - cudaStreamSynchronize");
@@ -350,14 +350,14 @@ void CUDADeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& ou
     BACKEND_CHECK(in.size.getVolume() > 0, "Invalid input data size for forwardFFT", "CUDA", "forwardFFT");
     BACKEND_CHECK(out.size.getVolume() > 0, "Invalid output data size for forwardFFT", "CUDA", "forwardFFT");
     BACKEND_CHECK(in.size.getVolume() == out.size.getVolume(), "Size mismatch in forwardFFT", "CUDA", "forwardFFT");
-    
+
     if (in.size != planSize){
         const_cast<CUDADeconvolutionBackend*>(this)->initializePlan(in.size);
     }
-    
+
     // Validate FFT plans
     BACKEND_CHECK(forward != 0, "Forward FFT plan not initialized", "CUDA", "forwardFFT");
-    
+
     CUFFT_CHECK(cufftExecC2C(forward, reinterpret_cast<cufftComplex*>(in.data), reinterpret_cast<cufftComplex*>(out.data), CUFFT_FORWARD), "forwardFFT");
 }
 
@@ -367,15 +367,18 @@ void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& o
     BACKEND_CHECK(in.size.getVolume() > 0, "Invalid input data size for backwardFFT", "CUDA", "backwardFFT");
     BACKEND_CHECK(out.size.getVolume() > 0, "Invalid output data size for backwardFFT", "CUDA", "backwardFFT");
     BACKEND_CHECK(in.size.getVolume() == out.size.getVolume(), "Size mismatch in backwardFFT", "CUDA", "backwardFFT");
-    
+
     if (in.size != planSize){
         const_cast<CUDADeconvolutionBackend*>(this)->initializePlan(in.size);
     }
-    
+
     // Validate FFT plans
     BACKEND_CHECK(backward != 0, "Backward FFT plan not initialized", "CUDA", "backwardFFT");
-    
+
     CUFFT_CHECK(cufftExecC2C(backward, reinterpret_cast<cufftComplex*>(in.data), reinterpret_cast<cufftComplex*>(out.data), CUFFT_INVERSE), "backwardFFT");
+
+    complex_t normFactor{1.0f / out.size.getVolume(), 1.0f / out.size.getVolume()};//TESTVALUE
+    scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
 // Shift Operations
@@ -402,7 +405,7 @@ void CUDADeconvolutionBackend::complexMultiplication(const ComplexData& a, const
     BACKEND_CHECK(b.size.getVolume() > 0, "Invalid input data size for complexMultiplication", "CUDA", "complexMultiplication");
     BACKEND_CHECK(result.size.getVolume() > 0, "Invalid output data size for complexMultiplication", "CUDA", "complexMultiplication");
     BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexMultiplication", "CUDA", "complexMultiplication");
-    
+
     cudaError_t err = CUBE_MAT::complexElementwiseMatMul(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, config.stream);
     CUDA_CHECK(err, "complexMultiplication");
 }
@@ -414,7 +417,7 @@ void CUDADeconvolutionBackend::complexDivision(const ComplexData& a, const Compl
     BACKEND_CHECK(result.size.getVolume() > 0, "Invalid output data size for complexDivision", "CUDA", "complexDivision");
     BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexDivision", "CUDA", "complexDivision");
     BACKEND_CHECK(epsilon >= 0.0, "Invalid epsilon value for complexDivision", "CUDA", "complexDivision");
-    
+
     cudaError_t err = CUBE_MAT::complexElementwiseMatDiv(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, epsilon, config.stream);
     CUDA_CHECK(err, "complexDivision");
 }
@@ -473,7 +476,7 @@ void CUDADeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, C
 void CUDADeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
     cudaError_t err1 = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(err1, "found it");
-     
+
     cudaError_t err = CUBE_REG::gradX(image.size.width, image.size.height, image.size.depth, image.data, gradX.data, config.stream);
     CUDA_CHECK(err, "gradientX");
 }

@@ -23,7 +23,7 @@ void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& c
 
 void InverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Inverse Filter algorithm initialization");\
-    
+
     initialized = true;
 }
 
@@ -33,7 +33,7 @@ bool InverseFilterDeconvolutionAlgorithm::isInitialized() const {
 
 void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     assert(backend && "No backend available for Inverse Filter algorithm");\
-    
+
     assert(initialized && "Inverse Filter algorithm not initialized. Call init() first.");\
 
     // Verify inputs are on device
@@ -41,18 +41,11 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, Compl
     assert(backend->getMemoryManager().isOnDevice(g.data) && "Input image is not on device");
     assert(backend->getMemoryManager().isOnDevice(f.data) && "Output buffer is not on device");
 
-    // Forward FFT on image
     backend->getDeconvManager().forwardFFT(g, g);
 
-    // Division in frequency domain: F = G / H (with stabilization)
     backend->getDeconvManager().complexDivision(g, H, f, epsilon);
 
-    // Inverse FFT to get result
     backend->getDeconvManager().backwardFFT(f, f);
-
-    // Normalize result
-    complex_t norm = { static_cast<real_t>(1.0 / g.size.getVolume()), 0.0};
-    backend->getDeconvManager().scalarMultiplication(f, norm, f); // Add normalization
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::cloneSpecific() const {
