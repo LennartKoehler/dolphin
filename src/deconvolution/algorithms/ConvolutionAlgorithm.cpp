@@ -23,7 +23,7 @@ void ConvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 
 void ConvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Convolution algorithm initialization");\
-    
+
     initialized = true;
 }
 
@@ -33,15 +33,13 @@ bool ConvolutionAlgorithm::isInitialized() const {
 
 void ConvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
     assert(backend && "No backend available for Convolution algorithm");\
-    
+
     assert(initialized && "Convolution algorithm not initialized. Call init() first.");\
 
     backend->getDeconvManager().forwardFFT(g, f);
     backend->getDeconvManager().complexMultiplication(f, H, f);
     backend->getDeconvManager().backwardFFT(f, f);
 
-    complex_t norm = { static_cast<real_t>(1.0 / g.size.getVolume()), 0.0};
-    backend->getDeconvManager().scalarMultiplication(f, norm, f); // Add normalization
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> ConvolutionAlgorithm::cloneSpecific() const {

@@ -124,7 +124,7 @@ std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreproc
                 Preprocessor::padToShape(inputPSF->image, targetShape, PaddingType::ZERO);
                 ComplexData h = Preprocessor::convertImageToComplexData(inputPSF->image);
                 ComplexData h_device = backend.getMemoryManager().copyDataToDevice(h);
-                backend.getDeconvManager().octantFourierShift(h_device);
+                backend.getDeconvManager().octantFourierShift(h_device); // align psf peak at 0,0,0
                 backend.getDeconvManager().forwardFFT(h_device, h_device);
                 backend.sync();
                 return new ComplexData(std::move(h_device));

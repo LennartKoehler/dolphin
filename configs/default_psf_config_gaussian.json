@@ -1,0 +1,12 @@
+{
+  "modelName": "Gaussian",
+  "ID": "ID1234",
+  "resLateral_nm": 5000,
+  "resAxial_nm": 5000,
+  "sizeX": 16,
+  "sizeY": 16,
+  "sizeZ": 16,
+  "sigmaX": 20,
+  "sigmaY": 20,
+  "sigmaZ": 20
+}

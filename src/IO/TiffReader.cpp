@@ -35,7 +35,7 @@ TiffReader::TiffReader(const std::string& filename, int channel)
     std::unique_lock<std::mutex> lock(mutex);
     // Set filename in metadata
     metaData.filename = filename;
-    maxBufferMemory_bytes = 999999999; //TESTVALUE
+    maxBufferMemory_bytes = 999999999; // TESTVALUE
 
     TIFFSetWarningHandler(customTifWarningHandler);
 

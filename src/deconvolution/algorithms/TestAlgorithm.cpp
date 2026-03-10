@@ -12,7 +12,6 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/deconvolution/algorithms/TestAlgorithm.h"
-#include <iostream>
 #include <cassert>
 #include <spdlog/spdlog.h>
 
@@ -35,11 +34,9 @@ void TestAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData
     assert(backend && "No backend available for Test algorithm");\
 
     assert(initialized && "Test algorithm not initialized. Call init() first.");\
-    backend->getDeconvManager().complexMultiplicationWithConjugate(g, H, f);
 
-    // Simple test: just copy H to f
-    // backend->getDeconvManager().complexMultiplication()
-    // backend->getMemoryManager().memCopy(H, f);
+    backend->getDeconvManager().forwardFFT(g, f);
+    // backend->getMemoryManager().memCopy(H,f);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> TestAlgorithm::cloneSpecific() const {
