@@ -15,13 +15,11 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/SetupConfig.h"
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <stdexcept>
-#include <iostream>
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/deconvolution/Postprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/Exceptions.h"
 #include "dolphin/HelperClasses.h"
-#include <thread>
 
 
 

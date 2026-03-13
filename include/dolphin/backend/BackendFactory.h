@@ -14,12 +14,11 @@ See the LICENSE file provided with the code for the full license.
 
 #include <memory>
 #include <string>
-#include <stdexcept>
 #include <map>
 #include <functional>
 #include <dlfcn.h>
-#include <iostream>
 #include "cpu_backend/CPUBackendManager.h"
+
 #ifdef ENABLE_CUDA
     #include "cuda_backend/CUDABackendManager.h"
 #endif
@@ -29,24 +28,30 @@ See the LICENSE file provided with the code for the full license.
 #define NOT_IMPLEMENTED(func_name) \
     throw std::runtime_error(std::string(#func_name) + " not implemented in " + typeid(*this).name())
 
-static std::function<void(const std::string&, LogLevel)> logCallback_fn = [](const std::string& msg, LogLevel level){
-    switch(level){
-    case LogLevel::INFO:
-        spdlog::get("backend")->info(msg);
-        break;
-    case LogLevel::DEBUG:
-        spdlog::get("backend")->debug(msg);
-        break;
-    case LogLevel::WARN:
-        spdlog::get("backend")->warn(msg);
-        break;
-    case LogLevel::ERROR:
-        spdlog::get("backend")->error(msg);
-        break;
-    default:
-        break;
-    }
+
+static std::function<std::function<void(const std::string&, LogLevel)>(const std::string&)> logWrapper = [](const std::string& backendName){
+    std::function<void(const std::string&, LogLevel)> logCallback_fn = [backendName](const std::string& backendMessage, LogLevel level){
+        std::string msg = backendName + ": " + backendMessage;
+        switch(level){
+        case LogLevel::INFO:
+            spdlog::get("backend")->info(msg);
+            break;
+        case LogLevel::DEBUG:
+            spdlog::get("backend")->debug(msg);
+            break;
+        case LogLevel::WARN:
+            spdlog::get("backend")->warn(msg);
+            break;
+        case LogLevel::ERROR:
+            spdlog::get("backend")->error(msg);
+            break;
+        default:
+            break;
+        }
+    };
+    return logCallback_fn;
 };
+
 //helper
 template <typename T>
 inline constexpr bool always_false = false;
@@ -167,8 +172,7 @@ private:
     }
 
     void addBackendManager(const std::string& backendName, std::unique_ptr<IBackendManager> manager){
-        manager->init(logCallback_fn);
-
+        manager->init(logWrapper(backendName));
         loadedManagers[backendName] = std::move(manager);
     }
 

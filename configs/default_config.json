@@ -1,6 +1,6 @@
 {
   "DeconvolutionConfig": {
-    "algorithmName": "InverseFilter",
+    "algorithmName": "RichardsonLucy",
     "iterations": 10,
     "epsilon": 1e-6,
     "lambda": 0.015,
@@ -13,13 +13,13 @@
   "savePsf": true,
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
 
-  "backend": "cuda",
-  "nIOThreads": 1,
-  "nWorkerThreads" : 1,
+  "backend": "cpu",
+  "nIOThreads": 10,
+  "nWorkerThreads" : 8,
   "nDevices" : 1,
   "maxMem_GB": 64,
 
-  "image_path": "/home/lennart-k-hler/data/dolphin_results/deconv_bacteria.tif",
+  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
   "deconvolutionType": "standard"
 
 

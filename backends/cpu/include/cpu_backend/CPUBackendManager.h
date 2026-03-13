@@ -4,13 +4,12 @@
 #include "dolphinbackend/IBackendManager.h"
 #include <fftw3.h>
 #include <mutex>
-#include <map>
 
 
-extern LogCallback g_logger;
+extern LogCallback g_;
 //manage all cpu backends, currently should be used as a singleton
 class CPUBackendManager : public IBackendManager{
-public: 
+public:
 
     CPUBackendManager() = default;
     ~CPUBackendManager() override = default;
@@ -34,7 +33,6 @@ private:
     std::vector<std::unique_ptr<CPUDeconvolutionBackend>> deconvBackends;
     std::vector<std::unique_ptr<CPUBackendMemoryManager>> memoryManagers;
 
-    LogCallback logger_;
     std::mutex mutex_;
 };
 
@@ -47,7 +45,7 @@ class FFTWManager{
 public:
     FFTWManager();
     ~FFTWManager();
-    
+
 
     void executeForwardFFT(int ompThreads, const CuboidShape& size, fftwf_complex* indata, fftwf_complex* outdata);
     void executeBackwardFFT(int ompThreads, const CuboidShape& size, fftwf_complex* indata, fftwf_complex* outdata);
@@ -62,7 +60,6 @@ private:
     const fftwf_plan* findPlan( std::vector<FFTWPlan>& plans, int direction, const CuboidShape& shape, int ompThreads);
     std::vector<FFTWPlan> forwardPlans;
     std::vector<FFTWPlan> backwardPlans;
-    
+
     std::mutex mutex_;
-    LogCallback logger_;
 };
