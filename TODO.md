@@ -1,3 +1,5 @@
+recheck the blocking behavior of using openmp
+
 first forward and last backward fourier transforms can be real to complex
 
 backwardfft in cuda divide by number of elementds

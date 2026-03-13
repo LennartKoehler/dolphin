@@ -246,9 +246,9 @@ Result<CuboidShape> StandardDeconvolutionStrategy::getCubeShape(
         std::array<int*, 3> tempCubeAccessor  = cubeSize.getReference();
         int dimIterator = 2;
 
-        while (volume > maxMemCubeVolume || ncubes < nWorkerThreads){
+        while (volume > maxMemCubeVolume || ncubes <= nWorkerThreads){
             dimIterator = (++dimIterator) % 3;
-            *tempCubeAccessor[dimIterator] /= 2; //always only reduce one dimension
+            *tempCubeAccessor[dimIterator] -= 10; //always only reduce one dimension
             volume = (cubeSize + cubePadding.before + cubePadding.after).getVolume();
             ncubes = imageOriginalShape.getNumberSubcubes(cubeSize);
         }
@@ -256,6 +256,30 @@ Result<CuboidShape> StandardDeconvolutionStrategy::getCubeShape(
         cubeSize = cubeSize + cubePadding.before + cubePadding.after;
         // cubeSize.toNextPowerOfTwo();
     }
+
+    // --- Optimize for FFTW (Smooth Numbers) ---
+    // A "smooth" number has prime factors of only 2, 3, and 5.
+    // This ensures FFTW can use its fastest algorithms.
+    auto isSmooth = [](int n) -> bool {
+        while (n % 2 == 0) n /= 2;
+        while (n % 3 == 0) n /= 3;
+        while (n % 5 == 0) n /= 5;
+        return n == 1;
+    };
+
+    auto nextSmooth = [isSmooth](int dim) -> int {
+        if (dim <= 0) return dim;
+        while (!isSmooth(dim)) {
+            dim++;
+        }
+        return dim;
+    };
+
+    // Apply to the padded cube dimensions (total buffer size)
+    cubeSize.width = nextSmooth(cubeSize.width);
+    cubeSize.height = nextSmooth(cubeSize.height);
+    cubeSize.depth = nextSmooth(cubeSize.depth);
+    // ---------------------------------------------
 
     if (cubeSize < cubePadding.before + cubePadding.after)
     {

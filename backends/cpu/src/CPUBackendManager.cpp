@@ -1,8 +1,6 @@
 #include "CPUBackendManager.h"
 #include "CPUBackend.h"
 #include <mutex>
-#include <stdexcept>
-#include <format>
 
 extern LogCallback g_logger;
 void CPUBackendManager::init(LogCallback fn) {
@@ -57,10 +55,10 @@ void CPUBackendManager::setThreadDistribution(const size_t& totalThreads, size_t
     ioconfig.nThreads = 1;
     workerConfig.nThreads = workerThreads == 0 ? static_cast<size_t>(2*totalThreads/3) : workerThreads;
     workerConfig.nThreads = workerConfig.nThreads == 0 ? 1 : workerConfig.nThreads;
-    workerConfig.nThreads = 1; //TESTVALUE
+    // workerConfig.nThreads = 1; //TESTVALUE
 
     ioThreads = ioThreads == 0 ? totalThreads : ioThreads;
-    // workerThreads = 1; //TESTVALUE
+    workerThreads = 1; //TESTVALUE
 }
 
 
@@ -82,6 +80,10 @@ void FFTWManager::executeForwardFFT(int ompThreads, const CuboidShape& size, fft
     BACKEND_CHECK(forwardPlan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
 
     fftwf_execute_dft(*forwardPlan, in, out);
+    for (int i = 0; i < size.getVolume(); i ++){
+        out[i][1] = 0;
+    }
+
 }
 
 void FFTWManager::executeBackwardFFT(int ompThreads, const CuboidShape& size, fftwf_complex* in, fftwf_complex* out){
@@ -91,11 +93,15 @@ void FFTWManager::executeBackwardFFT(int ompThreads, const CuboidShape& size, ff
     BACKEND_CHECK(backwardPlan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
 
     fftwf_execute_dft(*backwardPlan, in, out);
+    for (int i = 0; i < size.getVolume(); i ++){
+        out[i][1] = 0;
+    }
 }
 
 fftwf_plan FFTWManager::initializePlan(const CuboidShape& shape, int direction, int ompThreads) {
     //has to be holding lock
 
+    assert(g_logger && "logger not yet set");
 
     fftwf_plan_with_nthreads(ompThreads); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
 
@@ -112,19 +118,15 @@ fftwf_plan FFTWManager::initializePlan(const CuboidShape& shape, int direction, 
 
         FFTW_UNIFIED_CHECK(plan, "initializePlan - forward plan");
 
-        if (logger_) {
-            std::string planInfo = std::string("FFTWF3 plan:\n") + fftwf_sprint_plan(plan);
-            logger_(planInfo, LogLevel::DEBUG);
-        }
+        // std::string planInfo = std::string("FFTWF3 plan:\n") + fftwf_sprint_plan(plan);
+        // g_logger(planInfo, LogLevel::DEBUG);
 
         std::string msg = std::format(
-            "Successfully created FFTW plan for shape: {}x{}x{}",
-            shape.width, shape.height, shape.depth
+            "Successfully created FFTW plan which uses {} threads for shape: {}x{}x{}",
+            ompThreads, shape.width, shape.height, shape.depth
         );
 
-        if (logger_) {
-            logger_(msg, LogLevel::INFO);
-        }
+        g_logger(msg, LogLevel::INFO);
 
         fftwf_free(temp);
         return plan;
