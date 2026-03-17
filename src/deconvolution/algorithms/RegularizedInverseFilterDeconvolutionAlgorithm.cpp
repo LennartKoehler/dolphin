@@ -38,7 +38,7 @@ bool RegularizedInverseFilterDeconvolutionAlgorithm::isInitialized() const {
     return initialized;
 }
 
-void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
+void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
     assert(backend && "No backend available for Regularized Inverse Filter algorithm");\
     
     assert(initialized && "Regularized Inverse Filter algorithm not initialized. Call init() first.");\

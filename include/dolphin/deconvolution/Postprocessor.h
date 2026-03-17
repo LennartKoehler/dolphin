@@ -36,7 +36,7 @@ namespace Postprocessor{
         const BoxCoord& srcBox
     );
 
-    
+
     using IteratorType = itk::ImageRegionIterator<ImageType>;
     struct ImageHelper {
 
@@ -45,7 +45,7 @@ namespace Postprocessor{
         ImageType::Pointer mask;
         IteratorType imageIt;
         IteratorType maskIt;
-        
+
         ImageHelper(ImageType::Pointer img, ImageType::Pointer msk)
             : image(img), mask(msk),
                 imageIt(img, img->GetLargestPossibleRegion()),
@@ -54,7 +54,7 @@ namespace Postprocessor{
 
 
     void createWeightMasks(
-        std::vector<ComplexData*>& masks,
+        std::vector<RealData*>& masks,
         const ComplexData& frequencyFeatheringKernel,
         IBackend& backend);
 
@@ -68,7 +68,7 @@ namespace Postprocessor{
         std::vector<ImageHelper>& inputs,
         ImageType::Pointer output
     );
-    
+
     void removePadding(Image3D& image, const Padding& padding);
     void cropToOriginalSize(Image3D& image, const CuboidShape& originalSize);
 

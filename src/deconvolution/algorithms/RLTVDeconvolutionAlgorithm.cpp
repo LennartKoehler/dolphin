@@ -39,7 +39,7 @@ bool RLTVDeconvolutionAlgorithm::isInitialized() const {
     return initialized;
 }
 
-void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
+void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
     assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm");\
     
     assert(initialized && "Richardson-Lucy with TV regularization algorithm not initialized. Call init() first.");\

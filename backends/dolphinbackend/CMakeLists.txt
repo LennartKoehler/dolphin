@@ -34,7 +34,7 @@ target_include_directories(dolphinbackend
 
 
 # Install library and headers
-install(TARGETS dolphinbackend
+install(TARGETS dolphinbackend project_options
     EXPORT dolphinbackendTargets
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib

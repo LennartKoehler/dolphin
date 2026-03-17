@@ -73,11 +73,11 @@ public:
         if (it != preprocessedPSFs.end()) {
             return it->second.get();
         }
-        
+
         // PSF not found - create it
         std::shared_ptr<PSF> psfCopy = std::make_shared<PSF>(*psf);
         ComplexData* rawPtr = preprocessingFunction(shape, psfCopy, backend);
-        
+
         // Insert into map
         // psfBackends.push_back(backend); // hold on to backends until the psfs are also deleted
         auto [insertedIt, _] = preprocessedPSFs.emplace(
@@ -86,7 +86,7 @@ public:
         );
         return rawPtr;
     }
-    
+
 private:
     std::mutex mutex;
     std::function<ComplexData*(const CuboidShape, std::shared_ptr<PSF>, IBackend& backend)> preprocessingFunction;
@@ -98,6 +98,9 @@ namespace Preprocessor{
 
     ComplexData convertImageToComplexData(const Image3D& image);
     Image3D convertComplexDataToImage(const ComplexData& data);
+
+    RealData convertImageToRealData(const Image3D& image);
+    Image3D convertRealDataToImage(const RealData& data);
     void expandToMinSize(Image3D& image, const CuboidShape& minSize);
 
 

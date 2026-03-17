@@ -17,13 +17,13 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 
-#include "dolphin/deconvolution/algorithms/ConvolutionAlgorithm.h"
+// #include "dolphin/deconvolution/algorithms/ConvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
-#include "dolphin/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
-#include "dolphin/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
-#include "dolphin/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
-#include "dolphin/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
-#include "dolphin/deconvolution/algorithms/TestAlgorithm.h"
+// #include "dolphin/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
+// #include "dolphin/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
+// #include "dolphin/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
+// #include "dolphin/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
+// #include "dolphin/deconvolution/algorithms/TestAlgorithm.h"
 
 #include <stdexcept>
 #include <iostream>
@@ -58,9 +58,9 @@ std::shared_ptr<DeconvolutionAlgorithm> DeconvolutionAlgorithmFactory::createSha
     if (it == algorithms_.end()) {
         throw std::runtime_error("Unknown algorithm: " + config.algorithmName);
     }
-    
+
     auto algorithm = it->second();
-    
+
     // Configure the algorithm with the provided config
     algorithm->configure(config);
     return std::shared_ptr<DeconvolutionAlgorithm>(algorithm);
@@ -73,9 +73,9 @@ std::unique_ptr<DeconvolutionAlgorithm> DeconvolutionAlgorithmFactory::createUni
     if (it == algorithms_.end()) {
         throw std::runtime_error("Unknown algorithm: " + config.algorithmName);
     }
-    
+
     auto algorithm = it->second();
-    
+
     // Configure the algorithm with the provided config
     algorithm->configure(config);
     return std::unique_ptr<DeconvolutionAlgorithm>(algorithm);
@@ -84,11 +84,11 @@ std::unique_ptr<DeconvolutionAlgorithm> DeconvolutionAlgorithmFactory::createUni
 std::vector<std::string> DeconvolutionAlgorithmFactory::getAvailableAlgorithms() const {
     std::vector<std::string> names;
     names.reserve(algorithms_.size());
-    
+
     for (const auto& [name, creator] : algorithms_) {
         names.push_back(name);
     }
-    
+
     return names;
 }
 
@@ -98,33 +98,33 @@ bool DeconvolutionAlgorithmFactory::isAlgorithmAvailable(const std::string& name
 
 void DeconvolutionAlgorithmFactory::registerAlgorithms() {
 
-    
-    registerAlgorithm("Convolution", []() {
-        return new ConvolutionAlgorithm();
-    });
-    
     registerAlgorithm("RichardsonLucy", []() {
         return new RLDeconvolutionAlgorithm();
     });
-    
-    registerAlgorithm("InverseFilter", []() {
-        return new InverseFilterDeconvolutionAlgorithm();
-    });
-
-    registerAlgorithm("RichardsonLucyTotalVariation", []() {
-        return new RLTVDeconvolutionAlgorithm();
-    });
-    
-    registerAlgorithm("RegularizedInverseFilter", []() {
-        return new RegularizedInverseFilterDeconvolutionAlgorithm();
-    });
-    
-    registerAlgorithm("RichardsonLucywithAdaptiveDamping", []() {
-        return new RLADDeconvolutionAlgorithm();
-    });
-
-    registerAlgorithm("TestAlgorithm", []() {
-        return new TestAlgorithm();
-    });
-
+    //
+    //
+    // registerAlgorithm("Convolution", []() {
+    //     return new ConvolutionAlgorithm();
+    // });
+    //
+    // registerAlgorithm("InverseFilter", []() {
+    //     return new InverseFilterDeconvolutionAlgorithm();
+    // });
+    //
+    // registerAlgorithm("RichardsonLucyTotalVariation", []() {
+    //     return new RLTVDeconvolutionAlgorithm();
+    // });
+    //
+    // registerAlgorithm("RegularizedInverseFilter", []() {
+    //     return new RegularizedInverseFilterDeconvolutionAlgorithm();
+    // });
+    //
+    // registerAlgorithm("RichardsonLucywithAdaptiveDamping", []() {
+    //     return new RLADDeconvolutionAlgorithm();
+    // });
+    //
+    // registerAlgorithm("TestAlgorithm", []() {
+    //     return new TestAlgorithm();
+    // });
+    //
 }

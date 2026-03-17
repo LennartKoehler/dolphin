@@ -199,7 +199,6 @@ void CPUDeconvolutionBackend::initializePlan(const CuboidShape& shape) {
 
 
 
-// FFT Operations
 void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
@@ -217,7 +216,23 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& ou
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
-// Shift Operations
+void CPUDeconvolutionBackend::forwardFFT(const RealData& in, ComplexData& out) const {
+    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
+    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
+
+    fftwManager.executeForwardFFTReal(config.ompThreads, in.size, reinterpret_cast<real_t*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
+}
+
+void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) const {
+    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
+    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
+
+    fftwManager.executeBackwardFFTReal(config.ompThreads, in.size, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<real_t*>(out.data));
+
+    // complex_t normFactor{1.0f / out.size.getVolume(), 1.0f / out.size.getVolume()};//TESTVALUE
+    // scalarMultiplication(out, normFactor, out); // Add normalization
+}
+
 void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
     int width = data.size.width;
     int height = data.size.height;
@@ -307,7 +322,6 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
     }
 }
 
-// Complex Arithmetic Operations
 void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
     BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
@@ -325,6 +339,35 @@ void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const 
         result.data[i][1] = real_a * imag_b + imag_a * real_b;
     }
 }
+
+void CPUDeconvolutionBackend::multiplication(const RealData& a, const RealData& b, RealData& result) const{
+
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
+
+
+    // OMP(omp parallel for, config.useOMP, config.ompThreads)
+    for (int i = 0; i < a.size.getVolume(); ++i) {
+        result.data[i] = a.data[i] * b.data[i];
+    }
+}
+
+void CPUDeconvolutionBackend::division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const {
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a");
+    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
+
+    // OMP(omp parallel for, config.useOMP, config.ompThreads)
+    for (int i = 0; i < a.size.getVolume(); ++i) {
+        real_t x = a.data[i] / b.data[i];
+        if (x < epsilon){
+            b.data[i] = 0;
+        }
+        else result.data[i] = x;
+    }
+}
+
 
 void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
     BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a");
@@ -383,20 +426,19 @@ void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const Comple
     }
 }
 
-void CPUDeconvolutionBackend::sumToOneReal(complex_t** data, int nImages, int imageVolume) const {
+void CPUDeconvolutionBackend::sumToOne(real_t** data, int nImages, int imageVolume) const {
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < imageVolume; ++i) {
         real_t sum{ 0 };
 
         for (int imageindex = 0; imageindex < nImages; ++imageindex) {
-            sum += data[imageindex][i][0];
+            sum += data[imageindex][i];
         }
 
         for (int imageindex = 0; imageindex < nImages; ++imageindex) {
-            if (sum == 0.0f) data[imageindex][i][0] = 0.0f;
-            data[imageindex][i][0] /= sum;
-            data[imageindex][i][1] = 0;
+            if (sum == 0.0f) data[imageindex][i] = 0.0f;
+            data[imageindex][i] /= sum;
         }
     }
 }

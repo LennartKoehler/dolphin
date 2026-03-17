@@ -37,7 +37,7 @@ bool RLADDeconvolutionAlgorithm::isInitialized() const {
     return initialized;
 }
 
-void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
+void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
     assert(backend && "No backend available for Richardson-Lucy with Adaptive Damping algorithm");\
     
     assert(initialized && "Richardson-Lucy with Adaptive Damping algorithm not initialized. Call init() first.");\

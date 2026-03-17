@@ -14,7 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphinbackend/ComplexData.h"
-#include "dolphin/backend/BackendFactory.h"
+#include "dolphinbackend/IBackend.h"
 #include <functional>
 
 class DeconvolutionAlgorithm{
@@ -23,13 +23,13 @@ public:
     DeconvolutionAlgorithm() = default;
     virtual ~DeconvolutionAlgorithm() = default;
     virtual void configure(const DeconvolutionConfig& config) = 0;
-    
+
     // Initialize algorithm-specific data allocations
     virtual void init(const CuboidShape& dataSize) = 0;
     virtual bool isInitialized() const = 0;
-    
+
     // it is assumed that the input of convolve is already located on the backend device
-    virtual void deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) = 0;
+    virtual void deconvolve(const ComplexData& H, RealData& g, RealData& f) = 0;
     void setBackend(IBackend& backend){this->backend = &backend;}
     inline std::unique_ptr<DeconvolutionAlgorithm> clone() const{
         std::unique_ptr<DeconvolutionAlgorithm> clone = cloneSpecific();
@@ -37,12 +37,12 @@ public:
         return clone;
     }
     virtual size_t getMemoryMultiplier() const = 0;
-    void setProgressTracker(prFunction progressFunction){ this->progressFunction = progressFunction; } 
+    void setProgressTracker(prFunction progressFunction){ this->progressFunction = progressFunction; }
 protected:
     virtual std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const = 0;
     double complexDivisionEpsilon = 1e-9; // should be in backend ?
     prFunction progressFunction;
     IBackend* backend;
-    
+
 
 };

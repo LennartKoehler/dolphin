@@ -76,27 +76,127 @@ FFTWManager::~FFTWManager() {
 
 
 void FFTWManager::executeForwardFFT(int ompThreads, const CuboidShape& size, fftwf_complex* in, fftwf_complex* out){
-
-    auto* forwardPlan = getForwardPlan(size, ompThreads);
+    bool complex = true;
+    auto* forwardPlan = getForwardPlan(size, ompThreads, complex);
     BACKEND_CHECK(forwardPlan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
     BACKEND_CHECK(forwardPlan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
 
     fftwf_execute_dft(*forwardPlan, in, out);
-    for (int i = 0; i < size.getVolume(); i ++){
-        out[i][1] = 0;
-    }
-
 }
 
 void FFTWManager::executeBackwardFFT(int ompThreads, const CuboidShape& size, fftwf_complex* in, fftwf_complex* out){
-
-    auto* backwardPlan = getBackwardPlan(size, ompThreads);
+    bool complex = true;
+    auto* backwardPlan = getBackwardPlan(size, ompThreads, complex);
     BACKEND_CHECK(backwardPlan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
     BACKEND_CHECK(backwardPlan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
 
     fftwf_execute_dft(*backwardPlan, in, out);
-    for (int i = 0; i < size.getVolume(); i ++){
-        out[i][1] = 0;
+}
+
+void FFTWManager::executeForwardFFTReal(int ompThreads, const CuboidShape& size, real_t* in, fftwf_complex* out){
+    bool complex = false;
+    auto* forwardPlan = getForwardPlan(size, ompThreads, complex);
+    BACKEND_CHECK(forwardPlan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
+    BACKEND_CHECK(forwardPlan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
+
+    fftwf_execute_dft_r2c(*forwardPlan, in, out);
+}
+
+void FFTWManager::executeBackwardFFTReal(int ompThreads, const CuboidShape& size, fftwf_complex* in, real_t* out){
+    bool complex = false;
+    auto* backwardPlan = getBackwardPlan(size, ompThreads, complex);
+    BACKEND_CHECK(backwardPlan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
+    BACKEND_CHECK(backwardPlan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
+
+    fftwf_execute_dft_c2r(*backwardPlan, in, out);
+}
+
+fftwf_plan FFTWManager::initializePlanRealToComplex(const CuboidShape& shape, int direction, int ompThreads) {
+    //has to be holding lock
+
+    assert(g_logger && "logger not yet set");
+
+    fftwf_plan_with_nthreads(ompThreads); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
+
+    // Allocate temporary memory for plan creation
+    real_t* in = nullptr;
+    complex_t* out = nullptr;
+    try {
+        in = (real_t*)fftwf_malloc(sizeof(real_t) * shape.getVolume());
+        out = (complex_t*)fftwf_malloc(sizeof(complex_t) * shape.getVolume());
+        FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(real_t) * shape.getVolume(), "initializePlan");
+        FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(complex_t) * shape.getVolume(), "initializePlan");
+
+        // Create FFT plan
+        fftwf_plan plan = fftwf_plan_dft_r2c_3d(shape.depth, shape.height, shape.width,
+            in, out, FFTW_MEASURE);
+
+
+        FFTW_UNIFIED_CHECK(plan, "initializePlan - forward plan");
+
+        std::string msg = std::format(
+            "Successfully created FFTW plan which uses {} threads for shape: {}x{}x{}",
+            ompThreads, shape.width, shape.height, shape.depth
+        );
+
+        g_logger(msg, LogLevel::INFO);
+
+        fftwf_free(out);
+        fftwf_free(in);
+        return plan;
+    }
+    catch (...) {
+        if (out != nullptr) {
+            fftwf_free(out);
+        }
+        if (in != nullptr) {
+            fftwf_free(in);
+        }
+        throw;
+    }
+}
+fftwf_plan FFTWManager::initializePlanComplexToReal(const CuboidShape& shape, int direction, int ompThreads) {
+    //has to be holding lock
+
+    assert(g_logger && "logger not yet set");
+
+    fftwf_plan_with_nthreads(ompThreads); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
+
+    // Allocate temporary memory for plan creation
+    complex_t* in = nullptr;
+    real_t* out = nullptr;
+    try {
+        in = (complex_t*)fftwf_malloc(sizeof(complex_t) * shape.getVolume());
+        out = (real_t*)fftwf_malloc(sizeof(real_t) * shape.getVolume());
+        FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(complex_t) * shape.getVolume(), "initializePlan");
+        FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(real_t) * shape.getVolume(), "initializePlan");
+
+        // Create FFT plan
+        fftwf_plan plan = fftwf_plan_dft_c2r_3d(shape.depth, shape.height, shape.width,
+            in, out, FFTW_MEASURE);
+
+
+        FFTW_UNIFIED_CHECK(plan, "initializePlan - forward plan");
+
+        std::string msg = std::format(
+            "Successfully created FFTW plan which uses {} threads for shape: {}x{}x{}",
+            ompThreads, shape.width, shape.height, shape.depth
+        );
+
+        g_logger(msg, LogLevel::INFO);
+
+        fftwf_free(out);
+        fftwf_free(in);
+        return plan;
+    }
+    catch (...) {
+        if (out != nullptr) {
+            fftwf_free(out);
+        }
+        if (in != nullptr) {
+            fftwf_free(in);
+        }
+        throw;
     }
 }
 
@@ -120,9 +220,6 @@ fftwf_plan FFTWManager::initializePlan(const CuboidShape& shape, int direction, 
 
         FFTW_UNIFIED_CHECK(plan, "initializePlan - forward plan");
 
-        // std::string planInfo = std::string("FFTWF3 plan:\n") + fftwf_sprint_plan(plan);
-        // g_logger(planInfo, LogLevel::DEBUG);
-
         std::string msg = std::format(
             "Successfully created FFTW plan which uses {} threads for shape: {}x{}x{}",
             ompThreads, shape.width, shape.height, shape.depth
@@ -141,12 +238,14 @@ fftwf_plan FFTWManager::initializePlan(const CuboidShape& shape, int direction, 
     }
 }
 
-const fftwf_plan* FFTWManager::getForwardPlan(const CuboidShape& shape, int ompThreads) {
-    return findPlan(forwardPlans, FFTW_FORWARD, shape, ompThreads);
+const fftwf_plan* FFTWManager::getForwardPlan(const CuboidShape& shape, int ompThreads, bool isComplex) {
+    std::vector<FFTWPlan>& plans = isComplex ? forwardPlans : forwardPlansReal;
+    return findPlan(plans, FFTW_FORWARD, shape, ompThreads);
 }
 
-const fftwf_plan* FFTWManager::getBackwardPlan(const CuboidShape& shape, int ompThreads) {
-    return findPlan(backwardPlans, FFTW_BACKWARD, shape, ompThreads);
+const fftwf_plan* FFTWManager::getBackwardPlan(const CuboidShape& shape, int ompThreads, bool isComplex) {
+    std::vector<FFTWPlan>& plans = isComplex ? backwardPlans : backwardPlansReal;
+    return findPlan(plans, FFTW_BACKWARD, shape, ompThreads);
 }
 
 void FFTWManager::destroyFFTPlans() {

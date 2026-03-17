@@ -63,7 +63,6 @@ add_subdirectory(backends/cpu)
 option(BUILD_CUDA "Build cuda backend" ON)
 if(NOT BUILD_CUDA)
     message(STATUS "Not building CUDA features")
-    return()
 else()
     message(STATUS "Trying to build CUDA features")
     add_subdirectory(backends/cuda)
@@ -115,13 +114,13 @@ set(DOLPHIN_SOURCES
     src/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.cpp
     src/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.cpp
 
-    src/deconvolution/algorithms/ConvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
-    src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
-    src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
-    src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
-    src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
-    src/deconvolution/algorithms/TestAlgorithm.cpp
+    # src/deconvolution/algorithms/ConvolutionAlgorithm.cpp
+    # src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
+    # src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
+    # src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
+    # src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
+    # src/deconvolution/algorithms/TestAlgorithm.cpp
 )
 
 
@@ -131,28 +130,6 @@ add_library(dolphin STATIC ${DOLPHIN_SOURCES})
 
 
 target_link_libraries(dolphin PUBLIC project_options)
-
-
-
-target_include_directories(dolphin
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cpu/include/>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/dolphinbackend/include/>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/spdlog/include/>
-        $<INSTALL_INTERFACE:include>
-        ${TIFF_INCLUDE_DIR}
-        ${ITK_INCLUDE_DIRS}
-)
-
-target_link_libraries(dolphin
-    PUBLIC
-        dolphinbackend
-        cpu_backend
-        ${TIFF_LIBRARIES}
-        ${ITK_LIBRARIES}
-)
 
 
 
@@ -176,6 +153,28 @@ if(BUILD_CUDA)
 else()
     target_compile_definitions(dolphin PRIVATE ENABLE_CUDA=0)
 endif()
+
+target_include_directories(dolphin
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cpu/include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/dolphinbackend/include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/spdlog/include/>
+        $<INSTALL_INTERFACE:include>
+        ${TIFF_INCLUDE_DIR}
+        ${ITK_INCLUDE_DIRS}
+)
+
+target_link_libraries(dolphin
+    PUBLIC
+        dolphinbackend
+        cpu_backend
+        ${TIFF_LIBRARIES}
+        ${ITK_LIBRARIES}
+)
+
+
 
 
 

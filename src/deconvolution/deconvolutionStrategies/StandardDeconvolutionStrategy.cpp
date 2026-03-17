@@ -122,12 +122,13 @@ std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreproc
         IBackend& backend
             ) -> ComplexData* {
                 Preprocessor::padToShape(inputPSF->image, targetShape, PaddingType::ZERO);
-                ComplexData h = Preprocessor::convertImageToComplexData(inputPSF->image);
-                ComplexData h_device = backend.getMemoryManager().copyDataToDevice(h);
-                backend.getDeconvManager().octantFourierShift(h_device); // align psf peak at 0,0,0
-                backend.getDeconvManager().forwardFFT(h_device, h_device);
+                RealData h = Preprocessor::convertImageToRealData(inputPSF->image);
+                RealData h_device = backend.getMemoryManager().copyDataToDevice(h);
+                ComplexData h_result_device = backend.getMemoryManager().allocateMemoryOnDevice(targetShape);
+                // backend.getDeconvManager().octantFourierShift(h_device); // align psf peak at 0,0,0
+                backend.getDeconvManager().forwardFFT(h_device, h_result_device);
                 backend.sync();
-                return new ComplexData(std::move(h_device));
+                return new ComplexData(std::move(h_result_device));
             };
 
     std::unique_ptr<PSFPreprocessor> preprocessor = std::make_unique<PSFPreprocessor>();

@@ -39,7 +39,7 @@ struct TaskContext{
         BackendConfig workerconfig,
         int nWorkerThreads,
         int nIOThreads
-    ) :     manager(manager), 
+    ) :     manager(manager),
             ioconfig(ioconfig),
             workerconfig(workerconfig),
             processor(),
@@ -108,15 +108,15 @@ public:
     Label() = default;
 
     void setRange(Range<std::shared_ptr<PSF>> psfs) {this->psfs = psfs;}
-    void setMask(ComplexData&& mask) { this->weightedMask = std::make_unique<ComplexData>(std::move(mask));}
+    void setMask(RealData&& mask) { this->weightedMask = std::make_unique<RealData>(std::move(mask));}
 
-    const ComplexData* getMask() const { return weightedMask.get();}
+    const RealData* getMask() const { return weightedMask.get();}
 
-    ComplexData* getMask() { return weightedMask.get();}
+    RealData* getMask() { return weightedMask.get();}
 
 
     Image3D getMask(const Image3D& labelImage) const {
-        return labelImage.getInRange(psfs.start, psfs.end); 
+        return labelImage.getInRange(psfs.start, psfs.end);
     }
 
     std::vector<std::shared_ptr<PSF>> getPSFs() const {
@@ -124,9 +124,9 @@ public:
     }
 
 private:
-    Range<std::shared_ptr<PSF>> psfs; 
+    Range<std::shared_ptr<PSF>> psfs;
     // Image3D* labelImage;
-    std::unique_ptr<ComplexData> weightedMask;
+    std::unique_ptr<RealData> weightedMask;
 
 
 };
@@ -141,9 +141,9 @@ public:
     void reset() {counter.store(0);}
     void update(){
         // Calculate progress
-        
+
         float barWidth = 50;
-        int pos = static_cast<int>((counter * barWidth) / max); 
+        int pos = static_cast<int>((counter * barWidth) / max);
         int progress = static_cast<int>((counter * 100) / max);
         // Print progress bar
         std::cerr << "\rDeconvoluting Image [ ";
@@ -158,7 +158,7 @@ public:
         std::cerr.flush();
 
     }
-    
+
 
     void add(float value){
         counter += value;
@@ -184,16 +184,16 @@ public:
     void init(const CuboidShape& configPadding) override{}
     Padding getPadding(const std::vector<CuboidShape>& psfSizes) const override {
         CuboidShape maxPsfShape{0, 0, 0};
-        
+
         // Find the largest PSF dimensions
         for (const auto& psf : psfSizes) {
 
-            
+
             maxPsfShape.width = std::max(maxPsfShape.width, psf.width);
             maxPsfShape.height = std::max(maxPsfShape.height, psf.height);
             maxPsfShape.depth = std::max(maxPsfShape.depth, psf.depth);
         }
-        
+
         CuboidShape paddingbefore = maxPsfShape / 2;
         // paddingbefore = paddingbefore + 1; // TODO necessary?
         return Padding{paddingbefore, paddingbefore};
@@ -207,7 +207,7 @@ public:
     Padding getPadding(const std::vector<CuboidShape>& psfSizes) const {
         CuboidShape paddingHalf = padding / 2;
         return Padding(paddingHalf, paddingHalf);
-    
+
     }
 private:
     CuboidShape padding;

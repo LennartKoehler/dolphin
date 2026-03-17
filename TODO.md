@@ -1,3 +1,15 @@
+FIX: make the fourier transforms templated for different datatypes, currently the real valued planinit is never used, thats the bug
+
+check out fft r2c in place
+
+use realdata for other deconvalgorithms
+
+check which other operations need a realvalued counterpart
+like total variation
+
+make new value type for complexdata that is missing second half
+probably dont need octant fouerier shift?
+
 make cuda copy operations in the cudamemorybackend not the CUBE library
 
 make make real value and template the backendmemorymanager to be able to take complex and realvalue, each should have a function which passes its size

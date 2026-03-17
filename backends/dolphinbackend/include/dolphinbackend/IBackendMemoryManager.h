@@ -101,6 +101,7 @@ public:
         return result;
     }
 
+
     RealData allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
         RealData result{ this, nullptr, shape };
         allocateMemoryOnDevice(result);
@@ -164,7 +165,7 @@ public:
     }
 
     template<typename T>
-    complex_t** createDataArray(std::vector<ManagedData<T>*>& data) const {
+    T** createDataArray(std::vector<ManagedData<T>*>& data) const {
         int N = data.size();
         //TODO add check etc.
         size_t size = sizeof(void*) * N;

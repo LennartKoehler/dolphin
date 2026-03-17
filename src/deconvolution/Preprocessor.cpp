@@ -22,7 +22,6 @@ See the LICENSE file provided with the code for the full license.
 ComplexData Preprocessor::convertImageToComplexData(
     const Image3D& input) {
 
-
     CuboidShape shape = input.getShape();
     ComplexData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDevice(shape);
 
@@ -40,10 +39,28 @@ ComplexData Preprocessor::convertImageToComplexData(
 
     return result;
 }
+RealData Preprocessor::convertImageToRealData(
+    const Image3D& input) {
+
+    CuboidShape shape = input.getShape();
+    RealData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDeviceReal(shape);
+
+    int width = shape.width;
+    int height = shape.height;
+    int depth = shape.depth;
+
+    int index = 0;
+    for (const auto& it : input) {
+
+        result.data[index] = static_cast<real_t>(it);
+        index ++;
+    }
+
+    return result;
+}
 
 Image3D Preprocessor::convertComplexDataToImage(
-        const ComplexData& input)
-{
+        const ComplexData& input){
     const int width  = input.size.width;
     const int height = input.size.height;
     const int depth  = input.size.depth;
@@ -55,8 +72,7 @@ Image3D Preprocessor::convertComplexDataToImage(
     for (auto& it : output) {
         real_t real = in[index][0];
         real_t imag = in[index][1];
-        // it = static_cast<float>(std::sqrt(real * real + imag * imag));
-        it = static_cast<float>(real);
+        it = static_cast<float>(std::sqrt(real * real + imag * imag));
         index ++;
 
     }
@@ -64,6 +80,25 @@ Image3D Preprocessor::convertComplexDataToImage(
     return output;
 }
 
+Image3D Preprocessor::convertRealDataToImage(
+        const RealData& input){
+    const int width  = input.size.width;
+    const int height = input.size.height;
+    const int depth  = input.size.depth;
+
+    Image3D output(CuboidShape(width, height, depth), 0.0f);
+
+    const real_t* in = input.data;
+    int index = 0;
+    for (auto& it : output) {
+        real_t real = in[index];
+        it = static_cast<float>(real);
+        index ++;
+
+    }
+
+    return output;
+}
 
 void Preprocessor::padImage(Image3D& image, const Padding& padding, PaddingType borderType){
 
