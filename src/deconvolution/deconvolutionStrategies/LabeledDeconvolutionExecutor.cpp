@@ -79,9 +79,9 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     const PaddedImage& labelImage = *labelImage_o;
 
 
-    ComplexData g_host = Preprocessor::convertImageToComplexData(inputCube.image);
+    RealData g_host = Preprocessor::convertImageToRealData(inputCube.image);
 
-    ComplexData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
+    RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
 
     BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
 
@@ -111,8 +111,8 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         }
 
         else{
-            ComplexData local_g_device = iobackend.getMemoryManager().createCopy(g_device);
-            ComplexData f_device = iobackend.getMemoryManager().allocateMemoryOnDevice(workShape);
+            RealData local_g_device = iobackend.getMemoryManager().createCopy(g_device);
+            RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceReal(workShape);
 
             std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
             algorithm->setProgressTracker(tracker);
@@ -130,10 +130,10 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
             // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
 
-            iobackend.getDeconvManager().complexMultiplication(f_device, *labelgroup.getMask(), f_device); // multiply with weighted mask to get weighted values
-            ComplexData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
+            iobackend.getDeconvManager().multiplication(f_device, *labelgroup.getMask(), f_device); // multiply with weighted mask to get weighted values
+            RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
 
-            Postprocessor::addCubeToImage(Preprocessor::convertComplexDataToImage(f_host), result);
+            Postprocessor::addCubeToImage(Preprocessor::convertRealDataToImage(f_host), result);
 
         }
     }
@@ -149,10 +149,10 @@ void LabeledDeconvolutionExecutor::makeMasksWeighted(
     const ComplexData& frequencyFeatheringKernel,
     IBackend& backend
 ) const {
-    std::vector<ComplexData*> binaryMasks;
+    std::vector<RealData*> binaryMasks;
     for (auto& label : labels){
         Image3D image = label.getMask(labelImage);
-        ComplexData mask = Preprocessor::convertImageToComplexData(image);
+        RealData mask = Preprocessor::convertImageToRealData(image);
         label.setMask(std::move(mask));
         binaryMasks.push_back(label.getMask());
     }

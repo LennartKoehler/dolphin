@@ -64,10 +64,10 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     }
     PaddedImage& cubeImage = *cubeImage_o;
 
-    ComplexData g_host = Preprocessor::convertImageToComplexData(cubeImage.image);
-    ComplexData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
+    RealData g_host = Preprocessor::convertImageToRealData(cubeImage.image);
+    RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
     BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
-    ComplexData f_device = iobackend.getMemoryManager().allocateMemoryOnDevice(workShape);
+    RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceReal(workShape);
     std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
 
@@ -92,9 +92,9 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
 
-    ComplexData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
+    RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
 
-    cubeImage.image = Preprocessor::convertComplexDataToImage(f_host);
+    cubeImage.image = Preprocessor::convertRealDataToImage(f_host);
 
     writer->setSubimage(cubeImage.image, task.paddedBox);
 }

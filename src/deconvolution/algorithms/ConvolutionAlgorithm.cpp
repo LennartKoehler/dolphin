@@ -31,7 +31,7 @@ bool ConvolutionAlgorithm::isInitialized() const {
     return initialized;
 }
 
-void ConvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
+void ConvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
     assert(backend && "No backend available for Convolution algorithm");\
 
     assert(initialized && "Convolution algorithm not initialized. Call init() first.");\

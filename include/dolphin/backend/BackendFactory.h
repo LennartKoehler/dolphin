@@ -19,7 +19,7 @@ See the LICENSE file provided with the code for the full license.
 #include <dlfcn.h>
 #include "cpu_backend/CPUBackendManager.h"
 
-#ifdef ENABLE_CUDA
+#if ENABLE_CUDA
     #include "cuda_backend/CUDABackendManager.h"
 #endif
 #include <spdlog/spdlog.h>
@@ -110,7 +110,7 @@ private:
 
         addBackendManager(DEFAULT_BACKEND, std::move(std::make_unique<CPUBackendManager>()));
 
-#ifdef ENABLE_CUDA
+#if ENABLE_CUDA
         addBackendManager("cuda", std::move(std::make_unique<CUDABackendManager>()));
 
 #endif

@@ -131,16 +131,21 @@ public:
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;
 
+    void forwardFFT(const RealData& in, ComplexData& out) const override;
+    void backwardFFT(const ComplexData& in, RealData& out) const override;
+
     // Shift functions
     void octantFourierShift(ComplexData& data) const override;
     void inverseQuadrantShift(ComplexData& data) const override;
 
     // Complex arithmetic functions
     void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
+    void multiplication(const RealData& a, const RealData& b, RealData& result) const override;
     void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
+    void division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const override;
     void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const override;
-    void sumToOneReal(complex_t** data, int nImages, int imageVolume) const override;
+    void sumToOne(real_t** data, int nImages, int imageVolume) const override;
     void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const override;
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;

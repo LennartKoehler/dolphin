@@ -1,7 +1,4 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations":[
         {
@@ -77,25 +74,27 @@
                 "${workspaceFolder}/configs/default_config.json"
             ],
             "stopAtEntry": false,
+            "justMyCode": true,
             "cwd": "${workspaceFolder}/debug_build",
             "environment": [
-            {
-                "name": "LD_LIBRARY_PATH",
-                "value": "${workspaceFolder}/backends/cuda/build"
-            }],
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${workspaceFolder}/backends/cuda/build"
+                }
+            ],
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [
-            {
-                "description": "Enable pretty-printing for gdb",
-                "text": "-enable-pretty-printing",
-                "ignoreFailures": true
-            },
-            {
-                "description": "Disassemble in intel syntax",
-                "text": "-gdb-set disassembly-flavor intel",
-                "ignoreFailures": true
-            }
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": false
+                }
+            ],
+            "skipFiles": [
+                "<node_internals>/**",
+                "/usr/**",
+                "/lib/**"
             ]
         },
         {
@@ -139,7 +138,6 @@
             "externalConsole": true,
             "sourceFileMap" : {
                 "/workspace" : "/home/lennart-k-hler/projects/dolphin",
-                // "/workspace" : "/home/lennart-k-hler/projects/dolphin/backends/cuda"
                 "/workspace/src/CUDABackend.cpp" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/src/CUDABackend.cpp",
                 "/workspace/src/CUDABackendManager.cpp" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/src/CUDABackendManager.cpp",
                 "/workspace/include/CUDABackend.h" : "/home/lennart-k-hler/projects/dolphin/backends/cuda/include/CUDABackend.h",
@@ -158,9 +156,7 @@
                     "text": "thread 1",
                     "ignoreFailures": true
                 }
-            ],
-
-
+            ]
         },
         {
             "name": "Debug mirror_padding_test",
@@ -172,7 +168,7 @@
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/debug_build/tests",
- 
+
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [
@@ -193,10 +189,10 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/debug_build/tests/fftw_multithreading_test",
- 
+
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build/tests",
- 
+
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [

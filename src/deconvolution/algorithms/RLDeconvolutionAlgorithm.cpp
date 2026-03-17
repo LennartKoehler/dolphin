@@ -12,7 +12,6 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
-#include <iostream>
 #include <cassert>
 #include <spdlog/spdlog.h>
 
@@ -34,7 +33,7 @@ bool RLDeconvolutionAlgorithm::isInitialized() const {
     return initialized;
 }
 
-void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, ComplexData& f) {
+void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
@@ -47,22 +46,25 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, 
     assert(memory.isOnDevice(f.data) && "PSF is not on device");
 
     memory.memCopy(g, f);
+    ComplexData f_complex = memory.allocateMemoryOnDevice(f.getSize());
+    RealData c_real = memory.allocateMemoryOnDeviceReal(f.getSize());
+
 
     for (int n = 0; n < iterations; ++n) {
 
         // a) First transformation: Fn = FFT(fn)
-        deconvolution.forwardFFT(f, f);
+        deconvolution.forwardFFT(f, f_complex);
 
         // Fn\' = Fn * H
-        deconvolution.complexMultiplication(f, H, c);
+        deconvolution.complexMultiplication(f_complex, H, c);
 
         // fn\' = IFFT(Fn\') + NORMALIZE
-        deconvolution.backwardFFT(c, c);
+        deconvolution.backwardFFT(c, c_real);
         // deconvolution.scalarMultiplication(c, 1.0 / g.size.getVolume(), c); // Add normalization
 
 
         // b) Calculation of the Correction Factor: c = g / fn\'
-        deconvolution.complexDivision(g, c, c, complexDivisionEpsilon);
+        deconvolution.division(g, c_real, c_real, complexDivisionEpsilon);
 
         // // c) Second transformation: C = FFT(c)
         deconvolution.forwardFFT(c, c);
@@ -71,14 +73,9 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, ComplexData& g, 
         deconvolution.complexMultiplicationWithConjugate(c, H, c);
 
         // // c\' = IFFT(C\') + NORMALIZE
-        deconvolution.backwardFFT(c, c);
-        // deconvolution.scalarMultiplication(c, 1.0 / g.size.getVolume(), c); // Add normalization
+        deconvolution.backwardFFT(c, c_real);
 
-
-        deconvolution.backwardFFT(f, f);
-        // deconvolution.scalarMultiplication(f, 1.0 / g.size.getVolume(), f); // Add normalization
-
-        deconvolution.complexMultiplication(f, c, f);
+        deconvolution.multiplication(f, c_real, f);
 
         backend->sync(); //TESTVALUE
         progressFunction(iterations);

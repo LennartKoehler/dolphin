@@ -49,17 +49,23 @@ public:
 
     void executeForwardFFT(int ompThreads, const CuboidShape& size, fftwf_complex* indata, fftwf_complex* outdata);
     void executeBackwardFFT(int ompThreads, const CuboidShape& size, fftwf_complex* indata, fftwf_complex* outdata);
+    void executeForwardFFTReal(int ompThreads, const CuboidShape& size, real_t* in, fftwf_complex* out);
+    void executeBackwardFFTReal(int ompThreads, const CuboidShape& size, fftwf_complex* in, real_t* out);
     void destroyFFTPlans();
 private:
 
     fftwf_plan initializePlan(const CuboidShape& shape, int direction, int ompThreads);
-    const fftwf_plan* getForwardPlan(const CuboidShape& shape, int ompThreads);
-    const fftwf_plan* getBackwardPlan(const CuboidShape& shape, int ompThreads);
+    fftwf_plan initializePlanRealToComplex(const CuboidShape& shape, int direction, int ompThreads);
+    fftwf_plan initializePlanComplexToReal(const CuboidShape& shape, int direction, int ompThreads);
+    const fftwf_plan* getForwardPlan(const CuboidShape& shape, int ompThreads, bool isComplex);
+    const fftwf_plan* getBackwardPlan(const CuboidShape& shape, int ompThreads, bool isComplex);
 
 
     const fftwf_plan* findPlan( std::vector<FFTWPlan>& plans, int direction, const CuboidShape& shape, int ompThreads);
     std::vector<FFTWPlan> forwardPlans;
+    std::vector<FFTWPlan> forwardPlansReal;
     std::vector<FFTWPlan> backwardPlans;
+    std::vector<FFTWPlan> backwardPlansReal;
 
     std::mutex mutex_;
 };

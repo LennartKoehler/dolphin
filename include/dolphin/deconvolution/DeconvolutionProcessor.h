@@ -38,27 +38,27 @@ public:
         std::unique_ptr<DeconvolutionAlgorithm> algorithm,
         const CuboidShape& workShape,
         const std::vector<std::shared_ptr<PSF>>& psfs_host,
-        ComplexData& g_device,
-        ComplexData& f_device,
+        RealData& g_device,
+        RealData& f_device,
         PSFPreprocessor& psfpreprocessor);
 
-    static ComplexData staticDeconvolveSingleCube(
-        IBackend& backend,
-        std::unique_ptr<DeconvolutionAlgorithm> algorithm,
-        const CuboidShape& workShape,
-        const std::vector<std::shared_ptr<PSF>>& psfs_host,
-        ComplexData& g_device,
-        ComplexData& f_device,
-        PSFPreprocessor& psfpreprocessor);
-
-    static ComplexData staticDeconvolveSingleCubeWithCopying(
-        IBackend& backend,
-        std::shared_ptr<IBackendMemoryManager> hostbackend,
-        std::unique_ptr<DeconvolutionAlgorithm> algorithm,
-        const CuboidShape& workShape,
-        const std::vector<std::shared_ptr<PSF>>& psfs_host,
-        ComplexData& g_host,
-        PSFPreprocessor& psfpreprocessor);
+    // static ComplexData staticDeconvolveSingleCube(
+    //     IBackend& backend,
+    //     std::unique_ptr<DeconvolutionAlgorithm> algorithm,
+    //     const CuboidShape& workShape,
+    //     const std::vector<std::shared_ptr<PSF>>& psfs_host,
+    //     ComplexData& g_device,
+    //     ComplexData& f_device,
+    //     PSFPreprocessor& psfpreprocessor);
+    //
+    // static ComplexData staticDeconvolveSingleCubeWithCopying(
+    //     IBackend& backend,
+    //     std::shared_ptr<IBackendMemoryManager> hostbackend,
+    //     std::unique_ptr<DeconvolutionAlgorithm> algorithm,
+    //     const CuboidShape& workShape,
+    //     const std::vector<std::shared_ptr<PSF>>& psfs_host,
+    //     ComplexData& g_host,
+    //     PSFPreprocessor& psfpreprocessor);
 
 
 
