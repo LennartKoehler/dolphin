@@ -1,5 +1,7 @@
 #include "CPUBackendManager.h"
 #include "CPUBackend.h"
+#include <dolphinbackend/Exceptions.h>
+#include <format>
 #include <mutex>
 
 extern LogCallback g_logger;

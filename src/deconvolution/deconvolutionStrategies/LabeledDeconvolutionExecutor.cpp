@@ -111,7 +111,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         }
 
         else{
-            ComplexData local_g_device = iobackend.getMemoryManager().copyData(g_device);
+            ComplexData local_g_device = iobackend.getMemoryManager().createCopy(g_device);
             ComplexData f_device = iobackend.getMemoryManager().allocateMemoryOnDevice(workShape);
 
             std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();

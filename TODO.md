@@ -1,3 +1,9 @@
+make cuda copy operations in the cudamemorybackend not the CUBE library
+
+make make real value and template the backendmemorymanager to be able to take complex and realvalue, each should have a function which passes its size
+or think about having a baseclass and then these two implementations, but then copying becomes weird. But i need real value for r2c and c2r fourier transforms which should be a big speedup
+think more about complex/real valus in deconvolution
+
 recheck the blocking behavior of using openmp
 
 first forward and last backward fourier transforms can be real to complex

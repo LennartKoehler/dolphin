@@ -5,7 +5,6 @@
 #include <string>
 #include <stdexcept>
 #include <functional>
-#include <format>
 #include "IDeconvolutionBackend.h"
 #include "IBackendMemoryManager.h"
 
@@ -17,8 +16,8 @@ enum LogLevel { DEBUG = 0, INFO, WARN, ERROR };
 using LogCallback = std::function<void(const std::string& message, LogLevel level)>;
 
 struct BackendConfig{
-    
-    size_t nThreads = 1; // whatever this means for the backendmanager. But manager has the opportunity to configure this 
+
+    size_t nThreads = 1; // whatever this means for the backendmanager. But manager has the opportunity to configure this
     std::string backendName = "default"; //TODO
 };
 
@@ -85,8 +84,8 @@ public:
     virtual ~IBackend() = default;
     // Pure virtual methods that must be implemented by concrete backends
     virtual std::string getDeviceString() const noexcept = 0;
-    
-    
+
+
     // Ownership query methods
     virtual bool ownsDeconvolutionBackend() const noexcept = 0;
     virtual bool ownsMemoryManager() const noexcept = 0;
@@ -115,5 +114,5 @@ public:
     virtual void sync() = 0;
 
 
-    
+
 };

@@ -57,98 +57,69 @@ bool CUDABackendMemoryManager::isOnDevice(void* ptr) const {
 }
 
 
+// TODO do i want this memCopy or the normal other one
+// void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
+//     // Validate input data
+//     BACKEND_CHECK(srcData.size.getVolume() > 0, "Invalid source data size in memCopy", "CUDA", "memCopy");
+//     BACKEND_CHECK(destData.size.getVolume() > 0, "Invalid destination data size in memCopy", "CUDA", "memCopy");
+//
+//     // Check if sizes match
+//     BACKEND_CHECK(srcData.size.getVolume() == destData.size.getVolume(), "Size mismatch in memCopy", "CUDA", "memCopy");
+//
+//
+//     // Setup cudaMemcpy3D parameters
+//     cudaMemcpy3DParms copyParams = {0};
+//
+//     // Source parameters
+//     copyParams.srcPtr = make_cudaPitchedPtr(
+//         srcData.data,                           // Source pointer
+//         srcData.size.width * sizeof(complex_t),  // Pitch (row width in bytes)
+//         srcData.size.width,                     // Width in elements
+//         srcData.size.height                     // Height in elements
+//     );
+//     copyParams.srcPos = make_cudaPos(0, 0, 0); // Start from origin
+//
+//     // Destination parameters
+//     copyParams.dstPtr = make_cudaPitchedPtr(
+//         destData.data,                          // Destination pointer
+//         destData.size.width * sizeof(complex_t), // Pitch (row width in bytes)
+//         destData.size.width,                    // Width in elements
+//         destData.size.height                    // Height in elements
+//     );
+//     copyParams.dstPos = make_cudaPos(0, 0, 0); // Start from origin
+//
+//     // Copy extent (how much to copy)
+//     copyParams.extent = make_cudaExtent(
+//         srcData.size.width * sizeof(complex_t),  // Width in bytes
+//         srcData.size.height,                    // Height in elements
+//         srcData.size.depth                      // Depth in elements
+//     );
+//
+//     // Determine copy direction
+//     bool srcIsDevice = isOnDevice(srcData.data);
+//     bool dstIsDevice = isOnDevice(destData.data);
+//
+//     if (srcIsDevice && dstIsDevice) {
+//         copyParams.kind = cudaMemcpyDeviceToDevice;
+//     } else if (!srcIsDevice && dstIsDevice) {
+//         copyParams.kind = cudaMemcpyHostToDevice;
+//     } else if (srcIsDevice && !dstIsDevice) {
+//         copyParams.kind = cudaMemcpyDeviceToHost;
+//     } else {
+//         copyParams.kind = cudaMemcpyHostToHost;
+//     }
+//
+//     // Execute the copy
+//     cudaError_t err = cudaMemcpy3DAsync(&copyParams, config.stream);
+//     CUDA_CHECK(err, "memCopy - cudaMemcpy3DAsync");
+//
+//     err = cudaStreamSynchronize(config.stream);
+//     CUDA_CHECK(err, "memCopy - cudaStreamSynchronize");
+//
+//     destData.backend = this;
+// }
+//
 
-void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
-    // Validate input data
-    BACKEND_CHECK(srcData.size.getVolume() > 0, "Invalid source data size in memCopy", "CUDA", "memCopy");
-    BACKEND_CHECK(destData.size.getVolume() > 0, "Invalid destination data size in memCopy", "CUDA", "memCopy");
-
-    // Check if sizes match
-    BACKEND_CHECK(srcData.size.getVolume() == destData.size.getVolume(), "Size mismatch in memCopy", "CUDA", "memCopy");
-
-    // Ensure destination has memory allocated
-    if (destData.data == nullptr) {
-        allocateMemoryOnDevice(destData);
-    }
-
-    // Setup cudaMemcpy3D parameters
-    cudaMemcpy3DParms copyParams = {0};
-
-    // Source parameters
-    copyParams.srcPtr = make_cudaPitchedPtr(
-        srcData.data,                           // Source pointer
-        srcData.size.width * sizeof(complex_t),  // Pitch (row width in bytes)
-        srcData.size.width,                     // Width in elements
-        srcData.size.height                     // Height in elements
-    );
-    copyParams.srcPos = make_cudaPos(0, 0, 0); // Start from origin
-
-    // Destination parameters
-    copyParams.dstPtr = make_cudaPitchedPtr(
-        destData.data,                          // Destination pointer
-        destData.size.width * sizeof(complex_t), // Pitch (row width in bytes)
-        destData.size.width,                    // Width in elements
-        destData.size.height                    // Height in elements
-    );
-    copyParams.dstPos = make_cudaPos(0, 0, 0); // Start from origin
-
-    // Copy extent (how much to copy)
-    copyParams.extent = make_cudaExtent(
-        srcData.size.width * sizeof(complex_t),  // Width in bytes
-        srcData.size.height,                    // Height in elements
-        srcData.size.depth                      // Depth in elements
-    );
-
-    // Determine copy direction
-    bool srcIsDevice = isOnDevice(srcData.data);
-    bool dstIsDevice = isOnDevice(destData.data);
-
-    if (srcIsDevice && dstIsDevice) {
-        copyParams.kind = cudaMemcpyDeviceToDevice;
-    } else if (!srcIsDevice && dstIsDevice) {
-        copyParams.kind = cudaMemcpyHostToDevice;
-    } else if (srcIsDevice && !dstIsDevice) {
-        copyParams.kind = cudaMemcpyDeviceToHost;
-    } else {
-        copyParams.kind = cudaMemcpyHostToHost;
-    }
-
-    // Execute the copy
-    cudaError_t err = cudaMemcpy3DAsync(&copyParams, config.stream);
-    CUDA_CHECK(err, "memCopy - cudaMemcpy3DAsync");
-
-    err = cudaStreamSynchronize(config.stream);
-    CUDA_CHECK(err, "memCopy - cudaStreamSynchronize");
-
-    destData.backend = this;
-}
-
-ComplexData CUDABackendMemoryManager::allocateMemoryOnDevice(const CuboidShape& shape) const {
-    ComplexData result{this, nullptr, shape};
-    allocateMemoryOnDevice(result);
-    return result;
-}
-
-void CUDABackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
-    if (data.data != nullptr && isOnDevice(data.data)) {
-        return; // Already on device
-    }
-
-    // Validate data size
-    BACKEND_CHECK(data.size.getVolume() > 0, "Invalid data size for allocation", "CUDA", "allocateMemoryOnDevice");
-
-    // Allocate CUDA memory with unified exception handling
-    size_t requested_size = data.size.getVolume() * sizeof(complex_t);
-
-    // Check for potential overflow
-    BACKEND_CHECK(requested_size / sizeof(complex_t) == data.size.getVolume(),
-                  "Size overflow detected in memory allocation", "CUDA", "allocateMemoryOnDevice");
-
-    void* rawdata = allocateMemoryOnDevice(requested_size);
-    data.data = (complex_t*) rawdata;
-
-    data.backend = this;
-}
 void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) const {
     // Wait for memory if max memory limit is set
     // waitForMemory(requested_size);
@@ -169,78 +140,44 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
     access.data.totalUsedMemory += requested_size;
 
     return devicePtr;
-
 }
 
-complex_t** CUDABackendMemoryManager::createDataArray(std::vector<ComplexData*>& data) const {
-    int N = data.size();
-    //TODO add check etc.
-    size_t size = sizeof(complex_t*) * N;
-    complex_t** dataPointer = (complex_t**) allocateMemoryOnDevice(size);
-    for (int i = 0; i < N; ++i){
-        dataPointer[i] = data[i]->data;
-    }
-    return dataPointer;
-}
 
-ComplexData CUDABackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
 
-    ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
-    if (srcdata.data != nullptr) {
-        cudaError_t err = CUBE_UTL_COPY::copyDataFromHostToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
-                                               destdata.data, srcdata.data, config.stream);
-        CUDA_CHECK(err, "copyDataFromHostToDevice")
-    }
-    destdata.backend = this;
+void* CUDABackendMemoryManager::copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
+    void* dest = allocateMemoryOnDevice(size);
 
+    cudaMemcpyAsync(dest, src, size, cudaMemcpyHostToDevice, config.stream);
     cudaStreamSynchronize(config.stream);
-    return destdata;
+
+    return dest;
+
+
 }
 
-ComplexData CUDABackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const {
+void* CUDABackendMemoryManager::moveDataFromDevice(void* src, size_t size, const CuboidShape& shape, const IBackendMemoryManager& destBackend) const {
     if (&destBackend == this){
-        return srcdata;
+        return src;
     }
-    ComplexData destdata = destBackend.allocateMemoryOnDevice(srcdata.size);
+    void* dest = destBackend.allocateMemoryOnDevice(size);
 
-    if (srcdata.data != nullptr){
-        cudaError_t err = CUBE_UTL_COPY::copyDataFromDeviceToHost(srcdata.size.width, srcdata.size.height, srcdata.size.depth, destdata.data, srcdata.data, config.stream);
-        CUDA_CHECK(err, "copyDataFromDeviceToHost");
-
-    }
+    cudaMemcpyAsync(dest, src, size, cudaMemcpyDeviceToHost, config.stream);
     cudaStreamSynchronize(config.stream);
 
-    return destdata;
+    return dest;
 }
 
-ComplexData CUDABackendMemoryManager::copyData(const ComplexData& srcdata) const {
-
-    ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
-
-    if (srcdata.data != nullptr) {
-        cudaError_t err = CUBE_UTL_COPY::copyDataFromDeviceToDevice(srcdata.size.width, srcdata.size.height, srcdata.size.depth,
-                                                 destdata.data, srcdata.data, config.stream);
-        CUDA_CHECK(err, "copyDataFromDeviceToDevice");
-    }
+void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
+    //TODO make check if all is on device
+    cudaMemcpyAsync(dest, src, size, cudaMemcpyDeviceToHost, config.stream);
     cudaStreamSynchronize(config.stream);
-    return destdata;
 }
 
+void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const {
+    BACKEND_CHECK(ptr != nullptr, "Attempting to free null pointer", "CUDA", "freeMemoryOnDevice");
+    BACKEND_CHECK(size > 0, "Invalid data size for deallocation", "CUDA", "freeMemoryOnDevice");
 
-
-void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
-    BACKEND_CHECK(srcdata.data != nullptr, "Attempting to free null pointer", "CUDA", "freeMemoryOnDevice");
-
-    // Validate data size before freeing
-    BACKEND_CHECK(srcdata.size.getVolume() > 0, "Invalid data size for deallocation", "CUDA", "freeMemoryOnDevice");
-
-    size_t requested_size = srcdata.size.getVolume() * sizeof(complex_t);
-
-    // Check for potential overflow
-    BACKEND_CHECK(requested_size / sizeof(complex_t) == srcdata.size.getVolume(),
-                  "Size overflow detected in memory deallocation", "CUDA", "freeMemoryOnDevice");
-
-    cudaError_t err = cudaFreeAsync(srcdata.data, config.stream);
+    cudaError_t err = cudaFreeAsync(ptr, config.stream);
     CUDA_CHECK(err, "freeMemoryOnDevice - cudaFreeAsync");
 
     err = cudaStreamSynchronize(config.stream);
@@ -248,15 +185,16 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(ComplexData& srcdata) const {
 
     // Update memory tracking using getAccess()
     auto access = getMemoryTracking()->getAccess();
-    if (access.data.totalUsedMemory < requested_size) {
+    if (access.data.totalUsedMemory < size) {
         access.data.totalUsedMemory = static_cast<size_t>(0); // this should never happen
         g_logger_cuda(std::format("Memory tracking inconsistency detected in freeMemoryOnDevice"), LogLevel::WARN);
     } else {
-        access.data.totalUsedMemory -= requested_size;
+        access.data.totalUsedMemory -= size;
     }
 
-    srcdata.data = nullptr;
+    ptr = nullptr;
 }
+
 
 size_t CUDABackendMemoryManager::getAvailableMemory() const {
     cudaError_t sync_err = cudaStreamSynchronize(config.stream);

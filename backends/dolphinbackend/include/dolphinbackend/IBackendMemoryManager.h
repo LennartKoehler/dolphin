@@ -16,10 +16,10 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include <stdexcept>
 #include <mutex>
-#include <memory>
-#include <condition_variable>
 #include <vector>
+
 #include "ComplexData.h"
+
 
 class BackendConfig;
 
@@ -63,8 +63,8 @@ class IBackendMemoryManager{
 public:
     // Data management - provide default implementations
     IBackendMemoryManager() = default;
-    virtual ~IBackendMemoryManager() = default;
-    
+    virtual ~IBackendMemoryManager();
+
     /**
      * Get the device type of this memory manager
      * @return Device type string
@@ -72,7 +72,7 @@ public:
     virtual std::string getDeviceString() const noexcept {
         return "unknown";
     }
-    
+
     // Synchronization - default implementation for non-async backends
     virtual void sync() {
         // Default no-op implementation for backends that don't need synchronization
@@ -83,42 +83,142 @@ public:
         NOT_IMPLEMENTED(setMemoryLimit);
     }
 
-    virtual void allocateMemoryOnDevice(ComplexData& data) const {
-        NOT_IMPLEMENTED(allocateMemoryOnDevice);
+    template<typename T>
+    void allocateMemoryOnDevice(ManagedData<T>& data) const {
+        if (data.data != nullptr) {
+            return; // Already allocated
+        }
+
+        size_t requested_size = data.getElementSize() * data.size.getVolume();
+        void* rawdata = allocateMemoryOnDevice(requested_size);
+        data.setData(rawdata);
+        data.backend = this;
     }
+
+    ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const {
+        ComplexData result{ this, nullptr, shape };
+        allocateMemoryOnDevice(result);
+        return result;
+    }
+
+    RealData allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
+        RealData result{ this, nullptr, shape };
+        allocateMemoryOnDevice(result);
+        return result;
+    }
+
+
+    virtual void* allocateMemoryOnDevice(size_t) const;
 
     virtual bool isOnDevice(void* data) const {
         NOT_IMPLEMENTED(isOnDevice);
     }
-    // ipnut always cpudata
-    virtual ComplexData copyDataToDevice(const ComplexData& srcdata) const {
+
+    // ============================================================================
+    // Low-level void* based memory operations (to be implemented by backends)
+    // ============================================================================
+
+    /**
+     * Copy data from host to device
+     * @param src Pointer to source data on host
+     * @param size Size in bytes
+     * @param shape Shape of the data
+     * @return Pointer to allocated device memory
+     */
+    virtual void* copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
         NOT_IMPLEMENTED(copyDataToDevice);
     }
-    
 
-    virtual complex_t** createDataArray(std::vector<ComplexData*>& data) const{
-        NOT_IMPLEMENTED(createDataArray);
-    }
-    // move data to cpu and then run destBackend.copyDataToDevice
-    virtual ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const {
+
+    /**
+     * Move data from device to another backend
+     * @param src Pointer to source data on device
+     * @param size Size in bytes
+     * @param shape Shape of the data
+     * @param destBackend Destination backend
+     * @return Pointer to allocated memory on destination backend
+     */
+    virtual void* moveDataFromDevice(void* src, size_t size, const CuboidShape& shape,
+                                      const IBackendMemoryManager& destBackend) const {
         NOT_IMPLEMENTED(moveDataFromDevice);
     }
-    
-    virtual void memCopy(const ComplexData& srcData, ComplexData& destdata) const {
+
+    /**
+     * Memory copy between two pointers
+     * @param src Pointer to source data
+     * @param dest Pointer to destination data
+     * @param size Size in bytes
+     * @param shape Shape of the data
+     */
+    virtual void memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
         NOT_IMPLEMENTED(memCopy);
     }
-    
-    virtual ComplexData copyData(const ComplexData& srcdata) const {
-        NOT_IMPLEMENTED(copyData);
+
+    template<typename T>
+    void memCopy(const ManagedData<T>& srcdata, const ManagedData<T>& destdata) const {
+        if (srcdata.data == nullptr) {
+            //TODO log
+        }
+        size_t byteSize = srcdata.getDataBytes();
+        memCopy(srcdata.data, destdata.data, byteSize, srcdata.size);
     }
 
-   
-    virtual ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const {
-        NOT_IMPLEMENTED(allocateMemoryOnDevice);
+    template<typename T>
+    complex_t** createDataArray(std::vector<ManagedData<T>*>& data) const {
+        int N = data.size();
+        //TODO add check etc.
+        size_t size = sizeof(void*) * N;
+        T** dataPointer = (T**)allocateMemoryOnDevice(size);
+        for (int i = 0; i < N; ++i) {
+            dataPointer[i] = data[i]->data;
+        }
+        return dataPointer;
     }
-    
-    virtual void freeMemoryOnDevice(ComplexData& data) const {
+
+    virtual void freeMemoryOnDevice(void* ptr, size_t size) const {
         NOT_IMPLEMENTED(freeMemoryOnDevice);
+    }
+
+
+    template<typename T>
+    ManagedData<T> copyDataToDevice(const ManagedData<T>& srcdata) const {
+        if (srcdata.data == nullptr) {
+            return ManagedData<T>(this, nullptr, srcdata.size);
+        }
+        size_t byteSize = srcdata.getDataBytes();
+        void* result = copyDataToDevice(srcdata.data, byteSize, srcdata.size);
+        return ManagedData<T>(this, static_cast<T*>(result), srcdata.size);
+    }
+
+    template<typename T>
+    ManagedData<T> createCopy(const ManagedData<T>& srcdata) const {
+        if (srcdata.data == nullptr) {
+            return ManagedData<T>(this, nullptr, srcdata.size);
+        }
+        size_t byteSize = srcdata.getDataBytes();
+        void* result = allocateMemoryOnDevice(byteSize);
+        memCopy(srcdata.data, result, byteSize, srcdata.size);
+        return ManagedData<T>(this, static_cast<T*>(result), srcdata.size);
+    }
+
+
+    template<typename T>
+    ManagedData<T> moveDataFromDevice(const ManagedData<T>& srcdata, const IBackendMemoryManager& destBackend) const {
+        if (srcdata.data == nullptr) {
+            return ManagedData<T>(&destBackend, nullptr, srcdata.size);
+        }
+        size_t byteSize = srcdata.getDataBytes();
+        void* result = moveDataFromDevice(srcdata.data, byteSize, srcdata.size, destBackend);
+        return ManagedData<T>(&destBackend, static_cast<T*>(result), srcdata.size);
+    }
+
+
+    template<typename T>
+    void freeMemoryOnDevice(ManagedData<T>& data) const {
+        if (data.data == nullptr) return;
+        size_t byteSize = data.getElementSize();
+        freeMemoryOnDevice(data.data, byteSize);
+        data.data = nullptr;
     }
 
     virtual size_t getAvailableMemory() const {
@@ -131,4 +231,3 @@ public:
 
 
 };
-#undef NOT_IMPLEMENTED

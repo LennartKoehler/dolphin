@@ -13,14 +13,12 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 #include "dolphinbackend/IBackend.h"
+#include "dolphinbackend/Exceptions.h"
 #include "dolphinbackend/IDeconvolutionBackend.h"
 #include "dolphinbackend/IBackendMemoryManager.h"
-#include "dolphinbackend/Exceptions.h"
 #include <cufft.h>
 #include <CUBE.h>
 #include <cuda_runtime.h>
-#include <map>
-#include <iostream>
 
 
 class CUDABackendManager;
@@ -85,36 +83,35 @@ public:
     // Constructor
     explicit CUDABackendMemoryManager(CUDABackendConfig config);
     ~CUDABackendMemoryManager();
-    
+
     // Override device type method
     std::string getDeviceString() const noexcept override {
         return std::string("cuda") + std::to_string(config.device.id);
     }
-    
+
     void sync() override {cudaStreamSynchronize(config.stream);}
     // Memory management initialization
     void setMemoryLimit(size_t maxMemorySize = 0) override;
-    
-    // Data management
-    void memCopy(const ComplexData& srcdata, ComplexData& destdata) const override;
-    void allocateMemoryOnDevice(ComplexData& data) const override;
-    ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const override;
-    bool isOnDevice(void* data) const override;
-    ComplexData copyData(const ComplexData& srcdata) const override;
-    ComplexData copyDataToDevice(const ComplexData& srcdata) const override; // for gpu these are copy operations
-    ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const override; // for gpu these are copy operations
 
-    complex_t** createDataArray(std::vector<ComplexData*>& data) const override ;
-    void freeMemoryOnDevice(ComplexData& data) const override;
+    static size_t staticGetAvailableMemory();
+
+    bool isOnDevice(void* data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
+
+    void* copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const override;
+    void* moveDataFromDevice(void* src, size_t size, const CuboidShape& shape,
+                              const IBackendMemoryManager& destBackend) const override;
+    void memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const override;
+    void freeMemoryOnDevice(void* ptr, size_t size) const override;
+
 private:
 
     // CUDA stream for memory operations
-    CUDABackendConfig config; 
+    CUDABackendConfig config;
 
-    void* allocateMemoryOnDevice(size_t requested_size) const ;
-    
+    void* allocateMemoryOnDevice(size_t requested_size) const override;
+
     // Method to get memory tracking instance
     MemoryTracking* getMemoryTracking() const { return config.device.memory; }
 };
@@ -124,7 +121,7 @@ class CUDADeconvolutionBackend : public IDeconvolutionBackend{
 public:
     explicit CUDADeconvolutionBackend(CUDABackendConfig config);
     ~CUDADeconvolutionBackend() override;
-    
+
     // Override device type method
     std::string getDeviceString() const noexcept override {
         return (std::string("cuda") + std::to_string(config.device.id));
@@ -176,8 +173,8 @@ public:
 
 
 private:
-    
-    void initializePlan(const CuboidShape& shape); 
+
+    void initializePlan(const CuboidShape& shape);
     void destroyPlans();
     cufftHandle forward = 0;
     cufftHandle backward = 0;
@@ -227,7 +224,7 @@ private:
     CUDABackendConfig config;
 
     // Type-safe factory methods for different ownership models
-    
+
     // Create CUDABackend with external ownership (references to externally-owned components)
     static std::shared_ptr<CUDABackend> createWithExternalOwnership(
         CUDABackendConfig config,
@@ -254,22 +251,22 @@ private:
 
 public:
     // Factory method to create CUDABackend with
-    
+
     static CUDABackend* create(CUDABackendConfig config) {
         try {
             auto deconv = std::make_unique<CUDADeconvolutionBackend>(config);
             auto memoryManager = std::make_unique<CUDABackendMemoryManager>(config);
             CUDABackend* backend = new CUDABackend(config, std::move(deconv), std::move(memoryManager));
-            
+
             // size_t freeMem, totalMem;
             // cudaError_t err = cudaMemGetInfo(&freeMem, &totalMem);
             // CUDA_CHECK(err, "create - cudaMemGetInfo");
-            
+
             // if (totalMem == 0) {
             //     throw dolphin::backend::BackendException(
             //         "Device 0 reports zero memory", "CUDA", "create");
             // }
-            
+
             // backend->setDevice(CUDADevice{0, new MemoryTracking(totalMem)});
             return backend;
         } catch (...) {

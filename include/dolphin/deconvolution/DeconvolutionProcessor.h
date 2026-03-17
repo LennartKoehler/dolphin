@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include <future>
 #include <vector>
 #include <memory>
+#include "dolphinbackend/ComplexData.h"
 
 class CuboidShape;
 class IBackend;
@@ -22,9 +23,7 @@ class IBackendMemoryManager;
 class DeconvolutionAlgorithm;
 class ThreadPool;
 class PSF;
-class ComplexData;
 class PSFPreprocessor;
-
 
 class DeconvolutionProcessor{
 public:
@@ -42,7 +41,7 @@ public:
         ComplexData& g_device,
         ComplexData& f_device,
         PSFPreprocessor& psfpreprocessor);
-    
+
     static ComplexData staticDeconvolveSingleCube(
         IBackend& backend,
         std::unique_ptr<DeconvolutionAlgorithm> algorithm,
@@ -51,7 +50,7 @@ public:
         ComplexData& g_device,
         ComplexData& f_device,
         PSFPreprocessor& psfpreprocessor);
- 
+
     static ComplexData staticDeconvolveSingleCubeWithCopying(
         IBackend& backend,
         std::shared_ptr<IBackendMemoryManager> hostbackend,
@@ -66,7 +65,7 @@ public:
 private:
 
     std::unique_ptr<ThreadPool> workerPool;
-    
+
 };
 
 

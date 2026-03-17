@@ -13,11 +13,9 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
-#include <vector>
 #include <string>
 #include <stdexcept>
-#include <mutex>
-#include <memory>
+#include <vector>
 #include "ComplexData.h"
 
 
@@ -38,7 +36,7 @@ class IDeconvolutionBackend{
 public:
     IDeconvolutionBackend() = default;
     virtual ~IDeconvolutionBackend(){};
-    
+
     /**
      * Get the device type of this backend
      * @return Device type string
@@ -53,12 +51,12 @@ public:
         // Default no-op implementation for backends that don't need synchronization
     }
 
-    
+
     // FFT plan management
     virtual void initializePlan(const CuboidShape& cube){
         NOT_IMPLEMENTED(initializePlan);
     }
-    
+
 
     // Debug functions
     virtual void hasNAN(const ComplexData& data) const {
@@ -74,8 +72,17 @@ public:
     virtual void forwardFFT(const ComplexData& in, ComplexData& out) const {
         NOT_IMPLEMENTED(forwardFFT);
     }
-    
+
+    virtual void forwardFFT(const RealData& in, ComplexData& out) const {
+        NOT_IMPLEMENTED(forwardFFT);
+    }
+
+
     virtual void backwardFFT(const ComplexData& in, ComplexData& out) const {
+        NOT_IMPLEMENTED(backwardFFT);
+    }
+
+    virtual void backwardFFT(const ComplexData& in, RealData& out) const {
         NOT_IMPLEMENTED(backwardFFT);
     }
 
@@ -83,11 +90,11 @@ public:
     virtual void octantFourierShift(ComplexData& data) const {
         NOT_IMPLEMENTED(octantFourierShift);
     }
-    
+
     virtual void inverseQuadrantShift(ComplexData& data) const {
         NOT_IMPLEMENTED(inverseQuadrantShift);
     }
-    
+
     // Complex arithmetic operations
     virtual void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
         NOT_IMPLEMENTED(complexMultiplication);
@@ -96,29 +103,29 @@ public:
     virtual void sumToOne(std::vector<ComplexData>& data) const {
         NOT_IMPLEMENTED(sumToOneReal);
     }
-    
+
     virtual void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
         NOT_IMPLEMENTED(complexDivision);
     }
-    
+
     virtual void complexAddition(complex_t** data, ComplexData& sum, int nImagse, int imageVolume) const {
         NOT_IMPLEMENTED(complexAddition);
     }
     virtual void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
         NOT_IMPLEMENTED(complexAddition);
     }
-    
+
     virtual void sumToOneReal(complex_t** data, int nImages, int imageVolume) const {
         NOT_IMPLEMENTED(sumToOneReal);
     }
     virtual void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
         NOT_IMPLEMENTED(scalarMultiplication);
     }
-    
+
     virtual void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
         NOT_IMPLEMENTED(complexMultiplicationWithConjugate);
     }
-    
+
     virtual void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
         NOT_IMPLEMENTED(complexDivisionStabilized);
     }
@@ -131,7 +138,7 @@ public:
     virtual void normalizeImage(ComplexData& resultImage, real_t epsilon) const {
         NOT_IMPLEMENTED(normalizeImage);
     }
-    
+
     virtual void rescaledInverse(ComplexData& data, real_t cubeVolume) const {
         NOT_IMPLEMENTED(rescaledInverse);
     }
@@ -140,19 +147,19 @@ public:
     virtual void gradientX(const ComplexData& image, ComplexData& gradX) const {
         NOT_IMPLEMENTED(gradientX);
     }
-    
+
     virtual void gradientY(const ComplexData& image, ComplexData& gradY) const {
         NOT_IMPLEMENTED(gradientY);
     }
-    
+
     virtual void gradientZ(const ComplexData& image, ComplexData& gradZ) const {
         NOT_IMPLEMENTED(gradientZ);
     }
-    
+
     virtual void computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
         NOT_IMPLEMENTED(computeTV);
     }
-    
+
     virtual void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const {
         NOT_IMPLEMENTED(normalizeTV);
     }
