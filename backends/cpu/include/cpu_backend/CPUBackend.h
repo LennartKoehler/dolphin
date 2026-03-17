@@ -2,9 +2,7 @@
 #include "dolphinbackend/IBackend.h"
 // #include "CPUBackendManager.h"
 
-#include "dolphinbackend/Exceptions.h"
 #include <fftw3.h>
-#include <map>
 
 
 class CPUBackendManager;
@@ -43,9 +41,9 @@ struct CPUBackendConfig{
 class CPUBackendMemoryManager : public IBackendMemoryManager{
 public:
     CPUBackendMemoryManager(CPUBackendConfig config);
-    
+
     ~CPUBackendMemoryManager();
-    
+
 
     static size_t staticGetAvailableMemory();
     // Override device type method
@@ -53,32 +51,61 @@ public:
         return "cpu";
     }
 
-    
+
     // Synchronization method - CPU implementation (no-op)
     void sync() override {}
-    
+
     // Memory management initialization
     void setMemoryLimit(size_t maxMemorySize = 0) override;
-    
+
     // Data management
-    void memCopy(const ComplexData& srcdata, ComplexData& destdata) const override;
-    void allocateMemoryOnDevice(ComplexData& data) const override;
-    ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const override;
     bool isOnDevice(void* data) const override;
-    ComplexData copyData(const ComplexData& srcdata) const override;
-    ComplexData copyDataToDevice(const ComplexData& srcdata) const override; // for cpu these are copy operations
-    ComplexData moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destBackend) const override; // for cpu these are copy operations
-    void freeMemoryOnDevice(ComplexData& data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
 
-    complex_t** createDataArray(std::vector<ComplexData*>& data) const override;
 
+
+    /**
+     * Copy data from host to device
+     * @param src Pointer to source data on host
+     * @param size Size in bytes
+     * @param shape Shape of the data
+     * @return Pointer to allocated device memory
+     */
+    void* copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const override;
+
+
+    /**
+     * Move data from device to another backend
+     * @param src Pointer to source data on device
+     * @param size Size in bytes
+     * @param shape Shape of the data
+     * @param destBackend Destination backend
+     * @return Pointer to allocated memory on destination backend
+     */
+    void* moveDataFromDevice(void* src, size_t size, const CuboidShape& shape,
+                                      const IBackendMemoryManager& destBackend) const override;
+    /**
+     * Memory copy between two pointers
+     * @param src Pointer to source data
+     * @param dest Pointer to destination data
+     * @param size Size in bytes
+     * @param shape Shape of the data
+     */
+    void memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const override;
+
+
+    /**
+     * Free memory on device
+     * @param ptr Pointer to free
+     * @param size Size in bytes (for tracking)
+     */
+    void freeMemoryOnDevice(void* ptr, size_t size) const override;
 
 private:
-    
+
     // Helper method to wait for memory availability
-    void* allocateMemoryOnDevice(size_t) const;
+    void* allocateMemoryOnDevice(size_t size) const override;
     void waitForMemory(size_t requiredSize) const;
     static MemoryTracking cpuMemory; //static because currently only supports one device
 
@@ -89,7 +116,7 @@ class CPUDeconvolutionBackend : public IDeconvolutionBackend{
 public:
     CPUDeconvolutionBackend(CPUBackendConfig config);
     ~CPUDeconvolutionBackend() override;
-    
+
     // Override device type method
     std::string getDeviceString() const noexcept override {
         return "cpu";
@@ -137,7 +164,7 @@ public:
     void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const override;
 
 private:
-    static FFTWManager fftwManager; 
+    static FFTWManager fftwManager;
     CPUBackendConfig config;
 };
 
@@ -190,7 +217,7 @@ private:
 
 
     // Type-safe factory methods for different ownership models
-    
+
     // Create CPUBackend with external ownership (references to externally-owned components)
     static std::shared_ptr<CPUBackend> createWithExternalOwnership(
         CPUDeconvolutionBackend& deconv,
@@ -309,7 +336,7 @@ public:
     }
 
 
-    
+
     // Overloaded version for CPU: simply return the original since CPU doesn't need complex_t thread management
     // IBackend& clone() override ;
 

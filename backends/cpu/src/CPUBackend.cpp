@@ -1,7 +1,7 @@
 #include "CPUBackend.h"
-#include <iostream>
+#include "dolphinbackend/Exceptions.h"
 #include <algorithm>
-#include <sstream>
+#include <format>
 #include <cmath>
 #include <cstring>
 #include <cassert>
@@ -96,16 +96,7 @@ bool CPUBackendMemoryManager::isOnDevice(void* ptr) const {
     return ptr != nullptr;
 }
 
-void CPUBackendMemoryManager::allocateMemoryOnDevice(ComplexData& data) const {
-    if (data.data != nullptr) {
-        return; // Already allocated
-    }
 
-    size_t requested_size = sizeof(complex_t) * data.size.getVolume();
-    void* rawdata = allocateMemoryOnDevice(requested_size);
-    data.data = (complex_t*)rawdata;
-    data.backend = this;
-}
 void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) const {
     // Wait for memory if max memory limit is set
     waitForMemory(requested_size);
@@ -120,78 +111,56 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 
 }
 
-ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const CuboidShape& shape) const {
-    ComplexData result{ this, nullptr, shape };
-    allocateMemoryOnDevice(result);
+
+
+ void* CPUBackendMemoryManager::copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
+    BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data");
+    void* result = allocateMemoryOnDevice(size);
+    std::memcpy(result, src, size);
     return result;
 }
 
-ComplexData CPUBackendMemoryManager::copyDataToDevice(const ComplexData& srcdata) const {
-
-    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data");
-    ComplexData result = allocateMemoryOnDevice(srcdata.size);
-    std::memcpy(result.data, srcdata.data, srcdata.size.getVolume() * sizeof(complex_t));
-    return result;
-}
-
-ComplexData CPUBackendMemoryManager::moveDataFromDevice(const ComplexData& srcdata, const IBackendMemoryManager& destDevice) const {
-    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "moveDataFromDevice - source data");
-    if (&destDevice == this) {
-        return srcdata;
+ void* CPUBackendMemoryManager::moveDataFromDevice(void* src, size_t size, const CuboidShape& shape, const IBackendMemoryManager& destBackend) const {
+    BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "moveDataFromDevice - source data");
+    if (&destBackend == this) {
+        return src;
     }
     else {
         // For cross-backend transfer, use the destination backend's copy method
         // since cpubackend is the "default" it is simple, be careful how this works for other backends though
-        return destDevice.copyDataToDevice(srcdata);
+        return destBackend.copyDataToDevice(src, size, shape);
     }
 }
 
-ComplexData CPUBackendMemoryManager::copyData(const ComplexData& srcdata) const {
-    BACKEND_CHECK(srcdata.data != nullptr, "Source data pointer is null", "CPU", "copyData - source data");
-    ComplexData destdata = allocateMemoryOnDevice(srcdata.size);
-    memCopy(srcdata, destdata);
-    return destdata;
+
+
+
+void CPUBackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
+    BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "memCopy - source data");
+    BACKEND_CHECK(dest != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data");
+    std::memcpy(dest, src, size);
 }
 
-
-
-void CPUBackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
-    BACKEND_CHECK(srcData.data != nullptr, "Source data pointer is null", "CPU", "memCopy - source data");
-    BACKEND_CHECK(destData.data != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data");
-    BACKEND_CHECK(destData.size.getVolume() == srcData.size.getVolume(), "Source and destination must have same size", "CPU", "memCopy");
-    std::memcpy(destData.data, srcData.data, srcData.size.getVolume() * sizeof(complex_t));
-}
-
-void CPUBackendMemoryManager::freeMemoryOnDevice(ComplexData& data) const {
-    BACKEND_CHECK(data.data != nullptr, "Data pointer is null", "CPU", "freeMemoryOnDevice - data pointer");
-    size_t requested_size = sizeof(complex_t) * data.size.getVolume();
-    fftwf_free(data.data);
+void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
+    BACKEND_CHECK(ptr != nullptr, "Data pointer is null", "CPU", "freeMemoryOnDevice - data pointer");
+    fftwf_free(ptr);
 
     // Update memory tracking using getAccess()
     auto access = cpuMemory.getAccess();
-    if (access.data.totalUsedMemory < requested_size) {
+    if (access.data.totalUsedMemory < size) {
         access.data.totalUsedMemory = static_cast<size_t>(0); // this should never happen
     }
     else {
-        access.data.totalUsedMemory -= requested_size;
+        access.data.totalUsedMemory -= size;
     }
     // Notify waiting threads that memory is now available
     // backend.memory.memoryCondition.notify_all(); // This would need to be handled differently with the new system
 
-    data.data = nullptr;
+    ptr = nullptr;
 }
 
 
-complex_t** CPUBackendMemoryManager::createDataArray(std::vector<ComplexData*>& data) const {
-    int N = data.size();
-    //TODO add check etc.
-    size_t size = sizeof(complex_t*) * N;
-    complex_t** dataPointer = (complex_t**)allocateMemoryOnDevice(size);
-    for (int i = 0; i < N; ++i) {
-        dataPointer[i] = data[i]->data;
-    }
-    return dataPointer;
-}
+
 size_t CPUBackendMemoryManager::getAvailableMemory() const {
     try {
         return staticGetAvailableMemory();

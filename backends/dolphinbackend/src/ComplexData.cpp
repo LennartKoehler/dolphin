@@ -13,51 +13,73 @@ See the LICENSE file provided with the code for the full license.
 
 #include "ComplexData.h"
 #include "IBackendMemoryManager.h"
-// Take ownership of pre-allocated memory
 
-ComplexData::ComplexData(const IBackendMemoryManager* b, complex_t* data, CuboidShape size)
-    : backend(b), data(data), size(size) {}
+template class ManagedData<real_t>;      // for RealData
+template class ManagedData<complex_t>;   // for ComplexData
 
-ComplexData::~ComplexData() {
+template<typename T>
+ManagedData<T>::ManagedData(const IBackendMemoryManager* b, T* d, CuboidShape s)
+    : backend(b), data(d), size(s) {}
+
+template<typename T>
+ManagedData<T>::~ManagedData() {
     if (data) {
-        try { backend->freeMemoryOnDevice(*this); } catch(...) {} // most likely the backend was deleted before the complexdata was freed
+        try {
+            if (backend) {
+                backend->freeMemoryOnDevice(*this);
+            }
+        } catch(...) {}
     }
 }
 
-ComplexData::ComplexData(const ComplexData& other)
+template<typename T>
+ManagedData<T>::ManagedData(const ManagedData& other)
     : backend(other.backend), size(other.size) {
-    ComplexData copy = backend->copyData(other);
+    ManagedData copy = backend->createCopy(other);
     this->data = copy.data;
     copy.data = nullptr; // Prevent copy's destructor from freeing the data
 }
 
-ComplexData& ComplexData::operator=(const ComplexData& other){
+template<typename T>
+ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
     if (this != &other) {
         // Free existing data
         if (data) {
-            try { backend->freeMemoryOnDevice(*this); } catch(...) {}
+            try {
+                if (backend) {
+                    backend->freeMemoryOnDevice(*this);
+                }
+            } catch(...){}
         }
-        
+
         // Copy from other
         backend = other.backend;
         size = other.size;
-        ComplexData copy = backend->copyData(other);
+        ManagedData copy = backend->createCopy(other);
         data = copy.data;
         copy.data = nullptr; // Prevent copy's destructor from freeing the data
     }
     return *this;
 }
 
-ComplexData::ComplexData(ComplexData&& other) noexcept 
+template<typename T>
+ManagedData<T>::ManagedData(ManagedData&& other) noexcept
     : data(other.data), backend(other.backend), size(other.size) {
     other.data = nullptr;
+    other.backend = nullptr;
+    other.size = CuboidShape{};
 }
 
-ComplexData& ComplexData::operator=(ComplexData&& other) noexcept {
+template<typename T>
+ManagedData<T>& ManagedData<T>::operator=(ManagedData&& other) noexcept {
     if (this != &other) {
         // Free existing data if any
         if (data) {
-            try { backend->freeMemoryOnDevice(*this); } catch(...) {}
+            try {
+                if (backend) {
+                    backend->freeMemoryOnDevice(*this);
+                }
+            } catch(...){}
         }
 
         // Move data
@@ -72,3 +94,5 @@ ComplexData& ComplexData::operator=(ComplexData&& other) noexcept {
     }
     return *this;
 }
+
+

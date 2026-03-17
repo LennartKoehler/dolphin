@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # set(CMAKE_BUILD_TYPE Debug)
 set(SOURCES
     src/ComplexData.cpp
+    src/IBackendMemoryManager.cpp
 )
 
 if (NOT CMAKE_BUILD_TYPE)
