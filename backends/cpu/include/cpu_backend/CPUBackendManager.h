@@ -36,10 +36,10 @@ private:
     std::mutex mutex_;
 };
 
+
 struct FFTWPlan{
     fftwf_plan plan;
-    int ompThreads;
-    CuboidShape shape;
+    PlanDescription description;
 };
 class FFTWManager{
 public:
@@ -47,25 +47,23 @@ public:
     ~FFTWManager();
 
 
-    void executeForwardFFT(int ompThreads, const CuboidShape& size, fftwf_complex* indata, fftwf_complex* outdata);
-    void executeBackwardFFT(int ompThreads, const CuboidShape& size, fftwf_complex* indata, fftwf_complex* outdata);
-    void executeForwardFFTReal(int ompThreads, const CuboidShape& size, real_t* in, fftwf_complex* out);
-    void executeBackwardFFTReal(int ompThreads, const CuboidShape& size, fftwf_complex* in, real_t* out);
+    void executeForwardFFT(const PlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
+    void executeBackwardFFT(const PlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
+    void executeForwardFFTReal(const PlanDescription& description, real_t* in, fftwf_complex* out);
+    void executeBackwardFFTReal(const PlanDescription& description, fftwf_complex* in, real_t* out);
     void destroyFFTPlans();
 private:
 
-    fftwf_plan initializePlan(const CuboidShape& shape, int direction, int ompThreads);
-    fftwf_plan initializePlanRealToComplex(const CuboidShape& shape, int direction, int ompThreads);
-    fftwf_plan initializePlanComplexToReal(const CuboidShape& shape, int direction, int ompThreads);
-    const fftwf_plan* getForwardPlan(const CuboidShape& shape, int ompThreads, bool isComplex);
-    const fftwf_plan* getBackwardPlan(const CuboidShape& shape, int ompThreads, bool isComplex);
+    fftwf_plan initializePlan(const PlanDescription& description);
+    fftwf_plan initializePlanComplexToReal(const PlanDescription& description);
+    fftwf_plan initializePlanRealToComplex(const PlanDescription& description);
 
 
-    const fftwf_plan* findPlan( std::vector<FFTWPlan>& plans, int direction, const CuboidShape& shape, int ompThreads);
-    std::vector<FFTWPlan> forwardPlans;
-    std::vector<FFTWPlan> forwardPlansReal;
-    std::vector<FFTWPlan> backwardPlans;
-    std::vector<FFTWPlan> backwardPlansReal;
+    const fftwf_plan* findPlan(const PlanDescription& description);
+    std::vector<FFTWPlan> fftwPlans;
+    // std::vector<FFTWPlan> forwardPlansReal;
+    // std::vector<FFTWPlan> backwardPlans;
+    // std::vector<FFTWPlan> backwardPlansReal;
 
     std::mutex mutex_;
 };

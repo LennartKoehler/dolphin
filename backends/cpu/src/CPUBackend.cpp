@@ -203,14 +203,16 @@ void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
 
-    fftwManager.executeForwardFFT(config.ompThreads, in.size, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
+    PlanDescription description{in.size, config.ompThreads, PlanDirection::FORWARD, PlanType::COMPLEX};
+    fftwManager.executeForwardFFT(description, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
 }
 
 void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
 
-    fftwManager.executeBackwardFFT(config.ompThreads, in.size, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
+    PlanDescription description{in.size, config.ompThreads, PlanDirection::BACKWARD, PlanType::COMPLEX};
+    fftwManager.executeForwardFFT(description, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
 
     complex_t normFactor{1.0f / out.size.getVolume(), 1.0f / out.size.getVolume()};//TESTVALUE
     scalarMultiplication(out, normFactor, out); // Add normalization
@@ -220,14 +222,16 @@ void CPUDeconvolutionBackend::forwardFFT(const RealData& in, ComplexData& out) c
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
 
-    fftwManager.executeForwardFFTReal(config.ompThreads, in.size, reinterpret_cast<real_t*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
+    PlanDescription description{in.size, config.ompThreads, PlanDirection::FORWARD, PlanType::REAL};
+    fftwManager.executeForwardFFTReal(description, reinterpret_cast<real_t*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
 }
 
 void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) const {
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
 
-    fftwManager.executeBackwardFFTReal(config.ompThreads, in.size, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<real_t*>(out.data));
+    PlanDescription description{in.size, config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL};
+    fftwManager.executeBackwardFFTReal(description, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<real_t*>(out.data));
 
     // complex_t normFactor{1.0f / out.size.getVolume(), 1.0f / out.size.getVolume()};//TESTVALUE
     // scalarMultiplication(out, normFactor, out); // Add normalization

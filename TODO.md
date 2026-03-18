@@ -1,3 +1,9 @@
+check how the real to complex and c2r work and how the complex data is then structured, because its smaller than the full complex data and if the steps afterwards have to be adjusted for this data, currently the image is nans
+
+When finding uinque labels per cube also create the mask in the same loop
+    - start creating a mask for the first two labels, the background label and the first label that shows.
+    - Then when a new unique label is found just copy the first mask and "invert it" or just reinterpret later
+
 FIX: make the fourier transforms templated for different datatypes, currently the real valued planinit is never used, thats the bug
 
 check out fft r2c in place

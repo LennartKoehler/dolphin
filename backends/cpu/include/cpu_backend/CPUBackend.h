@@ -4,6 +4,25 @@
 
 #include <fftw3.h>
 
+enum PlanDirection{
+    FORWARD,
+    BACKWARD,
+};
+enum PlanType{
+    REAL,
+    COMPLEX
+};
+
+struct PlanDescription{
+    CuboidShape shape;
+    int ompThreads;
+    PlanDirection direction;
+    PlanType type;
+    bool operator==(const PlanDescription& other){
+        return (shape == other.shape && ompThreads == other.ompThreads && direction == other.direction && type == other.type);
+    }
+};
+
 
 class CPUBackendManager;
 class FFTWManager;
