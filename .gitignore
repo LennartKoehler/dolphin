@@ -1,22 +1,23 @@
 .vscode/*
 .cache/*
 .roo/*
-*build*/
+.VSCodeCounter/*
+**/build/
+**/dockerbuild/
 profiling/*
 result/*
 results/*
 result/tiles/*
-build/*
 cmake-build-debug/*
 input/*
 lib/cube/build/*
+
 
 
 uml.puml
 uml2.puml
 uml3.puml
 
-# Stelle sicher, dass das Verzeichnis input nicht ignoriert wird
 !input/
 !result/
 !result/tiles/
@@ -24,7 +25,6 @@ uml3.puml
 !lib/cube/build/
 !configs/
 
-# Erlaube eine .gitignore-Datei im Verzeichnis input (optional, falls du .gitignore im Verzeichnis haben möchtest)
 !input/.gitkeep
 !result/.gitkeep
 !build/.gitkeep
