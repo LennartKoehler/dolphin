@@ -1,3 +1,13 @@
+i think i should also fix the complex octant fourier shift as its also probably wrong. chaning the real fourier shift solve the problem for me
+
+testalgorithm with just backward transforming might now work because the padding is cut off and then nothing of the psf is left as its padded
+
+in the full compelx backwardfft the normalization is now off because the shape of the data is lost, need to rethink how i manage the new complex data dimensions dimensions
+
+warning currently its hardcoded in ibackendmemorymanager that the complex type is is half the "size" as the real type, this might not be true for all backends, perhaps this function needs to be moved back to the individual implementations
+
+since i now have real_valued_data the transfer from and to itk image is probably easire, i tihnk i should somewhere be able to set a datapointer and thats it, keep the data
+
 check how the real to complex and c2r work and how the complex data is then structured, because its smaller than the full complex data and if the steps afterwards have to be adjusted for this data, currently the image is nans
 
 When finding uinque labels per cube also create the mask in the same loop

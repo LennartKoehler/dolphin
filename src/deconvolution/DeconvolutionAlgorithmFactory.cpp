@@ -17,13 +17,13 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 
-// #include "dolphin/deconvolution/algorithms/ConvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/ConvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
 // #include "dolphin/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
 // #include "dolphin/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
 // #include "dolphin/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
 // #include "dolphin/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
-// #include "dolphin/deconvolution/algorithms/TestAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/TestAlgorithm.h"
 
 #include <stdexcept>
 #include <iostream>
@@ -101,12 +101,12 @@ void DeconvolutionAlgorithmFactory::registerAlgorithms() {
     registerAlgorithm("RichardsonLucy", []() {
         return new RLDeconvolutionAlgorithm();
     });
-    //
-    //
-    // registerAlgorithm("Convolution", []() {
-    //     return new ConvolutionAlgorithm();
-    // });
-    //
+
+
+    registerAlgorithm("Convolution", []() {
+        return new ConvolutionAlgorithm();
+    });
+
     // registerAlgorithm("InverseFilter", []() {
     //     return new InverseFilterDeconvolutionAlgorithm();
     // });
@@ -122,9 +122,9 @@ void DeconvolutionAlgorithmFactory::registerAlgorithms() {
     // registerAlgorithm("RichardsonLucywithAdaptiveDamping", []() {
     //     return new RLADDeconvolutionAlgorithm();
     // });
-    //
-    // registerAlgorithm("TestAlgorithm", []() {
-    //     return new TestAlgorithm();
-    // });
-    //
+
+    registerAlgorithm("TestAlgorithm", []() {
+        return new TestAlgorithm();
+    });
+
 }

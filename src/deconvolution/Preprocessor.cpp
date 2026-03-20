@@ -50,6 +50,7 @@ RealData Preprocessor::convertImageToRealData(
     int depth = shape.depth;
 
     int index = 0;
+
     for (const auto& it : input) {
 
         result.data[index] = static_cast<real_t>(it);

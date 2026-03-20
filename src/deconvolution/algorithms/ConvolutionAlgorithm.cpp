@@ -12,6 +12,8 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/deconvolution/algorithms/ConvolutionAlgorithm.h"
+#include "dolphinbackend/IBackendMemoryManager.h"
+#include "dolphinbackend/IDeconvolutionBackend.h"
 #include <iostream>
 #include <cassert>
 #include <spdlog/spdlog.h>
@@ -35,10 +37,14 @@ void ConvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealDat
     assert(backend && "No backend available for Convolution algorithm");\
 
     assert(initialized && "Convolution algorithm not initialized. Call init() first.");\
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
+    const IDeconvolutionBackend& deconv = backend->getDeconvManager();
 
-    backend->getDeconvManager().forwardFFT(g, f);
-    backend->getDeconvManager().complexMultiplication(f, H, f);
-    backend->getDeconvManager().backwardFFT(f, f);
+    ComplexData f_complex = memory.allocateMemoryOnDevice(f.getSize());
+    RealData c_real = memory.allocateMemoryOnDeviceReal(f.getSize());
+    deconv.forwardFFT(g, f_complex);
+    deconv.complexMultiplication(f_complex, H, f_complex);
+    deconv.backwardFFT(f_complex, f);
 
 }
 

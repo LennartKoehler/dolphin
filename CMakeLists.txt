@@ -115,12 +115,12 @@ set(DOLPHIN_SOURCES
     src/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.cpp
 
     src/deconvolution/algorithms/RLDeconvolutionAlgorithm.cpp
-    # src/deconvolution/algorithms/ConvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/ConvolutionAlgorithm.cpp
     # src/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.cpp
     # src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
     # src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
     # src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
-    # src/deconvolution/algorithms/TestAlgorithm.cpp
+    src/deconvolution/algorithms/TestAlgorithm.cpp
 )
 
 

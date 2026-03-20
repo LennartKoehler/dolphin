@@ -119,9 +119,9 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const PlanDescription& descr
     complex_t* out = nullptr;
     try {
         in = (real_t*)fftwf_malloc(sizeof(real_t) * description.shape.getVolume());
-        out = (complex_t*)fftwf_malloc(sizeof(complex_t) * description.shape.getVolume());
+        out = (complex_t*)fftwf_malloc(sizeof(complex_t) * description.shape.depth * description.shape.height * (description.shape.width / 2 + 1));
         FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(real_t) * description.shape.getVolume(), "initializePlan");
-        FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(complex_t) * description.shape.getVolume(), "initializePlan");
+        FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(complex_t) * description.shape.getVolume() / 2 + 1, "initializePlan");
 
         // Create FFT plan
         fftwf_plan plan = fftwf_plan_dft_r2c_3d(description.shape.depth, description.shape.height, description.shape.width,
@@ -162,9 +162,9 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const PlanDescription& descr
     complex_t* in = nullptr;
     real_t* out = nullptr;
     try {
-        in = (complex_t*)fftwf_malloc(sizeof(complex_t) * description.shape.getVolume());
+        in = (complex_t*)fftwf_malloc(sizeof(complex_t) * description.shape.depth * description.shape.height * (description.shape.width / 2 + 1));
         out = (real_t*)fftwf_malloc(sizeof(real_t) * description.shape.getVolume());
-        FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(complex_t) * description.shape.getVolume(), "initializePlan");
+        FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(complex_t) * description.shape.getVolume() / 2 + 1, "initializePlan");
         FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(real_t) * description.shape.getVolume(), "initializePlan");
 
         // Create FFT plan

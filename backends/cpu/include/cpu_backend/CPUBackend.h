@@ -155,6 +155,7 @@ public:
 
     // Shift functions
     void octantFourierShift(ComplexData& data) const override;
+    void octantFourierShift(RealData& data) const override;
     void inverseQuadrantShift(ComplexData& data) const override;
 
     // Complex arithmetic functions
@@ -166,6 +167,7 @@ public:
     void complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const override;
     void sumToOne(real_t** data, int nImages, int imageVolume) const override;
     void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const override;
+    void scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const override;
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
 

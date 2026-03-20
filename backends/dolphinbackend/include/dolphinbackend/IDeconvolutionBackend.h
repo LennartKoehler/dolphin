@@ -91,6 +91,10 @@ public:
         NOT_IMPLEMENTED(octantFourierShift);
     }
 
+    virtual void octantFourierShift(RealData& data) const {
+        NOT_IMPLEMENTED(octantFourierShift);
+    }
+
     virtual void inverseQuadrantShift(ComplexData& data) const {
         NOT_IMPLEMENTED(inverseQuadrantShift);
     }
@@ -127,6 +131,10 @@ public:
         NOT_IMPLEMENTED(sumToOne);
     }
     virtual void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
+        NOT_IMPLEMENTED(scalarMultiplication);
+    }
+
+    virtual void scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const {
         NOT_IMPLEMENTED(scalarMultiplication);
     }
 

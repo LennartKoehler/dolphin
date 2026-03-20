@@ -116,19 +116,23 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
 std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreprocessor() const {
 
-    std::function<ComplexData*(const CuboidShape, std::shared_ptr<PSF>, IBackend&)> psfPreprocessFunction = [&](
+    std::function<std::unique_ptr<ComplexData>(const CuboidShape, std::shared_ptr<PSF>, IBackend&)> psfPreprocessFunction = [&](
         const CuboidShape targetShape,
         std::shared_ptr<PSF> inputPSF,
         IBackend& backend
-            ) -> ComplexData* {
+            ) -> std::unique_ptr<ComplexData> {
                 Preprocessor::padToShape(inputPSF->image, targetShape, PaddingType::ZERO);
                 RealData h = Preprocessor::convertImageToRealData(inputPSF->image);
                 RealData h_device = backend.getMemoryManager().copyDataToDevice(h);
-                ComplexData h_result_device = backend.getMemoryManager().allocateMemoryOnDevice(targetShape);
-                // backend.getDeconvManager().octantFourierShift(h_device); // align psf peak at 0,0,0
-                backend.getDeconvManager().forwardFFT(h_device, h_result_device);
+                std::unique_ptr<ComplexData> h_result_device = std::make_unique<ComplexData>(std::move(backend.getMemoryManager().allocateMemoryOnDevice(targetShape)));
+                backend.getDeconvManager().octantFourierShift(h_device); // align psf peak at 0,0,0
+                backend.getDeconvManager().forwardFFT(h_device, *h_result_device);
+
+                // Image3D test = Preprocessor::convertComplexDataToImage(*h_result_device);
+                // TiffWriter::writeToFile("test.tif", test);
+
                 backend.sync();
-                return new ComplexData(std::move(h_result_device));
+                return std::move(h_result_device);
             };
 
     std::unique_ptr<PSFPreprocessor> preprocessor = std::make_unique<PSFPreprocessor>();

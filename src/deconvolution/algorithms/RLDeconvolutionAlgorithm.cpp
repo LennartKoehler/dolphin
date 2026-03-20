@@ -67,7 +67,7 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, Rea
         deconvolution.division(g, c_real, c_real, complexDivisionEpsilon);
 
         // // c) Second transformation: C = FFT(c)
-        deconvolution.forwardFFT(c, c);
+        deconvolution.forwardFFT(c_real, c);
 
         // // C\' = C * conj(H)
         deconvolution.complexMultiplicationWithConjugate(c, H, c);
@@ -75,12 +75,13 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, Rea
         // // c\' = IFFT(C\') + NORMALIZE
         deconvolution.backwardFFT(c, c_real);
 
+        deconvolution.backwardFFT(f_complex, f);
+
         deconvolution.multiplication(f, c_real, f);
 
-        backend->sync(); //TESTVALUE
+        backend->sync();
         progressFunction(iterations);
     }
-    // memory.freeMemoryOnDevice(c); // dont need because it is managed within complexdatas destructor
 }
 
 

@@ -153,8 +153,6 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
     else {
         access.data.totalUsedMemory -= size;
     }
-    // Notify waiting threads that memory is now available
-    // backend.memory.memoryCondition.notify_all(); // This would need to be handled differently with the new system
 
     ptr = nullptr;
 }
@@ -230,22 +228,49 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) 
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
 
-    PlanDescription description{in.size, config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL};
+    PlanDescription description{out.size, config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL};
     fftwManager.executeBackwardFFTReal(description, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<real_t*>(out.data));
 
-    // complex_t normFactor{1.0f / out.size.getVolume(), 1.0f / out.size.getVolume()};//TESTVALUE
-    // scalarMultiplication(out, normFactor, out); // Add normalization
+    real_t normFactor{1.0f / out.size.getVolume()};
+    scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
-void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
+// void CPUDeconvolutionBackend::octantFourierShift(RealData& data) const {
+//     int width = data.size.width;
+//     int height = data.size.height;
+//     int depth = data.size.depth;
+//
+//     int halfWidth = width / 2;
+//     int halfHeight = height / 2;
+//     int halfDepth = depth / 2;
+//
+//
+//     RealData temp = data;
+//
+//     for (int z = 0; z < depth; ++z) {
+//         int newZ = (z + halfDepth) % depth;
+//         for (int y = 0; y < height; ++y) {
+//             int newY = (y + halfHeight) % height;
+//             for (int x = 0; x < width; ++x) {
+//                 int newX = (x + halfWidth) % width;
+//
+//                 int srcIdx = z * height * width + y * width + x;
+//                 int dstIdx = newZ * height * width + newY * width + newX;
+//
+//                 data.data[dstIdx] = temp.data[srcIdx];
+//             }
+//         }
+//     }
+// }
+
+
+void CPUDeconvolutionBackend::octantFourierShift(RealData& data) const {
     int width = data.size.width;
     int height = data.size.height;
     int depth = data.size.depth;
     int halfWidth = width / 2;
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
-
-
     // OMP(omp parallel for, useOMP, nThreads)
     // #pragma omp parallel for num_threads(nThreads) collapse(3)
     for (int z = 0; z < halfDepth; ++z) {
@@ -255,7 +280,31 @@ void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
                 int idx2 = ((z + halfDepth) % depth) * height * width +
                     ((y + halfHeight) % height) * width +
                     ((x + halfWidth) % width);
+                if (idx1 != idx2) {
+                    std::swap(data.data[idx1], data.data[idx2]);
+                }
+            }
+        }
+    }
+}
 
+
+void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
+    int width = data.size.width;
+    int height = data.size.height;
+    int depth = data.size.depth;
+    int halfWidth = width / 2;
+    int halfHeight = height / 2;
+    int halfDepth = depth / 2;
+    // OMP(omp parallel for, useOMP, nThreads)
+    // #pragma omp parallel for num_threads(nThreads) collapse(3)
+    for (int z = 0; z < halfDepth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int idx1 = z * height * width + y * width + x;
+                int idx2 = ((z + halfDepth) % depth) * height * width +
+                    ((y + halfHeight) % height) * width +
+                    ((x + halfWidth) % width);
                 if (idx1 != idx2) {
                     std::swap(data.data[idx1][0], data.data[idx2][0]);
                     std::swap(data.data[idx1][1], data.data[idx2][1]);
@@ -364,11 +413,8 @@ void CPUDeconvolutionBackend::division(const RealData& a, const RealData& b, Rea
 
     // OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.size.getVolume(); ++i) {
-        real_t x = a.data[i] / b.data[i];
-        if (x < epsilon){
-            b.data[i] = 0;
-        }
-        else result.data[i] = x;
+        real_t denominator = b.data[i] < epsilon ? epsilon : b.data[i];
+        result.data[i] = a.data[i] / denominator;
     }
 }
 
@@ -446,6 +492,16 @@ void CPUDeconvolutionBackend::sumToOne(real_t** data, int nImages, int imageVolu
         }
     }
 }
+void CPUDeconvolutionBackend::scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const {
+    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
+    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
+
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
+    for (int i = 0; i < a.size.getVolume(); ++i) {
+        result.data[i] = a.data[i] * scalar;
+    }
+}
+
 void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
     BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
