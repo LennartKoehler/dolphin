@@ -4,6 +4,8 @@
 .VSCodeCounter/*
 **/build/
 **/dockerbuild/
+build/*
+*build*/
 profiling/*
 result/*
 results/*
