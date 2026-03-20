@@ -14,7 +14,7 @@ add_executable(dolphin_tests
 # Link libraries to tests
 target_link_libraries(dolphin_tests
     PRIVATE
-        dolphin 
+        dolphin
 
 )
 
@@ -81,6 +81,23 @@ target_include_directories(feathering_test
 
 add_test(NAME FeatheringTest COMMAND feathering_test)
 
+
+
+# Standalone TIFF generation test
+add_executable(real_complex_fftw
+    real_complex_fftw.cpp
+)
+
+# Link libraries to TIFF generation test
+target_link_libraries(real_complex_fftw
+    PRIVATE
+        dolphin
+)
+
+
+# Add TIFF generation test to test suite
+add_test(NAME RealComplexFftw COMMAND real_complex_fftw)
+set_tests_properties(RealComplexFftw PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Standalone TIFF generation test
 add_executable(tiff_generation_test

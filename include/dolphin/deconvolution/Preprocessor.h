@@ -62,7 +62,7 @@ public:
         }
     };
 
-    void setPreprocessingFunction(std::function<ComplexData*(CuboidShape, std::shared_ptr<PSF>, IBackend& backend)> func) {
+    void setPreprocessingFunction(std::function<std::unique_ptr<ComplexData>(CuboidShape, std::shared_ptr<PSF>, IBackend& backend)> func) {
         preprocessingFunction = std::move(func);
     }
 
@@ -76,20 +76,24 @@ public:
 
         // PSF not found - create it
         std::shared_ptr<PSF> psfCopy = std::make_shared<PSF>(*psf);
-        ComplexData* rawPtr = preprocessingFunction(shape, psfCopy, backend);
+        std::unique_ptr<ComplexData> preprocessedPSF = preprocessingFunction(shape, psfCopy, backend);
 
         // Insert into map
         // psfBackends.push_back(backend); // hold on to backends until the psfs are also deleted
         auto [insertedIt, _] = preprocessedPSFs.emplace(
             Key{key},  // Copy the key
-            std::unique_ptr<ComplexData>(rawPtr)
+            std::move(preprocessedPSF)
         );
-        return rawPtr;
+        it = preprocessedPSFs.find(key);
+        if (it != preprocessedPSFs.end()) {
+            return it->second.get();
+        }
+        return nullptr;
     }
 
 private:
     std::mutex mutex;
-    std::function<ComplexData*(const CuboidShape, std::shared_ptr<PSF>, IBackend& backend)> preprocessingFunction;
+    std::function<std::unique_ptr<ComplexData>(const CuboidShape, std::shared_ptr<PSF>, IBackend& backend)> preprocessingFunction;
     std::unordered_map<Key, std::unique_ptr<ComplexData>, KeyHash, KeyEqual> preprocessedPSFs;
     // std::vector<IBackend&> psfBackends;
 

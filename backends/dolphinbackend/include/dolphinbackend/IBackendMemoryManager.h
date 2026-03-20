@@ -89,14 +89,16 @@ public:
             return; // Already allocated
         }
 
-        size_t requested_size = data.getElementSize() * data.size.getVolume();
+        size_t requested_size = data.getDataBytes();
         void* rawdata = allocateMemoryOnDevice(requested_size);
         data.setData(rawdata);
         data.backend = this;
     }
 
     ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const {
-        ComplexData result{ this, nullptr, shape };
+        CuboidShape complexShape = shape;
+        complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
+        ComplexData result{ this, nullptr, complexShape };
         allocateMemoryOnDevice(result);
         return result;
     }

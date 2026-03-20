@@ -31,12 +31,16 @@ bool TestAlgorithm::isInitialized() const {
 }
 
 void TestAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
-    assert(backend && "No backend available for Test algorithm");\
+    assert(backend && "No backend available for Convolution algorithm");\
 
-    assert(initialized && "Test algorithm not initialized. Call init() first.");\
+    assert(initialized && "Convolution algorithm not initialized. Call init() first.");\
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
+    const IDeconvolutionBackend& deconv = backend->getDeconvManager();
 
-    backend->getDeconvManager().forwardFFT(g, f);
-    // backend->getMemoryManager().memCopy(H,f);
+    // ComplexData f_complex = memory.allocateMemoryOnDevice(f.getSize());
+    // RealData c_real = memory.allocateMemoryOnDeviceReal(f.getSize());
+    // deconv.forwardFFT(g, f_complex);
+    deconv.backwardFFT(H, f);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> TestAlgorithm::cloneSpecific() const {
