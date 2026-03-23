@@ -1,3 +1,0 @@
-/home/lennart-koehler/projects/dolphin/backends/openmp/build/CMakeFiles/openmp_backend.dir
-/home/lennart-koehler/projects/dolphin/backends/openmp/build/CMakeFiles/edit_cache.dir
-/home/lennart-koehler/projects/dolphin/backends/openmp/build/CMakeFiles/rebuild_cache.dir
