@@ -75,7 +75,8 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, Rea
         // // c\' = IFFT(C\') + NORMALIZE
         deconvolution.backwardFFT(c, c_real);
 
-        deconvolution.backwardFFT(f_complex, f);
+
+        // deconvolution.backwardFFT(f_complex, f);
 
         deconvolution.multiplication(f, c_real, f);
 

@@ -21,6 +21,36 @@ See the LICENSE file provided with the code for the full license.
 
 class BackendConfig;
 
+
+enum PlanDirection{
+    FORWARD,
+    BACKWARD,
+};
+enum PlanType{
+    REAL,
+    COMPLEX
+};
+
+struct PlanDescription{
+    CuboidShape shape;
+    PlanDirection direction;
+    PlanType type;
+
+    PlanDescription(
+        PlanDirection direction,
+        PlanType type,
+        CuboidShape shape
+    ):
+        direction(direction),
+        type(type),
+        shape(shape){}
+
+    virtual bool operator==(const PlanDescription& other) const {
+        return (shape == other.shape && direction == other.direction && type == other.type);
+    }
+};
+
+
 // currently the backends implement lazy initialization of the fftw plans, the user should be careful of the input shapes
 // as initialization of plans takes very long, so usually its best to stick to 1 shape or as little as possible, to most profit from reusing plans
 // the lazy initialization should however enable one thread to init a new plan for the shape it needs and all other threads to keep using initialized threads
@@ -53,9 +83,9 @@ public:
 
 
     // FFT plan management
-    virtual void initializePlan(const CuboidShape& cube){
-        NOT_IMPLEMENTED(initializePlan);
-    }
+    // virtual void initializePlan(const CuboidShape& cube){
+    //     NOT_IMPLEMENTED(initializePlan);
+    // }
 
 
     // Debug functions

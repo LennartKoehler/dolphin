@@ -1,3 +1,12 @@
+maybe make a filter for padding, so that i dont pad the entire psf, but just the part of the psf that has values over some threshold, then large psfs which mostly have very small numbers will have less of a padding and thereforecompute overhead
+
+add threads to deconvolutionservice and psfservice
+
+still not the same result as using only complex data, keep investigating
+
+the fftw plans can be saved to file to not always recompute, however they are probably fixed to a specific ft size, check how saving this wisdom can be used to not always re init the plan
+maybe this can be combined with finding a nice image size. So create discrete plans for good shapes and then smaller images are padded to that shape. Thne only save a coupleplans
+
 i think i should also fix the complex octant fourier shift as its also probably wrong. chaning the real fourier shift solve the problem for me
 
 testalgorithm with just backward transforming might now work because the padding is cut off and then nothing of the psf is left as its padded

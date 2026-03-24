@@ -220,6 +220,8 @@ void runDecompositionTest(const TestConfig& config) {
     LIKWID_MARKER_THREADINIT;
     LIKWID_MARKER_START("SingleLargeFFT");
 
+    fftwf_init_threads();
+    fftwf_plan_with_nthreads(10);
     double large_fft_time = runSingleLargeFFT(large_input, large_output,
                                              config.large_dim_x, config.large_dim_y, config.large_dim_z,
                                              config.num_iterations, config.num_threads);
@@ -296,12 +298,12 @@ int main() {
     // std::cout << "Hardware concurrency: " << max_threads << " threads" << std::endl;
 
     // Test configurations - same total size, different decompositions
-    int num_iterations = 20;
+    int num_iterations = 50;
     std::vector<TestConfig> test_configs = {
     //     // 128^3 vs 8 x 64^3 (same total size: 2,097,152 elements)
 
     //     // {512, 512, 512, 256, 256, 256, 8, std::min(8, max_threads), 10},
-        {512, 512, 64, 128, 128, 128, 8, 8, num_iterations},
+        {1024, 1024, 256, 128, 128, 128, 8, 8, num_iterations},
     //     {128, 128, 128, 64, 64, 64, 8, std::min(8, max_threads), num_iterations},
 
     //     // // 256x128x64 vs 4 x 128^3 (same total size: 2,097,152 elements)

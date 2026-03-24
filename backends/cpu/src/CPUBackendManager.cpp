@@ -75,7 +75,7 @@ FFTWManager::~FFTWManager() {
 }
 
 
-void FFTWManager::executeForwardFFT(const PlanDescription& description, fftwf_complex* in, fftwf_complex* out){
+void FFTWManager::executeForwardFFT(const FFTWPlanDescription& description, fftwf_complex* in, fftwf_complex* out){
     auto* plan = findPlan(description);
     BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
     BACKEND_CHECK(plan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
@@ -83,7 +83,7 @@ void FFTWManager::executeForwardFFT(const PlanDescription& description, fftwf_co
     fftwf_execute_dft(*plan, in, out);
 }
 
-void FFTWManager::executeBackwardFFT(const PlanDescription& description, fftwf_complex* in, fftwf_complex* out){
+void FFTWManager::executeBackwardFFT(const FFTWPlanDescription& description, fftwf_complex* in, fftwf_complex* out){
     auto* plan = findPlan(description);
     BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
     BACKEND_CHECK(plan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
@@ -91,7 +91,7 @@ void FFTWManager::executeBackwardFFT(const PlanDescription& description, fftwf_c
     fftwf_execute_dft(*plan, in, out);
 }
 
-void FFTWManager::executeForwardFFTReal(const PlanDescription& description, real_t* in, fftwf_complex* out){
+void FFTWManager::executeForwardFFTReal(const FFTWPlanDescription& description, real_t* in, fftwf_complex* out){
     auto* plan = findPlan(description);
     BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
     BACKEND_CHECK(plan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
@@ -99,7 +99,7 @@ void FFTWManager::executeForwardFFTReal(const PlanDescription& description, real
     fftwf_execute_dft_r2c(*plan, in, out);
 }
 
-void FFTWManager::executeBackwardFFTReal(const PlanDescription& description, fftwf_complex* in, real_t* out){
+void FFTWManager::executeBackwardFFTReal(const FFTWPlanDescription& description, fftwf_complex* in, real_t* out){
     auto* plan = findPlan(description);
     BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
     BACKEND_CHECK(plan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
@@ -107,7 +107,7 @@ void FFTWManager::executeBackwardFFTReal(const PlanDescription& description, fft
     fftwf_execute_dft_c2r(*plan, in, out);
 }
 
-fftwf_plan FFTWManager::initializePlanRealToComplex(const PlanDescription& description) {
+fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& description) {
     //has to be holding lock
 
     assert(g_logger && "logger not yet set");
@@ -151,7 +151,7 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const PlanDescription& descr
         throw;
     }
 }
-fftwf_plan FFTWManager::initializePlanComplexToReal(const PlanDescription& description) {
+fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& description) {
     //has to be holding lock
 
     assert(g_logger && "logger not yet set");
@@ -196,8 +196,8 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const PlanDescription& descr
     }
 }
 
-fftwf_plan FFTWManager::initializePlan(const PlanDescription& description) {
-    //has to be holding lock
+fftwf_plan FFTWManager::initializePlan(const FFTWPlanDescription& description) {
+    // not threadsafe!
 
     assert(g_logger && "logger not yet set");
 
@@ -242,7 +242,7 @@ void FFTWManager::destroyFFTPlans() {
     }
 }
 
-const fftwf_plan* FFTWManager::findPlan(const PlanDescription& description) {
+const fftwf_plan* FFTWManager::findPlan(const FFTWPlanDescription& description) {
 
     for (FFTWPlan& plan : fftwPlans){
         if (plan.description == description){
@@ -250,7 +250,7 @@ const fftwf_plan* FFTWManager::findPlan(const PlanDescription& description) {
         }
     }
 
-    std::unique_lock<std::mutex> lock(mutex_); // the lookup is thread safe, one could do double search and give lock to init if not found
+    std::unique_lock<std::mutex> lock(mutex_);
     for (FFTWPlan& plan : fftwPlans){
         if (plan.description == description){
             return &plan.plan;

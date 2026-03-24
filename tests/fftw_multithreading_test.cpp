@@ -1,3 +1,4 @@
+#include <cstring>
 #include <iostream>
 #include <thread>
 #include <functional>
@@ -47,6 +48,7 @@ struct FFTWConfig {
     int dim_x = 0;
     int dim_y = 0;
     int dim_z = 0;
+    int num_data_sets = 1;
     int num_iterations = 1;
     int num_threads = 1; // default threads to use for functions that accept a single value
     std::vector<int> thread_counts; // optional list of thread counts to test scaling
@@ -169,28 +171,39 @@ double runFFTWMultithread(const std::vector<std::complex<float>>& input,
     fftwf_plan_with_nthreads(cfg.num_threads);
          // Use FFTW_MEASURE for optimal performance
     // Create FFTW plans with optimized flags
-    fftwf_complex* in = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * cfg.dim_x * cfg.dim_y * cfg.dim_z);
-    fftwf_complex* out = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * cfg.dim_x * cfg.dim_y * cfg.dim_z);
+    fftwf_complex* data = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * cfg.dim_x * cfg.dim_y * cfg.dim_z);
+    fftwf_complex* plan_data = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * cfg.dim_x * cfg.dim_y * cfg.dim_z);
+    // fftwf_complex* out = in;
+
+
 
     fftwf_plan plan = fftwf_plan_dft_3d(cfg.dim_z, cfg.dim_y, cfg.dim_x,
-                                       in, out, FFTW_FORWARD, FFTW_MEASURE);
+                                       plan_data, plan_data, FFTW_FORWARD, FFTW_MEASURE);
 
-    auto start = std::chrono::high_resolution_clock::now();
 
     // Copy input data
     for (size_t i = 0; i < input.size(); ++i) {
-        in[i][0] = input[i].real();
-        in[i][1] = input[i].imag();
+        data[i][0] = input[i].real();
+        data[i][1] = input[i].imag();
+    }
+
+    fftwf_complex** input_datasets = (fftwf_complex**)malloc(sizeof(fftwf_complex*) * cfg.num_data_sets);
+    fftwf_complex** output_datasets = (fftwf_complex**)malloc(sizeof(fftwf_complex*) * cfg.num_data_sets);
+    for (int i = 0; i < cfg.num_data_sets; ++i){
+        input_datasets[i] = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * cfg.dim_x * cfg.dim_y * cfg.dim_z);
+        output_datasets[i] = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * cfg.dim_x * cfg.dim_y * cfg.dim_z);
+        memcpy(input_datasets[i], data, sizeof(fftwf_complex) * cfg.dim_x * cfg.dim_y * cfg.dim_z);
     }
 
 
-    // Warm-up run
-    // fftwf_execute_dft(plan, in, out);
 
+    auto start = std::chrono::high_resolution_clock::now();
     // Run FFTW for timing
 
     for (int i = 0; i < cfg.num_iterations; ++i) {
-        fftwf_execute_dft(plan, in, out);
+        for (int d = 0; d < cfg.num_data_sets; ++d){
+            fftwf_execute_dft(plan, input_datasets[d], output_datasets[d]);
+        }
     }
 
 
@@ -199,8 +212,11 @@ double runFFTWMultithread(const std::vector<std::complex<float>>& input,
 
     // Cleanup
 
-    fftwf_free(in);
-    fftwf_free(out);
+
+    for (int i = 0; i < cfg.num_data_sets; ++i){
+        fftwf_free(input_datasets[i]);
+    }
+    fftwf_free(plan_data);
 
     auto end = std::chrono::high_resolution_clock::now();
     // Calculate duration
@@ -226,23 +242,20 @@ void testScalingEfficiency(const std::vector<std::complex<float>>& input,
     std::cout << "\n=== Scaling Efficiency Analysis ===" << std::endl;
 
     // Test with different thread counts
-    std::vector<int> thread_counts = {1, 8};
+    std::vector<int> thread_counts = {8};
     if (!cfg.thread_counts.empty()) {
         thread_counts = cfg.thread_counts;
     }
     // thread_counts = std::vector<int>{12};
 
 
-    // Limit to available cores
-    int max_threads = std::thread::hardware_concurrency();
-    std::cout << "Hardware concurrency: " << max_threads << " threads" << std::endl;
 
     // Filter thread counts to not exceed available cores
-    thread_counts.erase(
-        std::remove_if(thread_counts.begin(), thread_counts.end(),
-                      [max_threads](int count) { return count > max_threads; }),
-        thread_counts.end()
-    );
+    // thread_counts.erase(
+    //     std::remove_if(thread_counts.begin(), thread_counts.end(),
+    //                   [max_threads](int count) { return count > max_threads; }),
+    //     thread_counts.end()
+    // );
 
     std::vector<double> execution_times;
     std::vector<double> execution_times_seperate;
@@ -257,11 +270,11 @@ void testScalingEfficiency(const std::vector<std::complex<float>>& input,
 
         double duration = runFFTWMultithread(input, result, local_cfg);
 
-        double duration_seperate = runFFTWMultithreadSeperate(input, result, local_cfg);
+        // double duration_seperate = runFFTWMultithreadSeperate(input, result, local_cfg);
 
         // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         execution_times.push_back(duration / cfg.num_iterations);
-        execution_times_seperate.push_back(duration_seperate / cfg.num_iterations);
+        // execution_times_seperate.push_back(duration_seperate / cfg.num_iterations);
     }
 
     // Calculate and display scaling metrics
@@ -274,10 +287,10 @@ void testScalingEfficiency(const std::vector<std::complex<float>>& input,
     for (size_t i = 0; i < thread_counts.size(); ++i) {
         int threads = thread_counts[i];
         double time = execution_times[i];
-        double time_seperate = execution_times_seperate[i];
+        // double time_seperate = execution_times_seperate[i];
 
         std::cout << threads << "\t\t" << std::fixed << std::setprecision(1)
-                  << time << "\t\t" << time_seperate << "\t\t" << std::setprecision(2) << std::endl;
+                  << time << "\t\t" << "\t\t" << std::setprecision(2) << std::endl;
     }
 }
 
@@ -319,7 +332,7 @@ int main() {
     std::cout << "====================================" << std::endl;
 
     // Test configurations: create a vector of FFTWConfig entries
-    int num_iterations = 50;
+    int num_iterations = 100;
     std::vector<FFTWConfig> configs;
 
     // populate configs for the sizes we want to test
@@ -328,15 +341,16 @@ int main() {
     //     c.dim_x = 1024; c.dim_y = 1024; c.dim_z = 128; c.num_iterations = num_iterations;
     //     configs.push_back(c);
     // }
+    // {
+    //     FFTWConfig c;
+    //     c.dim_x = 128; c.dim_y = 128; c.dim_z = 128; c.num_iterations = num_iterations;
+    //     configs.push_back(c);
+    // }
     {
         FFTWConfig c;
-        c.dim_x = 128; c.dim_y = 128; c.dim_z = 128; c.num_iterations = num_iterations;
+        c.dim_x = 512; c.dim_y = 512; c.dim_z = 256; c.num_iterations = num_iterations;
         configs.push_back(c);
-    }
-    {
-        FFTWConfig c;
-        c.dim_x = 256; c.dim_y = 256; c.dim_z = 256; c.num_iterations = num_iterations;
-        configs.push_back(c);
+        c.num_data_sets = 100;
     }
 
     // Test each configuration

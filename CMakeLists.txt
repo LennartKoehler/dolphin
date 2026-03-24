@@ -18,6 +18,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS On)
 
 add_library(project_options INTERFACE)
 
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
 target_compile_options(project_options INTERFACE
   # Release
   $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops;-mavx2;-mfma> #TESTVALUE -g
