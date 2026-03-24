@@ -12,7 +12,12 @@ namespace CUBE_MAT {
     cudaError_t complexScalarMul(int Nx, int Ny, int Nz, complex_t* A, complex_t scalar , complex_t* C, cudaStream_t stream = 0);
     cudaError_t complexAddition(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream = 0);
     cudaError_t complexAddition(complex_t** data, complex_t* sums, int nImages, int imageVolume, cudaStream_t stream = 0);
-    cudaError_t sumToOneReal(complex_t** data, int nImages, int imageVolume, cudaStream_t stream = 0);
+
+    cudaError_t elementwiseMatDiv(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C, real_t epsilon, cudaStream_t stream = 0);
+    cudaError_t scalarMul(int Nx, int Ny, int Nz, real_t* A, real_t scalar , real_t* C, cudaStream_t stream = 0);
+    cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, real_t* A, real_t* B , real_t* C, cudaStream_t stream = 0);
+
+    cudaError_t sumToOne(real_t** data, int nImages, int imageVolume, cudaStream_t stream = 0);
 }
 
 namespace CUBE_REG {
@@ -33,7 +38,8 @@ namespace CUBE_TILED {
 namespace CUBE_FTT {
     // Fourier Shift, Padding and Normalization
     cudaError_t octantFourierShift(int Nx, int Ny, int Nz, complex_t* data, cudaStream_t stream = 0);
-    cudaError_t padMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, complex_t* oldMat, complex_t* newMat);
+    cudaError_t octantFourierShift(int Nx, int Ny, int Nz, real_t* data, cudaStream_t stream = 0);
+    // cudaError_t padMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, complex_t* oldMat, complex_t* newMat);
     cudaError_t normalizeData(int Nx, int Ny, int Nz, complex_t* d_data, cudaStream_t stream = 0);
 }
 

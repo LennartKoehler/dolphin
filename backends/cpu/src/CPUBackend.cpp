@@ -100,6 +100,20 @@ bool CPUBackendMemoryManager::isOnDevice(void* ptr) const {
 }
 
 
+RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
+    RealData result{ this, nullptr, shape };
+    IBackendMemoryManager::allocateMemoryOnDevice(result);
+    return result;
+}
+
+ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const CuboidShape& shape) const{
+    CuboidShape complexShape = shape;
+    complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
+    ComplexData result{ this, nullptr, complexShape };
+    IBackendMemoryManager::allocateMemoryOnDevice(result);
+    return result;
+}
+
 void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) const {
     // Wait for memory if max memory limit is set
     waitForMemory(requested_size);

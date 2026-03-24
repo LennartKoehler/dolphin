@@ -92,6 +92,8 @@ public:
     void* copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const override;
 
 
+    RealData allocateMemoryOnDeviceReal(const CuboidShape& shape) const override;
+    ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const override;
     /**
      * Move data from device to another backend
      * @param src Pointer to source data on device
@@ -123,6 +125,7 @@ private:
 
     // Helper method to wait for memory availability
     void* allocateMemoryOnDevice(size_t size) const override;
+
     void waitForMemory(size_t requiredSize) const;
     static MemoryTracking cpuMemory; //static because currently only supports one device
 

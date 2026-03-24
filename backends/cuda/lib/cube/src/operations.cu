@@ -1,8 +1,6 @@
 #include <cuda_runtime_api.h>
-#include <operations.h>
-#include <kernels.h>
-#include <thread>
-#include <iostream>
+#include "operations.h"
+#include "kernels.h"
 
 
 
@@ -20,9 +18,73 @@ inline dim3 computeBlocksPerGrid(int Nx, int Ny, int Nz) {
     );
 }
 
+// Macro to handle CUDA kernel launch with event synchronization and error checking
+// Usage: CUDA_CHECK_KERNEL(kernel_launch, stream);
+// The kernel_launch should be the full kernel expression including <<<...>>>
+#define CUDA_CHECK_KERNEL(kernel_launch, stream) \
+    do { \
+        cudaEvent_t _event; \
+        cudaError_t _err = cudaEventCreate(&_event); \
+        if (_err != cudaSuccess) { \
+            return _err; \
+        } \
+        kernel_launch; \
+        _err = cudaGetLastError(); \
+        if (_err != cudaSuccess) { \
+            cudaEventDestroy(_event); \
+            return _err; \
+        } \
+        _err = cudaEventRecord(_event, stream); \
+        if (_err != cudaSuccess) { \
+            cudaEventDestroy(_event); \
+            return _err; \
+        } \
+        _err = cudaEventSynchronize(_event); \
+        if (_err != cudaSuccess) { \
+            cudaEventDestroy(_event); \
+            return _err; \
+        } \
+        cudaEventDestroy(_event); \
+    } while(0)
+
+
 
 
 namespace CUBE_MAT {
+
+
+    cudaError_t elementwiseMatDiv(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C, real_t epsilon, cudaStream_t stream) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+        CUDA_CHECK_KERNEL(
+                (elementwiseMatDivGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C, epsilon)),
+                stream);
+        return cudaSuccess;
+    }
+
+    cudaError_t scalarMul(int Nx, int Ny, int Nz, real_t* A, real_t B, real_t* C, cudaStream_t stream) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+        CUDA_CHECK_KERNEL(
+                (scalarMulGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C)),
+                stream);
+        return cudaSuccess;
+    }
+
+    cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C, cudaStream_t stream) {
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+        CUDA_CHECK_KERNEL(
+                (elementwiseMatMulGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C)),
+                stream);
+        return cudaSuccess;
+    }
 
     cudaError_t complexMatMul(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream) {
         if (!A || !B || !C) {
@@ -49,7 +111,7 @@ namespace CUBE_MAT {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
@@ -79,14 +141,14 @@ namespace CUBE_MAT {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
-    
 
 
-    cudaError_t sumToOneReal(complex_t** A, int nImages, int imageVolume, cudaStream_t stream){
+
+    cudaError_t sumToOne(real_t** A, int nImages, int imageVolume, cudaStream_t stream){
         if (!A ) {
             return cudaErrorInvalidValue;
         }
@@ -95,9 +157,9 @@ namespace CUBE_MAT {
         cudaEventCreate(&event);
 
         // Use global kernel configuration
-        
+
         int blocksPerGrid = GLOBAL_THREADS_PER_BLOCK_1D + GLOBAL_THREADS_PER_BLOCK_1D - 1 / (imageVolume * nImages);
-        sumToOneRealGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK_1D, 0, stream>>>(A, nImages, imageVolume);
+        sumToOneGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK_1D, 0, stream>>>(A, nImages, imageVolume);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -111,7 +173,7 @@ namespace CUBE_MAT {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
@@ -141,7 +203,7 @@ namespace CUBE_MAT {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
@@ -171,7 +233,7 @@ namespace CUBE_MAT {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
@@ -203,11 +265,11 @@ namespace CUBE_MAT {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
-    
+
     cudaError_t complexElementwiseMatMulConjugate(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
@@ -233,11 +295,11 @@ namespace CUBE_MAT {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
-    
+
     cudaError_t complexElementwiseMatDiv(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
@@ -263,11 +325,11 @@ namespace CUBE_MAT {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
-    
+
     cudaError_t complexElementwiseMatDivStabilized(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
@@ -293,7 +355,7 @@ namespace CUBE_MAT {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
@@ -326,11 +388,11 @@ namespace CUBE_REG {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
-    
+
     cudaError_t gradX(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradX, cudaStream_t stream) {
         if (!image || !gradX) {
             return cudaErrorInvalidValue;
@@ -356,11 +418,11 @@ namespace CUBE_REG {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
-    
+
     cudaError_t gradY(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradY, cudaStream_t stream) {
         if (!image || !gradY) {
             return cudaErrorInvalidValue;
@@ -386,11 +448,11 @@ namespace CUBE_REG {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
-    
+
     cudaError_t gradZ(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradZ, cudaStream_t stream) {
         if (!image || !gradZ) {
             return cudaErrorInvalidValue;
@@ -416,11 +478,11 @@ namespace CUBE_REG {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
-    
+
     cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* tv, cudaStream_t stream) {
         if (!gx || !gy || !gz || !tv) {
             return cudaErrorInvalidValue;
@@ -446,11 +508,11 @@ namespace CUBE_REG {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
-    
+
     cudaError_t normalizeTV(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon, cudaStream_t stream) {
         if (!gradX || !gradY || !gradZ) {
             return cudaErrorInvalidValue;
@@ -476,7 +538,7 @@ namespace CUBE_REG {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
@@ -509,7 +571,7 @@ namespace CUBE_TILED {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
@@ -517,7 +579,39 @@ namespace CUBE_TILED {
 
 namespace CUBE_FTT {
 
-    
+
+    cudaError_t octantFourierShift(int Nx, int Ny, int Nz, real_t* data, cudaStream_t stream) {
+        if (!data) {
+            return cudaErrorInvalidValue;
+        }
+
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+
+        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
+        dim3 threadsPerBlock(2, 2, 2); //=6 //TODO with more threads artefacts visible
+        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
+
+        octantFourierShiftGlobal<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(Nx, Ny, Nz, data);
+        cudaError_t errp = cudaPeekAtLastError();
+        if (errp != cudaSuccess) {
+            cudaEventDestroy(event);
+            return errp;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
+
+        cudaEventDestroy(event);
+        return cudaSuccess;
+    }
+
     cudaError_t octantFourierShift(int Nx, int Ny, int Nz, complex_t* data, cudaStream_t stream) {
         if (!data) {
             return cudaErrorInvalidValue;
@@ -545,62 +639,62 @@ namespace CUBE_FTT {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
-    
-    cudaError_t padMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, complex_t* oldMat, complex_t* newMat)
-    {
-        if (!oldMat || !newMat) {
-            return cudaErrorInvalidValue;
-        }
-        
-        auto start = std::chrono::high_resolution_clock::now();
-        // Sicherheitsprüfung: Neue Dimensionen müssen größer oder gleich den alten sein
-        if (newNx < oldNx || newNy < oldNy || newNz < oldNz) {
-            return cudaErrorInvalidValue;
-        }
 
-        // Offset für Padding (Startkoordinaten der alten Matrix in der neuen Matrix)
-        int offsetX = (newNx - oldNx) / 2;
-        int offsetY = (newNy - oldNy) / 2;
-        int offsetZ = (newNz - oldNz) / 2;
+    // cudaError_t padMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, complex_t* oldMat, complex_t* newMat)
+    // {
+    //     if (!oldMat || !newMat) {
+    //         return cudaErrorInvalidValue;
+    //     }
+    //
+    //     auto start = std::chrono::high_resolution_clock::now();
+    //     // Sicherheitsprüfung: Neue Dimensionen müssen größer oder gleich den alten sein
+    //     if (newNx < oldNx || newNy < oldNy || newNz < oldNz) {
+    //         return cudaErrorInvalidValue;
+    //     }
+    //
+    //     // Offset für Padding (Startkoordinaten der alten Matrix in der neuen Matrix)
+    //     int offsetX = (newNx - oldNx) / 2;
+    //     int offsetY = (newNy - oldNy) / 2;
+    //     int offsetZ = (newNz - oldNz) / 2;
+    //
+    //     // Initialisiere die neue Matrix mit Nullen
+    //     for (int i = 0; i < newNx * newNy * newNz; ++i) {
+    //         newMat[i][0] = 0.0; // Realteil
+    //         newMat[i][1] = 0.0; // Imaginärteil
+    //     }
+    //
+    //     // Kopiere die Werte der alten Matrix in die Mitte der neuen Matrix
+    //     for (int z = 0; z < oldNz; ++z) {
+    //         for (int y = 0; y < oldNy; ++y) {
+    //             for (int x = 0; x < oldNx; ++x) {
+    //                 // Index in der alten Matrix
+    //                 int oldIndex = z * oldNy * oldNx + y * oldNx + x;
+    //
+    //                 // Index in der neuen Matrix
+    //                 int newIndex =
+    //                     (z + offsetZ) * newNy * newNx +
+    //                     (y + offsetY) * newNx +
+    //                     (x + offsetX);
+    //
+    //                 // Kopiere den Wert
+    //                 newMat[newIndex][0] = oldMat[oldIndex][0]; // Realteil
+    //                 newMat[newIndex][1] = oldMat[oldIndex][1]; // Imaginärteil
+    //             }
+    //         }
+    //     }
+    //     auto end = std::chrono::high_resolution_clock::now();
+    //     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    //     float time = duration.count();
+    //
+    //
+    //
+    //     return cudaSuccess;
+    // }
 
-        // Initialisiere die neue Matrix mit Nullen
-        for (int i = 0; i < newNx * newNy * newNz; ++i) {
-            newMat[i][0] = 0.0; // Realteil
-            newMat[i][1] = 0.0; // Imaginärteil
-        }
-
-        // Kopiere die Werte der alten Matrix in die Mitte der neuen Matrix
-        for (int z = 0; z < oldNz; ++z) {
-            for (int y = 0; y < oldNy; ++y) {
-                for (int x = 0; x < oldNx; ++x) {
-                    // Index in der alten Matrix
-                    int oldIndex = z * oldNy * oldNx + y * oldNx + x;
-
-                    // Index in der neuen Matrix
-                    int newIndex =
-                        (z + offsetZ) * newNy * newNx +
-                        (y + offsetY) * newNx +
-                        (x + offsetX);
-
-                    // Kopiere den Wert
-                    newMat[newIndex][0] = oldMat[oldIndex][0]; // Realteil
-                    newMat[newIndex][1] = oldMat[oldIndex][1]; // Imaginärteil
-                }
-            }
-        }
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-        float time = duration.count();
-
-        
-        
-        return cudaSuccess;
-    }
-    
     cudaError_t normalizeData(int Nx, int Ny, int Nz, complex_t* d_data, cudaStream_t stream) {
         if (!d_data) {
             return cudaErrorInvalidValue;
@@ -626,7 +720,7 @@ namespace CUBE_FTT {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }
@@ -662,7 +756,7 @@ namespace CUBE_DEVICE_KERNEL {
             cudaEventDestroy(event);
             return syncErr;
         }
-        
+
         cudaEventDestroy(event);
         return cudaSuccess;
     }

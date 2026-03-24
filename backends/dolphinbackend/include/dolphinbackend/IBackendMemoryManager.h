@@ -95,23 +95,20 @@ public:
         data.backend = this;
     }
 
-    ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const {
-        CuboidShape complexShape = shape;
-        complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
-        ComplexData result{ this, nullptr, complexShape };
-        allocateMemoryOnDevice(result);
-        return result;
+    virtual ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const {
+        NOT_IMPLEMENTED(setMemoryLimit);
     }
 
 
-    RealData allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
-        RealData result{ this, nullptr, shape };
-        allocateMemoryOnDevice(result);
-        return result;
+    virtual RealData allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
+        NOT_IMPLEMENTED(setMemoryLimit);
     }
-
 
     virtual void* allocateMemoryOnDevice(size_t) const;
+
+
+
+
 
     virtual bool isOnDevice(void* data) const {
         NOT_IMPLEMENTED(isOnDevice);

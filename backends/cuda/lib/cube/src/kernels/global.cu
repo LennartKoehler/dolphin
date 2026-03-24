@@ -1,9 +1,11 @@
 #include "kernels.h"
-#include <iostream>
 
 // Conversions (removed - no longer needed with single complex_t type)
+//
+
 
 // Mat operations
+// this is not matmul lol
 __global__
 void complexMatMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -21,6 +23,45 @@ void complexMatMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, com
         // Perform element-wise complex_t multiplication
         C[index][0] = realA * realB - imagA * imagB; // Realteil
         C[index][1] = realA * imagB + imagA * realB; // Imaginärteil
+    }
+}
+
+
+__global__
+void elementwiseMatMulGlobal(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C){
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
+        C[index] = B[index] * A[index];
+    }
+}
+
+__global__
+void scalarMulGlobal(int Nx, int Ny, int Nz, real_t* A, real_t b, real_t* C){
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
+        C[index] = A[index] * b;
+    }
+}
+
+__global__
+void elementwiseMatDivGlobal(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C, real_t epsilon){
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
+        real_t denominator = B[index];
+        if (denominator < epsilon) C[index] = 0;
+        else C[index] = A[index] / B[index];
     }
 }
 
@@ -60,7 +101,7 @@ void complexAdditionGlobal(complex_t** data, complex_t* sums, int nImages, int i
         sums[position][0] = sum[0];
         sums[position][1] = sum[1];
     }
-    
+
 }
 
 __global__
@@ -71,30 +112,28 @@ void complexAdditionGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, c
 
     if (x < Nx && y < Ny && z < Nz) {
         int index = z * (Nx * Ny) + y * Nx + x;
-        C[index][0] = B[index][0] + C[index][0];
-        C[index][1] = B[index][1] + C[index][1];
+        C[index][0] = B[index][0] + A[index][0];
+        C[index][1] = B[index][1] + A[index][1];
     }
 }
 __global__
-void sumToOneRealGlobal(complex_t** data, int nImages, int imageVolume) {
+void sumToOneGlobal(real_t** data, int nImages, int imageVolume) {
     int position = blockIdx.x * blockDim.x + threadIdx.x;
 
-    complex_t sum{0,0};
+    real_t sum{0};
 
     if (position < imageVolume) {
 
 
         for (int i = 0; i < nImages; ++i){
-            sum[0] += data[i][position][0];
-            sum[1] += data[i][position][1];
+            sum += data[i][position];
         }
 
         for (int i = 0; i < nImages; ++i){
-            data[i][position][0] /= sum[0];
-            data[i][position][1] /= sum[1];
+            data[i][position] /= sum;
         }
     }
-    
+
 }
 
 __global__
@@ -455,6 +494,39 @@ void normalizeDataGlobal(int Nx, int Ny, int Nz, complex_t* d_data) {
 
         // Normalize the img part by dividing by the total number of elements
         d_data[idx][1] /= (Nx * Ny * Nz);
+    }
+}
+
+__global__
+void octantFourierShiftGlobal(int Nx, int Ny, int Nz, real_t* data) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+    int halfWidth = width / 2;
+    int halfHeight = height / 2;
+    int halfDepth = depth / 2;
+
+    // Calculate the indices for the current thread
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    // Ensure that the thread is within bounds, just iterate over the first half of the depth
+    if (x < width && y < height && z < halfDepth) {
+        // Calculate the linear indices for the current element and its counterpart in the other octant
+        int idx1 = z * height * width + y * width + x;
+        int idx2 = ((z + halfDepth) % depth) * height * width +
+                   ((y + halfHeight) % height) * width +
+                   ((x + halfWidth) % width);
+
+        // Check if the indices are different to avoid duplicate swapping
+        if (idx1 != idx2) {
+            // Swap real values in global memory
+            real_t val1 = data[idx1];
+            real_t val2 = data[idx2];
+            data[idx1] = val2;
+            data[idx2] = val1;
+        }
     }
 }
 
