@@ -1,3 +1,5 @@
+i tihnk all the backdchecks can be turned into asserts as that should never happen except for out of memory
+
 maybe make a filter for padding, so that i dont pad the entire psf, but just the part of the psf that has values over some threshold, then large psfs which mostly have very small numbers will have less of a padding and thereforecompute overhead
 
 add threads to deconvolutionservice and psfservice

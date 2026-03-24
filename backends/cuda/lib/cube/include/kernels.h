@@ -1,6 +1,14 @@
 #pragma once
-#include "CUBE.h"
 
+#include <cuda_runtime_api.h>
+
+#ifdef DOUBLE_PRECISION
+typedef double real_t;
+#else
+typedef float real_t;
+#endif
+
+typedef real_t complex_t[2];
 // Mat operations
 __global__ void complexMatMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C);
 __global__ void complexScalarMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t B, complex_t* C);
@@ -9,8 +17,14 @@ __global__ void complexElementwiseMatMulConjugateGlobal(int Nx, int Ny, int Nz, 
 __global__ void complexElementwiseMatDivGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon);
 __global__ void complexElementwiseMatDivStabilizedGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon);
 __global__ void complexAdditionGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C);
+__global__ void complexElementwiseMatMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C);
 __global__ void complexAdditionGlobal(complex_t** data, complex_t* sums, int N, int imageVolume);
-__global__ void sumToOneRealGlobal(complex_t** data, int nImages, int imageVolume);
+
+__global__ void elementwiseMatMulGlobal(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C);
+__global__ void scalarMulGlobal(int Nx, int Ny, int Nz, real_t* A, real_t B, real_t* C);
+__global__ void elementwiseMatDivGlobal(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C, real_t epsilon);
+
+__global__ void sumToOneGlobal(real_t** data, int nImages, int imageVolume);
 
 // Regularization
 __global__ void calculateLaplacianGlobal(int Nx, int Ny, int Nz, complex_t* Afft, complex_t* laplacianfft);
@@ -26,6 +40,7 @@ __global__ void calculateLaplacianTiledGlobal(int Nx, int Ny, int Nz, complex_t*
 // Fourier Shift
 __global__ void normalizeDataGlobal(int Nx, int Ny, int Nz, complex_t* d_data);
 __global__ void octantFourierShiftGlobal(int Nx, int Ny, int Nz, complex_t* data);
+__global__ void octantFourierShiftGlobal(int Nx, int Ny, int Nz, real_t* data);
 __global__ void padMatGlobal(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, complex_t* oldMat, complex_t* newMat, int offsetX, int offsetY, int offsetZ);
 
 // Device Kernels

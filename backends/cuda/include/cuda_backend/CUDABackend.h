@@ -23,6 +23,8 @@ See the LICENSE file provided with the code for the full license.
 
 class CUDABackendManager;
 
+
+
 // Unified CUDA error check macro
 #define CUDA_CHECK(err, operation) { \
     if (err == cudaErrorMemoryAllocation){ \
@@ -65,6 +67,10 @@ class CUDABackendManager;
 }
 
 
+struct cuFFTPlan{
+    cufftHandle plan;
+    PlanDescription description;
+};
 
 using cudaDeviceID = int;
 struct CUDADevice{
@@ -110,6 +116,9 @@ private:
     // CUDA stream for memory operations
     CUDABackendConfig config;
 
+
+    RealData allocateMemoryOnDeviceReal(const CuboidShape& shape) const override;
+    ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const override;
     void* allocateMemoryOnDevice(size_t requested_size) const override;
 
     // Method to get memory tracking instance
@@ -133,16 +142,24 @@ public:
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;
 
+    void forwardFFT(const RealData& in, ComplexData& out) const override;
+    void backwardFFT(const ComplexData& in, RealData& out) const override;
+
     // Shift functions
     void octantFourierShift(ComplexData& data) const override;
+    void octantFourierShift(RealData& data) const override;
+    // void inverseQuadrantShift(ComplexData& data) const override;
 
     // Complex arithmetic functions
     void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
+    void multiplication(const RealData& a, const RealData& b, RealData& result) const override;
     void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
+    void division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const override;
     void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const override;
-    void scalarMultiplication(const ComplexData& a, complex_t  scalar, ComplexData& result) const override;
-    void sumToOneReal(complex_t** data, int nImages, int imageVolume) const override;
+    void sumToOne(real_t** data, int nImages, int imageVolume) const override;
+    void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const override;
+    void scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const override;
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
 
@@ -174,11 +191,17 @@ public:
 
 private:
 
-    void initializePlan(const CuboidShape& shape);
+    cufftHandle initializePlan(const PlanDescription& description);
+
+    void createPlanComplex(cufftHandle& plan, const PlanDescription& description) const;
+    void createPlanRealToComplex(cufftHandle& plan, const PlanDescription& description) const;
+    void createPlanComplexToReal(cufftHandle& plan, const PlanDescription& description) const ;
+
     void destroyPlans();
-    cufftHandle forward = 0;
-    cufftHandle backward = 0;
-    CuboidShape planSize;
+
+    cufftHandle* getPlan(const PlanDescription& description);
+    std::vector<cuFFTPlan> cuFFTPlans;
+
     CUDABackendConfig config;
 
 };

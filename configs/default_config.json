@@ -13,9 +13,9 @@
   "savePsf": true,
   "outputDir": "/home/lennart-k-hler/data/dolphin_results",
 
-  "backend": "cpu",
-  "nIOThreads": 2,
-  "nWorkerThreads" : 11,
+  "backend": "cuda",
+  "nIOThreads": 1,
+  "nWorkerThreads" : 1,
   "nDevices" : 1,
   "maxMem_GB": 64,
 
