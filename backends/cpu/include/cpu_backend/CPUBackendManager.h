@@ -39,7 +39,7 @@ private:
 
 struct FFTWPlan{
     fftwf_plan plan;
-    PlanDescription description;
+    FFTWPlanDescription description;
 };
 class FFTWManager{
 public:
@@ -47,19 +47,19 @@ public:
     ~FFTWManager();
 
 
-    void executeForwardFFT(const PlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
-    void executeBackwardFFT(const PlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
-    void executeForwardFFTReal(const PlanDescription& description, real_t* in, fftwf_complex* out);
-    void executeBackwardFFTReal(const PlanDescription& description, fftwf_complex* in, real_t* out);
+    void executeForwardFFT(const FFTWPlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
+    void executeBackwardFFT(const FFTWPlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
+    void executeForwardFFTReal(const FFTWPlanDescription& description, real_t* in, fftwf_complex* out);
+    void executeBackwardFFTReal(const FFTWPlanDescription& description, fftwf_complex* in, real_t* out);
     void destroyFFTPlans();
 private:
 
-    fftwf_plan initializePlan(const PlanDescription& description);
-    fftwf_plan initializePlanComplexToReal(const PlanDescription& description);
-    fftwf_plan initializePlanRealToComplex(const PlanDescription& description);
+    fftwf_plan initializePlan(const FFTWPlanDescription& description);
+    fftwf_plan initializePlanComplexToReal(const FFTWPlanDescription& description);
+    fftwf_plan initializePlanRealToComplex(const FFTWPlanDescription& description);
 
 
-    const fftwf_plan* findPlan(const PlanDescription& description);
+    const fftwf_plan* findPlan(const FFTWPlanDescription& description);
     std::vector<FFTWPlan> fftwPlans;
     // std::vector<FFTWPlan> forwardPlansReal;
     // std::vector<FFTWPlan> backwardPlans;

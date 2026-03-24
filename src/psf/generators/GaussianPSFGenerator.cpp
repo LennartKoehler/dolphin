@@ -84,9 +84,9 @@ PSF GaussianPSFGenerator::generatePSF() const {
     }
 
     // Normalize the PSF so that the sum of all values is 1
-    // for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
-    //     it.Set(it.Get() / sum);
-    // }
+    for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
+        it.Set(it.Get() / sum);
+    }
 
     // Create PSF object with the ITK image
     Image3D psfImage(std::move(itkImage));

@@ -14,7 +14,14 @@ find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
 
 find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads fftw3f_omp PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
 
-# find_package(OpenMP REQUIRED) # TODO make optional
+
+
+# If using OpenMP version of FFTW, find OpenMP
+if(FFTW3_THREADS_LIB MATCHES "omp")
+    message(STATUS "Linking OpenMP")
+    find_package(OpenMP REQUIRED)
+    set(USE_OPENMP TRUE)
+endif()
 
 # add_library(dolphinbackend STATIC IMPORTED)
 # set_target_properties(dolphinbackend PROPERTIES
@@ -43,7 +50,7 @@ target_link_libraries(cpu_backend PUBLIC
     ${FFTW3_LIB}
     ${FFTW3_THREADS_LIB}
     )
-if(OpenMP)
+if(USE_OPENMP)
     target_link_libraries(cpu_backend PUBLIC
     OpenMP::OpenMP_CXX)
 endif()

@@ -29,7 +29,7 @@ See the LICENSE file provided with the code for the full license.
 
 DeconvolutionService::DeconvolutionService()
     : initialized_(false),
-      thread_pool_(std::make_unique<ThreadPool>(5)){}
+      thread_pool_(std::make_unique<ThreadPool>(1)){}
 
 DeconvolutionService::~DeconvolutionService() {
     shutdown();

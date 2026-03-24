@@ -4,29 +4,27 @@
 
 #include <fftw3.h>
 
-enum PlanDirection{
-    FORWARD,
-    BACKWARD,
-};
-enum PlanType{
-    REAL,
-    COMPLEX
-};
-
-struct PlanDescription{
-    CuboidShape shape;
-    int ompThreads;
-    PlanDirection direction;
-    PlanType type;
-    bool operator==(const PlanDescription& other){
-        return (shape == other.shape && ompThreads == other.ompThreads && direction == other.direction && type == other.type);
-    }
-};
-
 
 class CPUBackendManager;
 class FFTWManager;
 
+struct FFTWPlanDescription : public PlanDescription{
+
+    size_t ompThreads;
+
+    FFTWPlanDescription(
+        size_t ompThreads,
+        PlanDirection direction,
+        PlanType type,
+        CuboidShape shape
+    ):
+        ompThreads(ompThreads),
+        PlanDescription(direction, type, shape){}
+
+    bool operator==(const FFTWPlanDescription& other) {
+        return (shape == other.shape && ompThreads == other.ompThreads && direction == other.direction && type == other.type);
+    }
+};
 
 struct CPUBackendConfig{
     bool useOMP = true;
@@ -145,7 +143,7 @@ public:
     void sync() override {}
 
 
-    void initializePlan(const CuboidShape& cube) override;
+    void initializePlan(const CuboidShape& cube);
      // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;
