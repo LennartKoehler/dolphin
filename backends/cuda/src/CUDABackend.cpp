@@ -57,13 +57,7 @@ bool CUDABackendMemoryManager::isOnDevice(void* ptr) const {
 
 
 // TODO do i want this memCopy or the normal other one
-// void CUDABackendMemoryManager::memCopy(const ComplexData& srcData, ComplexData& destData) const {
-//     // Validate input data
-//     BACKEND_CHECK(srcData.size.getVolume() > 0, "Invalid source data size in memCopy", "CUDA", "memCopy");
-//     BACKEND_CHECK(destData.size.getVolume() > 0, "Invalid destination data size in memCopy", "CUDA", "memCopy");
-//
-//     // Check if sizes match
-//     BACKEND_CHECK(srcData.size.getVolume() == destData.size.getVolume(), "Size mismatch in memCopy", "CUDA", "memCopy");
+// void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const{
 //
 //
 //     // Setup cudaMemcpy3D parameters
@@ -117,8 +111,8 @@ bool CUDABackendMemoryManager::isOnDevice(void* ptr) const {
 //
 //     destData.backend = this;
 // }
-//
-//
+
+
 RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
     RealData result{ this, nullptr, shape };
     IBackendMemoryManager::allocateMemoryOnDevice(result);
@@ -160,12 +154,12 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
 void* CUDABackendMemoryManager::copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
     void* dest = allocateMemoryOnDevice(size);
 
-    cudaMemcpyAsync(dest, src, size, cudaMemcpyHostToDevice, config.stream);
-    cudaStreamSynchronize(config.stream);
+    cudaError_t err = cudaMemcpyAsync(dest, src, size, cudaMemcpyHostToDevice, config.stream);
+    CUDA_CHECK(err, "copyDataToDevice - cudaMemcpyAsync");
 
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "copyDataToDevice - cudaStreamSynchronize");
     return dest;
-
-
 }
 
 void* CUDABackendMemoryManager::moveDataFromDevice(void* src, size_t size, const CuboidShape& shape, const IBackendMemoryManager& destBackend) const {
@@ -182,7 +176,7 @@ void* CUDABackendMemoryManager::moveDataFromDevice(void* src, size_t size, const
 
 void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
     //TODO make check if all is on device
-    cudaMemcpyAsync(dest, src, size, cudaMemcpyDeviceToHost, config.stream);
+    cudaMemcpyAsync(dest, src, size, cudaMemcpyDeviceToDevice, config.stream);
     cudaStreamSynchronize(config.stream);
 }
 
@@ -261,12 +255,12 @@ cufftHandle* CUDADeconvolutionBackend::getPlan(const PlanDescription& descriptio
 }
 
 void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const PlanDescription& description) const {
-    size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width / 2 + 1;
+    size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
     CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2R, &tempSize), "getPlan - C2C plan setup");
 }
 
 void CUDADeconvolutionBackend::createPlanRealToComplex(cufftHandle& plan, const PlanDescription& description) const {
-    size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width / 2 + 1;
+    size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
     CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_R2C, &tempSize), "getPlan - C2C plan setup");
 }
 
@@ -387,7 +381,7 @@ void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out)
     BACKEND_CHECK(out.size.getVolume() > 0, "Invalid output data size for backwardFFTReal", "CUDA", "backwardFFTReal");
 
     // Get or create the backward FFT plan
-    PlanDescription desc(PlanDirection::BACKWARD, PlanType::REAL, in.size);
+    PlanDescription desc(PlanDirection::BACKWARD, PlanType::REAL, out.size);
     cufftHandle* backwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
