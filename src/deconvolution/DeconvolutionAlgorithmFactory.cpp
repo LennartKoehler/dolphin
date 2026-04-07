@@ -13,20 +13,18 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 
-// Include algorithm headers
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 
 #include "dolphin/deconvolution/algorithms/ConvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
-// #include "dolphin/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
-// #include "dolphin/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
-// #include "dolphin/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
-// #include "dolphin/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/TestAlgorithm.h"
 
 #include <stdexcept>
-#include <iostream>
 #include <spdlog/spdlog.h>
 
 DeconvolutionAlgorithmFactory& DeconvolutionAlgorithmFactory::getInstance() {
@@ -107,21 +105,21 @@ void DeconvolutionAlgorithmFactory::registerAlgorithms() {
         return new ConvolutionAlgorithm();
     });
 
-    // registerAlgorithm("InverseFilter", []() {
-    //     return new InverseFilterDeconvolutionAlgorithm();
-    // });
-    //
-    // registerAlgorithm("RichardsonLucyTotalVariation", []() {
-    //     return new RLTVDeconvolutionAlgorithm();
-    // });
-    //
-    // registerAlgorithm("RegularizedInverseFilter", []() {
-    //     return new RegularizedInverseFilterDeconvolutionAlgorithm();
-    // });
-    //
-    // registerAlgorithm("RichardsonLucywithAdaptiveDamping", []() {
-    //     return new RLADDeconvolutionAlgorithm();
-    // });
+    registerAlgorithm("InverseFilter", []() {
+        return new InverseFilterDeconvolutionAlgorithm();
+    });
+
+    registerAlgorithm("RichardsonLucyTotalVariation", []() {
+        return new RLTVDeconvolutionAlgorithm();
+    });
+
+    registerAlgorithm("RegularizedInverseFilter", []() {
+        return new RegularizedInverseFilterDeconvolutionAlgorithm();
+    });
+
+    registerAlgorithm("RichardsonLucywithAdaptiveDamping", []() {
+        return new RLADDeconvolutionAlgorithm();
+    });
 
     registerAlgorithm("TestAlgorithm", []() {
         return new TestAlgorithm();

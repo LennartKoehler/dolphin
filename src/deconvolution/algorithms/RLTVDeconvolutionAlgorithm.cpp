@@ -24,14 +24,15 @@ void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 
 void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm initialization");\
-    
+
     // Allocate memory for intermediate arrays
-    c = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    gx = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    gy = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    gz = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    tv = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    
+    c = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
+    c_complex = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    gx = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
+    gy = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
+    gz = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
+    tv = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
+
     initialized = true;
 }
 
@@ -41,58 +42,69 @@ bool RLTVDeconvolutionAlgorithm::isInitialized() const {
 
 void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
     assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm");\
-    
+
     assert(initialized && "Richardson-Lucy with TV regularization algorithm not initialized. Call init() first.");\
 
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
+    const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
+
     // Verify inputs are on device
-    assert(backend->getMemoryManager().isOnDevice(H.data) && "PSF is not on device");
-    assert(backend->getMemoryManager().isOnDevice(g.data) && "Input image is not on device");
-    assert(backend->getMemoryManager().isOnDevice(f.data) && "Output buffer is not on device");
+    assert(memory.isOnDevice(H.data) && "PSF is not on device");
+    assert(memory.isOnDevice(g.data) && "Input image is not on device");
+    assert(memory.isOnDevice(f.data) && "Output buffer is not on device");
 
     // Initialize result with input data
-    backend->getMemoryManager().memCopy(g, f);
+    memory.memCopy(g, f);
 
-    // Pre-compute TV regularization term
-    backend->getDeconvManager().gradientX(g, gx);
-    backend->getDeconvManager().gradientY(g, gy);
-    backend->getDeconvManager().gradientZ(g, gz);
-    backend->getDeconvManager().normalizeTV(gx, gy, gz, complexDivisionEpsilon);
-    backend->getDeconvManager().gradientX(gx, gx);
-    backend->getDeconvManager().gradientY(gy, gy);
-    backend->getDeconvManager().gradientZ(gz, gz);
-    backend->getDeconvManager().computeTV(lambda, gx, gy, gz, tv);
+    // Pre-compute TV regularization term (all in spatial domain with real-valued data)
+    deconvolution.gradientX(g, gx);
+    deconvolution.gradientY(g, gy);
+    deconvolution.gradientZ(g, gz);
+    deconvolution.normalizeTV(gx, gy, gz, complexDivisionEpsilon);
+    // Second pass gradients on normalized gradients
+    RealData gx2 = memory.allocateMemoryOnDeviceReal(g.getSize());
+    RealData gy2 = memory.allocateMemoryOnDeviceReal(g.getSize());
+    RealData gz2 = memory.allocateMemoryOnDeviceReal(g.getSize());
+    deconvolution.gradientX(gx, gx2);
+    deconvolution.gradientY(gy, gy2);
+    deconvolution.gradientZ(gz, gz2);
+    deconvolution.computeTV(lambda, gx2, gy2, gz2, tv);
+
+    // Allocate temporary complex buffer for FFT operations
+    ComplexData f_complex = memory.allocateMemoryOnDevice(f.getSize());
 
     for (int n = 0; n < iterations; ++n) {
-
         progressFunction(iterations);
+
         // a) First transformation: Fn = FFT(fn)
-        backend->getDeconvManager().forwardFFT(f, c);
+        deconvolution.forwardFFT(f, f_complex);
 
-        // Fn\' = Fn * H
-        backend->getDeconvManager().complexMultiplication(c, H, c);
+        // Fn' = Fn * H
+        deconvolution.complexMultiplication(f_complex, H, c_complex);
 
-        // fn\' = IFFT(Fn\')
-        backend->getDeconvManager().backwardFFT(c, c);
+        // fn' = IFFT(Fn')
+        deconvolution.backwardFFT(c_complex, c);
 
-        // b) Calculation of the Correction Factor: c = g / fn\'
-        backend->getDeconvManager().complexDivision(g, c, c, complexDivisionEpsilon);
+        // b) Calculation of the Correction Factor: c = g / fn'
+        deconvolution.division(g, c, c, complexDivisionEpsilon);
 
         // c) Second transformation: C = FFT(c)
-        backend->getDeconvManager().forwardFFT(c, c);
+        deconvolution.forwardFFT(c, c_complex);
 
-        // C\' = C * conj(H)
-        backend->getDeconvManager().complexMultiplicationWithConjugate(c, H, c);
+        // C' = C * conj(H)
+        deconvolution.complexMultiplicationWithConjugate(c_complex, H, c_complex);
 
-        // c\' = IFFT(C\')
-        backend->getDeconvManager().backwardFFT(c, c);
+        // c' = IFFT(C')
+        deconvolution.backwardFFT(c_complex, c);
 
-        // d) Update the estimated image: fn+1\' = fn * c\'
-        backend->getDeconvManager().complexMultiplication(f, c, f);
+        // d) Update the estimated image: fn+1' = fn * c'
+        deconvolution.multiplication(f, c, f);
 
-        // fn+1 = fn+1\' * tv (apply TV regularization)
-        backend->getDeconvManager().complexMultiplication(f, tv, f);
+        // fn+1 = fn+1' * tv (apply TV regularization)
+        deconvolution.multiplication(f, tv, f);
+
+        // backend->sync();
     }
-    // backend->getMemoryManager().freeMemoryOnDevice(c); // dont need because it is managed within complexdatas destructor
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecific() const {

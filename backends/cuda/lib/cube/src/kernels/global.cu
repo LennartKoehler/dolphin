@@ -271,6 +271,132 @@ void calculateLaplacianGlobal(int Nx, int Ny, int Nz, complex_t* Afft, complex_t
     }
 }
 
+// Gradient kernels for real-valued data
+__global__
+void gradientXGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradX) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < width - 1 && y < height && z < depth) {
+        int index = z * height * width + y * width + x;
+        int nextIndex = index + 1;
+
+        // Compute gradient in the x-direction
+        gradX[index] = image[index] - image[nextIndex];
+    }
+
+    // Handle boundary condition at the last x position
+    if (x == width - 1 && y < height && z < depth) {
+        int lastIndex = z * height * width + y * width + x;
+        gradX[lastIndex] = 0.0;
+    }
+}
+
+__global__
+void gradientYGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradY) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (y < height - 1 && x < width && z < depth) {
+        int index = z * height * width + y * width + x;
+        int nextIndex = index + width;
+
+        // Compute gradient in the y-direction
+        gradY[index] = image[index] - image[nextIndex];
+    }
+
+    // Handle boundary condition at the last y position
+    if (y == height - 1 && x < width && z < depth) {
+        int lastIndex = z * height * width + y * width + x;
+        gradY[lastIndex] = 0.0;
+    }
+}
+
+__global__
+void gradientZGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradZ) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (z < depth - 1 && y < height && x < width) {
+        int index = z * height * width + y * width + x;
+        int nextIndex = index + height * width;
+
+        // Compute gradient in the z-direction
+        gradZ[index] = image[index] - image[nextIndex];
+    }
+
+    // Handle boundary condition at the last z position
+    if (z == depth - 1 && y < height && x < width) {
+        int lastIndex = z * height * width + y * width + x;
+        gradZ[lastIndex] = 0.0;
+    }
+}
+
+__global__
+void computeTVGlobalReal(int Nx, int Ny, int Nz, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    int index = z * height * width + y * width + x;
+
+    if (x < width && y < height && z < depth) {
+        // Retrieve the gradient components
+        real_t dx = gx[index];
+        real_t dy = gy[index];
+        real_t dz = gz[index];
+
+        // Compute the total variation (TV) value
+        tv[index] = static_cast<real_t>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+    }
+}
+
+__global__
+void normalizeTVGlobalReal(int Nx, int Ny, int Nz, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    int index = z * height * width + y * width + x;
+
+    if (x < width && y < height && z < depth) {
+        // Compute the norm of the vector
+        real_t norm = sqrt(
+            gradX[index] * gradX[index] +
+            gradY[index] * gradY[index] +
+            gradZ[index] * gradZ[index]
+        );
+
+        // Avoid division by very small values by setting a minimum threshold
+        norm = fmax(norm, epsilon);
+
+        // Normalize the components
+        gradX[index] /= norm;
+        gradY[index] /= norm;
+        gradZ[index] /= norm;
+    }
+}
+
 __global__
 void gradientXGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradX) {
     int width = Nx;

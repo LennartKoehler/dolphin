@@ -12,7 +12,6 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.h"
-#include <iostream>
 #include <cassert>
 #include <spdlog/spdlog.h>
 
@@ -41,11 +40,18 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealD
     assert(backend->getMemoryManager().isOnDevice(g.data) && "Input image is not on device");
     assert(backend->getMemoryManager().isOnDevice(f.data) && "Output buffer is not on device");
 
-    backend->getDeconvManager().forwardFFT(g, g);
+    // Allocate complex data for frequency domain operations
+    ComplexData g_complex = backend->getMemoryManager().allocateMemoryOnDevice(g.getSize());
+    ComplexData f_complex = backend->getMemoryManager().allocateMemoryOnDevice(f.getSize());
 
-    backend->getDeconvManager().complexDivision(g, H, f, epsilon);
+    // Forward FFT: RealData -> ComplexData
+    backend->getDeconvManager().forwardFFT(g, g_complex);
 
-    backend->getDeconvManager().backwardFFT(f, f);
+    // Complex division in frequency domain
+    backend->getDeconvManager().complexDivision(g_complex, H, f_complex, epsilon);
+
+    // Backward FFT: ComplexData -> RealData
+    backend->getDeconvManager().backwardFFT(f_complex, f);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::cloneSpecific() const {

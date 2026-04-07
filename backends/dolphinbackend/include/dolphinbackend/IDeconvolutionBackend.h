@@ -181,14 +181,6 @@ public:
         NOT_IMPLEMENTED(calculateLaplacianOfPSF);
     }
 
-    virtual void normalizeImage(ComplexData& resultImage, real_t epsilon) const {
-        NOT_IMPLEMENTED(normalizeImage);
-    }
-
-    virtual void rescaledInverse(ComplexData& data, real_t cubeVolume) const {
-        NOT_IMPLEMENTED(rescaledInverse);
-    }
-
     // Gradient operations
     virtual void gradientX(const ComplexData& image, ComplexData& gradX) const {
         NOT_IMPLEMENTED(gradientX);
@@ -202,7 +194,25 @@ public:
         NOT_IMPLEMENTED(gradientZ);
     }
 
+    // Gradient operations for real-valued data
+    virtual void gradientX(const RealData& image, RealData& gradX) const {
+        NOT_IMPLEMENTED(gradientX);
+    }
+
+    virtual void gradientY(const RealData& image, RealData& gradY) const {
+        NOT_IMPLEMENTED(gradientY);
+    }
+
+    virtual void gradientZ(const RealData& image, RealData& gradZ) const {
+        NOT_IMPLEMENTED(gradientZ);
+    }
+
     virtual void computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
+        NOT_IMPLEMENTED(computeTV);
+    }
+
+    // computeTV for real-valued gradients
+    virtual void computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const {
         NOT_IMPLEMENTED(computeTV);
     }
 
@@ -210,7 +220,12 @@ public:
         NOT_IMPLEMENTED(normalizeTV);
     }
 
+    // normalizeTV for real-valued gradients
+    virtual void normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
+        NOT_IMPLEMENTED(normalizeTV);
+    }
 
 };
+
 
 #undef NOT_IMPLEMENTED

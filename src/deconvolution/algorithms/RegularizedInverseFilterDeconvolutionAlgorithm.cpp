@@ -12,7 +12,6 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
-#include <iostream>
 #include <cassert>
 #include <spdlog/spdlog.h>
 
@@ -23,14 +22,15 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const Deconvoluti
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Regularized Inverse Filter algorithm initialization");\
-    
-    // Allocate memory for intermediate arrays
+
+    // Allocate memory for intermediate arrays (all in frequency domain)
     H2 = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
     L = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
     L2 = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
     FA = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
     FP = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    
+    f_complex = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+
     initialized = true;
 }
 
@@ -40,30 +40,40 @@ bool RegularizedInverseFilterDeconvolutionAlgorithm::isInitialized() const {
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
     assert(backend && "No backend available for Regularized Inverse Filter algorithm");\
-    
+
     assert(initialized && "Regularized Inverse Filter algorithm not initialized. Call init() first.");\
+
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
+    const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
+
     complex_t lambdacomplex = {static_cast<real_t>(lambda), 0};
-    // Use pre-allocated memory for intermediate arrays
-    assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
-    backend->getMemoryManager().memCopy(g, f);
-    // Forward FFT on image
-    backend->getDeconvManager().forwardFFT(f, f);
+
+    // Verify inputs are on device
+    assert(memory.isOnDevice(H.data) && "PSF is not on device");
+    assert(memory.isOnDevice(g.data) && "Input image is not on device");
+    assert(memory.isOnDevice(f.data) && "Output buffer is not on device");
+
+    // Copy input to output buffer
+    memory.memCopy(g, f);
+
+    // Forward FFT on image: RealData -> ComplexData
+    deconvolution.forwardFFT(f, f_complex);
 
     // H*H
-    backend->getDeconvManager().complexMultiplication(H, H, H2);
+    deconvolution.complexMultiplication(H, H, H2);
 
     // Laplacian L
-    backend->getDeconvManager().calculateLaplacianOfPSF(H, L);
-    backend->getDeconvManager().complexMultiplication(L, L, L2);
-    backend->getDeconvManager().scalarMultiplication(L2, lambdacomplex, L2);
+    deconvolution.calculateLaplacianOfPSF(H, L);
+    deconvolution.complexMultiplication(L, L, L2);
+    deconvolution.scalarMultiplication(L2, lambdacomplex, L2);
 
-    backend->getDeconvManager().complexAddition(H2, L2, FA);
-    backend->getDeconvManager().complexDivisionStabilized(H, FA, FP, complexDivisionEpsilon);
-    backend->getDeconvManager().complexMultiplication(f, FP, f);
+    deconvolution.complexAddition(H2, L2, FA);
+    deconvolution.complexDivisionStabilized(H, FA, FP, complexDivisionEpsilon);
+    deconvolution.complexMultiplication(f_complex, FP, f_complex);
 
-    // Inverse FFT
-    backend->getDeconvManager().backwardFFT(f, f);
-    backend->getDeconvManager().octantFourierShift(f);
+    // Inverse FFT: ComplexData -> RealData
+    deconvolution.backwardFFT(f_complex, f);
+    deconvolution.octantFourierShift(f);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlgorithm::cloneSpecific() const {
@@ -76,5 +86,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlg
 }
 
 size_t RegularizedInverseFilterDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 4; // Allocates 4 additional arrays of input size
+    return 5; // Allocates 5 additional arrays of input size (H2, L, L2, FA, FP, f_complex - but FP can be reused)
 }
