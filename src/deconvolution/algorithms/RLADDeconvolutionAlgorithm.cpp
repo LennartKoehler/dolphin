@@ -28,7 +28,8 @@ void RLADDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Richardson-Lucy with Adaptive Damping algorithm initialization");\
     
     // Allocate memory for intermediate arrays
-    c = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    c = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
+    c_complex = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
     
     initialized = true;
 }
@@ -42,9 +43,15 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
     
     assert(initialized && "Richardson-Lucy with Adaptive Damping algorithm not initialized. Call init() first.");\
     
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
+    const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
+
     // Use pre-allocated memory for intermediate arrays
-    assert(backend->getMemoryManager().isOnDevice(f.data) && "PSF is not on device");
-    backend->getMemoryManager().memCopy(g, f);
+    assert(memory.isOnDevice(f.data) && "PSF is not on device");
+    memory.memCopy(g, f);
+
+    // Allocate temporary complex buffer for f in frequency domain
+    ComplexData f_complex = memory.allocateMemoryOnDevice(f.getSize());
 
     for (int n = 0; n < iterations; ++n) {
         // Calculate damping factor
@@ -55,40 +62,36 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
             a = alpha - beta * n;
         }
 
-        complex_t acomplex = {static_cast<real_t>(a), 0};
-
         // a) First transformation: Fn = FFT(fn)
-        backend->getDeconvManager().forwardFFT(f, f);
+        deconvolution.forwardFFT(f, f_complex);
 
-        // Fn\' = Fn * H
-        backend->getDeconvManager().complexMultiplication(f, H, c);
+        // Fn' = Fn * H
+        deconvolution.complexMultiplication(f_complex, H, c_complex);
 
-        // fn\' = IFFT(Fn\') + NORMALIZE
-        backend->getDeconvManager().backwardFFT(c, c);
+        // fn' = IFFT(Fn')
+        deconvolution.backwardFFT(c_complex, c);
 
-        // b) Calculation of the Correction Factor: c = g / fn\'
-        backend->getDeconvManager().complexDivision(g, c, c, complexDivisionEpsilon);
+        // b) Calculation of the Correction Factor: c = g / fn'
+        deconvolution.division(g, c, c, complexDivisionEpsilon);
 
         // c) Second transformation: C = FFT(c)
-        backend->getDeconvManager().forwardFFT(c, c);
+        deconvolution.forwardFFT(c, c_complex);
 
-        // C\' = C * conj(H)
-        backend->getDeconvManager().complexMultiplicationWithConjugate(c, H, c);
+        // C' = C * conj(H)
+        deconvolution.complexMultiplicationWithConjugate(c_complex, H, c_complex);
 
-        // c\' = IFFT(C\') + NORMALIZE
-        backend->getDeconvManager().backwardFFT(c, c);
+        // c' = IFFT(C')
+        deconvolution.backwardFFT(c_complex, c);
 
-        // d) Update the estimated image:
-        backend->getDeconvManager().backwardFFT(f, f);
+        // d) Apply adaptive damping: c = c * a
+        deconvolution.scalarMultiplication(c, static_cast<real_t>(a), c);
 
-        // Apply adaptive damping: c = c * a
-        backend->getDeconvManager().scalarMultiplication(c, acomplex, c);
+        // fn+1' = fn * c'
+        deconvolution.multiplication(f, c, f);
 
-        // fn+1\' = fn * c
-        backend->getDeconvManager().complexMultiplication(f, c, f);
-
+        backend->sync();
+        progressFunction(iterations);
     }
-    // backend->getMemoryManager().freeMemoryOnDevice(c); // dont need because it is managed within complexdatas destructor
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::cloneSpecific() const {

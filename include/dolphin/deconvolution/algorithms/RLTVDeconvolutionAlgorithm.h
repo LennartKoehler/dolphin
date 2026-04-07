@@ -34,11 +34,12 @@ private:
     bool initialized = false;
     
     // Algorithm-specific data members for intermediate calculations
-    ComplexData c;
-    ComplexData gx;
-    ComplexData gy;
-    ComplexData gz;
-    ComplexData tv;
+    ComplexData c_complex;  // Frequency domain
+    RealData c;             // Spatial domain (real-valued)
+    RealData gx;            // Gradient in spatial domain (real-valued)
+    RealData gy;
+    RealData gz;
+    RealData tv;            // TV term (spatial domain, real-valued)
     
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };

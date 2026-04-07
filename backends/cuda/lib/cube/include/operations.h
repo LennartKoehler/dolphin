@@ -26,8 +26,14 @@ namespace CUBE_REG {
     cudaError_t gradX(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradX, cudaStream_t stream = 0);
     cudaError_t gradY(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradY, cudaStream_t stream = 0);
     cudaError_t gradZ(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradZ, cudaStream_t stream = 0);
+    // Gradient functions for real-valued data
+    cudaError_t gradX(int Nx, int Ny, int Nz, real_t* image, real_t* gradX, cudaStream_t stream = 0);
+    cudaError_t gradY(int Nx, int Ny, int Nz, real_t* image, real_t* gradY, cudaStream_t stream = 0);
+    cudaError_t gradZ(int Nx, int Ny, int Nz, real_t* image, real_t* gradZ, cudaStream_t stream = 0);
     cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* tv, cudaStream_t stream = 0);
+    cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv, cudaStream_t stream = 0);
     cudaError_t normalizeTV(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon, cudaStream_t stream = 0);
+    cudaError_t normalizeTV(int Nx, int Ny, int Nz, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon, cudaStream_t stream = 0);
 }
 
 namespace CUBE_TILED {

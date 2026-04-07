@@ -262,7 +262,6 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) 
 //     int halfDepth = depth / 2;
 //
 //
-//     RealData temp = data;
 //
 //     for (int z = 0; z < depth; ++z) {
 //         int newZ = (z + halfDepth) % depth;
@@ -274,12 +273,12 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) 
 //                 int srcIdx = z * height * width + y * width + x;
 //                 int dstIdx = newZ * height * width + newY * width + newX;
 //
-//                 data.data[dstIdx] = temp.data[srcIdx];
+//                 // data.data[dstIdx] = temp.data[srcIdx];
+//                 std::swap(data.data[dstIdx], data.data[srcIdx]);
 //             }
 //         }
 //     }
 // }
-
 
 void CPUDeconvolutionBackend::octantFourierShift(RealData& data) const {
     int width = data.size.width;
@@ -594,27 +593,27 @@ void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, Co
     }
 }
 
-void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
-    real_t max_val = 0.0, max_val2 = 0.0;
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int j = 0; j < resultImage.size.getVolume(); j++) {
-        max_val = std::max(max_val, resultImage.data[j][0]);
-        max_val2 = std::max(max_val2, resultImage.data[j][1]);
-    }
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int j = 0; j < resultImage.size.getVolume(); j++) {
-        resultImage.data[j][0] /= (max_val + epsilon);
-        resultImage.data[j][1] /= (max_val2 + epsilon);
-    }
-}
-
-void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < data.size.getVolume(); ++i) {
-        data.data[i][0] /= cubeVolume;
-        data.data[i][1] /= cubeVolume;
-    }
-}
+// void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
+//     real_t max_val = 0.0, max_val2 = 0.0;
+//     OMP(omp parallel for, config.useOMP, config.ompThreads)
+//     for (int j = 0; j < resultImage.size.getVolume(); j++) {
+//         max_val = std::max(max_val, resultImage.data[j][0]);
+//         max_val2 = std::max(max_val2, resultImage.data[j][1]);
+//     }
+//     OMP(omp parallel for, config.useOMP, config.ompThreads)
+//     for (int j = 0; j < resultImage.size.getVolume(); j++) {
+//         resultImage.data[j][0] /= (max_val + epsilon);
+//         resultImage.data[j][1] /= (max_val2 + epsilon);
+//     }
+// }
+//
+// void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
+//     OMP(omp parallel for, config.useOMP, config.ompThreads)
+//     for (int i = 0; i < data.size.getVolume(); ++i) {
+//         data.data[i][0] /= cubeVolume;
+//         data.data[i][1] /= cubeVolume;
+//     }
+// }
 
 // Debug functions
 void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
@@ -817,7 +816,115 @@ void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY
     }
 }
 
+// Gradient and TV Functions for real-valued data
+void CPUDeconvolutionBackend::gradientX(const RealData& image, RealData& gradX) const {
+    int width = image.size.width;
+    int height = image.size.height;
+    int depth = image.size.depth;
 
+    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int index = z * height * width + y * width + x;
+
+                if (x < width - 1) {
+                    int nextIndex = index + 1;
+                    gradX.data[index] = image.data[index] - image.data[nextIndex];
+                } else {
+                    // Boundary condition: last column
+                    gradX.data[index] = 0.0;
+                }
+            }
+        }
+    }
+}
+
+void CPUDeconvolutionBackend::gradientY(const RealData& image, RealData& gradY) const {
+    int width = image.size.width;
+    int height = image.size.height;
+    int depth = image.size.depth;
+
+    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int index = z * height * width + y * width + x;
+
+                if (y < height - 1) {
+                    int nextIndex = index + width;
+                    gradY.data[index] = image.data[index] - image.data[nextIndex];
+                } else {
+                    // Boundary condition: last row
+                    gradY.data[index] = 0.0;
+                }
+            }
+        }
+    }
+}
+
+void CPUDeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ) const {
+    int width = image.size.width;
+    int height = image.size.height;
+    int depth = image.size.depth;
+
+    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int index = z * height * width + y * width + x;
+
+                if (z < depth - 1) {
+                    int nextIndex = index + height * width;
+                    gradZ.data[index] = image.data[index] - image.data[nextIndex];
+                } else {
+                    // Boundary condition: last depth layer
+                    gradZ.data[index] = 0.0;
+                }
+            }
+        }
+    }
+}
+
+void CPUDeconvolutionBackend::computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const {
+    int nxy = gx.size.width * gx.size.height;
+
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
+    for (int z = 0; z < gx.size.depth; ++z) {
+        for (int i = 0; i < nxy; ++i) {
+            int index = z * nxy + i;
+
+            real_t dx = gx.data[index];
+            real_t dy = gy.data[index];
+            real_t dz = gz.data[index];
+
+            tv.data[index] = static_cast<real_t>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+        }
+    }
+}
+
+void CPUDeconvolutionBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
+    int nxy = gradX.size.width * gradX.size.height;
+
+    OMP(omp parallel for, config.useOMP, config.ompThreads)
+    for (int z = 0; z < gradX.size.depth; ++z) {
+        for (int i = 0; i < nxy; ++i) {
+            int index = z * nxy + i;
+
+            real_t norm = std::sqrt(
+                gradX.data[index] * gradX.data[index] +
+                gradY.data[index] * gradY.data[index] +
+                gradZ.data[index] * gradZ.data[index]
+            );
+
+            norm = std::max(norm, epsilon);
+
+            gradX.data[index] /= norm;
+            gradY.data[index] /= norm;
+            gradZ.data[index] /= norm;
+        }
+    }
+}
 
 
 // IBackend& CPUBackend::clone() {

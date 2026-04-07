@@ -256,12 +256,12 @@ cufftHandle* CUDADeconvolutionBackend::getPlan(const PlanDescription& descriptio
 
 void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const PlanDescription& description) const {
     size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
-    CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2R, &tempSize), "getPlan - C2C plan setup");
+    CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2R, &tempSize), "getPlan - C2R plan setup");
 }
 
 void CUDADeconvolutionBackend::createPlanRealToComplex(cufftHandle& plan, const PlanDescription& description) const {
     size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
-    CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_R2C, &tempSize), "getPlan - C2C plan setup");
+    CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_R2C, &tempSize), "getPlan - R2C plan setup");
 }
 
 void CUDADeconvolutionBackend::createPlanComplex(cufftHandle& plan, const PlanDescription& description) const {
@@ -535,3 +535,28 @@ void CUDADeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& grad
     CUDA_CHECK(err, "normalizeTV");
 }
 
+// Gradient functions for real-valued data
+void CUDADeconvolutionBackend::gradientX(const RealData& image, RealData& gradX) const {
+    cudaError_t err = CUBE_REG::gradX(image.size.width, image.size.height, image.size.depth, image.data, gradX.data, config.stream);
+    CUDA_CHECK(err, "gradientX (real)");
+}
+
+void CUDADeconvolutionBackend::gradientY(const RealData& image, RealData& gradY) const {
+    cudaError_t err = CUBE_REG::gradY(image.size.width, image.size.height, image.size.depth, image.data, gradY.data, config.stream);
+    CUDA_CHECK(err, "gradientY (real)");
+}
+
+void CUDADeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ) const {
+    cudaError_t err = CUBE_REG::gradZ(image.size.width, image.size.height, image.size.depth, image.data, gradZ.data, config.stream);
+    CUDA_CHECK(err, "gradientZ (real)");
+}
+
+void CUDADeconvolutionBackend::computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const {
+    cudaError_t err = CUBE_REG::computeTV(gx.size.width, gx.size.height, gx.size.depth, lambda, gx.data, gy.data, gz.data, tv.data, config.stream);
+    CUDA_CHECK(err, "computeTV (real)");
+}
+
+void CUDADeconvolutionBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
+    cudaError_t err = CUBE_REG::normalizeTV(gradX.size.width, gradX.size.height, gradX.size.depth, gradX.data, gradY.data, gradZ.data, epsilon, config.stream);
+    CUDA_CHECK(err, "normalizeTV (real)");
+}

@@ -542,6 +542,152 @@ namespace CUBE_REG {
         cudaEventDestroy(event);
         return cudaSuccess;
     }
+
+    // Gradient functions for real-valued data
+    cudaError_t gradX(int Nx, int Ny, int Nz, real_t* image, real_t* gradX, cudaStream_t stream) {
+        if (!image || !gradX) {
+            return cudaErrorInvalidValue;
+        }
+
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+
+        gradientXGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradX);
+
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
+
+        cudaEventDestroy(event);
+        return cudaSuccess;
+    }
+
+    cudaError_t gradY(int Nx, int Ny, int Nz, real_t* image, real_t* gradY, cudaStream_t stream) {
+        if (!image || !gradY) {
+            return cudaErrorInvalidValue;
+        }
+
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+
+        gradientYGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradY);
+
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
+
+        cudaEventDestroy(event);
+        return cudaSuccess;
+    }
+
+    cudaError_t gradZ(int Nx, int Ny, int Nz, real_t* image, real_t* gradZ, cudaStream_t stream) {
+        if (!image || !gradZ) {
+            return cudaErrorInvalidValue;
+        }
+
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+
+        gradientZGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradZ);
+
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
+
+        cudaEventDestroy(event);
+        return cudaSuccess;
+    }
+
+    cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv, cudaStream_t stream) {
+        if (!gx || !gy || !gz || !tv) {
+            return cudaErrorInvalidValue;
+        }
+
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+
+        computeTVGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, lambda, gx, gy, gz, tv);
+
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
+
+        cudaEventDestroy(event);
+        return cudaSuccess;
+    }
+
+    cudaError_t normalizeTV(int Nx, int Ny, int Nz, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon, cudaStream_t stream) {
+        if (!gradX || !gradY || !gradZ) {
+            return cudaErrorInvalidValue;
+        }
+
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+
+        normalizeTVGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, gradX, gradY, gradZ, epsilon);
+
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
+
+        cudaEventDestroy(event);
+        return cudaSuccess;
+    }
 }
 
 namespace CUBE_TILED {

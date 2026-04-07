@@ -174,8 +174,8 @@ public:
 
     // Specialized functions
     void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const override;
-    void normalizeImage(ComplexData& resultImage, real_t epsilon) const override;
-    void rescaledInverse(ComplexData& data, real_t cubeVolume) const override;
+    // void normalizeImage(ComplexData& resultImage, real_t epsilon) const override;
+    // void rescaledInverse(ComplexData& data, real_t cubeVolume) const override;
 
     // Debug functions
     void hasNAN(const ComplexData& data) const override;
@@ -189,6 +189,12 @@ public:
     void gradientZ(const ComplexData& image, ComplexData& gradZ) const override;
     void computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const override;
     void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const override;
+    // Gradient and TV functions for real-valued data
+    void gradientX(const RealData& image, RealData& gradX) const override;
+    void gradientY(const RealData& image, RealData& gradY) const override;
+    void gradientZ(const RealData& image, RealData& gradZ) const override;
+    void computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const override;
+    void normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const override;
 
 private:
     static FFTWManager fftwManager;

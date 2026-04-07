@@ -36,7 +36,8 @@ private:
     bool initialized = false;
     
     // Algorithm-specific data members for intermediate calculations
-    ComplexData c;
+    ComplexData c_complex;  // Frequency domain
+    RealData c;             // Spatial domain (real-valued)
     
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };

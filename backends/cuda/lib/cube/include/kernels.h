@@ -31,8 +31,14 @@ __global__ void calculateLaplacianGlobal(int Nx, int Ny, int Nz, complex_t* Afft
 __global__ void gradientXGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradX);
 __global__ void gradientYGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradY);
 __global__ void gradientZGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradZ);
+// Gradient kernels for real-valued data
+__global__ void gradientXGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradX);
+__global__ void gradientYGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradY);
+__global__ void gradientZGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradZ);
 __global__ void computeTVGlobal(int Nx, int Ny, int Nz, real_t lambda, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* tv);
+__global__ void computeTVGlobalReal(int Nx, int Ny, int Nz, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv);
 __global__ void normalizeTVGlobal(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon);
+__global__ void normalizeTVGlobalReal(int Nx, int Ny, int Nz, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon);
 
 // Tiled
 __global__ void calculateLaplacianTiledGlobal(int Nx, int Ny, int Nz, complex_t* Afft, complex_t* laplacianfft);

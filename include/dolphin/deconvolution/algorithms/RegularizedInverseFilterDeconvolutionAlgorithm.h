@@ -32,12 +32,13 @@ private:
     double lambda;
     bool initialized = false;
     
-    // Algorithm-specific data members for intermediate calculations
+    // Algorithm-specific data members for intermediate calculations (frequency domain)
     ComplexData H2;
     ComplexData L;
     ComplexData L2;
     ComplexData FA;
     ComplexData FP;
+    ComplexData f_complex;  // FFT of input image
     
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };
