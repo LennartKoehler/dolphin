@@ -81,6 +81,7 @@ Image3D Preprocessor::convertComplexDataToImage(
     return output;
 }
 
+// TODO make this conversion part of the backend? because if data is on cuda device then this wont work
 Image3D Preprocessor::convertRealDataToImage(
         const RealData& input){
     const int width  = input.size.width;

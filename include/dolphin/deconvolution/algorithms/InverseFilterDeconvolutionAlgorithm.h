@@ -15,14 +15,13 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <memory>
-#include <iostream>
 
 class InverseFilterDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
 public:
     // Constructor that takes a backend parameter
     InverseFilterDeconvolutionAlgorithm() = default;
     ~InverseFilterDeconvolutionAlgorithm() = default;
-    
+
     void configure(const DeconvolutionConfig& config) override;
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
@@ -31,6 +30,6 @@ public:
 private:
     double epsilon;
     bool initialized = false;
-    
+
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };

@@ -19,6 +19,7 @@ See the LICENSE file provided with the code for the full license.
 
 
 enum PaddingType {
+    NONE,
     ZERO,
     MIRROR,
 };
@@ -35,7 +36,7 @@ public:
     int iterations = 10;
     float epsilon = 1e-6;
     float lambda = 0.001;
-    PaddingType borderType = PaddingType::ZERO;
+    PaddingType imagePaddingType = PaddingType::ZERO;
     int featheringRadius = 0;
 
 
