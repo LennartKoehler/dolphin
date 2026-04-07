@@ -35,14 +35,15 @@ class CUDABackendManager;
             operation \
         ); \
     } \
-    else if (err != cudaSuccess) { \
-        throw dolphin::backend::BackendException( \
-            std::string("CUDA error: ") + cudaGetErrorString(err), \
-            "CUDA", \
-            operation \
-        ); \
-    } \
-}
+    assert(err != cudaSuccess && err && operation);}
+    // else if (err != cudaSuccess) { \
+    //     throw dolphin::backend::BackendException( \
+    //         std::string("CUDA error: ") + cudaGetErrorString(err), \
+    //         "CUDA", \
+    //         operation \
+    //     ); \
+    // } \
+
 #define CUDA_MEMORY_ALLOC_CHECK(err, size, operation) { \
     if (err != cudaSuccess){ \
         throw dolphin::backend::MemoryException( \
@@ -57,14 +58,14 @@ class CUDABackendManager;
 // Unified cuFFT error check macro
 #define CUFFT_CHECK(call, operation) { \
     cufftResult res = call; \
-    if (res != CUFFT_SUCCESS) { \
-        throw dolphin::backend::BackendException( \
-            "cuFFT error code: " + std::to_string(res), \
-            "CUDA", \
-            operation \
-        ); \
-    } \
-}
+    assert(res == CUFFT_SUCCESS && call && operation);}
+    // if (res != CUFFT_SUCCESS) { \
+    //     throw dolphin::backend::BackendException( \
+    //         "cuFFT error code: " + std::to_string(res), \
+    //         "CUDA", \
+    //         operation \
+    //     ); \
+    // } \
 
 
 struct cuFFTPlan{
