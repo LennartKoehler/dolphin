@@ -26,6 +26,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/IO/TiffWriter.h"
 #include "dolphin/IO/TiffReader.h"
+#include "dolphin/ServiceAbstractions.h"
 
 
 /*
@@ -99,7 +100,6 @@ struct CubeTaskDescriptor {
 
 
 struct DeconvolutionPlan {
-    Padding imagePadding;
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     size_t totalTasks;
 };
@@ -204,7 +204,7 @@ public:
     void init(const CuboidShape& configPadding) override{
         padding = configPadding;
     }
-    Padding getPadding(const std::vector<CuboidShape>& psfSizes) const {
+    Padding getPadding(const std::vector<CuboidShape>& psfSizes) const override{
         CuboidShape paddingHalf = padding / 2;
         return Padding(paddingHalf, paddingHalf);
 
@@ -213,7 +213,10 @@ private:
     CuboidShape padding;
 };
 
-std::vector<BoxCoordWithPadding> splitImageHomogeneous(
-    const CuboidShape& subimageShape,
+Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const Padding& cubePadding,
-    const CuboidShape& imageOriginalShape);
+    const CuboidShape& imageOriginalShape,
+    const size_t& maxVolumePerCube,
+    const size_t& minNumberCubes,
+    const PaddingType& imagePadding,
+    const CuboidShape& minShape);

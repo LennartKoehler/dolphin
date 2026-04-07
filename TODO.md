@@ -1,3 +1,15 @@
+with new implementation of no padding around the image, padding to the next fastest size of fftw now creates a different result, is this ok?
+
+refactoring the split image to not have imagepadding on the outside:
+    see how the ideal cube size is computed and see how the image is split into cubes. I dont want padding outside of the original image as its unnecessary.
+    so if the image is larger than the psf then it should never be bigger (except to get a good computational size for fftw like multiple of 2)
+    but there should only be padding between cubes in the inside of the image, never on the outside, like it was the case before.
+    so if i dont adjust the size for a good fftw size then the pad image function should never be called in the tiffreader. only ever do i need padding between cubes, which is no padding but actually just a part of the image considered padding, but not artificial padding
+
+i dont necessarily have to pad the whole image, cubes should be padded, but the padding around the image is not necessary as its artificial anyway, so might aswell just take cyclic boundary instead of reflecting
+
+octant fourier shift for uneven dimensions (not divisible by 2)
+
 check the testalgorithm for cuda there is a line on the left, seems like some misalignement
 for cpu its even weirder, something is still wrong
 

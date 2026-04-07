@@ -84,11 +84,6 @@ struct CuboidShape{
         depth = std::bit_ceil(static_cast<uint>(depth));
     }
 
-    inline void cropTo(const CuboidShape& other) {
-        width  = width  < other.width  ? width  : other.width;
-        height = height < other.height ? height : other.height;
-        depth  = depth  < other.depth  ? depth  : other.depth;
-    }
 
 
     inline void setMax(const CuboidShape& other){
@@ -157,10 +152,10 @@ struct CuboidShape{
         else return false;
     }
     inline bool operator<(int size){
-        return (this->width < size && this->height < size && this->depth < size);
+        return (this->width < size || this->height < size || this->depth < size);
     }
     inline bool operator<(const CuboidShape& other) const {
-        return (this->width < other.width && this->height < other.height && this->depth < other.depth);
+        return (this->width < other.width || this->height < other.height || this->depth < other.depth);
     }
 
 };

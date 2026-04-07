@@ -25,13 +25,14 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     iterations(other.iterations),
     epsilon(other.epsilon),
     lambda(other.lambda),
-    borderType(other.borderType),
+    imagePaddingType(other.imagePaddingType),
     featheringRadius(other.featheringRadius)
     {
         registerAllParameters();
     }
 
 ConfigMap paddingMap{{
+    {"none", PaddingType::NONE},
     {"zero", PaddingType::ZERO},
     {"mirror", PaddingType::MIRROR},
 }};
@@ -48,7 +49,7 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::Int, &iterations, "iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
     parameters.push_back({ParameterType::Float, &epsilon, "epsilon", true, "epsilon", "--epsilon", "Epsilon", false, true, 1e-12, 1e-3, nullptr});
     parameters.push_back({ParameterType::Float, &lambda, "lambda", true, "lambda", "--lambda", "Lambda regularization", false, false, 0.0, 1.0, nullptr});
-    parameters.push_back({ParameterType::Map, &borderType, "borderType", true, "borderType", "--borderType", "Border type", false, true, 0.0, 5.0, paddingMap_p});
+    parameters.push_back({ParameterType::Map, &imagePaddingType, "imagePaddingType", true, "imagePaddingType", "--imagePaddingType", "Image padding type", false, true, 0.0, 5.0, paddingMap_p});
     parameters.push_back({ParameterType::Int, &featheringRadius, "featheringRadius", true, "featheringRadius", "--featheringRadius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
 
 }

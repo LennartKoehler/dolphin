@@ -66,6 +66,35 @@
             ]
         },
         {
+            "name": "Debug dolphin imageSplit",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/debug_build/tests/imageSplit_test",
+            "stopAtEntry": false,
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/debug_build",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${workspaceFolder}/backends/cuda/build"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": false
+                }
+            ],
+            "skipFiles": [
+                "<node_internals>/**",
+                "/usr/**",
+                "/lib/**"
+            ]
+        },
+        {
             "name": "Debug dolphin",
             "type": "cppdbg",
             "request": "launch",

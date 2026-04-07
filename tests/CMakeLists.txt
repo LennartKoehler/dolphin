@@ -62,6 +62,15 @@ target_link_libraries(mirror_padding_test
 add_test(NAME MirrorPaddingTest COMMAND mirror_padding_test)
 
 
+# ImageSplit Test
+add_executable(imageSplit_test
+    imageSplit_test.cpp)
+target_link_libraries(imageSplit_test
+    PRIVATE
+        dolphin
+)
+
+add_test(NAME ImageSplitTest COMMAND imageSplit_test)
 
 
 add_executable(feathering_test

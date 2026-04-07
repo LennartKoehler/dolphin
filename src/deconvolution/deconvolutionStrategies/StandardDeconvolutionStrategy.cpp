@@ -20,6 +20,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/deconvolution/Postprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphinbackend/Exceptions.h"
 #include "dolphin/HelperClasses.h"
 #include "dolphin/SetupConfig.h"
@@ -58,32 +59,47 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         manager,
         algorithm
     );
+    size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(complex_t);
 
-    Result<Padding> cubePaddingResult = getCubePadding(psfs, setupConfig.cubePadding);
-    Padding cubePadding = std::move(cubePaddingResult.value);
+    Result<std::pair<Padding, CuboidShape>> cubePaddingResult = getCubePadding(psfs, setupConfig.cubePadding);
+    Padding cubePadding = std::move(cubePaddingResult.value.first);
+    CuboidShape minShape = std::move(cubePaddingResult.value.second); // has to be at least as big as every psf
+
     if (!cubePaddingResult.success) {
         return Result<DeconvolutionPlan>(cubePaddingResult);
     }
-    Result<CuboidShape> idealCubeSize = getCubeShape(maxMemoryPerCube, setupConfig.cubeSize, imageSize, cubePadding, workerThreads);
-    if (!idealCubeSize.success) {
-        return Result<DeconvolutionPlan>(idealCubeSize);
-    }
+    // Result<CuboidShape> idealCubeSize = getCubeShape(maxMemoryPerCube, setupConfig.cubeSize, imageSize, cubePadding, workerThreads);
+    // if (!idealCubeSize.success) {
+    //     return Result<DeconvolutionPlan>(idealCubeSize);
+    // }
 
     if(cubePadding.before + cubePadding.after < deconvConfig.featheringRadius)
         spdlog::get("deconvolution")->warn("Feathering radius ({}) is smaller than padding (which is probably the size of the psf) ({}), which can cause artifacts",
             deconvConfig.featheringRadius, (cubePadding.before + cubePadding.after).print());
 
-    Padding imagePadding = getImagePadding(imageSize, idealCubeSize.value, cubePadding);
+    // Padding imagePadding = getImagePadding(imageSize, idealCubeSize.value, cubePadding);
 
-    size_t memoryPerTask = estimateMemoryUsage(idealCubeSize.value, algorithm.get(), setupConfig);
 
-    std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = splitImageHomogeneous(idealCubeSize.value, cubePadding, imageSize);
+    Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(cubePadding, imageSize, maxMemCubeVolume, workerThreads, deconvConfig.imagePaddingType, minShape);
+
+    if (!cubeCoordinatesWithPaddingResult.success) {
+        return Result<DeconvolutionPlan>(cubeCoordinatesWithPaddingResult);
+    }
+    std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = cubeCoordinatesWithPaddingResult.value;
+
+    CuboidShape workShape = cubeCoordinatesWithPadding[0].getBox().dimensions;
+    size_t memoryPerTask = estimateMemoryUsage(workShape, algorithm.get(), setupConfig);
+
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     tasks.reserve(cubeCoordinatesWithPadding.size());
 
     for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
 
         std::shared_ptr<TaskContext> context = contexts[i % contexts.size()]; // cycle through contexts and assign the context to that task
+        // TODO if the contexts are uneven in their compute capability then this would have to be more dynamic,
+        // one idea would be not to assign the context here at all, and just attach the contexts to the deconvplan, not the individiaul tasks
+        // then the deconvexecutor could dynamically attach contexts to tasks when that context is running out of tasks,
+        // so like having a queue and only filling each context queue when that queue is getting empty, then slow queues wouldnt get that much work
 
         tasks.push_back(std::make_unique<CubeTaskDescriptor>(
             static_cast<int>(i),
@@ -102,10 +118,9 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     spdlog::get("deconvolution")
         ->info("Successfully created deconvolution plan with {} total cubes. Each cube has size (width x height x depth) ({}) which includes padding (padding before, padding after) ({}, {})",
-        totalTasks, (idealCubeSize.value).print(), cubePadding.before.print(), cubePadding.after.print());
+        totalTasks, (workShape).print(), cubePadding.before.print(), cubePadding.after.print());
 
     DeconvolutionPlan plan {
-        std::move(imagePadding),
         std::move(tasks),
         totalTasks
     };
@@ -120,20 +135,26 @@ std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreproc
         const CuboidShape targetShape,
         std::shared_ptr<PSF> inputPSF,
         IBackend& backend
-            ) -> std::unique_ptr<ComplexData> {
-                Preprocessor::padToShape(inputPSF->image, targetShape, PaddingType::ZERO);
-                RealData h = Preprocessor::convertImageToRealData(inputPSF->image);
-                RealData h_device = backend.getMemoryManager().copyDataToDevice(h);
-                std::unique_ptr<ComplexData> h_result_device = std::make_unique<ComplexData>(std::move(backend.getMemoryManager().allocateMemoryOnDevice(targetShape)));
-                backend.getDeconvManager().octantFourierShift(h_device); // align psf peak at 0,0,0
-                backend.getDeconvManager().forwardFFT(h_device, *h_result_device);
+    ) -> std::unique_ptr<ComplexData> {
+            Preprocessor::padToShape(inputPSF->image, targetShape, PaddingType::ZERO);
+            RealData h = Preprocessor::convertImageToRealData(inputPSF->image);
+            RealData h_device = backend.getMemoryManager().copyDataToDevice(h);
+            std::unique_ptr<ComplexData> h_result_device = std::make_unique<ComplexData>(std::move(backend.getMemoryManager().allocateMemoryOnDevice(targetShape)));
+            backend.getDeconvManager().octantFourierShift(h_device); // align psf peak at 0,0,0
 
-                // Image3D test = Preprocessor::convertComplexDataToImage(*h_result_device);
-                // TiffWriter::writeToFile("test.tif", test);
+            backend.getDeconvManager().forwardFFT(h_device, *h_result_device);
+            // backend.getDeconvManager().backwardFFT(*h_result_device, h_device);
 
-                backend.sync();
-                return std::move(h_result_device);
-            };
+            // move back to host for cuda
+
+            // RealData result = backend.getMemoryManager().moveDataFromDevice(h_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
+            // Image3D test = Preprocessor::convertRealDataToImage(result);
+            // TiffWriter::writeToFile("test.tif", test);
+
+
+            backend.sync();
+            return std::move(h_result_device);
+        };
 
     std::unique_ptr<PSFPreprocessor> preprocessor = std::make_unique<PSFPreprocessor>();
     preprocessor->setPreprocessingFunction(psfPreprocessFunction);
@@ -168,7 +189,7 @@ std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createC
         for (int i = 0; i < numberDevices; i++){
             std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(manager, ioconfig, workerconfig, nWorkerThreads, nIOThreads);
 
-            std::unique_ptr<PSFPreprocessor> preprocessor = createPSFPreprocessor(); // new psfpreprocessor for each context because the psfs live on device
+            std::unique_ptr<PSFPreprocessor> preprocessor = createPSFPreprocessor(); // new psfpreprocessor for each context because the psfs live on devicecudabac
             context->setPreprocessor(std::move(preprocessor));
             contexts.emplace_back(context);
         }
@@ -228,72 +249,56 @@ size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
     return ioAllocations + workerAllocations;
 }
 
-Result<CuboidShape> StandardDeconvolutionStrategy::getCubeShape(
-    size_t maxMemoryPerCube,
-    const CuboidShape& configCubeSize,
-    const CuboidShape& imageOriginalShape,
-    const Padding& cubePadding,
-    size_t nWorkerThreads
-){
-    CuboidShape cubeSize;
-    if (configCubeSize.getVolume() != 0){
-        cubeSize = configCubeSize;
-    }
-    else{
-        size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(complex_t); // cut into pieces so that they still fit on memory
-
-        size_t ncubes = 1;
-        cubeSize = imageOriginalShape;
-
-        // cubeSize.toNextPowerOfTwo();
-
-        size_t volume = (cubeSize + cubePadding.before + cubePadding.after).getVolume();
-        std::array<int*, 3> tempCubeAccessor  = cubeSize.getReference();
-        int dimIterator = 2;
-
-        while (volume > maxMemCubeVolume || ncubes <= nWorkerThreads){
-            dimIterator = (++dimIterator) % 3;
-            *tempCubeAccessor[dimIterator] -= 10; //always only reduce one dimension
-            volume = (cubeSize + cubePadding.before + cubePadding.after).getVolume();
-            ncubes = imageOriginalShape.getNumberSubcubes(cubeSize);
-        }
-        // cubeSize = cubeSize / 2; //TESTVALUE
-        cubeSize = cubeSize + cubePadding.before + cubePadding.after;
-        // cubeSize.toNextPowerOfTwo();
-    }
-
-    // --- Optimize for FFTW (Smooth Numbers) ---
-    // A "smooth" number has prime factors of only 2, 3, and 5.
-    // This ensures FFTW can use its fastest algorithms.
-    auto isSmooth = [](int n) -> bool {
-        while (n % 2 == 0) n /= 2;
-        while (n % 3 == 0) n /= 3;
-        while (n % 5 == 0) n /= 5;
-        return n == 1;
-    };
-
-    auto nextSmooth = [isSmooth](int dim) -> int {
-        if (dim <= 0) return dim;
-        while (!isSmooth(dim)) {
-            dim++;
-        }
-        return dim;
-    };
-
-    // Apply to the padded cube dimensions (total buffer size)
-    cubeSize.width = nextSmooth(cubeSize.width);
-    cubeSize.height = nextSmooth(cubeSize.height);
-    cubeSize.depth = nextSmooth(cubeSize.depth);
-    // ---------------------------------------------
-
-    if (cubeSize < cubePadding.before + cubePadding.after)
-    {
-        return Result<CuboidShape>::fail(
-            "Cube has invalid shape as it needs to be larger than padding, cubeSize: " + cubeSize.print() + " padding: " + cubePadding.before.print() + cubePadding.after.print());
-    }
-
-    return Result<CuboidShape>::ok(std::move(cubeSize));
-}
+// Result<CuboidShape> StandardDeconvolutionStrategy::getCubeShape(
+//     size_t maxMemoryPerCube,
+//     const CuboidShape& configCubeSize,
+//     const CuboidShape& imageOriginalShape,
+//     const Padding& cubePadding,
+//     size_t nWorkerThreads
+// ){
+//     CuboidShape cubeSize;
+//     if (configCubeSize.getVolume() != 0){
+//         cubeSize = configCubeSize;
+//     }
+//     else{
+//         size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(complex_t); // cut into pieces so that they still fit on memory
+//
+//         size_t ncubes = 1;
+//         cubeSize = imageOriginalShape;
+//
+//         // cubeSize.toNextPowerOfTwo();
+//
+//         size_t volume = (cubeSize + cubePadding.before + cubePadding.after).getVolume();
+//         std::array<int*, 3> tempCubeAccessor  = cubeSize.getReference();
+//         int dimIterator = 2;
+//
+//         while (volume > maxMemCubeVolume || ncubes <= nWorkerThreads){
+//             dimIterator = (++dimIterator) % 3;
+//             *tempCubeAccessor[dimIterator] -= 10; //always only reduce one dimension
+//             volume = (cubeSize + cubePadding.before + cubePadding.after).getVolume();
+//             ncubes = imageOriginalShape.getNumberSubcubes(cubeSize);
+//         }
+//         // cubeSize = cubeSize / 2; //TESTVALUE
+//         cubeSize = cubeSize + cubePadding.before + cubePadding.after;
+//
+//         // cubeSize.toNextPowerOfTwo();
+//     }
+//
+//
+//     // Apply to the padded cube dimensions (total buffer size)
+//     cubeSize.width = nextSmooth(cubeSize.width);
+//     cubeSize.height = nextSmooth(cubeSize.height);
+//     cubeSize.depth = nextSmooth(cubeSize.depth);
+//     // ---------------------------------------------
+//
+//     if (cubeSize < cubePadding.before + cubePadding.after)
+//     {
+//         return Result<CuboidShape>::fail(
+//             "Cube has invalid shape as it needs to be larger than padding, cubeSize: " + cubeSize.print() + " padding: " + cubePadding.before.print() + cubePadding.after.print());
+//     }
+//
+//     return Result<CuboidShape>::ok(std::move(cubeSize));
+// }
 
 int StandardDeconvolutionStrategy::getNextPowerOfTwo(int v) const {
     int p = 2;
@@ -303,20 +308,22 @@ int StandardDeconvolutionStrategy::getNextPowerOfTwo(int v) const {
     return p;
 }
 
-Padding StandardDeconvolutionStrategy::getImagePadding(
-    const CuboidShape& imageSize,
-    const CuboidShape& cubeSizeUnpadded,
-    const Padding& cubePadding
-){
-    CuboidShape paddingBefore = cubePadding.before;
-    CuboidShape paddingAfter;
-
-    // if image is smaller than one single cubeSizeUnpadded, then we pad after
-    paddingAfter.width = std::max(cubePadding.after.width, cubeSizeUnpadded.width - imageSize.width + cubePadding.before.width);
-    paddingAfter.height = std::max(cubePadding.after.height, cubeSizeUnpadded.height - imageSize.height + cubePadding.before.height);
-    paddingAfter.depth = std::max(cubePadding.after.depth, cubeSizeUnpadded.depth - imageSize.depth + cubePadding.before.depth);
-    return Padding{paddingBefore, paddingAfter};
-}
+// unused, its intrinsic in cube padding and imagesplit
+// the tiffreader then understands it needs "negative" padding
+// Padding StandardDeconvolutionStrategy::getImagePadding(
+//     const CuboidShape& imageSize,
+//     const CuboidShape& cubeSizeUnpadded,
+//     const Padding& cubePadding
+// ){
+//     CuboidShape paddingBefore = cubePadding.before;
+//     CuboidShape paddingAfter;
+//
+//     // if image is smaller than one single cubeSizeUnpadded, then we pad after
+//     paddingAfter.width = std::max(cubePadding.after.width, cubeSizeUnpadded.width - imageSize.width + cubePadding.before.width);
+//     paddingAfter.height = std::max(cubePadding.after.height, cubeSizeUnpadded.height - imageSize.height + cubePadding.before.height);
+//     paddingAfter.depth = std::max(cubePadding.after.depth, cubeSizeUnpadded.depth - imageSize.depth + cubePadding.before.depth);
+//     return Padding{paddingBefore, paddingAfter};
+// }
 
 std::vector<CuboidShape> StandardDeconvolutionStrategy::getPSFSizes(const std::vector<PSF>& psfs){
     std::vector<CuboidShape> psfSizes;
@@ -326,9 +333,28 @@ std::vector<CuboidShape> StandardDeconvolutionStrategy::getPSFSizes(const std::v
     return psfSizes;
 }
 
-Result<Padding> StandardDeconvolutionStrategy::getCubePadding(const std::vector<PSF>& psfs, const CuboidShape& configPadding){
+CuboidShape StandardDeconvolutionStrategy::getLargestShape(const std::vector<CuboidShape>& shapes) const{
+    CuboidShape maxShape{0, 0, 0};
+
+    // Find the largest  dimensions
+    for (const auto& shape: shapes) {
+
+
+        maxShape.width = std::max(maxShape.width, shape.width);
+        maxShape.height = std::max(maxShape.height, shape.height);
+        maxShape.depth = std::max(maxShape.depth, shape.depth);
+    }
+    return maxShape;
+}
+
+
+// while were at it just get the minSize the subimage has to be (so that its at least as big as every psf)
+Result<std::pair<Padding, CuboidShape>> StandardDeconvolutionStrategy::getCubePadding(const std::vector<PSF>& psfs, const CuboidShape& configPadding){
     Padding padding;
     std::vector<CuboidShape> psfSizes = getPSFSizes(psfs);
+
+    CuboidShape largestPSF = getLargestShape(psfSizes);
+
     if (configPadding.getVolume() == 0){
         DefaultPaddingStrategy stratd{};
         stratd.init(configPadding);
@@ -347,7 +373,7 @@ Result<Padding> StandardDeconvolutionStrategy::getCubePadding(const std::vector<
             "Padding for cubes is smaller than zero");
     }
 
-    return Result<Padding>::ok(std::move(padding));
+    return Result<std::pair<Padding, CuboidShape>>::ok(std::pair<Padding, CuboidShape>(std::move(padding), std::move(largestPSF)));
 }
 
 

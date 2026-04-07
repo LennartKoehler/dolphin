@@ -27,21 +27,19 @@ See the LICENSE file provided with the code for the full license.
 
 
 StandardDeconvolutionExecutor::StandardDeconvolutionExecutor(){
-
 }
+
 StandardDeconvolutionExecutor::~StandardDeconvolutionExecutor(){
- }
+}
 
 void StandardDeconvolutionExecutor::execute(const DeconvolutionPlan& plan) {
     parallelDeconvolution(plan);
 }
 
 void StandardDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfig> config) {
-
 }
 
 void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig) {
-
 }
 
 

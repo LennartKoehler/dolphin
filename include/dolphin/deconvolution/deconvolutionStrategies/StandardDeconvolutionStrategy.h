@@ -36,7 +36,7 @@ public:
 
     // IDeconvolutionStrategy interface
     virtual void configure(const SetupConfig& setupConfig) override;
-    
+
     virtual Result<DeconvolutionPlan> createPlan(
         std::shared_ptr<ImageReader> reader,
         std::shared_ptr<ImageWriter> writer,
@@ -56,7 +56,7 @@ protected:
 
     std::shared_ptr<DeconvolutionAlgorithm> getAlgorithm(const DeconvolutionConfig& config);
     IBackendManager& getBackendManager(const SetupConfig& config);
-    
+
     virtual size_t estimateMemoryUsage(
         const CuboidShape& cubeSize,
         const DeconvolutionAlgorithm* algorithm,
@@ -64,20 +64,20 @@ protected:
     );
 
     std::vector<CuboidShape> getPSFSizes(const std::vector<PSF>& psfs);
-    
-    virtual Result<CuboidShape> getCubeShape(
-        size_t memoryPerCube,
-        const CuboidShape& configCubeSize,
-        const CuboidShape& imageOriginalShape,
-        const Padding& cubePadding,
-        size_t nWorkerThreads
-    );
 
-    virtual Padding getImagePadding(
-        const CuboidShape& imageSize,
-        const CuboidShape& cubeSizeUnpadded,
-        const Padding& cubePadding
-    );
+    // virtual Result<CuboidShape> getCubeShape(
+    //     size_t memoryPerCube,
+    //     const CuboidShape& configCubeSize,
+    //     const CuboidShape& imageOriginalShape,
+    //     const Padding& cubePadding,
+    //     size_t nWorkerThreads
+    // );
+
+    // virtual Padding getImagePadding(
+    //     const CuboidShape& imageSize,
+    //     const CuboidShape& cubeSizeUnpadded,
+    //     const Padding& cubePadding
+    // );
 
     virtual std::unique_ptr<PSFPreprocessor> createPSFPreprocessor() const ;
 
@@ -88,7 +88,9 @@ protected:
         size_t& nIOThreads,
         size_t& totalThreads) const ;
 
-    virtual Result<Padding> getCubePadding(const std::vector<PSF>& psfs, const CuboidShape& configPadding);
+    virtual Result<std::pair<Padding, CuboidShape>> getCubePadding(const std::vector<PSF>& psfs, const CuboidShape& configPadding);
+
+    CuboidShape getLargestShape(const std::vector<CuboidShape>& shapes) const;
 
     // void configureThreads(
     //     size_t& totalThreads,
@@ -101,3 +103,4 @@ protected:
 
 
 };
+
