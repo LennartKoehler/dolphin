@@ -1,3 +1,5 @@
+when using gpu, so lower memory and image doesnt fit on gpu with padding then the imagesplit recursion will run infinitely
+
 with new implementation of no padding around the image, padding to the next fastest size of fftw now creates a different result, is this ok?
 
 refactoring the split image to not have imagepadding on the outside:

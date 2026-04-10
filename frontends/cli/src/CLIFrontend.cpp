@@ -43,17 +43,17 @@ void CLIFrontend::run() {
     // 1. Define ALL subcommands and their options FIRST
     psfgenerator();      // Define PSF options
     deconvolution();     // Define deconvolution options (but don't parse yet)
-    
+
     // 2. Parse once to determine which subcommand was used
     bool success = parseCLI();
     if (!success) {
         return;
     }
-    
+
     // 3. Handle based on which subcommand was selected
     if (*psfCLI) {
         handlePSFGeneration();
-        PSFGenerationRequest request = generatePSFRequest(setupConfig.psfConfigPath);
+        PSFGenerationRequest request = generatePSFRequest(setupConfig.psfConfigPath[0]);//TODO multiple configs?
         dolphin->generatePSF(request);
     }
     else if (*deconvolutionCLI) {
@@ -95,7 +95,7 @@ void CLIFrontend::handlePSFGeneration() {
 
 void CLIFrontend::handleDeconvolution() {
     std::cout << "[INFO] Deconvolution mode selected" << std::endl;
-    
+
     // Handle configuration loading
     if (!setupConfigPath.empty()) {
         try {
@@ -116,7 +116,7 @@ void CLIFrontend::handleDeconvolution() {
 
 void CLIFrontend::readSetupConfigParameters() {
     cli_group = deconvolutionCLI->add_option_group("CLI", "Commandline options");
-   
+
     setupConfig.visitParams([this]<typename T>(T& value, ConfigParameter& param){
         if (param.type == ParameterType::Bool){
             cli_group->add_flag(param.cliFlag, value, param.cliDesc);
@@ -127,7 +127,7 @@ void CLIFrontend::readSetupConfigParameters() {
             if (param.cliRequired) {
                 opt->required();
             }
-            
+
             // Apply positive number check for parameters with min values >= 0
             if (param.hasRange && param.minVal >= 0.0) {
                 opt->check(CLI::PositiveNumber);
@@ -136,7 +136,7 @@ void CLIFrontend::readSetupConfigParameters() {
     });
     // // Remove ->required() - CLI11 will only check this if deconvolution subcommand is used
     // cli_group->add_option("-i,--image", setupConfig.imagePath, "Input image Path")->required();
-    
+
     // // Optional parameters
     // cli_group->add_option("-d", setupConfig.outputDir, "Output directory");
     // cli_group->add_option("--backend", setupConfig.backend, "Type of Backend ('cuda'/'cpu')");
@@ -146,7 +146,7 @@ void CLIFrontend::readSetupConfigParameters() {
     // cli_group->add_flag("--info", setupConfig.printInfo, "Prints info about input Image");
     // cli_group->add_flag("--showExampleLayers", setupConfig.showExampleLayers, "Shows a layer of loaded image and PSF)");
     // cli_group->add_flag("--saveSubimages", setupConfig.saveSubimages, "Saves subimages seperate as file");
-    
+
     // Set up exclusions
     if (configGroup) {
         cli_group->excludes(configGroup);
@@ -166,7 +166,7 @@ void CLIFrontend::readCLIParametersDeconvolution() {
             if (param.cliRequired) {
                 opt->required();
             }
-            
+
             // Apply positive number check for parameters with min values >= 0
             if (param.hasRange && param.minVal >= 0.0) {
                 opt->check(CLI::PositiveNumber);
@@ -178,7 +178,7 @@ void CLIFrontend::readCLIParametersDeconvolution() {
 void CLIFrontend::readCLISetupConfigPath() {
     CLI::Option_group *config_group = deconvolutionCLI->add_option_group("Config", "Configuration file");
     config_group->add_option("-c,--config", setupConfigPath, "Path to configuration file");
-    
+
     // DON'T exclude here yet - cli_group doesn't exist
     // Store the group for later exclusion
     configGroup = config_group;  // Add configGroup as member variable
@@ -191,17 +191,17 @@ void CLIFrontend::readCLISetupConfigPath() {
 
 PSFGenerationRequest CLIFrontend::generatePSFRequest(const std::string& configPath){
     PSFGenerationRequest request(configPath);
-    
+
     // Set CLI-specific options
     request.save_result = true;  // CLI typically wants to save results
     request.output_path = setupConfig.outputDir;
-    return request;    
+    return request;
 }
 
 DeconvolutionRequest CLIFrontend::generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfigCopy) {
     // Create request with setup config
     DeconvolutionRequest request(setupConfigCopy);
-    
+
     // Set CLI-specific options from parsed arguments
     // request.save_separate = setupConfigCopy->sep;
     // request.save_subimages = setupConfigCopy->saveSubimages;

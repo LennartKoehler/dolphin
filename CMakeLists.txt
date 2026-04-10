@@ -227,6 +227,10 @@ install(DIRECTORY lib/nlohmann/json/single_include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
+install(DIRECTORY lib/spdlog/include/
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
 install(DIRECTORY lib/dolphinbackend/include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"

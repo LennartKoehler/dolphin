@@ -45,11 +45,11 @@ void DeconvolutionConfig::registerAllParameters() {
     const void* paddingMap_p = static_cast<const void*>(&paddingMap);// oh boy
     // Register each parameter as a ConfigParameter struct
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
-    parameters.push_back({ParameterType::StringSelection, &algorithmName, "algorithmName", false, "algorithmName", "-a,--algorithm", "Algorithm selection", true, false, 0.0, 0.0, algorithmOptionsVoid});
+parameters.push_back({ParameterType::StringSelection, &algorithmName, "algorithmName", false, "algorithm_name", "-a,--algorithm", "Algorithm selection", true, false, 0.0, 0.0, algorithmOptionsVoid});
     parameters.push_back({ParameterType::Int, &iterations, "iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
     parameters.push_back({ParameterType::Float, &epsilon, "epsilon", true, "epsilon", "--epsilon", "Epsilon", false, true, 1e-12, 1e-3, nullptr});
     parameters.push_back({ParameterType::Float, &lambda, "lambda", true, "lambda", "--lambda", "Lambda regularization", false, false, 0.0, 1.0, nullptr});
-    parameters.push_back({ParameterType::Map, &imagePaddingType, "imagePaddingType", true, "imagePaddingType", "--imagePaddingType", "Image padding type", false, true, 0.0, 5.0, paddingMap_p});
-    parameters.push_back({ParameterType::Int, &featheringRadius, "featheringRadius", true, "featheringRadius", "--featheringRadius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
+parameters.push_back({ParameterType::Map, &imagePaddingType, "imagePaddingType", true, "image_padding_type", "--imagePaddingType", "Image padding type", false, true, 0.0, 5.0, paddingMap_p});
+parameters.push_back({ParameterType::Int, &featheringRadius, "featheringRadius", true, "feathering_radius", "--featheringRadius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
 
 }

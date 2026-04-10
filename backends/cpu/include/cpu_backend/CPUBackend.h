@@ -33,7 +33,7 @@ struct CPUBackendConfig{
 
 // Unified FFTW error check macro
 #define FFTW_UNIFIED_CHECK(fftw_result, operation) { \
-    assert(fftw_result != nullptr && fftw_result && operation);}
+    assert(fftw_result != nullptr);}
     // if ((fftw_result) == nullptr) { \
     //     throw dolphin::backend::BackendException( \
     //         "FFTW operation failed", \
