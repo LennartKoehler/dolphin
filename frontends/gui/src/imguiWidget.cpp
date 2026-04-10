@@ -84,25 +84,25 @@ void imguiVectorInt::display(const ConfigParameter& p){
 
     ImGui::Text("%s:", p.name);
     // ImGui::Separator();
-    
+
     ImGui::PushID(p.name);
     // Display existing elements
     for (size_t i = 0; i < values->size(); ++i) {
         int id = static_cast<int>(i);
         ImGui::PushID(id);  // Unique ID for each element
-        
+
         displayElement(&(*values)[i], id);
-        
+
         ImGui::SameLine();
-        
+
         // Remove button for each element
         if (ImGui::Button("X")) {
             removeElement(id);
         }
-        
+
         ImGui::PopID();
     }
-    
+
     // Add new element widget
     addElementWidget();
     ImGui::PopID();
@@ -118,12 +118,12 @@ void imguiVectorInt::displayElement(int* val, int index) {
 
 void imguiVectorInt::addElementWidget() {
     ImGui::Separator();
-    
+
     // Input for new value
     ImGui::InputInt("New Value", &newValue);
-    
+
     ImGui::SameLine();
-    
+
     // Add button
     if (ImGui::Button("Add")) {
         if (values) {
@@ -131,9 +131,9 @@ void imguiVectorInt::addElementWidget() {
             newValue = 0;  // Reset input
         }
     }
-    
+
     ImGui::SameLine();
-    
+
     // Clear all button
     if (ImGui::Button("Clear All")) {
         if (values) {
@@ -160,13 +160,13 @@ void imguiStringSelection::display(const ConfigParameter& p) {
     } else {
         currentSelection = 0; // Default to first option if not found
     }
-    
+
     // Create array of const char* for ImGui::Combo
     std::vector<const char*> items;
     for (const auto& option : options) {
         items.push_back(option.c_str());
     }
-    
+
     // Display combo box
     if (ImGui::Combo(p.name, &currentSelection, items.data(), static_cast<int>(items.size()))) {
         // Update the string when selection changes
@@ -180,7 +180,7 @@ void imguiStringSelection::display(const ConfigParameter& p) {
 void imguiFileExplorer::display(const ConfigParameter& p){
     fileDialog.SetTitle(p.name);
     ImGui::PushID(p.name);
-    
+
     if (selected.empty()){
         buttonName = "Open...";
     }
@@ -195,7 +195,7 @@ void imguiFileExplorer::display(const ConfigParameter& p){
     fileDialog.Display();
     ImGui::SameLine();
     ImGui::Text("%s", p.name);
-    
+
     if(fileDialog.HasSelected())
     {
         selected = fileDialog.GetSelected().string();

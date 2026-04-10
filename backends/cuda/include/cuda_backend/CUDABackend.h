@@ -35,7 +35,7 @@ class CUDABackendManager;
             operation \
         ); \
     } \
-    assert(err != cudaSuccess && err && operation);}
+    assert(err == cudaSuccess);}
     // else if (err != cudaSuccess) { \
     //     throw dolphin::backend::BackendException( \
     //         std::string("CUDA error: ") + cudaGetErrorString(err), \
@@ -58,7 +58,7 @@ class CUDABackendManager;
 // Unified cuFFT error check macro
 #define CUFFT_CHECK(call, operation) { \
     cufftResult res = call; \
-    assert(res == CUFFT_SUCCESS && call && operation);}
+    assert(res == CUFFT_SUCCESS);}
     // if (res != CUFFT_SUCCESS) { \
     //     throw dolphin::backend::BackendException( \
     //         "cuFFT error code: " + std::to_string(res), \

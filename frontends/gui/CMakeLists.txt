@@ -44,12 +44,13 @@ add_library(implot3d_lib
 target_include_directories(implot3d_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/lib/implot3d
     ${CMAKE_SOURCE_DIR}/lib/imgui-filebrowser)
-    
+
 target_link_libraries(implot3d_lib PUBLIC
     imgui_lib)
 
 # Find the dolphin package
 find_package(dolphin REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 
 # Add OpenGL and GLFW dependencies
 find_package(OpenGL REQUIRED)

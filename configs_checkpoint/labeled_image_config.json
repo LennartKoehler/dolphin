@@ -1,0 +1,27 @@
+{
+  "deconvolution_config": {
+    "algorithm_name": "TestAlgorithm",
+    "iterations": 10,
+    "epsilon": 1e-6,
+    "lambda": 0.015,
+    "border_type": "mirror"
+  },
+
+  "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
+
+  "psf_config_path": ["../configs/default_psf_config_gaussian.json"],
+  "psf_file_path": [],
+  "psf_dir_path": "",
+  "save_psf": true,
+  "output_dir": "/home/lennart-k-hler/data/dolphin_results",
+
+  "backend": "cpu",
+  "n_io_threads": 10,
+  "n_worker_threads" : 8,
+  "n_devices" : 1,
+  "max_mem_gb": 64,
+
+  "deconvolution_type": "standard",
+  "labeled_image": "/home/lennart-k-hler/data/labeledImage/EnvelopLabelOutline16bit.tif",
+  "label_psf_map": "0[ID1234], 1[constant_hyperstack_1]"
+}

@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(dolphin REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 # Create CLI executable
 add_executable(dolphin_cli
     src/main.cpp
@@ -16,7 +17,6 @@ add_executable(dolphin_cli
 # Include directories
 target_include_directories(dolphin_cli
     PRIVATE
-
         ${CMAKE_SOURCE_DIR}/lib/CLI11/include
         ${CMAKE_SOURCE_DIR}/include
 )

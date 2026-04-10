@@ -25,7 +25,7 @@ See the LICENSE file provided with the code for the full license.
 
 PSFGenerationService::PSFGenerationService()
     : initialized_(false),
-      thread_pool_(std::make_unique<ThreadPool>(1)){}
+      thread_pool_(std::make_unique<ThreadPool>(8)){}//TODO dynamic number of threads
 
 PSFGenerationService::~PSFGenerationService() {
     shutdown();

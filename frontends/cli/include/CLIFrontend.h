@@ -24,7 +24,7 @@ private:
     DeconvolutionConfig deconvolutionConfig;
     int argc;
     char** argv;
-    std::string setupConfigPath = "";
+    std::string setupConfigPath;
 
 
     void deconvolution();

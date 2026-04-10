@@ -38,7 +38,7 @@ public:
         return instance;
     }
 
-    void registerPSFType(const std::string& name, 
+    void registerPSFType(const std::string& name,
                          GeneratorCreator generatorCreator,
                          ConfigCreator configCreator) {
         generators_[name] = generatorCreator;
@@ -46,56 +46,61 @@ public:
     }
 
     std::shared_ptr<BasePSFGenerator> createGenerator(
-        const std::string& name, 
+        const std::string& name,
         const json& configData
     ) {
         auto genIt = generators_.find(name);
         auto confIt = configs_.find(name);
-        
+
         if (genIt == generators_.end() || confIt == configs_.end()) {
             throw std::runtime_error("Unknown PSF model: " + name);
         }
-        
+
         // Create config and load data
         auto config = confIt->second();
         if (!config->loadFromJSON(configData)) {
             throw std::runtime_error("Failed to load PSF config for: " + name);
         }
         config->printValues();
-        
+
         // Create generator and set config
         auto generator = genIt->second();
         generator->setConfig(std::move(config));
-        
+
         return generator;
     }
 
     std::shared_ptr<BasePSFGenerator> createGenerator(std::shared_ptr<PSFConfig> config) {
         std::string modelName = config->getModelName();
-        
+
         auto it = generators_.find(modelName);
         if (it == generators_.end()) {
             throw std::runtime_error("Unknown PSF model: " + modelName);
         }
-        
+
         auto generator = it->second();
         generator->setConfig(std::move(config));
         return generator;
     }
 
     std::shared_ptr<PSFConfig> createConfig(const json& configJson) {
-        std::string psfModel = configJson["modelName"].get<std::string>();
-        
+        std::string psfModel;
+        try{
+            psfModel = configJson["model_name"].get<std::string>(); // TODO make nicer
+        }
+        catch (...) {throw std::runtime_error("model_name tag missing");}
+
+
         auto it = configs_.find(psfModel);
         if (it == configs_.end()) {
             throw std::runtime_error("Unknown PSF model: " + psfModel);
         }
-        
+
         auto config = it->second();
         if (!config->loadFromJSON(configJson)) {
             throw std::runtime_error("Failed to load PSF config for: " + psfModel);
         }
-    
+
         config->printValues();
         return config;
     }
@@ -110,11 +115,11 @@ public:
 private:
     PSFGeneratorFactory() {
         // Register PSF types
-        registerPSFType("Gaussian", 
+        registerPSFType("Gaussian",
             []() { return std::make_unique<GaussianPSFGenerator>(); },
             []() { return std::make_unique<GaussianPSFConfig>(); }
         );
-        
+
         registerPSFType("GibsonLanni",
             []() { return std::make_unique<GibsonLanniPSFGenerator>(); },
             []() { return std::make_unique<GibsonLanniPSFConfig>(); }
