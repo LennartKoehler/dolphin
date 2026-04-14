@@ -77,7 +77,7 @@ void testSplitImageHomogeneous() {
         size_t maxVolume = 1000000;
         size_t minCubes = 1;
         PaddingType padType = PaddingType::ZERO;
-        CuboidShape minSize(1, 1, 1);
+        CuboidShape minSize(21, 21, 11);  // one larger than total padding (20, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -94,7 +94,7 @@ void testSplitImageHomogeneous() {
         size_t maxVolume = 1000000;  // 1M voxels - should require multiple cubes
         size_t minCubes = 4;
         PaddingType padType = PaddingType::ZERO;
-        CuboidShape minSize(64, 64, 32);
+        CuboidShape minSize(65, 65, 33);  // one larger than total padding (64, 64, 32)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -111,7 +111,7 @@ void testSplitImageHomogeneous() {
         size_t maxVolume = 1000000;
         size_t minCubes = 1;
         PaddingType padType = PaddingType::NONE;
-        CuboidShape minSize(8, 8, 4);
+        CuboidShape minSize(9, 9, 5);  // one larger than total padding (8, 8, 4)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -128,7 +128,7 @@ void testSplitImageHomogeneous() {
         size_t maxVolume = 500000;
         size_t minCubes = 2;
         PaddingType padType = PaddingType::NONE;
-        CuboidShape minSize(40, 40, 20);
+        CuboidShape minSize(41, 41, 21);  // one larger than total padding (40, 40, 20)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -145,7 +145,7 @@ void testSplitImageHomogeneous() {
         size_t maxVolume = 200000;
         size_t minCubes = 4;
         PaddingType padType = PaddingType::ZERO;
-        CuboidShape minSize(32, 32, 16);
+        CuboidShape minSize(33, 33, 17);  // one larger than total padding (32, 32, 16)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -167,7 +167,7 @@ void testSplitImageHomogeneous() {
         size_t maxVolume = 500000;
         size_t minCubes = 1;
         PaddingType padType = PaddingType::ZERO;
-        CuboidShape minSize(16, 16, 8);
+        CuboidShape minSize(17, 17, 9);  // one larger than total padding (16, 16, 8)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -198,7 +198,7 @@ void testSplitImageHomogeneous() {
         size_t maxVolume = 1000000;
         size_t minCubes = 8;
         PaddingType padType = PaddingType::MIRROR;
-        CuboidShape minSize(32, 32, 16);
+        CuboidShape minSize(33, 33, 17);  // one larger than total padding (32, 32, 16)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -215,7 +215,7 @@ void testSplitImageHomogeneous() {
         size_t maxVolume = 50000;  // Very small
         size_t minCubes = 1;
         PaddingType padType = PaddingType::ZERO;
-        CuboidShape minSize(20, 20, 10);
+        CuboidShape minSize(21, 21, 11);  // one larger than total padding (20, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -233,7 +233,7 @@ void testSplitImageHomogeneous() {
         size_t maxVolume = 300000;
         size_t minCubes = 2;
         PaddingType padType = PaddingType::NONE;
-        CuboidShape minSize(40, 20, 10);
+        CuboidShape minSize(41, 21, 11);  // one larger than total padding (40, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -249,9 +249,10 @@ void testSplitImageHomogeneous() {
         size_t maxVolume = 500;  // Very small
         size_t minCubes = 1;
         PaddingType padType = PaddingType::ZERO;
-        CuboidShape minSize(20, 20, 10);
+        CuboidShape minSize(21, 21, 11);  // one larger than total padding (20, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
+        assert(!result.success);
         std::cout << "    Test 11: Low memory should fail - " << result.success << std::endl;
         if (!result.success) std::cout << result.getErrorString() << std::endl;
 
@@ -263,9 +264,10 @@ void testSplitImageHomogeneous() {
         size_t maxVolume = 5000;  // Very small
         size_t minCubes = 100;
         PaddingType padType = PaddingType::ZERO;
-        CuboidShape minSize(20, 20, 10);
+        CuboidShape minSize(21, 21, 11);  // one larger than total padding (20, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
+        assert(!result.success);
 
         std::cout << "    Test 12: Too many cubes should fail - " << result.success << std::endl;
         if (!result.success) std::cout << result.getErrorString() << std::endl;
@@ -285,7 +287,7 @@ void testCubePositioning() {
         size_t maxVolume = 200000;
         size_t minCubes = 4;
         PaddingType padType = PaddingType::ZERO;
-        CuboidShape minSize(32, 32, 16);
+        CuboidShape minSize(33, 33, 17);  // one larger than total padding (32, 32, 16)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -318,7 +320,7 @@ void testCubePositioning() {
         size_t maxVolume = 500000;
         size_t minCubes = 1;
         PaddingType padType = PaddingType::NONE;
-        CuboidShape minSize(16, 16, 8);
+        CuboidShape minSize(17, 17, 9);  // one larger than total padding (16, 16, 8)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -355,7 +357,7 @@ void testEdgeCases() {
         size_t maxVolume = 1000000;
         size_t minCubes = 1;
         PaddingType padType = PaddingType::NONE;
-        CuboidShape minSize(4, 4, 4);
+        CuboidShape minSize(5, 5, 5);  // one larger than total padding (4, 4, 4)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -387,7 +389,7 @@ void testEdgeCases() {
         size_t maxVolume = 500000;
         size_t minCubes = 1;
         PaddingType padType = PaddingType::ZERO;
-        CuboidShape minSize(40, 40, 20);
+        CuboidShape minSize(41, 41, 21);  // one larger than total padding (40, 40, 20)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
@@ -403,7 +405,7 @@ void testEdgeCases() {
         size_t maxVolume = 10000000;  // Very large
         size_t minCubes = 1;
         PaddingType padType = PaddingType::ZERO;
-        CuboidShape minSize(1, 1, 1);
+        CuboidShape minSize(21, 21, 11);  // one larger than total padding (20, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
         assert(result.success);
