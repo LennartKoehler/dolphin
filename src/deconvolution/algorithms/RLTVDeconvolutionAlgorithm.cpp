@@ -26,11 +26,12 @@ void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
 
     // Allocate memory for intermediate arrays
     c = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
-    c_complex = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    gx = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
-    gy = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
-    gz = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
-    tv = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
+    // c_complex = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    c_complex = c.reinterpret(); // same data pointer, just reinterpreted
+
+    // Allocate temporary complex buffer for FFT operations
+    f_complex = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    tv = backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize);
 
     initialized = true;
 }
@@ -40,37 +41,39 @@ bool RLTVDeconvolutionAlgorithm::isInitialized() const {
 }
 
 void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
-    assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm");\
-
-    assert(initialized && "Richardson-Lucy with TV regularization algorithm not initialized. Call init() first.");\
-
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
 
-    // Verify inputs are on device
-    assert(memory.isOnDevice(H.data) && "PSF is not on device");
-    assert(memory.isOnDevice(g.data) && "Input image is not on device");
-    assert(memory.isOnDevice(f.data) && "Output buffer is not on device");
+    assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm");\
+    assert(initialized && "Richardson-Lucy with TV regularization algorithm not initialized. Call init() first.");\
+    assert(memory.isOnDevice(H.getData()) && "PSF is not on device");
+    assert(memory.isOnDevice(g.getData()) && "Input image is not on device");
+    assert(memory.isOnDevice(f.getData()) && "Output buffer is not on device");
 
     // Initialize result with input data
     memory.memCopy(g, f);
 
-    // Pre-compute TV regularization term (all in spatial domain with real-valued data)
-    deconvolution.gradientX(g, gx);
-    deconvolution.gradientY(g, gy);
-    deconvolution.gradientZ(g, gz);
-    deconvolution.normalizeTV(gx, gy, gz, complexDivisionEpsilon);
-    // Second pass gradients on normalized gradients
-    RealData gx2 = memory.allocateMemoryOnDeviceReal(g.getSize());
-    RealData gy2 = memory.allocateMemoryOnDeviceReal(g.getSize());
-    RealData gz2 = memory.allocateMemoryOnDeviceReal(g.getSize());
-    deconvolution.gradientX(gx, gx2);
-    deconvolution.gradientY(gy, gy2);
-    deconvolution.gradientZ(gz, gz2);
-    deconvolution.computeTV(lambda, gx2, gy2, gz2, tv);
+    {
+        // Pre-compute TV regularization term (all in spatial domain with real-valued data)
+        RealData gx = memory.allocateMemoryOnDeviceReal(g.getSize());
+        RealData gy = memory.allocateMemoryOnDeviceReal(g.getSize());
+        RealData gz = memory.allocateMemoryOnDeviceReal(g.getSize());
+        deconvolution.gradientX(g, gx);
+        deconvolution.gradientY(g, gy);
+        deconvolution.gradientZ(g, gz);
+        deconvolution.normalizeTV(gx, gy, gz, complexDivisionEpsilon);
+        // Second pass gradients on normalized gradients
+        RealData gx2 = memory.allocateMemoryOnDeviceReal(g.getSize());
+        RealData gy2 = memory.allocateMemoryOnDeviceReal(g.getSize());
+        RealData gz2 = memory.allocateMemoryOnDeviceReal(g.getSize());
+        // if done in parallel like on gpu then not safe to do inplace
+        deconvolution.gradientX(gx, gx2);
+        deconvolution.gradientY(gy, gy2);
+        deconvolution.gradientZ(gz, gz2);
+        deconvolution.computeTV(lambda, gx2, gy2, gz2, tv);
+        // RAII deallocate
+    }
 
-    // Allocate temporary complex buffer for FFT operations
-    ComplexData f_complex = memory.allocateMemoryOnDevice(f.getSize());
 
     for (int n = 0; n < iterations; ++n) {
         progressFunction(iterations);

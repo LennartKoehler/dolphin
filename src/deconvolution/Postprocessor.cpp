@@ -112,7 +112,7 @@ void Postprocessor::createWeightMasks(
     }
 
     real_t** masksarray = backend.getMemoryManager().createDataArray(masks);
-    backend.getDeconvManager().sumToOne(masksarray, masks.size(), masks[0]->size.getVolume());
+    backend.getDeconvManager().sumToOne(masksarray, masks.size(), masks[0]->getSize().getVolume());
 }
 
 

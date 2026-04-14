@@ -92,7 +92,7 @@ public:
         size_t requested_size = data.getDataBytes();
         void* rawdata = allocateMemoryOnDevice(requested_size);
         data.setData(rawdata);
-        data.backend = this;
+        data.setBackend(this);
     }
 
     virtual ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const {
@@ -106,11 +106,17 @@ public:
 
     virtual void* allocateMemoryOnDevice(size_t) const;
 
+    virtual DataView<real_t> reinterpret(ComplexData& data) const{
+        NOT_IMPLEMENTED(reinterpret);
+    }
+    virtual DataView<complex_t> reinterpret(RealData& data) const{
+        NOT_IMPLEMENTED(reinterpret);
+    }
 
 
 
 
-    virtual bool isOnDevice(void* data) const {
+    virtual bool isOnDevice(const void* data) const {
         NOT_IMPLEMENTED(isOnDevice);
     }
 
@@ -160,7 +166,7 @@ public:
             //TODO log
         }
         size_t byteSize = srcdata.getDataBytes();
-        memCopy(srcdata.data, destdata.data, byteSize, srcdata.size);
+        memCopy(srcdata.data, destdata.data, byteSize, srcdata.getSize());
     }
 
     template<typename T>
@@ -183,40 +189,40 @@ public:
     template<typename T>
     ManagedData<T> copyDataToDevice(const ManagedData<T>& srcdata) const {
         if (srcdata.data == nullptr) {
-            return ManagedData<T>(this, nullptr, srcdata.size);
+            return ManagedData<T>(this, nullptr, srcdata.getSize(), 0);
         }
         size_t byteSize = srcdata.getDataBytes();
-        void* result = copyDataToDevice(srcdata.data, byteSize, srcdata.size);
-        return ManagedData<T>(this, static_cast<T*>(result), srcdata.size);
+        void* result = copyDataToDevice(srcdata.data, byteSize, srcdata.getSize());
+        return ManagedData<T>(this, static_cast<T*>(result), srcdata.getSize(), byteSize);
     }
 
     template<typename T>
     ManagedData<T> createCopy(const ManagedData<T>& srcdata) const {
         if (srcdata.data == nullptr) {
-            return ManagedData<T>(this, nullptr, srcdata.size);
+            return ManagedData<T>(this, nullptr, srcdata.getSize(), srcdata.getDataBytes());
         }
         size_t byteSize = srcdata.getDataBytes();
         void* result = allocateMemoryOnDevice(byteSize);
-        memCopy(srcdata.data, result, byteSize, srcdata.size);
-        return ManagedData<T>(this, static_cast<T*>(result), srcdata.size);
+        memCopy(srcdata.data, result, byteSize, srcdata.getSize());
+        return ManagedData<T>(this, static_cast<T*>(result), srcdata.getSize(), byteSize);
     }
 
 
     template<typename T>
     ManagedData<T> moveDataFromDevice(const ManagedData<T>& srcdata, const IBackendMemoryManager& destBackend) const {
         if (srcdata.data == nullptr) {
-            return ManagedData<T>(&destBackend, nullptr, srcdata.size);
+            return ManagedData<T>(&destBackend, nullptr, srcdata.getSize(), srcdata.getDataBytes());
         }
         size_t byteSize = srcdata.getDataBytes();
-        void* result = moveDataFromDevice(srcdata.data, byteSize, srcdata.size, destBackend);
-        return ManagedData<T>(&destBackend, static_cast<T*>(result), srcdata.size);
+        void* result = moveDataFromDevice(srcdata.data, byteSize, srcdata.getSize(), destBackend);
+        return ManagedData<T>(&destBackend, static_cast<T*>(result), srcdata.getSize(), srcdata.getDataBytes());
     }
 
 
     template<typename T>
     void freeMemoryOnDevice(ManagedData<T>& data) const {
         if (data.data == nullptr) return;
-        size_t byteSize = data.getElementSize();
+        size_t byteSize = data.getDataBytes();
         freeMemoryOnDevice(data.data, byteSize);
         data.data = nullptr;
     }

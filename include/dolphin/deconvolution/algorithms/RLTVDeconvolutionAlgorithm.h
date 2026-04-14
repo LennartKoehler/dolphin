@@ -15,14 +15,13 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <memory>
-#include <iostream>
 
 class RLTVDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
 public:
     // Constructor that takes a backend parameter
     RLTVDeconvolutionAlgorithm() = default;
     ~RLTVDeconvolutionAlgorithm() = default;
-    
+
     void configure(const DeconvolutionConfig& config) override;
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
@@ -32,14 +31,12 @@ private:
     int iterations;
     double lambda;
     bool initialized = false;
-    
+
     // Algorithm-specific data members for intermediate calculations
-    ComplexData c_complex;  // Frequency domain
+    ComplexData f_complex;  // Frequency domain
+    ComplexView c_complex;  // Frequency domain
     RealData c;             // Spatial domain (real-valued)
-    RealData gx;            // Gradient in spatial domain (real-valued)
-    RealData gy;
-    RealData gz;
     RealData tv;            // TV term (spatial domain, real-valued)
-    
+
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };

@@ -112,9 +112,9 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
 bool SetupConfig::loadFromJSON(const json& jsonData){
     bool success = Config::loadFromJSON(jsonData);
 
-    if (jsonData.contains("DeconvolutionConfig")){
+    if (jsonData.contains("deconvolution_config")){//TODO make nicer, shouldnt be hardcoded here
         deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
-        success = success && deconvolutionConfig->loadFromJSON(jsonData["DeconvolutionConfig"]);
+        success = success && deconvolutionConfig->loadFromJSON(jsonData["deconvolution_config"]);
     }
     else{
 

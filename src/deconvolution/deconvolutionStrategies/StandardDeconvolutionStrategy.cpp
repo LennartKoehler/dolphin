@@ -65,6 +65,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     Padding cubePadding = std::move(cubePaddingResult.value.first);
     CuboidShape minShape = std::move(cubePaddingResult.value.second); // has to be at least as big as every psf
 
+
     if (!cubePaddingResult.success) {
         return Result<DeconvolutionPlan>(cubePaddingResult);
     }
@@ -81,14 +82,18 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
 
     Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(cubePadding, imageSize, maxMemCubeVolume, workerThreads, deconvConfig.imagePaddingType, minShape);
-
     if (!cubeCoordinatesWithPaddingResult.success) {
         return Result<DeconvolutionPlan>(cubeCoordinatesWithPaddingResult);
     }
     std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = cubeCoordinatesWithPaddingResult.value;
 
-    CuboidShape workShape = cubeCoordinatesWithPadding[0].getBox().dimensions;
-    size_t memoryPerTask = estimateMemoryUsage(workShape, algorithm.get(), setupConfig);
+    BoxCoordWithPadding workShape = cubeCoordinatesWithPadding[0];
+
+    if (workShape.padding.getTotalPadding() / workShape.box.dimensions> 3)
+        spdlog::get("deconvolution")->warn("Low memory, padding takes up most of the compute block. Padding is: ({}); the subimage is: ({})",
+                                           cubePadding.getTotalPadding().print(), workShape.box.dimensions.print());
+
+    size_t memoryPerTask = estimateMemoryUsage(workShape.getBox().dimensions, algorithm.get(), setupConfig);
 
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     tasks.reserve(cubeCoordinatesWithPadding.size());
@@ -118,7 +123,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     spdlog::get("deconvolution")
         ->info("Successfully created deconvolution plan with {} total cubes. Each cube has size (width x height x depth) ({}) which includes padding (padding before, padding after) ({}, {})",
-        totalTasks, (workShape).print(), cubePadding.before.print(), cubePadding.after.print());
+        totalTasks, (workShape.getBox().dimensions).print(), cubePadding.before.print(), cubePadding.after.print());
 
     DeconvolutionPlan plan {
         std::move(tasks),
@@ -373,7 +378,7 @@ Result<std::pair<Padding, CuboidShape>> StandardDeconvolutionStrategy::getCubePa
             "Padding for cubes is smaller than zero");
     }
 
-    return Result<std::pair<Padding, CuboidShape>>::ok(std::pair<Padding, CuboidShape>(std::move(padding), std::move(largestPSF)));
+    return Result<std::pair<Padding, CuboidShape>>::ok(std::pair<Padding, CuboidShape>(std::move(padding), std::move(padding.getTotalPadding() + CuboidShape{1,1,1})));
 }
 
 

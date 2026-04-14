@@ -37,7 +37,7 @@ void CUDABackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
 }
 
 
-bool CUDABackendMemoryManager::isOnDevice(void* ptr) const {
+bool CUDABackendMemoryManager::isOnDevice(const void* ptr) const {
     if (ptr == nullptr) return false;
 
     cudaPointerAttributes attributes;
@@ -66,26 +66,26 @@ bool CUDABackendMemoryManager::isOnDevice(void* ptr) const {
 //     // Source parameters
 //     copyParams.srcPtr = make_cudaPitchedPtr(
 //         srcData.data,                           // Source pointer
-//         srcData.size.width * sizeof(complex_t),  // Pitch (row width in bytes)
-//         srcData.size.width,                     // Width in elements
-//         srcData.size.height                     // Height in elements
+//         srcData.getSize().width * sizeof(complex_t),  // Pitch (row width in bytes)
+//         srcData.getSize().width,                     // Width in elements
+//         srcData.getSize().height                     // Height in elements
 //     );
 //     copyParams.srcPos = make_cudaPos(0, 0, 0); // Start from origin
 //
 //     // Destination parameters
 //     copyParams.dstPtr = make_cudaPitchedPtr(
 //         destData.data,                          // Destination pointer
-//         destData.size.width * sizeof(complex_t), // Pitch (row width in bytes)
-//         destData.size.width,                    // Width in elements
-//         destData.size.height                    // Height in elements
+//         destData.getSize().width * sizeof(complex_t), // Pitch (row width in bytes)
+//         destData.getSize().width,                    // Width in elements
+//         destData.getSize().height                    // Height in elements
 //     );
 //     copyParams.dstPos = make_cudaPos(0, 0, 0); // Start from origin
 //
 //     // Copy extent (how much to copy)
 //     copyParams.extent = make_cudaExtent(
-//         srcData.size.width * sizeof(complex_t),  // Width in bytes
-//         srcData.size.height,                    // Height in elements
-//         srcData.size.depth                      // Depth in elements
+//         srcData.getSize().width * sizeof(complex_t),  // Width in bytes
+//         srcData.getSize().height,                    // Height in elements
+//         srcData.getSize().depth                      // Depth in elements
 //     );
 //
 //     // Determine copy direction
@@ -114,7 +114,7 @@ bool CUDABackendMemoryManager::isOnDevice(void* ptr) const {
 
 
 RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
-    RealData result{ this, nullptr, shape };
+    RealData result{ this, nullptr, shape, shape.getVolume() * sizeof(real_t)};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
@@ -122,7 +122,7 @@ RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape&
 ComplexData CUDABackendMemoryManager::allocateMemoryOnDevice(const CuboidShape& shape) const{
     CuboidShape complexShape = shape;
     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
-    ComplexData result{ this, nullptr, complexShape };
+    ComplexData result{ this, nullptr, complexShape, complexShape.getVolume() * sizeof(complex_t)};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
@@ -144,6 +144,8 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
 
     // Update memory tracking using getAccess()
     auto access = getMemoryTracking()->getAccess();
+
+    g_logger_cuda(std::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::INFO);
     access.data.totalUsedMemory += requested_size;
 
     return devicePtr;
@@ -198,6 +200,7 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const 
     } else {
         access.data.totalUsedMemory -= size;
     }
+    g_logger_cuda(std::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::INFO);
 
     ptr = nullptr;
 }
@@ -325,12 +328,12 @@ void CUDADeconvolutionBackend::destroyPlans(){
 // FFT Operations
 void CUDADeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
     // Validate input data
-    BACKEND_CHECK(in.size.getVolume() > 0, "Invalid input data size for forwardFFT", "CUDA", "forwardFFT");
-    BACKEND_CHECK(out.size.getVolume() > 0, "Invalid output data size for forwardFFT", "CUDA", "forwardFFT");
-    BACKEND_CHECK(in.size.getVolume() == out.size.getVolume(), "Size mismatch in forwardFFT", "CUDA", "forwardFFT");
+    BACKEND_CHECK(in.getSize().getVolume() > 0, "Invalid input data size for forwardFFT", "CUDA", "forwardFFT");
+    BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for forwardFFT", "CUDA", "forwardFFT");
+    BACKEND_CHECK(in.getSize().getVolume() == out.getSize().getVolume(), "Size mismatch in forwardFFT", "CUDA", "forwardFFT");
 
     // Get or create the forward FFT plan
-    PlanDescription desc(PlanDirection::FORWARD, PlanType::COMPLEX, in.size);
+    PlanDescription desc(PlanDirection::FORWARD, PlanType::COMPLEX, in.getSize());
     cufftHandle* forwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
@@ -342,12 +345,12 @@ void CUDADeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& ou
 // FFT Operations
 void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
     // Validate input data
-    BACKEND_CHECK(in.size.getVolume() > 0, "Invalid input data size for backwardFFT", "CUDA", "backwardFFT");
-    BACKEND_CHECK(out.size.getVolume() > 0, "Invalid output data size for backwardFFT", "CUDA", "backwardFFT");
-    BACKEND_CHECK(in.size.getVolume() == out.size.getVolume(), "Size mismatch in backwardFFT", "CUDA", "backwardFFT");
+    BACKEND_CHECK(in.getSize().getVolume() > 0, "Invalid input data size for backwardFFT", "CUDA", "backwardFFT");
+    BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for backwardFFT", "CUDA", "backwardFFT");
+    BACKEND_CHECK(in.getSize().getVolume() == out.getSize().getVolume(), "Size mismatch in backwardFFT", "CUDA", "backwardFFT");
 
     // Get or create the backward FFT plan
-    PlanDescription desc(PlanDirection::BACKWARD, PlanType::COMPLEX, in.size);
+    PlanDescription desc(PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize());
     cufftHandle* backwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
@@ -355,17 +358,17 @@ void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& o
 
     CUFFT_CHECK(cufftExecC2C(*backwardPlan, reinterpret_cast<cufftComplex*>(in.data), reinterpret_cast<cufftComplex*>(out.data), CUFFT_INVERSE), "backwardFFT");
 
-    complex_t normFactor{1.0f / out.size.getVolume(), 1.0f / out.size.getVolume()};//TESTVALUE
+    complex_t normFactor{1.0f / out.getSize().getVolume(), 1.0f / out.getSize().getVolume()};//TESTVALUE
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
 void CUDADeconvolutionBackend::forwardFFT(const RealData& in, ComplexData& out) const {
     // Validate input data
-    BACKEND_CHECK(in.size.getVolume() > 0, "Invalid input data size for forwardFFTReal", "CUDA", "forwardFFTReal");
-    BACKEND_CHECK(out.size.getVolume() > 0, "Invalid output data size for forwardFFTReal", "CUDA", "forwardFFTReal");
+    BACKEND_CHECK(in.getSize().getVolume() > 0, "Invalid input data size for forwardFFTReal", "CUDA", "forwardFFTReal");
+    BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for forwardFFTReal", "CUDA", "forwardFFTReal");
 
     // Get or create the forward FFT plan
-    PlanDescription desc(PlanDirection::FORWARD, PlanType::REAL, in.size);
+    PlanDescription desc(PlanDirection::FORWARD, PlanType::REAL, in.getSize());
     cufftHandle* forwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
@@ -377,11 +380,11 @@ void CUDADeconvolutionBackend::forwardFFT(const RealData& in, ComplexData& out) 
 
 void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) const {
     // Validate input data
-    BACKEND_CHECK(in.size.getVolume() > 0, "Invalid input data size for backwardFFTReal", "CUDA", "backwardFFTReal");
-    BACKEND_CHECK(out.size.getVolume() > 0, "Invalid output data size for backwardFFTReal", "CUDA", "backwardFFTReal");
+    BACKEND_CHECK(in.getSize().getVolume() > 0, "Invalid input data size for backwardFFTReal", "CUDA", "backwardFFTReal");
+    BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for backwardFFTReal", "CUDA", "backwardFFTReal");
 
     // Get or create the backward FFT plan
-    PlanDescription desc(PlanDirection::BACKWARD, PlanType::REAL, out.size);
+    PlanDescription desc(PlanDirection::BACKWARD, PlanType::REAL, out.getSize());
     cufftHandle* backwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
@@ -389,18 +392,18 @@ void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out)
 
     CUFFT_CHECK(cufftExecC2R(*backwardPlan, reinterpret_cast<cufftComplex*>(in.data), reinterpret_cast<cufftReal*>(out.data)), "backwardFFTReal");
 
-    real_t normFactor{1.0f / out.size.getVolume()};//TESTVALUE
+    real_t normFactor{1.0f / out.getSize().getVolume()};//TESTVALUE
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
 // Shift Operations
 void CUDADeconvolutionBackend::octantFourierShift(ComplexData& data) const {
-    cudaError_t err = CUBE_FTT::octantFourierShift(data.size.width, data.size.height, data.size.depth, data.data, config.stream);
+    cudaError_t err = CUBE_FTT::octantFourierShift(data.getSize().width, data.getSize().height, data.getSize().depth, data.data, config.stream);
     CUDA_CHECK(err, "octantFourierShift");
 }
 
 void CUDADeconvolutionBackend::octantFourierShift(RealData& data) const {
-    cudaError_t err = CUBE_FTT::octantFourierShift(data.size.width, data.size.height, data.size.depth, data.data, config.stream);
+    cudaError_t err = CUBE_FTT::octantFourierShift(data.getSize().width, data.getSize().height, data.getSize().depth, data.data, config.stream);
     CUDA_CHECK(err, "octantFourierShift");
 }
 
@@ -417,66 +420,66 @@ void CUDADeconvolutionBackend::sumToOne(real_t** data, int nImages, int imageVol
 // Complex Arithmetic Operations
 void CUDADeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     // Validate input data
-    BACKEND_CHECK(a.size.getVolume() > 0, "Invalid input data size for complexMultiplication", "CUDA", "complexMultiplication");
-    BACKEND_CHECK(b.size.getVolume() > 0, "Invalid input data size for complexMultiplication", "CUDA", "complexMultiplication");
-    BACKEND_CHECK(result.size.getVolume() > 0, "Invalid output data size for complexMultiplication", "CUDA", "complexMultiplication");
-    BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexMultiplication", "CUDA", "complexMultiplication");
+    BACKEND_CHECK(a.getSize().getVolume() > 0, "Invalid input data size for complexMultiplication", "CUDA", "complexMultiplication");
+    BACKEND_CHECK(b.getSize().getVolume() > 0, "Invalid input data size for complexMultiplication", "CUDA", "complexMultiplication");
+    BACKEND_CHECK(result.getSize().getVolume() > 0, "Invalid output data size for complexMultiplication", "CUDA", "complexMultiplication");
+    BACKEND_CHECK(a.getSize().getVolume() == b.getSize().getVolume() && a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in complexMultiplication", "CUDA", "complexMultiplication");
 
-    cudaError_t err = CUBE_MAT::complexElementwiseMatMul(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, config.stream);
+    cudaError_t err = CUBE_MAT::complexElementwiseMatMul(a.getSize().width, a.getSize().height, a.getSize().depth, a.data, b.data, result.data, config.stream);
     CUDA_CHECK(err, "complexMultiplication");
 }
 
 void CUDADeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
     // Validate input data
-    BACKEND_CHECK(a.size.getVolume() > 0, "Invalid input data size for complexDivision", "CUDA", "complexDivision");
-    BACKEND_CHECK(b.size.getVolume() > 0, "Invalid input data size for complexDivision", "CUDA", "complexDivision");
-    BACKEND_CHECK(result.size.getVolume() > 0, "Invalid output data size for complexDivision", "CUDA", "complexDivision");
-    BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexDivision", "CUDA", "complexDivision");
+    BACKEND_CHECK(a.getSize().getVolume() > 0, "Invalid input data size for complexDivision", "CUDA", "complexDivision");
+    BACKEND_CHECK(b.getSize().getVolume() > 0, "Invalid input data size for complexDivision", "CUDA", "complexDivision");
+    BACKEND_CHECK(result.getSize().getVolume() > 0, "Invalid output data size for complexDivision", "CUDA", "complexDivision");
+    BACKEND_CHECK(a.getSize().getVolume() == b.getSize().getVolume() && a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in complexDivision", "CUDA", "complexDivision");
     BACKEND_CHECK(epsilon >= 0.0, "Invalid epsilon value for complexDivision", "CUDA", "complexDivision");
 
-    cudaError_t err = CUBE_MAT::complexElementwiseMatDiv(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, epsilon, config.stream);
+    cudaError_t err = CUBE_MAT::complexElementwiseMatDiv(a.getSize().width, a.getSize().height, a.getSize().depth, a.data, b.data, result.data, epsilon, config.stream);
     CUDA_CHECK(err, "complexDivision");
 }
 
 void CUDADeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexAddition", "CUDA", "complexAddition");
-    cudaError_t err = CUBE_MAT::complexAddition(a.size.width, a.size.height, a.size.depth, a.data, b.data , result.data, config.stream);
+    BACKEND_CHECK(a.getSize().getVolume() == b.getSize().getVolume() && a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in complexAddition", "CUDA", "complexAddition");
+    cudaError_t err = CUBE_MAT::complexAddition(a.getSize().width, a.getSize().height, a.getSize().depth, a.data, b.data , result.data, config.stream);
     CUDA_CHECK(err, "complexAddition");
 }
 
 
 
 void CUDADeconvolutionBackend::multiplication(const RealData& a, const RealData& b, RealData& result) const{
-    BACKEND_CHECK(a.size.getVolume() == result.size.getVolume(), "Size mismatch in elementwiseDivisionReal", "CUDA", "elementwiseMatMulReal");
-    cudaError_t err = CUBE_MAT::elementwiseMatMul(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, config.stream);
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in elementwiseDivisionReal", "CUDA", "elementwiseMatMulReal");
+    cudaError_t err = CUBE_MAT::elementwiseMatMul(a.getSize().width, a.getSize().height, a.getSize().depth, a.data, b.data, result.data, config.stream);
     CUDA_CHECK(err, "scalarMultiplicationReal");
 }
 void CUDADeconvolutionBackend::scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const{
-    BACKEND_CHECK(a.size.getVolume() == result.size.getVolume(), "Size mismatch in scalarMultiplicationReal", "CUDA", "scalarMultiplicationReal");
-    cudaError_t err = CUBE_MAT::scalarMul(a.size.width, a.size.height, a.size.depth, a.data, scalar , result.data, config.stream);
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in scalarMultiplicationReal", "CUDA", "scalarMultiplicationReal");
+    cudaError_t err = CUBE_MAT::scalarMul(a.getSize().width, a.getSize().height, a.getSize().depth, a.data, scalar , result.data, config.stream);
     CUDA_CHECK(err, "scalarMultiplicationReal");
 }
 void CUDADeconvolutionBackend::division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const{
-    BACKEND_CHECK(a.size.getVolume() == result.size.getVolume(), "Size mismatch in elementwiseDivisionReal", "CUDA", "elementwiseDivisionReal");
-    cudaError_t err = CUBE_MAT::elementwiseMatDiv(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, epsilon, config.stream);
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in elementwiseDivisionReal", "CUDA", "elementwiseDivisionReal");
+    cudaError_t err = CUBE_MAT::elementwiseMatDiv(a.getSize().width, a.getSize().height, a.getSize().depth, a.data, b.data, result.data, epsilon, config.stream);
     CUDA_CHECK(err, "elementwiseDivisionReal");
 }
 
 void CUDADeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
-    BACKEND_CHECK(a.size.getVolume() == result.size.getVolume(), "Size mismatch in scalarMultiplication", "CUDA", "scalarMultiplication");
-    cudaError_t err = CUBE_MAT::complexScalarMul(a.size.width, a.size.height, a.size.depth, a.data, scalar , result.data, config.stream);
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in scalarMultiplication", "CUDA", "scalarMultiplication");
+    cudaError_t err = CUBE_MAT::complexScalarMul(a.getSize().width, a.getSize().height, a.getSize().depth, a.data, scalar , result.data, config.stream);
     CUDA_CHECK(err, "scalarMultiplication");
 }
 
 void CUDADeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexMultiplicationWithConjugate", "CUDA", "complexMultiplicationWithConjugate");
-    cudaError_t err = CUBE_MAT::complexElementwiseMatMulConjugate(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, config.stream);
+    BACKEND_CHECK(a.getSize().getVolume() == b.getSize().getVolume() && a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in complexMultiplicationWithConjugate", "CUDA", "complexMultiplicationWithConjugate");
+    cudaError_t err = CUBE_MAT::complexElementwiseMatMulConjugate(a.getSize().width, a.getSize().height, a.getSize().depth, a.data, b.data, result.data, config.stream);
     CUDA_CHECK(err, "complexMultiplicationWithConjugate");
 }
 
 void CUDADeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
-    BACKEND_CHECK(a.size.getVolume() == b.size.getVolume() && a.size.getVolume() == result.size.getVolume(), "Size mismatch in complexDivisionStabilized", "CUDA", "complexDivisionStabilized");
-    cudaError_t err = CUBE_MAT::complexElementwiseMatDivStabilized(a.size.width, a.size.height, a.size.depth, a.data, b.data, result.data, epsilon, config.stream);
+    BACKEND_CHECK(a.getSize().getVolume() == b.getSize().getVolume() && a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in complexDivisionStabilized", "CUDA", "complexDivisionStabilized");
+    cudaError_t err = CUBE_MAT::complexElementwiseMatDivStabilized(a.getSize().width, a.getSize().height, a.getSize().depth, a.data, b.data, result.data, epsilon, config.stream);
     CUDA_CHECK(err, "complexDivisionStabilized");
 }
 
@@ -490,7 +493,7 @@ void CUDADeconvolutionBackend::hasNAN(const ComplexData& data) const {
 }
 
 void CUDADeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
-    cudaError_t err = CUBE_REG::calculateLaplacian(psf.size.width, psf.size.height, psf.size.depth, psf.data, laplacian.data, config.stream);
+    cudaError_t err = CUBE_REG::calculateLaplacian(psf.getSize().width, psf.getSize().height, psf.getSize().depth, psf.data, laplacian.data, config.stream);
     CUDA_CHECK(err, "calculateLaplacianOfPSF");
 }
 
@@ -500,7 +503,7 @@ void CUDADeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, C
 // }
 
 // void CUDADeconvolutionBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
-//     for (int i = 0; i < data.size.getVolume(); ++i) {
+//     for (int i = 0; i < data.getSize().getVolume(); ++i) {
 //         data.data[i][0] /= cubeVolume;
 //         data.data[i][1] /= cubeVolume;
 //     }
@@ -511,52 +514,52 @@ void CUDADeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& 
     cudaError_t err1 = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(err1, "found it");
 
-    cudaError_t err = CUBE_REG::gradX(image.size.width, image.size.height, image.size.depth, image.data, gradX.data, config.stream);
+    cudaError_t err = CUBE_REG::gradX(image.getSize().width, image.getSize().height, image.getSize().depth, image.data, gradX.data, config.stream);
     CUDA_CHECK(err, "gradientX");
 }
 
 void CUDADeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
-    cudaError_t err = CUBE_REG::gradY(image.size.width, image.size.height, image.size.depth, image.data, gradY.data, config.stream);
+    cudaError_t err = CUBE_REG::gradY(image.getSize().width, image.getSize().height, image.getSize().depth, image.data, gradY.data, config.stream);
     CUDA_CHECK(err, "gradientY");
 }
 
 void CUDADeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
-    cudaError_t err = CUBE_REG::gradZ(image.size.width, image.size.height, image.size.depth, image.data, gradZ.data, config.stream);
+    cudaError_t err = CUBE_REG::gradZ(image.getSize().width, image.getSize().height, image.getSize().depth, image.data, gradZ.data, config.stream);
     CUDA_CHECK(err, "gradientZ");
 }
 
 void CUDADeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
-    cudaError_t err = CUBE_REG::computeTV(gx.size.width, gx.size.height, gx.size.depth, lambda, gx.data, gy.data, gz.data, tv.data, config.stream);
+    cudaError_t err = CUBE_REG::computeTV(gx.getSize().width, gx.getSize().height, gx.getSize().depth, lambda, gx.data, gy.data, gz.data, tv.data, config.stream);
     CUDA_CHECK(err, "computeTV");
 }
 
 void CUDADeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const {
-    cudaError_t err = CUBE_REG::normalizeTV(gradX.size.width, gradX.size.height, gradX.size.depth, gradX.data, gradY.data, gradZ.data, epsilon, config.stream);
+    cudaError_t err = CUBE_REG::normalizeTV(gradX.getSize().width, gradX.getSize().height, gradX.getSize().depth, gradX.data, gradY.data, gradZ.data, epsilon, config.stream);
     CUDA_CHECK(err, "normalizeTV");
 }
 
 // Gradient functions for real-valued data
 void CUDADeconvolutionBackend::gradientX(const RealData& image, RealData& gradX) const {
-    cudaError_t err = CUBE_REG::gradX(image.size.width, image.size.height, image.size.depth, image.data, gradX.data, config.stream);
+    cudaError_t err = CUBE_REG::gradX(image.getSize().width, image.getSize().height, image.getSize().depth, image.data, gradX.data, config.stream);
     CUDA_CHECK(err, "gradientX (real)");
 }
 
 void CUDADeconvolutionBackend::gradientY(const RealData& image, RealData& gradY) const {
-    cudaError_t err = CUBE_REG::gradY(image.size.width, image.size.height, image.size.depth, image.data, gradY.data, config.stream);
+    cudaError_t err = CUBE_REG::gradY(image.getSize().width, image.getSize().height, image.getSize().depth, image.data, gradY.data, config.stream);
     CUDA_CHECK(err, "gradientY (real)");
 }
 
 void CUDADeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ) const {
-    cudaError_t err = CUBE_REG::gradZ(image.size.width, image.size.height, image.size.depth, image.data, gradZ.data, config.stream);
+    cudaError_t err = CUBE_REG::gradZ(image.getSize().width, image.getSize().height, image.getSize().depth, image.data, gradZ.data, config.stream);
     CUDA_CHECK(err, "gradientZ (real)");
 }
 
 void CUDADeconvolutionBackend::computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const {
-    cudaError_t err = CUBE_REG::computeTV(gx.size.width, gx.size.height, gx.size.depth, lambda, gx.data, gy.data, gz.data, tv.data, config.stream);
+    cudaError_t err = CUBE_REG::computeTV(gx.getSize().width, gx.getSize().height, gx.getSize().depth, lambda, gx.data, gy.data, gz.data, tv.data, config.stream);
     CUDA_CHECK(err, "computeTV (real)");
 }
 
 void CUDADeconvolutionBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
-    cudaError_t err = CUBE_REG::normalizeTV(gradX.size.width, gradX.size.height, gradX.size.depth, gradX.data, gradY.data, gradZ.data, epsilon, config.stream);
+    cudaError_t err = CUBE_REG::normalizeTV(gradX.getSize().width, gradX.getSize().height, gradX.getSize().depth, gradX.data, gradY.data, gradZ.data, epsilon, config.stream);
     CUDA_CHECK(err, "normalizeTV (real)");
 }

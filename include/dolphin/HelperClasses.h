@@ -37,6 +37,7 @@ struct Padding{
     int getPaddingWidthTotal() const { return before.width + after.width;}
     int getPaddingHeightTotal() const { return before.height + after.height;}
     int getPaddingDepthTotal() const { return before.width + after.width;}
+    CuboidShape getTotalPadding() const {return before + after;}
 };
 
 
