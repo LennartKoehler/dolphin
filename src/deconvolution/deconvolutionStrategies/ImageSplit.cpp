@@ -114,6 +114,8 @@ void addCubeRecursion(
     const CuboidShape& imageOriginalShape,
     const PaddingType& imagePadding){
 
+    assert(currentCube.box.dimensions.getVolume() > 0);
+
     // next row
     if (currentCube.box.position.width >= imageOriginalShape.width){
         currentCube.box.position.width = 0;
@@ -187,6 +189,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const PaddingType& imagePadding,
     const CuboidShape& minSize)
     {
+    assert(minSize > cubePadding.getTotalPadding());
 
 
     CuboidShape currentMaxSize;
@@ -212,19 +215,19 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
 
         cubePositions.clear(); // reset
 
-
         cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
 
         BoxCoordWithPadding startCube{BoxCoord{CuboidShape(0,0,0), cubeSizeToUse}, cubePadding};
 
         if (startCube.getBox().dimensions.getVolume() < maxVolumePerCube){
+
             addCubeRecursion(
                 cubePositions,
                 startCube,
                 imageOriginalShape,
                 imagePadding);
+            ncubes = cubePositions.size();
         }
-        ncubes = cubePositions.size();
 
         bool success = decreaseSize(tempCubeAccessor, dimIterator, minSize);
         if (!success){
