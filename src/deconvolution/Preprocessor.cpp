@@ -62,9 +62,9 @@ RealData Preprocessor::convertImageToRealData(
 
 Image3D Preprocessor::convertComplexDataToImage(
         const ComplexData& input){
-    const int width  = input.size.width;
-    const int height = input.size.height;
-    const int depth  = input.size.depth;
+    const int width  = input.getSize().width;
+    const int height = input.getSize().height;
+    const int depth  = input.getSize().depth;
 
     Image3D output(CuboidShape(width, height, depth), 0.0f);
 
@@ -84,9 +84,9 @@ Image3D Preprocessor::convertComplexDataToImage(
 // TODO make this conversion part of the backend? because if data is on cuda device then this wont work
 Image3D Preprocessor::convertRealDataToImage(
         const RealData& input){
-    const int width  = input.size.width;
-    const int height = input.size.height;
-    const int depth  = input.size.depth;
+    const int width  = input.getSize().width;
+    const int height = input.getSize().height;
+    const int depth  = input.getSize().depth;
 
     Image3D output(CuboidShape(width, height, depth), 0.0f);
 

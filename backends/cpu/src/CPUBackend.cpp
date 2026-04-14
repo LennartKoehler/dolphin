@@ -94,23 +94,47 @@ void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
 }
 
 // CPUBackendMemoryManager implementation
-bool CPUBackendMemoryManager::isOnDevice(void* ptr) const {
+bool CPUBackendMemoryManager::isOnDevice(const void* ptr) const {
     // For CPU backend, all valid pointers are "on backend"
     return ptr != nullptr;
 }
 
 
 RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
-    RealData result{ this, nullptr, shape };
+    CuboidShape shapeForInplaceFFT = shape;
+    shapeForInplaceFFT.depth = 2 *(shapeForInplaceFFT.depth/2 + 1);
+    std::size_t bytes = shapeForInplaceFFT.getVolume() * sizeof(real_t);
+
+    RealData result{ this, nullptr, shape, bytes};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
 
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const CuboidShape& shape) const{
     CuboidShape complexShape = shape;
-    complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
-    ComplexData result{ this, nullptr, complexShape };
+    complexShape.depth = complexShape.depth / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
+    ComplexData result{ this, nullptr, complexShape, complexShape.getVolume() * sizeof(complex_t)};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
+    return result;
+}
+DataView<real_t> CPUBackendMemoryManager::reinterpret(ComplexData& data) const{
+    // invalidates input
+    CuboidShape realShape = data.getSize();
+    realShape.depth = 4 *(realShape.depth/2 + 1);
+
+    DataView<real_t> result = DataView<real_t>{data.getBackend(), reinterpret_cast<real_t*>(data.data), realShape, data.getDataBytes()};
+    data.setBackend(nullptr); // so it doesnt delete the data
+    return result;
+}
+
+DataView<complex_t> CPUBackendMemoryManager::reinterpret(RealData& data) const{
+    // invalidates input
+    CuboidShape complexShape = data.getSize();
+    complexShape.depth = complexShape.depth / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
+
+
+    DataView<complex_t> result = DataView<complex_t>{data.getBackend(), reinterpret_cast<complex_t*>(data.data), complexShape, data.getDataBytes()};
+    data.setBackend(nullptr); // so it doesnt delete the data
     return result;
 }
 
@@ -124,6 +148,7 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
     // Update memory tracking using getAccess()
     auto access = cpuMemory.getAccess();
     access.data.totalUsedMemory += requested_size;
+    g_logger(std::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::INFO);
     return data;
 
 }
@@ -172,6 +197,7 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
     }
 
     ptr = nullptr;
+    g_logger(std::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::INFO);
 }
 
 
@@ -218,7 +244,7 @@ void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
 
-    FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::COMPLEX, in.size);
+    FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::COMPLEX, in.getSize());
     fftwManager.executeForwardFFT(description, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
 }
 
@@ -226,10 +252,10 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& ou
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
 
-    FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::COMPLEX, in.size);
+    FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize());
     fftwManager.executeForwardFFT(description, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
 
-    complex_t normFactor{1.0f / out.size.getVolume(), 1.0f / out.size.getVolume()};//TESTVALUE
+    complex_t normFactor{1.0f / out.getSize().getVolume(), 1.0f / out.getSize().getVolume()};//TESTVALUE
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
@@ -237,7 +263,7 @@ void CPUDeconvolutionBackend::forwardFFT(const RealData& in, ComplexData& out) c
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
 
-    FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::REAL, in.size);
+    FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::REAL, in.getSize());
     fftwManager.executeForwardFFTReal(description, reinterpret_cast<real_t*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
 }
 
@@ -245,17 +271,17 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) 
     BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
     BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
 
-    FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL ,out.size);
+    FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL ,out.getSize());
     fftwManager.executeBackwardFFTReal(description, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<real_t*>(out.data));
 
-    real_t normFactor{1.0f / out.size.getVolume()};
+    real_t normFactor{1.0f / out.getSize().getVolume()};
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
 // void CPUDeconvolutionBackend::octantFourierShift(RealData& data) const {
-//     int width = data.size.width;
-//     int height = data.size.height;
-//     int depth = data.size.depth;
+//     int width = data.getSize().width;
+//     int height = data.getSize().height;
+//     int depth = data.getSize().depth;
 //
 //     int halfWidth = width / 2;
 //     int halfHeight = height / 2;
@@ -281,9 +307,9 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) 
 // }
 
 void CPUDeconvolutionBackend::octantFourierShift(RealData& data) const {
-    int width = data.size.width;
-    int height = data.size.height;
-    int depth = data.size.depth;
+    int width = data.getSize().width;
+    int height = data.getSize().height;
+    int depth = data.getSize().depth;
     int halfWidth = width / 2;
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
@@ -306,9 +332,9 @@ void CPUDeconvolutionBackend::octantFourierShift(RealData& data) const {
 
 
 void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
-    int width = data.size.width;
-    int height = data.size.height;
-    int depth = data.size.depth;
+    int width = data.getSize().width;
+    int height = data.getSize().height;
+    int depth = data.getSize().depth;
     int halfWidth = width / 2;
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
@@ -331,9 +357,9 @@ void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
 }
 
 void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
-    int width = data.size.width;
-    int height = data.size.height;
-    int depth = data.size.depth;
+    int width = data.getSize().width;
+    int height = data.getSize().height;
+    int depth = data.getSize().depth;
     int halfWidth = width / 2;
     int halfHeight = height / 2;
     int halfDepth = depth / 2;
@@ -398,7 +424,7 @@ void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const 
 
 
     // OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.size.getVolume(); ++i) {
+    for (int i = 0; i < a.getSize().getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
         real_t real_b = b.data[i][0];
@@ -417,7 +443,7 @@ void CPUDeconvolutionBackend::multiplication(const RealData& a, const RealData& 
 
 
     // OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.size.getVolume(); ++i) {
+    for (int i = 0; i < a.getSize().getVolume(); ++i) {
         result.data[i] = a.data[i] * b.data[i];
     }
 }
@@ -428,7 +454,7 @@ void CPUDeconvolutionBackend::division(const RealData& a, const RealData& b, Rea
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
 
     // OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.size.getVolume(); ++i) {
+    for (int i = 0; i < a.getSize().getVolume(); ++i) {
         real_t denominator = b.data[i] < epsilon ? epsilon : b.data[i];
         result.data[i] = a.data[i] / denominator;
     }
@@ -442,7 +468,7 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
 
 
     // OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.size.getVolume(); ++i) {
+    for (int i = 0; i < a.getSize().getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
         real_t real_b = b.data[i][0];
@@ -465,7 +491,7 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
 void CPUDeconvolutionBackend::complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const {
     BACKEND_CHECK(sum.data != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
 
-    int imageSize = sum.size.getVolume();
+    int imageSize = sum.getSize().getVolume();
     OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int imageindex = 0; imageindex < nImages; ++imageindex) {
 
@@ -486,7 +512,7 @@ void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const Comple
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexAddition - result");
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.size.getVolume(); ++i) {
+    for (int i = 0; i < a.getSize().getVolume(); ++i) {
         result.data[i][0] = a.data[i][0] + b.data[i][0];
         result.data[i][1] = a.data[i][1] + b.data[i][1];
     }
@@ -513,7 +539,7 @@ void CPUDeconvolutionBackend::scalarMultiplication(const RealData& a, real_t sca
     BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.size.getVolume(); ++i) {
+    for (int i = 0; i < a.getSize().getVolume(); ++i) {
         result.data[i] = a.data[i] * scalar;
     }
 }
@@ -525,7 +551,7 @@ void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex
     real_t rscalar = scalar[0];
     real_t iscalar = scalar[1];
     OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.size.getVolume(); ++i) {
+    for (int i = 0; i < a.getSize().getVolume(); ++i) {
         result.data[i][0] = a.data[i][0] * rscalar;
         result.data[i][1] = a.data[i][1] * iscalar;
     }
@@ -538,7 +564,7 @@ void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexDa
 
 
     // OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.size.getVolume(); ++i) {
+    for (int i = 0; i < a.getSize().getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
         real_t real_b = b.data[i][0];
@@ -556,7 +582,7 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
 
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.size.getVolume(); ++i) {
+    for (int i = 0; i < a.getSize().getVolume(); ++i) {
         real_t real_a = a.data[i][0];
         real_t imag_a = a.data[i][1];
         real_t real_b = b.data[i][0];
@@ -571,9 +597,9 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
 
 // Specialized Functions
 void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
-    int width = psf.size.width;
-    int height = psf.size.height;
-    int depth = psf.size.depth;
+    int width = psf.getSize().width;
+    int height = psf.getSize().height;
+    int depth = psf.getSize().depth;
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
@@ -596,12 +622,12 @@ void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, Co
 // void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
 //     real_t max_val = 0.0, max_val2 = 0.0;
 //     OMP(omp parallel for, config.useOMP, config.ompThreads)
-//     for (int j = 0; j < resultImage.size.getVolume(); j++) {
+//     for (int j = 0; j < resultImage.getSize().getVolume(); j++) {
 //         max_val = std::max(max_val, resultImage.data[j][0]);
 //         max_val2 = std::max(max_val2, resultImage.data[j][1]);
 //     }
 //     OMP(omp parallel for, config.useOMP, config.ompThreads)
-//     for (int j = 0; j < resultImage.size.getVolume(); j++) {
+//     for (int j = 0; j < resultImage.getSize().getVolume(); j++) {
 //         resultImage.data[j][0] /= (max_val + epsilon);
 //         resultImage.data[j][1] /= (max_val2 + epsilon);
 //     }
@@ -609,7 +635,7 @@ void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, Co
 //
 // void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
 //     OMP(omp parallel for, config.useOMP, config.ompThreads)
-//     for (int i = 0; i < data.size.getVolume(); ++i) {
+//     for (int i = 0; i < data.getSize().getVolume(); ++i) {
 //         data.data[i][0] /= cubeVolume;
 //         data.data[i][1] /= cubeVolume;
 //     }
@@ -624,7 +650,7 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
     real_t maxImag = std::numeric_limits<real_t>::lowest();
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < data.size.getVolume(); i++) {
+    for (int i = 0; i < data.getSize().getVolume(); i++) {
         real_t real = data.data[i][0];
         real_t imag = data.data[i][1];
 
@@ -662,14 +688,14 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
 
 // Layer and Visualization Functions
 void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
-    int width = data.size.width;
-    int height = data.size.height;
-    int depth = data.size.depth;
+    int width = data.getSize().width;
+    int height = data.getSize().height;
+    int depth = data.getSize().depth;
     int layerSize = width * height;
     int halfDepth = depth / 2;
 
-    complex_t* temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * data.size.getVolume());
-    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * data.size.getVolume(), "reorderLayers");
+    complex_t* temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * data.getSize().getVolume());
+    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * data.getSize().getVolume(), "reorderLayers");
 
     int destIndex = 0;
 
@@ -690,15 +716,15 @@ void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
     }
 
     // Copy reordered data back to the original array
-    std::memcpy(data.data, temp, sizeof(complex_t) * data.size.getVolume());
+    std::memcpy(data.data, temp, sizeof(complex_t) * data.getSize().getVolume());
     fftwf_free(temp);
 }
 
 // Gradient and TV Functions - Updated to match OpenMPBackend pattern
 void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
-    int width = image.size.width;
-    int height = image.size.height;
-    int depth = image.size.depth;
+    int width = image.getSize().width;
+    int height = image.getSize().height;
+    int depth = image.getSize().depth;
 
     OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
@@ -721,9 +747,9 @@ void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& g
 }
 
 void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
-    int width = image.size.width;
-    int height = image.size.height;
-    int depth = image.size.depth;
+    int width = image.getSize().width;
+    int height = image.getSize().height;
+    int depth = image.getSize().depth;
 
     OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
@@ -746,9 +772,9 @@ void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& g
 }
 
 void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
-    int width = image.size.width;
-    int height = image.size.height;
-    int depth = image.size.depth;
+    int width = image.getSize().width;
+    int height = image.getSize().height;
+    int depth = image.getSize().depth;
 
     OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
@@ -771,10 +797,10 @@ void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& g
 }
 
 void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
-    int nxy = gx.size.width * gx.size.height;
+    int nxy = gx.getSize().width * gx.getSize().height;
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int z = 0; z < gx.size.depth; ++z) {
+    for (int z = 0; z < gx.getSize().depth; ++z) {
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
 
@@ -782,7 +808,7 @@ void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, co
             real_t dy = gy.data[index][0];
             real_t dz = gz.data[index][0];
 
-            tv.data[index][0] = static_cast<real_t>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+            tv.data[index][0] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
             tv.data[index][1] = 0.0;
         }
     }
@@ -791,10 +817,10 @@ void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, co
 
 
 void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const {
-    int nxy = gradX.size.width * gradX.size.height;
+    int nxy = gradX.getSize().width * gradX.getSize().height;
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int z = 0; z < gradX.size.depth; ++z) {
+    for (int z = 0; z < gradX.getSize().depth; ++z) {
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
 
@@ -818,9 +844,9 @@ void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY
 
 // Gradient and TV Functions for real-valued data
 void CPUDeconvolutionBackend::gradientX(const RealData& image, RealData& gradX) const {
-    int width = image.size.width;
-    int height = image.size.height;
-    int depth = image.size.depth;
+    int width = image.getSize().width;
+    int height = image.getSize().height;
+    int depth = image.getSize().depth;
 
     OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
@@ -841,9 +867,9 @@ void CPUDeconvolutionBackend::gradientX(const RealData& image, RealData& gradX) 
 }
 
 void CPUDeconvolutionBackend::gradientY(const RealData& image, RealData& gradY) const {
-    int width = image.size.width;
-    int height = image.size.height;
-    int depth = image.size.depth;
+    int width = image.getSize().width;
+    int height = image.getSize().height;
+    int depth = image.getSize().depth;
 
     OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
@@ -864,9 +890,9 @@ void CPUDeconvolutionBackend::gradientY(const RealData& image, RealData& gradY) 
 }
 
 void CPUDeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ) const {
-    int width = image.size.width;
-    int height = image.size.height;
-    int depth = image.size.depth;
+    int width = image.getSize().width;
+    int height = image.getSize().height;
+    int depth = image.getSize().depth;
 
     OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
     for (int z = 0; z < depth; ++z) {
@@ -887,10 +913,10 @@ void CPUDeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ) 
 }
 
 void CPUDeconvolutionBackend::computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const {
-    int nxy = gx.size.width * gx.size.height;
+    int nxy = gx.getSize().width * gx.getSize().height;
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int z = 0; z < gx.size.depth; ++z) {
+    for (int z = 0; z < gx.getSize().depth; ++z) {
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
 
@@ -898,16 +924,16 @@ void CPUDeconvolutionBackend::computeTV(real_t lambda, const RealData& gx, const
             real_t dy = gy.data[index];
             real_t dz = gz.data[index];
 
-            tv.data[index] = static_cast<real_t>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+            tv.data[index] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
         }
     }
 }
 
 void CPUDeconvolutionBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
-    int nxy = gradX.size.width * gradX.size.height;
+    int nxy = gradX.getSize().width * gradX.getSize().height;
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int z = 0; z < gradX.size.depth; ++z) {
+    for (int z = 0; z < gradX.getSize().depth; ++z) {
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
 

@@ -154,6 +154,9 @@ struct CuboidShape{
     inline bool operator<(int size){
         return (this->width < size || this->height < size || this->depth < size);
     }
+    inline bool operator>(int size){
+        return (this->width > size || this->height > size || this->depth > size);
+    }
     inline bool operator<(const CuboidShape& other) const {
         return (this->width < other.width || this->height < other.height || this->depth < other.depth);
     }

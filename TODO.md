@@ -1,3 +1,11 @@
+something with data view and memory allocation of real valued vs complex doesnt work. Perhaps its trying to free more than it allocated or the other way around
+
+for example in rltv, it would be smart to compute total variation before allocating for the deconvolution task because then if i have a memory max, i dont have everything allocated at once
+
+r2c fft in place and memory efficient
+
+deconvolution of two rectangles doesnt work as expected
+
 when using gpu, so lower memory and image doesnt fit on gpu with padding then the imagesplit recursion will run infinitely
 
 with new implementation of no padding around the image, padding to the next fastest size of fftw now creates a different result, is this ok?

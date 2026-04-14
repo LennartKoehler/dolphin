@@ -69,6 +69,8 @@ public:
         return "cpu";
     }
 
+    DataView<real_t> reinterpret(ComplexData& data) const override;
+    DataView<complex_t> reinterpret(RealData& data) const override;
 
     // Synchronization method - CPU implementation (no-op)
     void sync() override {}
@@ -77,7 +79,7 @@ public:
     void setMemoryLimit(size_t maxMemorySize = 0) override;
 
     // Data management
-    bool isOnDevice(void* data) const override;
+    bool isOnDevice(const void* data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
 

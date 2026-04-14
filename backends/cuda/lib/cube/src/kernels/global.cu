@@ -365,7 +365,7 @@ void computeTVGlobalReal(int Nx, int Ny, int Nz, real_t lambda, real_t* gx, real
         real_t dz = gz[index];
 
         // Compute the total variation (TV) value
-        tv[index] = static_cast<real_t>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+        tv[index] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
     }
 }
 
@@ -496,7 +496,7 @@ void computeTVGlobal(int Nx, int Ny, int Nz, real_t lambda, complex_t* gx, compl
         real_t dz = gz[index][0];
 
         // Compute the total variation (TV) value
-        tv[index][0] = static_cast<float>(1.0 / ((dx + dy + dz) * lambda + 1.0));
+        tv[index][0] = static_cast<float>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
         tv[index][1] = 0.0; // Assuming the output is real-valued, set the imaginary part to zero
     }
 }

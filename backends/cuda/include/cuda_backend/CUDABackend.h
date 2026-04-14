@@ -100,9 +100,12 @@ public:
     // Memory management initialization
     void setMemoryLimit(size_t maxMemorySize = 0) override;
 
+    // RealData reinterpret(ComplexData& data) const override;
+    // ComplexData reinterpret(RealData& data) const override;
+
     static size_t staticGetAvailableMemory();
 
-    bool isOnDevice(void* data) const override;
+    bool isOnDevice(const void* data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
 

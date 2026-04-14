@@ -16,10 +16,12 @@ See the LICENSE file provided with the code for the full license.
 
 template class ManagedData<real_t>;      // for RealData
 template class ManagedData<complex_t>;   // for ComplexData
+template class DataView<real_t>;      // for RealData
+template class DataView<complex_t>;   // for ComplexData
 
 template<typename T>
-ManagedData<T>::ManagedData(const IBackendMemoryManager* b, T* d, CuboidShape s)
-    : backend(b), data(d), size(s) {}
+ManagedData<T>::ManagedData(IBackendMemoryManager const* b, T* d, CuboidShape s, std::size_t bytes)
+    : backend(b), data(d), size(s) ,bytes(bytes){}
 
 template<typename T>
 ManagedData<T>::~ManagedData() {
@@ -36,6 +38,7 @@ template<typename T>
 ManagedData<T>::ManagedData(const ManagedData& other)
     : backend(other.backend), size(other.size) {
     ManagedData copy = backend->createCopy(other);
+    this->bytes = other.getDataBytes();
     this->data = copy.data;
     copy.data = nullptr; // Prevent copy's destructor from freeing the data
 }
@@ -57,6 +60,7 @@ ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
         size = other.size;
         ManagedData copy = backend->createCopy(other);
         data = copy.data;
+        bytes = other.getDataBytes();
         copy.data = nullptr; // Prevent copy's destructor from freeing the data
     }
     return *this;
@@ -64,7 +68,7 @@ ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
 
 template<typename T>
 ManagedData<T>::ManagedData(ManagedData&& other) noexcept
-    : data(other.data), backend(other.backend), size(other.size) {
+    : data(other.data), backend(other.backend), size(other.size), bytes(other.bytes) {
     other.data = nullptr;
     other.backend = nullptr;
     other.size = CuboidShape{};
@@ -86,13 +90,19 @@ ManagedData<T>& ManagedData<T>::operator=(ManagedData&& other) noexcept {
         data = other.data;
         backend = other.backend;
         size = other.size;
+        bytes = other.getDataBytes();
 
         // Leave other in a valid state
         other.data = nullptr;
         other.backend = nullptr;
         other.size = CuboidShape{};
+        other.bytes = 0;
     }
     return *this;
 }
 
+template<typename T>
+DataView<other_type_t<T>> ManagedData<T>::reinterpret() {
+    return backend->reinterpret(*this);
+}
 

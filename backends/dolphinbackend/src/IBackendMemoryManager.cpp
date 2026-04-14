@@ -21,3 +21,4 @@ IBackendMemoryManager::~IBackendMemoryManager() = default;
 void* IBackendMemoryManager::allocateMemoryOnDevice(size_t size) const {
     NOT_IMPLEMENTED(allocateMemoryOnDevice);
 }
+
