@@ -26,11 +26,11 @@ void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
 
     // Allocate memory for intermediate arrays
     c = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
-    // c_complex = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    // c_complex = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
     c_complex = c.reinterpret(); // same data pointer, just reinterpreted
 
     // Allocate temporary complex buffer for FFT operations
-    f_complex = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
+    f_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
     tv = backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize);
 
     initialized = true;

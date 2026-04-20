@@ -183,17 +183,7 @@ class DefaultPaddingStrategy : public PaddingStrategy{
 public:
     void init(const CuboidShape& configPadding) override{}
     Padding getPadding(const std::vector<CuboidShape>& psfSizes) const override {
-        CuboidShape maxPsfShape{0, 0, 0};
-
-        // Find the largest PSF dimensions
-        for (const auto& psf : psfSizes) {
-
-
-            maxPsfShape.width = std::max(maxPsfShape.width, psf.width);
-            maxPsfShape.height = std::max(maxPsfShape.height, psf.height);
-            maxPsfShape.depth = std::max(maxPsfShape.depth, psf.depth);
-        }
-
+        CuboidShape maxPsfShape = getLargestShape(psfSizes);
         CuboidShape paddingbefore = maxPsfShape / 2;
         // paddingbefore = paddingbefore + 1; // TODO necessary?
         return Padding{paddingbefore, paddingbefore};

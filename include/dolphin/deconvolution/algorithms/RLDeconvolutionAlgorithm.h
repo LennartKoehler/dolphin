@@ -22,7 +22,7 @@ public:
     // Constructor that takes a backend parameter
     RLDeconvolutionAlgorithm() = default;
     ~RLDeconvolutionAlgorithm() = default;
-    
+
     void configure(const DeconvolutionConfig& config) override;
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
@@ -31,9 +31,9 @@ public:
 private:
     int iterations;
     bool initialized = false;
-    
+
     // Algorithm-specific data members for intermediate calculations
-    ComplexData c;
-    
+    ComplexData c_complex;
+    ComplexData f_complex;
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };

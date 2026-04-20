@@ -35,18 +35,21 @@ struct PlanDescription{
     CuboidShape shape;
     PlanDirection direction;
     PlanType type;
+    bool inPlace;
 
     PlanDescription(
         PlanDirection direction,
         PlanType type,
-        CuboidShape shape
+        CuboidShape shape,
+        bool inPlace
     ):
         direction(direction),
         type(type),
-        shape(shape){}
+        shape(shape),
+        inPlace(inPlace){}
 
     virtual bool operator==(const PlanDescription& other) const {
-        return (shape == other.shape && direction == other.direction && type == other.type);
+        return (shape == other.shape && direction == other.direction && type == other.type && inPlace == other.inPlace);
     }
 };
 

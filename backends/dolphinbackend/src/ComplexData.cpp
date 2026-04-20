@@ -20,8 +20,8 @@ template class DataView<real_t>;      // for RealData
 template class DataView<complex_t>;   // for ComplexData
 
 template<typename T>
-ManagedData<T>::ManagedData(IBackendMemoryManager const* b, T* d, CuboidShape s, std::size_t bytes)
-    : backend(b), data(d), size(s) ,bytes(bytes){}
+ManagedData<T>::ManagedData(IBackendMemoryManager const* b, T* d, CuboidShape s, CuboidShape rs, std::size_t bytes, std::size_t padding)
+    : backend(b), data(d), size(s), realSize(rs), bytes(bytes), padding(padding) {}
 
 template<typename T>
 ManagedData<T>::~ManagedData() {
@@ -36,7 +36,7 @@ ManagedData<T>::~ManagedData() {
 
 template<typename T>
 ManagedData<T>::ManagedData(const ManagedData& other)
-    : backend(other.backend), size(other.size) {
+    : backend(other.backend), size(other.size), realSize(other.realSize), padding(other.padding) {
     ManagedData copy = backend->createCopy(other);
     this->bytes = other.getDataBytes();
     this->data = copy.data;
@@ -58,6 +58,8 @@ ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
         // Copy from other
         backend = other.backend;
         size = other.size;
+        realSize = other.realSize;
+        padding = other.padding;
         ManagedData copy = backend->createCopy(other);
         data = copy.data;
         bytes = other.getDataBytes();
@@ -68,10 +70,14 @@ ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
 
 template<typename T>
 ManagedData<T>::ManagedData(ManagedData&& other) noexcept
-    : data(other.data), backend(other.backend), size(other.size), bytes(other.bytes) {
+    : data(other.data), backend(other.backend), size(other.size), realSize(other.realSize), bytes(other.bytes),
+      padding(other.padding) {
     other.data = nullptr;
     other.backend = nullptr;
     other.size = CuboidShape{};
+    other.realSize = CuboidShape{};
+    other.bytes = 0;
+    other.padding = 0;
 }
 
 template<typename T>
@@ -90,13 +96,17 @@ ManagedData<T>& ManagedData<T>::operator=(ManagedData&& other) noexcept {
         data = other.data;
         backend = other.backend;
         size = other.size;
+        realSize = other.realSize;
         bytes = other.getDataBytes();
+        padding = other.padding;
 
         // Leave other in a valid state
         other.data = nullptr;
         other.backend = nullptr;
         other.size = CuboidShape{};
+        other.realSize = CuboidShape{};
         other.bytes = 0;
+        other.padding = 0;
     }
     return *this;
 }
@@ -106,3 +116,17 @@ DataView<other_type_t<T>> ManagedData<T>::reinterpret() {
     return backend->reinterpret(*this);
 }
 
+template<typename T>
+T& ManagedData<T>::access(std::size_t linearIndex){
+    return data[convertIndex(linearIndex)];
+}
+
+template<typename T>
+const T& ManagedData<T>::access(std::size_t linearIndex) const{
+    return data[convertIndex(linearIndex)];
+}
+
+template<typename T>
+size_t ManagedData<T>::convertIndex(size_t linearIndex) const {
+    return linearIndex + (linearIndex / size.width) * padding;
+}

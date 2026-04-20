@@ -122,7 +122,9 @@ private:
 
 
     RealData allocateMemoryOnDeviceReal(const CuboidShape& shape) const override;
-    ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const override;
+    RealData allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const override;
+    ComplexData allocateMemoryOnDeviceComplex(const CuboidShape& shape) const override;
+    ComplexData allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const override;
     void* allocateMemoryOnDevice(size_t requested_size) const override;
 
     // Method to get memory tracking instance

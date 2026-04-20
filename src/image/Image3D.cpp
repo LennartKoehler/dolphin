@@ -12,6 +12,8 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/Image3D.h"
+#include <itkTestingComparisonImageFilter.h>
+#include <cmath>
 
 Image3D::Image3D(const CuboidShape& shape, float fillValue) {
     image = ImageType::New();
@@ -74,6 +76,53 @@ Image3D& Image3D::operator=(const Image3D& other) {
     }
     return *this;
 }
+
+bool Image3D::operator==(const Image3D& other) const{
+
+    // Handle null images
+    if (image.IsNull() && other.image.IsNull()) {
+        return true;
+    }
+    if (image.IsNull() || other.image.IsNull()) {
+        return false;
+    }
+
+    // Images with different sizes are not equal
+    if (getShape() != other.getShape()) {
+        return false;
+    }
+
+    // Pre-pass: check for mismatched NaN values.
+    // itk::Testing::ComparisonImageFilter skips NaN pixels because
+    // (NaN > threshold) is always false in IEEE 754, so it would
+    // incorrectly consider a NaN pixel and a valid pixel as "equal".
+    {
+        itk::ImageRegionConstIterator<ImageType> itThis(image, image->GetLargestPossibleRegion());
+        itk::ImageRegionConstIterator<ImageType> itOther(other.image, other.image->GetLargestPossibleRegion());
+        for (itThis.GoToBegin(), itOther.GoToBegin(); !itThis.IsAtEnd(); ++itThis, ++itOther) {
+            const bool thisIsNaN = std::isnan(itThis.Get());
+            const bool otherIsNaN = std::isnan(itOther.Get());
+            if (thisIsNaN != otherIsNaN) {
+                return false;
+            }
+        }
+    }
+
+    using CompareFilterType = itk::Testing::ComparisonImageFilter<ImageType, ImageType>;
+
+    auto compare = CompareFilterType::New();
+    compare->SetValidInput(this->getItkImage());
+    compare->SetTestInput(other.getItkImage());
+
+    float difference = this->getPixel(0,0,0) / 100;
+    compare->SetDifferenceThreshold(difference);  // tolerance per pixel
+
+    compare->Update();
+
+    const auto numberOfDifferentPixels = compare->GetNumberOfPixelsWithDifferences();
+    return numberOfDifferentPixels == 0;
+}
+
 
 
 // Image3D Method implementations

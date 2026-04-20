@@ -1,10 +1,12 @@
 #include "CPUBackend.h"
 #include "dolphinbackend/Exceptions.h"
+#include "dolphinbackend/IBackend.h"
 #include <algorithm>
 #include <format>
 #include <cmath>
 #include <cstring>
 #include <cassert>
+#include <iostream>
 
 #ifdef __linux__
 #include <unistd.h>
@@ -32,12 +34,15 @@
 
 
 
-
 // if more than one backend then these shouldnt be static
 FFTWManager CPUDeconvolutionBackend::fftwManager;
 MemoryTracking CPUBackendMemoryManager::cpuMemory;
 
-LogCallback g_logger;
+
+LogCallback g_logger =[](const std::string& message, LogLevel level){
+    std::cout << message << std::endl;
+};
+
 
 // CPUBackendMemoryManager implementation
 CPUBackendMemoryManager::CPUBackendMemoryManager(CPUBackendConfig config){
@@ -100,40 +105,68 @@ bool CPUBackendMemoryManager::isOnDevice(const void* ptr) const {
 }
 
 
-RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
+RealData CPUBackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
     CuboidShape shapeForInplaceFFT = shape;
-    shapeForInplaceFFT.depth = 2 *(shapeForInplaceFFT.depth/2 + 1);
+    shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
+    size_t padding = shapeForInplaceFFT.width - shape.width;
     std::size_t bytes = shapeForInplaceFFT.getVolume() * sizeof(real_t);
 
-    RealData result{ this, nullptr, shape, bytes};
+    // memory should be larger than shape, as there is some padding at the end
+    RealData result{ this, nullptr, shape, shape, bytes, padding};
+
+    // padded stride for FFTW in-place r2c set via constructor
+    IBackendMemoryManager::allocateMemoryOnDevice(result);
+    return result;
+}
+RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const {
+    std::size_t bytes = shape.getVolume() * sizeof(real_t);
+
+    RealData result{ this, nullptr, shape, shape, bytes, 0};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
 
-ComplexData CPUBackendMemoryManager::allocateMemoryOnDevice(const CuboidShape& shape) const{
+
+ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
     CuboidShape complexShape = shape;
-    complexShape.depth = complexShape.depth / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
-    ComplexData result{ this, nullptr, complexShape, complexShape.getVolume() * sizeof(complex_t)};
+    complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
+    CuboidShape originalShape = shape;
+    ComplexData result{ this, nullptr, complexShape, originalShape, complexShape.getVolume() * sizeof(complex_t), 0};
+
+    // No extra padding: stride equals the complex width
+    IBackendMemoryManager::allocateMemoryOnDevice(result);
+    return result;
+}
+ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
+    ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
 DataView<real_t> CPUBackendMemoryManager::reinterpret(ComplexData& data) const{
-    // invalidates input
-    CuboidShape realShape = data.getSize();
-    realShape.depth = 4 *(realShape.depth/2 + 1);
+    CuboidShape realShape = data.getRealSize();
+    // The padding field on ComplexData stores the real_t padding value P_real = 2*(W/2+1) - W,
+    // which allows recovering the original real width: real_width = 2*complex_width - P_real = W.
+    // The same P_real value is the correct real_t padding for the resulting RealView.
+    CuboidShape shapeForInplaceFFT = realShape;
+    shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
+    size_t padding = shapeForInplaceFFT.width - realShape.width;
 
-    DataView<real_t> result = DataView<real_t>{data.getBackend(), reinterpret_cast<real_t*>(data.data), realShape, data.getDataBytes()};
+    DataView<real_t> result = DataView<real_t>{data.getBackend(), reinterpret_cast<real_t*>(data.getData()), realShape, realShape, data.getDataBytes(), padding};
     data.setBackend(nullptr); // so it doesnt delete the data
     return result;
 }
 
 DataView<complex_t> CPUBackendMemoryManager::reinterpret(RealData& data) const{
-    // invalidates input
     CuboidShape complexShape = data.getSize();
-    complexShape.depth = complexShape.depth / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
+    complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
 
-
-    DataView<complex_t> result = DataView<complex_t>{data.getBackend(), reinterpret_cast<complex_t*>(data.data), complexShape, data.getDataBytes()};
+    // Keep the real padding value as-is in the complex view's padding field.
+    // Although this is technically in real_t units (not complex_t), it serves as metadata
+    // that allows reinterpret(ComplexData -> RealView) to correctly recover the original
+    // real width via: real_width = 2 * complex_width - padding = W.
+    // The ComplexView's convertIndex() is never used in the FFT path (raw pointers are
+    // used instead), so the incorrect padding units don't cause issues in practice.
+    DataView<complex_t> result = DataView<complex_t>{data.getBackend(), reinterpret_cast<complex_t*>(data.getData()), complexShape, data.getSize(), data.getDataBytes(), 0};
     data.setBackend(nullptr); // so it doesnt delete the data
     return result;
 }
@@ -241,38 +274,42 @@ void CPUDeconvolutionBackend::initializePlan(const CuboidShape& shape) {
 
 
 void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
-    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
-    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
+    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
+    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
 
-    FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::COMPLEX, in.getSize());
-    fftwManager.executeForwardFFT(description, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
+    bool inPlace = in.getData() == out.getData();
+    FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::COMPLEX, in.getSize(), inPlace);
+    fftwManager.executeForwardFFT(description, reinterpret_cast<fftwf_complex*>(in.getData()), reinterpret_cast<fftwf_complex*>(out.getData()));
 }
 
 void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
-    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
-    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
+    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
+    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
 
-    FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize());
-    fftwManager.executeForwardFFT(description, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
+    bool inPlace = in.getData() == out.getData();
+    FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize(), inPlace);
+    fftwManager.executeBackwardFFT(description, reinterpret_cast<fftwf_complex*>(in.getData()), reinterpret_cast<fftwf_complex*>(out.getData()));
 
     complex_t normFactor{1.0f / out.getSize().getVolume(), 1.0f / out.getSize().getVolume()};//TESTVALUE
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
 void CPUDeconvolutionBackend::forwardFFT(const RealData& in, ComplexData& out) const {
-    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
-    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
+    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
+    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
 
-    FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::REAL, in.getSize());
-    fftwManager.executeForwardFFTReal(description, reinterpret_cast<real_t*>(in.data), reinterpret_cast<fftwf_complex*>(out.data));
+    bool inPlace = in.getData() == (real_t*)out.getData();
+    FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::REAL, in.getSize(), inPlace);
+    fftwManager.executeForwardFFTReal(description, reinterpret_cast<real_t*>(in.getData()), reinterpret_cast<fftwf_complex*>(out.getData()));
 }
 
 void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) const {
-    BACKEND_CHECK(in.data != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
-    BACKEND_CHECK(out.data != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
+    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
+    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
 
-    FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL ,out.getSize());
-    fftwManager.executeBackwardFFTReal(description, reinterpret_cast<fftwf_complex*>(in.data), reinterpret_cast<real_t*>(out.data));
+    bool inPlace = in.getData() == (complex_t*)out.getData();
+    FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL ,out.getSize(), inPlace);
+    fftwManager.executeBackwardFFTReal(description, reinterpret_cast<fftwf_complex*>(in.getData()), reinterpret_cast<real_t*>(out.getData()));
 
     real_t normFactor{1.0f / out.getSize().getVolume()};
     scalarMultiplication(out, normFactor, out); // Add normalization
@@ -299,8 +336,8 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) 
 //                 int srcIdx = z * height * width + y * width + x;
 //                 int dstIdx = newZ * height * width + newY * width + newX;
 //
-//                 // data.data[dstIdx] = temp.data[srcIdx];
-//                 std::swap(data.data[dstIdx], data.data[srcIdx]);
+//                 // data[dstIdx] = temp[srcIdx];
+//                 std::swap(data[dstIdx], data[srcIdx]);
 //             }
 //         }
 //     }
@@ -323,7 +360,7 @@ void CPUDeconvolutionBackend::octantFourierShift(RealData& data) const {
                     ((y + halfHeight) % height) * width +
                     ((x + halfWidth) % width);
                 if (idx1 != idx2) {
-                    std::swap(data.data[idx1], data.data[idx2]);
+                    std::swap(data[idx1], data[idx2]);
                 }
             }
         }
@@ -343,13 +380,13 @@ void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
     for (int z = 0; z < halfDepth; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
-                int idx1 = z * height * width + y * width + x;
-                int idx2 = ((z + halfDepth) % depth) * height * width +
+                size_t idx1 = z * height * width + y * width + x;
+                size_t idx2 = ((z + halfDepth) % depth) * height * width +
                     ((y + halfHeight) % height) * width +
                     ((x + halfWidth) % width);
                 if (idx1 != idx2) {
-                    std::swap(data.data[idx1][0], data.data[idx2][0]);
-                    std::swap(data.data[idx1][1], data.data[idx2][1]);
+                    std::swap(data[idx1][0], data[idx2][0]);
+                    std::swap(data[idx1][1], data[idx2][1]);
                 }
             }
         }
@@ -371,8 +408,8 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
                 int idx1 = z * height * width + y * width + x;
                 int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x + halfWidth);
 
-                std::swap(data.data[idx1][0], data.data[idx2][0]);
-                std::swap(data.data[idx1][1], data.data[idx2][1]);
+                std::swap(data[idx1][0], data[idx2][0]);
+                std::swap(data[idx1][1], data[idx2][1]);
             }
         }
     }
@@ -384,8 +421,8 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
                 int idx1 = z * height * width + y * width + x;
                 int idx2 = (z + halfDepth) * height * width + (y + halfHeight) * width + (x - halfWidth);
 
-                std::swap(data.data[idx1][0], data.data[idx2][0]);
-                std::swap(data.data[idx1][1], data.data[idx2][1]);
+                std::swap(data[idx1][0], data[idx2][0]);
+                std::swap(data[idx1][1], data[idx2][1]);
             }
         }
     }
@@ -397,8 +434,8 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
                 int idx1 = z * height * width + y * width + x;
                 int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x + halfWidth);
 
-                std::swap(data.data[idx1][0], data.data[idx2][0]);
-                std::swap(data.data[idx1][1], data.data[idx2][1]);
+                std::swap(data[idx1][0], data[idx2][0]);
+                std::swap(data[idx1][1], data[idx2][1]);
             }
         }
     }
@@ -410,86 +447,86 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
                 int idx1 = z * height * width + y * width + x;
                 int idx2 = (z + halfDepth) * height * width + (y - halfHeight) * width + (x - halfWidth);
 
-                std::swap(data.data[idx1][0], data.data[idx2][0]);
-                std::swap(data.data[idx1][1], data.data[idx2][1]);
+                std::swap(data[idx1][0], data[idx2][0]);
+                std::swap(data[idx1][1], data[idx2][1]);
             }
         }
     }
 }
 
 void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
 
 
     // OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        real_t real_a = a.data[i][0];
-        real_t imag_a = a.data[i][1];
-        real_t real_b = b.data[i][0];
-        real_t imag_b = b.data[i][1];
+        real_t real_a = a[i][0];
+        real_t imag_a = a[i][1];
+        real_t real_b = b[i][0];
+        real_t imag_b = b[i][1];
 
-        result.data[i][0] = real_a * real_b - imag_a * imag_b;
-        result.data[i][1] = real_a * imag_b + imag_a * real_b;
+        result[i][0] = real_a * real_b - imag_a * imag_b;
+        result[i][1] = real_a * imag_b + imag_a * real_b;
     }
 }
 
 void CPUDeconvolutionBackend::multiplication(const RealData& a, const RealData& b, RealData& result) const{
 
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
 
 
     // OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        result.data[i] = a.data[i] * b.data[i];
+        result[i] = a[i] * b[i];
     }
 }
 
 void CPUDeconvolutionBackend::division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a");
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
 
     // OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        real_t denominator = b.data[i] < epsilon ? epsilon : b.data[i];
-        result.data[i] = a.data[i] / denominator;
+        real_t denominator = b[i] < epsilon ? epsilon : b[i];
+        result[i] = a[i] / denominator;
     }
 }
 
 
 void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a");
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
 
 
     // OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        real_t real_a = a.data[i][0];
-        real_t imag_a = a.data[i][1];
-        real_t real_b = b.data[i][0];
-        real_t imag_b = b.data[i][1];
+        real_t real_a = a[i][0];
+        real_t imag_a = a[i][1];
+        real_t real_b = b[i][0];
+        real_t imag_b = b[i][1];
 
         real_t denominator = real_b * real_b + imag_b * imag_b;
 
         if (denominator < epsilon) {
-            result.data[i][0] = 0.0;
-            result.data[i][1] = 0.0;
+            result[i][0] = 0.0;
+            result[i][1] = 0.0;
         }
         else {
-            result.data[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
-            result.data[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
+            result[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
+            result[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
         }
     }
 }
 
 
 void CPUDeconvolutionBackend::complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const {
-    BACKEND_CHECK(sum.data != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
+    BACKEND_CHECK(sum.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
 
     int imageSize = sum.getSize().getVolume();
     OMP(omp parallel for, config.useOMP, config.ompThreads)
@@ -497,24 +534,24 @@ void CPUDeconvolutionBackend::complexAddition(complex_t** data, ComplexData& sum
 
         complex_t* a = data[imageindex];
         for (int i = 0; i < imageSize; ++i) {
-            // Use atomic to prevent race conditions when multiple threads write to sum.data[i]
+            // Use atomic to prevent race conditions when multiple threads write to sum[i]
             #pragma omp atomic
-            sum.data[i][0] += a[i][0];
+            sum[i][0] += a[i][0];
             #pragma omp atomic
-            sum.data[i][1] += a[i][1];
+            sum[i][1] += a[i][1];
         }
     }
 }
 
 void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexAddition - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexAddition - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexAddition - input a");
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexAddition - result");
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        result.data[i][0] = a.data[i][0] + b.data[i][0];
-        result.data[i][1] = a.data[i][1] + b.data[i][1];
+        result[i][0] = a[i][0] + b[i][0];
+        result[i][1] = a[i][1] + b[i][1];
     }
 }
 
@@ -535,63 +572,63 @@ void CPUDeconvolutionBackend::sumToOne(real_t** data, int nImages, int imageVolu
     }
 }
 void CPUDeconvolutionBackend::scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        result.data[i] = a.data[i] * scalar;
+        result[i] = a[i] * scalar;
     }
 }
 
 void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
 
     real_t rscalar = scalar[0];
     real_t iscalar = scalar[1];
     OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        result.data[i][0] = a.data[i][0] * rscalar;
-        result.data[i][1] = a.data[i][1] * iscalar;
+        result[i][0] = a[i][0] * rscalar;
+        result[i][1] = a[i][1] * iscalar;
     }
 }
 
 void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexMultiplicationWithConjugate - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexMultiplicationWithConjugate - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplicationWithConjugate - input a");
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplicationWithConjugate - input b");
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result");
 
 
     // OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        real_t real_a = a.data[i][0];
-        real_t imag_a = a.data[i][1];
-        real_t real_b = b.data[i][0];
-        real_t imag_b = -b.data[i][1];  // Conjugate
+        real_t real_a = a[i][0];
+        real_t imag_a = a[i][1];
+        real_t real_b = b[i][0];
+        real_t imag_b = -b[i][1];  // Conjugate
 
-        result.data[i][0] = real_a * real_b - imag_a * imag_b;
-        result.data[i][1] = real_a * imag_b + imag_a * real_b;
+        result[i][0] = real_a * real_b - imag_a * imag_b;
+        result[i][1] = real_a * imag_b + imag_a * real_b;
     }
 }
 
 void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
-    BACKEND_CHECK(a.data != nullptr, "Input a pointer is null", "CPU", "complexDivisionStabilized - input a");
-    BACKEND_CHECK(b.data != nullptr, "Input b pointer is null", "CPU", "complexDivisionStabilized - input b");
-    BACKEND_CHECK(result.data != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivisionStabilized - input a");
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivisionStabilized - input b");
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result");
 
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        real_t real_a = a.data[i][0];
-        real_t imag_a = a.data[i][1];
-        real_t real_b = b.data[i][0];
-        real_t imag_b = b.data[i][1];
+        real_t real_a = a[i][0];
+        real_t imag_a = a[i][1];
+        real_t real_b = b[i][0];
+        real_t imag_b = b[i][1];
 
         real_t mag = std::max(epsilon, real_b * real_b + imag_b * imag_b);
 
-        result.data[i][0] = (real_a * real_b + imag_a * imag_b) / mag;
-        result.data[i][1] = (imag_a * real_b - real_a * imag_b) / mag;
+        result[i][0] = (real_a * real_b + imag_a * imag_b) / mag;
+        result[i][1] = (imag_a * real_b - real_a * imag_b) / mag;
     }
 }
 
@@ -612,8 +649,8 @@ void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, Co
 
                 int index = (z * height + y) * width + x;
 
-                laplacian.data[index][0] = psf.data[index][0] * laplacian_value;
-                laplacian.data[index][1] = psf.data[index][1] * laplacian_value;
+                laplacian[index][0] = psf[index][0] * laplacian_value;
+                laplacian[index][1] = psf[index][1] * laplacian_value;
             }
         }
     }
@@ -623,21 +660,21 @@ void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, Co
 //     real_t max_val = 0.0, max_val2 = 0.0;
 //     OMP(omp parallel for, config.useOMP, config.ompThreads)
 //     for (int j = 0; j < resultImage.getSize().getVolume(); j++) {
-//         max_val = std::max(max_val, resultImage.data[j][0]);
-//         max_val2 = std::max(max_val2, resultImage.data[j][1]);
+//         max_val = std::max(max_val, resultImage[j][0]);
+//         max_val2 = std::max(max_val2, resultImage[j][1]);
 //     }
 //     OMP(omp parallel for, config.useOMP, config.ompThreads)
 //     for (int j = 0; j < resultImage.getSize().getVolume(); j++) {
-//         resultImage.data[j][0] /= (max_val + epsilon);
-//         resultImage.data[j][1] /= (max_val2 + epsilon);
+//         resultImage[j][0] /= (max_val + epsilon);
+//         resultImage[j][1] /= (max_val2 + epsilon);
 //     }
 // }
 //
 // void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
 //     OMP(omp parallel for, config.useOMP, config.ompThreads)
 //     for (int i = 0; i < data.getSize().getVolume(); ++i) {
-//         data.data[i][0] /= cubeVolume;
-//         data.data[i][1] /= cubeVolume;
+//         data[i][0] /= cubeVolume;
+//         data[i][1] /= cubeVolume;
 //     }
 // }
 
@@ -651,8 +688,8 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
 
     OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < data.getSize().getVolume(); i++) {
-        real_t real = data.data[i][0];
-        real_t imag = data.data[i][1];
+        real_t real = data[i][0];
+        real_t imag = data[i][1];
 
         // Check for NaN
         if (std::isnan(real) || std::isnan(imag)) {
@@ -686,39 +723,6 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
     g_logger(std::format("Imag range: [{}, {}]", minImag, maxImag), LogLevel::INFO);
 }
 
-// Layer and Visualization Functions
-void CPUDeconvolutionBackend::reorderLayers(ComplexData& data) const {
-    int width = data.getSize().width;
-    int height = data.getSize().height;
-    int depth = data.getSize().depth;
-    int layerSize = width * height;
-    int halfDepth = depth / 2;
-
-    complex_t* temp = (complex_t*)fftwf_malloc(sizeof(complex_t) * data.getSize().getVolume());
-    FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * data.getSize().getVolume(), "reorderLayers");
-
-    int destIndex = 0;
-
-    // Copy the middle layer to the first position
-    std::memcpy(temp + destIndex * layerSize, data.data + halfDepth * layerSize, sizeof(complex_t) * layerSize);
-    destIndex++;
-
-    // Copy the layers after the middle layer
-    for (int z = halfDepth + 1; z < depth; ++z) {
-        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex_t) * layerSize);
-        destIndex++;
-    }
-
-    // Copy the layers before the middle layer
-    for (int z = 0; z < halfDepth; ++z) {
-        std::memcpy(temp + destIndex * layerSize, data.data + z * layerSize, sizeof(complex_t) * layerSize);
-        destIndex++;
-    }
-
-    // Copy reordered data back to the original array
-    std::memcpy(data.data, temp, sizeof(complex_t) * data.getSize().getVolume());
-    fftwf_free(temp);
-}
 
 // Gradient and TV Functions - Updated to match OpenMPBackend pattern
 void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
@@ -734,12 +738,12 @@ void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& g
 
                 if (x < width - 1) {
                     int nextIndex = index + 1;
-                    gradX.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                    gradX.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                    gradX[index][0] = image[index][0] - image[nextIndex][0];
+                    gradX[index][1] = image[index][1] - image[nextIndex][1];
                 } else {
                     // Boundary condition: last column
-                    gradX.data[index][0] = 0.0;
-                    gradX.data[index][1] = 0.0;
+                    gradX[index][0] = 0.0;
+                    gradX[index][1] = 0.0;
                 }
             }
         }
@@ -759,12 +763,12 @@ void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& g
 
                 if (y < height - 1) {
                     int nextIndex = index + width;
-                    gradY.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                    gradY.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                    gradY[index][0] = image[index][0] - image[nextIndex][0];
+                    gradY[index][1] = image[index][1] - image[nextIndex][1];
                 } else {
                     // Boundary condition: last row
-                    gradY.data[index][0] = 0.0;
-                    gradY.data[index][1] = 0.0;
+                    gradY[index][0] = 0.0;
+                    gradY[index][1] = 0.0;
                 }
             }
         }
@@ -784,12 +788,12 @@ void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& g
 
                 if (z < depth - 1) {
                     int nextIndex = index + height * width;
-                    gradZ.data[index][0] = image.data[index][0] - image.data[nextIndex][0];
-                    gradZ.data[index][1] = image.data[index][1] - image.data[nextIndex][1];
+                    gradZ[index][0] = image[index][0] - image[nextIndex][0];
+                    gradZ[index][1] = image[index][1] - image[nextIndex][1];
                 } else {
                     // Boundary condition: last depth layer
-                    gradZ.data[index][0] = 0.0;
-                    gradZ.data[index][1] = 0.0;
+                    gradZ[index][0] = 0.0;
+                    gradZ[index][1] = 0.0;
                 }
             }
         }
@@ -804,12 +808,12 @@ void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, co
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
 
-            real_t dx = gx.data[index][0];
-            real_t dy = gy.data[index][0];
-            real_t dz = gz.data[index][0];
+            real_t dx = gx[index][0];
+            real_t dy = gy[index][0];
+            real_t dz = gz[index][0];
 
-            tv.data[index][0] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
-            tv.data[index][1] = 0.0;
+            tv[index][0] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
+            tv[index][1] = 0.0;
         }
     }
 }
@@ -825,19 +829,19 @@ void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY
             int index = z * nxy + i;
 
             real_t norm = std::sqrt(
-                gradX.data[index][0] * gradX.data[index][0] + gradX.data[index][1] * gradX.data[index][1] +
-                gradY.data[index][0] * gradY.data[index][0] + gradY.data[index][1] * gradY.data[index][1] +
-                gradZ.data[index][0] * gradZ.data[index][0] + gradZ.data[index][1] * gradZ.data[index][1]
+                gradX[index][0] * gradX[index][0] + gradX[index][1] * gradX[index][1] +
+                gradY[index][0] * gradY[index][0] + gradY[index][1] * gradY[index][1] +
+                gradZ[index][0] * gradZ[index][0] + gradZ[index][1] * gradZ[index][1]
             );
 
             norm = std::max(norm, epsilon);
 
-            gradX.data[index][0] /= norm;
-            gradX.data[index][1] /= norm;
-            gradY.data[index][0] /= norm;
-            gradY.data[index][1] /= norm;
-            gradZ.data[index][0] /= norm;
-            gradZ.data[index][1] /= norm;
+            gradX[index][0] /= norm;
+            gradX[index][1] /= norm;
+            gradY[index][0] /= norm;
+            gradY[index][1] /= norm;
+            gradZ[index][0] /= norm;
+            gradZ[index][1] /= norm;
         }
     }
 }
@@ -856,10 +860,10 @@ void CPUDeconvolutionBackend::gradientX(const RealData& image, RealData& gradX) 
 
                 if (x < width - 1) {
                     int nextIndex = index + 1;
-                    gradX.data[index] = image.data[index] - image.data[nextIndex];
+                    gradX[index] = image[index] - image[nextIndex];
                 } else {
                     // Boundary condition: last column
-                    gradX.data[index] = 0.0;
+                    gradX[index] = 0.0;
                 }
             }
         }
@@ -879,10 +883,10 @@ void CPUDeconvolutionBackend::gradientY(const RealData& image, RealData& gradY) 
 
                 if (y < height - 1) {
                     int nextIndex = index + width;
-                    gradY.data[index] = image.data[index] - image.data[nextIndex];
+                    gradY[index] = image[index] - image[nextIndex];
                 } else {
                     // Boundary condition: last row
-                    gradY.data[index] = 0.0;
+                    gradY[index] = 0.0;
                 }
             }
         }
@@ -902,10 +906,10 @@ void CPUDeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ) 
 
                 if (z < depth - 1) {
                     int nextIndex = index + height * width;
-                    gradZ.data[index] = image.data[index] - image.data[nextIndex];
+                    gradZ[index] = image[index] - image[nextIndex];
                 } else {
                     // Boundary condition: last depth layer
-                    gradZ.data[index] = 0.0;
+                    gradZ[index] = 0.0;
                 }
             }
         }
@@ -920,11 +924,11 @@ void CPUDeconvolutionBackend::computeTV(real_t lambda, const RealData& gx, const
         for (int i = 0; i < nxy; ++i) {
             int index = z * nxy + i;
 
-            real_t dx = gx.data[index];
-            real_t dy = gy.data[index];
-            real_t dz = gz.data[index];
+            real_t dx = gx[index];
+            real_t dy = gy[index];
+            real_t dz = gz[index];
 
-            tv.data[index] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
+            tv[index] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
         }
     }
 }
@@ -938,16 +942,16 @@ void CPUDeconvolutionBackend::normalizeTV(RealData& gradX, RealData& gradY, Real
             int index = z * nxy + i;
 
             real_t norm = std::sqrt(
-                gradX.data[index] * gradX.data[index] +
-                gradY.data[index] * gradY.data[index] +
-                gradZ.data[index] * gradZ.data[index]
+                gradX[index] * gradX[index] +
+                gradY[index] * gradY[index] +
+                gradZ[index] * gradZ[index]
             );
 
             norm = std::max(norm, epsilon);
 
-            gradX.data[index] /= norm;
-            gradY.data[index] /= norm;
-            gradZ.data[index] /= norm;
+            gradX[index] /= norm;
+            gradY[index] /= norm;
+            gradZ[index] /= norm;
         }
     }
 }

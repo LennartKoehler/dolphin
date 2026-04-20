@@ -24,8 +24,8 @@ void RLDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Richardson-Lucy algorithm initialization");
 
     // Allocate memory for intermediate arrays
-    c = backend->getMemoryManager().allocateMemoryOnDevice(dataSize);
-
+    c_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
+    f_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
     initialized = true;
 }
 
@@ -43,11 +43,10 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, Rea
     assert(initialized && "Richardson-Lucy algorithm not initialized. Call init() first.");
 
     // Use pre-allocated memory for intermediate arrays
-    assert(memory.isOnDevice(f.data) && "PSF is not on device");
+    assert(memory.isOnDevice(f.getData()) && "PSF is not on device");
 
     memory.memCopy(g, f);
-    ComplexData f_complex = memory.allocateMemoryOnDevice(f.getSize());
-    RealData c_real = memory.allocateMemoryOnDeviceReal(f.getSize());
+    RealView c_real = memory.reinterpret(c_complex);
 
 
     for (int n = 0; n < iterations; ++n) {
@@ -56,25 +55,23 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, Rea
         deconvolution.forwardFFT(f, f_complex);
 
         // Fn\' = Fn * H
-        deconvolution.complexMultiplication(f_complex, H, c);
+        deconvolution.complexMultiplication(f_complex, H, c_complex);
 
         // fn\' = IFFT(Fn\') + NORMALIZE
-        deconvolution.backwardFFT(c, c_real);
+        deconvolution.backwardFFT(c_complex, c_real);
         // deconvolution.scalarMultiplication(c, 1.0 / g.size.getVolume(), c); // Add normalization
-
 
         // b) Calculation of the Correction Factor: c = g / fn\'
         deconvolution.division(g, c_real, c_real, complexDivisionEpsilon);
 
         // // c) Second transformation: C = FFT(c)
-        deconvolution.forwardFFT(c_real, c);
+        deconvolution.forwardFFT(c_real, c_complex);
 
         // // C\' = C * conj(H)
-        deconvolution.complexMultiplicationWithConjugate(c, H, c);
+        deconvolution.complexMultiplicationWithConjugate(c_complex, H, c_complex);
 
         // // c\' = IFFT(C\') + NORMALIZE
-        deconvolution.backwardFFT(c, c_real);
-
+        deconvolution.backwardFFT(c_complex, c_real);
 
         // deconvolution.backwardFFT(f_complex, f);
 

@@ -88,9 +88,10 @@ protected:
         size_t& nIOThreads,
         size_t& totalThreads) const ;
 
-    virtual Result<std::pair<Padding, CuboidShape>> getCubePadding(const std::vector<PSF>& psfs, const CuboidShape& configPadding);
-
-    CuboidShape getLargestShape(const std::vector<CuboidShape>& shapes) const;
+    virtual Result<std::pair<Padding, CuboidShape>> getCubePadding(
+        const std::vector<PSF>& psfs,
+        const CuboidShape& configPadding,
+        const CuboidShape& imageSize);
 
     // void configureThreads(
     //     size_t& totalThreads,

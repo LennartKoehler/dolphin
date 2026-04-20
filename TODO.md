@@ -1,3 +1,19 @@
+the nicest thing to work with all the different data allocations for fft etc would be to have the managedData have a operations vector attached to it, and then whenever i call a function on that data it would not execute but just add it to the operations. And then i have like an execute function on the data which runs all the operations in order. Then before execute i can call "allocate" and it will allocate depending on if i will need to pad it for fft etc. So that all operations are known before actually running them
+
+something in the memory layout and in place fft and the normal compute like division doesnt work. I assume some values are being used in math that arent supposed to be used and therefoe create weird values, all fft need to currently be in place. Also make the shape converion in cpubackend from and to real and complex nicer, i think there should only be once place where this is determined, check the next couple entries in todo
+
+can cant use data with padding (for inplace) for out of place fft, because i then give the dimension and fftw doesnt know that ever 10th value in memory is actually for the padding, out of place fft expects contiguous memory, which the inplace memory is not. I could use the advanced plan creation, there these strides etc can be specified
+
+something with in place forward fft r2c doesnt work, perhaps because i got the dimension ordering wrong or there is some other data getting into the buffer
+
+use plans in place so that i dont need both plans, currently i need to save both out of place an inplace seperately, the manual says it has to be like this
+
+in and out of place for cuda
+
+only be able to reinerpret data that was allocated with buffer for other type
+
+the memory management for the backend is now all over the place, now that im using real valuues and complex values and can change between them. Perhaps i need a interface and have backendspecific implementations
+
 something with data view and memory allocation of real valued vs complex doesnt work. Perhaps its trying to free more than it allocated or the other way around
 
 for example in rltv, it would be smart to compute total variation before allocating for the deconvolution task because then if i have a memory max, i dont have everything allocated at once

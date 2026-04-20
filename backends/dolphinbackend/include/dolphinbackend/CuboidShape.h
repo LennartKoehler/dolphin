@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include <array>
 #include <bit>
 #include <cassert>
+#include <vector>
 
 struct CuboidShape{
     int width;
@@ -163,3 +164,14 @@ struct CuboidShape{
 
 };
 
+inline CuboidShape getLargestShape(const std::vector<CuboidShape>& psfSizes) {
+    CuboidShape maxPsfShape{0, 0, 0};
+    // Find the largest PSF dimensions
+    for (const auto& psf : psfSizes) {
+
+        maxPsfShape.width = std::max(maxPsfShape.width, psf.width);
+        maxPsfShape.height = std::max(maxPsfShape.height, psf.height);
+        maxPsfShape.depth = std::max(maxPsfShape.depth, psf.depth);
+    }
+    return maxPsfShape;
+}

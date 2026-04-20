@@ -40,7 +40,7 @@ void ConvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealDat
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     const IDeconvolutionBackend& deconv = backend->getDeconvManager();
 
-    ComplexData f_complex = memory.allocateMemoryOnDevice(f.getSize());
+    ComplexData f_complex = memory.allocateMemoryOnDeviceComplex(f.getSize());
     RealData c_real = memory.allocateMemoryOnDeviceReal(f.getSize());
     deconv.forwardFFT(g, f_complex);
     deconv.complexMultiplication(f_complex, H, f_complex);

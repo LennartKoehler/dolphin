@@ -36,13 +36,13 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealD
     assert(initialized && "Inverse Filter algorithm not initialized. Call init() first.");\
 
     // Verify inputs are on device
-    assert(backend->getMemoryManager().isOnDevice(H.data) && "PSF is not on device");
-    assert(backend->getMemoryManager().isOnDevice(g.data) && "Input image is not on device");
-    assert(backend->getMemoryManager().isOnDevice(f.data) && "Output buffer is not on device");
+    assert(backend->getMemoryManager().isOnDevice(H.getData()) && "PSF is not on device");
+    assert(backend->getMemoryManager().isOnDevice(g.getData()) && "Input image is not on device");
+    assert(backend->getMemoryManager().isOnDevice(f.getData()) && "Output buffer is not on device");
 
     // Allocate complex data for frequency domain operations
-    ComplexData g_complex = backend->getMemoryManager().allocateMemoryOnDevice(g.getSize());
-    ComplexData f_complex = backend->getMemoryManager().allocateMemoryOnDevice(f.getSize());
+    ComplexData g_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(g.getSize());
+    ComplexData f_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(f.getSize());
 
     // Forward FFT: RealData -> ComplexData
     backend->getDeconvManager().forwardFFT(g, g_complex);

@@ -23,17 +23,13 @@ ComplexData Preprocessor::convertImageToComplexData(
     const Image3D& input) {
 
     CuboidShape shape = input.getShape();
-    ComplexData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDevice(shape);
-
-    int width = shape.width;
-    int height = shape.height;
-    int depth = shape.depth;
+    ComplexData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDeviceComplexFull(shape);
 
     int index = 0;
-    for (const auto& it : input) {
 
-        result.data[index][0] = static_cast<real_t>(it);
-        result.data[index][1] = 0.0;
+    for (const auto& it : input) {
+        result[index][0] = static_cast<real_t>(it);
+        result[index][1] = 0.0;
         index ++;
     }
 
@@ -43,17 +39,12 @@ RealData Preprocessor::convertImageToRealData(
     const Image3D& input) {
 
     CuboidShape shape = input.getShape();
-    RealData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDeviceReal(shape);
-
-    int width = shape.width;
-    int height = shape.height;
-    int depth = shape.depth;
+    RealData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(shape);
 
     int index = 0;
 
     for (const auto& it : input) {
-
-        result.data[index] = static_cast<real_t>(it);
+        result[index] = static_cast<real_t>(it);
         index ++;
     }
 
@@ -62,20 +53,15 @@ RealData Preprocessor::convertImageToRealData(
 
 Image3D Preprocessor::convertComplexDataToImage(
         const ComplexData& input){
-    const int width  = input.getSize().width;
-    const int height = input.getSize().height;
-    const int depth  = input.getSize().depth;
 
-    Image3D output(CuboidShape(width, height, depth), 0.0f);
+    Image3D output(input.getSize(), 0.0f);
 
-    const complex_t* in = input.data;
     int index = 0;
     for (auto& it : output) {
-        real_t real = in[index][0];
-        real_t imag = in[index][1];
+        real_t real = input[index][0];
+        real_t imag = input[index][1];
         it = static_cast<float>(std::sqrt(real * real + imag * imag));
         index ++;
-
     }
 
     return output;
@@ -84,19 +70,14 @@ Image3D Preprocessor::convertComplexDataToImage(
 // TODO make this conversion part of the backend? because if data is on cuda device then this wont work
 Image3D Preprocessor::convertRealDataToImage(
         const RealData& input){
-    const int width  = input.getSize().width;
-    const int height = input.getSize().height;
-    const int depth  = input.getSize().depth;
 
-    Image3D output(CuboidShape(width, height, depth), 0.0f);
+    Image3D output(input.getSize(), 0.0f);
 
-    const real_t* in = input.data;
     int index = 0;
     for (auto& it : output) {
-        real_t real = in[index];
+        real_t real = input[index];
         it = static_cast<float>(real);
         index ++;
-
     }
 
     return output;

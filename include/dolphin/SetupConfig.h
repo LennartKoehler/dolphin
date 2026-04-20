@@ -41,7 +41,7 @@ public:
     std::string backend = "cpu";
     bool savePsf = false;
     std::array<int, 3> cubeSize{};
-    std::array<int, 3> cubePadding{}; // this padding is later doubled
+    std::array<int, 3> cubePadding{-1, -1, -1}; // this padding is later doubled
 
     int nThreads = 1;
     int nIOThreads = 1;
