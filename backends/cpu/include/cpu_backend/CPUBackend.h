@@ -8,6 +8,8 @@
 class CPUBackendManager;
 class FFTWManager;
 
+
+
 struct FFTWPlanDescription : public PlanDescription{
 
     size_t ompThreads;
@@ -16,13 +18,14 @@ struct FFTWPlanDescription : public PlanDescription{
         size_t ompThreads,
         PlanDirection direction,
         PlanType type,
-        CuboidShape shape
+        CuboidShape shape,
+        bool inPlace
     ):
         ompThreads(ompThreads),
-        PlanDescription(direction, type, shape){}
+        PlanDescription(direction, type, shape, inPlace){}
 
     bool operator==(const FFTWPlanDescription& other) {
-        return (shape == other.shape && ompThreads == other.ompThreads && direction == other.direction && type == other.type);
+        return (PlanDescription::operator==(other) && ompThreads == other.ompThreads);
     }
 };
 
@@ -96,7 +99,9 @@ public:
 
 
     RealData allocateMemoryOnDeviceReal(const CuboidShape& shape) const override;
-    ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const override;
+    RealData allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const override;
+    ComplexData allocateMemoryOnDeviceComplex(const CuboidShape& shape) const override;
+    ComplexData allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const override;
     /**
      * Move data from device to another backend
      * @param src Pointer to source data on device
@@ -183,8 +188,6 @@ public:
     // Debug functions
     void hasNAN(const ComplexData& data) const override;
 
-    // Layer and visualization functions
-    void reorderLayers(ComplexData& data) const override;
 
     // Gradient and TV functions
     void gradientX(const ComplexData& image, ComplexData& gradX) const override;

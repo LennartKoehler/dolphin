@@ -85,23 +85,30 @@ public:
 
     template<typename T>
     void allocateMemoryOnDevice(ManagedData<T>& data) const {
-        if (data.data != nullptr) {
+        if (data.getData() != nullptr) {
             return; // Already allocated
         }
 
         size_t requested_size = data.getDataBytes();
         void* rawdata = allocateMemoryOnDevice(requested_size);
-        data.setData(rawdata);
-        data.setBackend(this);
+        data.setData((T*)rawdata);
     }
 
-    virtual ComplexData allocateMemoryOnDevice(const CuboidShape& shape) const {
-        NOT_IMPLEMENTED(setMemoryLimit);
+    virtual ComplexData allocateMemoryOnDeviceComplex(const CuboidShape& shape) const {
+        NOT_IMPLEMENTED(allocateMemoryOnDeviceComplex);
     }
 
 
     virtual RealData allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
-        NOT_IMPLEMENTED(setMemoryLimit);
+        NOT_IMPLEMENTED(allocateMemoryOnDeviceReal);
+    }
+
+    virtual RealData allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
+        NOT_IMPLEMENTED(allocateMemoryOnDeviceReal);
+    }
+
+    virtual ComplexData allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
+        NOT_IMPLEMENTED(allocateMemoryOnDeviceComplexFull);
     }
 
     virtual void* allocateMemoryOnDevice(size_t) const;
@@ -162,11 +169,9 @@ public:
 
     template<typename T>
     void memCopy(const ManagedData<T>& srcdata, const ManagedData<T>& destdata) const {
-        if (srcdata.data == nullptr) {
-            //TODO log
-        }
+        assert(srcdata.getData() != nullptr);
         size_t byteSize = srcdata.getDataBytes();
-        memCopy(srcdata.data, destdata.data, byteSize, srcdata.getSize());
+        memCopy(srcdata.getData(), destdata.getData(), byteSize, srcdata.getSize());
     }
 
     template<typename T>
@@ -176,7 +181,7 @@ public:
         size_t size = sizeof(void*) * N;
         T** dataPointer = (T**)allocateMemoryOnDevice(size);
         for (int i = 0; i < N; ++i) {
-            dataPointer[i] = data[i]->data;
+            dataPointer[i] = data[i]->getData();
         }
         return dataPointer;
     }
@@ -188,43 +193,37 @@ public:
 
     template<typename T>
     ManagedData<T> copyDataToDevice(const ManagedData<T>& srcdata) const {
-        if (srcdata.data == nullptr) {
-            return ManagedData<T>(this, nullptr, srcdata.getSize(), 0);
-        }
+        assert(srcdata.getData() != nullptr);
         size_t byteSize = srcdata.getDataBytes();
-        void* result = copyDataToDevice(srcdata.data, byteSize, srcdata.getSize());
-        return ManagedData<T>(this, static_cast<T*>(result), srcdata.getSize(), byteSize);
+        void* result = copyDataToDevice(srcdata.getData(), byteSize, srcdata.getSize());
+        return ManagedData<T>(this, static_cast<T*>(result), srcdata.getSize(), srcdata.getSize(), byteSize, srcdata.getPadding());
     }
 
     template<typename T>
     ManagedData<T> createCopy(const ManagedData<T>& srcdata) const {
-        if (srcdata.data == nullptr) {
-            return ManagedData<T>(this, nullptr, srcdata.getSize(), srcdata.getDataBytes());
-        }
+        assert(srcdata.getData() != nullptr);
         size_t byteSize = srcdata.getDataBytes();
         void* result = allocateMemoryOnDevice(byteSize);
-        memCopy(srcdata.data, result, byteSize, srcdata.getSize());
-        return ManagedData<T>(this, static_cast<T*>(result), srcdata.getSize(), byteSize);
+        memCopy(srcdata.getData(), result, byteSize, srcdata.getSize());
+        return ManagedData<T>(this, static_cast<T*>(result), srcdata.getSize(), srcdata.getSize(), byteSize, srcdata.getPadding());
     }
 
 
     template<typename T>
     ManagedData<T> moveDataFromDevice(const ManagedData<T>& srcdata, const IBackendMemoryManager& destBackend) const {
-        if (srcdata.data == nullptr) {
-            return ManagedData<T>(&destBackend, nullptr, srcdata.getSize(), srcdata.getDataBytes());
-        }
+        assert(srcdata.getData() != nullptr);
         size_t byteSize = srcdata.getDataBytes();
-        void* result = moveDataFromDevice(srcdata.data, byteSize, srcdata.getSize(), destBackend);
-        return ManagedData<T>(&destBackend, static_cast<T*>(result), srcdata.getSize(), srcdata.getDataBytes());
+        void* result = moveDataFromDevice(srcdata.getData(), byteSize, srcdata.getSize(), destBackend);
+        return ManagedData<T>(&destBackend, static_cast<T*>(result), srcdata.getSize(), srcdata.getSize(), srcdata.getDataBytes(), srcdata.getPadding());
     }
 
 
     template<typename T>
     void freeMemoryOnDevice(ManagedData<T>& data) const {
-        if (data.data == nullptr) return;
+        if (data.getData() == nullptr) return;
         size_t byteSize = data.getDataBytes();
-        freeMemoryOnDevice(data.data, byteSize);
-        data.data = nullptr;
+        freeMemoryOnDevice(data.getData(), byteSize);
+        data.setData(nullptr);
     }
 
     virtual size_t getAvailableMemory() const {

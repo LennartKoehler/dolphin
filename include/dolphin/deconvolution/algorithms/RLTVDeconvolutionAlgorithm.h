@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphinbackend/ComplexData.h"
 #include <memory>
 
 class RLTVDeconvolutionAlgorithm : public DeconvolutionAlgorithm {

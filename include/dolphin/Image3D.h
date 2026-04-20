@@ -64,6 +64,7 @@ public:
     Image3D(Image3D&& other);
     Image3D& operator=(Image3D&&) noexcept;
     Image3D& operator=(const Image3D&);
+    bool operator==(const Image3D& other) const;
 
     Image3D getInRange(float min, float max) const;
 

@@ -24,12 +24,12 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dat
     assert(backend && "No backend available for Regularized Inverse Filter algorithm initialization");\
 
     // Allocate memory for intermediate arrays (all in frequency domain)
-    H2 = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    L = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    L2 = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    FA = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    FP = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
-    f_complex = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    H2 = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
+    L = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
+    L2 = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
+    FA = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
+    FP = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
+    f_complex = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
 
     initialized = true;
 }
@@ -49,9 +49,9 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     complex_t lambdacomplex = {static_cast<real_t>(lambda), 0};
 
     // Verify inputs are on device
-    assert(memory.isOnDevice(H.data) && "PSF is not on device");
-    assert(memory.isOnDevice(g.data) && "Input image is not on device");
-    assert(memory.isOnDevice(f.data) && "Output buffer is not on device");
+    assert(memory.isOnDevice(H.getData()) && "PSF is not on device");
+    assert(memory.isOnDevice(g.getData()) && "Input image is not on device");
+    assert(memory.isOnDevice(f.getData()) && "Output buffer is not on device");
 
     // Copy input to output buffer
     memory.memCopy(g, f);

@@ -65,7 +65,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     RealData g_host = Preprocessor::convertImageToRealData(cubeImage.image);
     RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
     BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
-    RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceReal(workShape);
+    RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
     std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
 

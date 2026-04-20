@@ -320,6 +320,155 @@
                 "ignoreFailures": true
                 }
             ]
+        },
+        {
+            "name": "Debug FFT Backend Test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/debug_build/tests/fft_backend_test",
+            "args": [
+                "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
+                "/home/lennart-k-hler/data/dolphin_results/bacteria_test.tif",
+                "cpu"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/debug_build/tests",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${workspaceFolder}/backends/cuda/build"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Disassemble in intel syntax",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "skipFiles": [
+                "<node_internals>/**",
+                "/usr/**",
+                "/lib/**"
+            ]
+        },
+        {
+            "name": "Debug CPUDataReinterpret",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/debug_build/tests/cpu_data_reinterpret_test",
+            "args": [
+                "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
+                "/home/lennart-k-hler/data/dolphin_results/bacteria_real_fft.tif",
+                "/home/lennart-k-hler/data/dolphin_results/bacteria_complex_fft.tif",
+                "cpu"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/debug_build/tests",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${workspaceFolder}/backends/cuda/build"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "Disassemble in intel syntax",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": false
+                }
+            ],
+            "skipFiles": [
+                "<node_internals>/**",
+                "/usr/**",
+                "/lib/**"
+            ]
+},
+        {
+            "name": "Debug FFT Real vs Complex Test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/debug_build/tests/fft_real_vs_complex_test",
+            "args": [
+                "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
+                "/home/lennart-k-hler/data/dolphin_results/bacteria_real_fft.tif",
+                "/home/lennart-k-hler/data/dolphin_results/bacteria_complex_fft.tif",
+                "cpu"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/debug_build/tests",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${workspaceFolder}/backends/cuda/build"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "Disassemble in intel syntax",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": false
+                }
+            ],
+            "skipFiles": [
+                "<node_internals>/**",
+                "/usr/**",
+                "/lib/**"
+            ]
+        },
+        {
+            "name": "Debug Image Comparison Test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/debug_build/tests/image_comparison_test",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/debug_build/tests",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${workspaceFolder}/backends/cuda/build"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "Disassemble in intel syntax",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": false
+                }
+            ],
+            "skipFiles": [
+                "<node_internals>/**",
+                "/usr/**",
+                "/lib/**"
+            ]
         }
     ]
 }

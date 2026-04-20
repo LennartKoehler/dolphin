@@ -108,6 +108,8 @@ target_link_libraries(real_complex_fftw
 add_test(NAME RealComplexFftw COMMAND real_complex_fftw)
 set_tests_properties(RealComplexFftw PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
+
+
 # Standalone TIFF generation test
 add_executable(tiff_generation_test
     tiff_generation_test.cpp
@@ -213,6 +215,85 @@ endif()
 # Add size decomposition test to test suite
 add_test(NAME FFTWSizeDecompositionTest COMMAND fftw_size_decomposition_test)
 set_tests_properties(FFTWSizeDecompositionTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+# FFT Backend Test - Tests forward and backward FFT using the backend
+add_executable(fft_backend_test
+    fft_backend_test.cpp
+)
+target_link_libraries(fft_backend_test
+    PRIVATE
+        dolphin
+)
+target_include_directories(fft_backend_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/../src
+)
+add_test(NAME FFTBackendTest COMMAND fft_backend_test)
+set_tests_properties(FFTBackendTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+
+add_executable(cpu_data_reinterpret_test
+    cpu_data_reinterpret_test.cpp
+)
+target_link_libraries(cpu_data_reinterpret_test
+    PRIVATE
+        dolphin
+)
+target_include_directories(cpu_data_reinterpret_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/../src
+)
+add_test(NAME CPUDataReinterpret COMMAND cpu_data_reinterpret_test)
+set_tests_properties(CPUDataReinterpret PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(fft_real_vs_complex_test
+    fft_real_vs_complex_test.cpp
+)
+target_link_libraries(fft_real_vs_complex_test
+    PRIVATE
+        dolphin
+)
+target_include_directories(fft_real_vs_complex_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/../src
+)
+add_test(NAME FFTComplexVsReal COMMAND fft_real_vs_complex_test)
+set_tests_properties(FFTComplexVsReal PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Image Comparison Test
+add_executable(image_comparison_test
+    image_comparison_test.cpp
+)
+target_link_libraries(image_comparison_test
+    PRIVATE
+        dolphin
+)
+target_include_directories(image_comparison_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/../src
+)
+add_test(NAME ImageComparisonTest COMMAND image_comparison_test)
+set_tests_properties(ImageComparisonTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+# FFTW In-Place vs Out-of-Place R2C Test
+add_executable(fftw_inplace_vs_outofplace_r2c_test
+    fftw_inplace_vs_outofplace_r2c_test.cpp
+)
+target_link_libraries(fftw_inplace_vs_outofplace_r2c_test
+    PRIVATE
+        dolphin
+)
+target_include_directories(fftw_inplace_vs_outofplace_r2c_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/backends/cpu/include
+        ${CMAKE_SOURCE_DIR}/backends/dolphinbackend/include
+)
+add_test(NAME FFTWInplaceVsOutofplaceR2C COMMAND fftw_inplace_vs_outofplace_r2c_test)
+set_tests_properties(FFTWInplaceVsOutofplaceR2C PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 message(STATUS "FFTW multithreading test will be built")
 message(STATUS "FFTW size decomposition test will be built")

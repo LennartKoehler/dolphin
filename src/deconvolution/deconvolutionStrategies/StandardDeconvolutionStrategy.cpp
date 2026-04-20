@@ -61,7 +61,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     );
     size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(complex_t);
 
-    Result<std::pair<Padding, CuboidShape>> cubePaddingResult = getCubePadding(psfs, setupConfig.cubePadding);
+    Result<std::pair<Padding, CuboidShape>> cubePaddingResult = getCubePadding(psfs, setupConfig.cubePadding, imageSize);
     Padding cubePadding = std::move(cubePaddingResult.value.first);
     CuboidShape minShape = std::move(cubePaddingResult.value.second); // has to be at least as big as every psf
 
@@ -144,17 +144,22 @@ std::unique_ptr<PSFPreprocessor> StandardDeconvolutionStrategy::createPSFPreproc
             Preprocessor::padToShape(inputPSF->image, targetShape, PaddingType::ZERO);
             RealData h = Preprocessor::convertImageToRealData(inputPSF->image);
             RealData h_device = backend.getMemoryManager().copyDataToDevice(h);
-            std::unique_ptr<ComplexData> h_result_device = std::make_unique<ComplexData>(std::move(backend.getMemoryManager().allocateMemoryOnDevice(targetShape)));
+            std::unique_ptr<ComplexView> h_result_device = std::make_unique<ComplexView>(std::move(backend.getMemoryManager().reinterpret(h_device)));
             backend.getDeconvManager().octantFourierShift(h_device); // align psf peak at 0,0,0
 
             backend.getDeconvManager().forwardFFT(h_device, *h_result_device);
+
+            //transfer ownership of data
+            h_result_device->setBackend(h_device.getBackend());
+            h_device.setBackend(nullptr); // so basically now h_result_data owns the data and h_device no longer does because it doesnt have a backend to delete it
+
             // backend.getDeconvManager().backwardFFT(*h_result_device, h_device);
 
             // move back to host for cuda
 
             // RealData result = backend.getMemoryManager().moveDataFromDevice(h_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
-            // Image3D test = Preprocessor::convertRealDataToImage(result);
-            // TiffWriter::writeToFile("test.tif", test);
+            // Image3D test = Preprocessor::convertComplexDataToImage(*h_result_device);
+            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/psf_fft.tif", test);
 
 
             backend.sync();
@@ -338,29 +343,16 @@ std::vector<CuboidShape> StandardDeconvolutionStrategy::getPSFSizes(const std::v
     return psfSizes;
 }
 
-CuboidShape StandardDeconvolutionStrategy::getLargestShape(const std::vector<CuboidShape>& shapes) const{
-    CuboidShape maxShape{0, 0, 0};
-
-    // Find the largest  dimensions
-    for (const auto& shape: shapes) {
-
-
-        maxShape.width = std::max(maxShape.width, shape.width);
-        maxShape.height = std::max(maxShape.height, shape.height);
-        maxShape.depth = std::max(maxShape.depth, shape.depth);
-    }
-    return maxShape;
-}
 
 
 // while were at it just get the minSize the subimage has to be (so that its at least as big as every psf)
-Result<std::pair<Padding, CuboidShape>> StandardDeconvolutionStrategy::getCubePadding(const std::vector<PSF>& psfs, const CuboidShape& configPadding){
+Result<std::pair<Padding, CuboidShape>> StandardDeconvolutionStrategy::getCubePadding(const std::vector<PSF>& psfs, const CuboidShape& configPadding, const CuboidShape& imageSize){
     Padding padding;
     std::vector<CuboidShape> psfSizes = getPSFSizes(psfs);
 
     CuboidShape largestPSF = getLargestShape(psfSizes);
 
-    if (configPadding.getVolume() == 0){
+    if (configPadding.getVolume() == -1){
         DefaultPaddingStrategy stratd{};
         stratd.init(configPadding);
         padding = stratd.getPadding(psfSizes);
@@ -369,6 +361,11 @@ Result<std::pair<Padding, CuboidShape>> StandardDeconvolutionStrategy::getCubePa
         ManualPaddingStrategy stratm{};
         stratm.init(configPadding);
         padding = stratm.getPadding(psfSizes);
+        if (padding.getTotalPadding() + imageSize < largestPSF)
+        {
+            return Result<Padding>::fail(
+                "Image with custom padding smaller than PSF");
+        }
     }
 
     if (padding.before < CuboidShape{0,0,0} ||
@@ -377,6 +374,8 @@ Result<std::pair<Padding, CuboidShape>> StandardDeconvolutionStrategy::getCubePa
         return Result<Padding>::fail(
             "Padding for cubes is smaller than zero");
     }
+
+    assert(padding.getTotalPadding() + imageSize >= largestPSF);
 
     return Result<std::pair<Padding, CuboidShape>>::ok(std::pair<Padding, CuboidShape>(std::move(padding), std::move(padding.getTotalPadding() + CuboidShape{1,1,1})));
 }

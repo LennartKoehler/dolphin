@@ -105,7 +105,7 @@ void Postprocessor::createWeightMasks(
     for (RealData* mask_p : masks){
         RealData& mask = *mask_p;
         // convolution
-        ComplexData maskComplex = backend.getMemoryManager().allocateMemoryOnDevice(mask.getSize());
+        ComplexData maskComplex = backend.getMemoryManager().allocateMemoryOnDeviceComplex(mask.getSize());
         backend.getDeconvManager().forwardFFT(mask, maskComplex);
         backend.getDeconvManager().complexMultiplication(maskComplex,  frequencyFeatheringKernel, maskComplex);
         backend.getDeconvManager().backwardFFT(maskComplex, mask);

@@ -29,7 +29,7 @@ void RLADDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     
     // Allocate memory for intermediate arrays
     c = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
-    c_complex = std::move(backend->getMemoryManager().allocateMemoryOnDevice(dataSize));
+    c_complex = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
     
     initialized = true;
 }
@@ -47,11 +47,11 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
     const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
 
     // Use pre-allocated memory for intermediate arrays
-    assert(memory.isOnDevice(f.data) && "PSF is not on device");
+    assert(memory.isOnDevice(f.getData()) && "PSF is not on device");
     memory.memCopy(g, f);
 
     // Allocate temporary complex buffer for f in frequency domain
-    ComplexData f_complex = memory.allocateMemoryOnDevice(f.getSize());
+    ComplexData f_complex = memory.allocateMemoryOnDeviceComplex(f.getSize());
 
     for (int n = 0; n < iterations; ++n) {
         // Calculate damping factor
