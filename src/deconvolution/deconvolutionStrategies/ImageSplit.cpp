@@ -49,10 +49,6 @@ void adjustDimensionsEdgeConditions(
     const CuboidShape& remainingSize,
     const PaddingType& imagePadding){
 
-    // no cube padding for first and last cube, only padding between cubes but not outside
-    // this way the total image volume isnt increased which makes it much faster
-    // the outside padding would be artificial padding anyway, like mirror padding
-    // but not padding at all is like periodic boundaries as the fourier transform is cyclic
     if (imagePadding == PaddingType::NONE){
         if (currentCube.box.position.depth == 0) {
             currentCube.box.dimensions.depth += currentCube.padding.before.depth;

@@ -1,3 +1,7 @@
+when computing theoretical psf for deconvolution. Just directly compute it for the size of the image that will be used (padded image) instead of manually saying what size and then just zero padding to the size of the image
+
+make seperate padding value for inside the image vs outside
+
 check all the core math operations like addtoone if they correctly use stride
 
 in place fft seems to work, but need to check if the result is aactually correct

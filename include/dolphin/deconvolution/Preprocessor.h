@@ -109,7 +109,14 @@ namespace Preprocessor{
 
 
     Padding padToShape(Image3D& image3D, const CuboidShape& targetShape, PaddingType borderType);
-    void padImage(Image3D& image, const Padding& padding, PaddingType borderType);
+
+    void padImage(Image3D& image, const Padding& padding, PaddingType borderType, float shapeScale = 1.0f);
+    void padImageMirror(Image3D& image, const Padding& padding);
+    void padImageZero(Image3D& image, const Padding& padding);
+    void padImageLinear(Image3D& image, const Padding& padding);
+    void padImageQuadratic(Image3D& image, const Padding& padding, float shapeScale = 1.0f);
+    void padImageSinusoid(Image3D& image, const Padding& padding);
+    void padImageGaussian(Image3D& image, const Padding& padding, float shapeScale = 1.0f);
 
 
 }

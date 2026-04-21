@@ -438,6 +438,48 @@
             ]
         },
         {
+            "name": "Debug PaddingTest",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/debug_build/tests/padding_test",
+            "args": [
+                "~/data/dolphin_test_data/bacteria.tif",
+                "~/data/dolphin_results/bacteria_gaussian.tif",
+                "gaussian",
+                "20",
+                "20",
+                "20",
+                "1.0"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/debug_build/tests",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${workspaceFolder}/backends/cuda/build"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Disassemble in intel syntax",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "skipFiles": [
+                "<node_internals>/**",
+                "/usr/**",
+                "/lib/**"
+            ]
+        },
+        {
             "name": "Debug Image Comparison Test",
             "type": "cppdbg",
             "request": "launch",

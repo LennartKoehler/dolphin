@@ -50,16 +50,6 @@ target_include_directories(read_write_test
 add_test(NAME ReadWriteTest COMMAND read_write_test)
 
 
-add_executable(mirror_padding_test
-    mirror_padding_test.cpp)
-target_link_libraries(mirror_padding_test
-    PRIVATE
-        dolphin
-
-)
-
-
-add_test(NAME MirrorPaddingTest COMMAND mirror_padding_test)
 
 
 # ImageSplit Test
@@ -294,6 +284,22 @@ target_include_directories(fftw_inplace_vs_outofplace_r2c_test
 )
 add_test(NAME FFTWInplaceVsOutofplaceR2C COMMAND fftw_inplace_vs_outofplace_r2c_test)
 set_tests_properties(FFTWInplaceVsOutofplaceR2C PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+#  Padding Test
+add_executable(padding_test
+    padding_test.cpp
+)
+target_link_libraries(padding_test
+    PRIVATE
+        dolphin
+)
+target_include_directories(padding_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/../src
+)
+add_test(NAME PaddingTest COMMAND padding_test)
+set_tests_properties(PaddingTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 message(STATUS "FFTW multithreading test will be built")
 message(STATUS "FFTW size decomposition test will be built")

@@ -22,6 +22,10 @@ enum PaddingType {
     NONE,
     ZERO,
     MIRROR,
+    LINEAR,
+    QUADRATIC,
+    SINUSOID,
+    GAUSSIAN,
 };
 
 
