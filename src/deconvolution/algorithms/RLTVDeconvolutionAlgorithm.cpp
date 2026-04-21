@@ -22,13 +22,6 @@ void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     lambda = config.lambda;
 }
 
-void RLTVDeconvolutionAlgorithm::precompute(RealData& g) {
-    const IBackendMemoryManager& memory = backend->getMemoryManager();
-    const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
-    const CuboidShape& size = g.getSize();
-
-    // Allocate TV output buffer (persisted for use in deconvolve)
-}
 
 void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm initialization");\

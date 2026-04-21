@@ -24,7 +24,6 @@ public:
     ~RLTVDeconvolutionAlgorithm() = default;
 
     void configure(const DeconvolutionConfig& config) override;
-    void precompute(RealData& g) override;
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;

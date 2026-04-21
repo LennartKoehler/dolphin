@@ -24,10 +24,6 @@ public:
     virtual ~DeconvolutionAlgorithm() = default;
     virtual void configure(const DeconvolutionConfig& config) = 0;
 
-    // Precompute algorithm-specific terms that only depend on the input image g.
-    // Called before init() so that temporary allocations are freed before persistent ones.
-    // Default implementation does nothing.
-    virtual void precompute(RealData& g) {}
 
     // Initialize algorithm-specific data allocations
     virtual void init(const CuboidShape& dataSize) = 0;
