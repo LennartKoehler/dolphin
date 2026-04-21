@@ -20,7 +20,70 @@ See the LICENSE file provided with the code for the full license.
 #include <itkImageDuplicator.h>
 
 
-namespace {
+ComplexData Preprocessor::convertImageToComplexData(
+    const Image3D& input) {
+
+    CuboidShape shape = input.getShape();
+    ComplexData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDeviceComplexFull(shape);
+
+    int index = 0;
+
+    for (const auto& it : input) {
+        result[index][0] = static_cast<real_t>(it);
+        result[index][1] = 0.0;
+        index ++;
+    }
+
+    return result;
+}
+RealData Preprocessor::convertImageToRealData(
+    const Image3D& input) {
+
+    CuboidShape shape = input.getShape();
+    RealData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(shape);
+
+    int index = 0;
+
+    for (const auto& it : input) {
+        result[index] = static_cast<real_t>(it);
+        index ++;
+    }
+
+    return result;
+}
+
+Image3D Preprocessor::convertComplexDataToImage(
+        const ComplexData& input){
+
+    Image3D output(input.getSize(), 0.0f);
+
+    int index = 0;
+    for (auto& it : output) {
+        real_t real = input[index][0];
+        real_t imag = input[index][1];
+        it = static_cast<float>(std::sqrt(real * real + imag * imag));
+        index ++;
+    }
+
+    return output;
+}
+
+// TODO make this conversion part of the backend? because if data is on cuda device then this wont work
+Image3D Preprocessor::convertRealDataToImage(
+        const RealData& input){
+
+    Image3D output(input.getSize(), 0.0f);
+
+    int index = 0;
+    for (auto& it : output) {
+        real_t real = input[index];
+        it = static_cast<float>(real);
+        index ++;
+    }
+
+    return output;
+}
+
 
 /**
  * Zero-pad the image to the target size and fix the region to start at (0,0,0).
@@ -169,72 +232,6 @@ void applyPaddingWeight(
     }
 }
 
-} // anonymous namespace
-
-
-ComplexData Preprocessor::convertImageToComplexData(
-    const Image3D& input) {
-
-    CuboidShape shape = input.getShape();
-    ComplexData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDeviceComplexFull(shape);
-
-    int index = 0;
-
-    for (const auto& it : input) {
-        result[index][0] = static_cast<real_t>(it);
-        result[index][1] = 0.0;
-        index ++;
-    }
-
-    return result;
-}
-RealData Preprocessor::convertImageToRealData(
-    const Image3D& input) {
-
-    CuboidShape shape = input.getShape();
-    RealData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(shape);
-
-    int index = 0;
-
-    for (const auto& it : input) {
-        result[index] = static_cast<real_t>(it);
-        index ++;
-    }
-
-    return result;
-}
-
-Image3D Preprocessor::convertComplexDataToImage(
-        const ComplexData& input){
-
-    Image3D output(input.getSize(), 0.0f);
-
-    int index = 0;
-    for (auto& it : output) {
-        real_t real = input[index][0];
-        real_t imag = input[index][1];
-        it = static_cast<float>(std::sqrt(real * real + imag * imag));
-        index ++;
-    }
-
-    return output;
-}
-
-// TODO make this conversion part of the backend? because if data is on cuda device then this wont work
-Image3D Preprocessor::convertRealDataToImage(
-        const RealData& input){
-
-    Image3D output(input.getSize(), 0.0f);
-
-    int index = 0;
-    for (auto& it : output) {
-        real_t real = input[index];
-        it = static_cast<float>(real);
-        index ++;
-    }
-
-    return output;
-}
 
 void Preprocessor::padImage(Image3D& image, const Padding& padding, PaddingType paddingType, float shapeScale){
     if (paddingType == PaddingType::MIRROR) padImageMirror(image, padding);

@@ -1,3 +1,7 @@
+make the padding size not be the entire psf, but rather set a thershold for psf and then just pad the size of the psf where each value within the psf is larger than that threshold. This basically means only pad up until the psf fades off and, the small values dont have that much of an influence
+
+could have different deconvolutionconfigs for different algorithms, similar to psfconfig, but also kinda unnecessary
+
 when computing theoretical psf for deconvolution. Just directly compute it for the size of the image that will be used (padded image) instead of manually saying what size and then just zero padding to the size of the image
 
 make seperate padding value for inside the image vs outside
