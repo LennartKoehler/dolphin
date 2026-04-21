@@ -35,6 +35,10 @@ ConfigMap paddingMap{{
     {"none", PaddingType::NONE},
     {"zero", PaddingType::ZERO},
     {"mirror", PaddingType::MIRROR},
+    {"linear", PaddingType::LINEAR},
+    {"quadratic", PaddingType::QUADRATIC},
+    {"sinusoid", PaddingType::SINUSOID},
+    {"gaussian", PaddingType::GAUSSIAN},
 }};
 
 
