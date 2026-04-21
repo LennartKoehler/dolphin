@@ -34,6 +34,127 @@
 
 
 
+// Strided iteration helpers — iterate over valid elements of 3D strided buffers
+// row-by-row, skipping FFTW padding at the end of each row.
+// Each buffer can have its own stride layout.
+//
+// Convention: input parameters are const references; the result parameter is a
+// non-const reference. Use stridedIterationMutate when all parameters are modified.
+//
+// Usage examples:
+//   // 2-input (a, result):
+//   stridedIteration(a, result, [&](auto* rowA, auto* rowR, int w) {
+//       for (int x = 0; x < w; ++x) rowR[x] = rowA[x] * scalar;
+//   });
+//   // 3-input (a, b, result):
+//   stridedIteration(a, b, result, [&](auto* rowA, auto* rowB, auto* rowR, int w) {
+//       for (int x = 0; x < w; ++x) rowR[x] = rowA[x] * rowB[x];
+//   });
+
+// Stride info extracted from a ManagedData/DataView object
+struct StrideInfo {
+    int width;
+    int height;
+    int depth;
+    size_t stride;       // elements per row  (width + padding)
+    size_t sliceStride;  // elements per slice (stride * height)
+};
+
+template<typename DataRef>
+StrideInfo getStrideInfo(const DataRef& d) {
+    StrideInfo info;
+    info.width       = d.getSize().width;
+    info.height      = d.getSize().height;
+    info.depth       = d.getSize().depth;
+    info.stride      = static_cast<size_t>(info.width) + d.getPadding();
+    info.sliceStride = info.stride * info.height;
+    return info;
+}
+
+// --- 1-input ---
+template<typename D1, typename Func>
+void stridedIteration(const D1& d1, Func&& func) {
+    auto si1 = getStrideInfo(d1);
+    auto* p1 = d1.getData();
+    for (int z = 0; z < si1.depth; ++z)
+        for (int y = 0; y < si1.height; ++y)
+            func(p1 + z * si1.sliceStride + y * si1.stride, si1.width);
+}
+
+// --- 2-input (1 input + result) ---
+template<typename D1, typename DR, typename Func>
+void stridedIteration(const D1& d1, DR& result, Func&& func) {
+    auto si1 = getStrideInfo(d1);
+    auto siR = getStrideInfo(result);
+    const auto* p1 = d1.getData();
+    auto* pR = result.getData();
+    for (int z = 0; z < si1.depth; ++z)
+        for (int y = 0; y < si1.height; ++y) {
+            auto off1 = z * si1.sliceStride + y * si1.stride;
+            auto offR = z * siR.sliceStride + y * siR.stride;
+            func(p1 + off1, pR + offR, si1.width);
+        }
+}
+
+// --- 3-input (2 inputs + result) ---
+template<typename D1, typename D2, typename DR, typename Func>
+void stridedIteration(const D1& d1, const D2& d2, DR& result, Func&& func) {
+    auto si1 = getStrideInfo(d1);
+    auto si2 = getStrideInfo(d2);
+    auto siR = getStrideInfo(result);
+    const auto* p1 = d1.getData();
+    const auto* p2 = d2.getData();
+    auto* pR = result.getData();
+    for (int z = 0; z < si1.depth; ++z)
+        for (int y = 0; y < si1.height; ++y) {
+            auto off1 = z * si1.sliceStride + y * si1.stride;
+            auto off2 = z * si2.sliceStride + y * si2.stride;
+            auto offR = z * siR.sliceStride + y * siR.stride;
+            func(p1 + off1, p2 + off2, pR + offR, si1.width);
+        }
+}
+
+// --- 4-input (3 inputs + result) ---
+template<typename D1, typename D2, typename D3, typename DR, typename Func>
+void stridedIteration(const D1& d1, const D2& d2, const D3& d3, DR& result, Func&& func) {
+    auto si1 = getStrideInfo(d1);
+    auto si2 = getStrideInfo(d2);
+    auto si3 = getStrideInfo(d3);
+    auto siR = getStrideInfo(result);
+    const auto* p1 = d1.getData();
+    const auto* p2 = d2.getData();
+    const auto* p3 = d3.getData();
+    auto* pR = result.getData();
+    for (int z = 0; z < si1.depth; ++z)
+        for (int y = 0; y < si1.height; ++y) {
+            auto off1 = z * si1.sliceStride + y * si1.stride;
+            auto off2 = z * si2.sliceStride + y * si2.stride;
+            auto off3 = z * si3.sliceStride + y * si3.stride;
+            auto offR = z * siR.sliceStride + y * siR.stride;
+            func(p1 + off1, p2 + off2, p3 + off3, pR + offR, si1.width);
+        }
+}
+
+// --- 3-mutable (all three modified, e.g. normalizeTV) ---
+template<typename D1, typename D2, typename D3, typename Func>
+void stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& func) {
+    auto si1 = getStrideInfo(d1);
+    auto si2 = getStrideInfo(d2);
+    auto si3 = getStrideInfo(d3);
+    auto* p1 = d1.getData();
+    auto* p2 = d2.getData();
+    auto* p3 = d3.getData();
+    for (int z = 0; z < si1.depth; ++z)
+        for (int y = 0; y < si1.height; ++y) {
+            auto off1 = z * si1.sliceStride + y * si1.stride;
+            auto off2 = z * si2.sliceStride + y * si2.stride;
+            auto off3 = z * si3.sliceStride + y * si3.stride;
+            func(p1 + off1, p2 + off2, p3 + off3, si1.width);
+        }
+}
+
+
+
 // if more than one backend then these shouldnt be static
 FFTWManager CPUDeconvolutionBackend::fftwManager;
 MemoryTracking CPUBackendMemoryManager::cpuMemory;
@@ -144,9 +265,6 @@ ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplexFull(const Cub
 }
 DataView<real_t> CPUBackendMemoryManager::reinterpret(ComplexData& data) const{
     CuboidShape realShape = data.getRealSize();
-    // The padding field on ComplexData stores the real_t padding value P_real = 2*(W/2+1) - W,
-    // which allows recovering the original real width: real_width = 2*complex_width - P_real = W.
-    // The same P_real value is the correct real_t padding for the resulting RealView.
     CuboidShape shapeForInplaceFFT = realShape;
     shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
     size_t padding = shapeForInplaceFFT.width - realShape.width;
@@ -160,12 +278,6 @@ DataView<complex_t> CPUBackendMemoryManager::reinterpret(RealData& data) const{
     CuboidShape complexShape = data.getSize();
     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
 
-    // Keep the real padding value as-is in the complex view's padding field.
-    // Although this is technically in real_t units (not complex_t), it serves as metadata
-    // that allows reinterpret(ComplexData -> RealView) to correctly recover the original
-    // real width via: real_width = 2 * complex_width - padding = W.
-    // The ComplexView's convertIndex() is never used in the FFT path (raw pointers are
-    // used instead), so the incorrect padding units don't cause issues in practice.
     DataView<complex_t> result = DataView<complex_t>{data.getBackend(), reinterpret_cast<complex_t*>(data.getData()), complexShape, data.getSize(), data.getDataBytes(), 0};
     data.setBackend(nullptr); // so it doesnt delete the data
     return result;
@@ -459,42 +571,38 @@ void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const 
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
 
-
-    // OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        real_t real_a = a[i][0];
-        real_t imag_a = a[i][1];
-        real_t real_b = b[i][0];
-        real_t imag_b = b[i][1];
-
-        result[i][0] = real_a * real_b - imag_a * imag_b;
-        result[i][1] = real_a * imag_b + imag_a * real_b;
-    }
+    stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, int w) {
+        for (int x = 0; x < w; ++x) {
+            real_t ra = rowA[x][0], ia = rowA[x][1];
+            real_t rb = rowB[x][0], ib = rowB[x][1];
+            rowR[x][0] = ra * rb - ia * ib;
+            rowR[x][1] = ra * ib + ia * rb;
+        }
+    });
 }
 
 void CPUDeconvolutionBackend::multiplication(const RealData& a, const RealData& b, RealData& result) const{
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "multiplication - input a");
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "multiplication - input b");
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "multiplication - result");
 
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
-
-
-    // OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        result[i] = a[i] * b[i];
-    }
+    stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, int w) {
+        for (int x = 0; x < w; ++x)
+            rowR[x] = rowA[x] * rowB[x];
+    });
 }
 
 void CPUDeconvolutionBackend::division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a");
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "division - input a");
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "division - input b");
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "division - result");
 
-    // OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        real_t denominator = b[i] < epsilon ? epsilon : b[i];
-        result[i] = a[i] / denominator;
-    }
+    stridedIteration(a, b, result, [epsilon](auto* rowA, auto* rowB, auto* rowR, int w) {
+        for (int x = 0; x < w; ++x) {
+            real_t denom = rowB[x] < epsilon ? epsilon : rowB[x];
+            rowR[x] = rowA[x] / denom;
+        }
+    });
 }
 
 
@@ -503,42 +611,42 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
 
-
-    // OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        real_t real_a = a[i][0];
-        real_t imag_a = a[i][1];
-        real_t real_b = b[i][0];
-        real_t imag_b = b[i][1];
-
-        real_t denominator = real_b * real_b + imag_b * imag_b;
-
-        if (denominator < epsilon) {
-            result[i][0] = 0.0;
-            result[i][1] = 0.0;
+    stridedIteration(a, b, result, [epsilon](auto* rowA, auto* rowB, auto* rowR, int w) {
+        for (int x = 0; x < w; ++x) {
+            real_t ra = rowA[x][0], ia = rowA[x][1];
+            real_t rb = rowB[x][0], ib = rowB[x][1];
+            real_t denom = rb * rb + ib * ib;
+            if (denom < epsilon) {
+                rowR[x][0] = 0.0;
+                rowR[x][1] = 0.0;
+            } else {
+                rowR[x][0] = (ra * rb + ia * ib) / denom;
+                rowR[x][1] = (ia * rb - ra * ib) / denom;
+            }
         }
-        else {
-            result[i][0] = (real_a * real_b + imag_a * imag_b) / denominator;
-            result[i][1] = (imag_a * real_b - real_a * imag_b) / denominator;
-        }
-    }
+    });
 }
 
 
 void CPUDeconvolutionBackend::complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const {
     BACKEND_CHECK(sum.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
 
-    int imageSize = sum.getSize().getVolume();
+    auto si = getStrideInfo(sum);
+    complex_t* ptrSum = sum.getData();
+
     OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int imageindex = 0; imageindex < nImages; ++imageindex) {
-
         complex_t* a = data[imageindex];
-        for (int i = 0; i < imageSize; ++i) {
-            // Use atomic to prevent race conditions when multiple threads write to sum[i]
-            #pragma omp atomic
-            sum[i][0] += a[i][0];
-            #pragma omp atomic
-            sum[i][1] += a[i][1];
+        for (int z = 0; z < si.depth; ++z) {
+            for (int y = 0; y < si.height; ++y) {
+                size_t off = z * si.sliceStride + y * si.stride;
+                for (int x = 0; x < si.width; ++x) {
+                    #pragma omp atomic
+                    ptrSum[off + x][0] += a[off + x][0];
+                    #pragma omp atomic
+                    ptrSum[off + x][1] += a[off + x][1];
+                }
+            }
         }
     }
 }
@@ -548,15 +656,18 @@ void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const Comple
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexAddition - result");
 
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        result[i][0] = a[i][0] + b[i][0];
-        result[i][1] = a[i][1] + b[i][1];
-    }
+    stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, int w) {
+        for (int x = 0; x < w; ++x) {
+            rowR[x][0] = rowA[x][0] + rowB[x][0];
+            rowR[x][1] = rowA[x][1] + rowB[x][1];
+        }
+    });
 }
 
 void CPUDeconvolutionBackend::sumToOne(real_t** data, int nImages, int imageVolume) const {
-
+    // NOTE: Uses raw real_t** with flat indexing. External pointers are assumed
+    // to share the same stride layout but we don't have CuboidShape for them.
+    // If stride-aware access is needed, the API should be updated to pass shapes.
     OMP(omp parallel for, config.useOMP, config.ompThreads)
     for (int i = 0; i < imageVolume; ++i) {
         real_t sum{ 0 };
@@ -575,23 +686,24 @@ void CPUDeconvolutionBackend::scalarMultiplication(const RealData& a, real_t sca
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
 
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        result[i] = a[i] * scalar;
-    }
+    stridedIteration(a, result, [scalar](auto* rowA, auto* rowR, int w) {
+        for (int x = 0; x < w; ++x)
+            rowR[x] = rowA[x] * scalar;
+    });
 }
 
 void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
 
-    real_t rscalar = scalar[0];
-    real_t iscalar = scalar[1];
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        result[i][0] = a[i][0] * rscalar;
-        result[i][1] = a[i][1] * iscalar;
-    }
+    const real_t rscalar = scalar[0];
+    const real_t iscalar = scalar[1];
+    stridedIteration(a, result, [rscalar, iscalar](auto* rowA, auto* rowR, int w) {
+        for (int x = 0; x < w; ++x) {
+            rowR[x][0] = rowA[x][0] * rscalar;
+            rowR[x][1] = rowA[x][1] * iscalar;
+        }
+    });
 }
 
 void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
@@ -599,17 +711,14 @@ void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexDa
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplicationWithConjugate - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result");
 
-
-    // OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        real_t real_a = a[i][0];
-        real_t imag_a = a[i][1];
-        real_t real_b = b[i][0];
-        real_t imag_b = -b[i][1];  // Conjugate
-
-        result[i][0] = real_a * real_b - imag_a * imag_b;
-        result[i][1] = real_a * imag_b + imag_a * real_b;
-    }
+    stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, int w) {
+        for (int x = 0; x < w; ++x) {
+            real_t ra = rowA[x][0], ia = rowA[x][1];
+            real_t rb = rowB[x][0], ib = -rowB[x][1];  // Conjugate
+            rowR[x][0] = ra * rb - ia * ib;
+            rowR[x][1] = ra * ib + ia * rb;
+        }
+    });
 }
 
 void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
@@ -617,46 +726,42 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivisionStabilized - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result");
 
-
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < a.getSize().getVolume(); ++i) {
-        real_t real_a = a[i][0];
-        real_t imag_a = a[i][1];
-        real_t real_b = b[i][0];
-        real_t imag_b = b[i][1];
-
-        real_t mag = std::max(epsilon, real_b * real_b + imag_b * imag_b);
-
-        result[i][0] = (real_a * real_b + imag_a * imag_b) / mag;
-        result[i][1] = (imag_a * real_b - real_a * imag_b) / mag;
-    }
-}
-
-// Specialized Functions
-void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
-    int width = psf.getSize().width;
-    int height = psf.getSize().height;
-    int depth = psf.getSize().depth;
-
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int z = 0; z < depth; ++z) {
-        float wz = 2 * M_PI * z / depth;
-        for (int y = 0; y < height; ++y) {
-            float wy = 2 * M_PI * y / height;
-            for (int x = 0; x < width; ++x) {
-                float wx = 2 * M_PI * x / width;
-                float laplacian_value = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
-
-                int index = (z * height + y) * width + x;
-
-                laplacian[index][0] = psf[index][0] * laplacian_value;
-                laplacian[index][1] = psf[index][1] * laplacian_value;
-            }
+    stridedIteration(a, b, result, [epsilon](auto* rowA, auto* rowB, auto* rowR, int w) {
+        for (int x = 0; x < w; ++x) {
+            real_t ra = rowA[x][0], ia = rowA[x][1];
+            real_t rb = rowB[x][0], ib = rowB[x][1];
+            real_t mag = std::max(epsilon, rb * rb + ib * ib);
+            rowR[x][0] = (ra * rb + ia * ib) / mag;
+            rowR[x][1] = (ia * rb - ra * ib) / mag;
         }
-    }
+    });
 }
 
-// void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
+// // Specialized Functions
+// void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
+//     auto siPsf = getStrideInfo(psf);
+//     auto siLap = getStrideInfo(laplacian);
+//     const complex_t* ptrPsf = psf.getData();
+//     complex_t*       ptrLap = laplacian.getData();
+//
+//     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
+//     for (int z = 0; z < siPsf.depth; ++z) {
+//         float wz = 2 * M_PI * z / siPsf.depth;
+//         for (int y = 0; y < siPsf.height; ++y) {
+//             float wy = 2 * M_PI * y / siPsf.height;
+//             auto offPsf = z * siPsf.sliceStride + y * siPsf.stride;
+//             auto offLap = z * siLap.sliceStride + y * siLap.stride;
+//             for (int x = 0; x < siPsf.width; ++x) {
+//                 float wx = 2 * M_PI * x / siPsf.width;
+//                 float lap_val = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
+//                 ptrLap[offLap + x][0] = ptrPsf[offPsf + x][0] * lap_val;
+//                 ptrLap[offLap + x][1] = ptrPsf[offPsf + x][1] * lap_val;
+//             }
+//         }
+//     }
+// }
+//
+// // void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
 //     real_t max_val = 0.0, max_val2 = 0.0;
 //     OMP(omp parallel for, config.useOMP, config.ompThreads)
 //     for (int j = 0; j < resultImage.getSize().getVolume(); j++) {
@@ -686,35 +791,35 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
     real_t minImag = std::numeric_limits<real_t>::max();
     real_t maxImag = std::numeric_limits<real_t>::lowest();
 
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int i = 0; i < data.getSize().getVolume(); i++) {
-        real_t real = data[i][0];
-        real_t imag = data[i][1];
+    auto si = getStrideInfo(data);
+    const complex_t* ptr = data.getData();
 
-        // Check for NaN
-        if (std::isnan(real) || std::isnan(imag)) {
-            nanCount++;
-            if (nanCount <= 10) { // Only print first 10
-                g_logger(std::format("NaN at index {}: ({}, {})", i, real, imag), LogLevel::INFO);
+    for (int z = 0; z < si.depth; ++z) {
+        for (int y = 0; y < si.height; ++y) {
+            size_t off = z * si.sliceStride + y * si.stride;
+            for (int x = 0; x < si.width; ++x) {
+                real_t rv = ptr[off + x][0];
+                real_t iv = ptr[off + x][1];
+
+                if (std::isnan(rv) || std::isnan(iv)) {
+                    nanCount++;
+                    if (nanCount <= 10)
+                        g_logger(std::format("NaN at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::INFO);
+                }
+                if (std::isinf(rv) || std::isinf(iv)) {
+                    infCount++;
+                    if (infCount <= 10)
+                        g_logger(std::format("Inf at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::INFO);
+                }
+                if (std::isfinite(rv)) {
+                    minReal = std::min(minReal, rv);
+                    maxReal = std::max(maxReal, rv);
+                }
+                if (std::isfinite(iv)) {
+                    minImag = std::min(minImag, iv);
+                    maxImag = std::max(maxImag, iv);
+                }
             }
-        }
-
-        // Check for infinity
-        if (std::isinf(real) || std::isinf(imag)) {
-            infCount++;
-            if (infCount <= 10) {
-                g_logger(std::format("Inf at index {}: ({}, {})", i, real, imag), LogLevel::INFO);
-            }
-        }
-
-        // Track min/max for valid values
-        if (std::isfinite(real)) {
-            minReal = std::min(minReal, real);
-            maxReal = std::max(maxReal, real);
-        }
-        if (std::isfinite(imag)) {
-            minImag = std::min(minImag, imag);
-            maxImag = std::max(maxImag, imag);
         }
     }
 
@@ -726,252 +831,198 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
 
 // Gradient and TV Functions - Updated to match OpenMPBackend pattern
 void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
-    int width = image.getSize().width;
-    int height = image.getSize().height;
-    int depth = image.getSize().depth;
+    auto siImg = getStrideInfo(image);
+    auto siGrd = getStrideInfo(gradX);
+    const complex_t* ptrImg = image.getData();
+    complex_t*       ptrGrd = gradX.getData();
 
-    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                int index = z * height * width + y * width + x;
-
-                if (x < width - 1) {
-                    int nextIndex = index + 1;
-                    gradX[index][0] = image[index][0] - image[nextIndex][0];
-                    gradX[index][1] = image[index][1] - image[nextIndex][1];
-                } else {
-                    // Boundary condition: last column
-                    gradX[index][0] = 0.0;
-                    gradX[index][1] = 0.0;
-                }
+    OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
+    for (int z = 0; z < siImg.depth; ++z) {
+        for (int y = 0; y < siImg.height; ++y) {
+            auto offImg = z * siImg.sliceStride + y * siImg.stride;
+            auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
+            for (int x = 0; x < siImg.width - 1; ++x) {
+                ptrGrd[offGrd + x][0] = ptrImg[offImg + x][0] - ptrImg[offImg + x + 1][0];
+                ptrGrd[offGrd + x][1] = ptrImg[offImg + x][1] - ptrImg[offImg + x + 1][1];
             }
+            // Boundary: last column
+            ptrGrd[offGrd + siImg.width - 1][0] = 0.0;
+            ptrGrd[offGrd + siImg.width - 1][1] = 0.0;
         }
     }
 }
 
 void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
-    int width = image.getSize().width;
-    int height = image.getSize().height;
-    int depth = image.getSize().depth;
+    auto siImg = getStrideInfo(image);
+    auto siGrd = getStrideInfo(gradY);
+    const complex_t* ptrImg = image.getData();
+    complex_t*       ptrGrd = gradY.getData();
 
-    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                int index = z * height * width + y * width + x;
-
-                if (y < height - 1) {
-                    int nextIndex = index + width;
-                    gradY[index][0] = image[index][0] - image[nextIndex][0];
-                    gradY[index][1] = image[index][1] - image[nextIndex][1];
-                } else {
-                    // Boundary condition: last row
-                    gradY[index][0] = 0.0;
-                    gradY[index][1] = 0.0;
-                }
+    OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
+    for (int z = 0; z < siImg.depth; ++z) {
+        for (int y = 0; y < siImg.height - 1; ++y) {
+            auto offImg = z * siImg.sliceStride + y * siImg.stride;
+            auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
+            for (int x = 0; x < siImg.width; ++x) {
+                ptrGrd[offGrd + x][0] = ptrImg[offImg + x][0] - ptrImg[offImg + siImg.stride + x][0];
+                ptrGrd[offGrd + x][1] = ptrImg[offImg + x][1] - ptrImg[offImg + siImg.stride + x][1];
             }
+        }
+        // Boundary: last row
+        auto offImg = z * siImg.sliceStride + (siImg.height - 1) * siImg.stride;
+        auto offGrd = z * siGrd.sliceStride + (siImg.height - 1) * siGrd.stride;
+        for (int x = 0; x < siImg.width; ++x) {
+            ptrGrd[offGrd + x][0] = 0.0;
+            ptrGrd[offGrd + x][1] = 0.0;
         }
     }
 }
 
 void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
-    int width = image.getSize().width;
-    int height = image.getSize().height;
-    int depth = image.getSize().depth;
+    auto siImg = getStrideInfo(image);
+    auto siGrd = getStrideInfo(gradZ);
+    const complex_t* ptrImg = image.getData();
+    complex_t*       ptrGrd = gradZ.getData();
 
-    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                int index = z * height * width + y * width + x;
-
-                if (z < depth - 1) {
-                    int nextIndex = index + height * width;
-                    gradZ[index][0] = image[index][0] - image[nextIndex][0];
-                    gradZ[index][1] = image[index][1] - image[nextIndex][1];
-                } else {
-                    // Boundary condition: last depth layer
-                    gradZ[index][0] = 0.0;
-                    gradZ[index][1] = 0.0;
-                }
+    OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
+    for (int z = 0; z < siImg.depth - 1; ++z) {
+        for (int y = 0; y < siImg.height; ++y) {
+            auto offImg = z * siImg.sliceStride + y * siImg.stride;
+            auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
+            for (int x = 0; x < siImg.width; ++x) {
+                ptrGrd[offGrd + x][0] = ptrImg[offImg + x][0] - ptrImg[offImg + siImg.sliceStride + x][0];
+                ptrGrd[offGrd + x][1] = ptrImg[offImg + x][1] - ptrImg[offImg + siImg.sliceStride + x][1];
             }
+        }
+    }
+    // Boundary: last slice
+    for (int y = 0; y < siImg.height; ++y) {
+        auto offImg = (siImg.depth - 1) * siImg.sliceStride + y * siImg.stride;
+        auto offGrd = (siImg.depth - 1) * siGrd.sliceStride + y * siGrd.stride;
+        for (int x = 0; x < siImg.width; ++x) {
+            ptrGrd[offGrd + x][0] = 0.0;
+            ptrGrd[offGrd + x][1] = 0.0;
         }
     }
 }
 
 void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
-    int nxy = gx.getSize().width * gx.getSize().height;
-
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int z = 0; z < gx.getSize().depth; ++z) {
-        for (int i = 0; i < nxy; ++i) {
-            int index = z * nxy + i;
-
-            real_t dx = gx[index][0];
-            real_t dy = gy[index][0];
-            real_t dz = gz[index][0];
-
-            tv[index][0] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
-            tv[index][1] = 0.0;
+    stridedIteration(gx, gy, gz, tv, [lambda](auto* rowGx, auto* rowGy, auto* rowGz, auto* rowTv, int w) {
+        for (int x = 0; x < w; ++x) {
+            real_t dx = rowGx[x][0];
+            real_t dy = rowGy[x][0];
+            real_t dz = rowGz[x][0];
+            rowTv[x][0] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
+            rowTv[x][1] = 0.0;
         }
-    }
+    });
 }
 
 
 
 void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const {
-    int nxy = gradX.getSize().width * gradX.getSize().height;
-
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int z = 0; z < gradX.getSize().depth; ++z) {
-        for (int i = 0; i < nxy; ++i) {
-            int index = z * nxy + i;
-
+    stridedIterationMutate(gradX, gradY, gradZ, [epsilon](auto* rowGx, auto* rowGy, auto* rowGz, int w) {
+        for (int x = 0; x < w; ++x) {
             real_t norm = std::sqrt(
-                gradX[index][0] * gradX[index][0] + gradX[index][1] * gradX[index][1] +
-                gradY[index][0] * gradY[index][0] + gradY[index][1] * gradY[index][1] +
-                gradZ[index][0] * gradZ[index][0] + gradZ[index][1] * gradZ[index][1]
+                rowGx[x][0] * rowGx[x][0] + rowGx[x][1] * rowGx[x][1] +
+                rowGy[x][0] * rowGy[x][0] + rowGy[x][1] * rowGy[x][1] +
+                rowGz[x][0] * rowGz[x][0] + rowGz[x][1] * rowGz[x][1]
             );
-
             norm = std::max(norm, epsilon);
-
-            gradX[index][0] /= norm;
-            gradX[index][1] /= norm;
-            gradY[index][0] /= norm;
-            gradY[index][1] /= norm;
-            gradZ[index][0] /= norm;
-            gradZ[index][1] /= norm;
+            rowGx[x][0] /= norm; rowGx[x][1] /= norm;
+            rowGy[x][0] /= norm; rowGy[x][1] /= norm;
+            rowGz[x][0] /= norm; rowGz[x][1] /= norm;
         }
-    }
+    });
 }
 
 // Gradient and TV Functions for real-valued data
 void CPUDeconvolutionBackend::gradientX(const RealData& image, RealData& gradX) const {
-    int width = image.getSize().width;
-    int height = image.getSize().height;
-    int depth = image.getSize().depth;
+    auto siImg = getStrideInfo(image);
+    auto siGrd = getStrideInfo(gradX);
+    const real_t* ptrImg = image.getData();
+    real_t*       ptrGrd = gradX.getData();
 
-    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                int index = z * height * width + y * width + x;
-
-                if (x < width - 1) {
-                    int nextIndex = index + 1;
-                    gradX[index] = image[index] - image[nextIndex];
-                } else {
-                    // Boundary condition: last column
-                    gradX[index] = 0.0;
-                }
-            }
+    OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
+    for (int z = 0; z < siImg.depth; ++z) {
+        for (int y = 0; y < siImg.height; ++y) {
+            auto offImg = z * siImg.sliceStride + y * siImg.stride;
+            auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
+            for (int x = 0; x < siImg.width - 1; ++x)
+                ptrGrd[offGrd + x] = ptrImg[offImg + x] - ptrImg[offImg + x + 1];
+            ptrGrd[offGrd + siImg.width - 1] = 0.0;
         }
     }
 }
 
 void CPUDeconvolutionBackend::gradientY(const RealData& image, RealData& gradY) const {
-    int width = image.getSize().width;
-    int height = image.getSize().height;
-    int depth = image.getSize().depth;
+    auto siImg = getStrideInfo(image);
+    auto siGrd = getStrideInfo(gradY);
+    const real_t* ptrImg = image.getData();
+    real_t*       ptrGrd = gradY.getData();
 
-    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                int index = z * height * width + y * width + x;
-
-                if (y < height - 1) {
-                    int nextIndex = index + width;
-                    gradY[index] = image[index] - image[nextIndex];
-                } else {
-                    // Boundary condition: last row
-                    gradY[index] = 0.0;
-                }
-            }
+    OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
+    for (int z = 0; z < siImg.depth; ++z) {
+        for (int y = 0; y < siImg.height - 1; ++y) {
+            auto offImg = z * siImg.sliceStride + y * siImg.stride;
+            auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
+            for (int x = 0; x < siImg.width; ++x)
+                ptrGrd[offGrd + x] = ptrImg[offImg + x] - ptrImg[offImg + siImg.stride + x];
         }
+        // Boundary: last row
+        auto offGrd = z * siGrd.sliceStride + (siImg.height - 1) * siGrd.stride;
+        for (int x = 0; x < siImg.width; ++x)
+            ptrGrd[offGrd + x] = 0.0;
     }
 }
 
 void CPUDeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ) const {
-    int width = image.getSize().width;
-    int height = image.getSize().height;
-    int depth = image.getSize().depth;
+    auto siImg = getStrideInfo(image);
+    auto siGrd = getStrideInfo(gradZ);
+    const real_t* ptrImg = image.getData();
+    real_t*       ptrGrd = gradZ.getData();
 
-    OMP(omp parallel for collapse(3), config.useOMP, config.ompThreads)
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                int index = z * height * width + y * width + x;
-
-                if (z < depth - 1) {
-                    int nextIndex = index + height * width;
-                    gradZ[index] = image[index] - image[nextIndex];
-                } else {
-                    // Boundary condition: last depth layer
-                    gradZ[index] = 0.0;
-                }
-            }
+    OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
+    for (int z = 0; z < siImg.depth - 1; ++z) {
+        for (int y = 0; y < siImg.height; ++y) {
+            auto offImg = z * siImg.sliceStride + y * siImg.stride;
+            auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
+            for (int x = 0; x < siImg.width; ++x)
+                ptrGrd[offGrd + x] = ptrImg[offImg + x] - ptrImg[offImg + siImg.sliceStride + x];
         }
+    }
+    // Boundary: last slice
+    for (int y = 0; y < siImg.height; ++y) {
+        auto offGrd = (siImg.depth - 1) * siGrd.sliceStride + y * siGrd.stride;
+        for (int x = 0; x < siImg.width; ++x)
+            ptrGrd[offGrd + x] = 0.0;
     }
 }
 
 void CPUDeconvolutionBackend::computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const {
-    int nxy = gx.getSize().width * gx.getSize().height;
-
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int z = 0; z < gx.getSize().depth; ++z) {
-        for (int i = 0; i < nxy; ++i) {
-            int index = z * nxy + i;
-
-            real_t dx = gx[index];
-            real_t dy = gy[index];
-            real_t dz = gz[index];
-
-            tv[index] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
+    stridedIteration(gx, gy, gz, tv, [lambda](auto* rowGx, auto* rowGy, auto* rowGz, auto* rowTv, int w) {
+        for (int x = 0; x < w; ++x) {
+            real_t dx = rowGx[x];
+            real_t dy = rowGy[x];
+            real_t dz = rowGz[x];
+            rowTv[x] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
         }
-    }
+    });
 }
 
 void CPUDeconvolutionBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
-    int nxy = gradX.getSize().width * gradX.getSize().height;
-
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (int z = 0; z < gradX.getSize().depth; ++z) {
-        for (int i = 0; i < nxy; ++i) {
-            int index = z * nxy + i;
-
+    stridedIterationMutate(gradX, gradY, gradZ, [epsilon](auto* rowGx, auto* rowGy, auto* rowGz, int w) {
+        for (int x = 0; x < w; ++x) {
             real_t norm = std::sqrt(
-                gradX[index] * gradX[index] +
-                gradY[index] * gradY[index] +
-                gradZ[index] * gradZ[index]
+                rowGx[x] * rowGx[x] +
+                rowGy[x] * rowGy[x] +
+                rowGz[x] * rowGz[x]
             );
-
             norm = std::max(norm, epsilon);
-
-            gradX[index] /= norm;
-            gradY[index] /= norm;
-            gradZ[index] /= norm;
+            rowGx[x] /= norm;
+            rowGy[x] /= norm;
+            rowGz[x] /= norm;
         }
-    }
+    });
 }
 
-
-// IBackend& CPUBackend::clone() {
-//     return backendManager.clone(*this);
-// }
-
-// IBackend& CPUBackend::cloneSharedMemory() {
-//     return backendManager.cloneSharedMemory(*this);
-// }
-
-// void CPUBackend::setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) {
-//     // workerThreads = static_cast<size_t>(2*totalThreads/3);
-//     // config.ompThreads = static_cast<int>(workerThreads);
-
-//     ioThreads = ioThreads == 0 ? totalThreads : ioThreads;
-//     config.ompThreads = workerThreads == 0 ? static_cast<size_t>(2*totalThreads/3) : workerThreads;
-//     // workerThreads = workerThreads == 0 ? 1 : workerThreads;
-//     workerThreads = 1;
-//     deconvDevice.init(config);
-// }

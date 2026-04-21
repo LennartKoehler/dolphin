@@ -53,35 +53,35 @@ inline dim3 computeBlocksPerGrid(int Nx, int Ny, int Nz) {
 namespace CUBE_MAT {
 
 
-    cudaError_t elementwiseMatDiv(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C, real_t epsilon, cudaStream_t stream) {
+cudaError_t elementwiseMatDiv(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B, real_t* C, real_t epsilon, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
         CUDA_CHECK_KERNEL(
-                (elementwiseMatDivGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C, epsilon)),
+                (elementwiseMatDivGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideB, strideC, A, B, C, epsilon)),
                 stream);
         return cudaSuccess;
     }
 
-    cudaError_t scalarMul(int Nx, int Ny, int Nz, real_t* A, real_t B, real_t* C, cudaStream_t stream) {
-        if (!A || !B || !C) {
+cudaError_t scalarMul(int Nx, int Ny, int Nz, int strideA, int strideC, real_t* A, real_t B, real_t* C, cudaStream_t stream) {
+        if (!A || !C) {
             return cudaErrorInvalidValue;
         }
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
         CUDA_CHECK_KERNEL(
-                (scalarMulGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C)),
+                (scalarMulGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideC, A, B, C)),
                 stream);
         return cudaSuccess;
     }
 
-    cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C, cudaStream_t stream) {
+cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B, real_t* C, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
         CUDA_CHECK_KERNEL(
-                (elementwiseMatMulGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C)),
+                (elementwiseMatMulGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideB, strideC, A, B, C)),
                 stream);
         return cudaSuccess;
     }
@@ -544,7 +544,7 @@ namespace CUBE_REG {
     }
 
     // Gradient functions for real-valued data
-    cudaError_t gradX(int Nx, int Ny, int Nz, real_t* image, real_t* gradX, cudaStream_t stream) {
+cudaError_t gradX(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradX, cudaStream_t stream) {
         if (!image || !gradX) {
             return cudaErrorInvalidValue;
         }
@@ -554,7 +554,7 @@ namespace CUBE_REG {
 
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        gradientXGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradX);
+        gradientXGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideIn, strideOut, image, gradX);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -573,7 +573,7 @@ namespace CUBE_REG {
         return cudaSuccess;
     }
 
-    cudaError_t gradY(int Nx, int Ny, int Nz, real_t* image, real_t* gradY, cudaStream_t stream) {
+cudaError_t gradY(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradY, cudaStream_t stream) {
         if (!image || !gradY) {
             return cudaErrorInvalidValue;
         }
@@ -583,7 +583,7 @@ namespace CUBE_REG {
 
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        gradientYGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradY);
+        gradientYGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideIn, strideOut, image, gradY);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -602,7 +602,7 @@ namespace CUBE_REG {
         return cudaSuccess;
     }
 
-    cudaError_t gradZ(int Nx, int Ny, int Nz, real_t* image, real_t* gradZ, cudaStream_t stream) {
+cudaError_t gradZ(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradZ, cudaStream_t stream) {
         if (!image || !gradZ) {
             return cudaErrorInvalidValue;
         }
@@ -612,7 +612,7 @@ namespace CUBE_REG {
 
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        gradientZGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, image, gradZ);
+        gradientZGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideIn, strideOut, image, gradZ);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -631,7 +631,7 @@ namespace CUBE_REG {
         return cudaSuccess;
     }
 
-    cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv, cudaStream_t stream) {
+cudaError_t computeTV(int Nx, int Ny, int Nz, int strideGx, int strideGy, int strideGz, int strideTv, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv, cudaStream_t stream) {
         if (!gx || !gy || !gz || !tv) {
             return cudaErrorInvalidValue;
         }
@@ -641,7 +641,7 @@ namespace CUBE_REG {
 
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        computeTVGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, lambda, gx, gy, gz, tv);
+        computeTVGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideGx, strideGy, strideGz, strideTv, lambda, gx, gy, gz, tv);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -660,7 +660,7 @@ namespace CUBE_REG {
         return cudaSuccess;
     }
 
-    cudaError_t normalizeTV(int Nx, int Ny, int Nz, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon, cudaStream_t stream) {
+cudaError_t normalizeTV(int Nx, int Ny, int Nz, int strideGradX, int strideGradY, int strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon, cudaStream_t stream) {
         if (!gradX || !gradY || !gradZ) {
             return cudaErrorInvalidValue;
         }
@@ -670,7 +670,7 @@ namespace CUBE_REG {
 
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        normalizeTVGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, gradX, gradY, gradZ, epsilon);
+        normalizeTVGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideGradX, strideGradY, strideGradZ, gradX, gradY, gradZ, epsilon);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -726,7 +726,7 @@ namespace CUBE_TILED {
 namespace CUBE_FTT {
 
 
-    cudaError_t octantFourierShift(int Nx, int Ny, int Nz, real_t* data, cudaStream_t stream) {
+    cudaError_t octantFourierShift(int Nx, int Ny, int Nz, int stride, real_t* data, cudaStream_t stream) {
         if (!data) {
             return cudaErrorInvalidValue;
         }
@@ -740,7 +740,7 @@ namespace CUBE_FTT {
                            (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
                            (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
 
-        octantFourierShiftGlobal<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(Nx, Ny, Nz, data);
+        octantFourierShiftGlobal<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(Nx, Ny, Nz, stride, data);
         cudaError_t errp = cudaPeekAtLastError();
         if (errp != cudaSuccess) {
             cudaEventDestroy(event);
@@ -872,38 +872,3 @@ namespace CUBE_FTT {
     }
 }
 
-namespace CUBE_DEVICE_KERNEL {
-    // Testing __device__ kernels
-    cudaError_t deviceTestKernel(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C) {
-        if (!A || !B || !C) {
-            return cudaErrorInvalidValue;
-        }
-
-        cudaEvent_t event;
-        cudaEventCreate(&event);
-
-        // Kernel dimension 3D, because 3D matrix stored in 1D array, index in kernel operation depend on structure
-        dim3 threadsPerBlock(10, 10, 10); //=1000 (faster than max 1024)
-        dim3 blocksPerGrid((Nx + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                           (Ny + threadsPerBlock.y - 1) / threadsPerBlock.y,
-                           (Nz + threadsPerBlock.z - 1) / threadsPerBlock.z);
-
-        deviceTestKernelGlobal<<<blocksPerGrid, threadsPerBlock>>>(Nx, Ny, Nz, A, B, C);
-
-        cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            cudaEventDestroy(event);
-            return err;
-        }
-
-        cudaEventRecord(event);
-        cudaError_t syncErr = cudaEventSynchronize(event);
-        if (syncErr != cudaSuccess) {
-            cudaEventDestroy(event);
-            return syncErr;
-        }
-
-        cudaEventDestroy(event);
-        return cudaSuccess;
-    }
-}

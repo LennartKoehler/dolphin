@@ -59,7 +59,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         manager,
         algorithm
     );
-    size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(complex_t);
+    size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(real_t);
 
     Result<std::pair<Padding, CuboidShape>> cubePaddingResult = getCubePadding(psfs, setupConfig.cubePadding, imageSize);
     Padding cubePadding = std::move(cubePaddingResult.value.first);
@@ -236,7 +236,7 @@ size_t StandardDeconvolutionStrategy::getMaxMemoryPerCube(
     if (availableMemory < memoryBuffer) throw std::runtime_error("Available memory too low");
     availableMemory -= memoryBuffer;
 
-    int ioCopies = 3; //image, psf, result
+    int ioCopies = 3; //image, psf, result, but psf only allocated once in total
     size_t ioAllocations = ioThreads * ioCopies;
     size_t workerAllocations = workerThreads * algorithm->getMemoryMultiplier();
 

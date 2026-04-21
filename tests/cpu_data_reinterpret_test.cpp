@@ -59,7 +59,6 @@ int main(int argc, char** argv) {
     std::cout << "Backend: " << backendName << std::endl;
 
     try {
-        Logging::init();
         // Step 1: Read the input image
         std::cout << "\n[Step 1] Reading input image..." << std::endl;
         int channel = 0;

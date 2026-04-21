@@ -47,7 +47,9 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, Rea
 
     memory.memCopy(g, f);
     RealView c_real = memory.reinterpret(c_complex);
-
+    // f_complex = memory.reinterpret(f);
+    // RealData c_real = memory.allocateMemoryOnDeviceRealFFTInPlace(g.getSize());
+    // f_complex = memory.allocateMemoryOnDeviceComplex(g.getSize());
 
     for (int n = 0; n < iterations; ++n) {
 

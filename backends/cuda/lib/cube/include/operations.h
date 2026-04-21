@@ -13,9 +13,9 @@ namespace CUBE_MAT {
     cudaError_t complexAddition(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream = 0);
     cudaError_t complexAddition(complex_t** data, complex_t* sums, int nImages, int imageVolume, cudaStream_t stream = 0);
 
-    cudaError_t elementwiseMatDiv(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C, real_t epsilon, cudaStream_t stream = 0);
-    cudaError_t scalarMul(int Nx, int Ny, int Nz, real_t* A, real_t scalar , real_t* C, cudaStream_t stream = 0);
-    cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, real_t* A, real_t* B , real_t* C, cudaStream_t stream = 0);
+    cudaError_t elementwiseMatDiv(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B, real_t* C, real_t epsilon, cudaStream_t stream = 0);
+    cudaError_t scalarMul(int Nx, int Ny, int Nz, int strideA, int strideC, real_t* A, real_t scalar , real_t* C, cudaStream_t stream = 0);
+    cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B , real_t* C, cudaStream_t stream = 0);
 
     cudaError_t sumToOne(real_t** data, int nImages, int imageVolume, cudaStream_t stream = 0);
 }
@@ -26,14 +26,14 @@ namespace CUBE_REG {
     cudaError_t gradX(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradX, cudaStream_t stream = 0);
     cudaError_t gradY(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradY, cudaStream_t stream = 0);
     cudaError_t gradZ(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradZ, cudaStream_t stream = 0);
-    // Gradient functions for real-valued data
-    cudaError_t gradX(int Nx, int Ny, int Nz, real_t* image, real_t* gradX, cudaStream_t stream = 0);
-    cudaError_t gradY(int Nx, int Ny, int Nz, real_t* image, real_t* gradY, cudaStream_t stream = 0);
-    cudaError_t gradZ(int Nx, int Ny, int Nz, real_t* image, real_t* gradZ, cudaStream_t stream = 0);
     cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* tv, cudaStream_t stream = 0);
-    cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv, cudaStream_t stream = 0);
     cudaError_t normalizeTV(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon, cudaStream_t stream = 0);
-    cudaError_t normalizeTV(int Nx, int Ny, int Nz, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon, cudaStream_t stream = 0);
+    // Gradient functions for real-valued data
+    cudaError_t gradX(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradX, cudaStream_t stream = 0);
+    cudaError_t gradY(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradY, cudaStream_t stream = 0);
+    cudaError_t gradZ(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradZ, cudaStream_t stream = 0);
+    cudaError_t computeTV(int Nx, int Ny, int Nz, int strideGx, int strideGy, int strideGz, int strideTv, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv, cudaStream_t stream = 0);
+    cudaError_t normalizeTV(int Nx, int Ny, int Nz, int strideGradX, int strideGradY, int strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon, cudaStream_t stream = 0);
 }
 
 namespace CUBE_TILED {
@@ -44,7 +44,7 @@ namespace CUBE_TILED {
 namespace CUBE_FTT {
     // Fourier Shift, Padding and Normalization
     cudaError_t octantFourierShift(int Nx, int Ny, int Nz, complex_t* data, cudaStream_t stream = 0);
-    cudaError_t octantFourierShift(int Nx, int Ny, int Nz, real_t* data, cudaStream_t stream = 0);
+    cudaError_t octantFourierShift(int Nx, int Ny, int Nz, int stride, real_t* data, cudaStream_t stream = 0);
     // cudaError_t padMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, complex_t* oldMat, complex_t* newMat);
     cudaError_t normalizeData(int Nx, int Ny, int Nz, complex_t* d_data, cudaStream_t stream = 0);
 }

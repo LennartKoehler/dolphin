@@ -24,6 +24,7 @@ public:
     ~RLTVDeconvolutionAlgorithm() = default;
 
     void configure(const DeconvolutionConfig& config) override;
+    void precompute(RealData& g) override;
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
@@ -37,7 +38,12 @@ private:
     ComplexData f_complex;  // Frequency domain
     ComplexView c_complex;  // Frequency domain
     RealData c;             // Spatial domain (real-valued)
+    RealData gx;
+    RealData gy;
+    RealData gz;
     RealData tv;            // TV term (spatial domain, real-valued)
 
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
+
+    void computeTV(const RealData& g);
 };

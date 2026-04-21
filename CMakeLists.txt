@@ -138,7 +138,7 @@ target_link_libraries(dolphin PUBLIC project_options)
 
 
 if(BUILD_CUDA)
-    target_compile_definitions(dolphin PRIVATE ENABLE_CUDA=1)
+    target_compile_definitions(dolphin PUBLIC ENABLE_CUDA=1)
     target_link_libraries(dolphin
         PUBLIC
         cuda_backend)
@@ -155,7 +155,7 @@ if(BUILD_CUDA)
         INCLUDES DESTINATION include
     )
 else()
-    target_compile_definitions(dolphin PRIVATE ENABLE_CUDA=0)
+    target_compile_definitions(dolphin PUBLIC ENABLE_CUDA=0)
 endif()
 
 target_include_directories(dolphin

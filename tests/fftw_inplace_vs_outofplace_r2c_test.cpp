@@ -30,7 +30,7 @@ extern "C" {
 }
 
 #include "cpu_backend/CPUBackend.h"
-#include "dolphin/Logging.h"
+#include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/CuboidShape.h"
 #include "dolphinbackend/ComplexData.h"
 
@@ -41,7 +41,7 @@ extern "C" {
 typedef float real_t;
 typedef real_t complex_t[2];
 
-static constexpr int NUM_ITERATIONS = 100;
+static constexpr int NUM_ITERATIONS = 10;
 
 /**
  * Generate random real-valued data into a std::vector.
@@ -114,6 +114,13 @@ static fftwf_plan createOutOfPlaceC2RPlan(int Nx, int Ny, int Nz) {
     return plan;
 }
 
+// just to mix up cache a bit
+void square(real_t* in, size_t length){
+    for (int i = 0; i < length; i++){
+         in[i] = in[i] * in[i];
+    }
+}
+
 // ---------------------------------------------------------------------------
 
 int main() {
@@ -134,7 +141,7 @@ int main() {
         {64,  64,  64,  "64x64x64"},
         {128, 128, 64,  "128x128x64"},
         {256, 128, 32,  "256x128x32"},
-        {512, 512, 128,  "512x512x128"},
+        {768 , 720 , 120, "768x720x120"},
         {100, 80,  60,  "100x80x60 (non-power-of-2)"},
     };
 
@@ -159,6 +166,7 @@ int main() {
         // ================================================================
         // IN-PLACE R2C + C2R
         // ================================================================
+        std::cout << "Planning inplace" << std::endl;
         real_t* inplace_real = (real_t*)fftwf_malloc(sizeof(real_t) * Nz * Ny * paddedWidth);
         std::memset(inplace_real, 0, sizeof(real_t) * Nz * Ny * paddedWidth);
 
@@ -200,22 +208,18 @@ int main() {
                     inplace_real[z * Ny * paddedWidth + y * paddedWidth + x] =
                         hostInput[z * Ny * Nx + y * Nx + x];
 
+        std::cout << "Executing in place" << std::endl;
         auto ip_r2c_start = clock::now();
         for (int iter = 0; iter < NUM_ITERATIONS; ++iter) {
             fftwf_execute_dft_r2c(inplace_r2c, inplace_real, (fftwf_complex*)inplace_real);
+            square(inplace_real, volume);
+            fftwf_execute_dft_c2r(inplace_c2r, (fftwf_complex*)inplace_real, inplace_real);
         }
         auto ip_r2c_end = clock::now();
         double ip_r2c_ms = duration_ms(ip_r2c_end - ip_r2c_start).count() / NUM_ITERATIONS;
 
-        // ---- Time in-place c2r ----
-        auto ip_c2r_start = clock::now();
-        for (int iter = 0; iter < NUM_ITERATIONS; ++iter) {
-            fftwf_execute_dft_c2r(inplace_c2r, (fftwf_complex*)inplace_real, inplace_real);
-        }
-        auto ip_c2r_end = clock::now();
-        double ip_c2r_ms = duration_ms(ip_c2r_end - ip_c2r_start).count() / NUM_ITERATIONS;
 
-        double ip_total_ms = ip_r2c_ms + ip_c2r_ms;
+        double ip_total_ms = ip_r2c_ms;
 
         fftwf_destroy_plan(inplace_r2c);
         fftwf_destroy_plan(inplace_c2r);
@@ -224,6 +228,7 @@ int main() {
         // ================================================================
         // OUT-OF-PLACE R2C + C2R
         // ================================================================
+        std::cout << "Planning outofplace" << std::endl;
         real_t* oop_real_in  = (real_t*)fftwf_malloc(sizeof(real_t) * volume);
         fftwf_complex* oop_complex = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * complexVolume);
         real_t* oop_real_out = (real_t*)fftwf_malloc(sizeof(real_t) * volume);
@@ -235,23 +240,19 @@ int main() {
         fftwf_plan oop_c2r = createOutOfPlaceC2RPlan(Nx, Ny, Nz);
         assert(oop_c2r != nullptr && "Out-of-place c2r plan creation failed");
 
+        std::cout << "Executing outofplace" << std::endl;
         // ---- Time out-of-place r2c ----
         auto oop_r2c_start = clock::now();
         for (int iter = 0; iter < NUM_ITERATIONS; ++iter) {
             fftwf_execute_dft_r2c(oop_r2c, oop_real_in, oop_complex);
+            square(oop_real_in, volume);
+            fftwf_execute_dft_c2r(oop_c2r, oop_complex, oop_real_out);
         }
         auto oop_r2c_end = clock::now();
         double oop_r2c_ms = duration_ms(oop_r2c_end - oop_r2c_start).count() / NUM_ITERATIONS;
 
-        // ---- Time out-of-place c2r ----
-        auto oop_c2r_start = clock::now();
-        for (int iter = 0; iter < NUM_ITERATIONS; ++iter) {
-            fftwf_execute_dft_c2r(oop_c2r, oop_complex, oop_real_out);
-        }
-        auto oop_c2r_end = clock::now();
-        double oop_c2r_ms = duration_ms(oop_c2r_end - oop_c2r_start).count() / NUM_ITERATIONS;
 
-        double oop_total_ms = oop_r2c_ms + oop_c2r_ms;
+        double oop_total_ms = oop_r2c_ms;
 
         fftwf_destroy_plan(oop_r2c);
         fftwf_destroy_plan(oop_c2r);
@@ -269,10 +270,6 @@ int main() {
                   << std::setw(10) << ip_r2c_ms << " ms  "
                   << std::setw(10) << oop_r2c_ms << " ms    "
                   << std::setw(6) << std::setprecision(3) << (ip_r2c_ms / oop_r2c_ms) << std::endl;
-        std::cout << "    C2R:           "
-                  << std::setw(10) << ip_c2r_ms << " ms  "
-                  << std::setw(10) << oop_c2r_ms << " ms    "
-                  << std::setw(6) << std::setprecision(3) << (ip_c2r_ms / oop_c2r_ms) << std::endl;
         std::cout << "    R2C + C2R:     "
                   << std::setw(10) << ip_total_ms << " ms  "
                   << std::setw(10) << oop_total_ms << " ms    "
@@ -299,9 +296,14 @@ int main() {
         int complexVolume = Nz * Ny * complexWidth;
 
         CuboidShape shape(Nx, Ny, Nz);
-        CPUBackendConfig config{true, 1};
-        CPUBackendMemoryManager memManager(config);
+        std::string backendName = "default";
 
+        IBackendManager& manager = BackendFactory::getInstance().getBackendManager(backendName);
+        BackendConfig config;
+        config.nThreads = 8;
+        IBackend& backend = manager.getBackend(config);
+        IDeconvolutionBackend& deconvBackend = backend.mutableDeconvManager();
+        IBackendMemoryManager& memManager = backend.mutableMemoryManager();
         // Use the CPUBackendManager's allocation method for in-place r2c
         RealData realData = memManager.allocateMemoryOnDeviceRealFFTInPlace(shape);
 
@@ -319,45 +321,17 @@ int main() {
         // Reinterpret as complex (in-place view)
         ComplexData complexData = memManager.reinterpret(realData);
 
-        // Create in-place r2c plan
-        int n_bk[3]       = {Nz, Ny, Nx};
-        int inembed_bk[3] = {Nz, Ny, paddedWidth};
-        int onembed_bk[3] = {Nz, Ny, complexWidth};
-
-        fftwf_plan ip_r2c = fftwf_plan_many_dft_r2c(
-            3, n_bk, 1,
-            (real_t*)complexData.getData(), inembed_bk, 1, Nz * Ny * paddedWidth,
-            (fftwf_complex*)complexData.getData(), onembed_bk, 1, Nz * Ny * complexWidth,
-            FFTW_MEASURE
-        );
-        assert(ip_r2c != nullptr);
-
-        // Create in-place c2r plan
-        fftwf_plan ip_c2r = fftwf_plan_many_dft_c2r(
-            3, n_bk, 1,
-            (fftwf_complex*)complexData.getData(), onembed_bk, 1, Nz * Ny * complexWidth,
-            (real_t*)complexData.getData(), inembed_bk, 1, Nz * Ny * paddedWidth,
-            FFTW_MEASURE
-        );
-        assert(ip_c2r != nullptr);
-
         // ---- Time in-place r2c via CPUBackend ----
         auto bk_r2c_start = clock::now();
         for (int iter = 0; iter < NUM_ITERATIONS; ++iter) {
-            fftwf_execute_dft_r2c(ip_r2c, (real_t*)complexData.getData(), (fftwf_complex*)complexData.getData());
+            deconvBackend.forwardFFT(realData, complexData);
+            square(realData.getData(), complexVolume);
+            deconvBackend.backwardFFT(complexData, realData);
         }
         auto bk_r2c_end = clock::now();
         double bk_r2c_ms = duration_ms(bk_r2c_end - bk_r2c_start).count() / NUM_ITERATIONS;
 
-        // ---- Time in-place c2r via CPUBackend ----
-        auto bk_c2r_start = clock::now();
-        for (int iter = 0; iter < NUM_ITERATIONS; ++iter) {
-            fftwf_execute_dft_c2r(ip_c2r, (fftwf_complex*)complexData.getData(), (real_t*)complexData.getData());
-        }
-        auto bk_c2r_end = clock::now();
-        double bk_c2r_ms = duration_ms(bk_c2r_end - bk_c2r_start).count() / NUM_ITERATIONS;
-
-        double bk_total_ms = bk_r2c_ms + bk_c2r_ms;
+        double bk_total_ms = bk_r2c_ms ;
 
         // Out-of-place for comparison
         real_t* oop_in = (real_t*)fftwf_malloc(sizeof(real_t) * volume);
@@ -395,10 +369,6 @@ int main() {
                   << std::setw(10) << bk_r2c_ms << " ms  "
                   << std::setw(10) << oop_r2c_ms << " ms    "
                   << std::setw(6) << std::setprecision(3) << (bk_r2c_ms / oop_r2c_ms) << std::endl;
-        std::cout << "    C2R:           "
-                  << std::setw(10) << bk_c2r_ms << " ms  "
-                  << std::setw(10) << oop_c2r_ms << " ms    "
-                  << std::setw(6) << std::setprecision(3) << (bk_c2r_ms / oop_c2r_ms) << std::endl;
         std::cout << "    R2C + C2R:     "
                   << std::setw(10) << bk_total_ms << " ms  "
                   << std::setw(10) << oop_total_ms << " ms    "
@@ -410,8 +380,6 @@ int main() {
         std::cout << "    --> " << faster << " is faster by "
                   << std::fixed << std::setprecision(2) << speedup << "x" << std::endl;
 
-        fftwf_destroy_plan(ip_r2c);
-        fftwf_destroy_plan(ip_c2r);
         fftwf_destroy_plan(oop_r2c);
         fftwf_destroy_plan(oop_c2r);
         fftwf_free(oop_in);

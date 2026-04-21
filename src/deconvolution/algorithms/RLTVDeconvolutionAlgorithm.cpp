@@ -12,6 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
+#include "dolphinbackend/IDeconvolutionBackend.h"
 #include <cassert>
 #include <spdlog/spdlog.h>
 
@@ -21,17 +22,28 @@ void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     lambda = config.lambda;
 }
 
+void RLTVDeconvolutionAlgorithm::precompute(RealData& g) {
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
+    const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
+    const CuboidShape& size = g.getSize();
+
+    // Allocate TV output buffer (persisted for use in deconvolve)
+}
+
 void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm initialization");\
 
-    // Allocate memory for intermediate arrays
-    c = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
-    // c_complex = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
+    // Allocate memory for intermediate arrays (iteration-persistent only)
+    c = std::move(memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize));
     c_complex = c.reinterpret(); // same data pointer, just reinterpreted
 
     // Allocate temporary complex buffer for FFT operations
-    f_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
-    tv = backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize);
+    f_complex = memory.allocateMemoryOnDeviceComplex(dataSize);
+    tv = memory.allocateMemoryOnDeviceReal(dataSize);
+    gx = memory.allocateMemoryOnDeviceReal(dataSize);
+    gy = memory.allocateMemoryOnDeviceReal(dataSize);
+    gz = memory.allocateMemoryOnDeviceReal(dataSize);
 
     initialized = true;
 }
@@ -52,28 +64,6 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
 
     // Initialize result with input data
     memory.memCopy(g, f);
-
-    {
-        // Pre-compute TV regularization term (all in spatial domain with real-valued data)
-        RealData gx = memory.allocateMemoryOnDeviceReal(g.getSize());
-        RealData gy = memory.allocateMemoryOnDeviceReal(g.getSize());
-        RealData gz = memory.allocateMemoryOnDeviceReal(g.getSize());
-        deconvolution.gradientX(g, gx);
-        deconvolution.gradientY(g, gy);
-        deconvolution.gradientZ(g, gz);
-        deconvolution.normalizeTV(gx, gy, gz, complexDivisionEpsilon);
-        // Second pass gradients on normalized gradients
-        RealData gx2 = memory.allocateMemoryOnDeviceReal(g.getSize());
-        RealData gy2 = memory.allocateMemoryOnDeviceReal(g.getSize());
-        RealData gz2 = memory.allocateMemoryOnDeviceReal(g.getSize());
-        // if done in parallel like on gpu then not safe to do inplace
-        deconvolution.gradientX(gx, gx2);
-        deconvolution.gradientY(gy, gy2);
-        deconvolution.gradientZ(gz, gz2);
-        deconvolution.computeTV(lambda, gx2, gy2, gz2, tv);
-        // RAII deallocate
-    }
-
 
     for (int n = 0; n < iterations; ++n) {
         progressFunction(iterations);
@@ -102,6 +92,7 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         // d) Update the estimated image: fn+1' = fn * c'
         deconvolution.multiplication(f, c, f);
 
+        computeTV(f);
         // fn+1 = fn+1' * tv (apply TV regularization)
         deconvolution.multiplication(f, tv, f);
 
@@ -120,5 +111,22 @@ std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecifi
 }
 
 size_t RLTVDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 4; // Allocates 4 additional arrays of input size
+    return 6; // Allocates 4 additional arrays of input size
+}
+
+void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
+    const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
+
+    deconvolution.gradientX(g, gx);
+    deconvolution.gradientY(g, gy);
+    deconvolution.gradientZ(g, gz);
+    deconvolution.normalizeTV(gx, gy, gz, complexDivisionEpsilon);
+
+    // dont do in place because they need neighbor acces so if its done in parallel its ub
+    // use tv as scratch buffer
+    deconvolution.gradientX(gx, tv);
+    deconvolution.gradientY(gy, gx);
+    deconvolution.gradientZ(gz, gy);
+
+    deconvolution.computeTV(lambda, tv, gx, gy, tv); //can be done inplace
 }
