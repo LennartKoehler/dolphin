@@ -41,7 +41,6 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
 
         thread_local IBackend& threadbackend = prototypebackend;
         algorithm->setBackend(threadbackend);
-        algorithm->precompute(g_device);  // Compute input-dependent terms (e.g. TV) before allocating iteration buffers
         algorithm->init(workShape);
         std::vector<const ComplexData*> preprocessedPSFs;
 
