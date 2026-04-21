@@ -127,6 +127,11 @@ public:
 
     const CuboidShape& getRealSize() const { return realSize; }
     const CuboidShape& getSize() const { return size; }
+    CuboidShape getPaddedSize() const {
+        CuboidShape shape = realSize;
+        shape.width += padding;
+        return shape;
+    }
     //WARNING getDataBytes doesnt have to be size.getVolume() * sizeof(T)!!!
     // for exmple the data might have padding at the end that has not data but is necessary for fft inplace
     virtual IBackendMemoryManager const* getBackend() const { return backend; }

@@ -1,3 +1,9 @@
+check all the core math operations like addtoone if they correctly use stride
+
+in place fft seems to work, but need to check if the result is aactually correct
+
+can i somehow get around creating an out of place fft plan while still being faster, this plan init takes long and takes memory
+
 the nicest thing to work with all the different data allocations for fft etc would be to have the managedData have a operations vector attached to it, and then whenever i call a function on that data it would not execute but just add it to the operations. And then i have like an execute function on the data which runs all the operations in order. Then before execute i can call "allocate" and it will allocate depending on if i will need to pad it for fft etc. So that all operations are known before actually running them
 
 something in the memory layout and in place fft and the normal compute like division doesnt work. I assume some values are being used in math that arent supposed to be used and therefoe create weird values, all fft need to currently be in place. Also make the shape converion in cpubackend from and to real and complex nicer, i think there should only be once place where this is determined, check the next couple entries in todo

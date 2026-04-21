@@ -181,7 +181,7 @@ public:
     void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
 
     // Specialized functions
-    void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const override;
+    // void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const override;
     // void normalizeImage(ComplexData& resultImage, real_t epsilon) const override;
     // void rescaledInverse(ComplexData& data, real_t cubeVolume) const override;
 

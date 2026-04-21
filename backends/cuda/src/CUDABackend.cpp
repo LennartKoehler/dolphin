@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 // #include <sconfig.stream>
 #include <cassert>
 #include <iostream>
+#include <format>
 
 
 
@@ -114,33 +115,100 @@ bool CUDABackendMemoryManager::isOnDevice(const void* ptr) const {
 //     destData.backend = this;
 // }
 
-
-RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
-    RealData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(real_t), 0};
-    IBackendMemoryManager::allocateMemoryOnDevice(result);
-    return result;
-}
-
 RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
-    RealData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(real_t), 0};
+    CuboidShape shapeForInplaceFFT = shape;
+    shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
+    size_t padding = shapeForInplaceFFT.width - shape.width;
+    std::size_t bytes = shapeForInplaceFFT.getVolume() * sizeof(real_t);
+
+    // memory should be larger than shape, as there is some padding at the end
+    RealData result{ this, nullptr, shape, shape, bytes, padding};
+
+    // padded stride for FFTW in-place r2c set via constructor
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
+RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const {
+    std::size_t bytes = shape.getVolume() * sizeof(real_t);
+
+    RealData result{ this, nullptr, shape, shape, bytes, 0};
+    IBackendMemoryManager::allocateMemoryOnDevice(result);
+    return result;
+}
+
 
 ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
     CuboidShape complexShape = shape;
     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
-    ComplexData result{ this, nullptr, complexShape, shape, complexShape.getVolume() * sizeof(complex_t), 0};
+    CuboidShape originalShape = shape;
+    ComplexData result{ this, nullptr, complexShape, originalShape, complexShape.getVolume() * sizeof(complex_t), 0};
+
+    // No extra padding: stride equals the complex width
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
-
 ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
     ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
+DataView<real_t> CUDABackendMemoryManager::reinterpret(ComplexData& data) const{
+    CuboidShape realShape = data.getRealSize();
+    // The padding field on ComplexData stores the real_t padding value P_real = 2*(W/2+1) - W,
+    // which allows recovering the original real width: real_width = 2*complex_width - P_real = W.
+    // The same P_real value is the correct real_t padding for the resulting RealView.
+    CuboidShape shapeForInplaceFFT = realShape;
+    shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
+    size_t padding = shapeForInplaceFFT.width - realShape.width;
 
+    DataView<real_t> result = DataView<real_t>{data.getBackend(), reinterpret_cast<real_t*>(data.getData()), realShape, realShape, data.getDataBytes(), padding};
+    data.setBackend(nullptr); // so it doesnt delete the data
+    return result;
+}
+
+DataView<complex_t> CUDABackendMemoryManager::reinterpret(RealData& data) const{
+    CuboidShape complexShape = data.getSize();
+    complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
+
+    // Keep the real padding value as-is in the complex view's padding field.
+    // Although this is technically in real_t units (not complex_t), it serves as metadata
+    // that allows reinterpret(ComplexData -> RealView) to correctly recover the original
+    // real width via: real_width = 2 * complex_width - padding = W.
+    // The ComplexView's convertIndex() is never used in the FFT path (raw pointers are
+    // used instead), so the incorrect padding units don't cause issues in practice.
+    DataView<complex_t> result = DataView<complex_t>{data.getBackend(), reinterpret_cast<complex_t*>(data.getData()), complexShape, data.getSize(), data.getDataBytes(), 0};
+    data.setBackend(nullptr); // so it doesnt delete the data
+    return result;
+}
+
+
+
+// RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
+//     RealData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(real_t), 0};
+//     IBackendMemoryManager::allocateMemoryOnDevice(result);
+//     return result;
+// }
+//
+// RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
+//     RealData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(real_t), 0};
+//     IBackendMemoryManager::allocateMemoryOnDevice(result);
+//     return result;
+// }
+//
+// ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
+//     CuboidShape complexShape = shape;
+//     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
+//     ComplexData result{ this, nullptr, complexShape, shape, complexShape.getVolume() * sizeof(complex_t), 0};
+//     IBackendMemoryManager::allocateMemoryOnDevice(result);
+//     return result;
+// }
+//
+// ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
+//     ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
+//     IBackendMemoryManager::allocateMemoryOnDevice(result);
+//     return result;
+// }
+//
 
 void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) const {
     // Wait for memory if max memory limit is set
@@ -272,14 +340,142 @@ cufftHandle* CUDADeconvolutionBackend::getPlan(const PlanDescription& descriptio
     return &cuFFTPlans.back().plan;  // Return reference to the stored plan
 }
 
-void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const PlanDescription& description) const {
-    size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
-    CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2R, &tempSize), "getPlan - C2R plan setup");
-}
+// void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const PlanDescription& description) const {
+//     size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
+//     CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2R, &tempSize), "getPlan - C2R plan setup");
+// }
 
 void CUDADeconvolutionBackend::createPlanRealToComplex(cufftHandle& plan, const PlanDescription& description) const {
-    size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
-    CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_R2C, &tempSize), "getPlan - R2C plan setup");
+    int rank = 3;
+    int Nx = description.shape.width;
+    int Ny = description.shape.height;
+    int Nz = description.shape.depth;
+
+    int n[3] = {Nz, Ny, Nx};
+
+    // For out-of-place: real input is unpadded, inembed matches logical dimensions.
+    // For in-place: real input must be padded on the last dimension to 2*(Nx/2+1)
+    //              to accommodate the complex output, so inembed reflects the padded size.
+    // onembed is always {Nz, Ny, Nx/2+1} (complex output has halved last dimension).
+    int inembed[3];
+    int onembed[3] = {Nz, Ny, Nx/2+1};
+
+    int istride = 1;
+    int ostride = 1;
+
+    int idist;
+    int odist = Nz * Ny * (Nx/2+1);
+
+    // if (description.inPlace) {
+    inembed[0] = Nz;
+    inembed[1] = Ny;
+    inembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
+    idist = Nz * Ny * 2*(Nx/2+1);
+    size_t worksize = idist * sizeof(real_t);
+    // } else {
+    //     inembed[0] = Nz;
+    //     inembed[1] = Ny;
+    //     inembed[2] = Nx;           // unpadded last dimension
+    //     idist = Nz * Ny * Nx;
+    // }
+
+    try {
+
+        // Create FFT plan using advanced r2c interface
+        CUFFT_CHECK(cufftMakePlanMany(
+            plan,
+            rank, n,
+            inembed,
+            istride, idist,
+            onembed,
+            ostride, odist,
+            CUFFT_R2C,
+            1,
+            &worksize
+        ), "createPlan - C2R plan setup");
+
+
+        std::string msg = std::format(
+            "Successfully created cuFFT r2c plan ({}) for shape: {}x{}x{}",
+            description.inPlace ? "in-place" : "out-of-place",
+            description.shape.width, description.shape.height, description.shape.depth
+        );
+
+        g_logger_cuda(msg, LogLevel::INFO);
+
+    }
+    catch (...) {
+        throw;
+    }
+}
+
+// void CUDADeconvolutionBackend::createPlanRealToComplex(cufftHandle& plan, const PlanDescription& description) const {
+//     size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
+//     CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_R2C, &tempSize), "getPlan - R2C plan setup");
+// }
+
+void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const PlanDescription& description) const {
+    int rank = 3;
+    int Nx = description.shape.width;
+    int Ny = description.shape.height;
+    int Nz = description.shape.depth;
+
+    int n[3] = {Nz, Ny, Nx};
+
+    // For out-of-place: real input is unpadded, inembed matches logical dimensions.
+    // For in-place: real input must be padded on the last dimension to 2*(Nx/2+1)
+    //              to accommodate the complex output, so inembed reflects the padded size.
+    // onembed is always {Nz, Ny, Nx/2+1} (complex output has halved last dimension).
+    int onembed[3];
+    int inembed[3] = {Nz, Ny, Nx/2+1};
+
+    int istride = 1;
+    int ostride = 1;
+
+    int odist;
+    int idist = Nz * Ny * (Nx/2+1);
+
+    // if (description.inPlace) {
+    onembed[0] = Nz;
+    onembed[1] = Ny;
+    onembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
+    odist = Nz * Ny * 2*(Nx/2+1);
+    size_t worksize = odist * sizeof(real_t);
+    // } else {
+    //     inembed[0] = Nz;
+    //     inembed[1] = Ny;
+    //     inembed[2] = Nx;           // unpadded last dimension
+    //     idist = Nz * Ny * Nx;
+    // }
+
+    try {
+
+        // Create FFT plan using advanced r2c interface
+        CUFFT_CHECK(cufftMakePlanMany(
+            plan,
+            rank, n,
+            inembed,
+            istride, idist,
+            onembed,
+            ostride, odist,
+            CUFFT_C2R,
+            1,
+            &worksize
+        ), "createPlan - C2R plan setup");
+
+
+        std::string msg = std::format(
+            "Successfully created cuFFT c2r plan ({}) for shape: {}x{}x{}",
+            description.inPlace ? "in-place" : "out-of-place",
+            description.shape.width, description.shape.height, description.shape.depth
+        );
+
+        g_logger_cuda(msg, LogLevel::INFO);
+
+    }
+    catch (...) {
+        throw;
+    }
 }
 
 void CUDADeconvolutionBackend::createPlanComplex(cufftHandle& plan, const PlanDescription& description) const {
@@ -418,7 +614,9 @@ void CUDADeconvolutionBackend::octantFourierShift(ComplexData& data) const {
 }
 
 void CUDADeconvolutionBackend::octantFourierShift(RealData& data) const {
-    cudaError_t err = CUBE_FTT::octantFourierShift(data.getSize().width, data.getSize().height, data.getSize().depth, data.getData(), config.stream);
+    int Nx = data.getSize().width;
+    int stride = Nx + data.getPadding();
+    cudaError_t err = CUBE_FTT::octantFourierShift(Nx, data.getSize().height, data.getSize().depth, stride, data.getData(), config.stream);
     CUDA_CHECK(err, "octantFourierShift");
 }
 
@@ -465,18 +663,29 @@ void CUDADeconvolutionBackend::complexAddition(const ComplexData& a, const Compl
 
 
 void CUDADeconvolutionBackend::multiplication(const RealData& a, const RealData& b, RealData& result) const{
-    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in elementwiseDivisionReal", "CUDA", "elementwiseMatMulReal");
-    cudaError_t err = CUBE_MAT::elementwiseMatMul(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), b.getData(), result.getData(), config.stream);
-    CUDA_CHECK(err, "scalarMultiplicationReal");
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in elementwiseMatMulReal", "CUDA", "elementwiseMatMulReal");
+    int Nx = a.getSize().width;
+    int strideA = Nx + a.getPadding();
+    int strideB = b.getSize().width + b.getPadding();
+    int strideC = result.getSize().width + result.getPadding();
+    cudaError_t err = CUBE_MAT::elementwiseMatMul(Nx, a.getSize().height, a.getSize().depth, strideA, strideB, strideC, a.getData(), b.getData(), result.getData(), config.stream);
+    CUDA_CHECK(err, "multiplication");
 }
 void CUDADeconvolutionBackend::scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const{
     BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in scalarMultiplicationReal", "CUDA", "scalarMultiplicationReal");
-    cudaError_t err = CUBE_MAT::scalarMul(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), scalar , result.getData(), config.stream);
+    int Nx = a.getSize().width;
+    int strideA = Nx + a.getPadding();
+    int strideC = result.getSize().width + result.getPadding();
+    cudaError_t err = CUBE_MAT::scalarMul(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, a.getData(), scalar , result.getData(), config.stream);
     CUDA_CHECK(err, "scalarMultiplicationReal");
 }
 void CUDADeconvolutionBackend::division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const{
     BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in elementwiseDivisionReal", "CUDA", "elementwiseDivisionReal");
-    cudaError_t err = CUBE_MAT::elementwiseMatDiv(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), b.getData(), result.getData(), epsilon, config.stream);
+    int Nx = a.getSize().width;
+    int strideA = Nx + a.getPadding();
+    int strideB = b.getSize().width + b.getPadding();
+    int strideC = result.getSize().width + result.getPadding();
+    cudaError_t err = CUBE_MAT::elementwiseMatDiv(Nx, a.getSize().height, a.getSize().depth, strideA, strideB, strideC, a.getData(), b.getData(), result.getData(), epsilon, config.stream);
     CUDA_CHECK(err, "elementwiseDivisionReal");
 }
 
@@ -555,26 +764,44 @@ void CUDADeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& grad
 
 // Gradient functions for real-valued data
 void CUDADeconvolutionBackend::gradientX(const RealData& image, RealData& gradX) const {
-    cudaError_t err = CUBE_REG::gradX(image.getSize().width, image.getSize().height, image.getSize().depth, image.getData(), gradX.getData(), config.stream);
+    int Nx = image.getSize().width;
+    int strideIn = Nx + image.getPadding();
+    int strideOut = gradX.getSize().width + gradX.getPadding();
+    cudaError_t err = CUBE_REG::gradX(Nx, image.getSize().height, image.getSize().depth, strideIn, strideOut, image.getData(), gradX.getData(), config.stream);
     CUDA_CHECK(err, "gradientX (real)");
 }
 
 void CUDADeconvolutionBackend::gradientY(const RealData& image, RealData& gradY) const {
-    cudaError_t err = CUBE_REG::gradY(image.getSize().width, image.getSize().height, image.getSize().depth, image.getData(), gradY.getData(), config.stream);
+    int Nx = image.getSize().width;
+    int strideIn = Nx + image.getPadding();
+    int strideOut = gradY.getSize().width + gradY.getPadding();
+    cudaError_t err = CUBE_REG::gradY(Nx, image.getSize().height, image.getSize().depth, strideIn, strideOut, image.getData(), gradY.getData(), config.stream);
     CUDA_CHECK(err, "gradientY (real)");
 }
 
 void CUDADeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ) const {
-    cudaError_t err = CUBE_REG::gradZ(image.getSize().width, image.getSize().height, image.getSize().depth, image.getData(), gradZ.getData(), config.stream);
+    int Nx = image.getSize().width;
+    int strideIn = Nx + image.getPadding();
+    int strideOut = gradZ.getSize().width + gradZ.getPadding();
+    cudaError_t err = CUBE_REG::gradZ(Nx, image.getSize().height, image.getSize().depth, strideIn, strideOut, image.getData(), gradZ.getData(), config.stream);
     CUDA_CHECK(err, "gradientZ (real)");
 }
 
 void CUDADeconvolutionBackend::computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const {
-    cudaError_t err = CUBE_REG::computeTV(gx.getSize().width, gx.getSize().height, gx.getSize().depth, lambda, gx.getData(), gy.getData(), gz.getData(), tv.getData(), config.stream);
+    int Nx = gx.getSize().width;
+    int strideGx = Nx + gx.getPadding();
+    int strideGy = gy.getSize().width + gy.getPadding();
+    int strideGz = gz.getSize().width + gz.getPadding();
+    int strideTv = tv.getSize().width + tv.getPadding();
+    cudaError_t err = CUBE_REG::computeTV(Nx, gx.getSize().height, gx.getSize().depth, strideGx, strideGy, strideGz, strideTv, lambda, gx.getData(), gy.getData(), gz.getData(), tv.getData(), config.stream);
     CUDA_CHECK(err, "computeTV (real)");
 }
 
 void CUDADeconvolutionBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
-    cudaError_t err = CUBE_REG::normalizeTV(gradX.getSize().width, gradX.getSize().height, gradX.getSize().depth, gradX.getData(), gradY.getData(), gradZ.getData(), epsilon, config.stream);
+    int Nx = gradX.getSize().width;
+    int strideGradX = Nx + gradX.getPadding();
+    int strideGradY = gradY.getSize().width + gradY.getPadding();
+    int strideGradZ = gradZ.getSize().width + gradZ.getPadding();
+    cudaError_t err = CUBE_REG::normalizeTV(Nx, gradX.getSize().height, gradX.getSize().depth, strideGradX, strideGradY, strideGradZ, gradX.getData(), gradY.getData(), gradZ.getData(), epsilon, config.stream);
     CUDA_CHECK(err, "normalizeTV (real)");
 }

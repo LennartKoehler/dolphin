@@ -45,7 +45,6 @@ void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig) {
 
 void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
-
     TaskContext* context = task.context.get();
     // thread_local IBackend& iodevice = context->iodevice.cloneSharedMemory();
     thread_local IBackend& iobackend = context->manager.getBackend(context->ioconfig);
@@ -67,7 +66,6 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
     RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
     std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
-
 
     using progressFunction = std::function<void(int)>;
     progressFunction tracker = [this, numPsfs = task.psfs.size()](int max){

@@ -28,40 +28,45 @@ void complexMatMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, com
 
 
 __global__
-void elementwiseMatMulGlobal(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C){
+void elementwiseMatMulGlobal(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B, real_t* C){
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int index = z * (Nx * Ny) + y * Nx + x;
-        C[index] = B[index] * A[index];
+        int indexA = z * (strideA * Ny) + y * strideA + x;
+        int indexB = z * (strideB * Ny) + y * strideB + x;
+        int indexC = z * (strideC * Ny) + y * strideC + x;
+        C[indexC] = B[indexB] * A[indexA];
     }
 }
 
 __global__
-void scalarMulGlobal(int Nx, int Ny, int Nz, real_t* A, real_t b, real_t* C){
+void scalarMulGlobal(int Nx, int Ny, int Nz, int strideA, int strideC, real_t* A, real_t b, real_t* C){
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int index = z * (Nx * Ny) + y * Nx + x;
-        C[index] = A[index] * b;
+        int indexA = z * (strideA * Ny) + y * strideA + x;
+        int indexC = z * (strideC * Ny) + y * strideC + x;
+        C[indexC] = A[indexA] * b;
     }
 }
 
 __global__
-void elementwiseMatDivGlobal(int Nx, int Ny, int Nz, real_t* A, real_t* B, real_t* C, real_t epsilon){
+void elementwiseMatDivGlobal(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B, real_t* C, real_t epsilon){
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int index = z * (Nx * Ny) + y * Nx + x;
-        real_t denominator = B[index];
-        if (denominator < epsilon) C[index] = 0;
-        else C[index] = A[index] / B[index];
+        int indexA = z * (strideA * Ny) + y * strideA + x;
+        int indexB = z * (strideB * Ny) + y * strideB + x;
+        int indexC = z * (strideC * Ny) + y * strideC + x;
+        real_t denominator = B[indexB];
+        if (denominator < epsilon) C[indexC] = 0;
+        else C[indexC] = A[indexA] / B[indexB];
     }
 }
 
@@ -273,7 +278,7 @@ void calculateLaplacianGlobal(int Nx, int Ny, int Nz, complex_t* Afft, complex_t
 
 // Gradient kernels for real-valued data
 __global__
-void gradientXGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradX) {
+void gradientXGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradX) {
     int width = Nx;
     int height = Ny;
     int depth = Nz;
@@ -283,22 +288,23 @@ void gradientXGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradX) {
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
     if (x < width - 1 && y < height && z < depth) {
-        int index = z * height * width + y * width + x;
-        int nextIndex = index + 1;
+        int indexIn = z * (strideIn * height) + y * strideIn + x;
+        int nextIndexIn = indexIn + 1;
+        int indexOut = z * (strideOut * height) + y * strideOut + x;
 
         // Compute gradient in the x-direction
-        gradX[index] = image[index] - image[nextIndex];
+        gradX[indexOut] = image[indexIn] - image[nextIndexIn];
     }
 
     // Handle boundary condition at the last x position
     if (x == width - 1 && y < height && z < depth) {
-        int lastIndex = z * height * width + y * width + x;
-        gradX[lastIndex] = 0.0;
+        int lastIndexOut = z * (strideOut * height) + y * strideOut + x;
+        gradX[lastIndexOut] = 0.0;
     }
 }
 
 __global__
-void gradientYGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradY) {
+void gradientYGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradY) {
     int width = Nx;
     int height = Ny;
     int depth = Nz;
@@ -308,22 +314,23 @@ void gradientYGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradY) {
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
     if (y < height - 1 && x < width && z < depth) {
-        int index = z * height * width + y * width + x;
-        int nextIndex = index + width;
+        int indexIn = z * (strideIn * height) + y * strideIn + x;
+        int nextIndexIn = indexIn + strideIn;
+        int indexOut = z * (strideOut * height) + y * strideOut + x;
 
         // Compute gradient in the y-direction
-        gradY[index] = image[index] - image[nextIndex];
+        gradY[indexOut] = image[indexIn] - image[nextIndexIn];
     }
 
     // Handle boundary condition at the last y position
     if (y == height - 1 && x < width && z < depth) {
-        int lastIndex = z * height * width + y * width + x;
-        gradY[lastIndex] = 0.0;
+        int lastIndexOut = z * (strideOut * height) + y * strideOut + x;
+        gradY[lastIndexOut] = 0.0;
     }
 }
 
 __global__
-void gradientZGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradZ) {
+void gradientZGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradZ) {
     int width = Nx;
     int height = Ny;
     int depth = Nz;
@@ -333,22 +340,23 @@ void gradientZGlobalReal(int Nx, int Ny, int Nz, real_t* image, real_t* gradZ) {
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
     if (z < depth - 1 && y < height && x < width) {
-        int index = z * height * width + y * width + x;
-        int nextIndex = index + height * width;
+        int indexIn = z * (strideIn * height) + y * strideIn + x;
+        int nextIndexIn = indexIn + strideIn * height;
+        int indexOut = z * (strideOut * height) + y * strideOut + x;
 
         // Compute gradient in the z-direction
-        gradZ[index] = image[index] - image[nextIndex];
+        gradZ[indexOut] = image[indexIn] - image[nextIndexIn];
     }
 
     // Handle boundary condition at the last z position
     if (z == depth - 1 && y < height && x < width) {
-        int lastIndex = z * height * width + y * width + x;
-        gradZ[lastIndex] = 0.0;
+        int lastIndexOut = z * (strideOut * height) + y * strideOut + x;
+        gradZ[lastIndexOut] = 0.0;
     }
 }
 
 __global__
-void computeTVGlobalReal(int Nx, int Ny, int Nz, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv) {
+void computeTVGlobalReal(int Nx, int Ny, int Nz, int strideGx, int strideGy, int strideGz, int strideTv, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv) {
     int width = Nx;
     int height = Ny;
     int depth = Nz;
@@ -356,44 +364,51 @@ void computeTVGlobalReal(int Nx, int Ny, int Nz, real_t lambda, real_t* gx, real
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
-    int index = z * height * width + y * width + x;
 
     if (x < width && y < height && z < depth) {
+        int indexGx = z * (strideGx * height) + y * strideGx + x;
+        int indexGy = z * (strideGy * height) + y * strideGy + x;
+        int indexGz = z * (strideGz * height) + y * strideGz + x;
+        int indexTv = z * (strideTv * height) + y * strideTv + x;
+
         // Retrieve the gradient components
-        real_t dx = gx[index];
-        real_t dy = gy[index];
-        real_t dz = gz[index];
+        real_t dx = gx[indexGx];
+        real_t dy = gy[indexGy];
+        real_t dz = gz[indexGz];
 
         // Compute the total variation (TV) value
-        tv[index] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
+        tv[indexTv] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
     }
 }
 
 __global__
-void normalizeTVGlobalReal(int Nx, int Ny, int Nz, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon) {
+void normalizeTVGlobalReal(int Nx, int Ny, int Nz, int strideGradX, int strideGradY, int strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon) {
     int width = Nx;
     int height = Ny;
     int depth = Nz;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
-    int index = z * height * width + y * width + x;
 
     if (x < width && y < height && z < depth) {
+        int indexGradX = z * (strideGradX * height) + y * strideGradX + x;
+        int indexGradY = z * (strideGradY * height) + y * strideGradY + x;
+        int indexGradZ = z * (strideGradZ * height) + y * strideGradZ + x;
+
         // Compute the norm of the vector
         real_t norm = sqrt(
-            gradX[index] * gradX[index] +
-            gradY[index] * gradY[index] +
-            gradZ[index] * gradZ[index]
+            gradX[indexGradX] * gradX[indexGradX] +
+            gradY[indexGradY] * gradY[indexGradY] +
+            gradZ[indexGradZ] * gradZ[indexGradZ]
         );
 
         // Avoid division by very small values by setting a minimum threshold
         norm = fmax(norm, epsilon);
 
         // Normalize the components
-        gradX[index] /= norm;
-        gradY[index] /= norm;
-        gradZ[index] /= norm;
+        gradX[indexGradX] /= norm;
+        gradY[indexGradY] /= norm;
+        gradZ[indexGradZ] /= norm;
     }
 }
 
@@ -624,7 +639,7 @@ void normalizeDataGlobal(int Nx, int Ny, int Nz, complex_t* d_data) {
 }
 
 __global__
-void octantFourierShiftGlobal(int Nx, int Ny, int Nz, real_t* data) {
+void octantFourierShiftGlobal(int Nx, int Ny, int Nz, int stride, real_t* data) {
     int width = Nx;
     int height = Ny;
     int depth = Nz;
@@ -639,10 +654,11 @@ void octantFourierShiftGlobal(int Nx, int Ny, int Nz, real_t* data) {
 
     // Ensure that the thread is within bounds, just iterate over the first half of the depth
     if (x < width && y < height && z < halfDepth) {
-        // Calculate the linear indices for the current element and its counterpart in the other octant
-        int idx1 = z * height * width + y * width + x;
-        int idx2 = ((z + halfDepth) % depth) * height * width +
-                   ((y + halfHeight) % height) * width +
+        // Calculate the linear indices using stride for addressing
+        // but modular arithmetic on logical dimensions for swap positions
+        int idx1 = z * (stride * height) + y * stride + x;
+        int idx2 = ((z + halfDepth) % depth) * (stride * height) +
+                   ((y + halfHeight) % height) * stride +
                    ((x + halfWidth) % width);
 
         // Check if the indices are different to avoid duplicate swapping
@@ -730,353 +746,3 @@ void padMatGlobal(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int new
     }
 }
 
-// Device Kernels
-__global__
-void deviceTestKernelGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C) {
-    //complexMatMulDevice( N, A, B, C);
-    complexElementwiseMatMulDevice( Nx,Ny, Nz, A, B, C);
-    //complexElementwiseMatDivDevice( N, A, B, C);
-}
-
-__device__
-void complexMatMulDevice(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-
-    if (x < Nx && y < Ny && z < Nz) {
-        int index = z * (Nx * Ny) + y * Nx + x;
-        complex_t sum = {0.0, 0.0};
-
-        for (int k = 0; k < Nz; ++k) {
-            int indexA = z * (Nx * Ny) + y * Nx + k;
-            int indexB = k * (Nx * Ny) + y * Nx + x;
-            // Manual complex_t multiplication
-            real_t realA = A[indexA][0], imagA = A[indexA][1];
-            real_t realB = B[indexB][0], imagB = B[indexB][1];
-            sum[0] += realA * realB - imagA * imagB;
-            sum[1] += realA * imagB + imagA * realB;
-        }
-
-        C[index][0] = sum[0];
-        C[index][1] = sum[1];
-    }
-}
-
-__device__
-void complexElementwiseMatMulDevice(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-
-    if (x < Nx && y < Ny && z < Nz) {
-        int index = z * (Nx * Ny) + y * Nx + x;
-        real_t realA = A[index][0], imagA = A[index][1];
-        real_t realB = B[index][0], imagB = B[index][1];
-        C[index][0] = realA * realB - imagA * imagB;
-        C[index][1] = realA * imagB + imagA * realB;
-    }
-}
-
-__device__
-void complexElementwiseMatDivDevice(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-
-    // Check if the thread is within the valid bounds of the 3D grid
-    if (x < Nx && y < Ny && z < Nz) {
-        // Compute the 1D index from the 3D coordinates
-        int index = z * (Nx * Ny) + y * Nx + x;
-
-        // Get real and imaginary components of A and B
-        real_t real_a = A[index][0];
-        real_t imag_a = A[index][1];
-        real_t real_b = B[index][0];
-        real_t imag_b = B[index][1];
-
-        // Calculate the denominator (magnitude squared of B)
-        real_t denominator = real_b * real_b + imag_b * imag_b;
-
-        // Apply stabilization: if denominator is smaller than epsilon, set to zero
-        if (denominator < epsilon) {
-            C[index][0] = 0.0;  // Real part of C
-            C[index][1] = 0.0;  // Imaginary part of C
-        } else {
-            // Perform the complex_t division
-            C[index][0] = (real_a * real_b + imag_a * imag_b) / denominator; // Real part
-            C[index][1] = (imag_a * real_b - real_a * imag_b) / denominator; // Imaginary part
-        }
-    }
-}
-
-__device__
-void calculateLaplacianDevice(int Nx, int Ny, int Nz, complex_t* Afft, complex_t* laplacianfft) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
-
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-
-    if (x < width && y < height && z < depth) {
-        int index = (z * height + y) * width + x;
-
-        // Berechne die Frequenzkomponenten
-        real_t wx = 2 * M_PI * x / width;
-        real_t wy = 2 * M_PI * y / height;
-        real_t wz = 2 * M_PI * z / depth;
-
-        // Laplace-Wert im Frequenzraum berechnen
-        real_t laplacian_value = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
-
-        // Elementweise Multiplikation im Frequenzraum
-        laplacianfft[index][0] = Afft[index][0] * laplacian_value;  // Realteil
-        laplacianfft[index][1] = Afft[index][1] * laplacian_value;  // Imaginärteil
-    }
-}
-
-__device__
-void gradientXDevice(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradX) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-
-    if (x < width - 1 && y < height && z < depth) {
-        int index = z * height * width + y * width + x;
-        int nextIndex = index + 1;
-
-        // Compute gradient in the x-direction
-        gradX[index][0] = image[index][0] - image[nextIndex][0]; // Real part
-        gradX[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
-    }
-
-    // Handle boundary condition at the last x position
-    if (x == width - 1 && y < height && z < depth) {
-        int lastIndex = z * height * width + y * width + x;
-        gradX[lastIndex][0] = 0.0;
-        gradX[lastIndex][1] = 0.0;
-    }
-}
-
-__device__
-void gradientYDevice(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradY) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
-
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-
-    if (y < height - 1 && x < width && z < depth) {
-        int index = z * height * width + y * width + x;
-        int nextIndex = index + width;
-
-        // Compute gradient in the y-direction
-        gradY[index][0] = image[index][0] - image[nextIndex][0]; // Real part
-        gradY[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
-    }
-
-    // Handle boundary condition at the last y position
-    if (y == height - 1 && x < width && z < depth) {
-        int lastIndex = z * height * width + y * width + x;
-        gradY[lastIndex][0] = 0.0;
-        gradY[lastIndex][1] = 0.0;
-    }
-}
-
-__device__
-void gradientZDevice(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradZ) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
-
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-
-    if (z < depth - 1 && y < height && x < width) {
-        int index = z * height * width + y * width + x;
-        int nextIndex = index + height * width;
-
-        // Compute gradient in the z-direction
-        gradZ[index][0] = image[index][0] - image[nextIndex][0]; // Real part
-        gradZ[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
-    }
-
-    // Handle boundary condition at the last z position
-    if (z == depth - 1 && y < height && x < width) {
-        int lastIndex = z * height * width + y * width + x;
-        gradZ[lastIndex][0] = 0.0;
-        gradZ[lastIndex][1] = 0.0;
-    }
-}
-
-__device__
-void computeTVDevice(int Nx, int Ny, int Nz, real_t lambda, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* tv) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
-
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-    int index = z * height * width + y * width + x;
-
-    if (x < width && y < height && z < depth) {
-        // Retrieve the gradient components
-        real_t dx = gx[index][0]; // Assuming gradient data is in the real part
-        real_t dy = gy[index][0];
-        real_t dz = gz[index][0];
-
-        // Compute the total variation (TV) value
-        tv[index][0] = static_cast<float>(1.0 / ((dx + dy + dz) * lambda + 1.0));
-        tv[index][1] = 0.0; // Assuming the output is real-valued, set the imaginary part to zero
-    }
-}
-
-__device__
-void normalizeTVDevice(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
-
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-    int index = z * height * width + y * width + x;
-
-    if (x < width && y < height && z < depth) {
-        // Compute the norm of the vector
-        real_t norm = sqrt(
-            gradX[index][0] * gradX[index][0] + gradX[index][1] * gradX[index][1] +
-            gradY[index][0] * gradY[index][0] + gradY[index][1] * gradY[index][1] +
-            gradZ[index][0] * gradZ[index][0] + gradZ[index][1] * gradZ[index][1]
-        );
-
-        // Avoid division by very small values by setting a minimum threshold
-        norm = fmax(norm, epsilon);
-
-        // Normalize the components
-        gradX[index][0] /= norm;
-        gradX[index][1] /= norm;
-        gradY[index][0] /= norm;
-        gradY[index][1] /= norm;
-        gradZ[index][0] /= norm;
-        gradZ[index][1] /= norm;
-    }
-}
-
-__global__
-void padMatDevice(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, complex_t* oldMat, complex_t* newMat, int offsetX, int offsetY, int offsetZ)
-{
-    // 3D-Index des Threads im Grid
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-
-    // Neue Matrixgröße als Grenze
-    if (x >= newNx || y >= newNy || z >= newNz) return;
-
-    // Index in der neuen Matrix
-    int newIndex = z * newNy * newNx + y * newNx + x;
-
-    // Initialisiere die neue Matrix mit Null
-    newMat[newIndex][0] = 0.0; // Realteil
-    newMat[newIndex][1] = 0.0; // Imaginärteil
-
-    // Berechnung der Position der alten Matrix
-    if (x >= offsetX && x < offsetX + oldNx &&
-        y >= offsetY && y < offsetY + oldNy &&
-        z >= offsetZ && z < offsetZ + oldNz)
-    {
-        // Index in der alten Matrix
-        int oldX = x - offsetX;
-        int oldY = y - offsetY;
-        int oldZ = z - offsetZ;
-        int oldIndex = oldZ * oldNy * oldNx + oldY * oldNx + oldX;
-
-        // Kopiere den Wert von der alten in die neue Matrix
-        newMat[newIndex][0] = oldMat[oldIndex][0];
-        newMat[newIndex][1] = oldMat[oldIndex][1];
-    }
-}
-
-__device__
-void calculateLaplacianTiledDevice(int Nx, int Ny, int Nz, complex_t* Afft, complex_t* laplacianfft) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
-
-    // Tile dimensions, including a halo
-    const int TILE_DIM = 8;
-    __shared__ complex_t tile[TILE_DIM + 2][TILE_DIM + 2][TILE_DIM + 2];
-
-    // Calculate global index
-    int x = blockIdx.x * TILE_DIM + threadIdx.x;
-    int y = blockIdx.y * TILE_DIM + threadIdx.y;
-    int z = blockIdx.z * TILE_DIM + threadIdx.z;
-
-    // Shared memory index (with a halo)
-    int tx = threadIdx.x + 1;
-    int ty = threadIdx.y + 1;
-    int tz = threadIdx.z + 1;
-
-    // Check if the index is within bounds
-    if (x < width && y < height && z < depth) {
-        // Load the center of the tile
-        int index = z * width * height + y * width + x;
-        // Copy components explicitly because `complex_t` is an array type and cannot be assigned directly
-        tile[tx][ty][tz][0] = Afft[index][0];
-        tile[tx][ty][tz][1] = Afft[index][1];
-
-        // Load neighboring elements into shared memory (halo region)
-        if (threadIdx.x == 0 && x > 0) {
-            int idx = index - 1;
-            tile[0][ty][tz][0] = Afft[idx][0]; // left
-            tile[0][ty][tz][1] = Afft[idx][1];
-        }
-        if (threadIdx.x == TILE_DIM - 1 && x < width - 1) {
-            int idx = index + 1;
-            tile[tx + 1][ty][tz][0] = Afft[idx][0]; // right
-            tile[tx + 1][ty][tz][1] = Afft[idx][1];
-        }
-        if (threadIdx.y == 0 && y > 0) {
-            int idx = index - width;
-            tile[tx][0][tz][0] = Afft[idx][0]; // down
-            tile[tx][0][tz][1] = Afft[idx][1];
-        }
-        if (threadIdx.y == TILE_DIM - 1 && y < height - 1) {
-            int idx = index + width;
-            tile[tx][ty + 1][tz][0] = Afft[idx][0]; // up
-            tile[tx][ty + 1][tz][1] = Afft[idx][1];
-        }
-        if (threadIdx.z == 0 && z > 0) {
-            int idx = index - width * height;
-            tile[tx][ty][0][0] = Afft[idx][0]; // back
-            tile[tx][ty][0][1] = Afft[idx][1];
-        }
-        if (threadIdx.z == TILE_DIM - 1 && z < depth - 1) {
-            int idx = index + width * height;
-            tile[tx][ty][tz + 1][0] = Afft[idx][0]; // front
-            tile[tx][ty][tz + 1][1] = Afft[idx][1];
-        }
-
-        __syncthreads();
-
-        // Compute Laplacian in the frequency domain
-        real_t wx = 2 * M_PI * x / width;
-        real_t wy = 2 * M_PI * y / height;
-        real_t wz = 2 * M_PI * z / depth;
-        real_t laplacian_value = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
-
-        // Apply Laplacian in the frequency domain
-        laplacianfft[index][0] = tile[tx][ty][tz][0] * laplacian_value;
-        laplacianfft[index][1] = tile[tx][ty][tz][1] * laplacian_value;
-    }
-}
