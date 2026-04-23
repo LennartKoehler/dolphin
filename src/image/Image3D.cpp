@@ -464,6 +464,65 @@ void Image3D::flip() {
     // TODO: This method needs to be updated to work with ITK images
 }
 
+float Image3D::getMax() const {
+
+    if (image.IsNull()) return 0.0;
+
+    const auto region = image->GetLargestPossibleRegion();
+    const auto size = region.GetSize();
+    const auto startIndex = region.GetIndex();
+    float max = 0.0;
+
+    itk::ImageRegionConstIterator<ImageType> it(image, region);
+    for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
+        float val = it.Get();
+        if (val > max){
+            max = val;
+        }
+    }
+    return max;
+}
+
+CuboidShape Image3D::getRegionLargerThreshold(float threshold) const{
+    if (image.IsNull()) return CuboidShape{0, 0, 0};
+
+    const auto region = image->GetLargestPossibleRegion();
+    const auto size = region.GetSize();
+    const auto startIndex = region.GetIndex();
+
+    int minX = static_cast<int>(size[0]);
+    int minY = static_cast<int>(size[1]);
+    int minZ = static_cast<int>(size[2]);
+    int maxX = -1;
+    int maxY = -1;
+    int maxZ = -1;
+
+    itk::ImageRegionConstIterator<ImageType> it(image, region);
+    for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
+        if (it.Get() > threshold) {
+            auto idx = it.GetIndex();
+            int x = idx[0] - startIndex[0];
+            int y = idx[1] - startIndex[1];
+            int z = idx[2] - startIndex[2];
+            minX = std::min(minX, x);
+            minY = std::min(minY, y);
+            minZ = std::min(minZ, z);
+            maxX = std::max(maxX, x);
+            maxY = std::max(maxY, y);
+            maxZ = std::max(maxZ, z);
+        }
+    }
+
+    // No pixel above threshold found
+    if (maxX < 0) return CuboidShape{0, 0, 0};
+
+    return CuboidShape{
+        maxX - minX + 1,
+        maxY - minY + 1,
+        maxZ - minZ + 1
+    };
+}
+
 void Image3D::scale(int new_size_x, int new_size_y, int new_size_z) {
 
 }

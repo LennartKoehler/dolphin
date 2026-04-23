@@ -16,13 +16,11 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/Image3D.h"
 typedef std::string PSFID;
-class PSF {
+class PSF : public Image3D{
 public:
-    Image3D image;
     std::string ID;
 
     void readFromTiffFile(const std::string& path);
     void writeToTiffFile(const std::string& path);
 };
-
 

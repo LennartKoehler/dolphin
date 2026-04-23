@@ -31,6 +31,19 @@ std::shared_ptr<PSFConfig> PSFCreator::generatePSFConfigFromConfigPath(const std
     return psfConfig;
 }
 
+std::vector<std::shared_ptr<PSFConfig>> PSFCreator::generatePSFConfigsFromConfigPathWithShape(const std::vector<std::string>& paths, const CuboidShape& overrideShape){
+
+    std::vector<std::shared_ptr<PSFConfig>> psfsConfigs;
+    for(const auto&  configpath : paths){
+        std::shared_ptr<PSFConfig> temp = generatePSFConfigFromConfigPath(configpath);
+        temp->sizeX = overrideShape.width;
+        temp->sizeY = overrideShape.height;
+        temp->sizeZ = overrideShape.depth;
+        psfsConfigs.push_back(temp);
+    }
+    return psfsConfigs;
+}
+
 std::vector<std::shared_ptr<PSFConfig>> PSFCreator::generatePSFConfigsFromConfigPath(const std::vector<std::string>& paths){
 
     std::vector<std::shared_ptr<PSFConfig>> psfsConfigs;

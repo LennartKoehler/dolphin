@@ -58,7 +58,7 @@ void CLIFrontend::run() {
     }
     else if (*deconvolutionCLI) {
         handleDeconvolution();
-        DeconvolutionRequest request = generateDeconvRequest(std::make_shared<SetupConfig>(setupConfig));
+    DeconvolutionRequest request = generateDeconvRequest(std::make_shared<SetupConfig>(setupConfig), std::make_shared<DeconvolutionConfig>(deconvolutionConfig));
         dolphin->deconvolve(request);
     }
     else {
@@ -99,15 +99,14 @@ void CLIFrontend::handleDeconvolution() {
     // Handle configuration loading
     if (!setupConfigPath.empty()) {
         try {
-            setupConfig = SetupConfig::createFromJSONFile(setupConfigPath);
+            json jsonData = SetupConfig::loadJSONFile(setupConfigPath);
+            setupConfig.loadFromJSON(jsonData);
+            deconvolutionConfig = SetupConfig::extractDeconvolutionConfig(jsonData);
             std::cout << "[INFO] Configuration loaded from: " << setupConfigPath << std::endl;
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] " << e.what() << std::endl;
             return;
         }
-    } else {
-        // CLI was used, copy deconvolution config
-        setupConfig.deconvolutionConfig = std::make_shared<DeconvolutionConfig>(deconvolutionConfig);
     }
 }
 
@@ -198,9 +197,9 @@ PSFGenerationRequest CLIFrontend::generatePSFRequest(const std::string& configPa
     return request;
 }
 
-DeconvolutionRequest CLIFrontend::generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfigCopy) {
-    // Create request with setup config
-    DeconvolutionRequest request(setupConfigCopy);
+DeconvolutionRequest CLIFrontend::generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfigCopy, std::shared_ptr<DeconvolutionConfig> deconvConfigCopy) {
+    // Create request with setup config and deconvolution config
+    DeconvolutionRequest request(setupConfigCopy, deconvConfigCopy);
 
     // Set CLI-specific options from parsed arguments
     // request.save_separate = setupConfigCopy->sep;

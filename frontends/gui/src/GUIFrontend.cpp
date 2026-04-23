@@ -65,8 +65,8 @@ std::unique_ptr<PSFGenerationResult> GUIFrontend::generatePSF(std::shared_ptr<PS
     return dolphin->generatePSF(request);
 }
 
-std::future<std::unique_ptr<DeconvolutionResult>> GUIFrontend::deconvolve(std::shared_ptr<SetupConfig> setupConfig){
-    DeconvolutionRequest request(setupConfig);
+std::future<std::unique_ptr<DeconvolutionResult>> GUIFrontend::deconvolve(std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig){
+    DeconvolutionRequest request(setupConfig, deconvConfig);
     request.output_path = output_path_;
     return dolphin->deconvolveAsync(request);
 }

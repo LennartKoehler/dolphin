@@ -25,7 +25,7 @@ using json = nlohmann::json;
 using ordered_json = nlohmann::ordered_json;
 
 enum class ParameterType{
- Float, Int, String, VectorInt, Bool, VectorString, FilePath, RangeMap, DeconvolutionConfig, IntArray3, Map, StringSelection
+ Float, Int, String, VectorInt, Bool, VectorString, FilePath, RangeMap, IntArray3, Map, StringSelection
 };
 
 class ParameterIDGenerator {

@@ -15,7 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include <vector>
 #include "dolphin/Config.h"
 #include <array>
-class DeconvolutionConfig;
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
 
 class SetupConfig : public Config{
 public:
@@ -37,11 +37,8 @@ public:
     std::string outputDir;
     std::string labeledImage;
     std::string labelPSFMap;
-    std::string deconvolutionType = "standard";
     std::string backend = "cpu";
     bool savePsf = false;
-    std::array<int, 3> cubeSize{};
-    std::array<int, 3> cubePadding{-1, -1, -1}; // this padding is later doubled
 
     int nThreads = 1;
     int nIOThreads = 1;
@@ -50,7 +47,6 @@ public:
     float maxMem_GB = 1;
 
 
-    std::shared_ptr<DeconvolutionConfig> deconvolutionConfig;
 
 private:
 

@@ -21,6 +21,7 @@ See the LICENSE file provided with the code for the full license.
 #include <functional>
 #include "nlohmann/json.hpp"
 #include "dolphin/SetupConfig.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include <future>
 
 #include <spdlog/spdlog.h>
@@ -40,7 +41,7 @@ public:
     virtual void initialize() = 0;
     virtual bool isInitialized() const = 0;
     virtual void shutdown() = 0;
-    
+
     virtual void setLogger(std::shared_ptr<spdlog::logger> logger) = 0;
 };
 
@@ -51,7 +52,7 @@ public:
     virtual const std::string& errorMessage() const = 0;
     virtual const std::string& successMessage() const = 0;
     virtual std::chrono::duration<double> duration() const = 0;
-    
+
     virtual ~ServiceResult() = default;
 };
 
@@ -119,12 +120,12 @@ protected:
     std::string error_message_;
     std::string success_message_;
     std::chrono::duration<double> duration_;
-    
+
 public:
-    ServiceResultBase(bool success, const std::string& message = "", 
+    ServiceResultBase(bool success, const std::string& message = "",
                      std::chrono::duration<double> dur = std::chrono::duration<double>::zero())
         : success_(success), error_message_(message), success_message_(message), duration_(dur) {}
-    
+
     bool success() const override { return success_; }
     const std::string& errorMessage() const override { return error_message_; }
     const std::string& successMessage() const override { return success_message_; }
@@ -146,7 +147,7 @@ public:
 
     void setConfig(PSFConfigInfo config) { config_ = config; }
     PSFConfigInfo getConfig() const { return config_; }
- 
+
 
     PSFConfigInfo config_;
     std::string output_path;
@@ -158,10 +159,10 @@ public:
 
 class PSFGenerationResult : public ServiceResultBase {
 public:
-    PSFGenerationResult(bool success, const std::string& message = "", 
+    PSFGenerationResult(bool success, const std::string& message = "",
                         std::chrono::duration<double> dur = std::chrono::duration<double>::zero())
         : ServiceResultBase(success, message, dur) {}
-    
+
     std::shared_ptr<PSF> psf;
     std::string generated_path;
 };
@@ -169,12 +170,12 @@ public:
 // class IPSFGenerationService : public IService{
 // public:
 //     virtual ~IPSFGenerationService() = default;
-    
+
 //     virtual std::unique_ptr<PSFGenerationResult> generatePSF(const PSFGenerationRequest& request) = 0;
 //     virtual std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(const PSFGenerationRequest& request) = 0;
 //     virtual std::vector<std::string> getSupportedPSFTypes() const = 0;
 //     virtual bool validateConfig(const json& config) const = 0;
-    
+
 //     virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
 //     virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
 // };
@@ -183,13 +184,16 @@ public:
 class DeconvolutionRequest {
 public:
 
-    
-    DeconvolutionRequest(std::shared_ptr<SetupConfig> config) : setup_config_(config) {
+    DeconvolutionRequest(std::shared_ptr<SetupConfig> config, std::shared_ptr<DeconvolutionConfig> deconvConfig)
+        : setup_config_(config), deconv_config_(deconvConfig) {
         output_path = config->outputDir;
     }
-    
+
     void setConfig(std::shared_ptr<SetupConfig> config) { setup_config_ = config; }
     std::shared_ptr<SetupConfig> getConfig() const { return setup_config_; }
+
+    void setDeconvolutionConfig(std::shared_ptr<DeconvolutionConfig> config) { deconv_config_ = config; }
+    std::shared_ptr<DeconvolutionConfig> getDeconvolutionConfig() const { return deconv_config_; }
 
     void setPSFConfig(std::shared_ptr<PSFConfig> config) { psf_config_ = config; }
     std::shared_ptr<PSFConfig> getPSFConfig() const { return psf_config_; }
@@ -200,50 +204,51 @@ public:
     bool print_info = false;
     // int num_threads = 1;
     std::string output_path = "../results/deconv.tif";
-    
-    
+
+
 private:
     std::shared_ptr<PSFConfig> psf_config_;
     std::shared_ptr<SetupConfig> setup_config_;
+    std::shared_ptr<DeconvolutionConfig> deconv_config_;
 
 };
 
 class DeconvolutionResult : public ServiceResultBase {
 public:
-    DeconvolutionResult(bool success, const std::string& message = "", 
+    DeconvolutionResult(bool success, const std::string& message = "",
                         std::chrono::duration<double> dur = std::chrono::duration<double>::zero())
         : ServiceResultBase(success, message, dur) {}
-    
+
     std::string output_path;
     std::vector<std::string> individual_layer_paths;
-    
+
     struct AlgorithmStats {
         std::string algorithm_used;
         std::chrono::duration<double> processing_time;
         double memory_usage_mb;
     };
-    
+
     AlgorithmStats stats;
 };
 
 // class IDeconvolutionService : public IService {
 // public:
 //     virtual ~IDeconvolutionService() = default;
-    
+
 //     virtual std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request) = 0;
-//     // Asynchronous  
+//     // Asynchronous
 //     virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request) = 0;
-    
+
 //     // Batch processing
 //     virtual std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> deconvolveBatchAsync(
 //         const std::vector<DeconvolutionRequest>& requests) = 0;
-        
+
 //     virtual void setProgressCallback(std::function<void(int)> callback) = 0;
 
 //     // virtual std::unique_ptr<DeconvolutionResult> deconvolveFromConfig(const json& config) = 0;
 //     virtual std::vector<std::string> getSupportedAlgorithms() const = 0;
 //     virtual bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const = 0;
-    
+
 //     virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
 //     virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
 // };
@@ -252,13 +257,13 @@ public:
 class ServiceFactory {
 public:
     virtual ~ServiceFactory() = default;
-    
+
     virtual std::unique_ptr<PSFGenerationService> createPSFGenerationService() = 0;
     virtual std::unique_ptr<DeconvolutionService> createDeconvolutionService() = 0;
-    
+
     // virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
     // virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
-    
+
     static ServiceFactory* create();
 };
 

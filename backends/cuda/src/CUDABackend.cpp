@@ -382,7 +382,7 @@ void CUDADeconvolutionBackend::createPlanRealToComplex(cufftHandle& plan, const 
     try {
 
         // Create FFT plan using advanced r2c interface
-        CUFFT_CHECK(cufftMakePlanMany(
+        CUFFT_RUNTIME_CHECK(cufftMakePlanMany(
             plan,
             rank, n,
             inembed,
@@ -392,7 +392,7 @@ void CUDADeconvolutionBackend::createPlanRealToComplex(cufftHandle& plan, const 
             CUFFT_R2C,
             1,
             &worksize
-        ), "createPlan - C2R plan setup");
+        ), "createPlan - C2R plan setup, might be out of memory");
 
 
         std::string msg = std::format(
@@ -451,7 +451,7 @@ void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const 
     try {
 
         // Create FFT plan using advanced r2c interface
-        CUFFT_CHECK(cufftMakePlanMany(
+        CUFFT_RUNTIME_CHECK(cufftMakePlanMany(
             plan,
             rank, n,
             inembed,
@@ -461,7 +461,7 @@ void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const 
             CUFFT_C2R,
             1,
             &worksize
-        ), "createPlan - C2R plan setup");
+        ), "createPlan - C2R plan setup, might be out of memory");
 
 
         std::string msg = std::format(
@@ -480,7 +480,7 @@ void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const 
 
 void CUDADeconvolutionBackend::createPlanComplex(cufftHandle& plan, const PlanDescription& description) const {
     size_t tempSize = sizeof(complex_t) * description.shape.getVolume();
-    CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2C, &tempSize), "getPlan - C2C plan setup");
+    CUFFT_RUNTIME_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2C, &tempSize), "getPlan - C2C plan setup");
 }
 
 cufftHandle CUDADeconvolutionBackend::initializePlan(const PlanDescription& description){

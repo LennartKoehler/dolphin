@@ -43,11 +43,11 @@ int main(int argc, char** argv) {
     float shapeScale = 1.0f;
     if (argc >= 8) shapeScale = std::stof(argv[7]);
 
-    std::map<std::string, PaddingType> typeMap = {
-        {"linear", PaddingType::LINEAR},
-        {"quadratic", PaddingType::QUADRATIC},
-        {"sinusoid", PaddingType::SINUSOID},
-        {"gaussian", PaddingType::GAUSSIAN},
+    std::map<std::string, PaddingFillType> typeMap = {
+        {"linear", PaddingFillType::LINEAR},
+        {"quadratic", PaddingFillType::QUADRATIC},
+        {"sinusoid", PaddingFillType::SINUSOID},
+        {"gaussian", PaddingFillType::GAUSSIAN},
     };
 
     auto it = typeMap.find(paddingTypeName);
@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
         std::cerr << "Available types: linear, quadratic, sinusoid, gaussian" << std::endl;
         return 1;
     }
-    PaddingType paddingType = it->second;
+    PaddingFillType paddingType = it->second;
 
     try {
         // Read input image

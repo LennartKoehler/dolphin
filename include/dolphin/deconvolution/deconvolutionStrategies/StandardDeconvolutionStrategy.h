@@ -27,15 +27,12 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/IBackendManager.h"
 
 
-class SetupConfig;
 
 class StandardDeconvolutionStrategy : public IDeconvolutionStrategy {
 public:
     StandardDeconvolutionStrategy() = default;
     virtual ~StandardDeconvolutionStrategy() = default;
 
-    // IDeconvolutionStrategy interface
-    virtual void configure(const SetupConfig& setupConfig) override;
 
     virtual Result<DeconvolutionPlan> createPlan(
         std::shared_ptr<ImageReader> reader,
@@ -46,7 +43,6 @@ public:
 
 
 protected:
-    // Helper methods for plan creation
     virtual size_t getMaxMemoryPerCube(
         size_t ioThreads,
         size_t workerThreads,
@@ -63,21 +59,6 @@ protected:
         const SetupConfig& config
     );
 
-    std::vector<CuboidShape> getPSFSizes(const std::vector<PSF>& psfs);
-
-    // virtual Result<CuboidShape> getCubeShape(
-    //     size_t memoryPerCube,
-    //     const CuboidShape& configCubeSize,
-    //     const CuboidShape& imageOriginalShape,
-    //     const Padding& cubePadding,
-    //     size_t nWorkerThreads
-    // );
-
-    // virtual Padding getImagePadding(
-    //     const CuboidShape& imageSize,
-    //     const CuboidShape& cubeSizeUnpadded,
-    //     const Padding& cubePadding
-    // );
 
     virtual std::unique_ptr<PSFPreprocessor> createPSFPreprocessor() const ;
 
@@ -91,17 +72,8 @@ protected:
     virtual Result<std::pair<Padding, CuboidShape>> getCubePadding(
         const std::vector<PSF>& psfs,
         const CuboidShape& configPadding,
-        const CuboidShape& imageSize);
-
-    // void configureThreads(
-    //     size_t& totalThreads,
-    //     size_t& ioThreads,
-    //     size_t& workerThreads,
-    //     IBackendManager& manager
-    // );
-
-    virtual int getNextPowerOfTwo(int v) const ;
-
+        const CuboidShape& imageSize,
+        const DeconvolutionConfig& config);
 
 };
 

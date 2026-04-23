@@ -18,7 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include <memory>
 
 #include "dolphin/ServiceAbstractions.h"
-class SetupConfig;
+#include "dolphin/SetupConfig.h"
 
 /*
 IDeconvolutionStrategy creates a plan for the deconvolution of an image. The IDeconvolutionExecutor then uses this plan to execute the deconvolution.
@@ -28,17 +28,14 @@ The DeconvolutionStrategy also handles how the backends are supposed to be used 
 class IDeconvolutionStrategy {
 public:
     virtual ~IDeconvolutionStrategy() = default;
-    
-    // Configure the strategy with setup configuration
-    virtual void configure(const SetupConfig& setupConfig) = 0;
-    
+
     // Creates a computational plan for deconvolution
     virtual Result<DeconvolutionPlan> createPlan(
         std::shared_ptr<ImageReader> reader,
-        std::shared_ptr<ImageWriter> writer, 
+        std::shared_ptr<ImageWriter> writer,
         const std::vector<PSF>& psfs,
         const DeconvolutionConfig& config,
         const SetupConfig& setupConfig) = 0;
-    
+
 
 };

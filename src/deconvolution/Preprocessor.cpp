@@ -233,13 +233,13 @@ void applyPaddingWeight(
 }
 
 
-void Preprocessor::padImage(Image3D& image, const Padding& padding, PaddingType paddingType, float shapeScale){
-    if (paddingType == PaddingType::MIRROR) padImageMirror(image, padding);
-    else if (paddingType == PaddingType::ZERO) padImageZero(image, padding);
-    else if (paddingType == PaddingType::LINEAR) padImageLinear(image, padding);
-    else if (paddingType == PaddingType::QUADRATIC) padImageQuadratic(image, padding, shapeScale);
-    else if (paddingType == PaddingType::SINUSOID) padImageSinusoid(image, padding);
-    else if (paddingType == PaddingType::GAUSSIAN) padImageGaussian(image, padding, shapeScale);
+void Preprocessor::padImage(Image3D& image, const Padding& padding, PaddingFillType paddingType, float shapeScale){
+    if (paddingType == PaddingFillType::MIRROR) padImageMirror(image, padding);
+    else if (paddingType == PaddingFillType::ZERO) padImageZero(image, padding);
+    else if (paddingType == PaddingFillType::LINEAR) padImageLinear(image, padding);
+    else if (paddingType == PaddingFillType::QUADRATIC) padImageQuadratic(image, padding, shapeScale);
+    else if (paddingType == PaddingFillType::SINUSOID) padImageSinusoid(image, padding);
+    else if (paddingType == PaddingFillType::GAUSSIAN) padImageGaussian(image, padding, shapeScale);
 }
 
 
@@ -367,7 +367,7 @@ void Preprocessor::padImageZero(Image3D& image, const Padding& padding){
     image.setItkImage(zeroPadImage(image,padding));
 }
 
-Padding Preprocessor::padToShape(Image3D& image, const CuboidShape& targetShape, PaddingType borderType){
+Padding Preprocessor::padToShape(Image3D& image, const CuboidShape& targetShape, PaddingFillType borderType){
     // Get current image dimensions using ITK
     CuboidShape currentShape = image.getShape();
     if (currentShape.width == 0 || currentShape.height == 0 || currentShape.depth == 0) {

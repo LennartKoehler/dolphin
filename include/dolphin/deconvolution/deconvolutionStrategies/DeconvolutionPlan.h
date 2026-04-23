@@ -176,31 +176,47 @@ private:
 
 class PaddingStrategy{
 public:
-    virtual void init(const CuboidShape& configPadding) = 0;
-    virtual Padding getPadding(const std::vector<CuboidShape>& psfSizes) const = 0;
+    virtual Padding getPadding(const std::vector<PSF>& psfs, const CuboidShape& imageShape, const DeconvolutionConfig& config) const = 0;
 };
-class DefaultPaddingStrategy : public PaddingStrategy{
+class ParentPaddingStrategy : public PaddingStrategy{
 public:
-    void init(const CuboidShape& configPadding) override{}
-    Padding getPadding(const std::vector<CuboidShape>& psfSizes) const override {
-        CuboidShape maxPsfShape = getLargestShape(psfSizes);
-        CuboidShape paddingbefore = maxPsfShape / 2;
-        // paddingbefore = paddingbefore + 1; // TODO necessary?
-        return Padding{paddingbefore, paddingbefore};
+    Padding getPadding(const std::vector<PSF>& psfs, const CuboidShape& imageShape, const DeconvolutionConfig& config) const override {
+
+        std::vector<CuboidShape> psfSizes = getShapes<PSF>(psfs);
+        CuboidShape largestPSF = getLargestShape(psfSizes);
+
+        PSF psf = psfs[0]; // TODO for multiple
+        float threshold = config.paddingRelativeMax * psf.getMax(); // pad up until values drop below 0.01% of max value (their influence is negligable)
+        CuboidShape paddingRegion = psf.getRegionLargerThreshold(threshold);
+        paddingRegion.setMin(largestPSF - imageShape); // always pad atleast to the size of the psf. This is only relevant if psf is loaded as file
+
+        CuboidShape paddingbefore = paddingRegion / 2;
+        return Padding{paddingbefore, paddingRegion - paddingbefore};
     }
 };
+
+
+class FullPSFPaddingStrategy : public PaddingStrategy{
+public:
+    Padding getPadding(const std::vector<PSF>& psfs, const CuboidShape& imageShape, const DeconvolutionConfig& config) const override {
+
+        std::vector<CuboidShape> psfSizes = getShapes<PSF>(psfs);
+        CuboidShape largestPSF = getLargestShape(psfSizes);
+
+        CuboidShape paddingRegion = largestPSF;
+
+        CuboidShape paddingbefore = paddingRegion / 2;
+        return Padding{paddingbefore, paddingRegion - paddingbefore};
+    }
+};
+
 class ManualPaddingStrategy : public PaddingStrategy{
 public:
-    void init(const CuboidShape& configPadding) override{
-        padding = configPadding;
-    }
-    Padding getPadding(const std::vector<CuboidShape>& psfSizes) const override{
-        CuboidShape paddingHalf = padding / 2;
-        return Padding(paddingHalf, paddingHalf);
+    Padding getPadding(const std::vector<PSF>& psfs, const CuboidShape& imageShape, const DeconvolutionConfig& config) const override{
+        CuboidShape paddingHalf = imageShape / 2;
+        return Padding(paddingHalf, imageShape - paddingHalf);
 
     }
-private:
-    CuboidShape padding;
 };
 
 Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
@@ -208,5 +224,5 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const CuboidShape& imageOriginalShape,
     const size_t& maxVolumePerCube,
     const size_t& minNumberCubes,
-    const PaddingType& imagePadding,
+    const PaddingStrategyType& imagePadding,
     const CuboidShape& minShape);

@@ -36,10 +36,7 @@ void StandardDeconvolutionExecutor::execute(const DeconvolutionPlan& plan) {
     parallelDeconvolution(plan);
 }
 
-void StandardDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfig> config) {
-}
-
-void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig) {
+void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig) {
 }
 
 

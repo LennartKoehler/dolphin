@@ -57,8 +57,8 @@ PSF BornWolfModel::generatePSF() const {
     itkImage->Allocate();
 
     itk::ImageRegionIterator<ImageType> it(itkImage, region);
-    
-    
+
+
     double sum = 0.0;
     for (it.GoToBegin(); !it.IsAtEnd(); ++it){
         ImageType::IndexType index = it.GetIndex();
@@ -87,17 +87,11 @@ PSF BornWolfModel::generatePSF() const {
 
 
     // Normiere die PSF so, dass die Summe aller Werte 1 ergibt
-    
+
     for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
         it.Set(it.Get() / sum);
     }
 
 
-
-    // Erstelle das PSF-Objekt und fülle es mit den erzeugten Schichten
-    Image3D psfImage(std::move(itkImage));
-    PSF bornWolfPsf;
-    bornWolfPsf.image = psfImage;
-
-    return bornWolfPsf;
+    return PSF(std::move(itkImage));
 }

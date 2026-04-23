@@ -45,11 +45,10 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         std::vector<const ComplexData*> preprocessedPSFs;
 
         for (auto& psf : psfs_host){
-
             preprocessedPSFs.push_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, threadbackend));
             threadbackend.sync();
-
         }
+
         for (const auto* psf_device : preprocessedPSFs){
             algorithm->deconvolve(*psf_device, g_device, f_device);
             threadbackend.sync();

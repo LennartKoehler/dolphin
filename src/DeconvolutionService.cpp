@@ -86,42 +86,40 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
 
         // unpack
         std::shared_ptr<SetupConfig> setupConfig = request.getConfig();
-        std::shared_ptr<DeconvolutionConfig> deconvConfig = setupConfig->deconvolutionConfig;
+        std::shared_ptr<DeconvolutionConfig> deconvConfig = request.getDeconvolutionConfig();
 
 
 
-        // Create PSFs
-        std::vector<PSF> psfs = createPSFsFromSetup(setupConfig);
-        if (psfs.empty()) {
-            std::string error_msg = "No valid PSFs provided";
-            logger_->error(error_msg);
-            return createResult(false, error_msg,
-                              std::chrono::duration<double>::zero());
-        }
 
         // Create deconvolution strategy pair using factory
         DeconvolutionStrategyFactory& factory = DeconvolutionStrategyFactory::getInstance();
-        auto strategyPair = factory.createStrategyPair(setupConfig);
+        auto strategyPair = factory.createStrategyPair(setupConfig, deconvConfig);
 
         if (!strategyPair) {
-            std::string error_msg = "Unsupported deconvolution type: " + setupConfig->deconvolutionType;
+            std::string error_msg = "Unsupported deconvolution type: " + deconvConfig->deconvolutionType;
             logger_->error(error_msg);
             return createResult(false, error_msg,
                               std::chrono::duration<double>::zero());
         }
 
-        // Configure both strategy and executor
-        strategyPair->getExecutor().configure(std::make_unique<DeconvolutionConfig>(*deconvConfig.get()));
 
         std::string output_path = request.output_path;
 
         std::string path = output_path + "/deconv_" + TiffReader::getFilename(setupConfig->imagePath);
 
-        int channel = 0;
+        int channel = 0; //TESTVLAUE unused
         std::shared_ptr<TiffReader> reader = std::make_shared<TiffReader>(setupConfig->imagePath, channel);
         std::optional<ImageMetaData> metadata = reader->getMetaData();
 
         std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(path, metadata.value().getShape());
+
+        // Create PSFs, need to know imageshape so that if its created from config just create with imageShape
+        std::vector<PSF> psfs = createPSFsFromSetup(setupConfig, reader->getMetaData().getShape());
+        if (psfs.empty()) {
+            std::string error_msg = "No valid PSFs provided";
+            logger_->error(error_msg);
+            return createResult(false, error_msg, std::chrono::duration<double>::zero());
+        }
 
         Result<DeconvolutionPlan> plan = strategyPair->getStrategy().createPlan(reader, writer, psfs, *deconvConfig, *setupConfig);
         if (!plan.success){
@@ -134,6 +132,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
                 psf.writeToTiffFile(output_path);
             }
         }
+
         strategyPair->getExecutor().execute(plan.value);
 
 
@@ -226,7 +225,7 @@ bool DeconvolutionService::validateDeconvolutionRequest(const DeconvolutionReque
     auto algorithm_it = std::find(
         supported_algorithms_.begin(),
         supported_algorithms_.end(),
-        request.getConfig()->deconvolutionConfig->algorithmName
+        request.getDeconvolutionConfig()->algorithmName
     );
 
     if (algorithm_it == supported_algorithms_.end()) {
@@ -240,12 +239,13 @@ bool DeconvolutionService::validateDeconvolutionRequest(const DeconvolutionReque
 
 
 std::vector<PSF> DeconvolutionService::createPSFsFromSetup(
-    std::shared_ptr<SetupConfig> setupConfig) {
+    std::shared_ptr<SetupConfig> setupConfig,
+    const CuboidShape& imageShape) {
 
     std::vector<PSF> psfs;
 
     if (!setupConfig->psfConfigPath.empty()){
-        std::vector<std::shared_ptr<PSFConfig>> configs = PSFCreator::generatePSFConfigsFromConfigPath(setupConfig->psfConfigPath);
+        std::vector<std::shared_ptr<PSFConfig>> configs = PSFCreator::generatePSFConfigsFromConfigPathWithShape(setupConfig->psfConfigPath, imageShape);
         for (const auto& config : configs){
             psfs.push_back(PSFCreator::generatePSFFromPSFConfig(config, thread_pool_.get()));
         }

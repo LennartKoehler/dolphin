@@ -14,7 +14,7 @@ public:
     void run() override;
 
     std::unique_ptr<PSFGenerationResult> generatePSF(std::shared_ptr<PSFConfig> config);
-    std::future<std::unique_ptr<DeconvolutionResult>> deconvolve(std::shared_ptr<SetupConfig> config);
+    std::future<std::unique_ptr<DeconvolutionResult>> deconvolve(std::shared_ptr<SetupConfig> config, std::shared_ptr<DeconvolutionConfig> deconvConfig);
  
     double mainScale;
 
