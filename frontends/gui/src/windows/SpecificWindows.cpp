@@ -111,8 +111,7 @@ DeconvolutionMainWindow::DeconvolutionMainWindow(GUIFrontend* guiFrontend, int w
                 if (setup->psfFilePath.empty() && !psfconfigwindow->psfPath.empty()){
                     setup->psfFilePath = psfconfigwindow->psfPath;
                 }
-                setup->deconvolutionConfig = deconv;
-                guiFrontend->deconvolve(setup);
+                guiFrontend->deconvolve(setup, deconv);
             });
         startDeconvolutionButton->activate();
 

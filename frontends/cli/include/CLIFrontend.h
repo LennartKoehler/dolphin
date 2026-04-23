@@ -40,5 +40,5 @@ private:
     void handleDeconvolution();
 
     PSFGenerationRequest generatePSFRequest(const std::string& psfconfigpath);
-    DeconvolutionRequest generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfig);
+    DeconvolutionRequest generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig);
 };

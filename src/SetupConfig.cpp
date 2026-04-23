@@ -15,7 +15,6 @@ See the LICENSE file provided with the code for the full license.
 #include <sys/stat.h>
 #include <iostream>
 #include <fstream>
-#include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/PSFGeneratorFactory.h"
 #include "dolphin/backend/BackendFactory.h"
@@ -30,6 +29,7 @@ SetupConfig::SetupConfig() {
 SetupConfig SetupConfig::createFromJSONFile(const std::string& filePath) {
     json jsonData = loadJSONFile(filePath);
 
+    jsonData.erase("deconvolution_config"); // it can be part of one json file but should not be read as such
     SetupConfig config;
     if (!config.loadFromJSON(jsonData)) {
         throw std::runtime_error("Failed to parse config file: " + filePath);
@@ -58,19 +58,11 @@ SetupConfig::SetupConfig(const SetupConfig& other)
     maxMem_GB = other.maxMem_GB;
 
     outputDir = other.outputDir;
-    deconvolutionType = other.deconvolutionType;
     labeledImage = other.labeledImage;
     labelPSFMap = other.labelPSFMap;
 
     savePsf = other.savePsf;
-    cubeSize = other.cubeSize;
-    cubePadding = other.cubePadding;
 
-    // Deep copy the shared_ptr content
-    if (other.deconvolutionConfig != nullptr) {
-        deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
-    }
-    // If other.deconvolutionConfig is nullptr, our deconvolutionConfig will remain nullptr (from registerAllParameters)
 }
 
 
@@ -92,38 +84,19 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         maxMem_GB = other.maxMem_GB;
 
         outputDir = other.outputDir;
-        deconvolutionType = other.deconvolutionType;
         labeledImage = other.labeledImage;
         labelPSFMap = other.labelPSFMap;
 
         savePsf = other.savePsf;
-        cubeSize = other.cubeSize;
-        cubePadding = other.cubePadding;
-        // Deep copy the shared_ptr content
-        if (other.deconvolutionConfig != nullptr) {
-            deconvolutionConfig = std::make_shared<DeconvolutionConfig>(*other.deconvolutionConfig);
-        } else {
-            deconvolutionConfig.reset();  // Set to nullptr
-        }
     }
     return *this;
 }
 
 bool SetupConfig::loadFromJSON(const json& jsonData){
     bool success = Config::loadFromJSON(jsonData);
-
-    if (jsonData.contains("deconvolution_config")){//TODO make nicer, shouldnt be hardcoded here
-        deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
-        success = success && deconvolutionConfig->loadFromJSON(jsonData["deconvolution_config"]);
-    }
-    else{
-
-        deconvolutionConfig = std::make_shared<DeconvolutionConfig>();
-    }
-
     return success;
-
 }
+
 
 
 void SetupConfig::registerAllParameters(){
@@ -134,7 +107,6 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::VectorString, &psfFilePath, "psf_file_path", true, "psf_file_path", "--psf_file_path", "PSF file path", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
-    parameters.push_back({ParameterType::String, &deconvolutionType, "deconvolutionType", true, "deconvolution_type", "--deconvolutionType", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &labeledImage, "labeledImage", true, "labeled_image", "--labeledImage", "Labeled image path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &labelPSFMap, "labelPSFMap", true, "label_psf_map", "--labelPSFMap", "Label PSF map path", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &backend, "backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
@@ -144,10 +116,7 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Int, &nDevices, "nDevices", true, "n_devices", "--nDevices", "Number of devices", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Float, &maxMem_GB, "maxMem_GB", false, "max_mem_gb", "--maxMem_GB", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
 
-    parameters.push_back({ParameterType::IntArray3, &cubeSize, "cubeSize", false, "cube_size", "--cubeSize", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
-    parameters.push_back({ParameterType::IntArray3, &cubePadding, "cubePadding", false, "cube_padding", "--cubePadding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::Bool, &savePsf, "savePsf", false, "save_psf", "--savePsf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
 
-    parameters.push_back({ParameterType::DeconvolutionConfig, &deconvolutionConfig, "Deconvolution", true, "deconvolution_config", "--deconvConfig", "Deconv Config", false, false, 0.0, 0.0, nullptr});
 
 }

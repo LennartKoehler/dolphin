@@ -39,10 +39,6 @@ PSF GaussianPSFGenerator::generatePSF() const {
     double centerY = (height - 1) / 2.0;
     double centerZ = (layers - 1) / 2.0;
 
-    double sigmaXBase = width * (config->sigmaX / 100.0);
-    double sigmaYBase = height * (config->sigmaY / 100.0);
-    double sigmaZBase = layers * (config->sigmaZ / 100.0);
-
     // Create ITK image
     ImageType::Pointer itkImage = ImageType::New();
 
@@ -73,9 +69,9 @@ PSF GaussianPSFGenerator::generatePSF() const {
         int y = index[1];
         int z = index[2];
 
-        double dx = (x - centerX) / sigmaXBase;
-        double dy = (y - centerY) / sigmaYBase;
-        double dz = (z - centerZ) / sigmaZBase;
+        double dx = (x - centerX) / config->sigmaX;
+        double dy = (y - centerY) / config->sigmaY;
+        double dz = (z - centerZ) / config->sigmaZ;
 
         // Calculate 3D Gaussian value
         float value = static_cast<float>(exp(-0.5 * (dx * dx + dy * dy + dz * dz)));
@@ -88,10 +84,5 @@ PSF GaussianPSFGenerator::generatePSF() const {
         it.Set(it.Get() / sum);
     }
 
-    // Create PSF object with the ITK image
-    Image3D psfImage(std::move(itkImage));
-    PSF gaussianPsf;
-    gaussianPsf.image = psfImage;
-
-    return gaussianPsf;
+    return PSF(std::move(itkImage));
 }

@@ -47,9 +47,9 @@ void adjustDimensionsEdgeConditions(
     BoxCoordWithPadding& currentCube,
     const CuboidShape& imageOriginalShape,
     const CuboidShape& remainingSize,
-    const PaddingType& imagePadding){
+    const PaddingStrategyType& imagePadding){
 
-    if (imagePadding == PaddingType::NONE){
+    if (imagePadding == PaddingStrategyType::NONE){
         if (currentCube.box.position.depth == 0) {
             currentCube.box.dimensions.depth += currentCube.padding.before.depth;
             currentCube.padding.before.depth = 0;
@@ -108,7 +108,7 @@ void addCubeRecursion(
     std::vector<BoxCoordWithPadding>& cubePositions,
     BoxCoordWithPadding& currentCube,
     const CuboidShape& imageOriginalShape,
-    const PaddingType& imagePadding){
+    const PaddingStrategyType& imagePadding){
 
     assert(currentCube.box.dimensions.getVolume() > 0);
 
@@ -182,7 +182,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const CuboidShape& imageOriginalShape,
     const size_t& maxVolumePerCube,
     const size_t& minNumberCubes,
-    const PaddingType& imagePadding,
+    const PaddingStrategyType& imagePadding,
     const CuboidShape& minSize)
     {
     assert(minSize > cubePadding.getTotalPadding());
@@ -190,7 +190,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
 
     CuboidShape currentMaxSize;
 
-    if (imagePadding == PaddingType::NONE) currentMaxSize = imageOriginalShape;
+    if (imagePadding == PaddingStrategyType::NONE) currentMaxSize = imageOriginalShape;
     else currentMaxSize = imageOriginalShape + cubePadding.before + cubePadding.after;
 
     currentMaxSize.setMin(minSize); // because it has to be atleast as big as the psf

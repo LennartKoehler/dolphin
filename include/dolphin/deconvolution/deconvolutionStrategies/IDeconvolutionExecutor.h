@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphin/psf/PSF.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/SetupConfig.h"
 #include <memory>
 
 class ImageReader;
@@ -30,6 +31,6 @@ public:
     // Execute a computational plan and return the result
     virtual void execute(const DeconvolutionPlan& plan) = 0;
     
-    // Configure the executor with necessary parameters
-    virtual void configure(std::unique_ptr<DeconvolutionConfig> config) = 0;
+    // Configure the executor with both setup and deconvolution configuration
+    virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig) = 0;
 };

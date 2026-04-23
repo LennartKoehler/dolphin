@@ -59,7 +59,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
         size_t maxVolume = 1000000;  // 1M voxels
         size_t minCubes = 1;
-        PaddingType padType = PaddingType::NONE;
+        PaddingStrategyType padType = PaddingStrategyType::NONE;
         CuboidShape minSize(1, 1, 1);
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -76,7 +76,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(10, 10, 5), CuboidShape(10, 10, 5)};
         size_t maxVolume = 1000000;
         size_t minCubes = 1;
-        PaddingType padType = PaddingType::ZERO;
+        PaddingStrategyType padType = PaddingStrategyType::FULL_PSF;
         CuboidShape minSize(21, 21, 11);  // one larger than total padding (20, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -93,7 +93,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(32, 32, 16), CuboidShape(32, 32, 16)};
         size_t maxVolume = 1000000;  // 1M voxels - should require multiple cubes
         size_t minCubes = 4;
-        PaddingType padType = PaddingType::ZERO;
+        PaddingStrategyType padType = PaddingStrategyType::FULL_PSF;
         CuboidShape minSize(65, 65, 33);  // one larger than total padding (64, 64, 32)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -110,7 +110,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(4, 4, 2), CuboidShape(4, 4, 2)};
         size_t maxVolume = 1000000;
         size_t minCubes = 1;
-        PaddingType padType = PaddingType::NONE;
+        PaddingStrategyType padType = PaddingStrategyType::NONE;
         CuboidShape minSize(9, 9, 5);  // one larger than total padding (8, 8, 4)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -127,7 +127,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(20, 20, 10), CuboidShape(20, 20, 10)};
         size_t maxVolume = 500000;
         size_t minCubes = 2;
-        PaddingType padType = PaddingType::NONE;
+        PaddingStrategyType padType = PaddingStrategyType::NONE;
         CuboidShape minSize(41, 41, 21);  // one larger than total padding (40, 40, 20)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -144,7 +144,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(16, 16, 8), CuboidShape(16, 16, 8)};
         size_t maxVolume = 200000;
         size_t minCubes = 4;
-        PaddingType padType = PaddingType::ZERO;
+        PaddingStrategyType padType = PaddingStrategyType::FULL_PSF;
         CuboidShape minSize(33, 33, 17);  // one larger than total padding (32, 32, 16)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -166,7 +166,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(8, 8, 4), CuboidShape(8, 8, 4)};
         size_t maxVolume = 500000;
         size_t minCubes = 1;
-        PaddingType padType = PaddingType::ZERO;
+        PaddingStrategyType padType = PaddingStrategyType::FULL_PSF;
         CuboidShape minSize(17, 17, 9);  // one larger than total padding (16, 16, 8)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -197,7 +197,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(16, 16, 8), CuboidShape(16, 16, 8)};
         size_t maxVolume = 1000000;
         size_t minCubes = 8;
-        PaddingType padType = PaddingType::MIRROR;
+        PaddingStrategyType padType = PaddingStrategyType::FULL_PSF;
         CuboidShape minSize(33, 33, 17);  // one larger than total padding (32, 32, 16)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -214,7 +214,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(10, 10, 5), CuboidShape(10, 10, 5)};
         size_t maxVolume = 50000;  // Very small
         size_t minCubes = 1;
-        PaddingType padType = PaddingType::ZERO;
+        PaddingStrategyType padType = PaddingStrategyType::FULL_PSF;
         CuboidShape minSize(21, 21, 11);  // one larger than total padding (20, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -232,7 +232,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(20, 10, 5), CuboidShape(20, 10, 5)};
         size_t maxVolume = 300000;
         size_t minCubes = 2;
-        PaddingType padType = PaddingType::NONE;
+        PaddingStrategyType padType = PaddingStrategyType::NONE;
         CuboidShape minSize(41, 21, 11);  // one larger than total padding (40, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -248,7 +248,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(10, 10, 5), CuboidShape(10, 10, 5)};
         size_t maxVolume = 500;  // Very small
         size_t minCubes = 1;
-        PaddingType padType = PaddingType::ZERO;
+        PaddingStrategyType padType = PaddingStrategyType::FULL_PSF;
         CuboidShape minSize(21, 21, 11);  // one larger than total padding (20, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -263,7 +263,7 @@ void testSplitImageHomogeneous() {
         Padding padding{CuboidShape(10, 10, 5), CuboidShape(10, 10, 5)};
         size_t maxVolume = 5000;  // Very small
         size_t minCubes = 100;
-        PaddingType padType = PaddingType::ZERO;
+        PaddingStrategyType padType = PaddingStrategyType::FULL_PSF;
         CuboidShape minSize(21, 21, 11);  // one larger than total padding (20, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -286,7 +286,7 @@ void testCubePositioning() {
         Padding padding{CuboidShape(16, 16, 8), CuboidShape(16, 16, 8)};
         size_t maxVolume = 200000;
         size_t minCubes = 4;
-        PaddingType padType = PaddingType::ZERO;
+        PaddingStrategyType padType = PaddingStrategyType::FULL_PSF;
         CuboidShape minSize(33, 33, 17);  // one larger than total padding (32, 32, 16)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -319,7 +319,7 @@ void testCubePositioning() {
         Padding padding{CuboidShape(8, 8, 4), CuboidShape(8, 8, 4)};
         size_t maxVolume = 500000;
         size_t minCubes = 1;
-        PaddingType padType = PaddingType::NONE;
+        PaddingStrategyType padType = PaddingStrategyType::NONE;
         CuboidShape minSize(17, 17, 9);  // one larger than total padding (16, 16, 8)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -356,7 +356,7 @@ void testEdgeCases() {
         Padding padding{CuboidShape(2, 2, 2), CuboidShape(2, 2, 2)};
         size_t maxVolume = 1000000;
         size_t minCubes = 1;
-        PaddingType padType = PaddingType::NONE;
+        PaddingStrategyType padType = PaddingStrategyType::NONE;
         CuboidShape minSize(5, 5, 5);  // one larger than total padding (4, 4, 4)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -372,7 +372,7 @@ void testEdgeCases() {
         Padding padding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
         size_t maxVolume = 500000;
         size_t minCubes = 1;
-        PaddingType padType = PaddingType::NONE;
+        PaddingStrategyType padType = PaddingStrategyType::NONE;
         CuboidShape minSize(1, 1, 1);
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -388,7 +388,7 @@ void testEdgeCases() {
         Padding padding{CuboidShape(20, 20, 10), CuboidShape(20, 20, 10)};
         size_t maxVolume = 500000;
         size_t minCubes = 1;
-        PaddingType padType = PaddingType::ZERO;
+        PaddingStrategyType padType = PaddingStrategyType::FULL_PSF;
         CuboidShape minSize(41, 41, 21);  // one larger than total padding (40, 40, 20)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);
@@ -404,7 +404,7 @@ void testEdgeCases() {
         Padding padding{CuboidShape(10, 10, 5), CuboidShape(10, 10, 5)};
         size_t maxVolume = 10000000;  // Very large
         size_t minCubes = 1;
-        PaddingType padType = PaddingType::ZERO;
+        PaddingStrategyType padType = PaddingStrategyType::FULL_PSF;
         CuboidShape minSize(21, 21, 11);  // one larger than total padding (20, 20, 10)
 
         auto result = splitImageHomogeneous(padding, imageSize, maxVolume, minCubes, padType, minSize);

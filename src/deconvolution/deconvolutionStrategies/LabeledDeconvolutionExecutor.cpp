@@ -28,7 +28,7 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 }
 
 
-void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig){
+void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig){
     int channel = 0;
     this->labelReader = std::make_unique<TiffReader>(setupConfig.labeledImage, channel);
 
@@ -39,12 +39,7 @@ void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig){
         this->psfLabelMap = labelPSFMap;
     }
 
-
-}
-
-void LabeledDeconvolutionExecutor::configure(std::unique_ptr<DeconvolutionConfig> config){
-
-    this->featheringRadius = config->featheringRadius;
+    this->featheringRadius = deconvConfig.featheringRadius;
 }
 
 /*

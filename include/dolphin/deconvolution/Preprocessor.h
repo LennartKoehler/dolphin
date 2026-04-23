@@ -108,9 +108,9 @@ namespace Preprocessor{
     void expandToMinSize(Image3D& image, const CuboidShape& minSize);
 
 
-    Padding padToShape(Image3D& image3D, const CuboidShape& targetShape, PaddingType borderType);
+    Padding padToShape(Image3D& image3D, const CuboidShape& targetShape, PaddingFillType borderType);
 
-    void padImage(Image3D& image, const Padding& padding, PaddingType borderType, float shapeScale = 1.0f);
+    void padImage(Image3D& image, const Padding& padding, PaddingFillType borderType, float shapeScale = 1.0f);
     void padImageMirror(Image3D& image, const Padding& padding);
     void padImageZero(Image3D& image, const Padding& padding);
     void padImageLinear(Image3D& image, const Padding& padding);

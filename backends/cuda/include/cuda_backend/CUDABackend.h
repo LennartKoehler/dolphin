@@ -64,10 +64,19 @@ class CUDABackendManager;
     //         "cuFFT error code: " + std::to_string(res), \
     //         "CUDA", \
     //         operation \
-    //     ); \
     // } \
+    //     ); \
 
-
+#define CUFFT_RUNTIME_CHECK(call, operation) { \
+    cufftResult res = call; \
+    if (res != CUFFT_SUCCESS) { \
+        throw dolphin::backend::BackendException( \
+            "cuFFT error code: " + std::to_string(res), \
+            "CUDA", \
+            operation \
+        ); \
+    } \
+}
 struct cuFFTPlan{
     cufftHandle plan;
     PlanDescription description;

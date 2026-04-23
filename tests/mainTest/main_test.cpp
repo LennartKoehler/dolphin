@@ -1,6 +1,7 @@
 #include <iostream>
 #include "dolphin/Dolphin.h"
 #include "dolphin/SetupConfig.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
 
 
 
@@ -8,8 +9,9 @@ void runWithConfig(std::string configpath){
     Dolphin* dolphin = new Dolphin();
     dolphin->init();
     try{
-        SetupConfig config = SetupConfig::createFromJSONFile(configpath); 
-        DeconvolutionRequest request(std::make_shared<SetupConfig>(config));
+        SetupConfig config = SetupConfig::createFromJSONFile(configpath);
+        DeconvolutionConfig deconvConfig = DeconvolutionConfig::createFromJSONFile(configpath);
+        DeconvolutionRequest request(std::make_shared<SetupConfig>(config), std::make_shared<DeconvolutionConfig>(deconvConfig));
         dolphin->deconvolve(request);
     }
     catch(const std::exception& e){
@@ -17,7 +19,7 @@ void runWithConfig(std::string configpath){
         return;
     }
 
-    
+
 }
 
 
@@ -32,7 +34,7 @@ int main(int argc, char** argv) {
 
     // Run the tests
     runWithConfig(configPath);
-    
+
     std::cout << "\n=== Test completed ===" << std::endl;
     return 0;
 }

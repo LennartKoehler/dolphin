@@ -33,6 +33,8 @@ namespace PSFCreator{
     std::vector<std::shared_ptr<PSFConfig>> generatePSFsFromDir(const std::string& psfDirPath);
 
 
+    // overrides the shape in the config. This is for when this psf is used in deconvolution it will be adjusted to the image shape
+    std::vector<std::shared_ptr<PSFConfig>> generatePSFConfigsFromConfigPathWithShape(const std::vector<std::string>& paths, const CuboidShape& overrdeShape);
     std::vector<std::shared_ptr<PSFConfig>> generatePSFConfigsFromConfigPath(const std::vector<std::string>& paths);
     std::vector<std::string> stringSplit(const std::string& paths);
 

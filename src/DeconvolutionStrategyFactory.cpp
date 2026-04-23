@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/SetupConfig.h"
 #include <stdexcept>
 
@@ -27,23 +28,23 @@ DeconvolutionStrategyFactory& DeconvolutionStrategyFactory::getInstance() {
     return instance;
 }
 
-std::unique_ptr<DeconvolutionStrategyPair> DeconvolutionStrategyFactory::createStrategyPair(std::shared_ptr<SetupConfig> config) {
-    std::string type = config->deconvolutionType;
+std::unique_ptr<DeconvolutionStrategyPair> DeconvolutionStrategyFactory::createStrategyPair(std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig) {
+    std::string type = deconvConfig->deconvolutionType;
     auto it = strategy_creators_.find(type);
     if (it != strategy_creators_.end()) {
-        return it->second(config);
+        return it->second(setupConfig, deconvConfig);
     }
-    
+
     // Return nullptr for unknown types
     return nullptr;
 }
 
-std::unique_ptr<IDeconvolutionStrategy> DeconvolutionStrategyFactory::createStrategy(std::shared_ptr<SetupConfig> config) {
-    std::string type = config->deconvolutionType;
+std::unique_ptr<IDeconvolutionStrategy> DeconvolutionStrategyFactory::createStrategy(std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig) {
+    std::string type = deconvConfig->deconvolutionType;
     auto it = strategy_creators_.find(type);
     if (it != strategy_creators_.end()) {
         // Extract just the strategy from the pair
-        auto pair = it->second(config);
+        auto pair = it->second(setupConfig, deconvConfig);
         if (pair) {
             // Create a copy of the strategy by cloning it
             // This is a simplified approach - in a real implementation,
@@ -51,7 +52,7 @@ std::unique_ptr<IDeconvolutionStrategy> DeconvolutionStrategyFactory::createStra
             return std::make_unique<StandardDeconvolutionStrategy>(); // Placeholder
         }
     }
-    
+
     // Return nullptr for unknown types
     return nullptr;
 }
@@ -70,34 +71,30 @@ bool DeconvolutionStrategyFactory::isStrategySupported(const std::string& type) 
 std::vector<std::string> DeconvolutionStrategyFactory::getSupportedTypes() const {
     std::vector<std::string> types;
     types.reserve(strategy_creators_.size());
-    
+
     for (const auto& pair : strategy_creators_) {
         types.push_back(pair.first);
     }
-    
+
     return types;
 }
 
 void DeconvolutionStrategyFactory::registerBuiltInStrategies() {
-    registerStrategy("standard", [](std::shared_ptr<SetupConfig> setupConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
+    registerStrategy("standard", [](std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
         auto strategy = std::make_unique<StandardDeconvolutionStrategy>();
         auto executor = std::make_unique<StandardDeconvolutionExecutor>();
-        
-        // Configure strategy with setup config
-        strategy->configure(*setupConfig);
-        executor->configure(*setupConfig);
-        
+
+        executor->configure(*setupConfig, *deconvConfig);
+
         return std::make_unique<DeconvolutionStrategyPair>(std::move(strategy), std::move(executor));
     });
-    
+
     // Register labeled image deconvolution strategy
-    registerStrategy("labeled", [](std::shared_ptr<SetupConfig> setupConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
+    registerStrategy("labeled", [](std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
         auto strategy = std::make_unique<StandardDeconvolutionStrategy>();
         auto executor = std::make_unique<LabeledDeconvolutionExecutor>();
 
-        // Configure strategy with setup config (loads labeled image and PSF map internally)
-        strategy->configure(*setupConfig);
-        executor->configure(*setupConfig);
+        executor->configure(*setupConfig, *deconvConfig);
 
         return std::make_unique<DeconvolutionStrategyPair>(std::move(strategy), std::move(executor));
     });

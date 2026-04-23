@@ -34,13 +34,13 @@ public:
     std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request);
 
     virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request);
-    
+
     virtual std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> deconvolveBatchAsync(const std::vector<DeconvolutionRequest>& requests);
-        
+
 
     virtual void setProgressCallback(std::function<void(int)> callback);
     std::vector<std::string> getSupportedAlgorithms() const;
-    std::vector<std::string> getSupportedStrategyTypes() const; 
+    std::vector<std::string> getSupportedStrategyTypes() const;
 
     bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const;
 
@@ -55,24 +55,25 @@ public:
 private:
     // void logMessage(const std::string& message);
     // void handleError(const std::string& error);
-    
+
     std::unique_ptr<DeconvolutionResult> createResult(
         bool success,
         const std::string& message,
         std::chrono::duration<double> duration);
 
-    
+
     bool validateDeconvolutionRequest(const DeconvolutionRequest& request) const;
     // bool validateImageConfig(const json& config) const;
-    
+
     // Algorithm management
     std::unique_ptr<DeconvolutionStrategyPair> deconvolutionStrategyPair;
 
     // PSF package management
     std::vector<PSF> createPSFsFromSetup(
-        std::shared_ptr<SetupConfig> setupConfig);
+        std::shared_ptr<SetupConfig> setupConfig,
+        const CuboidShape& imageShape);
 
-    
+
     // Configuration
     bool initialized_;
     std::shared_ptr<spdlog::logger> logger_;

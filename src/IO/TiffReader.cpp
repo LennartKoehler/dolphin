@@ -323,7 +323,7 @@ void TiffReader::readStripWithPadding(const BoxCoordWithPadding& coord) const {
     requestedRegion.position.width = 0;
 
     Image3D readImage = managedReader(requestedRegion);
-    Preprocessor::padImage(readImage, padding, PaddingType::MIRROR); // TODO move this to strategy or executor
+    Preprocessor::padImage(readImage, padding, PaddingFillType::MIRROR); // TODO move this to strategy or executor
 
     ImageBuffer result;
     result.image = readImage;

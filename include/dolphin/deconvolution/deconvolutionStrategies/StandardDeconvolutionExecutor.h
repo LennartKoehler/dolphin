@@ -27,7 +27,6 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IBackendMemoryManager.h"
 
-class SetupConfig;
 
 class StandardDeconvolutionExecutor : public IDeconvolutionExecutor {
 public:
@@ -36,8 +35,7 @@ public:
 
     // IDeconvolutionExecutor interface
     virtual void execute(const DeconvolutionPlan& plan) override;
-    virtual void configure(std::unique_ptr<DeconvolutionConfig> config) override;
-    virtual void configure(const SetupConfig& setupConfig);
+    virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig) override;
 
 protected:
     // Helper methods for execution

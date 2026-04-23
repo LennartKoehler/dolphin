@@ -41,7 +41,7 @@ struct PixelData {
 
 
 class Image3D {
-private:
+protected:
 
     ImageType::Pointer image;
 
@@ -75,6 +75,8 @@ public:
     void setItkImage(ImageType::Pointer itkImage) { image = itkImage; }
 
     CuboidShape getShape() const;
+    CuboidShape getRegionLargerThreshold(float threshold) const;
+    float getMax() const;
     void flip();
     void scale(int new_size_x, int new_size_y, int new_size_z);
 
@@ -212,6 +214,15 @@ public:
         return ConstIterator(image, true);
     }
 };
+
+template<typename T>
+static std::vector<CuboidShape> getShapes(const std::vector<T>& images){
+    std::vector<CuboidShape> sizes;
+    for (const auto& image : images){
+        sizes.push_back(image.getShape());
+    }
+    return sizes;
+}
 
 struct PaddedImage{
     Image3D image;

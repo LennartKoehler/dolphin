@@ -18,8 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/Config.h"
 
 
-enum PaddingType {
-    NONE,
+enum PaddingFillType {
     ZERO,
     MIRROR,
     LINEAR,
@@ -28,20 +27,32 @@ enum PaddingType {
     GAUSSIAN,
 };
 
+enum PaddingStrategyType {
+    NONE,
+    PARENT,
+    FULL_PSF,
+    MANUAL,
+};
 
 class DeconvolutionConfig : public Config{
 public:
     DeconvolutionConfig();
     DeconvolutionConfig(const DeconvolutionConfig& other);
+    static DeconvolutionConfig createFromJSONFile(const std::string& path);
     std::string getName() const override { return std::string("DeconvolutionConfig"); };
 
     // Use the struct for parameters
-    std::string algorithmName = "RichardsonLucyTotalVariation";
+    std::string algorithmName = "RichardsonLucy";
     int iterations = 10;
     float epsilon = 1e-6;
     float lambda = 0.001;
-    PaddingType imagePaddingType = PaddingType::ZERO;
+    PaddingFillType paddingFillType = PaddingFillType::ZERO;
+    PaddingStrategyType paddingStrategyType = PaddingStrategyType::PARENT;
+    float paddingRelativeMax = 0.001;
     int featheringRadius = 0;
+    std::array<int, 3> cubeSize{}; // currently unused
+    std::array<int, 3> cubePadding{-1, -1, -1}; // this padding is later doubled
+    std::string deconvolutionType = "standard";
 
 
     // virtual bool loadFromJSON(const json& jsonData) override;
