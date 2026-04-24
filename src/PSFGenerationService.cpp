@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/PSFGenerationService.h"
 #include "dolphin/PSFCreator.h"
+#include "dolphin/ProgressTracking.h"
 #include "dolphin/psf/PSFGeneratorFactory.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
@@ -78,17 +79,9 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         std::shared_ptr<PSF> psf;
 
         // Check PSF config path
-        if (!request.config_.config_path_.empty()) {
-            logger_->info("Generating PSF from config file path: " + request.config_.config_path_);
-            psf = createPSFFromFilePathInternal(request.config_.config_path_);
-        }
-        // Check PSF config object
-        else if (request.config_.psf_config_ != nullptr) {
-            logger_->info("Generating PSF from config object: " + request.config_.psf_config_->getName());
-            psf = createPSFFromConfigInternal(request.config_.psf_config_);
-        }
-        else {
-            throw std::runtime_error("No PSF configuration provided");
+        if (!request.setupConfig->psfConfigPath.empty()) {
+            logger_->info("Generating PSF from config file path: " + request.setupConfig->psfConfigPath);
+            psf = createPSFFromFilePathInternal(request.setupConfig->psfConfigPath, request.getProgressCallback());
         }
 
         if (!psf) {
@@ -98,16 +91,15 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         std::string output_file;
 
         // Handle saving if requested
-        if (request.save_result) {
-            std::string filenameBase = "PSF";
-            output_file = savePSF(request.output_path, filenameBase + ".tiff", psf);
+        if (!request.setupConfig->outputPath.empty()) {
+            output_file = savePSF(request.setupConfig->outputPath, psf);
 
-            // if a config was not provided by file the generated psfconfig is saved next
-            // to the psf otherwise you already have the config somewhere, no need to save it
-            if (request.config_.psf_config_ != nullptr){
-                std::string configFilename = "Config_" + filenameBase + ".json";
-                std::string output_file_config = savePSFConfig(request.output_path, configFilename, request.config_.psf_config_);
-            }
+            // // if a config was not provided by file the generated psfconfig is saved next
+            // // to the psf otherwise you already have the config somewhere, no need to save it
+            // if (request.config_.psf_config_ != nullptr){
+            //     std::string configFilename = "Config_" + filenameBase + ".json";
+            //     std::string output_file_config = savePSFConfig(request.output_path, configFilename, request.config_.psf_config_);
+            // }
         }
 
 
@@ -167,7 +159,7 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::createResult(
     return result;
 }
 
-std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(std::shared_ptr<PSFConfig> psfConfig) {
+std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(std::shared_ptr<PSFConfig> psfConfig, progressCallbackFn fn) {
     try {
         logger_->info("Creating PSF from config using PSFConfig");
         return std::make_unique<PSF>(PSFCreator::generatePSFFromPSFConfig(psfConfig, thread_pool_.get()));
@@ -178,7 +170,7 @@ std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(std::shar
     }
 }
 
-std::unique_ptr<PSF> PSFGenerationService::createPSFFromFilePathInternal(const std::string& path) {
+std::unique_ptr<PSF> PSFGenerationService::createPSFFromFilePathInternal(const std::string& path, progressCallbackFn fn) {
     try {
         logger_->info("Creating PSF from file path using PSFCreator: " + path);
         std::shared_ptr<PSFConfig> config = PSFCreator::generatePSFConfigFromConfigPath(path);
@@ -198,10 +190,10 @@ bool PSFGenerationService::isValidPSFType(const std::string& psf_type) const {
     return it != supported_types_.end();
 }
 
-std::string PSFGenerationService::savePSF(const std::string& path, const std::string& filename, std::shared_ptr<PSF> psf){
+std::string PSFGenerationService::savePSF(const std::string& path, std::shared_ptr<PSF> psf){
     // Use filesystem::path for better path handling
-    std::filesystem::path base_path = path.empty() ? default_output_path_ : path;
-    std::filesystem::path output_path = base_path / filename;  // Automatically handles separators
+    std::filesystem::path output_path = path;
+    // std::filesystem::path output_path = base_path / filename;  // Automatically handles separators
 
     // Ensure directory exists
     std::filesystem::create_directories(output_path.parent_path());

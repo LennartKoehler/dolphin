@@ -84,8 +84,6 @@ void DeconvolutionStrategyFactory::registerBuiltInStrategies() {
         auto strategy = std::make_unique<StandardDeconvolutionStrategy>();
         auto executor = std::make_unique<StandardDeconvolutionExecutor>();
 
-        executor->configure(*setupConfig, *deconvConfig);
-
         return std::make_unique<DeconvolutionStrategyPair>(std::move(strategy), std::move(executor));
     });
 
@@ -93,8 +91,6 @@ void DeconvolutionStrategyFactory::registerBuiltInStrategies() {
     registerStrategy("labeled", [](std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
         auto strategy = std::make_unique<StandardDeconvolutionStrategy>();
         auto executor = std::make_unique<LabeledDeconvolutionExecutor>();
-
-        executor->configure(*setupConfig, *deconvConfig);
 
         return std::make_unique<DeconvolutionStrategyPair>(std::move(strategy), std::move(executor));
     });

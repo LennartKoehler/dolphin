@@ -1,3 +1,5 @@
+correctly propagate the progresstracking through deconvolution and psfgeneration. maybe refactor PSFCreator to not take all the work of psfgenerationservice, but see where its used in deconvolutionservice, to not take away its capabilities
+
 check everything including padding etc for uneven sizes
 
 check all the core math operations like addtoone if they correctly use stride

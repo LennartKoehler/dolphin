@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
+#include "dolphin/ProgressTracking.h"
 #include "dolphin/ServiceAbstractions.h"
 #include "dolphin/psf/configs/PSFConfig.h"
 #include <memory>
@@ -28,7 +29,6 @@ public:
 
     // IPSFGenerationService interface
     std::unique_ptr<PSFGenerationResult> generatePSF(const PSFGenerationRequest& request);
-    std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(const PSFGenerationRequest& request);
 
 
     std::vector<std::string> getSupportedPSFTypes() const;
@@ -43,26 +43,26 @@ public:
 
 
 private:
-    std::string savePSF(const std::string& path, const std::string& name, std::shared_ptr<PSF> psf);
+    std::string savePSF(const std::string& path, std::shared_ptr<PSF> psf);
     std::string savePSFConfig(const std::string& path, const std::string& name, std::shared_ptr<PSFConfig> psfconfig);
     std::string getExecutableDirectory();
     // void logMessage(const std::string& message);
     // void handleError(const std::string& error);
-    
+
     std::unique_ptr<PSFGenerationResult> createResult(
         bool success,
         const std::string& message,
         std::chrono::duration<double> duration
     );
-    
-    std::unique_ptr<PSF> createPSFFromConfigInternal(std::shared_ptr<PSFConfig> psfConfig);
-    std::unique_ptr<PSF> createPSFFromFilePathInternal(const std::string& path);
-    
+
+    std::unique_ptr<PSF> createPSFFromConfigInternal(std::shared_ptr<PSFConfig> psfConfig, progressCallbackFn fn);
+    std::unique_ptr<PSF> createPSFFromFilePathInternal(const std::string& path, progressCallbackFn fn);
+
     bool isValidPSFType(const std::string& psf_type) const;
-    
+
     // Dependencies
     PSFGeneratorFactory* generator_factory_;
-    
+
     // Configuration
     bool initialized_;
     std::shared_ptr<spdlog::logger> logger_;
@@ -72,6 +72,4 @@ private:
     std::string default_output_path_;
 
     std::unique_ptr<ThreadPool> thread_pool_;
-    std::function<void(int)> progress_callback_;
-    std::mutex progress_mutex_;
 };

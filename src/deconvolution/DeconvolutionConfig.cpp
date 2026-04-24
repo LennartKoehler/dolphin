@@ -82,17 +82,17 @@ void DeconvolutionConfig::registerAllParameters() {
     const void* paddingStrategyMap_p = static_cast<const void*>(&paddingStrategyTypeMap);// oh boy
     // Register each parameter as a ConfigParameter struct
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
-    parameters.push_back({ParameterType::StringSelection, &algorithmName, "algorithmName", false, "algorithm_name", "-a,--algorithm", "Algorithm selection", true, false, 0.0, 0.0, algorithmOptionsVoid});
-    parameters.push_back({ParameterType::Int, &iterations, "iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
-    parameters.push_back({ParameterType::Float, &epsilon, "epsilon", true, "epsilon", "--epsilon", "Epsilon", false, true, 1e-12, 1e-3, nullptr});
-    parameters.push_back({ParameterType::Float, &lambda, "lambda", true, "lambda", "--lambda", "Lambda regularization", false, false, 0.0, 1.0, nullptr});
-    parameters.push_back({ParameterType::Map, &paddingFillType, "paddingFill", true, "padding_fill", "--paddingFill", "Type of fill method for the image padding", false, true, 0.0, 5.0, paddingFillMap_p});
-    parameters.push_back({ParameterType::Map, &paddingStrategyType, "paddingStrategy", true, "padding_strategy", "--paddingStrategy", "paddingStrategy", false, true, 0.0, 5, paddingStrategyMap_p});
-    parameters.push_back({ParameterType::Float, &paddingRelativeMax, "paddingRelativeMax", true, "padding_relative_max", "--paddingRelativeMax",
+    parameters.push_back({ParameterType::StringSelection, &algorithmName, "Algorithm Name", false, "algorithm_name", "--algorithm_name", "Algorithm selection", false, false, 0.0, 0.0, algorithmOptionsVoid});
+    parameters.push_back({ParameterType::Int, &iterations, "Iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
+    parameters.push_back({ParameterType::Float, &epsilon, "Epsilon", true, "epsilon", "--epsilon", "Epsilon", false, true, 1e-12, 1e-3, nullptr});
+    parameters.push_back({ParameterType::Float, &lambda, "Lambda", true, "lambda", "--lambda", "Lambda regularization", false, false, 0.0, 1.0, nullptr});
+    parameters.push_back({ParameterType::Map, &paddingFillType, "Padding Fill", true, "padding_fill", "--padding_fill", "Type of fill method for the image padding", false, true, 0.0, 5.0, paddingFillMap_p});
+    parameters.push_back({ParameterType::Map, &paddingStrategyType, "Padding Strategy", true, "padding_strategy", "--padding_strategy", "paddingStrategy", false, true, 0.0, 5, paddingStrategyMap_p});
+    parameters.push_back({ParameterType::Float, &paddingRelativeMax, "Padding Relative Max", true, "padding_relative_max", "--padding_relative_max",
         "Pad the image up until the PSF is below this Value * Max value of PSF", false, false, 0.0, 1.0, nullptr});
-    parameters.push_back({ParameterType::Int, &featheringRadius, "featheringRadius", true, "feathering_radius", "--featheringRadius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
-    parameters.push_back({ParameterType::IntArray3, &cubeSize, "cubeSize", false, "cube_size", "--cubeSize", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
-    parameters.push_back({ParameterType::IntArray3, &cubePadding, "cubePadding", false, "cube_padding", "--cubePadding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
-    parameters.push_back({ParameterType::String, &deconvolutionType, "deconvolutionType", true, "deconvolution_type", "--deconvolutionType", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Int, &featheringRadius, "Feathering Radius", true, "feathering_radius", "--feathering_radius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
+    parameters.push_back({ParameterType::IntArray3, &cubeSize, "Cube Size", false, "cube_size", "--cube_size", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
+    parameters.push_back({ParameterType::IntArray3, &cubePadding, "Cube Padding", false, "cube_padding", "--cube_padding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
+    parameters.push_back({ParameterType::String, &deconvolutionType, "Deconvolution Type", true, "deconvolution_type", "--deconvolution_type", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
 
 }

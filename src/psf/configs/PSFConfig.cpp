@@ -59,12 +59,12 @@ std::shared_ptr<PSFConfig> PSFConfig::createFromJSON(const json& jsonData){
 void PSFConfig::registerAllParameters(){
     // Base PSF parameters
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
-    parameters.push_back({ParameterType::Int, &sizeX, "sizeX", false, "size_x", "--sizeX", "PSF size X", false, true, 1, 1024, nullptr});
-    parameters.push_back({ParameterType::Int, &sizeY, "sizeY", false, "size_y", "--sizeY", "PSF size Y", false, true, 1, 1024, nullptr});
-    parameters.push_back({ParameterType::Int, &sizeZ, "sizeZ", false, "size_z", "--sizeZ", "PSF size Z", false, true, 1, 512, nullptr});
-    parameters.push_back({ParameterType::Float, &NA, "NA", false, "NA", "--NA", "Numerical aperture", false, true, 0.1, 2.0, nullptr});
-    parameters.push_back({ParameterType::Float, &resLateral_nm, "resLateral_nm", false, "res_lateral_nm", "--resLateral_nm", "Lateral resolution in nm", false, true, 10.0, 500.0, nullptr});
-    parameters.push_back({ParameterType::Float, &resAxial_nm, "resAxial_nm", false, "res_axial_nm", "--resAxial_nm", "Axial resolution in nm", false, true, 50.0, 2000.0, nullptr});
-    parameters.push_back({ParameterType::String, &ID, "ID", true, "id", "--ID", "PSF identifier", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::String, &psfModelName, "modelName", true, "model_name", "--modelName", "PSF model name", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Int, &sizeX, "Size X", false, "size_x", "--size_x", "PSF size X", false, true, 1, 1024, nullptr});
+    parameters.push_back({ParameterType::Int, &sizeY, "Size Y", false, "size_y", "--size_y", "PSF size Y", false, true, 1, 1024, nullptr});
+    parameters.push_back({ParameterType::Int, &sizeZ, "Size Z", false, "size_z", "--size_z", "PSF size Z", false, true, 1, 512, nullptr});
+    parameters.push_back({ParameterType::Float, &NA, "Numerical Aperture", false, "NA", "--NA", "Numerical aperture", false, true, 0.1, 2.0, nullptr});
+    parameters.push_back({ParameterType::Float, &resLateral_nm, "Lateral Resolution (nm)", false, "res_lateral_nm", "--res_lateral_nm", "Lateral resolution in nm", false, true, 10.0, 500.0, nullptr});
+    parameters.push_back({ParameterType::Float, &resAxial_nm, "Axial Resolution (nm)", false, "res_axial_nm", "--res_axial_nm", "Axial resolution in nm", false, true, 50.0, 2000.0, nullptr});
+    parameters.push_back({ParameterType::String, &ID, "ID", true, "id", "--id", "PSF identifier", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::String, &psfModelName, "Model Name", true, "model_name", "--model_name", "PSF model name", false, false, 0.0, 0.0, nullptr});
 }

@@ -15,19 +15,15 @@ See the LICENSE file provided with the code for the full license.
 #include "CLIFrontend.h"
 
 int main(int argc, char** argv) {
-    std::cout << "[Start Dolphin CLI]" << std::endl;
-    
     // Initialize Dolphin
     Dolphin* dolphin = new Dolphin();
     dolphin->init();
-    
+
     // Create CLI frontend and run
     CLIFrontend frontend(dolphin, argc, argv);
     frontend.run();
-    
+
     // Cleanup
     delete dolphin;
-    
-    std::cout << "[End Dolphin CLI]" << std::endl;
     return 0;
 }

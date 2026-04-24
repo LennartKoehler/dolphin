@@ -12,6 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <spdlog/spdlog.h>
 
@@ -42,8 +43,6 @@ void DeconvolutionService::initialize() {
     if (initialized_) return;
 
     try {
-        DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
-        supported_algorithms_ = fact.getAvailableAlgorithms();
 
         initialized_ = true;
         logger_->info("Deconvolution Service initialized successfully");
@@ -94,6 +93,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         // Create deconvolution strategy pair using factory
         DeconvolutionStrategyFactory& factory = DeconvolutionStrategyFactory::getInstance();
         auto strategyPair = factory.createStrategyPair(setupConfig, deconvConfig);
+        strategyPair->getExecutor().configure(*setupConfig, *deconvConfig, request.getProgressCallback());
 
         if (!strategyPair) {
             std::string error_msg = "Unsupported deconvolution type: " + deconvConfig->deconvolutionType;
@@ -103,15 +103,15 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         }
 
 
-        std::string output_path = request.output_path;
+        std::filesystem::path output_path = std::filesystem::path(setupConfig->outputPath);
 
-        std::string path = output_path + "/deconv_" + TiffReader::getFilename(setupConfig->imagePath);
+        // std::string path = output_path + "/deconv_" + TiffReader::getFilename(setupConfig->imagePath);
 
         int channel = 0; //TESTVLAUE unused
         std::shared_ptr<TiffReader> reader = std::make_shared<TiffReader>(setupConfig->imagePath, channel);
         std::optional<ImageMetaData> metadata = reader->getMetaData();
 
-        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(path, metadata.value().getShape());
+        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path, metadata.value().getShape());
 
         // Create PSFs, need to know imageshape so that if its created from config just create with imageShape
         std::vector<PSF> psfs = createPSFsFromSetup(setupConfig, reader->getMetaData().getShape());
@@ -129,7 +129,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
 
         if (setupConfig->savePsf){
             for (auto psf : psfs){
-                psf.writeToTiffFile(output_path);
+                psf.writeToTiffFile(output_path.parent_path().string() + psf.ID + ".tiff");
             }
         }
 
@@ -141,9 +141,8 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::chrono::duration<double> duration = end_time - start_time;
 
         auto result_obj = createResult(true, "Deconvolution completed successfully", duration);
-        result_obj->output_path = path;
+        result_obj->output_path = output_path;
 
-        std::cout << "\nDeconvolution finished successfully, result written to: '" << path << "'" << std::endl;
         logger_->info("Deconvolution finished successfully");
 
         return result_obj;
@@ -165,38 +164,36 @@ std::future<std::unique_ptr<DeconvolutionResult>> DeconvolutionService::deconvol
         });
     }
 
-std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> DeconvolutionService::deconvolveBatchAsync(
-    const std::vector<DeconvolutionRequest>& requests){
+// std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> DeconvolutionService::deconvolveBatchAsync(
+//     const std::vector<DeconvolutionRequest>& requests){
+//
+//     return thread_pool_->enqueue([this, requests]() {
+//         std::vector<std::unique_ptr<DeconvolutionResult>> results;
+//         results.reserve(requests.size());
+//
+//         for (size_t i = 0; i < requests.size(); ++i) {
+//             // Update progress
+//             if (progress_callback_) {
+//                 std::lock_guard<std::mutex> lock(progress_mutex_);
+//                 progress_callback_(static_cast<int>((i * 100) / requests.size()));
+//             }
+//
+//             results.push_back(deconvolve(requests[i]));
+//         }
+//
+//         return results;
+//     });
+// }
 
-    return thread_pool_->enqueue([this, requests]() {
-        std::vector<std::unique_ptr<DeconvolutionResult>> results;
-        results.reserve(requests.size());
-
-        for (size_t i = 0; i < requests.size(); ++i) {
-            // Update progress
-            if (progress_callback_) {
-                std::lock_guard<std::mutex> lock(progress_mutex_);
-                progress_callback_(static_cast<int>((i * 100) / requests.size()));
-            }
-
-            results.push_back(deconvolve(requests[i]));
-        }
-
-        return results;
-    });
-}
-
-
-std::vector<std::string> DeconvolutionService::getSupportedAlgorithms() const {
-    return supported_algorithms_;
-}
 
 std::vector<std::string> DeconvolutionService::getSupportedStrategyTypes() const {
     DeconvolutionStrategyFactory& factory = DeconvolutionStrategyFactory::getInstance();
     return factory.getSupportedTypes();
 }
 
-bool DeconvolutionService::validateAlgorithmConfig(const std::string& algorithm, const json& config) const {
+bool DeconvolutionService::validateAlgorithmConfig(const std::string& algorithm) const {
+    DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
+    std::vector<std::string> supported_algorithms_ = fact.getAvailableAlgorithms();
     auto it = std::find(supported_algorithms_.begin(), supported_algorithms_.end(), algorithm);
     if (it == supported_algorithms_.end()) {
         return false;
@@ -206,6 +203,9 @@ bool DeconvolutionService::validateAlgorithmConfig(const std::string& algorithm,
     return true;
 }
 
+bool DeconvolutionService::validateDeconvolutionRequest(const DeconvolutionRequest& request) const{
+    return validateAlgorithmConfig(request.getDeconvolutionConfig()->algorithmName);
+}
 
 
 std::unique_ptr<DeconvolutionResult> DeconvolutionService::createResult(
@@ -217,26 +217,6 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::createResult(
     return result;
 }
 
-bool DeconvolutionService::validateDeconvolutionRequest(const DeconvolutionRequest& request) const {
-    if (request.getConfig()->imagePath.empty()) {
-        return false;
-    }
-
-    auto algorithm_it = std::find(
-        supported_algorithms_.begin(),
-        supported_algorithms_.end(),
-        request.getDeconvolutionConfig()->algorithmName
-    );
-
-    if (algorithm_it == supported_algorithms_.end()) {
-        logger_->error("could not find algorithm");
-        return false;
-    }
-
-    return true;
-}
-
-
 
 std::vector<PSF> DeconvolutionService::createPSFsFromSetup(
     std::shared_ptr<SetupConfig> setupConfig,
@@ -244,8 +224,8 @@ std::vector<PSF> DeconvolutionService::createPSFsFromSetup(
 
     std::vector<PSF> psfs;
 
-    if (!setupConfig->psfConfigPath.empty()){
-        std::vector<std::shared_ptr<PSFConfig>> configs = PSFCreator::generatePSFConfigsFromConfigPathWithShape(setupConfig->psfConfigPath, imageShape);
+    if (!setupConfig->multiplePsfConfigPaths.empty()){
+        std::vector<std::shared_ptr<PSFConfig>> configs = PSFCreator::generatePSFConfigsFromConfigPathWithShape(setupConfig->multiplePsfConfigPaths, imageShape);
         for (const auto& config : configs){
             psfs.push_back(PSFCreator::generatePSFFromPSFConfig(config, thread_pool_.get()));
         }
@@ -255,17 +235,14 @@ std::vector<PSF> DeconvolutionService::createPSFsFromSetup(
         std::vector<PSF> filePsfs = PSFCreator::readPSFsFromFilePath(setupConfig->psfFilePath);
         psfs.insert(psfs.end(), std::make_move_iterator(filePsfs.begin()), std::make_move_iterator(filePsfs.end()));
     }
-    if (!setupConfig->psfDirPath.empty()){
-        std::vector<std::shared_ptr<PSFConfig>> psfconfigs = PSFCreator::generatePSFsFromDir(setupConfig->psfDirPath);
-        for (auto psfconfig : psfconfigs){
-            psfs.push_back(PSFCreator::generatePSFFromPSFConfig(psfconfig, thread_pool_.get()));
-        }
-    }
+    // TODO
+    // if (!setupConfig->psfDirPath.empty()){
+    //     std::vector<std::shared_ptr<PSFConfig>> psfconfigs = PSFCreator::generatePSFsFromDir(setupConfig->psfDirPath);
+    //     for (auto psfconfig : psfconfigs){
+    //         psfs.push_back(PSFCreator::generatePSFFromPSFConfig(psfconfig, thread_pool_.get()));
+    //     }
+    // }
     return psfs;
 }
 
 
-
-void DeconvolutionService::setProgressCallback(std::function<void(int)> callback){
-    this->progress_callback_ = callback;
-}

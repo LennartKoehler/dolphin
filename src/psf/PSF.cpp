@@ -34,6 +34,5 @@ void PSF::readFromTiffFile(const std::string& path){
 
 
 void PSF::writeToTiffFile(const std::string& path){
-    std::string filename = path + "/" + ID + ".tiff";
-    TiffWriter::writeToFile(filename , image);
+    TiffWriter::writeToFile(path , image);
 }

@@ -35,14 +35,11 @@ public:
 
     virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request);
 
-    virtual std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> deconvolveBatchAsync(const std::vector<DeconvolutionRequest>& requests);
 
 
-    virtual void setProgressCallback(std::function<void(int)> callback);
     std::vector<std::string> getSupportedAlgorithms() const;
     std::vector<std::string> getSupportedStrategyTypes() const;
 
-    bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const;
 
 
     // IService interface
@@ -62,6 +59,7 @@ private:
         std::chrono::duration<double> duration);
 
 
+    bool validateAlgorithmConfig(const std::string& algorithm) const;
     bool validateDeconvolutionRequest(const DeconvolutionRequest& request) const;
     // bool validateImageConfig(const json& config) const;
 
@@ -78,11 +76,6 @@ private:
     bool initialized_;
     std::shared_ptr<spdlog::logger> logger_;
 
-    // Cached data
-    std::vector<std::string> supported_algorithms_;
-
     // Multithreading
     std::unique_ptr<ThreadPool> thread_pool_;
-    std::function<void(int)> progress_callback_;
-    std::mutex progress_mutex_;
 };
