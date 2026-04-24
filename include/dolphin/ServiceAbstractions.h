@@ -22,6 +22,7 @@ See the LICENSE file provided with the code for the full license.
 #include "nlohmann/json.hpp"
 #include "dolphin/SetupConfig.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/ProgressTracking.h"
 #include <future>
 
 #include <spdlog/spdlog.h>
@@ -136,25 +137,14 @@ public:
 //basically wrapper for psfconfig
 class PSFGenerationRequest {
 public:
-    struct PSFConfigInfo{
-        std::string config_path_;
-        std::shared_ptr<PSFConfig> psf_config_;
-    };
     PSFGenerationRequest() = default;
-    PSFGenerationRequest(std::shared_ptr<PSFConfig> config) {config_.psf_config_ = config;}
-    PSFGenerationRequest(std::string path) { config_.config_path_ = path; }
+    PSFGenerationRequest(std::shared_ptr<SetupConfigPSF> setupConfig) { this->setupConfig = setupConfig; }
 
+    void setProgressCallback(progressCallbackFn fn) {this->progressCallback = fn;}
+    progressCallbackFn getProgressCallback() const {return progressCallback;}
 
-    void setConfig(PSFConfigInfo config) { config_ = config; }
-    PSFConfigInfo getConfig() const { return config_; }
-
-
-    PSFConfigInfo config_;
-    std::string output_path;
-    bool save_result = false;
-    bool show_example = false;
-    // int num_threads = 1;
-
+    std::shared_ptr<SetupConfigPSF> setupConfig;
+    progressCallbackFn progressCallback;
 };
 
 class PSFGenerationResult : public ServiceResultBase {
@@ -183,10 +173,10 @@ public:
 // --- Deconvolution Service Abstractions ---
 class DeconvolutionRequest {
 public:
-
+    DeconvolutionRequest() = default;
     DeconvolutionRequest(std::shared_ptr<SetupConfig> config, std::shared_ptr<DeconvolutionConfig> deconvConfig)
         : setup_config_(config), deconv_config_(deconvConfig) {
-        output_path = config->outputDir;
+        // output_path = config->outputDir;
     }
 
     void setConfig(std::shared_ptr<SetupConfig> config) { setup_config_ = config; }
@@ -198,15 +188,18 @@ public:
     void setPSFConfig(std::shared_ptr<PSFConfig> config) { psf_config_ = config; }
     std::shared_ptr<PSFConfig> getPSFConfig() const { return psf_config_; }
 
-    bool save_separate = false;
-    bool save_subimages = false;
-    bool show_example = false;
-    bool print_info = false;
-    // int num_threads = 1;
-    std::string output_path = "../results/deconv.tif";
+    void setProgressCallback(progressCallbackFn fn) {this->progressCallback = fn;}
+    progressCallbackFn getProgressCallback() const {return progressCallback;}
+    // bool save_separate = false;
+    // bool save_subimages = false;
+    // bool show_example = false;
+    // bool print_info = false;
+    // // int num_threads = 1;
+    // std::string output_path = "../results/deconv.tif";
 
 
 private:
+    progressCallbackFn progressCallback;
     std::shared_ptr<PSFConfig> psf_config_;
     std::shared_ptr<SetupConfig> setup_config_;
     std::shared_ptr<DeconvolutionConfig> deconv_config_;

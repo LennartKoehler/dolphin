@@ -44,7 +44,7 @@ private:
     std::unique_ptr<DeconvolutionService> deconv_service_;
     
     // Flag to track if service layer is initialized
-    bool service_layer_initialized_;
+    bool service_layer_initialized_ = false;
 
 
     // Multithreading

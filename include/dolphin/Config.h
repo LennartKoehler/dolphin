@@ -208,5 +208,16 @@ protected:
     std::vector<ConfigParameter> parameters;
     std::vector<ConfigParameter>& getParameters() { return parameters;};
 
+    ConfigParameter& getParameter(const std::string& jsonTag) {
+        ConfigParameter* queryParam;
+        visitParams([&queryParam, &jsonTag]<typename T>(T& value, ConfigParameter& param) {
+            if (param.jsonTag == jsonTag){
+                queryParam = &param;
+            }
+        });
+        return *queryParam;
+    }
+
+
 
 };

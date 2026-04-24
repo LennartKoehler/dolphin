@@ -17,28 +17,19 @@ See the LICENSE file provided with the code for the full license.
 #include <array>
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 
-class SetupConfig : public Config{
+class SetupConfigPSF : public Config{
 public:
-    SetupConfig();
-    SetupConfig(const SetupConfig& other);
+    SetupConfigPSF();
+    SetupConfigPSF(const SetupConfigPSF& other);
 
-    std::string getName() const override { return std::string("SetupConfig"); };
-    SetupConfig& operator=(const SetupConfig& other);
+    std::string getName() const override { return std::string("SetupConfigPSF"); };
+    SetupConfigPSF& operator=(const SetupConfigPSF& other);
 
-    bool loadFromJSON(const json& jsonData) override;
-    static SetupConfig createFromJSONFile(const std::string& path);
+    static SetupConfigPSF createFromJSONFile(const std::string& path);
 
-    // Arguments
-    std::string imagePath;
-    std::vector<std::string> psfConfigPath;
-    // std::string psfFilePath;
-    std::vector<std::string> psfFilePath;
-    std::string psfDirPath;
-    std::string outputDir;
-    std::string labeledImage;
-    std::string labelPSFMap;
+    std::string psfConfigPath;
+    std::string outputPath;
     std::string backend = "cpu";
-    bool savePsf = false;
 
     int nThreads = 1;
     int nIOThreads = 1;
@@ -46,13 +37,31 @@ public:
     int nDevices = 1;
     float maxMem_GB = 1;
 
-
-
-private:
+protected:
 
     virtual void registerAllParameters();
-
-
 };
 
+
+
+// for deconvolution
+class SetupConfig : public SetupConfigPSF{
+public:
+    SetupConfig();
+    SetupConfig(const SetupConfig& other);
+
+    std::string getName() const override { return std::string("SetupConfig"); };
+    SetupConfig& operator=(const SetupConfig& other);
+
+    static SetupConfig createFromJSONFile(const std::string& path);
+
+    std::string labeledImage;
+    std::string labelPSFMap;
+    std::string imagePath;
+    std::vector<std::string> psfFilePath;
+    std::vector<std::string> multiplePsfConfigPaths;
+    bool savePsf = false;
+private:
+    virtual void registerAllParameters() override;
+};
 
