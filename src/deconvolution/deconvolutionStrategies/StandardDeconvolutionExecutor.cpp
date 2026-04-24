@@ -36,7 +36,8 @@ void StandardDeconvolutionExecutor::execute(const DeconvolutionPlan& plan) {
     parallelDeconvolution(plan);
 }
 
-void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig) {
+void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) {
+    loadingBar.setCallback(fn);
 }
 
 

@@ -26,11 +26,12 @@ This class runs the DeconvolutionPlan provided by the deconvolutionstrategy
 
 class IDeconvolutionExecutor {
 public:
+    using progressCallbackFn = std::function<void(std::atomic<float>&, int)>;
     virtual ~IDeconvolutionExecutor() = default;
-    
+
     // Execute a computational plan and return the result
     virtual void execute(const DeconvolutionPlan& plan) = 0;
-    
+
     // Configure the executor with both setup and deconvolution configuration
-    virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig) = 0;
+    virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) = 0;
 };

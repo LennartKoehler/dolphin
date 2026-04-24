@@ -35,18 +35,18 @@ public:
 
     // IDeconvolutionExecutor interface
     virtual void execute(const DeconvolutionPlan& plan) override;
-    virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig) override;
+    virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) override;
 
 protected:
     // Helper methods for execution
     virtual std::function<void()> createTask(
         const std::unique_ptr<CubeTaskDescriptor>& taskDesc);
-    
+
     virtual void runTask(const CubeTaskDescriptor& task);
     // Parallel execution
     virtual void parallelDeconvolution(
         const DeconvolutionPlan& channelPlan);
 
 protected:
-    LoadingBar loadingBar;
+    ProgressTracking loadingBar;
  };

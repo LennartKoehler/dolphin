@@ -28,9 +28,10 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 }
 
 
-void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig){
+void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn){
     int channel = 0;
     this->labelReader = std::make_unique<TiffReader>(setupConfig.labeledImage, channel);
+    this->loadingBar.setCallback(fn);
 
     // Load PSF label map if provided
     if (!setupConfig.labelPSFMap.empty()) {
