@@ -133,44 +133,6 @@ private:
 
 
 
-class LoadingBar{
-public:
-    LoadingBar() = default;
-    LoadingBar(float max) : max(max){}
-    void setMax(float max) {this->max = max;}
-    void reset() {counter.store(0);}
-    void update(){
-        // Calculate progress
-
-        float barWidth = 50;
-        int pos = static_cast<int>((counter * barWidth) / max);
-        int progress = static_cast<int>((counter * 100) / max);
-        // Print progress bar
-        std::cerr << "\rDeconvoluting Image [ ";
-        for (int i = 0; i < barWidth; ++i) {
-            if (i < pos) std::cerr << "=";
-            else if (i == pos) std::cerr << ">";
-            else std::cerr << " ";
-        }
-        std::cerr << "] "
-          << std::setw(3)
-          << progress << "%";
-        std::cerr.flush();
-
-    }
-
-
-    void add(float value){
-        counter += value;
-        if(mutex.try_lock()) {update(); mutex.unlock();}
-    }
-private:
-    float max;
-    std::atomic<float> counter{0};
-    std::mutex mutex;
-};
-
-
 
 
 
@@ -226,3 +188,5 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const size_t& minNumberCubes,
     const PaddingStrategyType& imagePadding,
     const CuboidShape& minShape);
+
+

@@ -13,7 +13,7 @@ result/tiles/*
 cmake-build-debug/*
 input/*
 lib/cube/build/*
-configs/*.json
+configs/
 
 
 

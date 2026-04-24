@@ -28,7 +28,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/IBackendMemoryManager.h"
 
 /*
-DeconvnolutionExecutor that takes a labelimage. This allows for different psfs for different parts of the image. 
+DeconvnolutionExecutor that takes a labelimage. This allows for different psfs for different parts of the image.
 The labelimage (int pixelvalues) provides the information for which psf should be used for each psf.
 */
 class LabeledDeconvolutionExecutor : public StandardDeconvolutionExecutor {
@@ -37,7 +37,7 @@ public:
     virtual ~LabeledDeconvolutionExecutor() = default;
 
     // Configuration methods
-    virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig) override;
+    virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) override;
 
     void setLabelReader(std::unique_ptr<ImageReader> labelReader) {this->labelReader = std::move(labelReader);}
     void setPsfLabelMap(RangeMap<std::string> psfLabelMap) {this->psfLabelMap = psfLabelMap;}
@@ -51,7 +51,7 @@ protected:
         const Image3D& labelImage,
         const ComplexData& frequencyFeatheringKernel,
         IBackend& backend) const ;
-        
+
     std::vector<Label> getLabelGroups(
 		const BoxCoord& roi,
 		const std::vector<std::shared_ptr<PSF>>& psfs,
