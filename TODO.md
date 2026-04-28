@@ -1,3 +1,5 @@
+should the tiffreader hold the image memory
+
 maxmemory management
 
 check everything including padding etc for uneven sizes
@@ -15,25 +17,13 @@ octant fourier shift for uneven dimensions (not divisible by 2)
 check the testalgorithm for cuda there is a line on the left, seems like some misalignement
 for cpu its even weirder, something is still wrong
 
-maybe this can be combined with finding a nice image size. So create discrete plans for good shapes and then smaller images are padded to that shape. Thne only save a coupleplans
-
-i think i should also fix the complex octant fourier shift as its also probably wrong. chaning the real fourier shift solve the problem for me
-
-testalgorithm with just backward transforming might now work because the padding is cut off and then nothing of the psf is left as its padded
-
-since i now have real_valued_data the transfer from and to itk image is probably easire, i tihnk i should somewhere be able to set a datapointer and thats it, keep the data
-
 When finding uinque labels per cube also create the mask in the same loop
     - start creating a mask for the first two labels, the background label and the first label that shows.
     - Then when a new unique label is found just copy the first mask and "invert it" or just reinterpret later
 
-FIX: make the fourier transforms templated for different datatypes, currently the real valued planinit is never used, thats the bug
-
 recheck the blocking behavior of using openmp
 
 check if labeled deconvolution actually works, i think sinnme the values of the differents psfs are very different they basically get overwritten?
-
-threadpool destructor sometimes fails to join all threads. idk why, im guessing they might be stuck somewhere or lost? -> have logging but doesnt seem to happen anymore
 
 if a mask is provided in labeleddeconvolution, but never used, if this is the largest mask, then it will still pad to this, is this fine?
     -> every cube will be padded to the largest psf provided in the config, doesnt matter if this psf is not used in this cube or if this psf is not used at all
@@ -50,15 +40,8 @@ Danielssondistancemapimagefilter very slow in labeled image deconvolution, takes
 
 include fft plans in the memory calculattion
 
-if the setup is extremely cpu memory bound then using multiple openmp devices might be useful, then it uses less memory but one can still have two threads working on a task
-
-getDevicememory in getMaxMemorypercube bugged for cudadevice, idk why
-
 the memory transfer between host and device can be improved, as all tasks have same memory size
 cna i somehow make the memory used for the workerdevice in a fixed position and pinned, e.g. for cuda i can always reuse the same location to load data into (or 2 locations if 2 iothreads). Is there a speedup of memory reading writing that this would get?
-
-split library in public and private: currently the include paths are wrong after installation, i want the installed headers inside the library named directory in /usr/local/include/dolphin but then when using the code in the frontend dolphin doesnt find its own libraries because it looks in /usr/local/include, not in .../dolphin so private headers should stay as is while public headers i need to use the namespaced include <dolphin/PSFConfig.h> etc
-
 
 make check that feathering radius is smaller than padding (psf size) so that there are no boundary conditions caused by too much feathering
 
@@ -68,25 +51,12 @@ Reader/Writer:
     should the reader actually have a lot of padding logic? i think no but its much easier because it has all the dimensionality information and its easir to pass as padding something that goes out of bounds of image instead of passing e.g. as negative values. Also it can load data however it sees fit. i dont think the executor should know about imagemetadata and determine itself what part of the image can be read and what has to padded after having read the image. I still believe that the reader should not do padding, but think about this before implementing
 
 
-some weird padding problems, causing sufficient padding to still produce boundary conditions
-rdata is read or written as when i init the result as zero the whole image is filled,
-    for some reason half of the psf on both sides id not anough although mathematically it should be
-    should also have nothing to do with normalization within the cube as i also tested that
 
 
 
 
-- add threads and memory restrictions to psfgenerator and the corresponding conifg
-
-- only difference between dolphins implementation of gibsonlanni and big psf generator is it doesnt scale the max to 1
 
 - check if the deconvolutionalgorithms are correct
-
-
-
-
-
-
 
 questions to ask:
 

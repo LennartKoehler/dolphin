@@ -166,7 +166,7 @@ void SetupConfig::registerAllParameters(){
 
 
     parameters.push_back({ParameterType::VectorString, &psfFilePaths, "PSF File Paths", true, "psf_file_paths", "--psf_file_paths", "PSF file paths", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::VectorString, &multiplePsfConfigPaths, "Multiple PSF Config Path", true, "multiple_psf_config_paths", "--multiple_psf_config_paths", "PSF config paths", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::VectorString, &multiplePsfConfigPaths, "Multiple PSF Config Paths", true, "multiple_psf_config_paths", "--multiple_psf_config_paths", "PSF config paths", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &psfConfigPath, "PSF Config Path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 

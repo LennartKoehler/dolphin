@@ -37,10 +37,14 @@ ComplexData Preprocessor::convertImageToComplexData(
     return result;
 }
 RealData Preprocessor::convertImageToRealData(
-    const Image3D& input) {
+    const Image3D& input,
+    IBackendMemoryManager& memoryManager) {
 
     CuboidShape shape = input.getShape();
     RealData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(shape);
+    // since the memory layout for inplace fft is noncontiguous the image pointer cant be reinterpreted as real_t*
+    // thats also why this has to be done on the cpu first, and then another copy operation of the memory
+    // with correct layout to gpu
 
     int index = 0;
 
@@ -73,6 +77,9 @@ Image3D Preprocessor::convertRealDataToImage(
         const RealData& input){
 
     Image3D output(input.getSize(), 0.0f);
+    // since the memory layout for inplace fft is noncontiguous the image pointer cant be reinterpreted as real_t*
+    // thats also why this has to be done on the cpu first, and then another copy operation of the memory
+    // with correct layout to gpu
 
     int index = 0;
     for (auto& it : output) {

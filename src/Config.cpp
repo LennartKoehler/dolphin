@@ -52,28 +52,53 @@ void Config::printValues() const {
     const_cast<Config*>(this)->visitParams([this]<typename T>(const T& value, const ConfigParameter& param){
         auto logger = spdlog::get("config");
 
-        if (param.type == ParameterType::VectorInt) {
-            auto* data = static_cast<int*>(param.value);
-            std::vector<int> vec(data, data + param.size);
-
+        if constexpr(std::is_same_v<T, std::vector<int>>) {
             // Build a joined string safely at runtime (no fmt instantiation for T)
             std::ostringstream oss;
-            for (size_t i = 0; i < vec.size(); ++i) {
-                if (i) oss << ' ';
-                oss << vec[i];
+            oss << "[";
+            for (size_t i = 0; i < value.size(); ++i) {
+                if (i) oss << ", ";
+                oss << value[i];
             }
+            oss << "]";
+            logger->debug("({}) {}: {}", this->getName(), param.name, oss.str());
+            return;
+        }
+        else if constexpr(std::is_same_v<T, std::vector<std::string>>) {
+            // Build a joined string safely at runtime (no fmt instantiation for T)
+            std::ostringstream oss;
+            oss << "[";
+            for (size_t i = 0; i < value.size(); ++i) {
+                if (i) oss << ", ";
+                oss << value[i];
+            }
+            oss << "]";
+            logger->debug("({}) {}: {}", this->getName(), param.name, oss.str());
+            return;
+        }
+        else if constexpr(std::is_same_v<T, std::array<int, 3>>) {
+            // Build a joined string safely at runtime (no fmt instantiation for T)
+            std::ostringstream oss;
+            oss << "[";
+            for (size_t i = 0; i < value.size(); ++i) {
+                if (i) oss << ", ";
+                oss << value[i];
+            }
+            oss << "]";
             logger->debug("({}) {}: {}", this->getName(), param.name, oss.str());
             return;
         }
 
         // Non-vector parameters: use compile-time guards for formatting
-        if constexpr (fmt::is_formattable<T, char>::value) {
+        else if constexpr (fmt::is_formattable<T, char>::value) {
             logger->debug("({}) {}: {}", this->getName(), param.name, value);
-        } else if constexpr (has_ostream<T>::value) {
+        }
+        else if constexpr (has_ostream<T>::value) {
             std::ostringstream oss;
             oss << value;
             logger->debug("({}) {}: {}", this->getName(), param.name, oss.str());
-        } else {
+        }
+        else {
             logger->debug("({}) {}: <unprintable type>", this->getName(), param.name);
         }
     });

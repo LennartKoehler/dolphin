@@ -103,7 +103,7 @@ namespace Preprocessor{
     ComplexData convertImageToComplexData(const Image3D& image);
     Image3D convertComplexDataToImage(const ComplexData& data);
 
-    RealData convertImageToRealData(const Image3D& image);
+    RealData convertImageToRealData(const Image3D& image, IBackendMemoryManager& memoryManager);
     Image3D convertRealDataToImage(const RealData& data);
     void expandToMinSize(Image3D& image, const CuboidShape& minSize);
 

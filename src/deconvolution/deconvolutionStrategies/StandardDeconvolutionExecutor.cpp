@@ -53,13 +53,18 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
-    std::optional<PaddedImage> cubeImage_o = reader->getSubimage(task.paddedBox);
-    if (!cubeImage_o.has_value()){
-        throw std::runtime_error("StandardDeconvolutionExecutor: No input image recieved from reader");
-    }
-    PaddedImage& cubeImage = *cubeImage_o;
+    RealData g_host;
 
-    RealData g_host = Preprocessor::convertImageToRealData(cubeImage.image);
+    {
+        std::optional<PaddedImage> cubeImage_o = reader->getSubimage(task.paddedBox);
+        if (!cubeImage_o.has_value()){
+            throw std::runtime_error("StandardDeconvolutionExecutor: No input image recieved from reader");
+        }
+        PaddedImage& cubeImage = *cubeImage_o;
+        g_host = Preprocessor::convertImageToRealData(cubeImage.image);
+        // delete cubeImage
+    }
+
     RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
     BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
     RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
@@ -84,13 +89,11 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     resultDone.get(); //wait for result
     iobackend.sync();
 
-    // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
-
     RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
 
-    cubeImage.image = Preprocessor::convertRealDataToImage(f_host);
+    Image3D resultImage = Preprocessor::convertRealDataToImage(f_host);
 
-    writer->setSubimage(cubeImage.image, task.paddedBox);
+    writer->setSubimage(resultImage, task.paddedBox);
 }
 
 
@@ -104,17 +107,18 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
             runTask(taskDesc);
         }
         catch (const dolphin::backend::MemoryException& e){
-            // log the exception,  then enqueue the task in another thread, while this thread simply waits for the result
-            // This effectively removes this thread from the pool until the other thread is done. Then just reduce NumberThreads(1)
-            // will remove the first thread that finishes a task (probably this one as its basically )
-            spdlog::get("deconvolution")->warn("{} reducing number of threads and copies of subimages", e.getDetailedMessage());
-            //TODO reduce number of workerthreads aswell
-            bool noMoreWorkers = context->ioPool.reduceActiveWorkers(1); // marks self as waiting
-
-            if (noMoreWorkers) throw std::runtime_error("Can't fit a single cube for deconvolution onto the device");
-            context->ioPool.enqueue(createTask(taskDesc));
-            bool maxReached = context->ioPool.reduceNumberThreads(1);
-            if (maxReached) throw std::runtime_error("Can't fit a single cube for deconvolution onto the device");
+            throw std::runtime_error("Not enough free memory on the backend");
+            // // log the exception,  then enqueue the task in another thread, while this thread simply waits for the result
+            // // This effectively removes this thread from the pool until the other thread is done. Then just reduce NumberThreads(1)
+            // // will remove the first thread that finishes a task (probably this one as its basically )
+            // spdlog::get("deconvolution")->warn("{} reducing number of threads and copies of subimages", e.getDetailedMessage());
+            // //TODO reduce number of workerthreads aswell
+            // bool noMoreWorkers = context->ioPool.reduceActiveWorkers(1); // marks self as waiting
+            //
+            // if (noMoreWorkers) throw std::runtime_error("Can't fit a single cube for deconvolution onto the device");
+            // context->ioPool.enqueue(createTask(taskDesc));
+            // bool maxReached = context->ioPool.reduceNumberThreads(1);
+            // if (maxReached) throw std::runtime_error("Can't fit a single cube for deconvolution onto the device");
         }
         catch (const dolphin::backend::BackendException& e) {
             spdlog::get("deconvolution")->error(e.getDetailedMessage());

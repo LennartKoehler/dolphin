@@ -3,7 +3,9 @@
 #include "CPUBackend.h"
 #include "dolphinbackend/IBackendManager.h"
 #include <fftw3.h>
+#include <atomic>
 #include <mutex>
+#include <shared_mutex>
 
 
 // Logger functions - use log() for logging. The underlying LogCallback is
@@ -41,6 +43,7 @@ public:
     FFTWManager(FFTWWisdomManager wisdomManager);
     ~FFTWManager();
 
+    void init();
 
     void executeForwardFFT(const FFTWPlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
     void executeBackwardFFT(const FFTWPlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
@@ -57,7 +60,9 @@ private:
     const fftwf_plan* findPlan(const FFTWPlanDescription& description);
     std::vector<FFTWPlan> fftwPlans;
 
-    std::mutex mutex_;
+    static std::once_flag initFlag_;
+    std::atomic<bool> didInit_{false};
+    std::shared_mutex mutex_;
     FFTWWisdomManager wisdomManager_;
 };
 
