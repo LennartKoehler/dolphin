@@ -14,10 +14,13 @@ See the LICENSE file provided with the code for the full license.
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <spdlog/spdlog.h>
 
 #include "dolphin/DeconvolutionService.h"
+#include "dolphin/Logging.h"
 #include "dolphin/PSFCreator.h"
+#include "dolphin/ProgressTracking.h"
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.h"
@@ -29,8 +32,7 @@ See the LICENSE file provided with the code for the full license.
 
 
 DeconvolutionService::DeconvolutionService()
-    : initialized_(false),
-      thread_pool_(std::make_unique<ThreadPool>(1)){}
+    : initialized_(false){}
 
 DeconvolutionService::~DeconvolutionService() {
     shutdown();
@@ -45,7 +47,7 @@ void DeconvolutionService::initialize() {
     try {
 
         initialized_ = true;
-        logger_->info("Deconvolution Service initialized successfully");
+        logger_->trace("Deconvolution Service initialized successfully");
     } catch (const std::exception& e) {
         logger_->error("Failed to initialize Deconvolution Service: " + std::string(e.what()));
         initialized_ = false;
@@ -61,7 +63,7 @@ void DeconvolutionService::shutdown() {
     if (!initialized_) return;
 
     initialized_ = false;
-    logger_->info("Deconvolution Service shut down successfully");
+    logger_->debug("Deconvolution Service shut down successfully");
 }
 
 std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const DeconvolutionRequest& request) {
@@ -73,6 +75,8 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
             throw std::runtime_error("Deconvolution Service not initialized");
         }
 
+
+        Logging::setFrontendLogCallback(request.getFrontendLogging());
         logger_->info("Starting deconvolution with request: " + request.getConfig()->imagePath);
 
         // Validate request
@@ -87,8 +91,9 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::shared_ptr<SetupConfig> setupConfig = request.getConfig();
         std::shared_ptr<DeconvolutionConfig> deconvConfig = request.getDeconvolutionConfig();
 
+        std::shared_ptr<ThreadPool> localThreadPool = std::make_shared<ThreadPool>(setupConfig->nThreads);
 
-
+        progressCallback = request.getProgressCallback();
 
         // Create deconvolution strategy pair using factory
         DeconvolutionStrategyFactory& factory = DeconvolutionStrategyFactory::getInstance();
@@ -114,7 +119,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path, metadata.value().getShape());
 
         // Create PSFs, need to know imageshape so that if its created from config just create with imageShape
-        std::vector<PSF> psfs = createPSFsFromSetup(setupConfig, reader->getMetaData().getShape());
+        std::vector<PSF> psfs = createPSFsFromSetup(setupConfig, reader->getMetaData().getShape(), localThreadPool);
         if (psfs.empty()) {
             std::string error_msg = "No valid PSFs provided";
             logger_->error(error_msg);
@@ -129,11 +134,11 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
 
         if (setupConfig->savePsf){
             for (auto psf : psfs){
-                psf.writeToTiffFile(output_path.parent_path().string() + psf.ID + ".tiff");
+                psf.writeToTiffFile(output_path.parent_path().string() + "/" + psf.ID + ".tiff");
             }
         }
 
-        strategyPair->getExecutor().execute(plan.value);
+        strategyPair->getExecutor().execute(std::move(plan.value));
 
 
         // Create result
@@ -144,7 +149,9 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         result_obj->output_path = output_path;
 
         logger_->info("Deconvolution finished successfully");
+        logger_->flush();
 
+        Logging::resetFrontendLogCallback();
         return result_obj;
 
     } catch (const std::exception& e) {
@@ -157,12 +164,12 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
     }
 }
 
-std::future<std::unique_ptr<DeconvolutionResult>> DeconvolutionService::deconvolveAsync(
-    const DeconvolutionRequest& request){
-        return thread_pool_->enqueue([this, request]() {
-            return deconvolve(request);
-        });
-    }
+// std::future<std::unique_ptr<DeconvolutionResult>> DeconvolutionService::deconvolveAsync(
+//     const DeconvolutionRequest& request){
+//         return thread_pool_->enqueue([this, request]() {
+//             return deconvolve(request);
+//         });
+//     }
 
 // std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> DeconvolutionService::deconvolveBatchAsync(
 //     const std::vector<DeconvolutionRequest>& requests){
@@ -220,19 +227,20 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::createResult(
 
 std::vector<PSF> DeconvolutionService::createPSFsFromSetup(
     std::shared_ptr<SetupConfig> setupConfig,
-    const CuboidShape& imageShape) {
+    const CuboidShape& imageShape,
+    std::shared_ptr<ThreadPool> threadPool) {
 
     std::vector<PSF> psfs;
 
     if (!setupConfig->multiplePsfConfigPaths.empty()){
         std::vector<std::shared_ptr<PSFConfig>> configs = PSFCreator::generatePSFConfigsFromConfigPathWithShape(setupConfig->multiplePsfConfigPaths, imageShape);
         for (const auto& config : configs){
-            psfs.push_back(PSFCreator::generatePSFFromPSFConfig(config, thread_pool_.get()));
+            psfs.push_back(PSFCreator::generatePSFFromPSFConfig(config, threadPool, progressCallback));
         }
 
     }
-    if (!setupConfig->psfFilePath.empty()){
-        std::vector<PSF> filePsfs = PSFCreator::readPSFsFromFilePath(setupConfig->psfFilePath);
+    if (!setupConfig->psfFilePaths.empty()){
+        std::vector<PSF> filePsfs = PSFCreator::readPSFsFromFilePath(setupConfig->psfFilePaths);
         psfs.insert(psfs.end(), std::make_move_iterator(filePsfs.begin()), std::make_move_iterator(filePsfs.end()));
     }
     // TODO

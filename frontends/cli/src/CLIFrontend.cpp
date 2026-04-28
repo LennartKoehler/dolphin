@@ -12,6 +12,8 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "CLIFrontend.h"
+#include <spdlog/spdlog.h>
+#include <string>
 #include <sys/stat.h>
 #include <cstring>
 #include <dolphin/Dolphin.h>
@@ -33,13 +35,13 @@ bool CLIFrontend::parseCLI(){
     catch (const CLI::ParseError& e) {
         // CLI11 throws ParseError (and subclasses like RequiredError) for missing required options,
         // validation failures, etc. Print the error and return false so the caller knows parsing failed.
-        std::cerr << "[ERROR] " << e.what() << '\n';
-        std::cout << app.help() << std::endl;
+        spdlog::error("{}", e.what());
+        spdlog::info("{}", app.help());
         return false;
     }
     catch (const std::exception& e) {
-        std::cerr << "[ERROR] " << e.what() << '\n';
-        std::cout << app.help() << std::endl;
+        spdlog::error("{}", e.what());
+        spdlog::info("{}", app.help());
         return false;
     }
 }
@@ -76,8 +78,8 @@ void CLIFrontend::run() {
         }
     }
     else {
-        std::cerr << "[ERROR] No subcommand selected" << std::endl;
-        std::cout << app.help() << std::endl;
+        spdlog::error("No subcommand selected");
+        spdlog::info("{}", app.help());
     }
 }
 
@@ -111,11 +113,11 @@ bool CLIFrontend::handlePSFGeneration() {
 
     std::vector<std::string> missingParams = checkRequired(psfConfig);
     if (!missingParams.empty()) {
-        std::cerr << "[ERROR] Required parameter(s) missing:" << std::endl;
+        spdlog::error("Required parameter(s) missing:");
         for (const auto& p : missingParams) {
-            std::cerr << "  - " << p << std::endl;
+            spdlog::error("  - {}", p);
         }
-        std::cout << psfCLI->help() << std::endl;
+        spdlog::info("{}", psfCLI->help());
         return false;
     }
 
@@ -132,9 +134,9 @@ bool CLIFrontend::readDeconvolutionFromConfigFile() {
 
             deconvolutionConfig = DeconvolutionConfig::createFromJSONFile(setupConfigPath);
 
-            std::cout << "[INFO] Configuration loaded from: " << setupConfigPath << std::endl;
+            spdlog::info("Configuration loaded from: {}", setupConfigPath);
         } catch (const std::exception& e) {
-            std::cerr << "[ERROR] " << e.what() << std::endl;
+            spdlog::error("{}", e.what());
             return false;
         }
     }
@@ -149,9 +151,9 @@ bool CLIFrontend::readPSFFromConfigFile() {
         try {
             psfConfig = SetupConfigPSF::createFromJSONFile(setupConfigPath);
 
-            std::cout << "[INFO] Configuration loaded from: " << setupConfigPath << std::endl;
+            spdlog::info("Configuration loaded from: {}", setupConfigPath);
         } catch (const std::exception& e) {
-            std::cerr << "[ERROR] " << e.what() << std::endl;
+            spdlog::error("{}", e.what());
             return false;
         }
     }
@@ -165,11 +167,11 @@ bool CLIFrontend::handleDeconvolution() {
     missingParams.insert(missingParams.end(), missingParamsSetup.begin(), missingParamsSetup.end());
 
     if (!missingParams.empty()) {
-        std::cerr << "[ERROR] Required parameter(s) missing:" << std::endl;
+        spdlog::error("Required parameter(s) missing:");
         for (const auto& p : missingParams) {
-            std::cerr << "  - " << p << std::endl;
+            spdlog::error("  - {}", p);
         }
-        std::cout << deconvolutionCLI->help() << std::endl;
+        spdlog::info("{}", deconvolutionCLI->help());
         return false;
     }
     return true;
@@ -199,28 +201,39 @@ void CLIFrontend::readCLIParametersDeconvolution() {
 void CLIFrontend::readCLISetupConfigPath() {
     CLI::Option_group *config_group = deconvolutionCLI->add_option_group("Config", "Configuration file");
     config_group->add_option("-c,--config", setupConfigPath, "Path to configuration file");
-
     configGroup = config_group;  // Add configGroup as member variable
 }
+
+
 
 
 void CLIFrontend::addParameters(Config& config, CLI::Option_group* group){
 
     config.visitParams([this, group]<typename T>(T& value, ConfigParameter& param){
-        if constexpr (std::is_same_v<T, bool>){
-            auto opt = group->add_flag(param.cliFlag, value, param.cliDesc);
-            opt->configurable(false);  // Avoid cross-subcommand name collision checks in CLI11
-        }
-        else if constexpr (std::is_same_v<T, std::array<int, 3>>){
+
+        if constexpr (std::is_same_v<T, std::array<int, 3>>){
             // Skip: std::array<int,3> not directly supported as a CLI option
+            return;
         }
-        else{
+        else {
+            if constexpr (std::is_same_v<T, bool>){
+                auto opt = group->add_flag(param.cliFlag, value, param.cliDesc);
+                opt->configurable(false);  // Avoid cross-subcommand name collision checks in CLI11
+                return;
+            }
+            if (std::string(param.cliFlag) == "--psf_file_paths" || std::string(param.cliFlag) == "--multiple_psf_config_paths" || std::string(param.cliFlag) == "--psf_config_path"){
+                static CLI::Option_group* group=app.add_option_group("subgroup");
+                group->excludes(configGroup);
+                configGroup->excludes(group);
+                group->add_flag(param.cliFlag, value, param.cliDesc)->ignore_case();
+                group->require_option(1);
+                return;
+            }
             auto opt = group->add_option(param.cliFlag, value, param.cliDesc);
             opt->configurable(false);  // Avoid cross-subcommand name collision checks in CLI11
             // NOTE: Don't use opt->required() here — CLI11 throws on the FIRST missing
             // required option, preventing us from reporting ALL missing parameters at once.
             // Instead, required parameters are validated manually in handleDeconvolution().
-
         }
     });
 }
@@ -256,41 +269,42 @@ std::vector<std::string> CLIFrontend::checkRequired(Config& config) const {
 }
 
 
-void renderFunction(std::atomic<float>& current, float max){
+void progressVisualization(std::atomic<float>& current, float max){
     // Calculate progress
 
     float barWidth = 50;
     int pos = static_cast<int>((current * barWidth) / max);
     int progress = static_cast<int>((current * 100) / max);
     // Print progress bar
-    std::cerr << "\rDeconvoluting Image [ ";
+    std::cout << "\r[";
     for (int i = 0; i < barWidth; ++i) {
-        if (i < pos) std::cerr << "=";
-        else if (i == pos) std::cerr << ">";
-        else std::cerr << " ";
+        if (i < pos) std::cout << "=";
+        else if (i == pos) std::cout << ">";
+        else std::cout << " ";
     }
-    std::cerr << "] "
+    std::cout << "] "
       << std::setw(3)
       << progress << "%";
-    std::cerr.flush();
+    std::cout.flush();
 
+    if(current >= max){
+        std::cout <<std::endl;
+    }
 }
 
-PSFGenerationRequest CLIFrontend::generatePSFRequest(std::shared_ptr<SetupConfigPSF> setupConfig){
-    PSFGenerationRequest request(setupConfig);
+void loggingCallback(spdlog::level::level_enum level, const std::string& message){
+    if (level >= spdlog::level::info){
+        std::cout << "[" << spdlog::level::to_string_view(level).data() << "] " <<  message << "\n";
+    }
+}
 
+
+PSFGenerationRequest CLIFrontend::generatePSFRequest(std::shared_ptr<SetupConfigPSF> setupConfig){
+    PSFGenerationRequest request(setupConfig, loggingCallback, progressVisualization);
     return request;
 }
 
 DeconvolutionRequest CLIFrontend::generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfigCopy, std::shared_ptr<DeconvolutionConfig> deconvConfigCopy) {
-    // Create request with setup config and deconvolution config
-    DeconvolutionRequest request(setupConfigCopy, deconvConfigCopy);
-
-    // Set CLI-specific options from parsed arguments
-    // request.save_separate = setupConfigCopy->sep;
-    // request.save_subimages = setupConfigCopy->saveSubimages;
-    // request.show_example = setupConfigCopy->showExampleLayers;
-    // request.print_info = setupConfigCopy->printInfo;
-    request.setProgressCallback(renderFunction);
+    DeconvolutionRequest request(setupConfigCopy, deconvConfigCopy, loggingCallback, progressVisualization);
     return request;
 }

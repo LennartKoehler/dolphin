@@ -132,6 +132,8 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
     std::vector<std::future<std::vector<float>>> tempSphereLayers;
     tempSphereLayers.reserve(config->sizeZ);
 
+    progressTracker.setMax(config->sizeZ);
+
     for (int z = 0; z < config->sizeZ; z++){
         GibsonLanniPSFConfig configCopy = *(this->config);
         configCopy.ti_nm = configCopy.ti0_nm + configCopy.pixelSizeAxial_nm * (z - (config->sizeZ - 1.0) / 2.0);
@@ -225,9 +227,10 @@ std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonL
             } else {
                 value = h[index];
             }
-            sliceData[x * ny + y] = static_cast<float>(value);
+            sliceData[y * nx + x] = static_cast<float>(value);
         }
     }
+    progressTracker.add(1);
 
     return sliceData;
 }

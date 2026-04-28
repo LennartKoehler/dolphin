@@ -15,7 +15,10 @@ public:
 
     void add(float value){
         counter += value;
-        if(mutex.try_lock()) {progressCallback(counter, max); mutex.unlock();}
+        if(mutex.try_lock()) {
+            if (progressCallback) progressCallback(counter, max);
+            mutex.unlock();
+        }
     }
 private:
     float max;

@@ -110,6 +110,14 @@ public:
     Config(){
     }
 
+
+    // Copy/move of Config is deleted because the `parameters` vector holds void* pointers
+    // to derived-class members. Implicit copies would leave stale pointers.
+    // Derived classes must implement their own copy/move semantics.
+    Config(const Config&) = delete;
+    Config& operator=(const Config&) = delete;
+    Config(Config&&) = delete;
+    Config& operator=(Config&&) = delete;
     virtual std::string getName() const = 0;
 
 

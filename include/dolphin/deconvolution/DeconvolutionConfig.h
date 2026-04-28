@@ -38,6 +38,9 @@ class DeconvolutionConfig : public Config{
 public:
     DeconvolutionConfig();
     DeconvolutionConfig(const DeconvolutionConfig& other);
+    DeconvolutionConfig& operator=(const DeconvolutionConfig& other);
+    DeconvolutionConfig(DeconvolutionConfig&& other) noexcept;
+    DeconvolutionConfig& operator=(DeconvolutionConfig&& other) noexcept;
     static DeconvolutionConfig createFromJSONFile(const std::string& path);
     std::string getName() const override { return std::string("DeconvolutionConfig"); };
 

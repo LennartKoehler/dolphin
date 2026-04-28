@@ -38,10 +38,10 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     ImageMetaData metadata = reader->getMetaData();
     CuboidShape imageSize = CuboidShape{metadata.imageWidth, metadata.imageLength, metadata.slices};
     std::shared_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(deconvConfig);
-    spdlog::get("deconvolution")->info("Using the following deconvolution config");
+    spdlog::get("deconvolution")->debug("Using the following deconvolution config");
     deconvConfig.printValues();
 
-    spdlog::get("deconvolution")->info("Using the following setup config");
+    spdlog::get("deconvolution")->debug("Using the following setup config");
     setupConfig.printValues();
 
     IBackendManager& manager = getBackendManager(setupConfig);

@@ -32,17 +32,17 @@ public:
     std::unique_ptr<PSFGenerationResult> generatePSF(PSFGenerationRequest request); // should prob just take the request
     std::unique_ptr<DeconvolutionResult> deconvolve(DeconvolutionRequest request);
 
-    std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(PSFGenerationRequest request);
-    std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(DeconvolutionRequest request);
+    // std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(PSFGenerationRequest request);
+    // std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(DeconvolutionRequest request);
 
 
 private:
- 
+
     // Service layer components (abstracted)
     ServiceFactory* service_factory_;
     std::unique_ptr<PSFGenerationService> psf_service_;
     std::unique_ptr<DeconvolutionService> deconv_service_;
-    
+
     // Flag to track if service layer is initialized
     bool service_layer_initialized_ = false;
 

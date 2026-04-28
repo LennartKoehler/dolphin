@@ -19,6 +19,7 @@ See the LICENSE file provided with the code for the full license.
 #include <chrono>
 #include <stdexcept>
 #include <functional>
+#include "dolphin/Logging.h"
 #include "nlohmann/json.hpp"
 #include "dolphin/SetupConfig.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
@@ -138,12 +139,25 @@ public:
 class PSFGenerationRequest {
 public:
     PSFGenerationRequest() = default;
-    PSFGenerationRequest(std::shared_ptr<SetupConfigPSF> setupConfig) { this->setupConfig = setupConfig; }
+    PSFGenerationRequest(std::shared_ptr<SetupConfigPSF> setupConfig) { this->setup_config_ = setupConfig; }
+    PSFGenerationRequest(std::shared_ptr<SetupConfigPSF> setupConfig,
+                         Logging::LogCallback frontendLogging,
+                         progressCallbackFn progressCallback)
+        : setup_config_(setupConfig), frontendLogging(frontendLogging), progressCallback(progressCallback) {}
+
+    void setConfig(std::shared_ptr<SetupConfigPSF> config) { setup_config_ = config; }
+    std::shared_ptr<SetupConfigPSF> getConfig() const { return setup_config_; }
 
     void setProgressCallback(progressCallbackFn fn) {this->progressCallback = fn;}
     progressCallbackFn getProgressCallback() const {return progressCallback;}
 
-    std::shared_ptr<SetupConfigPSF> setupConfig;
+    void setFrontendLoggin(Logging::LogCallback fl) {this->frontendLogging = fl;}
+    Logging::LogCallback getFrontendLogging() const {return frontendLogging;}
+
+private:
+
+    std::shared_ptr<SetupConfigPSF> setup_config_;
+    Logging::LogCallback frontendLogging;
     progressCallbackFn progressCallback;
 };
 
@@ -175,9 +189,18 @@ class DeconvolutionRequest {
 public:
     DeconvolutionRequest() = default;
     DeconvolutionRequest(std::shared_ptr<SetupConfig> config, std::shared_ptr<DeconvolutionConfig> deconvConfig)
-        : setup_config_(config), deconv_config_(deconvConfig) {
-        // output_path = config->outputDir;
-    }
+        : setup_config_(config), deconv_config_(deconvConfig) {}
+    DeconvolutionRequest(std::shared_ptr<SetupConfig> setupConfig,
+                         std::shared_ptr<DeconvolutionConfig> deconvConfig,
+                         progressCallbackFn progressCallback)
+        : progressCallback(progressCallback),
+          setup_config_(setupConfig), deconv_config_(deconvConfig) {}
+    DeconvolutionRequest(std::shared_ptr<SetupConfig> setupConfig,
+                         std::shared_ptr<DeconvolutionConfig> deconvConfig,
+                         Logging::LogCallback frontendLogging,
+                         progressCallbackFn progressCallback)
+        : progressCallback(progressCallback), frontendLogging(frontendLogging),
+          setup_config_(setupConfig), deconv_config_(deconvConfig) {}
 
     void setConfig(std::shared_ptr<SetupConfig> config) { setup_config_ = config; }
     std::shared_ptr<SetupConfig> getConfig() const { return setup_config_; }
@@ -190,6 +213,9 @@ public:
 
     void setProgressCallback(progressCallbackFn fn) {this->progressCallback = fn;}
     progressCallbackFn getProgressCallback() const {return progressCallback;}
+
+    void setFrontendLoggin(Logging::LogCallback fl) {this->frontendLogging = fl;}
+    Logging::LogCallback getFrontendLogging() const {return frontendLogging;}
     // bool save_separate = false;
     // bool save_subimages = false;
     // bool show_example = false;
@@ -200,6 +226,7 @@ public:
 
 private:
     progressCallbackFn progressCallback;
+    Logging::LogCallback frontendLogging;
     std::shared_ptr<PSFConfig> psf_config_;
     std::shared_ptr<SetupConfig> setup_config_;
     std::shared_ptr<DeconvolutionConfig> deconv_config_;
