@@ -118,7 +118,13 @@
                     "description": "Enable pretty-printing for gdb",
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": false
+                },
+                {
+                    "description": "Enable break on all exceptions",
+                    "text": "catch throw",
+                    "ignoreFailures": true
                 }
+
             ],
             "skipFiles": [
                 "<node_internals>/**",
@@ -247,6 +253,33 @@
             "cwd": "${cmake.testWorkingDirectory}",
             "program": "${cmake.testProgram}",
             "args": [ "${cmake.testArgs}"],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+            {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            },
+            {
+                "description": "Disassemble in intel syntax",
+                "text": "-gdb-set disassembly-flavor intel",
+                "ignoreFailures": true
+            }
+            ]
+        },
+       {
+            "name": "Debug CLI",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/frontends/cli/build/dolphin_cli",
+            "args": [
+                "deconvolution",
+                "-c", "~/projects/dolphin/configs/default_config.json"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/frontends",
+            "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [

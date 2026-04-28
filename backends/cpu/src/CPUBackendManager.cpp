@@ -1,24 +1,34 @@
 #include "CPUBackendManager.h"
 #include "CPUBackend.h"
 #include <dolphinbackend/Exceptions.h>
+#include <fftw3.h>
 #include <format>
-#include <mutex>
+#include <filesystem>
+#include <fstream>
 
-extern LogCallback g_logger;
+namespace fs = std::filesystem;
+
+extern void log(const std::string& message, LogLevel level);
+
+extern LogCallback& getGlobalLogger();
+
 void CPUBackendManager::init(LogCallback fn) {
     std::lock_guard<std::mutex> lock(mutex_);
-    g_logger = std::move(fn);
+    getGlobalLogger() = std::move(fn);
+
+    FFTWWisdomManager wisdomManager(FFTW_WISDOM_PATH);
+    fftwManager = std::make_unique<FFTWManager>(std::move(wisdomManager));
 }
 
 IDeconvolutionBackend& CPUBackendManager::getDeconvolutionBackend(const BackendConfig& config) {
-    auto deconv = std::make_unique<CPUDeconvolutionBackend>(configToConfig(config));
+    auto deconv = std::make_unique<CPUDeconvolutionBackend>(configToConfig(config), *fftwManager);
     std::unique_lock<std::mutex> lock(mutex_);
     deconvBackends.push_back(std::move(deconv));
     return *deconvBackends.back();
 }
 
 IBackendMemoryManager& CPUBackendManager::getBackendMemoryManager(const BackendConfig& config) {
-    auto manager = std::make_unique<CPUBackendMemoryManager>(configToConfig(config));
+    auto manager = std::make_unique<CPUBackendMemoryManager>(configToConfig(config), memory);
     std::unique_lock<std::mutex> lock(mutex_);
     memoryManagers.push_back(std::move(manager));
     return *memoryManagers.back();
@@ -27,7 +37,7 @@ IBackendMemoryManager& CPUBackendManager::getBackendMemoryManager(const BackendC
 IBackend& CPUBackendManager::getBackend(const BackendConfig& config) {
 
     auto backend = std::unique_ptr<CPUBackend>(
-        CPUBackend::create(configToConfig(config))
+        CPUBackend::create(configToConfig(config), *fftwManager, memory)
     );
     std::unique_lock<std::mutex> lock(mutex_);
     IBackend& ref = *backend;
@@ -66,11 +76,15 @@ void CPUBackendManager::setThreadDistribution(const size_t& totalThreads, size_t
 
 
 //------------------------------------------
-FFTWManager::FFTWManager() {
+FFTWManager::FFTWManager(FFTWWisdomManager wisdomManager) : wisdomManager_(wisdomManager) {
     fftwf_init_threads();
+    // Import existing wisdom on startup
+    wisdomManager_.importWisdom();
 }
 
 FFTWManager::~FFTWManager() {
+    // Export wisdom on shutdown to save optimized plans for future runs
+    wisdomManager_.exportWisdom();
     fftwf_cleanup_threads();
 }
 
@@ -114,7 +128,7 @@ void FFTWManager::executeBackwardFFTReal(const FFTWPlanDescription& description,
 fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& description) {
     //has to be holding lock
 
-    assert(g_logger && "logger not yet set");
+    assert(getGlobalLogger() && "logger not yet set");
 
     fftwf_plan_with_nthreads(description.ompThreads); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
 
@@ -184,7 +198,7 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
             description.ompThreads, description.shape.width, description.shape.height, description.shape.depth
         );
 
-        g_logger(msg, LogLevel::INFO);
+        log(msg, LogLevel::INFO);
 
         fftwf_free(out);
         if (!description.inPlace) fftwf_free(in);
@@ -207,7 +221,7 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
 fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& description) {
     //has to be holding lock
 
-    assert(g_logger && "logger not yet set");
+    assert(getGlobalLogger() && "logger not yet set");
 
     fftwf_plan_with_nthreads(description.ompThreads); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
 
@@ -276,7 +290,7 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
             description.ompThreads, description.shape.width, description.shape.height, description.shape.depth
         );
 
-        g_logger(msg, LogLevel::INFO);
+        log(msg, LogLevel::INFO);
 
         fftwf_free(in);
         if (!description.inPlace) fftwf_free(out);
@@ -296,7 +310,7 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
 fftwf_plan FFTWManager::initializePlan(const FFTWPlanDescription& description) {
     // not threadsafe!
 
-    assert(g_logger && "logger not yet set");
+    assert(getGlobalLogger() && "logger not yet set");
 
     fftwf_plan_with_nthreads(description.ompThreads); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
 
@@ -322,7 +336,7 @@ fftwf_plan FFTWManager::initializePlan(const FFTWPlanDescription& description) {
             description.ompThreads, description.shape.width, description.shape.height, description.shape.depth
         );
 
-        g_logger(msg, LogLevel::INFO);
+        log(msg, LogLevel::INFO);
 
         fftwf_free(temp);
         if (!description.inPlace)fftwf_free(tempout);
@@ -370,3 +384,72 @@ const fftwf_plan* FFTWManager::findPlan(const FFTWPlanDescription& description) 
     return &fftwPlans.back().plan;  // Return reference to the stored plan
 }
 
+
+
+
+//-----------------------------------------
+// FFTWWisdomManager Implementation
+//-----------------------------------------
+
+FFTWWisdomManager::FFTWWisdomManager(const std::string& wisdomFilename) : wisdomFilename_(wisdomFilename) {}
+
+FFTWWisdomManager::~FFTWWisdomManager() {}
+
+std::string FFTWWisdomManager::getFullPath() const {
+    // Expand ~ to user home directory
+    std::string path = wisdomFilename_;
+    if (path.starts_with("~")) {
+        const char* home = std::getenv("HOME");
+        if (home) {
+            path = std::string(home) + path.substr(1);
+        }
+    }
+    return path;
+}
+
+bool FFTWWisdomManager::wisdomFileExists() const {
+    return fs::exists(getFullPath());
+}
+
+bool FFTWWisdomManager::importWisdom() {
+    std::string fullPath = getFullPath();
+
+    if (!fs::exists(fullPath)) {
+        log(std::string("FFTW wisdom file not found at: ") + fullPath + ", skipping import", LogLevel::INFO);
+        return false;
+    }
+
+    int success = fftwf_import_wisdom_from_filename(fullPath.c_str());
+    if (success) {
+        log(std::string("Successfully imported FFTW wisdom from: ") + fullPath, LogLevel::DEBUG);
+        return true;
+    } else {
+        log(std::string("Failed to import FFTW wisdom from: ") + fullPath, LogLevel::WARN);
+        return false;
+    }
+}
+
+bool FFTWWisdomManager::exportWisdom() {
+    std::string fullPath = getFullPath();
+
+    // Ensure directory exists
+    fs::path dirPath = fs::path(fullPath).parent_path();
+    if (!dirPath.empty() && !fs::exists(dirPath)) {
+        try {
+            fs::create_directories(dirPath);
+        } catch (const fs::filesystem_error& e) {
+            log(std::string("Failed to create FFTW wisdom directory: ") + std::string(e.what()), LogLevel::ERROR);
+            return false;
+        }
+    }
+
+    int success = fftwf_export_wisdom_to_filename(fullPath.c_str());
+    if (success) {
+        std::string message = std::string("Successfully exported FFTW wisdom to: ") + fullPath;
+        log(message, LogLevel::DEBUG);
+        return true;
+    } else {
+        log(std::string("Failed to export FFTW wisdom to: ") + fullPath, LogLevel::ERROR);
+        return false;
+    }
+}

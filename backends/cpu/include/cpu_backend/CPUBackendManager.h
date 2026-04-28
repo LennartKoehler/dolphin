@@ -6,13 +6,69 @@
 #include <mutex>
 
 
-extern LogCallback g_;
+// Logger functions - use log() for logging. The underlying LogCallback is
+// heap-allocated and never destroyed, preventing use-after-free during static
+// shutdown (e.g. in FFTWManager destructor).
+void log(const std::string& message, LogLevel level);
+LogCallback& getGlobalLogger();
+
+
+
+struct FFTWPlan{
+    fftwf_plan plan;
+    FFTWPlanDescription description;
+};
+
+class FFTWWisdomManager{
+public:
+    // Default wisdom file location: ~/.fftw/wisdom in user home directory
+    FFTWWisdomManager() = default;
+    FFTWWisdomManager(const std::string& wisdomFilename);
+    ~FFTWWisdomManager();
+
+    bool importWisdom();
+    bool exportWisdom();
+    bool wisdomFileExists() const;
+private:
+    std::string wisdomFilename_;
+    std::string getFullPath() const;
+};
+
+
+class FFTWManager{
+public:
+    FFTWManager() = default;
+    FFTWManager(FFTWWisdomManager wisdomManager);
+    ~FFTWManager();
+
+
+    void executeForwardFFT(const FFTWPlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
+    void executeBackwardFFT(const FFTWPlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
+    void executeForwardFFTReal(const FFTWPlanDescription& description, real_t* in, fftwf_complex* out);
+    void executeBackwardFFTReal(const FFTWPlanDescription& description, fftwf_complex* in, real_t* out);
+    void destroyFFTPlans();
+private:
+
+    fftwf_plan initializePlan(const FFTWPlanDescription& description);
+    fftwf_plan initializePlanComplexToReal(const FFTWPlanDescription& description);
+    fftwf_plan initializePlanRealToComplex(const FFTWPlanDescription& description);
+
+
+    const fftwf_plan* findPlan(const FFTWPlanDescription& description);
+    std::vector<FFTWPlan> fftwPlans;
+
+    std::mutex mutex_;
+    FFTWWisdomManager wisdomManager_;
+};
+
+
+
 //manage all cpu backends, currently should be used as a singleton
 class CPUBackendManager : public IBackendManager{
 public:
 
     CPUBackendManager() = default;
-    ~CPUBackendManager() override = default;
+    virtual ~CPUBackendManager() override = default;
     void init(LogCallback fn) override;
 
     IDeconvolutionBackend& getDeconvolutionBackend(const BackendConfig& config) override;
@@ -33,37 +89,9 @@ private:
     std::vector<std::unique_ptr<CPUDeconvolutionBackend>> deconvBackends;
     std::vector<std::unique_ptr<CPUBackendMemoryManager>> memoryManagers;
 
-    std::mutex mutex_;
-};
-
-
-struct FFTWPlan{
-    fftwf_plan plan;
-    FFTWPlanDescription description;
-};
-class FFTWManager{
-public:
-    FFTWManager();
-    ~FFTWManager();
-
-
-    void executeForwardFFT(const FFTWPlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
-    void executeBackwardFFT(const FFTWPlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
-    void executeForwardFFTReal(const FFTWPlanDescription& description, real_t* in, fftwf_complex* out);
-    void executeBackwardFFTReal(const FFTWPlanDescription& description, fftwf_complex* in, real_t* out);
-    void destroyFFTPlans();
-private:
-
-    fftwf_plan initializePlan(const FFTWPlanDescription& description);
-    fftwf_plan initializePlanComplexToReal(const FFTWPlanDescription& description);
-    fftwf_plan initializePlanRealToComplex(const FFTWPlanDescription& description);
-
-
-    const fftwf_plan* findPlan(const FFTWPlanDescription& description);
-    std::vector<FFTWPlan> fftwPlans;
-    // std::vector<FFTWPlan> forwardPlansReal;
-    // std::vector<FFTWPlan> backwardPlans;
-    // std::vector<FFTWPlan> backwardPlansReal;
+    MemoryTracking memory;
+    std::unique_ptr<FFTWManager> fftwManager;
 
     std::mutex mutex_;
 };
+

@@ -1,4 +1,4 @@
-correctly propagate the progresstracking through deconvolution and psfgeneration. maybe refactor PSFCreator to not take all the work of psfgenerationservice, but see where its used in deconvolutionservice, to not take away its capabilities
+maxmemory management
 
 check everything including padding etc for uneven sizes
 
@@ -8,12 +8,6 @@ in place fft seems to work, but need to check if the result is aactually correct
 
 can i somehow get around creating an out of place fft plan while still being faster, this plan init takes long and takes memory
 
-the nicest thing to work with all the different data allocations for fft etc would be to have the managedData have a operations vector attached to it, and then whenever i call a function on that data it would not execute but just add it to the operations. And then i have like an execute function on the data which runs all the operations in order. Then before execute i can call "allocate" and it will allocate depending on if i will need to pad it for fft etc. So that all operations are known before actually running them
-
-use plans in place so that i dont need both plans, currently i need to save both out of place an inplace seperately, the manual says it has to be like this
-
-deconvolution of two rectangles doesnt work as expected
-
 when using gpu, so lower memory and image doesnt fit on gpu with padding then the imagesplit recursion will run infinitely
 
 octant fourier shift for uneven dimensions (not divisible by 2)
@@ -21,9 +15,6 @@ octant fourier shift for uneven dimensions (not divisible by 2)
 check the testalgorithm for cuda there is a line on the left, seems like some misalignement
 for cpu its even weirder, something is still wrong
 
-add threads to deconvolutionservice and psfservice
-
-the fftw plans can be saved to file to not always recompute, however they are probably fixed to a specific ft size, check how saving this wisdom can be used to not always re init the plan
 maybe this can be combined with finding a nice image size. So create discrete plans for good shapes and then smaller images are padded to that shape. Thne only save a coupleplans
 
 i think i should also fix the complex octant fourier shift as its also probably wrong. chaning the real fourier shift solve the problem for me
@@ -38,36 +29,9 @@ When finding uinque labels per cube also create the mask in the same loop
 
 FIX: make the fourier transforms templated for different datatypes, currently the real valued planinit is never used, thats the bug
 
-check out fft r2c in place
-
-use realdata for other deconvalgorithms
-
-check which other operations need a realvalued counterpart
-like total variation
-
-make new value type for complexdata that is missing second half
-probably dont need octant fouerier shift?
-
-make cuda copy operations in the cudamemorybackend not the CUBE library
-
-make make real value and template the backendmemorymanager to be able to take complex and realvalue, each should have a function which passes its size
-or think about having a baseclass and then these two implementations, but then copying becomes weird. But i need real value for r2c and c2r fourier transforms which should be a big speedup
-think more about complex/real valus in deconvolution
-
 recheck the blocking behavior of using openmp
 
-first forward and last backward fourier transforms can be real to complex
-
-backwardfft in cuda divide by number of elementds
-
-
-license -> under gnu, not mit? ->psf generator code
-
 check if labeled deconvolution actually works, i think sinnme the values of the differents psfs are very different they basically get overwritten?
-
-when do i normalize to with 1/N? after every IFFT or just at the end of the computation
-
-does deconvnolutionprocessor need to own the algorithm?
 
 threadpool destructor sometimes fails to join all threads. idk why, im guessing they might be stuck somewhere or lost? -> have logging but doesnt seem to happen anymore
 
