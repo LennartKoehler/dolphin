@@ -32,8 +32,6 @@ void Dolphin::init(){
         deconv_service_ = service_factory_->createDeconvolutionService();
 
         service_layer_initialized_ = true;
-
-        spdlog::info("Abstract service layer initialized successfully");
     }
 }
 
@@ -47,15 +45,15 @@ std::unique_ptr<DeconvolutionResult> Dolphin::deconvolve(DeconvolutionRequest re
     return deconv_service_->deconvolve(request);
 }
 
-std::future<std::unique_ptr<PSFGenerationResult>> Dolphin::generatePSFAsync(PSFGenerationRequest request){
-    psf_service_->initialize();
-    return psf_service_->generatePSFAsync(request);
-}
 
-std::future<std::unique_ptr<DeconvolutionResult>> Dolphin::deconvolveAsync(DeconvolutionRequest request){
-    deconv_service_->initialize();
-    return deconv_service_->deconvolveAsync(request);
-}
+//     psf_service_->initialize();
+//     return psf_service_->generatePSFAsync(request);
+// }
+//
+// std::future<std::unique_ptr<DeconvolutionResult>> Dolphin::deconvolveAsync(DeconvolutionRequest request){
+//     deconv_service_->initialize();
+//     return deconv_service_->deconvolveAsync(request);
+// }
 
 
 

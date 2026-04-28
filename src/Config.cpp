@@ -7,7 +7,7 @@ bool Config::loadFromJSON(const json& jsonData){
     bool success = true;
     try{
         logUnvalidParameters(jsonData);
-        
+
         visitParams([this, &jsonData]<typename T>(T& value, ConfigParameter& param) {
             try{
                 if (jsonData.contains(param.jsonTag)) {
@@ -62,19 +62,19 @@ void Config::printValues() const {
                 if (i) oss << ' ';
                 oss << vec[i];
             }
-            logger->info("({}) {}: {}", this->getName(), param.name, oss.str());
+            logger->debug("({}) {}: {}", this->getName(), param.name, oss.str());
             return;
         }
 
         // Non-vector parameters: use compile-time guards for formatting
         if constexpr (fmt::is_formattable<T, char>::value) {
-            logger->info("({}) {}: {}", this->getName(), param.name, value);
+            logger->debug("({}) {}: {}", this->getName(), param.name, value);
         } else if constexpr (has_ostream<T>::value) {
             std::ostringstream oss;
             oss << value;
-            logger->info("({}) {}: {}", this->getName(), param.name, oss.str());
+            logger->debug("({}) {}: {}", this->getName(), param.name, oss.str());
         } else {
-            logger->info("({}) {}: <unprintable type>", this->getName(), param.name);
+            logger->debug("({}) {}: <unprintable type>", this->getName(), param.name);
         }
     });
 }

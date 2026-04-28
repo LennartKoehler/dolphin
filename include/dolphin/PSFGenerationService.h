@@ -55,8 +55,8 @@ private:
         std::chrono::duration<double> duration
     );
 
-    std::unique_ptr<PSF> createPSFFromConfigInternal(std::shared_ptr<PSFConfig> psfConfig, progressCallbackFn fn);
-    std::unique_ptr<PSF> createPSFFromFilePathInternal(const std::string& path, progressCallbackFn fn);
+    std::unique_ptr<PSF> createPSFFromConfigInternal(std::shared_ptr<PSFConfig> psfConfig, progressCallbackFn fn, std::shared_ptr<ThreadPool> threadPool);
+    std::unique_ptr<PSF> createPSFFromFilePathInternal(const std::string& path, progressCallbackFn fn, std::shared_ptr<ThreadPool> threadPool);
 
     bool isValidPSFType(const std::string& psf_type) const;
 
@@ -70,6 +70,4 @@ private:
     // Cached data
     std::vector<std::string> supported_types_;
     std::string default_output_path_;
-
-    std::unique_ptr<ThreadPool> thread_pool_;
 };

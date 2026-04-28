@@ -86,6 +86,7 @@ struct CubeTaskDescriptor {
           context(context)
     {}
 
+
     const int taskId;
     const BoxCoordWithPadding paddedBox;
     const std::shared_ptr<DeconvolutionAlgorithm> algorithm;

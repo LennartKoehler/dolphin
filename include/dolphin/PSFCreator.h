@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <string>
+#include "dolphin/ProgressTracking.h"
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/SetupConfig.h"
@@ -29,7 +30,7 @@ class ThreadPool;
 namespace PSFCreator{
     std::vector<PSF> readPSFsFromFilePath(const std::vector<std::string>& psfFilePath);
     std::shared_ptr<PSFConfig> generatePSFConfigFromConfigPath(const std::string& psfConfigPath);
-    PSF generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> config, ThreadPool* threadpool);
+    PSF generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> config, std::shared_ptr<ThreadPool> threadpool, progressCallbackFn fn);
     std::vector<std::shared_ptr<PSFConfig>> generatePSFsFromDir(const std::string& psfDirPath);
 
 

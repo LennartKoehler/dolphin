@@ -37,42 +37,37 @@ SetupConfigPSF SetupConfigPSF::createFromJSONFile(const std::string& filePath) {
 }
 
 SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
-    : Config()  // Copy base class
+    : Config()  // Base class must be default-constructed (parameters must not be copied)
 {
-    // First, register all parameters to set up the infrastructure
-    registerAllParameters();
-
-    // Then copy all the values
+    // Copy all values first, then register parameters (which point to our own members)
     psfConfigPath = other.psfConfigPath;
-    // psfDirPath = other.psfDirPath;
-
     backend = other.backend;
     nThreads = other.nThreads;
     nWorkerThreads = other.nWorkerThreads;
     nIOThreads = other.nIOThreads;
     nDevices = other.nDevices;
     maxMem_GB = other.maxMem_GB;
-
     outputPath = other.outputPath;
+
+    registerAllParameters();
 }
 
 
-// Copy assignment operator (recommended to implement if you have copy constructor)
+// Copy assignment operator
 SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
-    if (this != &other) {  // Self-assignment check
-        Config::operator=(other);  // Copy base class
-
+    if (this != &other) {
+        // Copy values, then re-register parameters so they point to our own members
         psfConfigPath = other.psfConfigPath;
-        // psfDirPath = other.psfDirPath;
-
         backend = other.backend;
         nThreads = other.nThreads;
         nWorkerThreads = other.nWorkerThreads;
         nIOThreads = other.nIOThreads;
         nDevices = other.nDevices;
         maxMem_GB = other.maxMem_GB;
-
         outputPath = other.outputPath;
+
+        parameters.clear();
+        registerAllParameters();
     }
     return *this;
 }
@@ -82,16 +77,16 @@ SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
 
 void SetupConfigPSF::registerAllParameters(){
 
-    parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", true, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::FilePath, &psfConfigPath, "PSF Config Path", true, "psf_config_path", "-i,--psf_config_path", "PSF config path", true, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &psfConfigPath, "PSF Config Path", false, "psf_config_path", "-i,--psf_config_path", "PSF config path", true, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
     parameters.push_back({ParameterType::FilePath, &backend, "Backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nThreads, "Number of Threads", false, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Int, &nThreads, "Number of Threads", true, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nWorkerThreads, "Number of Worker Threads", true, "n_worker_threads", "--n_worker_threads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nIOThreads, "Number of IO Threads", true, "n_io_threads", "--n_io_threads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nDevices, "Number of Devices", true, "n_devices", "--n_devices", "Number of devices", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Float, &maxMem_GB, "Max Memory (GB)", false, "max_mem_gb", "--max_mem_gb", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMem_GB, "Max Memory (GB)", true, "max_mem_gb", "--max_mem_gb", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
 }
 
 
@@ -115,34 +110,35 @@ SetupConfig SetupConfig::createFromJSONFile(const std::string& filePath) {
 }
 
 SetupConfig::SetupConfig(const SetupConfig& other)
-    : SetupConfigPSF(other)  // Copy base class
+    : SetupConfigPSF(other)  // Copy base class values; base registers its own parameters
 {
-    registerAllParameters();
-
+    // Copy derived values, then re-register parameters for the full SetupConfig
     imagePath = other.imagePath;
-    psfFilePath = other.psfFilePath;
-
+    psfFilePaths = other.psfFilePaths;
     labeledImage = other.labeledImage;
     labelPSFMap = other.labelPSFMap;
     multiplePsfConfigPaths = other.multiplePsfConfigPaths;
     savePsf = other.savePsf;
+
+    registerAllParameters();  // clears and re-registers with pointers to our own members
 }
 
 
-// Copy assignment operator (recommended to implement if you have copy constructor)
+// Copy assignment operator
 SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
-    if (this != &other) {  // Self-assignment check
-        SetupConfigPSF::operator=(other);  // Copy base class
+    if (this != &other) {
+        // Copy all values (base + derived), then re-register parameters
+        SetupConfigPSF::operator=(other);  // copies base values and re-registers base params
 
         imagePath = other.imagePath;
-        psfFilePath = other.psfFilePath;
-        // psfDirPath = other.psfDirPath;
-
+        psfFilePaths = other.psfFilePaths;
         labeledImage = other.labeledImage;
         labelPSFMap = other.labelPSFMap;
         multiplePsfConfigPaths = other.multiplePsfConfigPaths;
-
         savePsf = other.savePsf;
+
+        parameters.clear();
+        registerAllParameters();  // re-register with pointers to our own members
     }
     return *this;
 }
@@ -156,22 +152,22 @@ void SetupConfig::registerAllParameters(){
     // to avoid duplicates, since this override replaces them with deconvolution-specific variants.
     parameters.clear();
 
-    parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", true, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::VectorString, &psfConfigPath, "PSF Config Path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &imagePath, "Image Path", false, "image_path", "-i,--image_path", "Input image path", true, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
     parameters.push_back({ParameterType::FilePath, &backend, "Backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nThreads, "Number of Threads", false, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Int, &nThreads, "Number of Threads", true, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nWorkerThreads, "Number of Worker Threads", true, "n_worker_threads", "--n_worker_threads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nIOThreads, "Number of IO Threads", true, "n_io_threads", "--n_io_threads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nDevices, "Number of Devices", true, "n_devices", "--n_devices", "Number of devices", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Float, &maxMem_GB, "Max Memory (GB)", false, "max_mem_gb", "--max_mem_gb", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Bool, &savePsf, "Save PSF", false, "save_psf", "--save_psf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMem_GB, "Max Memory (GB)", true, "max_mem_gb", "--max_mem_gb", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Bool, &savePsf, "Save PSF", true, "save_psf", "--save_psf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
 
 
-    parameters.push_back({ParameterType::FilePath, &imagePath, "Image Path", false, "image_path", "-i,--image_path", "Input image path", true, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::VectorString, &psfFilePath, "PSF File Path", true, "psf_file_path", "--psf_file_path", "PSF file path", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::VectorString, &multiplePsfConfigPaths, "Multiple PSF Config Path", true, "multiple_psf_config_path", "--psf_config_paths", "PSF config paths", true, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::VectorString, &psfFilePaths, "PSF File Paths", true, "psf_file_paths", "--psf_file_paths", "PSF file paths", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::VectorString, &multiplePsfConfigPaths, "Multiple PSF Config Path", true, "multiple_psf_config_paths", "--multiple_psf_config_paths", "PSF config paths", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &psfConfigPath, "PSF Config Path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
 

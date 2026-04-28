@@ -4,8 +4,62 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/base_sink.h>
+
+#include <functional>
+#include <mutex>
+#include <string>
 
 namespace Logging{
+
+    // Callback type for frontend log integration.
+    // Receives (log level, message string) for every log message.
+    // Note: Called from spdlog's async worker thread — ensure thread safety
+    // in your callback (e.g. dispatch to GUI thread if needed).
+    using LogCallback = std::function<void(spdlog::level::level_enum level, const std::string& message)>;
+
+    // Custom spdlog sink that forwards log messages to a frontend callback.
+    class FrontendSink : public spdlog::sinks::base_sink<std::mutex> {
+    public:
+        FrontendSink() = default;
+        FrontendSink(LogCallback callback) {
+            setCallback(callback);
+        }
+
+        void setCallback(LogCallback callback) {
+            std::lock_guard<std::mutex> lock(this->mutex_);
+            callback_ = std::move(callback);
+        }
+
+    protected:
+        void sink_it_(const spdlog::details::log_msg& msg) override {
+            if (callback_) {
+                callback_(msg.level, std::string(msg.payload.data(), msg.payload.size()));
+            }
+        }
+
+        void flush_() override {}
+
+    private:
+        LogCallback callback_;
+    };
+
+    // Get the shared frontend sink instance (single instance across all TUs).
+    inline std::shared_ptr<FrontendSink> getFrontendSink() {
+        static auto sink = std::make_shared<FrontendSink>();
+        return sink;
+    }
+
+    // Register a frontend callback to receive all log messages.
+    // Can be called before or after init().
+    //   - Before init(): callback is stored and will be used when loggers are created.
+    //   - After init(): callback takes effect immediately on all existing loggers.
+    inline void setFrontendLogCallback(LogCallback callback) {
+        getFrontendSink()->setCallback(std::move(callback));
+    }
+    inline void resetFrontendLogCallback() {
+        getFrontendSink()->setCallback(LogCallback{});
+    }
 
     static void init(){
         static bool isInitialized;
@@ -18,7 +72,12 @@ namespace Logging{
             auto debugLogSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("debug.log", truncate);
             debugLogSink->set_level(spdlog::level::trace);
             consoleSink->set_level(spdlog::level::warn);
-            std::vector<spdlog::sink_ptr> sinks {consoleSink, debugLogSink};
+
+            // Frontend sink — always included, no-op until a callback is set via setFrontendLogCallback()
+            auto frontendSink = getFrontendSink();
+            frontendSink->set_level(spdlog::level::trace);
+
+            std::vector<spdlog::sink_ptr> sinks {consoleSink, debugLogSink, frontendSink};
 
 
             std::unique_ptr<spdlog::pattern_formatter> formatterConsole = std::make_unique<spdlog::pattern_formatter>(

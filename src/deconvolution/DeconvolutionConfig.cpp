@@ -27,13 +27,71 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     lambda(other.lambda),
     paddingFillType(other.paddingFillType),
     paddingStrategyType(other.paddingStrategyType),
+    paddingRelativeMax(other.paddingRelativeMax),
     featheringRadius(other.featheringRadius),
     cubeSize(other.cubeSize),
     cubePadding(other.cubePadding),
     deconvolutionType(other.deconvolutionType)
     {
+        parameters.clear();
         registerAllParameters();
     }
+
+DeconvolutionConfig& DeconvolutionConfig::operator=(const DeconvolutionConfig& other) {
+    if (this != &other) {
+        algorithmName = other.algorithmName;
+        iterations = other.iterations;
+        epsilon = other.epsilon;
+        lambda = other.lambda;
+        paddingFillType = other.paddingFillType;
+        paddingStrategyType = other.paddingStrategyType;
+        paddingRelativeMax = other.paddingRelativeMax;
+        featheringRadius = other.featheringRadius;
+        cubeSize = other.cubeSize;
+        cubePadding = other.cubePadding;
+        deconvolutionType = other.deconvolutionType;
+        parameters.clear();
+        registerAllParameters();
+    }
+    return *this;
+}
+
+DeconvolutionConfig::DeconvolutionConfig(DeconvolutionConfig&& other) noexcept
+    : Config(),
+    algorithmName(std::move(other.algorithmName)),
+    iterations(other.iterations),
+    epsilon(other.epsilon),
+    lambda(other.lambda),
+    paddingFillType(other.paddingFillType),
+    paddingStrategyType(other.paddingStrategyType),
+    paddingRelativeMax(other.paddingRelativeMax),
+    featheringRadius(other.featheringRadius),
+    cubeSize(other.cubeSize),
+    cubePadding(other.cubePadding),
+    deconvolutionType(std::move(other.deconvolutionType))
+    {
+        parameters.clear();
+        registerAllParameters();
+    }
+
+DeconvolutionConfig& DeconvolutionConfig::operator=(DeconvolutionConfig&& other) noexcept {
+    if (this != &other) {
+        algorithmName = std::move(other.algorithmName);
+        iterations = other.iterations;
+        epsilon = other.epsilon;
+        lambda = other.lambda;
+        paddingFillType = other.paddingFillType;
+        paddingStrategyType = other.paddingStrategyType;
+        paddingRelativeMax = other.paddingRelativeMax;
+        featheringRadius = other.featheringRadius;
+        cubeSize = other.cubeSize;
+        cubePadding = other.cubePadding;
+        deconvolutionType = std::move(other.deconvolutionType);
+        parameters.clear();
+        registerAllParameters();
+    }
+    return *this;
+}
 
 
 DeconvolutionConfig DeconvolutionConfig::createFromJSONFile(const std::string& filePath) {
@@ -82,7 +140,7 @@ void DeconvolutionConfig::registerAllParameters() {
     const void* paddingStrategyMap_p = static_cast<const void*>(&paddingStrategyTypeMap);// oh boy
     // Register each parameter as a ConfigParameter struct
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
-    parameters.push_back({ParameterType::StringSelection, &algorithmName, "Algorithm Name", false, "algorithm_name", "--algorithm_name", "Algorithm selection", false, false, 0.0, 0.0, algorithmOptionsVoid});
+    parameters.push_back({ParameterType::StringSelection, &algorithmName, "Algorithm Name", true, "algorithm_name", "--algorithm_name", "Algorithm selection", false, false, 0.0, 0.0, algorithmOptionsVoid});
     parameters.push_back({ParameterType::Int, &iterations, "Iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
     parameters.push_back({ParameterType::Float, &epsilon, "Epsilon", true, "epsilon", "--epsilon", "Epsilon", false, true, 1e-12, 1e-3, nullptr});
     parameters.push_back({ParameterType::Float, &lambda, "Lambda", true, "lambda", "--lambda", "Lambda regularization", false, false, 0.0, 1.0, nullptr});
@@ -91,8 +149,8 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::Float, &paddingRelativeMax, "Padding Relative Max", true, "padding_relative_max", "--padding_relative_max",
         "Pad the image up until the PSF is below this Value * Max value of PSF", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Int, &featheringRadius, "Feathering Radius", true, "feathering_radius", "--feathering_radius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
-    parameters.push_back({ParameterType::IntArray3, &cubeSize, "Cube Size", false, "cube_size", "--cube_size", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
-    parameters.push_back({ParameterType::IntArray3, &cubePadding, "Cube Padding", false, "cube_padding", "--cube_padding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
+    parameters.push_back({ParameterType::IntArray3, &cubeSize, "Cube Size", true, "cube_size", "--cube_size", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
+    parameters.push_back({ParameterType::IntArray3, &cubePadding, "Cube Padding", true, "cube_padding", "--cube_padding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::String, &deconvolutionType, "Deconvolution Type", true, "deconvolution_type", "--deconvolution_type", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
 
 }

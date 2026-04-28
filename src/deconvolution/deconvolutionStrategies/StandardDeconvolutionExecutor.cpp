@@ -32,8 +32,8 @@ StandardDeconvolutionExecutor::StandardDeconvolutionExecutor(){
 StandardDeconvolutionExecutor::~StandardDeconvolutionExecutor(){
 }
 
-void StandardDeconvolutionExecutor::execute(const DeconvolutionPlan& plan) {
-    parallelDeconvolution(plan);
+void StandardDeconvolutionExecutor::execute(DeconvolutionPlan plan) {
+    parallelDeconvolution(std::move(plan));
 }
 
 void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) {
@@ -43,7 +43,7 @@ void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig, co
 
 void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
-    TaskContext* context = task.context.get();
+    std::shared_ptr<TaskContext> context = task.context;
     // thread_local IBackend& iodevice = context->iodevice.cloneSharedMemory();
     thread_local IBackend& iobackend = context->manager.getBackend(context->ioconfig);
     thread_local IBackend& workerbackend = context->manager.cloneSharedMemory(iobackend, context->workerconfig); // copied in deconvolutionprocessor
@@ -95,13 +95,13 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
 
 std::function<void()> StandardDeconvolutionExecutor::createTask(
-    const std::unique_ptr<CubeTaskDescriptor>& taskDesc) {
+    CubeTaskDescriptor& taskDesc) {
 
-    return [this, task = *taskDesc]() {
+    return [this, &taskDesc]() {
 
-        TaskContext* context = task.context.get();
+        std::shared_ptr<TaskContext> context = taskDesc.context;
         try {
-            runTask(task);
+            runTask(taskDesc);
         }
         catch (const dolphin::backend::MemoryException& e){
             // log the exception,  then enqueue the task in another thread, while this thread simply waits for the result
@@ -112,7 +112,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
             bool noMoreWorkers = context->ioPool.reduceActiveWorkers(1); // marks self as waiting
 
             if (noMoreWorkers) throw std::runtime_error("Can't fit a single cube for deconvolution onto the device");
-            context->ioPool.enqueue(createTask(std::make_unique<CubeTaskDescriptor>(task))).get();
+            context->ioPool.enqueue(createTask(taskDesc));
             bool maxReached = context->ioPool.reduceNumberThreads(1);
             if (maxReached) throw std::runtime_error("Can't fit a single cube for deconvolution onto the device");
         }
@@ -126,20 +126,18 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
 
 
 void StandardDeconvolutionExecutor::parallelDeconvolution(
-    const DeconvolutionPlan& channelPlan) {
+    DeconvolutionPlan channelPlan) {
 
     std::vector<std::future<void>> runningTasks;
     loadingBar.setMax(channelPlan.totalTasks);
 
-    for (const std::unique_ptr<CubeTaskDescriptor>& task : channelPlan.tasks) {
-
-
-        std::function<void()> threadtask = createTask(task);
-        runningTasks.push_back(task->context->ioPool.enqueue(threadtask));
+    for (auto& task : channelPlan.tasks){
+        std::shared_ptr<TaskContext> context = task->context;
+        std::function<void()> threadtask = createTask(*task);
+        runningTasks.push_back(context->ioPool.enqueue(threadtask));
     }
 
     // Wait for all remaining tasks to finish
-
     for (auto& f : runningTasks)
         f.get();
 }

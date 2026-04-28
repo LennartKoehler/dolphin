@@ -63,7 +63,14 @@ PSF GaussianPSFGenerator::generatePSF() const {
 
     // Generate Gaussian PSF values
     double sum = 0.0;
+
+    int max = width * height * layers;
+    progressTracker.setMax(max);
+    int counter = 0;
+
     for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
+        counter ++;
+
         ImageType::IndexType index = it.GetIndex();
         int x = index[0];
         int y = index[1];
@@ -77,6 +84,11 @@ PSF GaussianPSFGenerator::generatePSF() const {
         float value = static_cast<float>(exp(-0.5 * (dx * dx + dy * dy + dz * dz)));
         it.Set(value);
         sum += value;
+
+
+        if (counter % (max / 20) == 0){
+            progressTracker.add(static_cast<float>(max)/20);
+        }
     }
 
     // Normalize the PSF so that the sum of all values is 1

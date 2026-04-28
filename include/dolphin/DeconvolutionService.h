@@ -13,7 +13,9 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
+#include "dolphin/ProgressTracking.h"
 #include "dolphin/ServiceAbstractions.h"
+#include <algorithm>
 #include <memory>
 
 // Forward declarations
@@ -33,7 +35,7 @@ public:
     // IDeconvolutionService interface
     std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request);
 
-    virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request);
+    // virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request);
 
 
 
@@ -69,13 +71,12 @@ private:
     // PSF package management
     std::vector<PSF> createPSFsFromSetup(
         std::shared_ptr<SetupConfig> setupConfig,
-        const CuboidShape& imageShape);
+        const CuboidShape& imageShape,
+        std::shared_ptr<ThreadPool> threadPool);
 
+    progressCallbackFn progressCallback;
 
     // Configuration
     bool initialized_;
     std::shared_ptr<spdlog::logger> logger_;
-
-    // Multithreading
-    std::unique_ptr<ThreadPool> thread_pool_;
 };

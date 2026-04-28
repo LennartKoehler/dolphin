@@ -30,7 +30,9 @@ See the LICENSE file provided with the code for the full license.
 
 
 static std::function<std::function<void(const std::string&, LogLevel)>(const std::string&)> logWrapper = [](const std::string& backendName){
+
     std::function<void(const std::string&, LogLevel)> logCallback_fn = [backendName](const std::string& backendMessage, LogLevel level){
+
         std::string msg = backendName + ": " + backendMessage;
         switch(level){
         case LogLevel::INFO:

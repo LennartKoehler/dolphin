@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/psf/PSF.h"
 #include "dolphin/ProgressTracking.h"
+#include <thread>
 
 class PSFConfig;
 class ThreadPool;
@@ -26,11 +27,14 @@ public:
     virtual PSF generatePSF() const = 0;
     virtual void setConfig(const std::shared_ptr<const PSFConfig> config) = 0; // LK i tihnk this can maybe be defined in the base class
 	virtual bool hasConfig() = 0; // TODO this could probably implemented in the base class when i also set a abstract shared_ptr<PSFConfig> in the base class (here);
-    inline void setThreadPool(ThreadPool* threadPool){ this->threadPool = threadPool;};
-    void setProgressCallbackFn(progressCallbackFn fn) { processTracker.setCallback(fn);}
+    inline void configure(std::shared_ptr<ThreadPool> threadpool, progressCallbackFn fn) {
+        progressTracker.setCallback(fn);
+        this->threadPool = threadpool;
+    }
 protected:
-    ProgressTracking processTracker;
-    ThreadPool* threadPool;
+    mutable ProgressTracking progressTracker;
+    std::shared_ptr<ThreadPool> threadPool;
+    bool isConfigured;
 };
 
 

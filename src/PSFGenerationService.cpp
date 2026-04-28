@@ -12,6 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/PSFGenerationService.h"
+#include "dolphin/Logging.h"
 #include "dolphin/PSFCreator.h"
 #include "dolphin/ProgressTracking.h"
 #include "dolphin/psf/PSFGeneratorFactory.h"
@@ -25,8 +26,7 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/spdlog.h>
 
 PSFGenerationService::PSFGenerationService()
-    : initialized_(false),
-      thread_pool_(std::make_unique<ThreadPool>(8)){}//TODO dynamic number of threads
+    : initialized_(false){}
 
 PSFGenerationService::~PSFGenerationService() {
     shutdown();
@@ -62,7 +62,7 @@ void PSFGenerationService::shutdown() {
 
     generator_factory_ = nullptr;  // Raw pointer, just set to nullptr
     initialized_ = false;
-    logger_->info("PSF Generation Service shut down successfully");
+    logger_->debug("PSF Generation Service shut down successfully");
 }
 
 std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSFGenerationRequest& request) {
@@ -72,16 +72,20 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         if (!initialized_) {
             throw std::runtime_error("PSF Generation Service not initialized");
         }
+        Logging::setFrontendLogCallback(request.getFrontendLogging());
 
         logger_->info("Generating PSF with request");
 
         // PSF Generation logic based on request type
         std::shared_ptr<PSF> psf;
+        std::shared_ptr<SetupConfigPSF> setupConfig = request.getConfig();
+
+        std::shared_ptr<ThreadPool> localThreadPool = std::make_shared<ThreadPool>(setupConfig->nThreads);
 
         // Check PSF config path
-        if (!request.setupConfig->psfConfigPath.empty()) {
-            logger_->info("Generating PSF from config file path: " + request.setupConfig->psfConfigPath);
-            psf = createPSFFromFilePathInternal(request.setupConfig->psfConfigPath, request.getProgressCallback());
+        if (!request.getConfig()->psfConfigPath.empty()) {
+            logger_->info("Generating PSF from config file path: " + request.getConfig()->psfConfigPath);
+            psf = createPSFFromFilePathInternal(request.getConfig()->psfConfigPath, request.getProgressCallback(), localThreadPool);
         }
 
         if (!psf) {
@@ -91,8 +95,8 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         std::string output_file;
 
         // Handle saving if requested
-        if (!request.setupConfig->outputPath.empty()) {
-            output_file = savePSF(request.setupConfig->outputPath, psf);
+        if (!request.getConfig()->outputPath.empty()) {
+            output_file = savePSF(request.getConfig()->outputPath, psf);
 
             // // if a config was not provided by file the generated psfconfig is saved next
             // // to the psf otherwise you already have the config somewhere, no need to save it
@@ -111,6 +115,9 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         result->psf = psf;
         result->generated_path = output_file;
 
+        logger_->flush();
+
+        Logging::resetFrontendLogCallback();
         return result;
 
     } catch (const std::exception& e) {
@@ -123,11 +130,11 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
     }
 }
 
-std::future<std::unique_ptr<PSFGenerationResult>> PSFGenerationService::generatePSFAsync(const PSFGenerationRequest& request){
-    return thread_pool_->enqueue([this, request](){
-        return generatePSF(request);
-    });
-}
+// std::future<std::unique_ptr<PSFGenerationResult>> PSFGenerationService::generatePSFAsync(const PSFGenerationRequest& request){
+//     return thread_pool_->enqueue([this, request](){
+//         return generatePSF(request);
+//     });
+// }
 
 std::vector<std::string> PSFGenerationService::getSupportedPSFTypes() const {
     return supported_types_;
@@ -159,10 +166,13 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::createResult(
     return result;
 }
 
-std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(std::shared_ptr<PSFConfig> psfConfig, progressCallbackFn fn) {
+std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(
+    std::shared_ptr<PSFConfig> psfConfig,
+    progressCallbackFn fn,
+    std::shared_ptr<ThreadPool> threadPool) {
     try {
         logger_->info("Creating PSF from config using PSFConfig");
-        return std::make_unique<PSF>(PSFCreator::generatePSFFromPSFConfig(psfConfig, thread_pool_.get()));
+        return std::make_unique<PSF>(PSFCreator::generatePSFFromPSFConfig(psfConfig, threadPool, fn));
     } catch (const std::exception& e) {
         std::string error_msg = "Failed to create PSF from config: " + std::string(e.what());
         logger_->error(error_msg);
@@ -170,12 +180,14 @@ std::unique_ptr<PSF> PSFGenerationService::createPSFFromConfigInternal(std::shar
     }
 }
 
-std::unique_ptr<PSF> PSFGenerationService::createPSFFromFilePathInternal(const std::string& path, progressCallbackFn fn) {
+std::unique_ptr<PSF> PSFGenerationService::createPSFFromFilePathInternal(
+    const std::string& path,
+    progressCallbackFn fn,
+    std::shared_ptr<ThreadPool> threadPool) {
     try {
         logger_->info("Creating PSF from file path using PSFCreator: " + path);
         std::shared_ptr<PSFConfig> config = PSFCreator::generatePSFConfigFromConfigPath(path);
-        return std::make_unique<PSF>(PSFCreator::generatePSFFromPSFConfig(config, thread_pool_.get()));
-
+        return createPSFFromConfigInternal(config, fn, threadPool);
     } catch (const std::exception& e) {
 
         std::string error_msg = "Failed to create PSF from file: " + std::string(e.what());

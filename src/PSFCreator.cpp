@@ -13,7 +13,9 @@ See the LICENSE file provided with the code for the full license.
 
 
 #include "dolphin/PSFCreator.h"
+#include "dolphin/ProgressTracking.h"
 #include "dolphin/psf/PSFGeneratorFactory.h"
+#include "dolphin/psf/generators/BasePSFGenerator.h"
 #include <fstream>
 #include <cassert>
 #include <sstream>
@@ -36,9 +38,9 @@ std::vector<std::shared_ptr<PSFConfig>> PSFCreator::generatePSFConfigsFromConfig
     std::vector<std::shared_ptr<PSFConfig>> psfsConfigs;
     for(const auto&  configpath : paths){
         std::shared_ptr<PSFConfig> temp = generatePSFConfigFromConfigPath(configpath);
-        temp->sizeX = overrideShape.width;
-        temp->sizeY = overrideShape.height;
-        temp->sizeZ = overrideShape.depth;
+        temp->sizeY = std::max(overrideShape.height, temp->sizeY);
+        temp->sizeX = std::max(overrideShape.width, temp->sizeX);
+        temp->sizeZ = std::max(overrideShape.depth, temp->sizeZ);
         psfsConfigs.push_back(temp);
     }
     return psfsConfigs;
@@ -89,11 +91,13 @@ std::vector<PSF> PSFCreator::readPSFsFromFilePath(const std::vector<std::string>
     return psfs;
 }
 
-PSF PSFCreator::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, ThreadPool* threadPool){
+
+PSF PSFCreator::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, std::shared_ptr<ThreadPool> threadPool, progressCallbackFn fn){
 
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(psfConfig);
-    psfGenerator->setThreadPool(threadPool);
+    psfGenerator->configure(threadPool, fn);
+    spdlog::info("Generating PSF of type {} with ID: {}", psfConfig->getModelName(), psfConfig->ID);
     PSF psf = psfGenerator->generatePSF();
     psf.ID = psfConfig->ID;
     spdlog::info("Successfully created PSF of type {} with ID: {}", psfConfig->getModelName(), psf.ID);

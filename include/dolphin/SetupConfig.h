@@ -58,7 +58,7 @@ public:
     std::string labeledImage;
     std::string labelPSFMap;
     std::string imagePath;
-    std::vector<std::string> psfFilePath;
+    std::vector<std::string> psfFilePaths;
     std::vector<std::string> multiplePsfConfigPaths;
     bool savePsf = false;
 private:
