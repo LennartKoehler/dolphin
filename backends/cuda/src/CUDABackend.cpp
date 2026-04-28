@@ -505,11 +505,6 @@ cufftHandle CUDADeconvolutionBackend::initializePlan(const PlanDescription& desc
 
         CUFFT_CHECK(cufftSetStream(newPlan, config.stream), "getPlan - stream setup");
 
-        g_logger_cuda(std::format("Successfully created cuFFT plan for shape: {}x{}x{} direction: {} type: {}",
-            shape.width, shape.height, shape.depth,
-            (description.direction == PlanDirection::FORWARD ? "FORWARD" : "BACKWARD"),
-            (description.type == PlanType::REAL ? "REAL" : "COMPLEX")), LogLevel::DEBUG);
-
         // Synchronize to ensure plan is ready
         cudaError_t err = cudaStreamSynchronize(config.stream);
         CUDA_CHECK(err, "getPlan - cudaStreamSynchronize");

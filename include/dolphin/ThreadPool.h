@@ -22,15 +22,15 @@ See the LICENSE file provided with the code for the full license.
 class ThreadPool {
 public:
     ThreadPool(size_t numThreads = 1, std::function<void()> threadInitFunc = [](){});
-    
+
     template<class F, class... Args>
     auto enqueue(F&& f, Args&&... args) -> std::future<typename std::result_of<F(Args...)>::type> {
         using return_type = typename std::result_of<F(Args...)>::type;
-        
+
         std::shared_ptr<std::packaged_task<return_type()>> task = std::make_shared<std::packaged_task<return_type()>>(
             std::bind(std::forward<F>(f), std::forward<Args>(args)...)
         );
-        
+
         std::future<return_type> res = task->get_future();
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);
@@ -45,7 +45,7 @@ public:
         condition.notify_one();
         return res;
     }
-    
+
     ~ThreadPool();
     void setCondition(std::function<bool()> condition);
     size_t queueSize(){ return tasks.size(); } // remember you have to lock the tasks_mutex
@@ -60,9 +60,10 @@ private:
     std::atomic<int> activeWorkers;
     std::queue<std::function<void()>> tasks;
     std::mutex tasks_mutex;
+    std::mutex reduce_threads;
     std::condition_variable condition;
     std::condition_variable queueSpace;
-    
+
     bool stop;
 
     std::function<bool()> newTaskCondition;

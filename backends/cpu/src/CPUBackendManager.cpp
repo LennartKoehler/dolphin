@@ -77,15 +77,25 @@ void CPUBackendManager::setThreadDistribution(const size_t& totalThreads, size_t
 
 //------------------------------------------
 FFTWManager::FFTWManager(FFTWWisdomManager wisdomManager) : wisdomManager_(wisdomManager) {
-    fftwf_init_threads();
-    // Import existing wisdom on startup
-    wisdomManager_.importWisdom();
 }
 
 FFTWManager::~FFTWManager() {
-    // Export wisdom on shutdown to save optimized plans for future runs
+    if (!didInit_.load(std::memory_order_acquire)) return;
+
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    destroyFFTPlans();
     wisdomManager_.exportWisdom();
     fftwf_cleanup_threads();
+}
+
+std::once_flag FFTWManager::initFlag_;
+
+void FFTWManager::init(){
+    std::call_once(initFlag_, [this]{
+        fftwf_init_threads();
+        wisdomManager_.importWisdom();
+        didInit_.store(true, std::memory_order_release);
+    });
 }
 
 
@@ -353,35 +363,42 @@ fftwf_plan FFTWManager::initializePlan(const FFTWPlanDescription& description) {
 
 
 void FFTWManager::destroyFFTPlans() {
-    std::unique_lock<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_);
     for (auto& plan : fftwPlans) {
         fftwf_destroy_plan(plan.plan);
     }
+    fftwPlans.clear();
 }
 
 const fftwf_plan* FFTWManager::findPlan(const FFTWPlanDescription& description) {
+    init();
 
-    for (FFTWPlan& plan : fftwPlans){
+    // Fast path: shared lock for read-only lookup
+    {
+        std::shared_lock<std::shared_mutex> lock(mutex_);
+        for (const FFTWPlan& plan : fftwPlans){
+            if (plan.description == description){
+                return &plan.plan;
+            }
+        }
+    }
+
+    // Slow path: exclusive lock for double-check + plan creation
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    for (const FFTWPlan& plan : fftwPlans){
         if (plan.description == description){
             return &plan.plan;
         }
     }
 
-    std::unique_lock<std::mutex> lock(mutex_);
-    for (FFTWPlan& plan : fftwPlans){
-        if (plan.description == description){
-            return &plan.plan;
-        }
-    }
-
-    // Create new plan and store it in the map
+    // Create new plan and store it
     fftwf_plan newPlan;
     if (description.type == PlanType::COMPLEX) newPlan = initializePlan(description);
     else if (description.type == PlanType::REAL && description.direction == PlanDirection::FORWARD) newPlan = initializePlanRealToComplex(description);
     else if (description.type == PlanType::REAL && description.direction == PlanDirection::BACKWARD) newPlan = initializePlanComplexToReal(description);
     FFTWPlan plan{ std::move(newPlan), description };
     fftwPlans.push_back(std::move(plan));
-    return &fftwPlans.back().plan;  // Return reference to the stored plan
+    return &fftwPlans.back().plan;
 }
 
 

@@ -85,6 +85,7 @@ bool ThreadPool::reduceActiveWorkers(int amount){
 //TODO messy function, technically the thread isnt deactivated yet, but in executor it just waits,
 // move the deactivation to the deconvolution
 bool ThreadPool::reduceNumberThreads(int amount){
+    std::lock_guard lock(reduce_threads);
 
     if (stopThreads == 0){
         stopThreads += amount;

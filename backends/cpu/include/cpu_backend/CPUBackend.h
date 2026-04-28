@@ -24,7 +24,7 @@ struct FFTWPlanDescription : public PlanDescription{
         ompThreads(ompThreads),
         PlanDescription(direction, type, shape, inPlace){}
 
-    bool operator==(const FFTWPlanDescription& other) {
+    bool operator==(const FFTWPlanDescription& other) const {
         return (PlanDescription::operator==(other) && ompThreads == other.ompThreads);
     }
 };
