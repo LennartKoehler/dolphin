@@ -61,7 +61,7 @@ struct CPUBackendConfig{
 
 class CPUBackendMemoryManager : public IBackendMemoryManager{
 public:
-    CPUBackendMemoryManager(CPUBackendConfig config);
+    CPUBackendMemoryManager(CPUBackendConfig config, MemoryTracking& memoryTracking);
 
     ~CPUBackendMemoryManager();
 
@@ -135,14 +135,14 @@ private:
     void* allocateMemoryOnDevice(size_t size) const override;
 
     void waitForMemory(size_t requiredSize) const;
-    static MemoryTracking cpuMemory; //static because currently only supports one device
+    MemoryTracking& memory; //static because currently only supports one device
 
 };
 
 
 class CPUDeconvolutionBackend : public IDeconvolutionBackend{
 public:
-    CPUDeconvolutionBackend(CPUBackendConfig config);
+    CPUDeconvolutionBackend(CPUBackendConfig config, FFTWManager& manager);
     ~CPUDeconvolutionBackend() override;
 
     // Override device type method
@@ -203,7 +203,7 @@ public:
     void normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const override;
 
 private:
-    static FFTWManager fftwManager;
+    FFTWManager& fftwManager;
     CPUBackendConfig config;
 };
 
@@ -215,9 +215,9 @@ class CPUBackend : public IBackend {
     friend class CPUBackendManager;
 private:
 
-    static CPUBackend* create(CPUBackendConfig config) {
-        auto deconv = std::make_unique<CPUDeconvolutionBackend>(config);
-        auto memoryManager = std::make_unique<CPUBackendMemoryManager>(config);
+    static CPUBackend* create(CPUBackendConfig config, FFTWManager& fftwManager, MemoryTracking& memory) {
+        auto deconv = std::make_unique<CPUDeconvolutionBackend>(config, fftwManager);
+        auto memoryManager = std::make_unique<CPUBackendMemoryManager>(config, memory);
         return new CPUBackend(std::move(deconv), std::move(memoryManager), config);
     }
 

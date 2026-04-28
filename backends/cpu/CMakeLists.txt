@@ -9,6 +9,16 @@ project(CPUBackend VERSION 1.0.0)
 if (NOT DEFINED FFTW_PATH)
     set(FFTW_PATH "/usr/local/fftw-debug/lib" CACHE PATH "Path to FFTW installation")
 endif()
+
+# FFTW wisdom file path - can be customized for different operating systems
+# Default: "~/.fftw/wisdom" on Unix, ".fftw/wisdom" in user directory on Windows
+if (NOT DEFINED FFTW_WISDOM_PATH)
+    if (WIN32)
+        set(FFTW_WISDOM_PATH ".fftw/wisdom" CACHE PATH "Path to FFTW wisdom file")
+    else()
+        set(FFTW_WISDOM_PATH "~/.cache/dolphin/fftw/wisdom" CACHE PATH "Path to FFTW wisdom file")
+    endif()
+endif()
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
 
@@ -57,6 +67,12 @@ endif()
 
 target_link_libraries(cpu_backend PUBLIC
     project_options)
+
+# Define FFTW wisdom file path as a compile definition
+# Can be overridden at build time with -DFFTW_WISDOM_PATH="custom/path"
+target_compile_definitions(cpu_backend PRIVATE
+    FFTW_WISDOM_PATH="${FFTW_WISDOM_PATH}"
+)
 
 target_link_libraries(cpu_backend PUBLIC
     dolphinbackend)

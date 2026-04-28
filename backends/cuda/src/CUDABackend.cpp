@@ -228,7 +228,7 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
     // Update memory tracking using getAccess()
     auto access = getMemoryTracking()->getAccess();
 
-    g_logger_cuda(std::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::INFO);
+    g_logger_cuda(std::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::DEBUG);
     access.data.totalUsedMemory += requested_size;
 
     return devicePtr;
@@ -283,7 +283,7 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const 
     } else {
         access.data.totalUsedMemory -= size;
     }
-    g_logger_cuda(std::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::INFO);
+    g_logger_cuda(std::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::DEBUG);
 
     ptr = nullptr;
 }
@@ -401,7 +401,7 @@ void CUDADeconvolutionBackend::createPlanRealToComplex(cufftHandle& plan, const 
             description.shape.width, description.shape.height, description.shape.depth
         );
 
-        g_logger_cuda(msg, LogLevel::INFO);
+        g_logger_cuda(msg, LogLevel::DEBUG);
 
     }
     catch (...) {
@@ -470,7 +470,7 @@ void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const 
             description.shape.width, description.shape.height, description.shape.depth
         );
 
-        g_logger_cuda(msg, LogLevel::INFO);
+        g_logger_cuda(msg, LogLevel::DEBUG);
 
     }
     catch (...) {

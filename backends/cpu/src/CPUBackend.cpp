@@ -155,21 +155,32 @@ void stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& func) {
 
 
 
-// if more than one backend then these shouldnt be static
-FFTWManager CPUDeconvolutionBackend::fftwManager;
-MemoryTracking CPUBackendMemoryManager::cpuMemory;
 
+// Provide a log() function instead of a global std::function to avoid the
+// static destruction order fiasco. The FFTWManager destructor (and others)
+// may call log() during static shutdown, after global std::function objects
+// have already been destroyed. A heap-allocated (intentionally leaked) function
+// is never destroyed, so captured state (including copied backendName) remains valid.
 
-LogCallback g_logger =[](const std::string& message, LogLevel level){
-    std::cout << message << std::endl;
-};
+LogCallback& getGlobalLogger() {
+    static LogCallback* cb = new LogCallback([](const std::string& message, LogLevel level){
+        std::cout << message << std::endl;
+    });
+    return *cb;
+}
+
+void log(const std::string& message, LogLevel level) {
+    auto& cb = getGlobalLogger();
+    if (cb) cb(message, level);
+}
 
 
 // CPUBackendMemoryManager implementation
-CPUBackendMemoryManager::CPUBackendMemoryManager(CPUBackendConfig config){
+CPUBackendMemoryManager::CPUBackendMemoryManager(CPUBackendConfig config, MemoryTracking& memory)
+    : memory(memory){
 
     // Initialize memory tracking using getAccess()
-    auto access = cpuMemory.getAccess();
+    auto access = memory.getAccess();
     if (access.data.maxMemorySize == 0) {
         access.data.maxMemorySize = getAvailableMemory();
     }
@@ -203,16 +214,16 @@ size_t CPUBackendMemoryManager::staticGetAvailableMemory() {
     return memory;
 }
 void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
-    auto access = cpuMemory.getAccess();
+    auto access = memory.getAccess();
     access.data.maxMemorySize = maxMemorySize;
 }
 
 void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
-    auto access = cpuMemory.getAccess();
+    auto access = memory.getAccess();
     if ((access.data.totalUsedMemory + requiredSize) > access.data.maxMemorySize) {
 
         throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CPU", requiredSize, "Memory Allocation");
-        // g_logger(std::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::ERROR);
+        // log(std::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::ERROR);
     }
     // backend.memory.memoryCondition.wait(lock, [this, requiredSize]() {
     //     return backend.memory.maxMemorySize == 0 || (backend.memory.totalUsedMemory + requiredSize) <= backend.memory.maxMemorySize;
@@ -291,9 +302,9 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
     MEMORY_ALLOC_CHECK(data, requested_size, "CPU", "allocateMemoryOnDevice");
 
     // Update memory tracking using getAccess()
-    auto access = cpuMemory.getAccess();
+    auto access = memory.getAccess();
     access.data.totalUsedMemory += requested_size;
-    g_logger(std::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::INFO);
+    log(std::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::DEBUG);
     return data;
 
 }
@@ -333,7 +344,7 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
     fftwf_free(ptr);
 
     // Update memory tracking using getAccess()
-    auto access = cpuMemory.getAccess();
+    auto access = memory.getAccess();
     if (access.data.totalUsedMemory < size) {
         access.data.totalUsedMemory = static_cast<size_t>(0); // this should never happen
     }
@@ -342,7 +353,7 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
     }
 
     ptr = nullptr;
-    g_logger(std::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::INFO);
+    log(std::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::DEBUG);
 }
 
 
@@ -352,21 +363,22 @@ size_t CPUBackendMemoryManager::getAvailableMemory() const {
         return staticGetAvailableMemory();
     }
     catch (const std::exception& e) {
-        g_logger(std::format("Exception in getAvailableMemory: {}", e.what()), LogLevel::ERROR);
+        log(std::format("Exception in getAvailableMemory: {}", e.what()), LogLevel::ERROR);
         throw; // Re-throw to propagate the exception
     }
 }
 
 size_t CPUBackendMemoryManager::getAllocatedMemory() const {
-    auto access = cpuMemory.getAccess();
+    auto access = memory.getAccess();
     return access.data.totalUsedMemory;
 }
 
 
 // #####################################################################################################
 // CPUDeconvolutionBackend implementation
-CPUDeconvolutionBackend::CPUDeconvolutionBackend(CPUBackendConfig config)
-    : config(config) {
+CPUDeconvolutionBackend::CPUDeconvolutionBackend(CPUBackendConfig config, FFTWManager& manager)
+    : config(config),
+    fftwManager(manager){
 
 
     #ifdef  _OPENMP
@@ -804,12 +816,12 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
                 if (std::isnan(rv) || std::isnan(iv)) {
                     nanCount++;
                     if (nanCount <= 10)
-                        g_logger(std::format("NaN at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::INFO);
+                        log(std::format("NaN at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::DEBUG);
                 }
                 if (std::isinf(rv) || std::isinf(iv)) {
                     infCount++;
                     if (infCount <= 10)
-                        g_logger(std::format("Inf at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::INFO);
+                        log(std::format("Inf at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::DEBUG);
                 }
                 if (std::isfinite(rv)) {
                     minReal = std::min(minReal, rv);
@@ -823,9 +835,9 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
         }
     }
 
-    g_logger(std::format("Data stats - NaN: {}, Inf: {}", nanCount, infCount), LogLevel::INFO);
-    g_logger(std::format("Real range: [{}, {}]", minReal, maxReal), LogLevel::INFO);
-    g_logger(std::format("Imag range: [{}, {}]", minImag, maxImag), LogLevel::INFO);
+    log(std::format("Data stats - NaN: {}, Inf: {}", nanCount, infCount), LogLevel::DEBUG);
+    log(std::format("Real range: [{}, {}]", minReal, maxReal), LogLevel::DEBUG);
+    log(std::format("Imag range: [{}, {}]", minImag, maxImag), LogLevel::DEBUG);
 }
 
 
