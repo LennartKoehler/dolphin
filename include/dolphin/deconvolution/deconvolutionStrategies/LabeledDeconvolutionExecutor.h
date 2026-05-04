@@ -12,6 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
+#include "dolphin/Image3D.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/psf/PSF.h"
@@ -26,6 +27,9 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IBackendMemoryManager.h"
+#include <itkImage.h>
+
+using featheringKernelPreprocessingFunction = std::function<std::unique_ptr<ComplexData>(const CuboidShape, std::shared_ptr<PSF>, IBackend&)>;
 
 /*
 DeconvnolutionExecutor that takes a labelimage. This allows for different psfs for different parts of the image.
@@ -46,23 +50,41 @@ public:
 protected:
     void runTask(const CubeTaskDescriptor& task) override;
 
-    void makeMasksWeighted(
-        std::vector<Label>& labels,
+    std::shared_ptr<PSF> createGaussianKernel(int featheringRadius);
+
+    std::vector<Label<RealData>> makeMasksWeighted(
+        std::vector<Label<Image3D>>& labels,
         const Image3D& labelImage,
         const ComplexData& frequencyFeatheringKernel,
         IBackend& backend) const ;
 
-    std::vector<Label> getLabelGroups(
-		const BoxCoord& roi,
+    std::vector<Label<Image3D>> getLabelGroups(
 		const std::vector<std::shared_ptr<PSF>>& psfs,
 		const Image3D& image,
 		RangeMap<std::string> psfLabelMap);
-
-    std::vector<std::shared_ptr<PSF>> getPSFForLabel(Range<std::string>& psfids, const std::vector<std::shared_ptr<PSF>>& psfs);
 
     RangeMap<std::string> psfLabelMap;
     std::unique_ptr<ImageReader> labelReader;
 
 
     int featheringRadius = 0;
+};
+
+class CreateMasksOperation : public IConstImageOperation{
+public:
+    CreateMasksOperation(const CuboidShape& maskSize, std::vector<std::shared_ptr<PSF>> psfs, RangeMap<std::string> psfLabelMap)
+        : maskSize(maskSize), psfs(psfs), psfLabelMap(psfLabelMap){}
+    void operator()(size_t pixelIndex, float pixelValue) override;
+    std::vector<Label<Image3D>> getLabels();
+
+private:
+
+
+    std::vector<std::pair<std::vector<std::string>, Label<Image3D>>> masks;
+    int maskIndex = 0;
+    int lastLabel = -1; // there should be no negative labelvalues
+    CuboidShape maskSize;
+    RangeMap<std::string> psfLabelMap;
+    std::vector<std::shared_ptr<PSF>> psfs;
+
 };
