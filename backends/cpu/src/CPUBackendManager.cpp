@@ -82,7 +82,6 @@ FFTWManager::FFTWManager(FFTWWisdomManager wisdomManager) : wisdomManager_(wisdo
 FFTWManager::~FFTWManager() {
     if (!didInit_.load(std::memory_order_acquire)) return;
 
-    std::unique_lock<std::shared_mutex> lock(mutex_);
     destroyFFTPlans();
     wisdomManager_.exportWisdom();
     fftwf_cleanup_threads();

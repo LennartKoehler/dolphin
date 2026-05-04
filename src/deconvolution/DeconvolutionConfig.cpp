@@ -30,8 +30,7 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     paddingRelativeMax(other.paddingRelativeMax),
     featheringRadius(other.featheringRadius),
     cubeSize(other.cubeSize),
-    cubePadding(other.cubePadding),
-    deconvolutionType(other.deconvolutionType)
+    cubePadding(other.cubePadding)
     {
         parameters.clear();
         registerAllParameters();
@@ -49,7 +48,6 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(const DeconvolutionConfig& o
         featheringRadius = other.featheringRadius;
         cubeSize = other.cubeSize;
         cubePadding = other.cubePadding;
-        deconvolutionType = other.deconvolutionType;
         parameters.clear();
         registerAllParameters();
     }
@@ -67,8 +65,7 @@ DeconvolutionConfig::DeconvolutionConfig(DeconvolutionConfig&& other) noexcept
     paddingRelativeMax(other.paddingRelativeMax),
     featheringRadius(other.featheringRadius),
     cubeSize(other.cubeSize),
-    cubePadding(other.cubePadding),
-    deconvolutionType(std::move(other.deconvolutionType))
+    cubePadding(other.cubePadding)
     {
         parameters.clear();
         registerAllParameters();
@@ -86,7 +83,6 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(DeconvolutionConfig&& other)
         featheringRadius = other.featheringRadius;
         cubeSize = other.cubeSize;
         cubePadding = other.cubePadding;
-        deconvolutionType = std::move(other.deconvolutionType);
         parameters.clear();
         registerAllParameters();
     }
@@ -151,6 +147,7 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::Int, &featheringRadius, "Feathering Radius", true, "feathering_radius", "--feathering_radius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
     parameters.push_back({ParameterType::IntArray3, &cubeSize, "Cube Size", true, "cube_size", "--cube_size", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::IntArray3, &cubePadding, "Cube Padding", true, "cube_padding", "--cube_padding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
-    parameters.push_back({ParameterType::String, &deconvolutionType, "Deconvolution Type", true, "deconvolution_type", "--deconvolution_type", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
+    // its labeled if the labeled image is given
+    // parameters.push_back({ParameterType::String, &deconvolutionType, "Deconvolution Type", true, "deconvolution_type", "--deconvolution_type", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
 
 }

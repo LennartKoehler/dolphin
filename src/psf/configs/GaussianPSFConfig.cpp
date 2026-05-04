@@ -24,6 +24,21 @@ GaussianPSFConfig::GaussianPSFConfig() : PSFConfig() {
     registerAllParameters();
 }
 
+GaussianPSFConfig::GaussianPSFConfig(float qualityFactor, float sigmaX, float sigmaY, float sigmaZ,
+                                      float nanometerScale, float pixelScaling,
+                                      int sizeX, int sizeY, int sizeZ,
+                                      float NA, float resLateral_nm, float resAxial_nm)
+    : PSFConfig(sizeX, sizeY, sizeZ, NA, resLateral_nm, resAxial_nm),
+      qualityFactor(qualityFactor),
+      sigmaX(sigmaX),
+      sigmaY(sigmaY),
+      sigmaZ(sigmaZ),
+      nanometerScale(nanometerScale),
+      pixelScaling(pixelScaling)
+{
+    psfModelName = "Gaussian";
+    registerAllParameters();
+}
 
 GaussianPSFConfig::GaussianPSFConfig(const GaussianPSFConfig& other)
     : PSFConfig(other){
@@ -33,8 +48,6 @@ GaussianPSFConfig::GaussianPSFConfig(const GaussianPSFConfig& other)
     sigmaZ = other.sigmaZ;
     nanometerScale = other.nanometerScale;
     pixelScaling = other.pixelScaling;
-    psfLayers = other.psfLayers;
-    psfCubes = other.psfCubes;
     // dont clear because parent already cleared
     registerAllParameters();
 
@@ -50,7 +63,7 @@ float GaussianPSFConfig::convertSigma(float sigma){
 }
 
 void GaussianPSFConfig::registerAllParameters(){
-     
+
     // Gaussian-specific parameters
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
     getParameters().push_back({ParameterType::Float, &qualityFactor, "Quality Factor", true, "quality_factor", "--quality_factor", "Quality factor", false, true, 0.1, 10.0, nullptr});
@@ -59,7 +72,5 @@ void GaussianPSFConfig::registerAllParameters(){
     getParameters().push_back({ParameterType::Float, &sigmaZ, "Sigma Z", true, "sigma_z", "--sigma_z", "Sigma Z", false, true, 0.1, 100.0, nullptr});
     getParameters().push_back({ParameterType::Float, &nanometerScale, "Nanometer Scale", true, "nanometer_scale", "--nanometer_scale", "Nanometer scale", false, true, 1e-9, 1e-6, nullptr});
     getParameters().push_back({ParameterType::Float, &pixelScaling, "Pixel Scaling", true, "pixel_scaling", "--pixel_scaling", "Pixel scaling", false, true, 1e-9, 1e-4, nullptr});
-    
-    // Handle vector parameters separately since they're not directly supported by ConfigParameter
-    // These will need special handling in loadFromJSON and writeToJSON methods
+
 }

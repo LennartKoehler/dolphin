@@ -138,7 +138,7 @@ void TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, con
     try {
         readSubimageFromTiffFile(tif, metaData, y, z, height, depth, width, image, channel);
         TIFFClose(tif);
-        convertImageTo32F(image, metaData);
+        // convertImageTo32F(image, metaData);
     } catch (const TiffException& e) {
         TIFFClose(tif);
         throw;

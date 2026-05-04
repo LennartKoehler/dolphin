@@ -101,7 +101,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         strategyPair->getExecutor().configure(*setupConfig, *deconvConfig, request.getProgressCallback());
 
         if (!strategyPair) {
-            std::string error_msg = "Unsupported deconvolution type: " + deconvConfig->deconvolutionType;
+            std::string error_msg = "Unsupported deconvolution type";
             logger_->error(error_msg);
             return createResult(false, error_msg,
                               std::chrono::duration<double>::zero());
@@ -192,11 +192,6 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
 //     });
 // }
 
-
-std::vector<std::string> DeconvolutionService::getSupportedStrategyTypes() const {
-    DeconvolutionStrategyFactory& factory = DeconvolutionStrategyFactory::getInstance();
-    return factory.getSupportedTypes();
-}
 
 bool DeconvolutionService::validateAlgorithmConfig(const std::string& algorithm) const {
     DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();

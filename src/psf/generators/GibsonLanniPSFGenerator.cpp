@@ -170,7 +170,7 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
         }
     }
 
-    return PSF(std::move(itkImage));
+    return PSF(std::move(itkImage), config->ID);
 }
 
 

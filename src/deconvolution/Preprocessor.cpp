@@ -37,8 +37,7 @@ ComplexData Preprocessor::convertImageToComplexData(
     return result;
 }
 RealData Preprocessor::convertImageToRealData(
-    const Image3D& input,
-    IBackendMemoryManager& memoryManager) {
+    const Image3D& input) {
 
     CuboidShape shape = input.getShape();
     RealData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(shape);

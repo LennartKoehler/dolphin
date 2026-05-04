@@ -96,5 +96,5 @@ PSF GaussianPSFGenerator::generatePSF() const {
         it.Set(it.Get() / sum);
     }
 
-    return PSF(std::move(itkImage));
+    return PSF(std::move(itkImage), config->ID);
 }

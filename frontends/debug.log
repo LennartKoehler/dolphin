@@ -1,0 +1,226 @@
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Image Path: 
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Output Path: 
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Backend: cpu
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Number of Threads: 1
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Number of Worker Threads: 1
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Number of IO Threads: 1
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Number of Devices: 1
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Max Memory (GB): 1
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Save PSF: false
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) PSF File Paths: <unprintable type>
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Multiple PSF Config Path: <unprintable type>
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) PSF Config Path: 
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Labeled Image: 
+[debug] [config] [28-04-2026 10:33:34] (SetupConfig) Label PSF Map: 
+[info] [default] [28-04-2026 10:33:34] Configuration loaded from: /home/lennart-k-hler/projects/dolphin/configs/default_config.json
+[trace] [deconvolution] [28-04-2026 10:33:34] Deconvolution Service initialized successfully
+[info] [deconvolution] [28-04-2026 10:33:34] Starting deconvolution with request: /home/lennart-k-hler/data/dolphin_test_data/bacteria.tif
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Size X: 256
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Size Y: 256
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Size Z: 64
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Numerical Aperture: 0.8
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Lateral Resolution (nm): 2500
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Axial Resolution (nm): 2500
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) ID: DefaultGibsonLanniConfig
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Model Name: GibsonLanni
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Working Distance Design (nm): 150000
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Working Distance Experimental (nm): 150000
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Immersion RI Design: 1.515
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Immersion RI Experimental: 1.515
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Coverslip Thickness Design (nm): 170
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Coverslip Thickness Experimental (nm): 170
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Sample RI: 1.33
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Particle Axial Position (nm): 0
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Wavelength (nm): 520
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Accuracy: 32
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Oversampling: 4
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Pixel Size Axial (nm): 100
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Pixel Size Lateral (nm): 100
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Coverslip RI Design: 1.5
+[debug] [config] [28-04-2026 10:33:34] (PSFConfig GibsonLanni) Coverslip RI Experimental: 1.5
+[info] [default] [28-04-2026 10:33:34] Generating PSF of type GibsonLanni with ID: DefaultGibsonLanniConfig
+[trace] [default] [28-04-2026 10:33:34] Thread (6237498454166925802) starting task
+[trace] [default] [28-04-2026 10:33:34] Thread (10727005104573250582) starting task
+[trace] [default] [28-04-2026 10:33:34] Thread (2732718975694569678) starting task
+[trace] [default] [28-04-2026 10:33:34] Thread (4916235328039844370) starting task
+[trace] [default] [28-04-2026 10:33:34] Thread (10376260739148218254) starting task
+[trace] [default] [28-04-2026 10:33:34] Thread (3248059467733022108) starting task
+[trace] [default] [28-04-2026 10:33:34] Thread (2613129100743387915) starting task
+[trace] [default] [28-04-2026 10:33:34] Thread (1162896901364015056) starting task
+[trace] [default] [28-04-2026 10:33:39] Thread (1162896901364015056) finished task
+[trace] [default] [28-04-2026 10:33:39] Thread (1162896901364015056) starting task
+[trace] [default] [28-04-2026 10:33:39] Thread (6237498454166925802) finished task
+[trace] [default] [28-04-2026 10:33:39] Thread (6237498454166925802) starting task
+[trace] [default] [28-04-2026 10:33:39] Thread (3248059467733022108) finished task
+[trace] [default] [28-04-2026 10:33:39] Thread (3248059467733022108) starting task
+[trace] [default] [28-04-2026 10:33:40] Thread (10727005104573250582) finished task
+[trace] [default] [28-04-2026 10:33:40] Thread (10727005104573250582) starting task
+[trace] [default] [28-04-2026 10:33:41] Thread (2613129100743387915) finished task
+[trace] [default] [28-04-2026 10:33:41] Thread (2613129100743387915) starting task
+[trace] [default] [28-04-2026 10:33:41] Thread (10376260739148218254) finished task
+[trace] [default] [28-04-2026 10:33:41] Thread (10376260739148218254) starting task
+[trace] [default] [28-04-2026 10:33:41] Thread (4916235328039844370) finished task
+[trace] [default] [28-04-2026 10:33:41] Thread (4916235328039844370) starting task
+[trace] [default] [28-04-2026 10:33:41] Thread (2732718975694569678) finished task
+[trace] [default] [28-04-2026 10:33:41] Thread (2732718975694569678) starting task
+[trace] [default] [28-04-2026 10:33:44] Thread (6237498454166925802) finished task
+[trace] [default] [28-04-2026 10:33:44] Thread (6237498454166925802) starting task
+[trace] [default] [28-04-2026 10:33:44] Thread (3248059467733022108) finished task
+[trace] [default] [28-04-2026 10:33:44] Thread (3248059467733022108) starting task
+[trace] [default] [28-04-2026 10:33:44] Thread (1162896901364015056) finished task
+[trace] [default] [28-04-2026 10:33:44] Thread (1162896901364015056) starting task
+[trace] [default] [28-04-2026 10:33:44] Thread (10727005104573250582) finished task
+[trace] [default] [28-04-2026 10:33:44] Thread (10727005104573250582) starting task
+[trace] [default] [28-04-2026 10:33:47] Thread (2613129100743387915) finished task
+[trace] [default] [28-04-2026 10:33:47] Thread (2613129100743387915) starting task
+[trace] [default] [28-04-2026 10:33:47] Thread (10376260739148218254) finished task
+[trace] [default] [28-04-2026 10:33:47] Thread (10376260739148218254) starting task
+[trace] [default] [28-04-2026 10:33:47] Thread (4916235328039844370) finished task
+[trace] [default] [28-04-2026 10:33:47] Thread (4916235328039844370) starting task
+[trace] [default] [28-04-2026 10:33:48] Thread (2732718975694569678) finished task
+[trace] [default] [28-04-2026 10:33:48] Thread (2732718975694569678) starting task
+[trace] [default] [28-04-2026 10:33:48] Thread (1162896901364015056) finished task
+[trace] [default] [28-04-2026 10:33:48] Thread (1162896901364015056) starting task
+[trace] [default] [28-04-2026 10:33:48] Thread (10727005104573250582) finished task
+[trace] [default] [28-04-2026 10:33:48] Thread (10727005104573250582) starting task
+[trace] [default] [28-04-2026 10:33:48] Thread (3248059467733022108) finished task
+[trace] [default] [28-04-2026 10:33:48] Thread (3248059467733022108) starting task
+[trace] [default] [28-04-2026 10:33:48] Thread (6237498454166925802) finished task
+[trace] [default] [28-04-2026 10:33:48] Thread (6237498454166925802) starting task
+[trace] [default] [28-04-2026 10:33:52] Thread (2613129100743387915) finished task
+[trace] [default] [28-04-2026 10:33:52] Thread (2613129100743387915) starting task
+[trace] [default] [28-04-2026 10:33:53] Thread (6237498454166925802) finished task
+[trace] [default] [28-04-2026 10:33:53] Thread (6237498454166925802) starting task
+[trace] [default] [28-04-2026 10:33:53] Thread (1162896901364015056) finished task
+[trace] [default] [28-04-2026 10:33:53] Thread (1162896901364015056) starting task
+[trace] [default] [28-04-2026 10:33:53] Thread (10376260739148218254) finished task
+[trace] [default] [28-04-2026 10:33:53] Thread (10376260739148218254) starting task
+[trace] [default] [28-04-2026 10:33:53] Thread (10727005104573250582) finished task
+[trace] [default] [28-04-2026 10:33:53] Thread (10727005104573250582) starting task
+[trace] [default] [28-04-2026 10:33:53] Thread (4916235328039844370) finished task
+[trace] [default] [28-04-2026 10:33:53] Thread (4916235328039844370) starting task
+[trace] [default] [28-04-2026 10:33:53] Thread (2732718975694569678) finished task
+[trace] [default] [28-04-2026 10:33:53] Thread (2732718975694569678) starting task
+[trace] [default] [28-04-2026 10:33:53] Thread (3248059467733022108) finished task
+[trace] [default] [28-04-2026 10:33:53] Thread (3248059467733022108) starting task
+[trace] [default] [28-04-2026 10:33:57] Thread (6237498454166925802) finished task
+[trace] [default] [28-04-2026 10:33:57] Thread (6237498454166925802) starting task
+[trace] [default] [28-04-2026 10:33:58] Thread (10727005104573250582) finished task
+[trace] [default] [28-04-2026 10:33:58] Thread (10727005104573250582) starting task
+[trace] [default] [28-04-2026 10:33:58] Thread (1162896901364015056) finished task
+[trace] [default] [28-04-2026 10:33:58] Thread (1162896901364015056) starting task
+[trace] [default] [28-04-2026 10:33:58] Thread (3248059467733022108) finished task
+[trace] [default] [28-04-2026 10:33:58] Thread (3248059467733022108) starting task
+[trace] [default] [28-04-2026 10:33:58] Thread (2613129100743387915) finished task
+[trace] [default] [28-04-2026 10:33:58] Thread (2613129100743387915) starting task
+[trace] [default] [28-04-2026 10:33:59] Thread (2732718975694569678) finished task
+[trace] [default] [28-04-2026 10:33:59] Thread (2732718975694569678) starting task
+[trace] [default] [28-04-2026 10:33:59] Thread (10376260739148218254) finished task
+[trace] [default] [28-04-2026 10:33:59] Thread (10376260739148218254) starting task
+[trace] [default] [28-04-2026 10:33:59] Thread (4916235328039844370) finished task
+[trace] [default] [28-04-2026 10:33:59] Thread (4916235328039844370) starting task
+[trace] [default] [28-04-2026 10:34:02] Thread (6237498454166925802) finished task
+[trace] [default] [28-04-2026 10:34:02] Thread (6237498454166925802) starting task
+[trace] [default] [28-04-2026 10:34:02] Thread (10727005104573250582) finished task
+[trace] [default] [28-04-2026 10:34:02] Thread (10727005104573250582) starting task
+[trace] [default] [28-04-2026 10:34:02] Thread (1162896901364015056) finished task
+[trace] [default] [28-04-2026 10:34:02] Thread (1162896901364015056) starting task
+[trace] [default] [28-04-2026 10:34:02] Thread (3248059467733022108) finished task
+[trace] [default] [28-04-2026 10:34:02] Thread (3248059467733022108) starting task
+[trace] [default] [28-04-2026 10:34:04] Thread (2613129100743387915) finished task
+[trace] [default] [28-04-2026 10:34:04] Thread (2613129100743387915) starting task
+[trace] [default] [28-04-2026 10:34:05] Thread (4916235328039844370) finished task
+[trace] [default] [28-04-2026 10:34:05] Thread (4916235328039844370) starting task
+[trace] [default] [28-04-2026 10:34:05] Thread (10376260739148218254) finished task
+[trace] [default] [28-04-2026 10:34:05] Thread (10376260739148218254) starting task
+[trace] [default] [28-04-2026 10:34:05] Thread (2732718975694569678) finished task
+[trace] [default] [28-04-2026 10:34:05] Thread (2732718975694569678) starting task
+[trace] [default] [28-04-2026 10:34:06] Thread (6237498454166925802) finished task
+[trace] [default] [28-04-2026 10:34:06] Thread (6237498454166925802) starting task
+[trace] [default] [28-04-2026 10:34:06] Thread (10727005104573250582) finished task
+[trace] [default] [28-04-2026 10:34:06] Thread (10727005104573250582) starting task
+[trace] [default] [28-04-2026 10:34:07] Thread (1162896901364015056) finished task
+[trace] [default] [28-04-2026 10:34:07] Thread (1162896901364015056) starting task
+[trace] [default] [28-04-2026 10:34:07] Thread (3248059467733022108) finished task
+[trace] [default] [28-04-2026 10:34:07] Thread (3248059467733022108) starting task
+[trace] [default] [28-04-2026 10:34:10] Thread (2613129100743387915) finished task
+[trace] [default] [28-04-2026 10:34:10] Thread (2613129100743387915) starting task
+[trace] [default] [28-04-2026 10:34:11] Thread (6237498454166925802) finished task
+[trace] [default] [28-04-2026 10:34:11] Thread (6237498454166925802) starting task
+[trace] [default] [28-04-2026 10:34:11] Thread (10727005104573250582) finished task
+[trace] [default] [28-04-2026 10:34:11] Thread (10727005104573250582) starting task
+[trace] [default] [28-04-2026 10:34:11] Thread (2732718975694569678) finished task
+[trace] [default] [28-04-2026 10:34:11] Thread (2732718975694569678) starting task
+[trace] [default] [28-04-2026 10:34:11] Thread (4916235328039844370) finished task
+[trace] [default] [28-04-2026 10:34:11] Thread (4916235328039844370) starting task
+[trace] [default] [28-04-2026 10:34:11] Thread (10376260739148218254) finished task
+[trace] [default] [28-04-2026 10:34:11] Thread (10376260739148218254) starting task
+[trace] [default] [28-04-2026 10:34:11] Thread (1162896901364015056) finished task
+[trace] [default] [28-04-2026 10:34:11] Thread (1162896901364015056) starting task
+[trace] [default] [28-04-2026 10:34:12] Thread (3248059467733022108) finished task
+[trace] [default] [28-04-2026 10:34:12] Thread (3248059467733022108) starting task
+[trace] [default] [28-04-2026 10:34:16] Thread (6237498454166925802) finished task
+[trace] [default] [28-04-2026 10:34:16] Thread (10727005104573250582) finished task
+[trace] [default] [28-04-2026 10:34:16] Thread (2613129100743387915) finished task
+[trace] [default] [28-04-2026 10:34:17] Thread (3248059467733022108) finished task
+[trace] [default] [28-04-2026 10:34:17] Thread (1162896901364015056) finished task
+[trace] [default] [28-04-2026 10:34:17] Thread (2732718975694569678) finished task
+[trace] [default] [28-04-2026 10:34:17] Thread (4916235328039844370) finished task
+[trace] [default] [28-04-2026 10:34:18] Thread (10376260739148218254) finished task
+[info] [default] [28-04-2026 10:34:18] Successfully created PSF of type GibsonLanni with ID: DefaultGibsonLanniConfig
+[debug] [deconvolution] [28-04-2026 10:34:18] Using the following deconvolution config
+[debug] [config] [28-04-2026 10:34:18] (DeconvolutionConfig) Algorithm Name: RichardsonLucy
+[debug] [config] [28-04-2026 10:34:18] (DeconvolutionConfig) Iterations: 20
+[debug] [config] [28-04-2026 10:34:18] (DeconvolutionConfig) Epsilon: 1e-06
+[debug] [config] [28-04-2026 10:34:18] (DeconvolutionConfig) Lambda: 0.004
+[debug] [config] [28-04-2026 10:34:18] (DeconvolutionConfig) Padding Fill: gaussian
+[debug] [config] [28-04-2026 10:34:18] (DeconvolutionConfig) Padding Strategy: parent
+[debug] [config] [28-04-2026 10:34:18] (DeconvolutionConfig) Padding Relative Max: 0.0001
+[debug] [config] [28-04-2026 10:34:18] (DeconvolutionConfig) Feathering Radius: 0
+[debug] [config] [28-04-2026 10:34:18] (DeconvolutionConfig) Cube Size: <unprintable type>
+[debug] [config] [28-04-2026 10:34:18] (DeconvolutionConfig) Cube Padding: <unprintable type>
+[debug] [config] [28-04-2026 10:34:18] (DeconvolutionConfig) Deconvolution Type: standard
+[debug] [deconvolution] [28-04-2026 10:34:18] Using the following setup config
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Image Path: /home/lennart-k-hler/data/dolphin_test_data/bacteria.tif
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Output Path: /home/lennart-k-hler/data/dolphin_results/deconv_bacteria.tif
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Backend: cuda
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Number of Threads: 1
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Number of Worker Threads: 1
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Number of IO Threads: 1
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Number of Devices: 1
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Max Memory (GB): 64
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Save PSF: true
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) PSF File Paths: <unprintable type>
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Multiple PSF Config Path: <unprintable type>
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) PSF Config Path: 
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Labeled Image: 
+[debug] [config] [28-04-2026 10:34:18] (SetupConfig) Label PSF Map: 
+[info] [backend] [28-04-2026 10:34:18] cuda: Device 0 has compute capability 7.5 and 8.13 GB memory
+[info] [deconvolution] [28-04-2026 10:34:18] Successfully created deconvolution plan with 1 total cubes. Each cube has size (width x height x depth) (1440 x 1280 x 120) which includes padding (padding before, padding after) (346 x 313 x 32, 347 x 313 x 32)
+[info] [default] [28-04-2026 10:34:19] Successfully wrote Image3D to TIFF file: /home/lennart-k-hler/data/dolphin_results/DefaultGibsonLanniConfig.tiff
+[trace] [default] [28-04-2026 10:34:19] Thread (11786427791300348255) starting task
+[info] [default] [28-04-2026 10:34:19] Successfully read strip (/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif): (0,0) 626x46
+[debug] [backend] [28-04-2026 10:34:23] cpu: Allocated 885.96 MB on device
+[debug] [backend] [28-04-2026 10:34:33] cuda: Allocated 885.96 MB on device
+[debug] [backend] [28-04-2026 10:34:34] cpu: Deallocated 885.96 MB on device
+[debug] [backend] [28-04-2026 10:34:34] cuda: Allocated 885.96 MB on device
+[trace] [default] [28-04-2026 10:34:34] Thread (13791342081654009653) starting task
+[debug] [backend] [28-04-2026 10:34:34] cuda: Allocated 885.96 MB on device
+[debug] [backend] [28-04-2026 10:34:34] cuda: Allocated 885.96 MB on device
+[debug] [backend] [28-04-2026 10:34:35] cpu: Allocated 885.96 MB on device
+[debug] [backend] [28-04-2026 10:34:45] cuda: Allocated 885.96 MB on device
+[debug] [backend] [28-04-2026 10:34:45] cuda: Successfully created cuFFT r2c plan (in-place) for shape: 1440x1280x120
+[debug] [backend] [28-04-2026 10:34:45] cuda: Successfully created cuFFT plan for shape: 1440x1280x120 direction: FORWARD type: REAL
+[debug] [backend] [28-04-2026 10:34:45] cpu: Deallocated 885.96 MB on device
+[debug] [backend] [28-04-2026 10:34:46] cuda: Successfully created cuFFT c2r plan (in-place) for shape: 1440x1280x120
+[debug] [backend] [28-04-2026 10:34:46] cuda: Successfully created cuFFT plan for shape: 1440x1280x120 direction: BACKWARD type: REAL
+[trace] [default] [28-04-2026 10:34:55] Thread (13791342081654009653) finished task
+[debug] [backend] [28-04-2026 10:34:55] cuda: Deallocated 885.96 MB on device
+[debug] [backend] [28-04-2026 10:34:55] cpu: Allocated 885.96 MB on device
+[info] [default] [28-04-2026 10:35:05] Successfully saved ImageFileDirectory (/home/lennart-k-hler/data/dolphin_results/deconv_bacteria.tif): 0 - 46
+[debug] [backend] [28-04-2026 10:35:05] cpu: Deallocated 885.96 MB on device
+[debug] [backend] [28-04-2026 10:35:05] cuda: Deallocated 885.96 MB on device
+[debug] [backend] [28-04-2026 10:35:05] cuda: Deallocated 885.96 MB on device
+[trace] [default] [28-04-2026 10:35:05] Thread (11786427791300348255) finished task
+[info] [deconvolution] [28-04-2026 10:35:05] Deconvolution finished successfully
+[debug] [deconvolution] [28-04-2026 10:35:06] Deconvolution Service shut down successfully

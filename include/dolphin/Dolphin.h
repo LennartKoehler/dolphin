@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include <vector>
 #include <memory>
+#include <filesystem>
 
 #include "dolphin/ServiceAbstractions.h"
 #include "dolphin/ServiceFactory.h"
@@ -27,7 +28,7 @@ public:
     Dolphin() = default;
     ~Dolphin(){}
 
-    void init();
+    void init(const std::filesystem::path& logDir = std::filesystem::current_path());
 
     std::unique_ptr<PSFGenerationResult> generatePSF(PSFGenerationRequest request); // should prob just take the request
     std::unique_ptr<DeconvolutionResult> deconvolve(DeconvolutionRequest request);

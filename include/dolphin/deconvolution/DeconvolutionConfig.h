@@ -55,12 +55,9 @@ public:
     int featheringRadius = 0;
     std::array<int, 3> cubeSize{}; // currently unused
     std::array<int, 3> cubePadding{-1, -1, -1}; // this padding is later doubled
-    std::string deconvolutionType = "standard";
-
 
     // virtual bool loadFromJSON(const json& jsonData) override;
     // virtual json writeToJSON() const override;
-
 private:
     virtual void registerAllParameters();
 };

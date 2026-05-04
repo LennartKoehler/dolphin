@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
+#include <functional>
 #include <vector>
 #include <list>
 #include <itkImage.h>
@@ -39,6 +40,19 @@ struct PixelData {
     operator float&() { return value; }
 };
 
+class IImageOperation{
+public:
+    IImageOperation() = default;
+    virtual ~IImageOperation() = default;
+    virtual void operator()(size_t pixelIndex, float& pixelValue) = 0;
+};
+
+class IConstImageOperation{
+public:
+    IConstImageOperation() = default;
+    virtual ~IConstImageOperation() = default;
+    virtual void operator()(size_t pixelIndex, float pixelValue) = 0;
+};
 
 class Image3D {
 protected:
@@ -49,6 +63,8 @@ public:
     Image3D() {
         image = ImageType::New();
     }
+
+    virtual ~Image3D() = default;
 
     Image3D(ImageType::Pointer itkImage) {
         this->image = itkImage;
@@ -80,10 +96,13 @@ public:
     void flip();
     void scale(int new_size_x, int new_size_y, int new_size_z);
 
+    float& operator[](int offset);
     float getPixel(int x, int y, int z) const;
     void setPixel(int x, int y, int z, float value);
     void setRow(int row, int slice, const float* data);
     void setSlice(int sliceindex, const void* data);
+    void executeOperations(std::vector<std::reference_wrapper<IImageOperation>>& operations);
+    void executeOperations(std::vector<std::reference_wrapper<IConstImageOperation>>& operations)const;
 
 
     // Iterator wrapper for Image3D
@@ -268,4 +287,13 @@ struct CustomList{
     void push_back(T image){
         images.push_back(std::move(image));
     }
+};
+
+
+class LazyImage3D : public Image3D{
+
+    virtual ~LazyImage3D() override;
+    void update();
+
+    std::vector<std::reference_wrapper<IImageOperation>> deferredOperations;
 };

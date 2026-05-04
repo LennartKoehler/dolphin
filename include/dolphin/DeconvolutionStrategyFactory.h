@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include <unordered_map>
 #include <functional>
+#include "dolphin/SetupConfig.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/IDeconvolutionExecutor.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.h"
@@ -46,7 +47,7 @@ public:
      * @param deconvConfig The deconvolution configuration
      * @return Unique pointer to the created strategy pair, or nullptr if type is unknown
      */
-    std::unique_ptr<DeconvolutionStrategyPair> createStrategyPair(const std::string& type, std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig);
+    std::unique_ptr<DeconvolutionStrategyPair> createStrategyPair(DeconvolutionType type, std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig);
 
     /**
      * Create a deconvolution strategy pair based on DeconvolutionConfig
@@ -71,20 +72,20 @@ public:
      * @param type The type string to associate with this strategy
      * @param creator Function that creates and returns the strategy pair
      */
-    void registerStrategy(const std::string& type, StrategyPairCreator creator);
+    void registerStrategy(DeconvolutionType type, StrategyPairCreator creator);
 
     /**
      * Check if a strategy type is supported
      * @param type The type string to check
      * @return true if the type is registered, false otherwise
      */
-    bool isStrategySupported(const std::string& type) const;
+    bool isStrategySupported(DeconvolutionType type) const;
 
     /**
      * Get list of all registered strategy types
      * @return Vector of registered type strings
      */
-    std::vector<std::string> getSupportedTypes() const;
+    std::vector<DeconvolutionType> getSupportedTypes() const;
 
 private:
     DeconvolutionStrategyFactory();
@@ -99,5 +100,5 @@ private:
      */
     void registerBuiltInStrategies();
 
-    std::unordered_map<std::string, StrategyPairCreator> strategy_creators_;
+    std::unordered_map<DeconvolutionType, StrategyPairCreator> strategy_creators_;
 };

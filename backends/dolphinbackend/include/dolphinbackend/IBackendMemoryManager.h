@@ -179,7 +179,7 @@ public:
         int N = data.size();
         //TODO add check etc.
         size_t size = sizeof(void*) * N;
-        T** dataPointer = (T**)allocateMemoryOnDevice(size);
+        T** dataPointer = (T**)malloc(size);
         for (int i = 0; i < N; ++i) {
             dataPointer[i] = data[i]->getData();
         }

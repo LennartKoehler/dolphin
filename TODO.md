@@ -1,3 +1,9 @@
+make check that labeled image is same size as deconvolve image
+
+check that psf ids are unique, for the supplied labelmap and for the used psf objects, and that theyre not overlapping
+
+for the labeleddeconvolution, currently when iterating the labeled image the labelimagerange is not taken into account, so these ranges currently have no influence, but this can be done in the hot loop, to  create the masks right away. Just see if the labelvalue is in the range specified and not just for unique labels. Currently it just checks how many uniquelabels exist instead of seeing if its withing a specified range
+
 should the tiffreader hold the image memory
 
 maxmemory management
@@ -14,14 +20,12 @@ when using gpu, so lower memory and image doesnt fit on gpu with padding then th
 
 octant fourier shift for uneven dimensions (not divisible by 2)
 
-check the testalgorithm for cuda there is a line on the left, seems like some misalignement
-for cpu its even weirder, something is still wrong
+recheck the blocking behavior of using openmp
 
 When finding uinque labels per cube also create the mask in the same loop
     - start creating a mask for the first two labels, the background label and the first label that shows.
     - Then when a new unique label is found just copy the first mask and "invert it" or just reinterpret later
 
-recheck the blocking behavior of using openmp
 
 check if labeled deconvolution actually works, i think sinnme the values of the differents psfs are very different they basically get overwritten?
 

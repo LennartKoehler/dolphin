@@ -29,7 +29,7 @@ DeconvolutionStrategyFactory& DeconvolutionStrategyFactory::getInstance() {
 }
 
 std::unique_ptr<DeconvolutionStrategyPair> DeconvolutionStrategyFactory::createStrategyPair(std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig) {
-    std::string type = deconvConfig->deconvolutionType;
+    DeconvolutionType type = setupConfig->getDeconvType();
     auto it = strategy_creators_.find(type);
     if (it != strategy_creators_.end()) {
         return it->second(setupConfig, deconvConfig);
@@ -40,7 +40,7 @@ std::unique_ptr<DeconvolutionStrategyPair> DeconvolutionStrategyFactory::createS
 }
 
 std::unique_ptr<IDeconvolutionStrategy> DeconvolutionStrategyFactory::createStrategy(std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig) {
-    std::string type = deconvConfig->deconvolutionType;
+    DeconvolutionType type = setupConfig->getDeconvType();
     auto it = strategy_creators_.find(type);
     if (it != strategy_creators_.end()) {
         // Extract just the strategy from the pair
@@ -57,19 +57,19 @@ std::unique_ptr<IDeconvolutionStrategy> DeconvolutionStrategyFactory::createStra
     return nullptr;
 }
 
-void DeconvolutionStrategyFactory::registerStrategy(const std::string& type, StrategyPairCreator creator) {
+void DeconvolutionStrategyFactory::registerStrategy(DeconvolutionType type, StrategyPairCreator creator) {
     if (!creator) {
         throw std::invalid_argument("Strategy creator cannot be null");
     }
     strategy_creators_[type] = creator;
 }
 
-bool DeconvolutionStrategyFactory::isStrategySupported(const std::string& type) const {
+bool DeconvolutionStrategyFactory::isStrategySupported(DeconvolutionType type) const {
     return strategy_creators_.find(type) != strategy_creators_.end();
 }
 
-std::vector<std::string> DeconvolutionStrategyFactory::getSupportedTypes() const {
-    std::vector<std::string> types;
+std::vector<DeconvolutionType> DeconvolutionStrategyFactory::getSupportedTypes() const {
+    std::vector<DeconvolutionType> types;
     types.reserve(strategy_creators_.size());
 
     for (const auto& pair : strategy_creators_) {
@@ -80,7 +80,7 @@ std::vector<std::string> DeconvolutionStrategyFactory::getSupportedTypes() const
 }
 
 void DeconvolutionStrategyFactory::registerBuiltInStrategies() {
-    registerStrategy("standard", [](std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
+    registerStrategy(DeconvolutionType::STANDARD, [](std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
         auto strategy = std::make_unique<StandardDeconvolutionStrategy>();
         auto executor = std::make_unique<StandardDeconvolutionExecutor>();
 
@@ -88,7 +88,7 @@ void DeconvolutionStrategyFactory::registerBuiltInStrategies() {
     });
 
     // Register labeled image deconvolution strategy
-    registerStrategy("labeled", [](std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
+    registerStrategy(DeconvolutionType::LABELED, [](std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig) -> std::unique_ptr<DeconvolutionStrategyPair> {
         auto strategy = std::make_unique<StandardDeconvolutionStrategy>();
         auto executor = std::make_unique<LabeledDeconvolutionExecutor>();
 
