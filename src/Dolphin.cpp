@@ -20,10 +20,10 @@ See the LICENSE file provided with the code for the full license.
 
 
 #include <thread>
-void Dolphin::init(){
+void Dolphin::init(const std::filesystem::path& logDir){
 
     // Initialize service layer
-    Logging::init();
+    Logging::init(logDir);
     if (!service_layer_initialized_) {
         service_factory_ = ServiceFactory::create();
 

@@ -40,7 +40,6 @@ public:
 
 
     std::vector<std::string> getSupportedAlgorithms() const;
-    std::vector<std::string> getSupportedStrategyTypes() const;
 
 
 

@@ -301,6 +301,22 @@ target_include_directories(padding_test
 add_test(NAME PaddingTest COMMAND padding_test)
 set_tests_properties(PaddingTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+# GetLabelGroups Test
+add_executable(getLabelGroups_test
+    getLabelGroups_test.cpp
+)
+target_link_libraries(getLabelGroups_test
+    PRIVATE
+        dolphin
+)
+target_include_directories(getLabelGroups_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/../src
+)
+add_test(NAME GetLabelGroupsTest COMMAND getLabelGroups_test)
+set_tests_properties(GetLabelGroupsTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
 message(STATUS "FFTW multithreading test will be built")
 message(STATUS "FFTW size decomposition test will be built")
 message(STATUS "FFTW library: ${FFTW_LIBRARY}")

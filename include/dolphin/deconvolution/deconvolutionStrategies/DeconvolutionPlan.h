@@ -12,6 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
+#include <memory>
 #include <vector>
 #include <spdlog/spdlog.h>
 #include <atomic>
@@ -104,38 +105,61 @@ struct DeconvolutionPlan {
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     size_t totalTasks;
 };
+
+template<typename T>
 class Label{
 public:
-    Label() = default;
+    Label(T&& mask, std::vector<std::shared_ptr<PSF>> psfs) : weightedMask(std::make_unique<T>(std::move(mask))), psfs(psfs){}
 
-    void setRange(Range<std::shared_ptr<PSF>> psfs) {this->psfs = psfs;}
-    void setMask(RealData&& mask) { this->weightedMask = std::make_unique<RealData>(std::move(mask));}
+    const T* getMask() const { return weightedMask.get();}
 
-    const RealData* getMask() const { return weightedMask.get();}
-
-    RealData* getMask() { return weightedMask.get();}
-
-
-    Image3D getMask(const Image3D& labelImage) const {
-        return labelImage.getInRange(psfs.start, psfs.end);
-    }
+    T* getMask() { return weightedMask.get();}
 
     std::vector<std::shared_ptr<PSF>> getPSFs() const {
-        return psfs.values;
+        return psfs;
     }
 
 private:
-    Range<std::shared_ptr<PSF>> psfs;
+    // Range<std::shared_ptr<PSF>> psfs;
+    std::vector<std::shared_ptr<PSF>> psfs;
     // Image3D* labelImage;
-    std::unique_ptr<RealData> weightedMask;
+    std::unique_ptr<T> weightedMask;
 
 
 };
 
 
-
-
-
+//
+// class LabelBuilder{
+// public:
+//
+//     LabelBuilder(std::vector<std::string> psfIds, Image3D&& mask) : psfIDs(psfIds), unprocessedMask(mask){}
+//     Image3D& accessImage() {return unprocessedMask;}
+//
+//     void setMaskConverterFunction(std::function<RealData&&(Image3D&)> maskConverter){
+//         maskConverterFn = maskConverter;
+//     }
+//
+//     void setPSFConverterFunction(std::function<std::vector<std::shared_ptr<PSF>>(std::vector<std::string>)> psfConverter){
+//         psfConverterFn = psfConverter;
+//     }
+//
+//     Label build(){
+//         assert(psfConverterFn && maskConverterFn);
+//         return Label{
+//             maskConverterFn(unprocessedMask),
+//             psfConverterFn(psfIDs)};
+//     }
+//
+// private:
+//     std::vector<std::string> psfIDs;
+//     Image3D unprocessedMask;
+//
+//     std::function<std::vector<std::shared_ptr<PSF>>(std::vector<std::string>)> psfConverterFn;
+//     std::function<RealData&&(Image3D&)> maskConverterFn;
+//
+// };
+//
 
 class PaddingStrategy{
 public:

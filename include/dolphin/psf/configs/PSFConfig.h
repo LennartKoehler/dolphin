@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
+#include <iterator>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -22,6 +23,20 @@ See the LICENSE file provided with the code for the full license.
 class PSFConfig : public Config{
 public:
     PSFConfig();
+    PSFConfig(
+        int sizeX,
+        int sizeY,
+        int sizeZ,
+        float NA,
+        float resLateral_nm,
+        float resAxial_nm)
+    : sizeX(sizeX),
+    sizeY(sizeY),
+    sizeZ(sizeZ),
+    NA(NA),
+    resAxial_nm(resAxial_nm),
+    resLateral_nm(resLateral_nm){};
+
     virtual ~PSFConfig(){};
     PSFConfig(const PSFConfig& other);
     virtual std::string getName() const override{

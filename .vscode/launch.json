@@ -36,7 +36,6 @@
                 }
             ]
         },
-
         {
             "name": "Debug dolphin config",
             "type": "cppdbg",
@@ -98,11 +97,16 @@
             "name": "Debug dolphin",
             "type": "cppdbg",
             "request": "launch",
+            "logging": {
+                "engineLogging": true,
+                "trace": true,
+                "traceResponse": true
+            },
             "program": "${workspaceFolder}/debug_build/tests/mainTest/main_test",
             "args": [
                 "${workspaceFolder}/configs/default_config.json"
             ],
-            "stopAtEntry": false,
+            "stopAtEntry": true,
             "justMyCode": true,
             "cwd": "${workspaceFolder}/debug_build",
             "environment": [
@@ -117,7 +121,7 @@
                 {
                     "description": "Enable pretty-printing for gdb",
                     "text": "-enable-pretty-printing",
-                    "ignoreFailures": false
+                    "ignoreFailures": true
                 },
                 {
                     "description": "Enable break on all exceptions",
@@ -138,7 +142,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/debug_build/tests/mainTest/main_test",
             "args": [
-                "${workspaceFolder}/configs/labeled_image_test.json"
+                "${workspaceFolder}/configs/labeled_image_config.json"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/debug_build",
@@ -153,6 +157,11 @@
             {
                 "description": "Enable pretty-printing for gdb",
                 "text": "-enable-pretty-printing",
+                "ignoreFailures": false
+            },
+            {
+                "description": "Enable break on all exceptions",
+                "text": "catch throw",
                 "ignoreFailures": true
             },
             {
@@ -544,6 +553,60 @@
                 "/usr/**",
                 "/lib/**"
             ]
+        },
+{
+    "name": "Debug dolphin (minimal)",
+    "type": "cppdbg",
+    "request": "launch",
+    "program": "${workspaceFolder}/debug_build/tests/mainTest/main_test",
+    "args": ["${workspaceFolder}/configs_checkpoint/default_config.json"],
+    "stopAtEntry": true,
+    "cwd": "${workspaceFolder}/debug_build",
+    "environment": [
+        {
+            "name": "LD_LIBRARY_PATH",
+            "value": "${workspaceFolder}/backends/cuda/build"
         }
+    ],
+    "externalConsole": false,
+    "MIMode": "gdb"
+},
+{
+    "name": "Debug GetLabelGroups Test",
+    "type": "cppdbg",
+    "request": "launch",
+    "program": "${workspaceFolder}/debug_build/tests/getLabelGroups_test",
+    "args": [
+        "/home/lennart-k-hler/data/labeledImage/simpleMaskSmall.tif",
+        "/home/lennart-k-hler/data/dolphin_results/label_test_output"
+    ],
+    "stopAtEntry": false,
+    "cwd": "${workspaceFolder}/debug_build/tests",
+    "environment": [
+        {
+            "name": "LD_LIBRARY_PATH",
+            "value": "${workspaceFolder}/backends/cuda/build"
+        }
+    ],
+    "externalConsole": false,
+    "MIMode": "gdb",
+    "setupCommands": [
+        {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+        },
+        {
+            "description": "Disassemble in intel syntax",
+            "text": "-gdb-set disassembly-flavor intel",
+            "ignoreFailures": true
+        }
+    ],
+    "skipFiles": [
+        "<node_internals>/**",
+        "/usr/**",
+        "/lib/**"
+    ]
+}
     ]
 }

@@ -43,6 +43,10 @@ protected:
 };
 
 
+enum DeconvolutionType {
+    STANDARD,
+    LABELED
+};
 
 // for deconvolution
 class SetupConfig : public SetupConfigPSF{
@@ -52,6 +56,7 @@ public:
 
     std::string getName() const override { return std::string("SetupConfig"); };
     SetupConfig& operator=(const SetupConfig& other);
+    DeconvolutionType getDeconvType() {return (labeledImage.empty() ? DeconvolutionType::STANDARD : DeconvolutionType::LABELED);}
 
     static SetupConfig createFromJSONFile(const std::string& path);
 

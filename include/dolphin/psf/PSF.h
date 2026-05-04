@@ -18,6 +18,9 @@ See the LICENSE file provided with the code for the full license.
 typedef std::string PSFID;
 class PSF : public Image3D{
 public:
+
+    PSF() = default;
+    PSF(Image3D&& other, const std::string& id) : Image3D(other), ID(id){}
     std::string ID;
 
     void readFromTiffFile(const std::string& path);

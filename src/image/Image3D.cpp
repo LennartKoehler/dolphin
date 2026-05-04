@@ -12,6 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/Image3D.h"
+#include <functional>
 #include <itkTestingComparisonImageFilter.h>
 #include <cmath>
 
@@ -541,12 +542,41 @@ void Image3D::setPixel(int x, int y, int z, float value) {
     image->SetPixel(index, value);
 }
 
+float& Image3D::operator[](int offset){return image->GetBufferPointer()[offset];}
 
 CuboidShape Image3D::getShape() const {
     if (image.IsNull()) return CuboidShape{0, 0, 0};
 
     ImageType::SizeType size = image->GetLargestPossibleRegion().GetSize();
     return CuboidShape{static_cast<int>(size[0]), static_cast<int>(size[1]), static_cast<int>(size[2])};
+}
+
+
+void Image3D::executeOperations(std::vector<std::reference_wrapper<IImageOperation>>& operations){
+    assert(!image.IsNull());
+
+    const auto region = image->GetLargestPossibleRegion();
+    itk::ImageRegionIterator<ImageType> it(image, region);
+    size_t iterator = 0;
+    for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
+        for (IImageOperation& operation : operations){
+            operation(iterator, it.Value());
+            iterator++;
+        }
+    }
+}
+void Image3D::executeOperations(std::vector<std::reference_wrapper<IConstImageOperation>>& operations)const{
+    assert(!image.IsNull());
+
+    const auto region = image->GetLargestPossibleRegion();
+    itk::ImageRegionIterator<ImageType> it(image, region);
+    size_t iterator = 0;
+    for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
+        for (IConstImageOperation& operation : operations){
+            operation(iterator, it.Value());
+            iterator++;
+        }
+    }
 }
 
 void Image3D::setSlice(int sliceindex, const void* data) {
@@ -622,5 +652,19 @@ void Image3D::setRow(int colindex, int sliceindex, const float* data) {
     }
 }
 
+
+void LazyImage3D::update(){
+    assert(!image.IsNull());
+
+    const auto region = image->GetLargestPossibleRegion();
+    itk::ImageRegionIterator<ImageType> it(image, region);
+    size_t iterator = 0;
+    for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
+        for (IImageOperation& operation : deferredOperations){
+            operation(iterator, it.Value());
+            iterator++;
+        }
+    }
+}
 
 

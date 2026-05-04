@@ -6,6 +6,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/base_sink.h>
 
+#include <filesystem>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -61,15 +62,24 @@ namespace Logging{
         getFrontendSink()->setCallback(LogCallback{});
     }
 
-    static void init(){
+    // Initialize the logging system.
+    //   logDir — directory where debug.log will be written.
+    //            Defaults to the current working directory.
+    //            The directory is created automatically if it does not exist.
+    static void init(const std::filesystem::path& logDir = std::filesystem::current_path()){
         static bool isInitialized;
         if (!isInitialized){
 
             isInitialized = true;
+
+            // Ensure the log directory exists
+            std::filesystem::create_directories(logDir);
+
             spdlog::init_thread_pool(8192, 1);
             auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
             bool truncate = true;
-            auto debugLogSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("debug.log", truncate);
+            auto debugLogPath = logDir / "debug.log";
+            auto debugLogSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(debugLogPath.string(), truncate);
             debugLogSink->set_level(spdlog::level::trace);
             consoleSink->set_level(spdlog::level::warn);
 

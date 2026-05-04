@@ -18,6 +18,11 @@ See the LICENSE file provided with the code for the full license.
 class GaussianPSFConfig : public PSFConfig{
 public:
     GaussianPSFConfig();
+
+    GaussianPSFConfig(float qualityFactor, float sigmaX, float sigmaY, float sigmaZ,
+                      float nanometerScale, float pixelScaling,
+                      int sizeX = 20, int sizeY = 20, int sizeZ = 10,
+                      float NA = 1.0, float resLateral_nm = 200, float resAxial_nm = 200);
     GaussianPSFConfig(const GaussianPSFConfig& other);
 
 
@@ -31,8 +36,6 @@ public:
     float qualityFactor = 1.0; // 1.0 for perfect a perfect image, larger if the image is blurry and therefore the psd should be too
     float pixelScaling = 1e-6; //TODO should this be here? or in main config?
     float nanometerScale = 1e-9;
-    std::vector<int> psfLayers = {}; //sub-image layers for PSF
-    std::vector<int> psfCubes = {}; //sub-images for PSF
 
 
 
