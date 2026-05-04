@@ -12,12 +12,17 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
+#include "dolphin/Image3D.h"
 #include "dolphin/deconvolution/Postprocessor.h"
+#include <functional>
+#include <itkImageRegionIterator.h>
 #include <set>
 #include <stdexcept>
 #include <iostream>
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
+#include "dolphin/psf/configs/GaussianPSFConfig.h"
+#include "dolphin/psf/generators/GaussianPSFGenerator.h"
 #include "dolphinbackend/Exceptions.h"
 #include "dolphin/HelperClasses.h"
 #include "dolphin/SetupConfig.h"
@@ -51,7 +56,7 @@ TODO still slow
 */
 void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
-    TaskContext* context = task.context.get();
+    std::shared_ptr<TaskContext> context = task.context;
     thread_local IBackend& iobackend = context->manager.getBackend(context->ioconfig);
     thread_local IBackend& workerbackend = context->manager.cloneSharedMemory(iobackend, context->workerconfig); // copied in deconvolutionprocessor
 
@@ -59,6 +64,9 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     std::shared_ptr<ImageReader> reader = task.reader;
     std::shared_ptr<ImageWriter> writer = task.writer;
+    if (reader->getMetaData().getShape() != labelReader->getMetaData().getShape()){
+        throw std::runtime_error("Size of input image is not the same as label image"); // this shouldnt really happend in the runTask function
+    }
 
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
@@ -81,8 +89,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
 
-    std::vector<Label> tasklabels = getLabelGroups(
-        BoxCoord{CuboidShape(0,0,0), workShape}, // because the subimage is already the correct part of the image, so take entire subimage
+    std::vector<Label<Image3D>> tasklabels = getLabelGroups(
         task.psfs,
         labelImage.image,
         psfLabelMap
@@ -90,10 +97,14 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     Image3D result(workShape, 0.0f);
 
-    const ComplexData& frequencyFeatheringKernel = *(task.context->psfpreprocessor->getPreprocessedPSF(workShape, task.psfs[0], iobackend)); //TODO TESTVALUE
-    makeMasksWeighted(tasklabels, labelImage.image, frequencyFeatheringKernel, iobackend);
+    std::shared_ptr<PSF> gaussianKernel = createGaussianKernel(featheringRadius);
 
-    for (const Label& labelgroup : tasklabels){
+    // make the memory and preprocessing of this kernel which is used for the masks be maanged by the psfpreprocessor
+    const ComplexData* preprocessedGaussianKernel = context->psfpreprocessor->getPreprocessedPSF(workShape, gaussianKernel, workerbackend);
+    std::vector<Label<RealData>> preprocessedTaskLabels = makeMasksWeighted(tasklabels, labelImage.image, *preprocessedGaussianKernel, iobackend);
+
+
+    for (const Label<RealData>& labelgroup : preprocessedTaskLabels){
         std::vector<std::shared_ptr<PSF>> psfs = labelgroup.getPSFs();
 
         using progressFunction = std::function<void(int)>;
@@ -103,12 +114,11 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         };
 
         if (psfs.size() == 0){
-            spdlog::get("deconvolution")->warn("No deconvolution of cube {} because no PSFs were found for a specific label of that cube", task.paddedBox.box.print());
         }
 
         else{
             RealData local_g_device = iobackend.getMemoryManager().createCopy(g_device);
-            RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceReal(workShape);
+            RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
 
             std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
             algorithm->setProgressTracker(tracker);
@@ -123,6 +133,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
                 *context->psfpreprocessor.get());
 
             resultDone.get(); //wait for result
+            iobackend.sync();
 
             // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
 
@@ -136,118 +147,134 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     writer->setSubimage(result, task.paddedBox);
 }
 
+std::shared_ptr<PSF> LabeledDeconvolutionExecutor::createGaussianKernel(int featheringRadius){
+    // TODO appropriately use featheringRadius
+    int sizeX = 20;
+    int sizeY = 20;
+    int sizeZ = 20;
+    float sigmaX = 5;
+    float sigmaY = 5;
+    float sigmaZ = 5;
+
+    std::shared_ptr<GaussianPSFConfig> config = std::make_shared<GaussianPSFConfig>();
+    config->sizeX = sizeX;
+    config->sizeY = sizeY;
+    config->sizeZ = sizeZ;
+    config->sigmaX = sigmaX;
+    config->sigmaY = sigmaY;
+    config->sigmaZ = sigmaZ;
+
+    GaussianPSFGenerator generator(config);
+    std::shared_ptr<PSF> gaussianKernel = std::make_shared<PSF>(generator.generatePSF());
+    return gaussianKernel;
+}
 
 
-
-void LabeledDeconvolutionExecutor::makeMasksWeighted(
-    std::vector<Label>& labels,
+std::vector<Label<RealData>> LabeledDeconvolutionExecutor::makeMasksWeighted(
+    std::vector<Label<Image3D>>& labels,
     const Image3D& labelImage,
     const ComplexData& frequencyFeatheringKernel,
     IBackend& backend
 ) const {
-    std::vector<RealData*> binaryMasks;
-    for (auto& label : labels){
-        Image3D image = label.getMask(labelImage);
+    std::vector<Label<RealData>> newlabels;
+    std::vector<RealData*> binaryMasks; // for later access
+    for (int i = 0; i < labels.size(); i++){
+        Image3D& image = *labels[i].getMask();
         RealData mask = Preprocessor::convertImageToRealData(image);
-        label.setMask(std::move(mask));
-        binaryMasks.push_back(label.getMask());
+        newlabels.emplace_back(Label<RealData>{std::move(mask), labels[i].getPSFs()});
+        binaryMasks.push_back(newlabels[i].getMask());
     }
 
     Postprocessor::createWeightMasks(
         binaryMasks,
         frequencyFeatheringKernel,
         backend);
+
+    return newlabels;
 }
 
 
-std::vector<Label> LabeledDeconvolutionExecutor::getLabelGroups(
-		const BoxCoord& roi,
-		const std::vector<std::shared_ptr<PSF>>& psfs,
-		const Image3D& image,
-		RangeMap<std::string> psfLabelMap) {
-    std::vector<Label> labelGroups;
-
-    // Track which label ranges we've already added to avoid duplicates
-    std::set<std::pair<int, int>> addedRanges;
-
-    std::set<int> uniqueLabels;
-
-    CuboidShape imageSize = image.getShape();
-    int endZ = std::min(roi.position.depth + roi.dimensions.depth, imageSize.depth);
-
-    // Get the ITK image for direct access
-    ImageType::Pointer itkImage = image.getItkImage();
-
-    // Define the region to iterate over based on the ROI
-    ImageType::IndexType roiStart;
-    roiStart[0] = roi.position.width;
-    roiStart[1] = roi.position.height;
-    roiStart[2] = roi.position.depth;
-
-    ImageType::SizeType roiSize;
-    roiSize[0] = roi.dimensions.width;
-    roiSize[1] = roi.dimensions.height;
-    roiSize[2] = std::min(roi.dimensions.depth, imageSize.depth - roi.position.depth);
-
-    ImageType::RegionType roiRegion;
-    roiRegion.SetIndex(roiStart);
-    roiRegion.SetSize(roiSize);
-
-    // Ensure the region is within image bounds
-    ImageType::RegionType imageRegion = itkImage->GetLargestPossibleRegion();
-    if (!imageRegion.IsInside(roiRegion)) {
-        // Crop the ROI to fit within the image bounds
-        roiRegion.Crop(imageRegion);
-    }
-
-    // Iterate through the ROI using ITK iterator
-    itk::ImageRegionConstIterator<ImageType> iterator(itkImage, roiRegion);
-    for (iterator.GoToBegin(); !iterator.IsAtEnd(); ++iterator) {
-        float pixelValue = iterator.Get();
-        int labelValue = static_cast<int>(pixelValue);
-        uniqueLabels.insert(labelValue);
-    }
-
-    for (int label : uniqueLabels) {
-        std::vector<Range<std::string>> psfids = psfLabelMap.get(label);
-        if(psfids.size() > 1){
-
-            // TODO if overlap, then create new range of that overlap with the combined psfs, should they ever overlap?
-            throw std::runtime_error("PSF Maps cant overlap");
-        }
-        if (psfids.size() != 0){
-            // Create a unique key for this label range
-            std::pair<int, int> rangeKey = {psfids[0].start, psfids[0].end};
-
-            // Only add if we haven't already added this range
-            if (addedRanges.find(rangeKey) == addedRanges.end()) {
-                Label labelgroup;
-                int start = psfids[0].start;
-                int end = psfids[0].end;
-                end = end ? start == end : end - 1; // because in rangemap the end is exclusive while in range its inclusive;
-                labelgroup.setRange(Range<std::shared_ptr<PSF>>(psfids[0].start, psfids[0].end, getPSFForLabel(psfids[0], psfs)));
-                labelGroups.push_back(std::move(labelgroup));
-                addedRanges.insert(rangeKey);
-            }
-        }
-
-    }
-
-    return labelGroups;
-}
-std::vector<std::shared_ptr<PSF>> LabeledDeconvolutionExecutor::getPSFForLabel(Range<std::string>& psfids, const std::vector<std::shared_ptr<PSF>>& psfs) {
+std::vector<std::shared_ptr<PSF>> getPSFForLabel(std::vector<std::string>& psfids, const std::vector<std::shared_ptr<PSF>>& psfs) {
     std::vector<std::shared_ptr<PSF>> assignedpsfs;
 
-    for (const auto& psfid : psfids.get()) {
+    bool found = false;
+    for (const auto& psfid : psfids) {
+        found = false;
         for (const auto& psf : psfs) {
             if (psf->ID == psfid) {
                 assignedpsfs.push_back(psf);
+                found = true;
+                break;
             }
         }
-    }
-    if (assignedpsfs.size() == 0){
-        spdlog::info("Cant find a PSF for the desired Label, please check your input");
-    }
 
+        if (!found)
+            spdlog::get("deconvolution")->warn("Cant find a PSF for the specified PSF ID ({}) please check your input", psfid);
+    }
     return assignedpsfs;
 }
+
+// create all masks in one iteration of the labelImage
+void CreateMasksOperation::operator()(
+    size_t pixelIndex, float pixelValue)
+{
+    int labelValue = static_cast<int>(pixelValue);
+
+    if (labelValue != lastLabel){ // if not same as last mask, which doesnt happen often
+        // then update the index to access the correct image
+        std::vector<Range<std::string>> ranges = psfLabelMap.get(labelValue);
+        if (ranges.empty())return; // no psf for that label
+
+        int l_maskIndex = 0;
+        std::vector<std::string> psfIDs = ranges[0].get(); // overlap not allowed
+        bool found = false;
+        // high price for look up if this happens often
+        for (auto& [label, image] : masks){
+            if (psfIDs == label){
+                maskIndex = l_maskIndex;
+                found = true;
+                break;
+            }
+            l_maskIndex ++;
+        }
+        // if labelValue has no image yet, then create a new mask for that label
+        if (!found){
+            masks.emplace_back(
+                std::pair<std::vector<std::string>, Label<Image3D>>
+                (psfIDs, Label<Image3D>{Image3D(maskSize, 0.0), getPSFForLabel(psfIDs, psfs)}));
+
+            maskIndex = masks.size() - 1;
+        }
+        lastLabel = labelValue;
+    }
+    Image3D* image = masks[maskIndex].second.getMask();
+    ImageType::Pointer imagep = image->getItkImage();
+    auto* buffer = imagep->GetBufferPointer();
+    buffer[pixelIndex] = 1;
+}
+
+// destructive
+std::vector<Label<Image3D>> CreateMasksOperation::getLabels(){
+    std::vector<Label<Image3D>> result;
+    for (auto& [id, label] : masks){
+        result.push_back(std::move(label));
+    }
+    return result;
+}
+
+
+
+std::vector<Label<Image3D>> LabeledDeconvolutionExecutor::getLabelGroups(
+		const std::vector<std::shared_ptr<PSF>>& psfs,
+		const Image3D& image,
+		RangeMap<std::string> psfLabelMap)
+{
+    std::vector<Label<Image3D>> labelGroups;
+
+    CreateMasksOperation createMasksOp(image.getShape(), psfs, psfLabelMap);
+    std::vector<std::reference_wrapper<IConstImageOperation>> operations{createMasksOp};
+    image.executeOperations(operations);
+    return createMasksOp.getLabels();
+
+}
+
