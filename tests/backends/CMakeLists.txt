@@ -1,105 +1,107 @@
 # Backend Tests CMakeLists.txt
+# Tests that depend on dolphin (full application)
+# FFTW-only tests live in backends/cpu/tests/
+# cuFFT-only tests live in backends/cuda/tests/
 cmake_minimum_required(VERSION 3.10)
 
-# Enable testing
 enable_testing()
 
-# FFT Performance Test
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/backends)
+
+# FFT Performance Test (uses dolphin BackendFactory)
 add_executable(fft_performance_test
-    fft_performance_test.cpp
+    cpu/fft_performance_test.cpp
 )
 
-# Link libraries to FFT performance test
 target_link_libraries(fft_performance_test
     PRIVATE
         dolphin
 )
 
-# Include directories for FFT performance test
 target_include_directories(fft_performance_test
     PRIVATE
-        ${CMAKE_SOURCE_DIR}/../include
-        ${CMAKE_SOURCE_DIR}/../src
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
 )
 
-# Add FFT performance test to test suite
-add_test(NAME FFTPerformanceTest COMMAND fft_performance_test)
+add_test(NAME FFTPerformanceTest COMMAND $<TARGET_FILE:fft_performance_test>)
 set_tests_properties(FFTPerformanceTest PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# cuFFT vs FFTW comparison test (conditional on CUDA availability)
-if(BUILD_CUDA_TESTS AND CUDAToolkit_FOUND)
-    find_package(OpenMP REQUIRED)
-    
-    # Find FFTW libraries manually since pkg-config might not work correctly
-    find_path(FFTW_INCLUDE_DIR
-        NAMES fftw3.h
-        PATHS /usr/include /usr/local/include /opt/local/include
-    )
-    
-    find_library(FFTW_LIBRARY
-        NAMES fftw3f
-        PATHS /usr/lib /usr/local/lib /opt/local/lib /usr/lib/x86_64-linux-gnu
-    )
-    
-    find_library(FFTW_THREADS_LIBRARY
-        NAMES fftw3f_threads
-        PATHS /usr/lib /usr/local/lib /opt/local/lib /usr/lib/x86_64-linux-gnu
-    )
-    
-    find_library(FFTW_OMP_LIBRARY
-        NAMES fftw3f_omp
-        PATHS /usr/lib /usr/local/lib /opt/local/lib /usr/lib/x86_64-linux-gnu
-    )
-    
-    if (FFTW_INCLUDE_DIR AND FFTW_LIBRARY AND FFTW_THREADS_LIBRARY)
-        add_executable(cufft_vs_fftw_comparison
-            ../cufft_vs_fftw_comparison.cpp
-        )
-        
-        # Set C++ standard and compiler flags
-        set_property(TARGET cufft_vs_fftw_comparison PROPERTY CXX_STANDARD 17)
-        target_compile_options(cufft_vs_fftw_comparison PRIVATE ${OpenMP_CXX_FLAGS})
-        
-        # Link libraries for comparison test
-        target_link_libraries(cufft_vs_fftw_comparison
-            PRIVATE
-                CUDA::cufft
-                CUDA::cufftw
-                ${FFTW_LIBRARY}
-                ${FFTW_THREADS_LIBRARY}
-                OpenMP::OpenMP_CXX
-                pthread
-                CUDA::cudart
-        )
-        
-        # Add FFTW_OMP_LIBRARY if it was found
-        if(FFTW_OMP_LIBRARY)
-            target_link_libraries(cufft_vs_fftw_comparison PRIVATE ${FFTW_OMP_LIBRARY})
-        endif()
-        
-        # Include directories for comparison test
-        target_include_directories(cufft_vs_fftw_comparison
-            PRIVATE
-                ${CUDAToolkit_INCLUDE_DIRS}
-                ${FFTW_INCLUDE_DIR}
-        )
-        
-        # Add comparison test to test suite
-        add_test(NAME CuFFTvsFFTW COMMAND cufft_vs_fftw_comparison)
-        set_tests_properties(CuFFTvsFFTW PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-        
-        message(STATUS "cuFFT vs FFTW comparison test will be built")
-        message(STATUS "FFTW library: ${FFTW_LIBRARY}")
-        message(STATUS "FFTW threads library: ${FFTW_THREADS_LIBRARY}")
-        if(FFTW_OMP_LIBRARY)
-            message(STATUS "FFTW OpenMP library: ${FFTW_OMP_LIBRARY}")
-        endif()
-    else()
-        message(STATUS "FFTW libraries not found - cuFFT vs FFTW comparison test will not be built")
-        message(STATUS "FFTW include dir: ${FFTW_INCLUDE_DIR}")
-        message(STATUS "FFTW library: ${FFTW_LIBRARY}")
-        message(STATUS "FFTW threads library: ${FFTW_THREADS_LIBRARY}")
-    endif()
-else()
-    message(STATUS "CUDA not available - cuFFT vs FFTW comparison test will not be built")
-endif()
+# FFT Backend Test (uses dolphin BackendFactory + TiffReader)
+add_executable(fft_backend_test
+    fft_backend_test.cpp
+)
+target_link_libraries(fft_backend_test
+    PRIVATE
+        dolphin
+)
+target_include_directories(fft_backend_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+)
+add_test(NAME FFTBackendTest COMMAND $<TARGET_FILE:fft_backend_test>)
+set_tests_properties(FFTBackendTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+# CPU Data Reinterpret Test (uses dolphin BackendFactory + TiffReader)
+add_executable(cpu_data_reinterpret_test
+    cpu/cpu_data_reinterpret_test.cpp
+)
+target_link_libraries(cpu_data_reinterpret_test
+    PRIVATE
+        dolphin
+)
+target_include_directories(cpu_data_reinterpret_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+)
+add_test(NAME CPUDataReinterpret COMMAND $<TARGET_FILE:cpu_data_reinterpret_test>)
+set_tests_properties(CPUDataReinterpret PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+# FFT Real vs Complex Test (uses dolphin BackendFactory + TiffReader)
+add_executable(fft_real_vs_complex_test
+    cpu/fft_real_vs_complex_test.cpp
+)
+target_link_libraries(fft_real_vs_complex_test
+    PRIVATE
+        dolphin
+)
+target_include_directories(fft_real_vs_complex_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+)
+add_test(NAME FFTComplexVsReal COMMAND $<TARGET_FILE:fft_real_vs_complex_test>)
+set_tests_properties(FFTComplexVsReal PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+# DolphinBackend Memory Exception Test (uses only dolphinbackend)
+add_executable(memory_exception_test
+    dolphinbackend/memory_exception_example.cpp
+)
+target_link_libraries(memory_exception_test
+    PRIVATE
+        dolphinbackend
+)
+target_include_directories(memory_exception_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/backends/dolphinbackend/include
+)
+add_test(NAME MemoryExceptionTest COMMAND $<TARGET_FILE:memory_exception_test>)
+set_tests_properties(MemoryExceptionTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+# FFTW In-Place vs Out-of-Place R2C Test (uses dolphin BackendFactory)
+add_executable(fftw_inplace_vs_outofplace_r2c_test
+    cpu/fftw_inplace_vs_outofplace_r2c_test.cpp
+)
+target_link_libraries(fftw_inplace_vs_outofplace_r2c_test
+    PRIVATE
+        dolphin
+)
+target_include_directories(fftw_inplace_vs_outofplace_r2c_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/backends/cpu/include
+        ${CMAKE_SOURCE_DIR}/backends/dolphinbackend/include
+)
+add_test(NAME FFTWInplaceVsOutofplaceR2C COMMAND $<TARGET_FILE:fftw_inplace_vs_outofplace_r2c_test>)
+set_tests_properties(FFTWInplaceVsOutofplaceR2C PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})

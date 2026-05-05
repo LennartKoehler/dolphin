@@ -132,16 +132,16 @@ target_link_libraries(cpu_backend PUBLIC
 #     DESTINATION lib/cmake/cpu_backend
 # )
 
-# option(ENABLE_TESTS "Enable tests" ON)
-# if (${ENABLE_TESTS})
+option(ENABLE_TESTS "Enable tests" ON)
+if (${ENABLE_TESTS})
 
-#     set(CMAKE_CTEST_ARGUMENTS "--verbose")
+    set(CMAKE_CTEST_ARGUMENTS "--verbose")
 
 
-#     enable_testing()
-#     add_subdirectory(tests)
+    enable_testing()
+    add_subdirectory(tests)
 
-# endif()
+endif()
 
 
 
