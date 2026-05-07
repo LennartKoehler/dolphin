@@ -193,13 +193,17 @@ public:
     void gradientX(const ComplexData& image, ComplexData& gradX) const override;
     void gradientY(const ComplexData& image, ComplexData& gradY) const override;
     void gradientZ(const ComplexData& image, ComplexData& gradZ) const override;
-    void computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const override;
     void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const override;
     // Gradient and TV functions for real-valued data
     void gradientX(const RealData& image, RealData& gradX) const override;
     void gradientY(const RealData& image, RealData& gradY) const override;
     void gradientZ(const RealData& image, RealData& gradZ) const override;
-    void computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const override;
+    void gradient(const RealData& image, RealData& gradX, RealData& gradY, RealData& gradZ) const override;
+    void divergence(const RealData& gx, const RealData& gy, const RealData& gz, RealData& result) const override;
+    void divergence(const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& result) const override;
+    void computeTV(real_t lambda, const ComplexData& div, ComplexData& tv) const override;
+    // computeTV for real-valued divergence
+    void computeTV(real_t lambda, const RealData& div, RealData& tv) const override;
     void normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const override;
 
 private:

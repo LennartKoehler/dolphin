@@ -21,14 +21,14 @@ class RLTVDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
 public:
     // Constructor that takes a backend parameter
     RLTVDeconvolutionAlgorithm() = default;
-    ~RLTVDeconvolutionAlgorithm() = default;
+    virtual ~RLTVDeconvolutionAlgorithm() = default;
 
     void configure(const DeconvolutionConfig& config) override;
-    void init(const CuboidShape& dataSize) override;
+    virtual void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
-    void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
+    virtual void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
     size_t getMemoryMultiplier() const override;
-private:
+protected:
     int iterations;
     double lambda;
     bool initialized = false;

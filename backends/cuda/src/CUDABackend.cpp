@@ -747,13 +747,13 @@ void CUDADeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& 
     CUDA_CHECK(err, "gradientZ");
 }
 
-void CUDADeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
-    cudaError_t err = CUBE_REG::computeTV(gx.getSize().width, gx.getSize().height, gx.getSize().depth, lambda, gx.getData(), gy.getData(), gz.getData(), tv.getData(), config.stream);
+void CUDADeconvolutionBackend::computeTV(real_t lambda, const ComplexData& div, ComplexData& tv) const {
+    cudaError_t err = CUBE_REG::computeTV(div.getSize().width, div.getSize().height, div.getSize().depth, lambda, div.getData(), tv.getData(), config.stream);
     CUDA_CHECK(err, "computeTV");
 }
 
-void CUDADeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const {
-    cudaError_t err = CUBE_REG::normalizeTV(gradX.getSize().width, gradX.getSize().height, gradX.getSize().depth, gradX.getData(), gradY.getData(), gradZ.getData(), epsilon, config.stream);
+void CUDADeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t beta) const {
+    cudaError_t err = CUBE_REG::normalizeTV(gradX.getSize().width, gradX.getSize().height, gradX.getSize().depth, gradX.getData(), gradY.getData(), gradZ.getData(), beta, config.stream);
     CUDA_CHECK(err, "normalizeTV");
 }
 
@@ -782,21 +782,46 @@ void CUDADeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ)
     CUDA_CHECK(err, "gradientZ (real)");
 }
 
-void CUDADeconvolutionBackend::computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const {
+void CUDADeconvolutionBackend::gradient(const RealData& image, RealData& gradX, RealData& gradY, RealData& gradZ) const {
+    int Nx = image.getSize().width;
+    int strideIn = Nx + image.getPadding();
+    int strideX = gradX.getSize().width + gradX.getPadding();
+    int strideY = gradY.getSize().width + gradY.getPadding();
+    int strideZ = gradZ.getSize().width + gradZ.getPadding();
+    assert(strideX == strideY && strideY == strideZ);
+
+    cudaError_t err = CUBE_REG::grad(Nx, image.getSize().height, image.getSize().depth, strideIn, strideX, image.getData(), gradX.getData(), gradY.getData(), gradZ.getData(), config.stream);
+    CUDA_CHECK(err, "gradient (real)");
+}
+
+void CUDADeconvolutionBackend::divergence(const RealData& gx, const RealData& gy, const RealData& gz, RealData& result) const {
     int Nx = gx.getSize().width;
     int strideGx = Nx + gx.getPadding();
     int strideGy = gy.getSize().width + gy.getPadding();
     int strideGz = gz.getSize().width + gz.getPadding();
+    int strideOut = result.getSize().width + result.getPadding();
+    cudaError_t err = CUBE_REG::divergence(Nx, gx.getSize().height, gx.getSize().depth, strideGx, strideGy, strideGz, strideOut, gx.getData(), gy.getData(), gz.getData(), result.getData(), config.stream);
+    CUDA_CHECK(err, "divergence (real)");
+}
+
+void CUDADeconvolutionBackend::divergence(const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& result) const {
+    cudaError_t err = CUBE_REG::divergence(gx.getSize().width, gx.getSize().height, gx.getSize().depth, gx.getData(), gy.getData(), gz.getData(), result.getData(), config.stream);
+    CUDA_CHECK(err, "divergence (complex)");
+}
+
+void CUDADeconvolutionBackend::computeTV(real_t lambda, const RealData& div, RealData& tv) const {
+    int Nx = div.getSize().width;
+    int strideDiv = Nx + div.getPadding();
     int strideTv = tv.getSize().width + tv.getPadding();
-    cudaError_t err = CUBE_REG::computeTV(Nx, gx.getSize().height, gx.getSize().depth, strideGx, strideGy, strideGz, strideTv, lambda, gx.getData(), gy.getData(), gz.getData(), tv.getData(), config.stream);
+    cudaError_t err = CUBE_REG::computeTV(Nx, div.getSize().height, div.getSize().depth, strideDiv, strideTv, lambda, div.getData(), tv.getData(), config.stream);
     CUDA_CHECK(err, "computeTV (real)");
 }
 
-void CUDADeconvolutionBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
+void CUDADeconvolutionBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t beta) const {
     int Nx = gradX.getSize().width;
     int strideGradX = Nx + gradX.getPadding();
     int strideGradY = gradY.getSize().width + gradY.getPadding();
     int strideGradZ = gradZ.getSize().width + gradZ.getPadding();
-    cudaError_t err = CUBE_REG::normalizeTV(Nx, gradX.getSize().height, gradX.getSize().depth, strideGradX, strideGradY, strideGradZ, gradX.getData(), gradY.getData(), gradZ.getData(), epsilon, config.stream);
+    cudaError_t err = CUBE_REG::normalizeTV(Nx, gradX.getSize().height, gradX.getSize().depth, strideGradX, strideGradY, strideGradZ, gradX.getData(), gradY.getData(), gradZ.getData(), beta, config.stream);
     CUDA_CHECK(err, "normalizeTV (real)");
 }

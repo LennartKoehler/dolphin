@@ -1,3 +1,5 @@
+gradient functions can be written into one function to make faster
+
 discuess about how much padding is needed for the different padding types. Given a psf how do i determine how much to pad, how much padding should be between the cubes? full padding or also less?
 
 check that psf ids are unique, for the supplied labelmap and for the used psf objects, and that theyre not overlapping

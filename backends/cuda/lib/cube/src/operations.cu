@@ -483,8 +483,8 @@ namespace CUBE_REG {
         return cudaSuccess;
     }
 
-    cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* tv, cudaStream_t stream) {
-        if (!gx || !gy || !gz || !tv) {
+cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, complex_t* div, complex_t* tv, cudaStream_t stream) {
+        if (!div || !tv) {
             return cudaErrorInvalidValue;
         }
 
@@ -494,7 +494,7 @@ namespace CUBE_REG {
         // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        computeTVGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, lambda, gx, gy, gz, tv);
+        computeTVGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, lambda, div, tv);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -513,7 +513,7 @@ namespace CUBE_REG {
         return cudaSuccess;
     }
 
-    cudaError_t normalizeTV(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon, cudaStream_t stream) {
+cudaError_t normalizeTV(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon, cudaStream_t stream) {
         if (!gradX || !gradY || !gradZ) {
             return cudaErrorInvalidValue;
         }
@@ -631,8 +631,22 @@ cudaError_t gradZ(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* i
         return cudaSuccess;
     }
 
-cudaError_t computeTV(int Nx, int Ny, int Nz, int strideGx, int strideGy, int strideGz, int strideTv, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv, cudaStream_t stream) {
-        if (!gx || !gy || !gz || !tv) {
+// Combined gradient (computes all three gradients in a single pass)
+cudaError_t grad(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradX, real_t* gradY, real_t* gradZ, cudaStream_t stream) {
+        if (!image || !gradX || !gradY || !gradZ) {
+            return cudaErrorInvalidValue;
+        }
+
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+        CUDA_CHECK_KERNEL(
+                (gradientGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideIn, strideOut, image, gradX, gradY, gradZ)),
+                stream);
+        return cudaSuccess;
+    }
+
+// Divergence (backward differences — adjoint of forward gradient)
+cudaError_t divergence(int Nx, int Ny, int Nz, int strideGx, int strideGy, int strideGz, int strideOut, real_t* gx, real_t* gy, real_t* gz, real_t* result, cudaStream_t stream) {
+        if (!gx || !gy || !gz || !result) {
             return cudaErrorInvalidValue;
         }
 
@@ -641,7 +655,7 @@ cudaError_t computeTV(int Nx, int Ny, int Nz, int strideGx, int strideGy, int st
 
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        computeTVGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideGx, strideGy, strideGz, strideTv, lambda, gx, gy, gz, tv);
+        divergenceGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideGx, strideGy, strideGz, strideOut, gx, gy, gz, result);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -660,7 +674,65 @@ cudaError_t computeTV(int Nx, int Ny, int Nz, int strideGx, int strideGy, int st
         return cudaSuccess;
     }
 
-cudaError_t normalizeTV(int Nx, int Ny, int Nz, int strideGradX, int strideGradY, int strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon, cudaStream_t stream) {
+cudaError_t divergence(int Nx, int Ny, int Nz, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* result, cudaStream_t stream) {
+        if (!gx || !gy || !gz || !result) {
+            return cudaErrorInvalidValue;
+        }
+
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+
+        divergenceGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, gx, gy, gz, result);
+
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
+
+        cudaEventDestroy(event);
+        return cudaSuccess;
+    }
+
+cudaError_t computeTV(int Nx, int Ny, int Nz, int strideDiv, int strideTv, real_t lambda, real_t* div, real_t* tv, cudaStream_t stream) {
+        if (!div || !tv) {
+            return cudaErrorInvalidValue;
+        }
+
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+
+        computeTVGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideDiv, strideTv, lambda, div, tv);
+
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            cudaEventDestroy(event);
+            return err;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
+
+        cudaEventDestroy(event);
+        return cudaSuccess;
+    }
+
+cudaError_t normalizeTV(int Nx, int Ny, int Nz, int strideGradX, int strideGradY, int strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t beta, cudaStream_t stream) {
         if (!gradX || !gradY || !gradZ) {
             return cudaErrorInvalidValue;
         }
@@ -670,7 +742,7 @@ cudaError_t normalizeTV(int Nx, int Ny, int Nz, int strideGradX, int strideGradY
 
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        normalizeTVGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideGradX, strideGradY, strideGradZ, gradX, gradY, gradZ, epsilon);
+        normalizeTVGlobalReal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideGradX, strideGradY, strideGradZ, gradX, gradY, gradZ, beta);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {

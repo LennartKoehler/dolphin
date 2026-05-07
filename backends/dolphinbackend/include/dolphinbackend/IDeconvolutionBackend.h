@@ -197,6 +197,7 @@ public:
         NOT_IMPLEMENTED(gradientZ);
     }
 
+
     // Gradient operations for real-valued data
     virtual void gradientX(const RealData& image, RealData& gradX) const {
         NOT_IMPLEMENTED(gradientX);
@@ -209,22 +210,43 @@ public:
     virtual void gradientZ(const RealData& image, RealData& gradZ) const {
         NOT_IMPLEMENTED(gradientZ);
     }
+    virtual void gradient(const RealData& image, RealData& gradX, RealData& gradY, RealData& gradZ) const {
+        NOT_IMPLEMENTED(gradient);
+    }
 
-    virtual void computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
+    // Divergence operations (backward differences — adjoint of forward gradient)
+    // Computes: div[i] = (gx[i] - gx[i-1]) + (gy[i] - gy[i-stride_y]) + (gz[i] - gz[i-stride_z])
+    // with zero boundary conditions (values at i=0 along each axis use 0 for the i-1 term)
+    virtual void divergence(const RealData& gx, const RealData& gy, const RealData& gz, RealData& result) const {
+        NOT_IMPLEMENTED(divergence);
+    }
+
+    // Divergence for complex-valued vector fields (operates on real parts)
+    virtual void divergence(const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& result) const {
+        NOT_IMPLEMENTED(divergence);
+    }
+
+    virtual void computeTV(real_t lambda, const ComplexData& div, ComplexData& tv) const {
+        // Computes: tv[i] = 1 / (1 + lambda * div[i])
+        // Used in RL-TV: f_{n+1} = f_RL / (1 + lambda * div(∇f/|∇f|))
         NOT_IMPLEMENTED(computeTV);
     }
 
-    // computeTV for real-valued gradients
-    virtual void computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const {
+    // computeTV for real-valued divergence
+    virtual void computeTV(real_t lambda, const RealData& div, RealData& tv) const {
         NOT_IMPLEMENTED(computeTV);
     }
 
-    virtual void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const {
+    // Smoothed TV subgradient: gx / sqrt(|∇f|² + β²)
+    // β controls the transition between TV (edge-preserving) and Tikhonov (smooth) behavior.
+    // - At edges (|∇f| >> β): behaves like standard TV (gx/|∇f|)
+    // - In flat regions (|∇f| << β): behaves like Tikhonov (gx/β) — prevents noise amplification
+    virtual void normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t beta) const {
         NOT_IMPLEMENTED(normalizeTV);
     }
 
-    // normalizeTV for real-valued gradients
-    virtual void normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
+    // Smoothed TV subgradient for real-valued gradients
+    virtual void normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t beta) const {
         NOT_IMPLEMENTED(normalizeTV);
     }
 
