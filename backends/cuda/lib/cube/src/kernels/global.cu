@@ -355,8 +355,9 @@ void gradientZGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, re
     }
 }
 
+// Combined gradient kernel (computes all three gradients in a single pass)
 __global__
-void computeTVGlobalReal(int Nx, int Ny, int Nz, int strideGx, int strideGy, int strideGz, int strideTv, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv) {
+void gradientGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradX, real_t* gradY, real_t* gradZ) {
     int width = Nx;
     int height = Ny;
     int depth = Nz;
@@ -366,18 +367,53 @@ void computeTVGlobalReal(int Nx, int Ny, int Nz, int strideGx, int strideGy, int
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
     if (x < width && y < height && z < depth) {
-        int indexGx = z * (strideGx * height) + y * strideGx + x;
-        int indexGy = z * (strideGy * height) + y * strideGy + x;
-        int indexGz = z * (strideGz * height) + y * strideGz + x;
+        int indexIn = z * (strideIn * height) + y * strideIn + x;
+        int indexOut = z * (strideOut * height) + y * strideOut + x;
+
+        // Gradient in x-direction: forward difference
+        if (x < width - 1) {
+            gradX[indexOut] = image[indexIn] - image[indexIn + 1];
+        } else {
+            gradX[indexOut] = 0.0;
+        }
+
+        // Gradient in y-direction: forward difference
+        if (y < height - 1) {
+            gradY[indexOut] = image[indexIn] - image[indexIn + strideIn];
+        } else {
+            gradY[indexOut] = 0.0;
+        }
+
+        // Gradient in z-direction: forward difference
+        if (z < depth - 1) {
+            gradZ[indexOut] = image[indexIn] - image[indexIn + strideIn * height];
+        } else {
+            gradZ[indexOut] = 0.0;
+        }
+    }
+}
+
+__global__
+void computeTVGlobalReal(int Nx, int Ny, int Nz, int strideDiv, int strideTv, real_t lambda, real_t* div, real_t* tv) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < width && y < height && z < depth) {
+        int indexDiv = z * (strideDiv * height) + y * strideDiv + x;
         int indexTv = z * (strideTv * height) + y * strideTv + x;
 
-        // Retrieve the gradient components
-        real_t dx = gx[indexGx];
-        real_t dy = gy[indexGy];
-        real_t dz = gz[indexGz];
+        // TV damping factor: tv = 1 / (1 + lambda * div)
+        // The denominator is always >= 1 for lambda > 0
+        real_t d = div[indexDiv];
+        real_t denom = 1.0 - lambda * d;
+        denom = fmax(denom, (real_t)1e-8);
 
-        // Compute the total variation (TV) value
-        tv[indexTv] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
+        tv[indexTv] = static_cast<real_t>(1.0 / denom);
     }
 }
 
@@ -395,17 +431,14 @@ void normalizeTVGlobalReal(int Nx, int Ny, int Nz, int strideGradX, int strideGr
         int indexGradY = z * (strideGradY * height) + y * strideGradY + x;
         int indexGradZ = z * (strideGradZ * height) + y * strideGradZ + x;
 
-        // Compute the norm of the vector
-        real_t norm = sqrt(
+        // Smoothed TV subgradient: gx / sqrt(|nabla f|² + beta²)
+        // beta prevents noise amplification in flat regions
+        real_t normSq =
             gradX[indexGradX] * gradX[indexGradX] +
             gradY[indexGradY] * gradY[indexGradY] +
-            gradZ[indexGradZ] * gradZ[indexGradZ]
-        );
+            gradZ[indexGradZ] * gradZ[indexGradZ];
+        real_t norm = sqrt(normSq + epsilon);
 
-        // Avoid division by very small values by setting a minimum threshold
-        norm = fmax(norm, epsilon);
-
-        // Normalize the components
         gradX[indexGradX] /= norm;
         gradY[indexGradY] /= norm;
         gradZ[indexGradZ] /= norm;
@@ -493,8 +526,64 @@ void gradientZGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradZ)
     }
 }
 
+// Divergence kernels (backward differences — adjoint of forward gradient)
 __global__
-void computeTVGlobal(int Nx, int Ny, int Nz, real_t lambda, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* tv) {
+void divergenceGlobalReal(int Nx, int Ny, int Nz, int strideGx, int strideGy, int strideGz, int strideOut, real_t* gx, real_t* gy, real_t* gz, real_t* result) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < width && y < height && z < depth) {
+        int indexGx = z * (strideGx * height) + y * strideGx + x;
+        int indexGy = z * (strideGy * height) + y * strideGy + x;
+        int indexGz = z * (strideGz * height) + y * strideGz + x;
+        int indexOut = z * (strideOut * height) + y * strideOut + x;
+
+        // Backward difference in x: gx[x] - gx[x-1], with 0 at x=0
+        real_t divX = gx[indexGx] - (x > 0 ? gx[indexGx - 1] : real_t(0));
+        // Backward difference in y: gy[y] - gy[y-1], with 0 at y=0
+        real_t divY = gy[indexGy] - (y > 0 ? gy[indexGy - strideGy] : real_t(0));
+        // Backward difference in z: gz[z] - gz[z-1], with 0 at z=0
+        real_t divZ = gz[indexGz] - (z > 0 ? gz[indexGz - strideGz * height] : real_t(0));
+
+        result[indexOut] = divX + divY + divZ;
+    }
+}
+
+__global__
+void divergenceGlobal(int Nx, int Ny, int Nz, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* result) {
+    int width = Nx;
+    int height = Ny;
+    int depth = Nz;
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < width && y < height && z < depth) {
+        int index = z * height * width + y * width + x;
+
+        // Backward difference in x (real part only for TV divergence)
+        real_t divX_r = gx[index][0] - (x > 0 ? gx[index - 1][0] : real_t(0));
+        real_t divX_i = gx[index][1] - (x > 0 ? gx[index - 1][1] : real_t(0));
+        // Backward difference in y
+        real_t divY_r = gy[index][0] - (y > 0 ? gy[index - width][0] : real_t(0));
+        real_t divY_i = gy[index][1] - (y > 0 ? gy[index - width][1] : real_t(0));
+        // Backward difference in z
+        real_t divZ_r = gz[index][0] - (z > 0 ? gz[index - height * width][0] : real_t(0));
+        real_t divZ_i = gz[index][1] - (z > 0 ? gz[index - height * width][1] : real_t(0));
+
+        result[index][0] = divX_r + divY_r + divZ_r;
+        result[index][1] = divX_i + divY_i + divZ_i;
+    }
+}
+
+__global__
+void computeTVGlobal(int Nx, int Ny, int Nz, real_t lambda, complex_t* div, complex_t* tv) {
     int width = Nx;
     int height = Ny;
     int depth = Nz;
@@ -505,14 +594,14 @@ void computeTVGlobal(int Nx, int Ny, int Nz, real_t lambda, complex_t* gx, compl
     int index = z * height * width + y * width + x;
 
     if (x < width && y < height && z < depth) {
-        // Retrieve the gradient components
-        real_t dx = gx[index][0]; // Assuming gradient data is in the real part
-        real_t dy = gy[index][0];
-        real_t dz = gz[index][0];
+        // TV damping factor: tv = 1 / (1 + lambda * div)
+        // The denominator is always >= 1 for lambda > 0
+        real_t d = div[index][0]; // real part only
+        real_t denom = 1.0 - lambda * d;
+        denom = fmax(denom, (real_t)1e-8);
 
-        // Compute the total variation (TV) value
-        tv[index][0] = static_cast<float>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
-        tv[index][1] = 0.0; // Assuming the output is real-valued, set the imaginary part to zero
+        tv[index][0] = static_cast<real_t>(1.0 / denom);
+        tv[index][1] = 0.0;
     }
 }
 
@@ -527,17 +616,14 @@ void normalizeTVGlobal(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* grad
     int index = z * height * width + y * width + x;
 
     if (x < width && y < height && z < depth) {
-        // Compute the norm of the vector
-        real_t norm = sqrt(
+        // Smoothed TV subgradient: gx / sqrt(|nabla f|² + beta²)
+        // beta prevents noise amplification in flat regions
+        real_t normSq =
             gradX[index][0] * gradX[index][0] + gradX[index][1] * gradX[index][1] +
             gradY[index][0] * gradY[index][0] + gradY[index][1] * gradY[index][1] +
-            gradZ[index][0] * gradZ[index][0] + gradZ[index][1] * gradZ[index][1]
-        );
+            gradZ[index][0] * gradZ[index][0] + gradZ[index][1] * gradZ[index][1];
+        real_t norm = sqrt(normSq + epsilon);
 
-        // Avoid division by very small values by setting a minimum threshold
-        norm = fmax(norm, epsilon);
-
-        // Normalize the components
         gradX[index][0] /= norm;
         gradX[index][1] /= norm;
         gradY[index][0] /= norm;

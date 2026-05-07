@@ -918,13 +918,20 @@ void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& g
     }
 }
 
-void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& tv) const {
-    stridedIteration(gx, gy, gz, tv, [lambda](auto* rowGx, auto* rowGy, auto* rowGz, auto* rowTv, int w) {
+
+void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& div, ComplexData& tv) const {
+    // Expects div to contain the divergence of the smoothed normalized gradient field.
+    // Computes: tv[i] = 1 / (1 + lambda * div[i])
+    // This is the TV damping factor in the RL-TV update:
+    //   f_{n+1} = f_n * RL_correction / (1 + lambda * div)
+    // The denominator is always >= 1 for lambda > 0, so no clamping is needed.
+    stridedIteration(div, tv, [lambda](auto* rowDiv, auto* rowTv, int w) {
         for (int x = 0; x < w; ++x) {
-            real_t dx = rowGx[x][0];
-            real_t dy = rowGy[x][0];
-            real_t dz = rowGz[x][0];
-            rowTv[x][0] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
+            real_t d = rowDiv[x][0];
+            real_t denom = 1.0 + lambda * d;
+            // Safety: ensure denominator stays positive (should always be true for well-behaved data)
+            denom = std::max(denom, static_cast<real_t>(1e-8));
+            rowTv[x][0] = static_cast<real_t>(1.0 / denom);
             rowTv[x][1] = 0.0;
         }
     });
@@ -932,15 +939,17 @@ void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& gx, co
 
 
 
-void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t epsilon) const {
-    stridedIterationMutate(gradX, gradY, gradZ, [epsilon](auto* rowGx, auto* rowGy, auto* rowGz, int w) {
+void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t beta) const {
+    // Smoothed TV subgradient: gx / sqrt(|nabla f|² + beta²)
+    // beta prevents noise amplification in flat regions where |nabla f| is small.
+    const real_t betaSq = beta * beta;
+    stridedIterationMutate(gradX, gradY, gradZ, [betaSq](auto* rowGx, auto* rowGy, auto* rowGz, int w) {
         for (int x = 0; x < w; ++x) {
-            real_t norm = std::sqrt(
+            real_t normSq =
                 rowGx[x][0] * rowGx[x][0] + rowGx[x][1] * rowGx[x][1] +
                 rowGy[x][0] * rowGy[x][0] + rowGy[x][1] * rowGy[x][1] +
-                rowGz[x][0] * rowGz[x][0] + rowGz[x][1] * rowGz[x][1]
-            );
-            norm = std::max(norm, epsilon);
+                rowGz[x][0] * rowGz[x][0] + rowGz[x][1] * rowGz[x][1];
+            real_t norm = std::sqrt(normSq + betaSq);
             rowGx[x][0] /= norm; rowGx[x][1] /= norm;
             rowGy[x][0] /= norm; rowGy[x][1] /= norm;
             rowGz[x][0] /= norm; rowGz[x][1] /= norm;
@@ -1011,13 +1020,121 @@ void CPUDeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ) 
     }
 }
 
-void CPUDeconvolutionBackend::computeTV(real_t lambda, const RealData& gx, const RealData& gy, const RealData& gz, RealData& tv) const {
-    stridedIteration(gx, gy, gz, tv, [lambda](auto* rowGx, auto* rowGy, auto* rowGz, auto* rowTv, int w) {
+void CPUDeconvolutionBackend::gradient(const RealData& image, RealData& gradX, RealData& gradY, RealData& gradZ) const {
+    auto siImg = getStrideInfo(image);
+    auto siX = getStrideInfo(gradX);
+    auto siY = getStrideInfo(gradY);
+    auto siZ = getStrideInfo(gradZ);
+
+    const real_t* ptrImg = image.getData();
+    real_t*       ptrX = gradX.getData();
+    real_t*       ptrY = gradY.getData();
+    real_t*       ptrZ = gradZ.getData();
+
+    OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
+    for (int z = 0; z < siImg.depth; ++z) {
+        bool lastZ = z >= siImg.depth - 1;
+
+        for (int y = 0; y < siImg.height; ++y) {
+            auto offImg = z * siImg.sliceStride + y * siImg.stride;
+
+            auto offX = z * siX.sliceStride + y * siX.stride;
+            auto offY = z * siY.sliceStride + y * siY.stride;
+            auto offZ = z * siZ.sliceStride + y * siZ.stride;
+
+            bool lastY = y >= siImg.height - 1;
+
+            for (int x = 0; x < siImg.width; ++x) {
+                bool lastX = x >= siImg.width - 1;
+
+                ptrX[offX + x] = !lastX ? ptrImg[offImg + x] - ptrImg [offImg + x + 1] : real_t(0);
+                ptrY[offY + x] = !lastY ? ptrImg[offImg + x] - ptrImg [offImg + x + siImg.stride] : real_t(0);
+                ptrZ[offZ + x] = !lastZ ? ptrImg[offImg + x] - ptrImg[offImg + x + siImg.sliceStride] : real_t(0);
+
+            }
+        }
+    }
+}
+
+void CPUDeconvolutionBackend::divergence(const RealData& gx, const RealData& gy, const RealData& gz, RealData& result) const {
+    auto siGx = getStrideInfo(gx);
+    auto siGy = getStrideInfo(gy);
+    auto siGz = getStrideInfo(gz);
+    auto siR  = getStrideInfo(result);
+    const real_t* ptrGx = gx.getData();
+    const real_t* ptrGy = gy.getData();
+    const real_t* ptrGz = gz.getData();
+    real_t*       ptrR  = result.getData();
+
+    OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
+    for (int z = 0; z < siGx.depth; ++z) {
+        for (int y = 0; y < siGx.height; ++y) {
+            auto offGx = z * siGx.sliceStride + y * siGx.stride;
+            auto offGy = z * siGy.sliceStride + y * siGy.stride;
+            auto offGz = z * siGz.sliceStride + y * siGz.stride;
+            auto offR  = z * siR.sliceStride  + y * siR.stride;
+            for (int x = 0; x < siGx.width; ++x) {
+                // Backward difference in x: gx[x] - gx[x-1], with 0 at x=0
+                real_t divX = ptrGx[offGx + x] - (x > 0 ? ptrGx[offGx + x - 1] : real_t(0));
+                // Backward difference in y: gy[y] - gy[y-1], with 0 at y=0
+                real_t divY = ptrGy[offGy + x] - (y > 0 ? ptrGy[offGy - siGy.stride + x] : real_t(0));
+                // Backward difference in z: gz[z] - gz[z-1], with 0 at z=0
+                real_t divZ = ptrGz[offGz + x] - (z > 0 ? ptrGz[offGz - siGz.sliceStride + x] : real_t(0));
+
+                ptrR[offR + x] = divX + divY + divZ;
+            }
+        }
+    }
+}
+
+void CPUDeconvolutionBackend::divergence(const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& result) const {
+    auto siGx = getStrideInfo(gx);
+    auto siGy = getStrideInfo(gy);
+    auto siGz = getStrideInfo(gz);
+    auto siR  = getStrideInfo(result);
+    const complex_t* ptrGx = gx.getData();
+    const complex_t* ptrGy = gy.getData();
+    const complex_t* ptrGz = gz.getData();
+    complex_t*       ptrR  = result.getData();
+
+    OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
+    for (int z = 0; z < siGx.depth; ++z) {
+        for (int y = 0; y < siGx.height; ++y) {
+            auto offGx = z * siGx.sliceStride + y * siGx.stride;
+            auto offGy = z * siGy.sliceStride + y * siGy.stride;
+            auto offGz = z * siGz.sliceStride + y * siGz.stride;
+            auto offR  = z * siR.sliceStride  + y * siR.stride;
+            for (int x = 0; x < siGx.width; ++x) {
+                // Backward difference in x (real part only)
+                real_t divX_r = ptrGx[offGx + x][0] - (x > 0 ? ptrGx[offGx + x - 1][0] : real_t(0));
+                real_t divX_i = ptrGx[offGx + x][1] - (x > 0 ? ptrGx[offGx + x - 1][1] : real_t(0));
+                // Backward difference in y
+                real_t divY_r = ptrGy[offGy + x][0] - (y > 0 ? ptrGy[offGy - siGy.stride + x][0] : real_t(0));
+                real_t divY_i = ptrGy[offGy + x][1] - (y > 0 ? ptrGy[offGy - siGy.stride + x][1] : real_t(0));
+                // Backward difference in z
+                real_t divZ_r = ptrGz[offGz + x][0] - (z > 0 ? ptrGz[offGz - siGz.sliceStride + x][0] : real_t(0));
+                real_t divZ_i = ptrGz[offGz + x][1] - (z > 0 ? ptrGz[offGz - siGz.sliceStride + x][1] : real_t(0));
+
+                ptrR[offR + x][0] = divX_r + divY_r + divZ_r;
+                ptrR[offR + x][1] = divX_i + divY_i + divZ_i;
+            }
+        }
+    }
+}
+
+void CPUDeconvolutionBackend::computeTV(real_t lambda, const RealData& div, RealData& tv) const {
+    // Expects div to contain the divergence of the smoothed normalized gradient field.
+    // Computes: tv[i] = 1 / (1 + lambda * div[i])
+    // This is the TV damping factor in the RL-TV update:
+    //   f_{n+1} = f_n * RL_correction / (1 + lambda * div)
+    // The denominator is always >= 1 for lambda > 0, so no clamping is needed.
+    stridedIteration(div, tv, [lambda](auto* rowDiv, auto* rowTv, int w) {
         for (int x = 0; x < w; ++x) {
-            real_t dx = rowGx[x];
-            real_t dy = rowGy[x];
-            real_t dz = rowGz[x];
-            rowTv[x] = static_cast<real_t>(1.0 / (1.0 - ((dx + dy + dz) * lambda)));
+            real_t d = rowDiv[x];
+            real_t denom = 1.0 - lambda * d;
+            // Safety: ensure denominator stays positive
+            denom = std::max(denom, static_cast<real_t>(1e-8));
+            rowTv[x] = static_cast<real_t>(1.0 / denom);
         }
     });
 }
@@ -1025,12 +1142,11 @@ void CPUDeconvolutionBackend::computeTV(real_t lambda, const RealData& gx, const
 void CPUDeconvolutionBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
     stridedIterationMutate(gradX, gradY, gradZ, [epsilon](auto* rowGx, auto* rowGy, auto* rowGz, int w) {
         for (int x = 0; x < w; ++x) {
-            real_t norm = std::sqrt(
+            real_t normSq =
                 rowGx[x] * rowGx[x] +
                 rowGy[x] * rowGy[x] +
-                rowGz[x] * rowGz[x]
-            );
-            norm = std::max(norm, epsilon);
+                rowGz[x] * rowGz[x];
+            real_t norm = std::sqrt(normSq + epsilon);
             rowGx[x] /= norm;
             rowGy[x] /= norm;
             rowGz[x] /= norm;

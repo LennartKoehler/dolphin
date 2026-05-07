@@ -86,7 +86,9 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         deconvolution.multiplication(f, c, f);
 
         computeTV(f);
-        // fn+1 = fn+1' * tv (apply TV regularization)
+        // fn+1 = fn+1' / (1 + lambda * div) — TV regularization reduces
+        // the update at edges. tv = 1/(1+lambda*div), so f * tv = f/(1+lambda*div)
+        // which is equivalent to dividing by the TV damping factor.
         deconvolution.multiplication(f, tv, f);
 
         // backend->sync();
@@ -110,16 +112,12 @@ size_t RLTVDeconvolutionAlgorithm::getMemoryMultiplier() const {
 void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
     const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
 
-    deconvolution.gradientX(g, gx);
-    deconvolution.gradientY(g, gy);
-    deconvolution.gradientZ(g, gz);
-    deconvolution.normalizeTV(gx, gy, gz, complexDivisionEpsilon);
+    deconvolution.gradient(g, gx, gy, gz);
 
-    // dont do in place because they need neighbor acces so if its done in parallel its ub
-    // use tv as scratch buffer
-    deconvolution.gradientX(gx, tv);
-    deconvolution.gradientY(gy, gx);
-    deconvolution.gradientZ(gz, gy);
+    const real_t tvBeta = static_cast<real_t>(lambda) * static_cast<real_t>(0.1);
+    deconvolution.normalizeTV(gx, gy, gz, tvBeta);
 
-    deconvolution.computeTV(lambda, tv, gx, gy, tv); //can be done inplace
+    deconvolution.divergence(gx, gy, gz, tv);
+
+    deconvolution.computeTV(lambda, tv, tv); // in-place: tv is both div input and tv output
 }

@@ -119,6 +119,9 @@ void Postprocessor::createWeightMasks(
 
 // this also merges the images
 // this could be implemented as another option for createWeight masks, and not do the merging
+// ERROR the last mask cannot be seen as background, as this will not be normalized with more than two masks.
+// feathering: last mask can not be seen as the background, because if there is a section where 3 masks meet, the 2 earlier masks would have weight ~0.5 and therefore the last mask would get 1 - 0.5 - 0.5 = 0. It should however be 1/3 for all. Only if there are only 2 masks can i do this.
+// unused anyway
 Image3D Postprocessor::addFeathering(
     std::vector<ImageMaskPair>& pairs,
     int radius,

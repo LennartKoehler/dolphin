@@ -35,10 +35,15 @@ __global__ void gradientZGlobal(int Nx, int Ny, int Nz, complex_t* image, comple
 __global__ void gradientXGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradX);
 __global__ void gradientYGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradY);
 __global__ void gradientZGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradZ);
-__global__ void computeTVGlobal(int Nx, int Ny, int Nz, real_t lambda, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* tv);
-__global__ void computeTVGlobalReal(int Nx, int Ny, int Nz, int strideGx, int strideGy, int strideGz, int strideTv, real_t lambda, real_t* gx, real_t* gy, real_t* gz, real_t* tv);
-__global__ void normalizeTVGlobal(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon);
-__global__ void normalizeTVGlobalReal(int Nx, int Ny, int Nz, int strideGradX, int strideGradY, int strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon);
+// Combined gradient kernel (computes all three gradients in a single pass)
+__global__ void gradientGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradX, real_t* gradY, real_t* gradZ);
+// Divergence kernels (backward differences — adjoint of forward gradient)
+__global__ void divergenceGlobalReal(int Nx, int Ny, int Nz, int strideGx, int strideGy, int strideGz, int strideOut, real_t* gx, real_t* gy, real_t* gz, real_t* result);
+__global__ void divergenceGlobal(int Nx, int Ny, int Nz, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* result);
+__global__ void computeTVGlobal(int Nx, int Ny, int Nz, real_t lambda, complex_t* div, complex_t* tv);
+__global__ void computeTVGlobalReal(int Nx, int Ny, int Nz, int strideDiv, int strideTv, real_t lambda, real_t* div, real_t* tv);
+__global__ void normalizeTVGlobal(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t beta);
+__global__ void normalizeTVGlobalReal(int Nx, int Ny, int Nz, int strideGradX, int strideGradY, int strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t beta);
 
 // Tiled
 __global__ void calculateLaplacianTiledGlobal(int Nx, int Ny, int Nz, complex_t* Afft, complex_t* laplacianfft);

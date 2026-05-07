@@ -97,11 +97,6 @@
             "name": "Debug dolphin",
             "type": "cppdbg",
             "request": "launch",
-            "logging": {
-                "engineLogging": true,
-                "trace": true,
-                "traceResponse": true
-            },
             "program": "${workspaceFolder}/debug_build/tests/integration/main_test",
             "args": [
                 "${workspaceFolder}/configs/default_config.json"
