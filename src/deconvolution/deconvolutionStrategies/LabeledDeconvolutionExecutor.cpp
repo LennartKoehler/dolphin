@@ -61,15 +61,14 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     thread_local IBackend& workerbackend = context->manager.cloneSharedMemory(iobackend, context->workerconfig); // copied in deconvolutionprocessor
 
 
-
-    std::shared_ptr<ImageReader> reader = task.reader;
-    std::shared_ptr<ImageWriter> writer = task.writer;
+    std::shared_ptr<ImageReader> reader = task.sharedDescriptor->reader;
+    std::shared_ptr<ImageWriter> writer = task.sharedDescriptor->writer;
     if (reader->getMetaData().getShape() != labelReader->getMetaData().getShape()){
         throw std::runtime_error("Size of input image is not the same as label image"); // this shouldnt really happend in the runTask function
     }
 
-
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
+
 
     std::optional<PaddedImage> cubeImage_o = reader->getSubimage(task.paddedBox);
     std::optional<PaddedImage> labelImage_o = labelReader->getSubimage(task.paddedBox);
@@ -90,7 +89,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
 
     std::vector<Label<Image3D>> tasklabels = getLabelGroups(
-        task.psfs,
+        task.sharedDescriptor->psfs,
         labelImage.image,
         psfLabelMap
     );
@@ -113,24 +112,19 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
             this->loadingBar.add(iteration);
         };
 
-        if (psfs.size() == 0){
-        }
-
-        else{
+        if (psfs.size() != 0){
             RealData local_g_device = iobackend.getMemoryManager().createCopy(g_device);
             RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
 
-            std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
-            algorithm->setProgressTracker(tracker);
-
             std::future<void> resultDone = context->processor.deconvolveSingleCube(
                 workerbackend,
-                std::move(algorithm),
+                task.sharedDescriptor->prototypeAlgorithm,
                 workShape,
                 psfs,
                 local_g_device,
                 f_device,
-                *context->psfpreprocessor.get());
+                *context->psfpreprocessor.get(),
+                tracker);
 
             resultDone.get(); //wait for result
             iobackend.sync();

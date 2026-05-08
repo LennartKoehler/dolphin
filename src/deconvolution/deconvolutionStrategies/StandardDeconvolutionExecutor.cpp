@@ -48,10 +48,11 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     thread_local IBackend& iobackend = context->manager.getBackend(context->ioconfig);
     thread_local IBackend& workerbackend = context->manager.cloneSharedMemory(iobackend, context->workerconfig); // copied in deconvolutionprocessor
 
-    std::shared_ptr<ImageReader> reader = task.reader;
-    std::shared_ptr<ImageWriter> writer = task.writer;
+    std::shared_ptr<ImageReader> reader = task.sharedDescriptor->reader;
+    std::shared_ptr<ImageWriter> writer = task.sharedDescriptor->writer;
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
+
 
     RealData g_host;
 
@@ -68,23 +69,22 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
     BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
     RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
-    std::unique_ptr<DeconvolutionAlgorithm> algorithm = task.algorithm->clone();
 
     using progressFunction = std::function<void(int)>;
-    progressFunction tracker = [this, numPsfs = task.psfs.size()](int max){
+    progressFunction tracker = [this, numPsfs = task.sharedDescriptor->psfs.size()](int max){
         float iteration = 1.0 / (max * numPsfs);
         this->loadingBar.add(iteration);
     };
-    algorithm->setProgressTracker(tracker);
 
     std::future<void> resultDone = context->processor.deconvolveSingleCube(
         workerbackend,
-        std::move(algorithm),
+        task.sharedDescriptor->prototypeAlgorithm,
         workShape,
-        task.psfs,
+        task.sharedDescriptor->psfs,
         g_device,
         f_device,
-        *context->psfpreprocessor.get());
+        *context->psfpreprocessor.get(),
+        tracker);
 
     resultDone.get(); //wait for result
     iobackend.sync();

@@ -19,29 +19,37 @@ See the LICENSE file provided with the code for the full license.
 
 
 std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
-    IBackend& prototypebackend,
-    std::unique_ptr<DeconvolutionAlgorithm> algorithm,
+    IBackend& threadbackend,
+    std::shared_ptr<DeconvolutionAlgorithm> prototypealgorithm,
     const CuboidShape& workShape,
     const std::vector<std::shared_ptr<PSF>>& psfs_host, // dont pass psfs as ComplexData, because the workerbackend might be needed to preprocess psfs
     RealData& g_device,
     RealData& f_device,
-    PSFPreprocessor& psfPreprocessor){
+    PSFPreprocessor& psfPreprocessor,
+    std::function<void(int)> progressFunction){
 
     // on workerThread
     std::future<void> resultDone = workerPool->enqueue([
         this,
-        &prototypebackend,
-        algorithm = std::move(algorithm),
+        &threadbackend,
+        prototypealgorithm,
         &psfs_host,
         &workShape,
         &g_device,
         &f_device,
-        &psfPreprocessor
+        &psfPreprocessor,
+        progressFunction
     ]() mutable {
 
-        thread_local IBackend& threadbackend = prototypebackend;
-        algorithm->setBackend(threadbackend);
-        algorithm->init(workShape);
+        //dont allocate and deallocate the helpers of the algorithm every time, just overwrite buffer every time its used
+        // the worker owns the algorithm, and doesnt always need to re initialize
+        thread_local std::unique_ptr<DeconvolutionAlgorithm> workeralgorithm = prototypealgorithm->clone();
+        thread_local bool initialized = [&threadbackend, progressFunction, workShape](){
+            workeralgorithm->setBackend(threadbackend);
+            workeralgorithm->init(workShape);
+            workeralgorithm->setProgressTracker(progressFunction);
+            return true;}();
+
         std::vector<const ComplexData*> preprocessedPSFs;
 
         for (auto& psf : psfs_host){
@@ -50,7 +58,7 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         }
 
         for (const auto* psf_device : preprocessedPSFs){
-            algorithm->deconvolve(*psf_device, g_device, f_device);
+            workeralgorithm->deconvolve(*psf_device, g_device, f_device);
             threadbackend.sync();
         }
 
