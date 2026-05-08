@@ -13,7 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
-#include "dolphin/psf/PSF.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/PSFHandler.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include <memory>
 
@@ -33,7 +33,7 @@ public:
     virtual Result<DeconvolutionPlan> createPlan(
         std::shared_ptr<ImageReader> reader,
         std::shared_ptr<ImageWriter> writer,
-        const std::vector<PSF>& psfs,
+        PSFHandler& psfHandler,
         const DeconvolutionConfig& config,
         const SetupConfig& setupConfig) = 0;
 

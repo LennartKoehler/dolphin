@@ -1,4 +1,13 @@
-gradient functions can be written into one function to make faster
+the image reading is to somehow be seperate from iothreads, iothreads should only preprocess on host and move data to device, the reader and writer (perhaps new threads) should handle the reading and writing:
+on cuda the deconvolution might be fast, lets say not enough memory so the image has to be split. But now they might need to wait on the reader for the image to be available. In this time the gpu is idle. If i just increase the iothread, then reading will be fast, because more data will be available, but this data is not only read but also moved to the device, so i have less memory on the device. So iothreads have to be seperate from readers and writer, or somehow manage this differently. Also the reader and writer memory still has to be incorporated into the memory model, also that there is different memory pools on cpu and gpu when using gpu, the memory the reader and writer use is not on the gpu
+
+make some of the padding variations user interactive, like if the psf that is read from file is larger than the cube that would be processed (due to memory) then prompt the user to specify if either the psf is cut off or the cube is enlarged.
+
+standarddeconvstrategy, creating psfs needs the threadpool and progresscallback
+
+gibsonlanni psf generator, how much needs to be padded?
+
+seperate image padding and cubepadding? should be same or not?
 
 discuess about how much padding is needed for the different padding types. Given a psf how do i determine how much to pad, how much padding should be between the cubes? full padding or also less?
 
@@ -32,8 +41,7 @@ include fft plans in the memory calculattion
 the memory transfer between host and device can be improved, as all tasks have same memory size
 cna i somehow make the memory used for the workerdevice in a fixed position and pinned, e.g. for cuda i can always reuse the same location to load data into (or 2 locations if 2 iothreads). Is there a speedup of memory reading writing that this would get?
 
-make check that feathering radius is smaller than padding (psf size) so that there are no boundary conditions caused by too much feathering
-
+could make a low memory version for richardsonlucydeconvolution where the f is recomputed in backwardfft so that it doesnt have to be stored
 
 
 Reader/Writer:

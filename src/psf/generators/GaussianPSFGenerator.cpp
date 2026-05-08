@@ -32,6 +32,20 @@ bool GaussianPSFGenerator::hasConfig(){
     return config != nullptr;
 }
 
+CuboidShape GaussianPSFGenerator::getPadding(PaddingStrategyType paddingType) const {
+    switch(paddingType){
+        case(NONE):
+            return CuboidShape{0,0,0};
+        case(PARENT):
+            return CuboidShape{static_cast<int>(config->sigmaX * 4), static_cast<int>(config->sigmaY * 4), static_cast<int>(config->sigmaZ * 4)};
+        case(FULL_PSF):
+            return CuboidShape{config->sizeX, config->sizeY, config->sizeZ};
+        case(MANUAL):
+            return CuboidShape{-1, -1, -1};
+        default:
+            return CuboidShape{-1, -1, -1};
+    }
+}
 
 PSF GaussianPSFGenerator::generatePSF() const {
     int width = config->sizeX, height = config->sizeY, layers = config->sizeZ;

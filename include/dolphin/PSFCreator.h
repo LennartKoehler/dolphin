@@ -17,7 +17,6 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/ProgressTracking.h"
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
-#include "dolphin/SetupConfig.h"
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
 

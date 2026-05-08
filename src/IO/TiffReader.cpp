@@ -243,7 +243,7 @@ void TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& me
 
         _TIFFfree(buf);
 
-        spdlog::info("Successfully read strip ({}): ({},{}) {}x{}", metaData.filename, y, z, height, depth);
+        spdlog::info("Successfully read chunk ({}): (0,{},{}) {}x{}x{}", metaData.filename, y, z, width, height, depth);
     } catch (const TiffException& e) {
         throw e;
     } catch (const std::exception& e){

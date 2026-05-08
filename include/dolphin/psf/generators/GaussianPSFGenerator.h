@@ -28,6 +28,7 @@ public:
     PSF generatePSF() const override;
     void setConfig(const std::shared_ptr<const PSFConfig> config) override;
     bool hasConfig() override;
+    CuboidShape getPadding(PaddingStrategyType paddingType) const override;
 
 private:
     std::shared_ptr<GaussianPSFConfig> config;

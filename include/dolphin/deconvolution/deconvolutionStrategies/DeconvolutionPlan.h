@@ -68,34 +68,44 @@ struct TaskContext{
 /*
 This Description is the blueprint of how the specified part of the image is to be deconvolved.
 */
-struct CubeTaskDescriptor {
-        CubeTaskDescriptor(int taskId,
-                        const BoxCoordWithPadding& paddedBox,
-                        const std::shared_ptr<DeconvolutionAlgorithm>& algorithm,
-                        size_t estimatedMemoryUsage,
-                        const std::vector<std::shared_ptr<PSF>>& psfs,
-                        const std::shared_ptr<ImageReader> reader,
-                        const std::shared_ptr<ImageWriter> writer,
-                        std::shared_ptr<TaskContext> context)
-        : taskId(taskId),
-          paddedBox(paddedBox),
-          algorithm(algorithm),
-          estimatedMemoryUsage(estimatedMemoryUsage),
-          psfs(psfs),
-          reader(reader),
-          writer(writer),
-          context(context)
+
+struct CubeTaskSharedDescriptor{
+
+    CubeTaskSharedDescriptor(
+                    const std::shared_ptr<DeconvolutionAlgorithm>& algorithm,
+                    size_t estimatedMemoryUsage,
+                    const std::vector<std::shared_ptr<PSF>>& psfs,
+                    const std::shared_ptr<ImageReader> reader,
+                    const std::shared_ptr<ImageWriter> writer)
+    : prototypeAlgorithm(algorithm),
+      estimatedMemoryUsage(estimatedMemoryUsage),
+      psfs(psfs),
+      reader(reader),
+      writer(writer)
     {}
-
-
-    const int taskId;
-    const BoxCoordWithPadding paddedBox;
-    const std::shared_ptr<DeconvolutionAlgorithm> algorithm;
+    const std::shared_ptr<DeconvolutionAlgorithm> prototypeAlgorithm;
     const size_t estimatedMemoryUsage;
     const std::vector<std::shared_ptr<PSF>> psfs;
     const std::shared_ptr<ImageReader> reader;
     const std::shared_ptr<ImageWriter> writer;
-    std::shared_ptr<TaskContext> context;
+};
+
+struct CubeTaskDescriptor {
+    CubeTaskDescriptor(int taskId,
+                    const BoxCoordWithPadding& paddedBox,
+                    const std::shared_ptr<CubeTaskSharedDescriptor> sharedDescriptor,
+                    const std::shared_ptr<TaskContext> context)
+    : taskId(taskId),
+      paddedBox(paddedBox),
+      sharedDescriptor(sharedDescriptor),
+      context(context)
+    {}
+
+
+    const std::shared_ptr<CubeTaskSharedDescriptor> sharedDescriptor;
+    const int taskId;
+    const BoxCoordWithPadding paddedBox;
+    const std::shared_ptr<TaskContext> context;
 };
 
 
@@ -105,6 +115,8 @@ struct DeconvolutionPlan {
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     size_t totalTasks;
 };
+
+
 
 template<typename T>
 class Label{
@@ -161,50 +173,6 @@ private:
 // };
 //
 
-class PaddingStrategy{
-public:
-    virtual Padding getPadding(const std::vector<PSF>& psfs, const CuboidShape& imageShape, const DeconvolutionConfig& config) const = 0;
-};
-class ParentPaddingStrategy : public PaddingStrategy{
-public:
-    Padding getPadding(const std::vector<PSF>& psfs, const CuboidShape& imageShape, const DeconvolutionConfig& config) const override {
-
-        std::vector<CuboidShape> psfSizes = getShapes<PSF>(psfs);
-        CuboidShape largestPSF = getLargestShape(psfSizes);
-
-        PSF psf = psfs[0]; // TODO for multiple
-        float threshold = config.paddingRelativeMax * psf.getMax(); // pad up until values drop below 0.01% of max value (their influence is negligable)
-        CuboidShape paddingRegion = psf.getRegionLargerThreshold(threshold);
-        paddingRegion.setMin(largestPSF - imageShape); // always pad atleast to the size of the psf. This is only relevant if psf is loaded as file
-
-        CuboidShape paddingbefore = paddingRegion / 2;
-        return Padding{paddingbefore, paddingRegion - paddingbefore};
-    }
-};
-
-
-class FullPSFPaddingStrategy : public PaddingStrategy{
-public:
-    Padding getPadding(const std::vector<PSF>& psfs, const CuboidShape& imageShape, const DeconvolutionConfig& config) const override {
-
-        std::vector<CuboidShape> psfSizes = getShapes<PSF>(psfs);
-        CuboidShape largestPSF = getLargestShape(psfSizes);
-
-        CuboidShape paddingRegion = largestPSF;
-
-        CuboidShape paddingbefore = paddingRegion / 2;
-        return Padding{paddingbefore, paddingRegion - paddingbefore};
-    }
-};
-
-class ManualPaddingStrategy : public PaddingStrategy{
-public:
-    Padding getPadding(const std::vector<PSF>& psfs, const CuboidShape& imageShape, const DeconvolutionConfig& config) const override{
-        CuboidShape paddingHalf = imageShape / 2;
-        return Padding(paddingHalf, imageShape - paddingHalf);
-
-    }
-};
 
 Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const Padding& cubePadding,

@@ -112,6 +112,7 @@ set(DOLPHIN_SOURCES
     src/deconvolution/DeconvolutionProcessor.cpp
 
     src/deconvolution/deconvolutionStrategies/ImageSplit.cpp
+    src/deconvolution/deconvolutionStrategies/PSFHandler.cpp
     src/deconvolution/deconvolutionStrategies/DeconvolutionStrategyPair.cpp
     src/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.cpp
     src/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.cpp

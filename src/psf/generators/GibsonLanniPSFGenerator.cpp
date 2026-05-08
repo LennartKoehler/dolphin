@@ -83,6 +83,18 @@ void GibsonLanniPSFGenerator::setConfig(const std::shared_ptr<const PSFConfig> c
     this->config = std::make_unique<GibsonLanniPSFConfig>(*ucfg);
 }
 
+//TODO
+CuboidShape GibsonLanniPSFGenerator::getPadding(PaddingStrategyType paddingType) const {
+    switch(paddingType){
+    case(PARENT):
+        // TODO
+        return CuboidShape{config->sizeX / 2, config->sizeY / 2, config->sizeZ / 2};
+    case(FULL_PSF):
+        return CuboidShape{config->sizeX, config->sizeY, config->sizeZ};
+    default:
+        return CuboidShape{-1, -1, -1};
+    }
+}
 
 void GibsonLanniPSFGenerator::initBesselHelper() const {
     assert (config != nullptr && "Config not initialized");

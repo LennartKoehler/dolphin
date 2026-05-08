@@ -68,12 +68,10 @@ private:
     std::unique_ptr<DeconvolutionStrategyPair> deconvolutionStrategyPair;
 
     // PSF package management
-    std::vector<PSF> createPSFsFromSetup(
-        std::shared_ptr<SetupConfig> setupConfig,
-        const CuboidShape& imageShape,
-        std::shared_ptr<ThreadPool> threadPool);
-
-    progressCallbackFn progressCallback;
+    // std::vector<PSF> createPSFsFromSetup(
+    //     std::shared_ptr<SetupConfig> setupConfig,
+    //     const CuboidShape& imageShape,
+    //     std::shared_ptr<ThreadPool> threadPool);
 
     // Configuration
     bool initialized_;
