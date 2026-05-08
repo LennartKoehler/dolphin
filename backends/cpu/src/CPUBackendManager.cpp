@@ -316,7 +316,16 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
     }
 }
 
-fftwf_plan FFTWManager::initializePlan(const FFTWPlanDescription& description) {
+void FFTWManager::initializePlan(const FFTWPlanDescription& description) {
+    fftwf_plan newPlan;
+    if (description.type == PlanType::COMPLEX) newPlan = initializePlanComplex(description);
+    else if (description.type == PlanType::REAL && description.direction == PlanDirection::FORWARD) newPlan = initializePlanRealToComplex(description);
+    else if (description.type == PlanType::REAL && description.direction == PlanDirection::BACKWARD) newPlan = initializePlanComplexToReal(description);
+
+    addPlan(newPlan, description);
+}
+
+fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& description) {
     // not threadsafe!
 
     assert(getGlobalLogger() && "logger not yet set");
@@ -392,12 +401,20 @@ const fftwf_plan* FFTWManager::findPlan(const FFTWPlanDescription& description) 
 
     // Create new plan and store it
     fftwf_plan newPlan;
-    if (description.type == PlanType::COMPLEX) newPlan = initializePlan(description);
-    else if (description.type == PlanType::REAL && description.direction == PlanDirection::FORWARD) newPlan = initializePlanRealToComplex(description);
-    else if (description.type == PlanType::REAL && description.direction == PlanDirection::BACKWARD) newPlan = initializePlanComplexToReal(description);
-    FFTWPlan plan{ std::move(newPlan), description };
+    initializePlan(description);
+
+    for (const FFTWPlan& plan : fftwPlans){
+        if (plan.description == description){
+            return &plan.plan;
+        }
+    }
+    assert(false); // sohuld never happen
+    return nullptr;
+}
+
+void FFTWManager::addPlan(fftwf_plan& handle, const FFTWPlanDescription& description){
+    FFTWPlan plan{ handle, description };
     fftwPlans.push_back(std::move(plan));
-    return &fftwPlans.back().plan;
 }
 
 

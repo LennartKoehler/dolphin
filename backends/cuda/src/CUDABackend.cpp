@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "CUDABackend.h"
 #include "CUDABackendManager.h"
+#include "dolphinbackend/IDeconvolutionBackend.h"
 // #include <ioconfig.stream>
 // #include <sconfig.stream>
 #include <cassert>
@@ -323,21 +324,27 @@ CUDADeconvolutionBackend::~CUDADeconvolutionBackend() {
 
 }
 
+void CUDADeconvolutionBackend::initializePlan(const FFTPlanDescription& description) {
+    getPlan(description);
+}
 
-cufftHandle* CUDADeconvolutionBackend::getPlan(const PlanDescription& description) {
+cufftHandle CUDADeconvolutionBackend::getPlan(const FFTPlanDescription& description) {
 
     for (cuFFTPlan& plan : cuFFTPlans){
         if (plan.description == description){
-            return &plan.plan;
+            return plan.plan;
         }
     }
 
-
     // Create new plan and store it in the map
-    cufftHandle newPlan = initializePlan(description);
-    cuFFTPlan plan{ std::move(newPlan), description };
+    cufftHandle newPlan = initializePlan_(description);
+    addPlan(description, newPlan);
+    return newPlan;  // Return reference to the stored plan
+}
+
+void CUDADeconvolutionBackend::addPlan(const FFTPlanDescription& description, cufftHandle handle){
+    cuFFTPlan plan{ handle, description };
     cuFFTPlans.push_back(std::move(plan));
-    return &cuFFTPlans.back().plan;  // Return reference to the stored plan
 }
 
 // void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const PlanDescription& description) const {
@@ -345,7 +352,7 @@ cufftHandle* CUDADeconvolutionBackend::getPlan(const PlanDescription& descriptio
 //     CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2R, &tempSize), "getPlan - C2R plan setup");
 // }
 
-void CUDADeconvolutionBackend::createPlanRealToComplex(cufftHandle& plan, const PlanDescription& description) const {
+void CUDADeconvolutionBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPlanDescription& description) const {
     int rank = 3;
     int Nx = description.shape.width;
     int Ny = description.shape.height;
@@ -414,7 +421,7 @@ void CUDADeconvolutionBackend::createPlanRealToComplex(cufftHandle& plan, const 
 //     CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_R2C, &tempSize), "getPlan - R2C plan setup");
 // }
 
-void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const PlanDescription& description) const {
+void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPlanDescription& description) const {
     int rank = 3;
     int Nx = description.shape.width;
     int Ny = description.shape.height;
@@ -478,12 +485,13 @@ void CUDADeconvolutionBackend::createPlanComplexToReal(cufftHandle& plan, const 
     }
 }
 
-void CUDADeconvolutionBackend::createPlanComplex(cufftHandle& plan, const PlanDescription& description) const {
+void CUDADeconvolutionBackend::createPlanComplex(cufftHandle& plan, const FFTPlanDescription& description) const {
     size_t tempSize = sizeof(complex_t) * description.shape.getVolume();
     CUFFT_RUNTIME_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2C, &tempSize), "getPlan - C2C plan setup");
 }
 
-cufftHandle CUDADeconvolutionBackend::initializePlan(const PlanDescription& description){
+
+cufftHandle CUDADeconvolutionBackend::initializePlan_(const FFTPlanDescription& description){
     // Plan not found, create a new one
     CuboidShape shape = description.shape;
 
@@ -531,6 +539,7 @@ void CUDADeconvolutionBackend::destroyPlans(){
     cuFFTPlans.clear();
 }
 
+
 // FFT Operations
 void CUDADeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
     // Validate input data
@@ -539,14 +548,15 @@ void CUDADeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& ou
     BACKEND_CHECK(in.getSize().getVolume() == out.getSize().getVolume(), "Size mismatch in forwardFFT", "CUDA", "forwardFFT");
 
     // Get or create the forward FFT plan
-    PlanDescription desc(PlanDirection::FORWARD, PlanType::COMPLEX, in.getSize(), true);
-    cufftHandle* forwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
+    FFTPlanDescription desc(PlanDirection::FORWARD, PlanType::COMPLEX, in.getSize(), true);
+    cufftHandle forwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
     BACKEND_CHECK(forwardPlan != 0, "Forward FFT plan not initialized", "CUDA", "forwardFFT");
 
-    CUFFT_CHECK(cufftExecC2C(*forwardPlan, reinterpret_cast<cufftComplex*>(in.getData()), reinterpret_cast<cufftComplex*>(out.getData()), CUFFT_FORWARD), "forwardFFT");
+    CUFFT_CHECK(cufftExecC2C(forwardPlan, reinterpret_cast<cufftComplex*>(in.getData()), reinterpret_cast<cufftComplex*>(out.getData()), CUFFT_FORWARD), "forwardFFT");
 }
+
 
 // FFT Operations
 void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
@@ -556,17 +566,18 @@ void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& o
     BACKEND_CHECK(in.getSize().getVolume() == out.getSize().getVolume(), "Size mismatch in backwardFFT", "CUDA", "backwardFFT");
 
     // Get or create the backward FFT plan
-    PlanDescription desc(PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize(), true);
-    cufftHandle* backwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
+    FFTPlanDescription desc(PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize(), true);
+    cufftHandle backwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
     BACKEND_CHECK(backwardPlan != 0, "Backward FFT plan not initialized", "CUDA", "backwardFFT");
 
-    CUFFT_CHECK(cufftExecC2C(*backwardPlan, reinterpret_cast<cufftComplex*>(in.getData()), reinterpret_cast<cufftComplex*>(out.getData()), CUFFT_INVERSE), "backwardFFT");
+    CUFFT_CHECK(cufftExecC2C(backwardPlan, reinterpret_cast<cufftComplex*>(in.getData()), reinterpret_cast<cufftComplex*>(out.getData()), CUFFT_INVERSE), "backwardFFT");
 
     complex_t normFactor{1.0f / out.getSize().getVolume(), 1.0f / out.getSize().getVolume()};//TESTVALUE
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
+
 
 void CUDADeconvolutionBackend::forwardFFT(const RealData& in, ComplexData& out) const {
     // Validate input data
@@ -574,15 +585,15 @@ void CUDADeconvolutionBackend::forwardFFT(const RealData& in, ComplexData& out) 
     BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for forwardFFTReal", "CUDA", "forwardFFTReal");
 
     // Get or create the forward FFT plan
-    PlanDescription desc(PlanDirection::FORWARD, PlanType::REAL, in.getSize(), true);
-    cufftHandle* forwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
+    FFTPlanDescription desc(PlanDirection::FORWARD, PlanType::REAL, in.getSize(), true);
+    cufftHandle forwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
     BACKEND_CHECK(forwardPlan != 0, "forward FFT plan not initialized", "CUDA", "forwardFFTReal");
 
-    CUFFT_CHECK(cufftExecR2C(*forwardPlan, reinterpret_cast<cufftReal*>(in.getData()), reinterpret_cast<cufftComplex*>(out.getData())), "forwardFFTReal");
-
+    CUFFT_CHECK(cufftExecR2C(forwardPlan, reinterpret_cast<cufftReal*>(in.getData()), reinterpret_cast<cufftComplex*>(out.getData())), "forwardFFTReal");
 }
+
 
 void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) const {
     // Validate input data
@@ -590,17 +601,18 @@ void CUDADeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out)
     BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for backwardFFTReal", "CUDA", "backwardFFTReal");
 
     // Get or create the backward FFT plan
-    PlanDescription desc(PlanDirection::BACKWARD, PlanType::REAL, out.getSize(), true);
-    cufftHandle* backwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
+    FFTPlanDescription desc(PlanDirection::BACKWARD, PlanType::REAL, out.getSize(), true);
+    cufftHandle backwardPlan = const_cast<CUDADeconvolutionBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
     BACKEND_CHECK(backwardPlan != 0, "Backward FFT plan not initialized", "CUDA", "backwardFFTReal");
 
-    CUFFT_CHECK(cufftExecC2R(*backwardPlan, reinterpret_cast<cufftComplex*>(in.getData()), reinterpret_cast<cufftReal*>(out.getData())), "backwardFFTReal");
+    CUFFT_CHECK(cufftExecC2R(backwardPlan, reinterpret_cast<cufftComplex*>(in.getData()), reinterpret_cast<cufftReal*>(out.getData())), "backwardFFTReal");
 
     real_t normFactor{1.0f / out.getSize().getVolume()};//TESTVALUE
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
+
 
 // Shift Operations
 void CUDADeconvolutionBackend::octantFourierShift(ComplexData& data) const {

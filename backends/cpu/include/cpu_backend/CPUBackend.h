@@ -1,5 +1,6 @@
 #pragma once
 #include "dolphinbackend/IBackend.h"
+#include "dolphinbackend/IDeconvolutionBackend.h"
 // #include "CPUBackendManager.h"
 
 #include <fftw3.h>
@@ -10,7 +11,7 @@ class FFTWManager;
 
 
 
-struct FFTWPlanDescription : public PlanDescription{
+struct FFTWPlanDescription : public FFTPlanDescription{
 
     size_t ompThreads;
 
@@ -22,10 +23,10 @@ struct FFTWPlanDescription : public PlanDescription{
         bool inPlace
     ):
         ompThreads(ompThreads),
-        PlanDescription(direction, type, shape, inPlace){}
+        FFTPlanDescription(direction, type, shape, inPlace){}
 
     bool operator==(const FFTWPlanDescription& other) const {
-        return (PlanDescription::operator==(other) && ompThreads == other.ompThreads);
+        return (FFTPlanDescription::operator==(other) && ompThreads == other.ompThreads);
     }
 };
 
@@ -154,7 +155,7 @@ public:
     void sync() override {}
 
 
-    void initializePlan(const CuboidShape& cube);
+    void initializePlan(const FFTPlanDescription& description) override ;
      // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;

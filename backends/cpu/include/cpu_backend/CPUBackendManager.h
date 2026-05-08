@@ -52,7 +52,9 @@ public:
     void destroyFFTPlans();
 private:
 
-    fftwf_plan initializePlan(const FFTWPlanDescription& description);
+    void addPlan(fftwf_plan& handle, const FFTWPlanDescription& description);
+    void initializePlan(const FFTWPlanDescription& description);
+    fftwf_plan initializePlanComplex(const FFTWPlanDescription& description);
     fftwf_plan initializePlanComplexToReal(const FFTWPlanDescription& description);
     fftwf_plan initializePlanRealToComplex(const FFTWPlanDescription& description);
 
