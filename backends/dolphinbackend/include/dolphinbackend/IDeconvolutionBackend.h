@@ -31,13 +31,13 @@ enum PlanType{
     COMPLEX
 };
 
-struct PlanDescription{
-    CuboidShape shape;
+struct FFTPlanDescription{
     PlanDirection direction;
+    CuboidShape shape;
     PlanType type;
     bool inPlace;
 
-    PlanDescription(
+    FFTPlanDescription(
         PlanDirection direction,
         PlanType type,
         CuboidShape shape,
@@ -48,7 +48,7 @@ struct PlanDescription{
         shape(shape),
         inPlace(inPlace){}
 
-    virtual bool operator==(const PlanDescription& other) const {
+    virtual bool operator==(const FFTPlanDescription& other) const {
         return (shape == other.shape && direction == other.direction && type == other.type && inPlace == other.inPlace);
     }
 };
@@ -86,9 +86,9 @@ public:
 
 
     // FFT plan management
-    // virtual void initializePlan(const CuboidShape& cube){
-    //     NOT_IMPLEMENTED(initializePlan);
-    // }
+    virtual void initializePlan(const FFTPlanDescription& description) {
+        NOT_IMPLEMENTED(initializePlan);
+    }
 
 
     // Debug functions

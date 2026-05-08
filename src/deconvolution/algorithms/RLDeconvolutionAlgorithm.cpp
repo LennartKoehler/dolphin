@@ -23,9 +23,26 @@ void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 void RLDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Richardson-Lucy algorithm initialization");
 
+    FFTPlanDescription forwardInPlace{
+        PlanDirection::FORWARD,
+        PlanType::REAL,
+        dataSize,
+        true};
+
+    FFTPlanDescription backwardInPlace{
+        PlanDirection::BACKWARD,
+        PlanType::REAL,
+        dataSize,
+        true};
+
+    backend->mutableDeconvManager().initializePlan(forwardInPlace);
+    backend->mutableDeconvManager().initializePlan(backwardInPlace);
+    //
+    //
     // Allocate memory for intermediate arrays
     c_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
     f_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
+
     initialized = true;
 }
 
@@ -96,5 +113,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RLDeconvolutionAlgorithm::cloneSpecific(
 }
 
 size_t RLDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 1; // Allocates 1 additional array of input size
+    return 2; // Allocates 2 additional array of input size
 }

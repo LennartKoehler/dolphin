@@ -79,7 +79,7 @@ class CUDABackendManager;
 }
 struct cuFFTPlan{
     cufftHandle plan;
-    PlanDescription description;
+    FFTPlanDescription description;
 };
 
 using cudaDeviceID = int;
@@ -152,6 +152,7 @@ public:
     }
 
 
+    void initializePlan(const FFTPlanDescription& description) override;
     void sync() override {cudaStreamSynchronize(config.stream);}
     // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
@@ -217,15 +218,16 @@ public:
 
 private:
 
-    cufftHandle initializePlan(const PlanDescription& description);
+    cufftHandle initializePlan_(const FFTPlanDescription& description);
 
-    void createPlanComplex(cufftHandle& plan, const PlanDescription& description) const;
-    void createPlanRealToComplex(cufftHandle& plan, const PlanDescription& description) const;
-    void createPlanComplexToReal(cufftHandle& plan, const PlanDescription& description) const ;
+    void createPlanComplex(cufftHandle& plan, const FFTPlanDescription& description) const;
+    void createPlanRealToComplex(cufftHandle& plan, const FFTPlanDescription& description) const;
+    void createPlanComplexToReal(cufftHandle& plan, const FFTPlanDescription& description) const ;
 
     void destroyPlans();
 
-    cufftHandle* getPlan(const PlanDescription& description);
+    cufftHandle getPlan(const FFTPlanDescription& description);
+    void addPlan(const FFTPlanDescription& description, cufftHandle handle);
     std::vector<cuFFTPlan> cuFFTPlans;
 
     CUDABackendConfig config;

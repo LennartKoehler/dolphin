@@ -1,6 +1,7 @@
 #include "CPUBackend.h"
 #include "dolphinbackend/Exceptions.h"
 #include "dolphinbackend/IBackend.h"
+#include "dolphinbackend/IDeconvolutionBackend.h"
 #include <algorithm>
 #include <format>
 #include <cmath>
@@ -392,7 +393,8 @@ CPUDeconvolutionBackend::~CPUDeconvolutionBackend() {
 }
 
 
-void CPUDeconvolutionBackend::initializePlan(const CuboidShape& shape) {
+void CPUDeconvolutionBackend::initializePlan(const FFTPlanDescription& description) {
+
 }
 
 
