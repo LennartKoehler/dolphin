@@ -29,6 +29,7 @@ public:
     bool hasConfig() override;
 	void setIntegrator(std::unique_ptr<NumericalIntegrator> integrator);
 	std::vector<float> SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config) const; // gibson lanni equation for one z-slice, returns data as vector
+    CuboidShape getPadding(PaddingStrategyType paddingType) const override;
 
 private:
 	void initBesselHelper() const;

@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/psf/PSF.h"
 #include "dolphin/ProgressTracking.h"
 #include <thread>
@@ -31,6 +32,9 @@ public:
         progressTracker.setCallback(fn);
         this->threadPool = threadpool;
     }
+
+    virtual CuboidShape getPadding(PaddingStrategyType paddingType) const = 0;
+
 protected:
     mutable ProgressTracking progressTracker;
     std::shared_ptr<ThreadPool> threadPool;

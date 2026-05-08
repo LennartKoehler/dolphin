@@ -379,6 +379,8 @@ Padding Preprocessor::padToShape(Image3D& image, const CuboidShape& targetShape,
     if (currentShape.width == 0 || currentShape.height == 0 || currentShape.depth == 0) {
         throw std::invalid_argument("Cannot pad empty image");
     }
+    if (currentShape == targetShape)
+        return Padding{CuboidShape{0,0,0}, CuboidShape{0,0,0}};
 
     int currentDepth = currentShape.depth;
     int currentHeight = currentShape.height;

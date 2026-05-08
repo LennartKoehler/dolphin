@@ -12,6 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
+#include "dolphin/ProgressTracking.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/IDeconvolutionStrategy.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/psf/PSF.h"
@@ -21,10 +22,9 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
-#include "dolphin/IO/TiffReader.h"
-#include "dolphin/IO/TiffWriter.h"
-#include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/IBackendManager.h"
+
+
 
 
 
@@ -37,7 +37,7 @@ public:
     virtual Result<DeconvolutionPlan> createPlan(
         std::shared_ptr<ImageReader> reader,
         std::shared_ptr<ImageWriter> writer,
-        const std::vector<PSF>& psfs,
+        PSFHandler& psfHandler,
         const DeconvolutionConfig& config,
         const SetupConfig& setupConfig) override;
 
@@ -60,20 +60,13 @@ protected:
     );
 
 
-    virtual std::unique_ptr<PSFPreprocessor> createPSFPreprocessor() const ;
 
     virtual std::vector<std::shared_ptr<TaskContext>> createContexts(
         IBackendManager& manager,
+        PSFHandler& psfHandler,
         int nDevices,
         size_t& nWorkerThreads,
         size_t& nIOThreads,
         size_t& totalThreads) const ;
 
-    virtual Result<std::pair<Padding, CuboidShape>> getCubePadding(
-        const std::vector<PSF>& psfs,
-        const CuboidShape& configPadding,
-        const CuboidShape& imageSize,
-        const DeconvolutionConfig& config);
-
 };
-

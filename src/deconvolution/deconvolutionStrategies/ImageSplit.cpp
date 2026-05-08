@@ -187,7 +187,6 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     {
     assert(minSize > cubePadding.getTotalPadding());
 
-
     CuboidShape currentMaxSize;
 
     if (imagePadding == PaddingStrategyType::NONE) currentMaxSize = imageOriginalShape;
@@ -209,7 +208,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
 
     while (ncubes < minNumberCubes){
 
-        cubePositions.clear(); // reset
+        cubePositions.clear();
 
         cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
 
@@ -222,6 +221,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
                 startCube,
                 imageOriginalShape,
                 imagePadding);
+
             ncubes = cubePositions.size();
         }
 
@@ -234,68 +234,3 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
 }
 
 
-
-//
-// std::vector<BoxCoordWithPadding> splitImageHomogeneous(
-//     const CuboidShape& workShape,
-//     const Padding& cubePadding,
-//     const CuboidShape& imageOriginalShape,
-//     const PaddingType& imagePadding)
-//     {
-//     // workshape is the subimage + padding, this depends mainly on performance
-//     CuboidShape subimageShape = workShape - cubePadding.before - cubePadding.after;
-//     std::vector<BoxCoordWithPadding> cubePositions;
-//
-//     // true divide and also the padding doesnt apply to the first cube (which gets no padding before) and the last cube which gets no padding after)
-//     // so thats why the cubePading is removed one time in each dimension on
-//     int cubesInDepth = std::max(1,(imageOriginalShape.depth - cubePadding.getPaddingDepthTotal() + subimageShape.depth - 1) / subimageShape.depth);
-//     int cubesInWidth = std::max(1,(imageOriginalShape.width - cubePadding.getPaddingWidthTotal() + subimageShape.width - 1) / subimageShape.width);
-//     int cubesInHeight = std::max(1,(imageOriginalShape.height - cubePadding.getPaddingHeightTotal() + subimageShape.height - 1) / subimageShape.height);
-//
-//     // Calculate total number of cubes
-//     int totalCubes = cubesInDepth * cubesInWidth * cubesInHeight;
-//     cubePositions.reserve(totalCubes);
-//     CuboidShape currentPos(0,0,0);
-//
-//     for (int d = 0; d < cubesInDepth; ++d) {
-//         for (int h = 0; h < cubesInHeight; ++h) {
-//             for (int w = 0; w < cubesInWidth; ++w) {
-//
-//                 // Calculate remaining size for this cube
-//                 CuboidShape remainingSize(
-//                     std::min(subimageShape.width, imageOriginalShape.width - currentPos.width),
-//                     std::min(subimageShape.height, imageOriginalShape.height - currentPos.height),
-//                     std::min(subimageShape.depth, imageOriginalShape.depth - currentPos.depth)
-//                 );
-//
-//                 // Skip if no remaining size (shouldn't happen with proper calculation)
-//                 if (remainingSize.depth <= 0 || remainingSize.width <= 0 || remainingSize.height <= 0) {
-//                     continue;
-//                 }
-//
-//                 // Determine actual cube positions - use overlap for boundary cubes
-//                 CuboidShape actualPos = currentPos;
-//                 CuboidShape actualDimensions = subimageShape;
-//                 Padding adjustedPadding = cubePadding;
-//
-//
-//                 BoxCoord cube;
-//                 cube.position = actualPos;
-//                 cube.dimensions = actualDimensions;
-//
-//                 BoxCoordWithPadding cubeWithPadding;
-//                 cubeWithPadding.box = cube;
-//                 cubeWithPadding.padding = adjustedPadding;
-//
-//                 cubePositions.push_back(std::move(cubeWithPadding));
-//
-//
-//                 // Calculate current position in original image coordinates
-//                 currentPos = currentPos + actualDimensions; //TODO this is wrong!
-//             }
-//         }
-//     }
-//
-//     return cubePositions;
-// }
-//

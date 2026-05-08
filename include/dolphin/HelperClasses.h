@@ -104,6 +104,9 @@ struct BoxCoordWithPadding {
     bool isWithin(const BoxCoordWithPadding& other) const {
         return (this->getBox().isWithin(other.getBox()));
     }
+    CuboidShape getPaddedShape() const {
+        return box.dimensions + padding.getTotalPadding();
+    }
     BoxCoord getBox() const {
         return BoxCoord{this->box.position - this->padding.before, this->box.dimensions + this->padding.before + this->padding.after};
 
