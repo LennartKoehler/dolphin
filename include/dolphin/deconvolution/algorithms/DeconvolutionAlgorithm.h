@@ -31,12 +31,16 @@ public:
 
     // it is assumed that the input of convolve is already located on the backend device
     virtual void deconvolve(const ComplexData& H, RealData& g, RealData& f) = 0;
+
     void setBackend(IBackend& backend){this->backend = &backend;}
+
     inline std::unique_ptr<DeconvolutionAlgorithm> clone() const{
         std::unique_ptr<DeconvolutionAlgorithm> clone = cloneSpecific();
-        clone->setProgressTracker(progressFunction);
+        if (progressFunction)
+            clone->setProgressTracker(progressFunction);
         return clone;
     }
+
     virtual size_t getMemoryMultiplier() const = 0;
     void setProgressTracker(prFunction progressFunction){ this->progressFunction = progressFunction; }
 protected:
