@@ -6,7 +6,7 @@
 **/dockerbuild/
 build/*
 *build*/
-profiling/*
+profiling/results/*
 result/*
 results/*
 result/tiles/*
