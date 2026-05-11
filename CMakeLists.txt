@@ -61,7 +61,6 @@ message(STATUS "ITKCommon RELEASE: ${itk_release}")
 message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
 
 add_subdirectory(backends/dolphinbackend)
-# add_subdirectory(backends/openmp)
 add_subdirectory(backends/cpu)
 
 option(BUILD_CUDA "Build cuda backend" ON)
@@ -74,7 +73,7 @@ endif()
 
 
 # ------------------------------------------------------------
-# dolphin-image: Image handling library (Image3D, TIFF IO, padding, operations)
+# dolphin_image: Image handling library (Image3D, TIFF IO, padding, operations)
 # ------------------------------------------------------------
 set(DOLPHIN_IMAGE_SOURCES
     src/image/Image3D.cpp
@@ -86,11 +85,11 @@ set(DOLPHIN_IMAGE_SOURCES
     src/IO/TiffWriter.cpp
 )
 
-add_library(dolphin-image STATIC ${DOLPHIN_IMAGE_SOURCES})
+add_library(dolphin_image STATIC ${DOLPHIN_IMAGE_SOURCES})
 
-target_link_libraries(dolphin-image PUBLIC project_options)
+target_link_libraries(dolphin_image PUBLIC project_options)
 
-target_include_directories(dolphin-image
+target_include_directories(dolphin_image
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/dolphinbackend/include/>
@@ -101,17 +100,24 @@ target_include_directories(dolphin-image
         ${ITK_INCLUDE_DIRS}
 )
 
-target_link_libraries(dolphin-image
+target_link_libraries(dolphin_image
     PUBLIC
-        dolphinbackend
         ${TIFF_LIBRARIES}
         ${ITK_LIBRARIES}
 )
 
 
 # ------------------------------------------------------------
-# Collect sources for main dolphin library
+# Main dolphin library (deconvolution, PSF, config, orchestrator)
+#
+# Set BUILD_DOLPHIN_LIBRARY=OFF if you only need the backends and
+# dolphin_image.  For example, in a parent project:
+#   set(BUILD_DOLPHIN_LIBRARY OFF CACHE BOOL "" FORCE)
+#   add_subdirectory(lib/dolphin)
 # ------------------------------------------------------------
+option(BUILD_DOLPHIN_LIBRARY "Build the main dolphin library" ON)
+
+if(BUILD_DOLPHIN_LIBRARY)
 
 # Create Dolphin library with full API (deconvolution + PSF + config + orchestrator)
 set(DOLPHIN_SOURCES
@@ -200,7 +206,7 @@ target_include_directories(dolphin
 
 target_link_libraries(dolphin
     PUBLIC
-        dolphin-image
+        dolphin_image
         dolphinbackend
         cpu_backend
         ${TIFF_LIBRARIES}
@@ -239,6 +245,8 @@ set_target_properties(dolphin PROPERTIES
     BUILD_RPATH "$ORIGIN/../lib"
 )
 
+endif() # BUILD_DOLPHIN_LIBRARY
+
 
 
 
@@ -249,16 +257,26 @@ include(CMakePackageConfigHelpers)
 # shared dependencies (dolphinbackend, project_options). The new project
 # will use add_subdirectory() to consume these targets directly.
 # Key reusable targets:
-#   dolphin-image  - STATIC library (Image3D, TIFF IO, ImagePadding, ImageOperations, shared types)
+#   dolphin_image  - STATIC library (Image3D, TIFF IO, ImagePadding, ImageOperations, shared types)
 #   dolphinbackend - STATIC library (IBackend, IComputeBackend, ComplexData)
 #   cpu_backend    - STATIC library (CPUBackend, CPUBackendManager, FFTW)
-install(TARGETS project_options dolphin-image dolphin dolphinbackend cpu_backend
+if(BUILD_DOLPHIN_LIBRARY)
+install(TARGETS project_options dolphin_image dolphin dolphinbackend cpu_backend
     EXPORT dolphinTargets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin
     INCLUDES DESTINATION include
 )
+else()
+install(TARGETS project_options dolphin_image dolphinbackend cpu_backend
+    EXPORT dolphinTargets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
+)
+endif()
 
 # Install headers
 install(DIRECTORY lib/nlohmann/json/single_include/
