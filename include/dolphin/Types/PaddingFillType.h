@@ -13,10 +13,11 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
-// Backward-compatible wrapper - includes all split headers
-// New code should include the specific headers directly:
-//   #include "dolphin/Types/BoxCoord.h"  for Padding, BoxCoord, BoxCoordWithPadding, BoxEntryPair
-//   #include "dolphin/Types/Range.h"     for Range, RangeMap
-
-#include "dolphin/Types/BoxCoord.h"
-#include "dolphin/Types/Range.h"
+enum PaddingFillType {
+    ZERO,
+    MIRROR,
+    LINEAR,
+    QUADRATIC,
+    SINUSOID,
+    GAUSSIAN,
+};
