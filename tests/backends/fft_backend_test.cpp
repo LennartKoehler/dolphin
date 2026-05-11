@@ -86,8 +86,8 @@ int main(int argc, char** argv) {
         IBackend& backend = manager.getBackend(config);
         std::cout << "Backend device: " << backend.getDeviceString() << std::endl;
 
-        // Get the deconvolution backend (for FFT operations)
-        IDeconvolutionBackend& deconvBackend = backend.mutableDeconvManager();
+        // Get the compute backend (for FFT operations)
+        IComputeBackend& computeBackend = backend.mutableComputeManager();
 
         // Get the memory manager
         IBackendMemoryManager& memoryManager = backend.mutableMemoryManager();
@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
         ComplexData complexOnDevice = memoryManager.allocateMemoryOnDeviceComplex(shape);
 
         // Perform the forward FFT
-        deconvBackend.forwardFFT(inputOnDevice, complexOnDevice);
+        computeBackend.forwardFFT(inputOnDevice, complexOnDevice);
         backend.sync();
         std::cout << "Forward FFT completed" << std::endl;
 
@@ -122,7 +122,7 @@ int main(int argc, char** argv) {
         RealData outputOnDevice = memoryManager.allocateMemoryOnDeviceReal(shape);
 
         // Perform the backward FFT
-        deconvBackend.backwardFFT(complexOnDevice, outputOnDevice);
+        computeBackend.backwardFFT(complexOnDevice, outputOnDevice);
         backend.sync();
         std::cout << "Backward FFT completed" << std::endl;
 

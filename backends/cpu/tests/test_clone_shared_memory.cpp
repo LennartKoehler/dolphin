@@ -42,7 +42,7 @@ int main() {
     }
 
     // Cloned should own its own components (it's a fresh backend from getBackend)
-    if (!cloned.ownsDeconvolutionBackend()) {
+    if (!cloned.ownsComputeBackend()) {
         std::cerr << "FAIL: Cloned should own its deconv" << std::endl;
         return 1;
     }

@@ -142,8 +142,8 @@ private:
             return manager.getBackend(config);
         } else if constexpr (std::is_same_v<T, IBackendMemoryManager>) {
             return manager.getBackendMemoryManager(config);
-        } else if constexpr (std::is_same_v<T, IDeconvolutionBackend>) {
-            return manager.getDeconvolutionBackend(config);
+        } else if constexpr (std::is_same_v<T, IComputeBackend>) {
+            return manager.getComputeBackend(config);
         } else {
             static_assert(always_false<T>, "Unsupported interface type");
         }

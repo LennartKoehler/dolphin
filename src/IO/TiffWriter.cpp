@@ -12,6 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/IO/TiffWriter.h"
+#include "dolphin/ImageOperations.h"
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>
@@ -22,8 +23,6 @@ See the LICENSE file provided with the code for the full license.
 #include <cstdio>
 #include <climits>
 #include <queue>
-#include <dolphin/deconvolution/Preprocessor.h>
-#include "dolphin/deconvolution/Postprocessor.h"
 #include <itkImageSliceIteratorWithIndex.h>
 #include <itkImageRegionIterator.h>
 #include <itkMinimumMaximumImageFilter.h>
@@ -134,7 +133,7 @@ void TiffWriter::copyToTile(const Image3D& image, const BoxCoordWithPadding& coo
     srcBox.position = srcBox.position - tile.source.box.position;
     BoxCoord cubeBox = BoxCoord{coord.padding.before, coord.box.dimensions};
 
-    Postprocessor::insertCubeInImage(image, cubeBox, tile.image, srcBox);
+    ImageOperations::insertCubeInImage(image, cubeBox, tile.image, srcBox);
     if (isTileFull(tile)){
         // writeTile(metaData.filename, tile);
         // tileBuffer.deleteIndex(index);

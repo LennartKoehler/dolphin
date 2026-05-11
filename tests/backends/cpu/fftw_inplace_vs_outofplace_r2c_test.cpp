@@ -302,7 +302,7 @@ int main() {
         BackendConfig config;
         config.nThreads = 8;
         IBackend& backend = manager.getBackend(config);
-        IDeconvolutionBackend& deconvBackend = backend.mutableDeconvManager();
+        IComputeBackend& computeBackend = backend.mutableComputeManager();
         IBackendMemoryManager& memManager = backend.mutableMemoryManager();
         // Use the CPUBackendManager's allocation method for in-place r2c
         RealData realData = memManager.allocateMemoryOnDeviceRealFFTInPlace(shape);
@@ -324,9 +324,9 @@ int main() {
         // ---- Time in-place r2c via CPUBackend ----
         auto bk_r2c_start = clock::now();
         for (int iter = 0; iter < NUM_ITERATIONS; ++iter) {
-            deconvBackend.forwardFFT(realData, complexData);
+            computeBackend.forwardFFT(realData, complexData);
             square(realData.getData(), complexVolume);
-            deconvBackend.backwardFFT(complexData, realData);
+            computeBackend.backwardFFT(complexData, realData);
         }
         auto bk_r2c_end = clock::now();
         double bk_r2c_ms = duration_ms(bk_r2c_end - bk_r2c_start).count() / NUM_ITERATIONS;

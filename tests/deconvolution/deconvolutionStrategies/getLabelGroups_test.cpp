@@ -160,8 +160,8 @@ int main(int argc, char* argv[]){
             RealData h = Preprocessor::convertImageToRealData(*inputPSF);
             RealData h_device = psfBackend.getMemoryManager().copyDataToDevice(h);
             std::unique_ptr<ComplexView> h_result_device = std::make_unique<ComplexView>(std::move(psfBackend.getMemoryManager().reinterpret(h_device)));
-            psfBackend.getDeconvManager().octantFourierShift(h_device);
-            psfBackend.getDeconvManager().forwardFFT(h_device, *h_result_device);
+            psfBackend.getComputeManager().octantFourierShift(h_device);
+            psfBackend.getComputeManager().forwardFFT(h_device, *h_result_device);
             h_result_device->setBackend(h_device.getBackend());
             h_device.setBackend(nullptr);
             psfBackend.sync();

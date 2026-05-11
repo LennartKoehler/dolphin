@@ -44,7 +44,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     assert(initialized && "Regularized Inverse Filter algorithm not initialized. Call init() first.");\
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
-    const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
+    const IComputeBackend& deconvolution = backend->getComputeManager();
 
     complex_t lambdacomplex = {static_cast<real_t>(lambda), 0};
 

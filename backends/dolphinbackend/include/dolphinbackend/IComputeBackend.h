@@ -65,10 +65,10 @@ struct FFTPlanDescription{
     throw std::runtime_error(std::string(#func_name) + " not implemented in " + typeid(*this).name())
 
 // be sure that implementations of this are threadsafe
-class IDeconvolutionBackend{
+class IComputeBackend{
 public:
-    IDeconvolutionBackend() = default;
-    virtual ~IDeconvolutionBackend(){};
+    IComputeBackend() = default;
+    virtual ~IComputeBackend(){};
 
     /**
      * Get the device type of this backend

@@ -13,13 +13,13 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/IO/TiffReader.h"
 #include "dolphin/IO/TiffExceptions.h"
+#include "dolphin/ImagePadding.h"
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>
 #include <filesystem>
 #include <fstream>
 #include <cstdarg>
-#include "dolphin/deconvolution/Preprocessor.h"
 #include <chrono>
 #include <thread>
 #include <itkImageRegionIterator.h>
@@ -323,7 +323,7 @@ void TiffReader::readStripWithPadding(const BoxCoordWithPadding& coord) const {
     requestedRegion.position.width = 0;
 
     Image3D readImage = managedReader(requestedRegion);
-    Preprocessor::padImage(readImage, padding, PaddingFillType::MIRROR);
+    ImagePadding::padImage(readImage, padding, PaddingFillType::MIRROR);
 
     ImageBuffer result;
     result.image = readImage;

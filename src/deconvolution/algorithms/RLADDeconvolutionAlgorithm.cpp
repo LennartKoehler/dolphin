@@ -44,7 +44,7 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
     assert(initialized && "Richardson-Lucy with Adaptive Damping algorithm not initialized. Call init() first.");\
     
     const IBackendMemoryManager& memory = backend->getMemoryManager();
-    const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
+    const IComputeBackend& deconvolution = backend->getComputeManager();
 
     // Use pre-allocated memory for intermediate arrays
     assert(memory.isOnDevice(f.getData()) && "PSF is not on device");

@@ -39,8 +39,8 @@ int main() {
     IBackend& backend1 = mgr.getBackend(config);
     IBackend& backend2 = mgr.getBackend(config);
 
-    IDeconvolutionBackend& deconv1 = backend1.mutableDeconvManager();
-    IDeconvolutionBackend& deconv2 = backend2.mutableDeconvManager();
+    IComputeBackend& deconv1 = backend1.mutableComputeManager();
+    IComputeBackend& deconv2 = backend2.mutableComputeManager();
     IBackendMemoryManager& memMgr1 = backend1.mutableMemoryManager();
     IBackendMemoryManager& memMgr2 = backend2.mutableMemoryManager();
 

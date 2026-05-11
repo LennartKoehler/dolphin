@@ -91,11 +91,11 @@ void CUDABackendManager::setThreadDistribution(const size_t& totalThreads, size_
 
 }
 
-IDeconvolutionBackend& CUDABackendManager::getDeconvolutionBackend(const BackendConfig& config) {
-    auto deconv = std::make_unique<CUDADeconvolutionBackend>(configToConfig(config));
+IComputeBackend& CUDABackendManager::getComputeBackend(const BackendConfig& config) {
+    auto deconv = std::make_unique<CUDAComputeBackend>(configToConfig(config));
     std::unique_lock<std::mutex> lock(mutex_);
-    deconvBackends.push_back(std::move(deconv));
-    return *deconvBackends.back();
+    computeBackends.push_back(std::move(deconv));
+    return *computeBackends.back();
 }
 
 IBackendMemoryManager& CUDABackendManager::getBackendMemoryManager(const BackendConfig& config) {
@@ -188,7 +188,7 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
 //     // Clean up all active thread backends
 //     for (auto& pair : threadBackends_) {
 //         if (pair.second.backend) {
-//             pair.second.backend->mutableDeconvManager().cleanup();
+//             pair.second.backend->mutableComputeManager().cleanup();
 //         }
 //     }
 //     threadBackends_.clear();
