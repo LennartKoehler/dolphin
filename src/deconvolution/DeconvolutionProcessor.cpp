@@ -97,7 +97,7 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
 //         }
 //         for (const auto* psf_device : preprocessedPSFs){
 //             algorithm->deconvolve(*psf_device, g_device, f_device);
-//             // prototypebackend.getDeconvManager().scalarMultiplication(f_device, 1.0 / f_device.size.getVolume(), f_device); // Add normalization
+//             // prototypebackend.getComputeManager().scalarMultiplication(f_device, 1.0 / f_device.size.getVolume(), f_device); // Add normalization
 //             prototypebackend.sync();
 //         }
 //

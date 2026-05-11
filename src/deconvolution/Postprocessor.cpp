@@ -21,78 +21,12 @@ See the LICENSE file provided with the code for the full license.
 #include <itkCastImageFilter.h>
 #include <itkImageRegionIterator.h>
 #include <itkImageRegionConstIterator.h>
-#include <itkPasteImageFilter.h>
-#include <itkExtractImageFilter.h>
-#include <itkCropImageFilter.h>
-#include <itkConstantPadImageFilter.h>
 #include <itkImageDuplicator.h>
 #include <itkSubtractImageFilter.h>
-#include <itkAddImageFilter.h>
 
-
-void Postprocessor::insertCubeInImage(
-    const Image3D& cube,
-    const BoxCoord& cubeBox,
-    Image3D& image,
-    const BoxCoord& srcBox
-) {
-    using PasteFilterType = itk::PasteImageFilter<ImageType>;
-    using ExtractFilterType = itk::ExtractImageFilter<ImageType, ImageType>;
-
-    // Extract the region from the cube based on cubeBox
-    ImageType::RegionType extractRegion;
-    ImageType::IndexType extractStart;
-    extractStart[0] = cubeBox.position.width;
-    extractStart[1] = cubeBox.position.height;
-    extractStart[2] = cubeBox.position.depth;
-
-    ImageType::SizeType extractSize;
-    extractSize[0] = cubeBox.dimensions.width;
-    extractSize[1] = cubeBox.dimensions.height;
-    extractSize[2] = cubeBox.dimensions.depth;
-
-    extractRegion.SetIndex(extractStart);
-    extractRegion.SetSize(extractSize);
-
-    auto extractFilter = ExtractFilterType::New();
-    extractFilter->SetInput(cube.getItkImage());
-    extractFilter->SetExtractionRegion(extractRegion);
-    extractFilter->SetDirectionCollapseToStrategy(ExtractFilterType::DIRECTIONCOLLAPSETOGUESS);
-    extractFilter->Update();
-
-    // Set up the destination region in the target image
-    ImageType::IndexType destIndex;
-    destIndex[0] = srcBox.position.width;
-    destIndex[1] = srcBox.position.height;
-    destIndex[2] = srcBox.position.depth;
-
-    // Use PasteImageFilter to paste the extracted region into the target image
-    auto pasteFilter = PasteFilterType::New();
-    pasteFilter->SetSourceImage(extractFilter->GetOutput());
-    pasteFilter->SetDestinationImage(image.getItkImage());
-    pasteFilter->SetDestinationIndex(destIndex);
-    pasteFilter->SetSourceRegion(extractFilter->GetOutput()->GetLargestPossibleRegion());
-    pasteFilter->Update();
-
-    // Update the image with the result
-    image.setItkImage(pasteFilter->GetOutput());
-}
-void Postprocessor::addCubeToImage(
-    const Image3D& cube,
-    Image3D& image
-) {
-
-    // Use PasteImageFilter to paste the extracted region into the target image
-    using AddFilterType = itk::AddImageFilter<ImageType, ImageType, ImageType>;
-
-    auto addFilter = AddFilterType::New();
-    addFilter->SetInput1(cube.getItkImage());
-    addFilter->SetInput2(image.getItkImage());
-    addFilter->Update();
-
-    ImageType::Pointer temp = addFilter->GetOutput();
-    image.setItkImage(temp);
-}
+// insertCubeInImage, addCubeToImage, removePadding, cropToOriginalSize, and postprocessChannel
+// have been moved to src/image/ImageOperations.cpp (ImageOperations namespace).
+// The Postprocessor namespace now delegates to ImageOperations via inline functions in the header.
 
 //binary masks are converted into masks whose weight resembles (1 - distance to label) because label is 1 and backgorund 0
 // the feathering kernel is used for convolution with the binary mask. This creates a blue at the edge
@@ -106,13 +40,13 @@ void Postprocessor::createWeightMasks(
         RealData& mask = *mask_p;
         // convolution
         ComplexData maskComplex = backend.getMemoryManager().allocateMemoryOnDeviceComplex(mask.getSize());
-        backend.getDeconvManager().forwardFFT(mask, maskComplex);
-        backend.getDeconvManager().complexMultiplication(maskComplex,  frequencyFeatheringKernel, maskComplex);
-        backend.getDeconvManager().backwardFFT(maskComplex, mask);
+        backend.getComputeManager().forwardFFT(mask, maskComplex);
+        backend.getComputeManager().complexMultiplication(maskComplex,  frequencyFeatheringKernel, maskComplex);
+        backend.getComputeManager().backwardFFT(maskComplex, mask);
     }
 
     real_t** masksarray = backend.getMemoryManager().createDataArray(masks);
-    backend.getDeconvManager().sumToOne(masksarray, masks.size(), masks[0]->getSize().getVolume());
+    backend.getComputeManager().sumToOne(masksarray, masks.size(), masks[0]->getSize().getVolume());
 }
 
 
@@ -247,69 +181,3 @@ void Postprocessor::performWeightedBlending(
     }
 }
 
-void Postprocessor::removePadding(Image3D& image, const Padding& padding) {
-    using CropFilterType = itk::CropImageFilter<ImageType, ImageType>;
-
-    auto cropFilter = CropFilterType::New();
-    cropFilter->SetInput(image.getItkImage());
-
-    // Set the amount to crop from each side
-    ImageType::SizeType lowerBound;
-    lowerBound[0] = padding.before.width;  // x direction
-    lowerBound[1] = padding.before.height; // y direction
-    lowerBound[2] = padding.before.depth;  // z direction
-
-    ImageType::SizeType upperBound;
-    upperBound[0] = padding.after.width;   // x direction
-    upperBound[1] = padding.after.height;  // y direction
-    upperBound[2] = padding.after.depth;   // z direction
-
-    cropFilter->SetLowerBoundaryCropSize(lowerBound);
-    cropFilter->SetUpperBoundaryCropSize(upperBound);
-    cropFilter->Update();
-
-    // Update the image with the cropped result
-    image.setItkImage(std::move(cropFilter->GetOutput()));
-}
-
-void Postprocessor::cropToOriginalSize(Image3D& image, const CuboidShape& originalSize) {
-    CuboidShape currentSize = image.getShape();
-
-    // Calculate how much to crop from each dimension
-    CuboidShape cropAmount(std::max(0, currentSize.width - originalSize.width),
-                             std::max(0, currentSize.height - originalSize.height),
-                             std::max(0, currentSize.depth - originalSize.depth));
-
-    // For symmetric cropping, distribute evenly between start and end
-    CuboidShape cropStart(cropAmount.width / 2, cropAmount.height / 2, cropAmount.depth / 2);
-    CuboidShape cropEnd = cropAmount - cropStart;
-
-    Padding padding{cropStart, cropEnd};
-    removePadding(image, padding);
-}
-
-void Postprocessor::postprocessChannel(Image3D& image){
-    // Global normalization of the merged volume using ITK iterators
-    double global_max_val = 0.0;
-    double global_min_val = std::numeric_limits<double>::max();
-
-    // Find global min and max using ITK iterator
-    for (auto it = image.begin(); it != image.end(); ++it) {
-        float pixelValue = *it;
-        if (pixelValue < 0) {
-            *it = 0.0f;  // Threshold negative values to zero
-            pixelValue = 0.0f;
-        }
-        global_max_val = std::max(global_max_val, static_cast<double>(pixelValue));
-        global_min_val = std::min(global_min_val, static_cast<double>(pixelValue));
-    }
-
-    // Normalize to [0,1] range and threshold small values
-    float epsilon = 1e-6f;
-    double scale = 1.0 / (global_max_val - global_min_val);
-
-    for (auto it = image.begin(); it != image.end(); ++it) {
-        float normalizedValue = static_cast<float>((*it - global_min_val) * scale);
-        *it = (normalizedValue < epsilon) ? 0.0f : normalizedValue;
-    }
-}

@@ -18,23 +18,18 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include <itkImage.h>
 #include "dolphin/Image3D.h"
-
-class PaddedImage;
+#include "dolphin/ImageOperations.h"
 
 
 namespace Postprocessor{
 
-    void addCubeToImage(
-        const Image3D& cube,
-        Image3D& image
-    );
-
-    void insertCubeInImage(
-        const Image3D& cube,
-        const BoxCoord& cubeBox,
-        Image3D& image,
-        const BoxCoord& srcBox
-    );
+    // General image operations now delegate to ImageOperations namespace
+    // These wrappers are kept for backward compatibility
+    inline void addCubeToImage(const Image3D& cube, Image3D& image) { ImageOperations::addCubeToImage(cube, image); }
+    inline void insertCubeInImage(const Image3D& cube, const BoxCoord& cubeBox, Image3D& image, const BoxCoord& srcBox) { ImageOperations::insertCubeInImage(cube, cubeBox, image, srcBox); }
+    inline void removePadding(Image3D& image, const Padding& padding) { ImageOperations::removePadding(image, padding); }
+    inline void cropToOriginalSize(Image3D& image, const CuboidShape& originalSize) { ImageOperations::cropToOriginalSize(image, originalSize); }
+    inline void postprocessChannel(Image3D& image) { ImageOperations::normalizeChannel(image); }
 
 
     using IteratorType = itk::ImageRegionIterator<ImageType>;
@@ -69,8 +64,4 @@ namespace Postprocessor{
         ImageType::Pointer output
     );
 
-    void removePadding(Image3D& image, const Padding& padding);
-    void cropToOriginalSize(Image3D& image, const CuboidShape& originalSize);
-
-    void postprocessChannel(Image3D& image);
 }

@@ -23,6 +23,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/PSF.h"
 #include "dolphinbackend/IBackend.h"
 #include "dolphin/Image3D.h"
+#include "dolphin/ImagePadding.h"
 #include "dolphin/backend/BackendFactory.h"
 
 class IBackend;
@@ -105,18 +106,18 @@ namespace Preprocessor{
 
     RealData convertImageToRealData(const Image3D& image);
     Image3D convertRealDataToImage(const RealData& data);
-    void expandToMinSize(Image3D& image, const CuboidShape& minSize);
 
-
-    Padding padToShape(Image3D& image3D, const CuboidShape& targetShape, PaddingFillType borderType);
-
-    void padImage(Image3D& image, const Padding& padding, PaddingFillType borderType, float shapeScale = 1.0f);
-    void padImageMirror(Image3D& image, const Padding& padding);
-    void padImageZero(Image3D& image, const Padding& padding);
-    void padImageLinear(Image3D& image, const Padding& padding);
-    void padImageQuadratic(Image3D& image, const Padding& padding, float shapeScale = 1.0f);
-    void padImageSinusoid(Image3D& image, const Padding& padding);
-    void padImageGaussian(Image3D& image, const Padding& padding, float shapeScale = 1.0f);
+    // Padding functions now delegate to ImagePadding namespace
+    // These wrappers are kept for backward compatibility
+    inline void expandToMinSize(Image3D& image, const CuboidShape& minSize) { ImagePadding::expandToMinSize(image, minSize); }
+    inline Padding padToShape(Image3D& image3D, const CuboidShape& targetShape, PaddingFillType borderType) { return ImagePadding::padToShape(image3D, targetShape, borderType); }
+    inline void padImage(Image3D& image, const Padding& padding, PaddingFillType borderType, float shapeScale = 1.0f) { ImagePadding::padImage(image, padding, borderType, shapeScale); }
+    inline void padImageMirror(Image3D& image, const Padding& padding) { ImagePadding::padImageMirror(image, padding); }
+    inline void padImageZero(Image3D& image, const Padding& padding) { ImagePadding::padImageZero(image, padding); }
+    inline void padImageLinear(Image3D& image, const Padding& padding) { ImagePadding::padImageLinear(image, padding); }
+    inline void padImageQuadratic(Image3D& image, const Padding& padding, float shapeScale = 1.0f) { ImagePadding::padImageQuadratic(image, padding, shapeScale); }
+    inline void padImageSinusoid(Image3D& image, const Padding& padding) { ImagePadding::padImageSinusoid(image, padding); }
+    inline void padImageGaussian(Image3D& image, const Padding& padding, float shapeScale = 1.0f) { ImagePadding::padImageGaussian(image, padding, shapeScale); }
 
 }
 namespace PaddingStrategy {

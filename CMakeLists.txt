@@ -73,13 +73,47 @@ else()
 endif()
 
 
+# ------------------------------------------------------------
+# dolphin-image: Image handling library (Image3D, TIFF IO, padding, operations)
+# ------------------------------------------------------------
+set(DOLPHIN_IMAGE_SOURCES
+    src/image/Image3D.cpp
+    src/image/ImageMetaData.cpp
+    src/image/ImagePadding.cpp
+    src/image/ImageOperations.cpp
+
+    src/IO/TiffReader.cpp
+    src/IO/TiffWriter.cpp
+)
+
+add_library(dolphin-image STATIC ${DOLPHIN_IMAGE_SOURCES})
+
+target_link_libraries(dolphin-image PUBLIC project_options)
+
+target_include_directories(dolphin-image
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/dolphinbackend/include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/spdlog/include/>
+        $<INSTALL_INTERFACE:include>
+        ${TIFF_INCLUDE_DIR}
+        ${ITK_INCLUDE_DIRS}
+)
+
+target_link_libraries(dolphin-image
+    PUBLIC
+        dolphinbackend
+        ${TIFF_LIBRARIES}
+        ${ITK_LIBRARIES}
+)
 
 
 # ------------------------------------------------------------
-# Collect sources
+# Collect sources for main dolphin library
 # ------------------------------------------------------------
 
-# Create Dolphin library with full API
+# Create Dolphin library with full API (deconvolution + PSF + config + orchestrator)
 set(DOLPHIN_SOURCES
     src/Dolphin.cpp
     src/PSFCreator.cpp
@@ -90,12 +124,6 @@ set(DOLPHIN_SOURCES
     src/ThreadPool.cpp
     src/Config.cpp
     src/SetupConfig.cpp
-
-    src/image/Image3D.cpp
-    src/image/ImageMetaData.cpp
-
-    src/IO/TiffReader.cpp
-    src/IO/TiffWriter.cpp
 
     src/psf/PSF.cpp
     src/psf/generators/GaussianPSFGenerator.cpp
@@ -172,6 +200,7 @@ target_include_directories(dolphin
 
 target_link_libraries(dolphin
     PUBLIC
+        dolphin-image
         dolphinbackend
         cpu_backend
         ${TIFF_LIBRARIES}
@@ -214,7 +243,16 @@ set_target_properties(dolphin PROPERTIES
 
 
 # Install targets
-install(TARGETS project_options dolphin dolphinbackend cpu_backend
+include(CMakePackageConfigHelpers)
+
+# All targets go into a single export set to avoid CMake conflicts with
+# shared dependencies (dolphinbackend, project_options). The new project
+# will use add_subdirectory() to consume these targets directly.
+# Key reusable targets:
+#   dolphin-image  - STATIC library (Image3D, TIFF IO, ImagePadding, ImageOperations, shared types)
+#   dolphinbackend - STATIC library (IBackend, IComputeBackend, ComplexData)
+#   cpu_backend    - STATIC library (CPUBackend, CPUBackendManager, FFTW)
+install(TARGETS project_options dolphin-image dolphin dolphinbackend cpu_backend
     EXPORT dolphinTargets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
@@ -240,8 +278,7 @@ install(DIRECTORY include/dolphin
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
 
-# Create and install the config file
-include(CMakePackageConfigHelpers)
+# Create and install the config file for the main dolphin package
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/dolphinConfigVersion.cmake"
     VERSION ${PROJECT_VERSION}

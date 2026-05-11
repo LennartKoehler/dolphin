@@ -16,16 +16,10 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include "dolphin/HelperClasses.h"
 #include "dolphin/Config.h"
+#include "dolphin/Types/PaddingFillType.h"
 
-
-enum PaddingFillType {
-    ZERO,
-    MIRROR,
-    LINEAR,
-    QUADRATIC,
-    SINUSOID,
-    GAUSSIAN,
-};
+// PaddingFillType is now defined in dolphin/Types/PaddingFillType.h
+// It is still available here for backward compatibility.
 
 enum PaddingStrategyType {
     NONE,
