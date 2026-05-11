@@ -35,8 +35,8 @@ void RLDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
         dataSize,
         true};
 
-    backend->mutableDeconvManager().initializePlan(forwardInPlace);
-    backend->mutableDeconvManager().initializePlan(backwardInPlace);
+    backend->mutableComputeManager().initializePlan(forwardInPlace);
+    backend->mutableComputeManager().initializePlan(backwardInPlace);
     //
     //
     // Allocate memory for intermediate arrays
@@ -53,7 +53,7 @@ bool RLDeconvolutionAlgorithm::isInitialized() const {
 void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
-    const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
+    const IComputeBackend& deconvolution = backend->getComputeManager();
 
     assert(backend && "No backend available for Richardson-Lucy algorithm");
 

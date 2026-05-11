@@ -1,6 +1,6 @@
 #pragma once
 #include "dolphinbackend/IBackend.h"
-#include "dolphinbackend/IDeconvolutionBackend.h"
+#include "dolphinbackend/IComputeBackend.h"
 // #include "CPUBackendManager.h"
 
 #include <fftw3.h>
@@ -141,10 +141,10 @@ private:
 };
 
 
-class CPUDeconvolutionBackend : public IDeconvolutionBackend{
+class CPUComputeBackend : public IComputeBackend{
 public:
-    CPUDeconvolutionBackend(CPUBackendConfig config, FFTWManager& manager);
-    ~CPUDeconvolutionBackend() override;
+    CPUComputeBackend(CPUBackendConfig config, FFTWManager& manager);
+    ~CPUComputeBackend() override;
 
     // Override device type method
     std::string getDeviceString() const noexcept override {
@@ -221,40 +221,40 @@ class CPUBackend : public IBackend {
 private:
 
     static CPUBackend* create(CPUBackendConfig config, FFTWManager& fftwManager, MemoryTracking& memory) {
-        auto deconv = std::make_unique<CPUDeconvolutionBackend>(config, fftwManager);
+        auto compute = std::make_unique<CPUComputeBackend>(config, fftwManager);
         auto memoryManager = std::make_unique<CPUBackendMemoryManager>(config, memory);
-        return new CPUBackend(std::move(deconv), std::move(memoryManager), config);
+        return new CPUBackend(std::move(compute), std::move(memoryManager), config);
     }
 
 
     // Constructor for external ownership (references to externally-owned components)
-    CPUBackend(CPUDeconvolutionBackend& deconv,
+    CPUBackend(CPUComputeBackend& compute,
                             CPUBackendMemoryManager& mem,
                             CPUBackendConfig config)
-            : deconvBackend(deconv),
+            : computeBackend(compute),
                 memoryManager(mem),
-                owner(deconv, mem),
+                owner(compute, mem),
                 config(config) {}
 
     // Constructor for self-ownership (takes ownership of both components)
-    CPUBackend(std::unique_ptr<CPUDeconvolutionBackend> deconv,
+    CPUBackend(std::unique_ptr<CPUComputeBackend> compute,
                             std::unique_ptr<CPUBackendMemoryManager> mem,
                             CPUBackendConfig config)
-            : deconvBackend(*deconv),
+            : computeBackend(*compute),
                 memoryManager(*mem),
-                owner(std::move(deconv), std::move(mem)),
+                owner(std::move(compute), std::move(mem)),
                 config(config) {}
 
-    // Constructor for mixed ownership (takes ownership of deconv, external memory)
-    CPUBackend(std::unique_ptr<CPUDeconvolutionBackend> deconv,
+    // Constructor for mixed ownership (takes ownership of compute, external memory)
+    CPUBackend(std::unique_ptr<CPUComputeBackend> compute,
                             CPUBackendMemoryManager& mem,
                             CPUBackendConfig config)
-            : deconvBackend(*deconv),
+            : computeBackend(*compute),
                 memoryManager(mem),
-                owner(std::move(deconv), mem),
+                owner(std::move(compute), mem),
                 config(config) {}
 
-    CPUDeconvolutionBackend& deconvBackend;
+    CPUComputeBackend& computeBackend;
     CPUBackendMemoryManager& memoryManager;
     Owner owner;  // Always uses unique_ptr, nullptr for non-owned components
     CPUBackendConfig config;
@@ -264,26 +264,26 @@ private:
 
     // Create CPUBackend with external ownership (references to externally-owned components)
     static std::shared_ptr<CPUBackend> createWithExternalOwnership(
-        CPUDeconvolutionBackend& deconv,
+        CPUComputeBackend& compute,
         CPUBackendMemoryManager& mem,
         CPUBackendConfig config) {
-        return std::shared_ptr<CPUBackend>(new CPUBackend(deconv, mem, config));
+        return std::shared_ptr<CPUBackend>(new CPUBackend(compute, mem, config));
     }
 
     // Create CPUBackend with self-ownership (takes ownership of both components)
     static std::shared_ptr<CPUBackend> createWithSelfOwnership(
-        std::unique_ptr<CPUDeconvolutionBackend> deconv,
+        std::unique_ptr<CPUComputeBackend> compute,
         std::unique_ptr<CPUBackendMemoryManager> mem,
         CPUBackendConfig config) {
-        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(deconv), std::move(mem), config));
+        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(compute), std::move(mem), config));
     }
 
-    // Create CPUBackend with mixed ownership (takes ownership of deconv, external memory)
+    // Create CPUBackend with mixed ownership (takes ownership of compute, external memory)
     static std::shared_ptr<CPUBackend> createWithMixedOwnership(
-        std::unique_ptr<CPUDeconvolutionBackend> deconv,
+        std::unique_ptr<CPUComputeBackend> compute,
         CPUBackendMemoryManager& mem,
         CPUBackendConfig config) {
-        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(deconv), mem, config));
+        return std::shared_ptr<CPUBackend>(new CPUBackend(std::move(compute), mem, config));
     }
 
 public:
@@ -297,8 +297,8 @@ public:
     }
 
     // Ownership query methods
-    bool ownsDeconvolutionBackend() const noexcept override {
-        return owner.ownsDeconvBackend();
+    bool ownsComputeBackend() const noexcept override {
+        return owner.ownsComputeBackend();
     }
 
     bool ownsMemoryManager() const noexcept override {
@@ -311,11 +311,11 @@ public:
     }
 
     // Ownership transfer methods for both components
-    std::unique_ptr<IDeconvolutionBackend> releaseDeconvolutionBackend() override {
-        if (!ownsDeconvolutionBackend()) {
-            throw std::runtime_error("Cannot release deconvolution backend: not owned by this CPUBackend");
+    std::unique_ptr<IComputeBackend> releaseComputeBackend() override {
+        if (!ownsComputeBackend()) {
+            throw std::runtime_error("Cannot release compute backend: not owned by this CPUBackend");
         }
-        return owner.releaseDeconvBackend();
+        return owner.releaseComputeBackend();
     }
 
     std::unique_ptr<IBackendMemoryManager> releaseMemoryManager() override {
@@ -326,14 +326,14 @@ public:
     }
 
     // Take ownership of components
-    void takeOwnership(std::unique_ptr<IDeconvolutionBackend> deconv) override {
-        if (&(*deconv) != &deconvBackend) {
-            throw std::runtime_error("Cannot take ownership: provided deconv backend is not the one currently referenced");
+    void takeOwnership(std::unique_ptr<IComputeBackend> compute) override {
+        if (&(*compute) != &computeBackend) {
+            throw std::runtime_error("Cannot take ownership: provided compute backend is not the one currently referenced");
         }
-        if (!owner.ownsDeconvBackend()) {
-            throw std::runtime_error("Cannot take ownership: deconv backend is not owned by this CPUBackend");
+        if (!owner.ownsComputeBackend()) {
+            throw std::runtime_error("Cannot take ownership: compute backend is not owned by this CPUBackend");
         }
-        owner.takeOwnership(std::move(deconv));
+        owner.takeOwnership(std::move(compute));
     }
 
     void takeOwnership(std::unique_ptr<IBackendMemoryManager> mem) override {
@@ -362,8 +362,8 @@ public:
         return &memoryManager;
     }
 
-    const IDeconvolutionBackend& getDeconvManager() const noexcept override {
-        return deconvBackend;
+    const IComputeBackend& getComputeManager() const noexcept override {
+        return computeBackend;
     }
 
     const IBackendMemoryManager& getMemoryManager() const noexcept override {
@@ -371,8 +371,8 @@ public:
     }
 
     // Optionally, allow non-const access if you need modification
-    IDeconvolutionBackend& mutableDeconvManager() noexcept override {
-        return deconvBackend;
+    IComputeBackend& mutableComputeManager() noexcept override {
+        return computeBackend;
     }
 
     IBackendMemoryManager& mutableMemoryManager() noexcept override {

@@ -48,11 +48,11 @@ int main() {
         std::cerr << "FAIL: Each backend should have its own memory manager" << std::endl;
         return 1;
     }
-    if (!backend1.ownsDeconvolutionBackend() || !backend1.ownsMemoryManager()) {
+    if (!backend1.ownsComputeBackend() || !backend1.ownsMemoryManager()) {
         std::cerr << "FAIL: Backend1 should own its components" << std::endl;
         return 1;
     }
-    if (!backend2.ownsDeconvolutionBackend() || !backend2.ownsMemoryManager()) {
+    if (!backend2.ownsComputeBackend() || !backend2.ownsMemoryManager()) {
         std::cerr << "FAIL: Backend2 should own its components" << std::endl;
         return 1;
     }

@@ -34,7 +34,7 @@ std::chrono::microseconds runLargeFFTTest(
 ) {
     std::cout << "\n--- Test 1: One large FFT ---" << std::endl;
 
-    IDeconvolutionBackend& deconvBackend = backend.mutableDeconvManager();
+    IComputeBackend& computeBackend = backend.mutableComputeManager();
     IBackendMemoryManager& memManager = backend.mutableMemoryManager();
 
     // Calculate dimensions for large FFT
@@ -54,7 +54,7 @@ std::chrono::microseconds runLargeFFTTest(
     // Time the large FFT
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < num_iterations; i++){
-        deconvBackend.forwardFFT(largeInput, largeOutput);
+        computeBackend.forwardFFT(largeInput, largeOutput);
     }
     backend.sync();
     auto end = std::chrono::high_resolution_clock::now();
@@ -79,7 +79,7 @@ std::chrono::microseconds runSmallFFTTest(
 ) {
     std::cout << "\n--- Test 2: " << numSmallFFTs << " Smaller FFTs ---" << std::endl;
 
-    IDeconvolutionBackend& deconvBackend = backend.mutableDeconvManager();
+    IComputeBackend& computeBackend = backend.mutableComputeManager();
     IBackendMemoryManager& memManager = backend.mutableMemoryManager();
 
     CuboidShape smallShape(smallDim, smallDim, smallDim);
@@ -104,7 +104,7 @@ std::chrono::microseconds runSmallFFTTest(
     }
     for (int i = 0; i < num_iterations; i++){
         for (int j = 0; j < numSmallFFTs; ++j) {
-            deconvBackend.forwardFFT(smallInput[j], smallOutput[j]);
+            computeBackend.forwardFFT(smallInput[j], smallOutput[j]);
         }
     }
     backend.sync();

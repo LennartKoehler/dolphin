@@ -1,7 +1,7 @@
 #pragma once
 
 #include "IBackendMemoryManager.h"
-#include "IDeconvolutionBackend.h"
+#include "IComputeBackend.h"
 #include "IBackend.h"
 
 
@@ -16,7 +16,7 @@ public:
 
     virtual void init(LogCallback fn) = 0;
 
-    virtual IDeconvolutionBackend& getDeconvolutionBackend(const BackendConfig& config) = 0;
+    virtual IComputeBackend& getComputeBackend(const BackendConfig& config) = 0;
     virtual IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) = 0;
     virtual IBackend& getBackend(const BackendConfig& config) = 0;
 

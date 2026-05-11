@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
-#include "dolphinbackend/IDeconvolutionBackend.h"
+#include "dolphinbackend/IComputeBackend.h"
 #include "dolphinbackend/IBackendMemoryManager.h"
 #include "dolphinbackend/IBackendManager.h"
 #include "CUDABackend.h"
@@ -28,7 +28,7 @@ See the LICENSE file provided with the code for the full license.
 
 // Forward declarations
 class CUDABackendMemoryManager;
-class CUDADeconvolutionBackend;
+class CUDAComputeBackend;
 class CUDABackend;
 
 
@@ -44,7 +44,7 @@ public:
     ~CUDABackendManager() override = default;
     void init(LogCallback fn) override;
 
-    IDeconvolutionBackend& getDeconvolutionBackend(const BackendConfig& config) override;
+    IComputeBackend& getComputeBackend(const BackendConfig& config) override;
     IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;
     IBackend& getBackend(const BackendConfig& config) override;
 
@@ -62,7 +62,7 @@ private:
     std::vector<CUDADevice> devices;
 
     std::vector<std::unique_ptr<CUDABackend>> backends;
-    std::vector<std::unique_ptr<CUDADeconvolutionBackend>> deconvBackends;
+    std::vector<std::unique_ptr<CUDAComputeBackend>> computeBackends;
     std::vector<std::unique_ptr<CUDABackendMemoryManager>> memoryManagers;
 
     // Threading synchronization

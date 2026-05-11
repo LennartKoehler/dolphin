@@ -131,7 +131,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
             // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
 
-            iobackend.getDeconvManager().multiplication(f_device, *labelgroup.getMask(), f_device); // multiply with weighted mask to get weighted values
+            iobackend.getComputeManager().multiplication(f_device, *labelgroup.getMask(), f_device); // multiply with weighted mask to get weighted values
             RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
 
             Postprocessor::addCubeToImage(Preprocessor::convertRealDataToImage(f_host), result);

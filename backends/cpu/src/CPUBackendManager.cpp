@@ -20,11 +20,11 @@ void CPUBackendManager::init(LogCallback fn) {
     fftwManager = std::make_unique<FFTWManager>(std::move(wisdomManager));
 }
 
-IDeconvolutionBackend& CPUBackendManager::getDeconvolutionBackend(const BackendConfig& config) {
-    auto deconv = std::make_unique<CPUDeconvolutionBackend>(configToConfig(config), *fftwManager);
+IComputeBackend& CPUBackendManager::getComputeBackend(const BackendConfig& config) {
+    auto deconv = std::make_unique<CPUComputeBackend>(configToConfig(config), *fftwManager);
     std::unique_lock<std::mutex> lock(mutex_);
-    deconvBackends.push_back(std::move(deconv));
-    return *deconvBackends.back();
+    computeBackends.push_back(std::move(deconv));
+    return *computeBackends.back();
 }
 
 IBackendMemoryManager& CPUBackendManager::getBackendMemoryManager(const BackendConfig& config) {

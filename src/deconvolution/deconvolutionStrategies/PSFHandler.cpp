@@ -130,15 +130,15 @@ std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
             RealData h = Preprocessor::convertImageToRealData(*inputPSF);
             RealData h_device = backend.getMemoryManager().copyDataToDevice(h);
             std::unique_ptr<ComplexView> h_result_device = std::make_unique<ComplexView>(std::move(backend.getMemoryManager().reinterpret(h_device)));
-            backend.getDeconvManager().octantFourierShift(h_device); // align psf peak at 0,0,0
+            backend.getComputeManager().octantFourierShift(h_device); // align psf peak at 0,0,0
 
-            backend.getDeconvManager().forwardFFT(h_device, *h_result_device);
+            backend.getComputeManager().forwardFFT(h_device, *h_result_device);
 
             //transfer ownership of data
             h_result_device->setBackend(h_device.getBackend());
             h_device.setBackend(nullptr); // so basically now h_result_data owns the data and h_device no longer does because it doesnt have a backend to delete it
 
-            // backend.getDeconvManager().backwardFFT(*h_result_device, h_device);
+            // backend.getComputeManager().backwardFFT(*h_result_device, h_device);
 
             // move back to host for cuda
 

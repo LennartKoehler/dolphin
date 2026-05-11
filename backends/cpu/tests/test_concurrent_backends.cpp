@@ -37,15 +37,15 @@ int main() {
     IBackend& backend1 = mgr.getBackend(config);
     IBackend& backend2 = mgr.getBackend(config);
 
-    IDeconvolutionBackend& deconv1 = backend1.mutableDeconvManager();
-    IDeconvolutionBackend& deconv2 = backend2.mutableDeconvManager();
+    IComputeBackend& deconv1 = backend1.mutableComputeManager();
+    IComputeBackend& deconv2 = backend2.mutableComputeManager();
     IBackendMemoryManager& memMgr1 = backend1.mutableMemoryManager();
     IBackendMemoryManager& memMgr2 = backend2.mutableMemoryManager();
 
     CuboidShape shape(16, 16, 8);
     std::atomic<int> errors{0};
 
-    auto worker = [&](IDeconvolutionBackend& deconv, IBackendMemoryManager& memMgr, float value) {
+    auto worker = [&](IComputeBackend& deconv, IBackendMemoryManager& memMgr, float value) {
         try {
             ComplexData input = memMgr.allocateMemoryOnDeviceComplexFull(shape);
             ComplexData output = memMgr.allocateMemoryOnDeviceComplexFull(shape);

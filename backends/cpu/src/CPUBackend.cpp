@@ -1,7 +1,7 @@
 #include "CPUBackend.h"
 #include "dolphinbackend/Exceptions.h"
 #include "dolphinbackend/IBackend.h"
-#include "dolphinbackend/IDeconvolutionBackend.h"
+#include "dolphinbackend/IComputeBackend.h"
 #include <algorithm>
 #include <format>
 #include <cmath>
@@ -376,8 +376,8 @@ size_t CPUBackendMemoryManager::getAllocatedMemory() const {
 
 
 // #####################################################################################################
-// CPUDeconvolutionBackend implementation
-CPUDeconvolutionBackend::CPUDeconvolutionBackend(CPUBackendConfig config, FFTWManager& manager)
+// CPUComputeBackend implementation
+CPUComputeBackend::CPUComputeBackend(CPUBackendConfig config, FFTWManager& manager)
     : config(config),
     fftwManager(manager){
 
@@ -388,18 +388,18 @@ CPUDeconvolutionBackend::CPUDeconvolutionBackend(CPUBackendConfig config, FFTWMa
     #endif
 }
 
-CPUDeconvolutionBackend::~CPUDeconvolutionBackend() {
+CPUComputeBackend::~CPUComputeBackend() {
 
 }
 
 
-void CPUDeconvolutionBackend::initializePlan(const FFTPlanDescription& description) {
+void CPUComputeBackend::initializePlan(const FFTPlanDescription& description) {
 
 }
 
 
 
-void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
+void CPUComputeBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
     BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
     BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
 
@@ -408,7 +408,7 @@ void CPUDeconvolutionBackend::forwardFFT(const ComplexData& in, ComplexData& out
     fftwManager.executeForwardFFT(description, reinterpret_cast<fftwf_complex*>(in.getData()), reinterpret_cast<fftwf_complex*>(out.getData()));
 }
 
-void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
+void CPUComputeBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
     BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
     BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
 
@@ -420,7 +420,7 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, ComplexData& ou
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
-void CPUDeconvolutionBackend::forwardFFT(const RealData& in, ComplexData& out) const {
+void CPUComputeBackend::forwardFFT(const RealData& in, ComplexData& out) const {
     BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
     BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
 
@@ -429,7 +429,7 @@ void CPUDeconvolutionBackend::forwardFFT(const RealData& in, ComplexData& out) c
     fftwManager.executeForwardFFTReal(description, reinterpret_cast<real_t*>(in.getData()), reinterpret_cast<fftwf_complex*>(out.getData()));
 }
 
-void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) const {
+void CPUComputeBackend::backwardFFT(const ComplexData& in, RealData& out) const {
     BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
     BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
 
@@ -441,7 +441,7 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) 
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
-// void CPUDeconvolutionBackend::octantFourierShift(RealData& data) const {
+// void CPUComputeBackend::octantFourierShift(RealData& data) const {
 //     int width = data.getSize().width;
 //     int height = data.getSize().height;
 //     int depth = data.getSize().depth;
@@ -469,7 +469,7 @@ void CPUDeconvolutionBackend::backwardFFT(const ComplexData& in, RealData& out) 
 //     }
 // }
 
-void CPUDeconvolutionBackend::octantFourierShift(RealData& data) const {
+void CPUComputeBackend::octantFourierShift(RealData& data) const {
     int width = data.getSize().width;
     int height = data.getSize().height;
     int depth = data.getSize().depth;
@@ -494,7 +494,7 @@ void CPUDeconvolutionBackend::octantFourierShift(RealData& data) const {
 }
 
 
-void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
+void CPUComputeBackend::octantFourierShift(ComplexData& data) const {
     int width = data.getSize().width;
     int height = data.getSize().height;
     int depth = data.getSize().depth;
@@ -519,7 +519,7 @@ void CPUDeconvolutionBackend::octantFourierShift(ComplexData& data) const {
     }
 }
 
-void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
+void CPUComputeBackend::inverseQuadrantShift(ComplexData& data) const {
     int width = data.getSize().width;
     int height = data.getSize().height;
     int depth = data.getSize().depth;
@@ -580,7 +580,7 @@ void CPUDeconvolutionBackend::inverseQuadrantShift(ComplexData& data) const {
     }
 }
 
-void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
+void CPUComputeBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
@@ -595,7 +595,7 @@ void CPUDeconvolutionBackend::complexMultiplication(const ComplexData& a, const 
     });
 }
 
-void CPUDeconvolutionBackend::multiplication(const RealData& a, const RealData& b, RealData& result) const{
+void CPUComputeBackend::multiplication(const RealData& a, const RealData& b, RealData& result) const{
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "multiplication - input a");
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "multiplication - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "multiplication - result");
@@ -606,7 +606,7 @@ void CPUDeconvolutionBackend::multiplication(const RealData& a, const RealData& 
     });
 }
 
-void CPUDeconvolutionBackend::division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const {
+void CPUComputeBackend::division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "division - input a");
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "division - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "division - result");
@@ -620,7 +620,7 @@ void CPUDeconvolutionBackend::division(const RealData& a, const RealData& b, Rea
 }
 
 
-void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
+void CPUComputeBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a");
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
@@ -642,7 +642,7 @@ void CPUDeconvolutionBackend::complexDivision(const ComplexData& a, const Comple
 }
 
 
-void CPUDeconvolutionBackend::complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const {
+void CPUComputeBackend::complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const {
     BACKEND_CHECK(sum.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
 
     auto si = getStrideInfo(sum);
@@ -665,7 +665,7 @@ void CPUDeconvolutionBackend::complexAddition(complex_t** data, ComplexData& sum
     }
 }
 
-void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
+void CPUComputeBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexAddition - input a");
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexAddition - result");
@@ -678,7 +678,7 @@ void CPUDeconvolutionBackend::complexAddition(const ComplexData& a, const Comple
     });
 }
 
-void CPUDeconvolutionBackend::sumToOne(real_t** data, int nImages, int imageVolume) const {
+void CPUComputeBackend::sumToOne(real_t** data, int nImages, int imageVolume) const {
     // NOTE: Uses raw real_t** with flat indexing. External pointers are assumed
     // to share the same stride layout but we don't have CuboidShape for them.
     // If stride-aware access is needed, the API should be updated to pass shapes.
@@ -696,7 +696,7 @@ void CPUDeconvolutionBackend::sumToOne(real_t** data, int nImages, int imageVolu
         }
     }
 }
-void CPUDeconvolutionBackend::scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const {
+void CPUComputeBackend::scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
 
@@ -706,7 +706,7 @@ void CPUDeconvolutionBackend::scalarMultiplication(const RealData& a, real_t sca
     });
 }
 
-void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
+void CPUComputeBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
 
@@ -720,7 +720,7 @@ void CPUDeconvolutionBackend::scalarMultiplication(const ComplexData& a, complex
     });
 }
 
-void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
+void CPUComputeBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplicationWithConjugate - input a");
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplicationWithConjugate - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result");
@@ -735,7 +735,7 @@ void CPUDeconvolutionBackend::complexMultiplicationWithConjugate(const ComplexDa
     });
 }
 
-void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
+void CPUComputeBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivisionStabilized - input a");
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivisionStabilized - input b");
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result");
@@ -752,7 +752,7 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
 }
 
 // // Specialized Functions
-// void CPUDeconvolutionBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
+// void CPUComputeBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
 //     auto siPsf = getStrideInfo(psf);
 //     auto siLap = getStrideInfo(laplacian);
 //     const complex_t* ptrPsf = psf.getData();
@@ -775,7 +775,7 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
 //     }
 // }
 //
-// // void CPUDeconvolutionBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
+// // void CPUComputeBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
 //     real_t max_val = 0.0, max_val2 = 0.0;
 //     OMP(omp parallel for, config.useOMP, config.ompThreads)
 //     for (int j = 0; j < resultImage.getSize().getVolume(); j++) {
@@ -789,7 +789,7 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
 //     }
 // }
 //
-// void CPUDeconvolutionBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
+// void CPUComputeBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
 //     OMP(omp parallel for, config.useOMP, config.ompThreads)
 //     for (int i = 0; i < data.getSize().getVolume(); ++i) {
 //         data[i][0] /= cubeVolume;
@@ -798,7 +798,7 @@ void CPUDeconvolutionBackend::complexDivisionStabilized(const ComplexData& a, co
 // }
 
 // Debug functions
-void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
+void CPUComputeBackend::hasNAN(const ComplexData& data) const {
     int nanCount = 0, infCount = 0;
     real_t minReal = std::numeric_limits<real_t>::max();
     real_t maxReal = std::numeric_limits<real_t>::lowest();
@@ -844,7 +844,7 @@ void CPUDeconvolutionBackend::hasNAN(const ComplexData& data) const {
 
 
 // Gradient and TV Functions - Updated to match OpenMPBackend pattern
-void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
+void CPUComputeBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradX);
     const complex_t* ptrImg = image.getData();
@@ -866,7 +866,7 @@ void CPUDeconvolutionBackend::gradientX(const ComplexData& image, ComplexData& g
     }
 }
 
-void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
+void CPUComputeBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradY);
     const complex_t* ptrImg = image.getData();
@@ -892,7 +892,7 @@ void CPUDeconvolutionBackend::gradientY(const ComplexData& image, ComplexData& g
     }
 }
 
-void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
+void CPUComputeBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradZ);
     const complex_t* ptrImg = image.getData();
@@ -921,7 +921,7 @@ void CPUDeconvolutionBackend::gradientZ(const ComplexData& image, ComplexData& g
 }
 
 
-void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& div, ComplexData& tv) const {
+void CPUComputeBackend::computeTV(real_t lambda, const ComplexData& div, ComplexData& tv) const {
     // Expects div to contain the divergence of the smoothed normalized gradient field.
     // Computes: tv[i] = 1 / (1 + lambda * div[i])
     // This is the TV damping factor in the RL-TV update:
@@ -941,7 +941,7 @@ void CPUDeconvolutionBackend::computeTV(real_t lambda, const ComplexData& div, C
 
 
 
-void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t beta) const {
+void CPUComputeBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t beta) const {
     // Smoothed TV subgradient: gx / sqrt(|nabla f|² + beta²)
     // beta prevents noise amplification in flat regions where |nabla f| is small.
     const real_t betaSq = beta * beta;
@@ -960,7 +960,7 @@ void CPUDeconvolutionBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY
 }
 
 // Gradient and TV Functions for real-valued data
-void CPUDeconvolutionBackend::gradientX(const RealData& image, RealData& gradX) const {
+void CPUComputeBackend::gradientX(const RealData& image, RealData& gradX) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradX);
     const real_t* ptrImg = image.getData();
@@ -978,7 +978,7 @@ void CPUDeconvolutionBackend::gradientX(const RealData& image, RealData& gradX) 
     }
 }
 
-void CPUDeconvolutionBackend::gradientY(const RealData& image, RealData& gradY) const {
+void CPUComputeBackend::gradientY(const RealData& image, RealData& gradY) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradY);
     const real_t* ptrImg = image.getData();
@@ -999,7 +999,7 @@ void CPUDeconvolutionBackend::gradientY(const RealData& image, RealData& gradY) 
     }
 }
 
-void CPUDeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ) const {
+void CPUComputeBackend::gradientZ(const RealData& image, RealData& gradZ) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradZ);
     const real_t* ptrImg = image.getData();
@@ -1022,7 +1022,7 @@ void CPUDeconvolutionBackend::gradientZ(const RealData& image, RealData& gradZ) 
     }
 }
 
-void CPUDeconvolutionBackend::gradient(const RealData& image, RealData& gradX, RealData& gradY, RealData& gradZ) const {
+void CPUComputeBackend::gradient(const RealData& image, RealData& gradX, RealData& gradY, RealData& gradZ) const {
     auto siImg = getStrideInfo(image);
     auto siX = getStrideInfo(gradX);
     auto siY = getStrideInfo(gradY);
@@ -1058,7 +1058,7 @@ void CPUDeconvolutionBackend::gradient(const RealData& image, RealData& gradX, R
     }
 }
 
-void CPUDeconvolutionBackend::divergence(const RealData& gx, const RealData& gy, const RealData& gz, RealData& result) const {
+void CPUComputeBackend::divergence(const RealData& gx, const RealData& gy, const RealData& gz, RealData& result) const {
     auto siGx = getStrideInfo(gx);
     auto siGy = getStrideInfo(gy);
     auto siGz = getStrideInfo(gz);
@@ -1089,7 +1089,7 @@ void CPUDeconvolutionBackend::divergence(const RealData& gx, const RealData& gy,
     }
 }
 
-void CPUDeconvolutionBackend::divergence(const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& result) const {
+void CPUComputeBackend::divergence(const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& result) const {
     auto siGx = getStrideInfo(gx);
     auto siGy = getStrideInfo(gy);
     auto siGz = getStrideInfo(gz);
@@ -1124,7 +1124,7 @@ void CPUDeconvolutionBackend::divergence(const ComplexData& gx, const ComplexDat
     }
 }
 
-void CPUDeconvolutionBackend::computeTV(real_t lambda, const RealData& div, RealData& tv) const {
+void CPUComputeBackend::computeTV(real_t lambda, const RealData& div, RealData& tv) const {
     // Expects div to contain the divergence of the smoothed normalized gradient field.
     // Computes: tv[i] = 1 / (1 + lambda * div[i])
     // This is the TV damping factor in the RL-TV update:
@@ -1141,7 +1141,7 @@ void CPUDeconvolutionBackend::computeTV(real_t lambda, const RealData& div, Real
     });
 }
 
-void CPUDeconvolutionBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
+void CPUComputeBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const {
     stridedIterationMutate(gradX, gradY, gradZ, [epsilon](auto* rowGx, auto* rowGy, auto* rowGz, int w) {
         for (int x = 0; x < w; ++x) {
             real_t normSq =

@@ -54,7 +54,7 @@ void TestAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
 
     assert(initialized && "Convolution algorithm not initialized. Call init() first.");\
     const IBackendMemoryManager& memory = backend->getMemoryManager();
-    const IDeconvolutionBackend& deconv = backend->getDeconvManager();
+    const IComputeBackend& deconv = backend->getComputeManager();
 
     // ComplexData f_complex = memory.allocateMemoryOnDevice(f.getSize());
     // RealData c_real = memory.allocateMemoryOnDeviceReal(f.getSize());

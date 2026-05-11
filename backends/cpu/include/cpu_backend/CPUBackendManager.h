@@ -78,7 +78,7 @@ public:
     virtual ~CPUBackendManager() override = default;
     void init(LogCallback fn) override;
 
-    IDeconvolutionBackend& getDeconvolutionBackend(const BackendConfig& config) override;
+    IComputeBackend& getComputeBackend(const BackendConfig& config) override;
     IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;
     IBackend& getBackend(const BackendConfig& config) override;
 
@@ -93,7 +93,7 @@ private:
     CPUBackendConfig configToConfig(const BackendConfig& config) const;
 
     std::vector<std::unique_ptr<CPUBackend>> backends;
-    std::vector<std::unique_ptr<CPUDeconvolutionBackend>> deconvBackends;
+    std::vector<std::unique_ptr<CPUComputeBackend>> computeBackends;
     std::vector<std::unique_ptr<CPUBackendMemoryManager>> memoryManagers;
 
     MemoryTracking memory;

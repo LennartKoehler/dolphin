@@ -99,11 +99,11 @@ void testBackendCreation() {
 
     TEST_ASSERT(backend.getDeviceString() == "cpu", "Device string should be 'cpu'");
     TEST_ASSERT(backend.hasMemoryManager(), "Backend should have a memory manager");
-    TEST_ASSERT(backend.ownsDeconvolutionBackend(), "Backend should own its deconv backend");
+    TEST_ASSERT(backend.ownsComputeBackend(), "Backend should own its compute backend");
     TEST_ASSERT(backend.ownsMemoryManager(), "Backend should own its memory manager");
     TEST_ASSERT(backend.getMemoryManagerPtr() != nullptr, "Memory manager pointer should not be null");
 
-    const IDeconvolutionBackend& deconv = backend.getDeconvManager();
+    const IComputeBackend& deconv = backend.getComputeManager();
     TEST_ASSERT(deconv.getDeviceString() == "cpu", "Deconv device string should be 'cpu'");
 
     const IBackendMemoryManager& mem = backend.getMemoryManager();
@@ -191,7 +191,7 @@ void testComplexFFTRoundTrip() {
     config.nThreads = 1;
 
     IBackend& backend = mgr.getBackend(config);
-    IDeconvolutionBackend& deconv = backend.mutableDeconvManager();
+    IComputeBackend& deconv = backend.mutableComputeManager();
     IBackendMemoryManager& memMgr = backend.mutableMemoryManager();
 
     CuboidShape shape(16, 16, 8);
@@ -226,7 +226,7 @@ void testRealFFTRoundTrip() {
     config.nThreads = 1;
 
     IBackend& backend = mgr.getBackend(config);
-    IDeconvolutionBackend& deconv = backend.mutableDeconvManager();
+    IComputeBackend& deconv = backend.mutableComputeManager();
     IBackendMemoryManager& memMgr = backend.mutableMemoryManager();
 
     CuboidShape shape(16, 16, 8);
@@ -258,7 +258,7 @@ void testComplexArithmetic() {
     config.nThreads = 1;
 
     IBackend& backend = mgr.getBackend(config);
-    IDeconvolutionBackend& deconv = backend.mutableDeconvManager();
+    IComputeBackend& deconv = backend.mutableComputeManager();
     IBackendMemoryManager& memMgr = backend.mutableMemoryManager();
 
     CuboidShape shape(8, 8, 4);
@@ -351,7 +351,7 @@ void testRealArithmetic() {
     config.nThreads = 1;
 
     IBackend& backend = mgr.getBackend(config);
-    IDeconvolutionBackend& deconv = backend.mutableDeconvManager();
+    IComputeBackend& deconv = backend.mutableComputeManager();
     IBackendMemoryManager& memMgr = backend.mutableMemoryManager();
 
     CuboidShape shape(8, 8, 4);
@@ -399,7 +399,7 @@ void testOctantFourierShift() {
     config.nThreads = 1;
 
     IBackend& backend = mgr.getBackend(config);
-    IDeconvolutionBackend& deconv = backend.mutableDeconvManager();
+    IComputeBackend& deconv = backend.mutableComputeManager();
     IBackendMemoryManager& memMgr = backend.mutableMemoryManager();
 
     CuboidShape shape(8, 8, 8);
@@ -520,17 +520,17 @@ void testOwnershipTransfer() {
 
     IBackend& backend = mgr.getBackend(config);
 
-    TEST_ASSERT(backend.ownsDeconvolutionBackend(), "Should own deconv backend");
+    TEST_ASSERT(backend.ownsComputeBackend(), "Should own compute backend");
     TEST_ASSERT(backend.ownsMemoryManager(), "Should own memory manager");
 
-    // Release deconvolution backend
-    auto deconvPtr = backend.releaseDeconvolutionBackend();
-    TEST_ASSERT(deconvPtr != nullptr, "Released deconv backend should not be null");
-    TEST_ASSERT(!backend.ownsDeconvolutionBackend(), "Should no longer own deconv backend after release");
+    // Release compute backend
+    auto deconvPtr = backend.releaseComputeBackend();
+    TEST_ASSERT(deconvPtr != nullptr, "Released compute backend should not be null");
+    TEST_ASSERT(!backend.ownsComputeBackend(), "Should no longer own compute backend after release");
 
     // Take ownership back
     backend.takeOwnership(std::move(deconvPtr));
-    TEST_ASSERT(backend.ownsDeconvolutionBackend(), "Should own deconv backend after taking ownership back");
+    TEST_ASSERT(backend.ownsComputeBackend(), "Should own compute backend after taking ownership back");
 
     // Release memory manager
     auto memPtr = backend.releaseMemoryManager();
@@ -553,15 +553,15 @@ void testReleaseWithoutOwnershipThrows() {
 
     IBackend& backend = mgr.getBackend(config);
 
-    auto deconvPtr = backend.releaseDeconvolutionBackend();
+    auto deconvPtr = backend.releaseComputeBackend();
 
     bool threw = false;
     try {
-        backend.releaseDeconvolutionBackend();
+        backend.releaseComputeBackend();
     } catch (const std::runtime_error&) {
         threw = true;
     }
-    TEST_ASSERT(threw, "Releasing non-owned deconv backend should throw");
+    TEST_ASSERT(threw, "Releasing non-owned compute backend should throw");
 
     backend.takeOwnership(std::move(deconvPtr));
 }
@@ -625,7 +625,7 @@ void testConcurrentFFT() {
     config.nThreads = 1;
 
     IBackend& backend = mgr.getBackend(config);
-    IDeconvolutionBackend& deconv = backend.mutableDeconvManager();
+    IComputeBackend& deconv = backend.mutableComputeManager();
     IBackendMemoryManager& memMgr = backend.mutableMemoryManager();
 
     CuboidShape shape(16, 16, 8);
@@ -680,7 +680,7 @@ void testGradientOperations() {
     config.nThreads = 1;
 
     IBackend& backend = mgr.getBackend(config);
-    IDeconvolutionBackend& deconv = backend.mutableDeconvManager();
+    IComputeBackend& deconv = backend.mutableComputeManager();
     IBackendMemoryManager& memMgr = backend.mutableMemoryManager();
 
     CuboidShape shape(8, 8, 4);
@@ -746,7 +746,7 @@ void testTVNormalization() {
     config.nThreads = 1;
 
     IBackend& backend = mgr.getBackend(config);
-    IDeconvolutionBackend& deconv = backend.mutableDeconvManager();
+    IComputeBackend& deconv = backend.mutableComputeManager();
     IBackendMemoryManager& memMgr = backend.mutableMemoryManager();
 
     CuboidShape shape(8, 8, 4);
@@ -830,7 +830,7 @@ void testHasNAN() {
     config.nThreads = 1;
 
     IBackend& backend = mgr.getBackend(config);
-    IDeconvolutionBackend& deconv = backend.mutableDeconvManager();
+    IComputeBackend& deconv = backend.mutableComputeManager();
     IBackendMemoryManager& memMgr = backend.mutableMemoryManager();
 
     CuboidShape shape(4, 4, 4);

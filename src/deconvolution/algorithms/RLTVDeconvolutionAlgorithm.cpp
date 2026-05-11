@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
-#include "dolphinbackend/IDeconvolutionBackend.h"
+#include "dolphinbackend/IComputeBackend.h"
 #include <cassert>
 #include <spdlog/spdlog.h>
 
@@ -47,7 +47,7 @@ bool RLTVDeconvolutionAlgorithm::isInitialized() const {
 
 void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
     const IBackendMemoryManager& memory = backend->getMemoryManager();
-    const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
+    const IComputeBackend& deconvolution = backend->getComputeManager();
 
     assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm");\
     assert(initialized && "Richardson-Lucy with TV regularization algorithm not initialized. Call init() first.");\
@@ -110,7 +110,7 @@ size_t RLTVDeconvolutionAlgorithm::getMemoryMultiplier() const {
 }
 
 void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
-    const IDeconvolutionBackend& deconvolution = backend->getDeconvManager();
+    const IComputeBackend& deconvolution = backend->getComputeManager();
 
     deconvolution.gradient(g, gx, gy, gz);
 

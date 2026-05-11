@@ -45,13 +45,13 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealD
     ComplexData f_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(f.getSize());
 
     // Forward FFT: RealData -> ComplexData
-    backend->getDeconvManager().forwardFFT(g, g_complex);
+    backend->getComputeManager().forwardFFT(g, g_complex);
 
     // Complex division in frequency domain
-    backend->getDeconvManager().complexDivision(g_complex, H, f_complex, epsilon);
+    backend->getComputeManager().complexDivision(g_complex, H, f_complex, epsilon);
 
     // Backward FFT: ComplexData -> RealData
-    backend->getDeconvManager().backwardFFT(f_complex, f);
+    backend->getComputeManager().backwardFFT(f_complex, f);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::cloneSpecific() const {

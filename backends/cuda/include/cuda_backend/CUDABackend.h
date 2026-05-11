@@ -14,7 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/Exceptions.h"
-#include "dolphinbackend/IDeconvolutionBackend.h"
+#include "dolphinbackend/IComputeBackend.h"
 #include "dolphinbackend/IBackendMemoryManager.h"
 #include <cufft.h>
 #include <CUBE.h>
@@ -141,10 +141,10 @@ private:
 };
 
 //these actually own the plan as the plan is streamspecific, and i should never have more than one of these on a stream
-class CUDADeconvolutionBackend : public IDeconvolutionBackend{
+class CUDAComputeBackend : public IComputeBackend{
 public:
-    explicit CUDADeconvolutionBackend(CUDABackendConfig config);
-    ~CUDADeconvolutionBackend() override;
+    explicit CUDAComputeBackend(CUDABackendConfig config);
+    ~CUDAComputeBackend() override;
 
     // Override device type method
     std::string getDeviceString() const noexcept override {
@@ -244,32 +244,32 @@ private:
 
 
     // Constructor for external ownership (references to externally-owned components)
-    CUDABackend(CUDABackendConfig config, CUDADeconvolutionBackend& deconv,
+    CUDABackend(CUDABackendConfig config, CUDAComputeBackend& compute,
                 CUDABackendMemoryManager& mem)
         : config(config),
-          deconvBackend(deconv),
+          computeBackend(compute),
           memoryBackend(mem),
-          owner(deconv, mem) {}
+          owner(compute, mem) {}
 
     // Constructor for self-ownership (takes ownership of both components)
     CUDABackend(CUDABackendConfig config,
-                std::unique_ptr<CUDADeconvolutionBackend> deconv,
+                std::unique_ptr<CUDAComputeBackend> compute,
                 std::unique_ptr<CUDABackendMemoryManager> mem)
         : config(config),
-          deconvBackend(*deconv),
+          computeBackend(*compute),
           memoryBackend(*mem),
-          owner(std::move(deconv), std::move(mem)) {}
+          owner(std::move(compute), std::move(mem)) {}
 
-    // Constructor for mixed ownership (takes ownership of deconv, external memory)
+    // Constructor for mixed ownership (takes ownership of compute, external memory)
     CUDABackend(CUDABackendConfig config,
-                std::unique_ptr<CUDADeconvolutionBackend> deconv,
+                std::unique_ptr<CUDAComputeBackend> compute,
                 CUDABackendMemoryManager& mem)
         : config(config),
-          deconvBackend(*deconv),
+          computeBackend(*compute),
           memoryBackend(mem),
-          owner(std::move(deconv), mem) {}
+          owner(std::move(compute), mem) {}
 
-    CUDADeconvolutionBackend& deconvBackend;
+    CUDAComputeBackend& computeBackend;
     CUDABackendMemoryManager& memoryBackend;
     Owner owner;  // Specialized CUDA owner
     CUDABackendConfig config;
@@ -279,25 +279,25 @@ private:
     // Create CUDABackend with external ownership (references to externally-owned components)
     static std::shared_ptr<CUDABackend> createWithExternalOwnership(
         CUDABackendConfig config,
-        CUDADeconvolutionBackend& deconv,
+        CUDAComputeBackend& compute,
         CUDABackendMemoryManager& mem) {
-        return std::shared_ptr<CUDABackend>(new CUDABackend(config, deconv, mem));
+        return std::shared_ptr<CUDABackend>(new CUDABackend(config, compute, mem));
     }
 
     // Create CUDABackend with self-ownership (takes ownership of both components)
     static std::shared_ptr<CUDABackend> createWithSelfOwnership(
         CUDABackendConfig config,
-        std::unique_ptr<CUDADeconvolutionBackend> deconv,
+        std::unique_ptr<CUDAComputeBackend> compute,
         std::unique_ptr<CUDABackendMemoryManager> mem) {
-        return std::shared_ptr<CUDABackend>(new CUDABackend(config, std::move(deconv), std::move(mem)));
+        return std::shared_ptr<CUDABackend>(new CUDABackend(config, std::move(compute), std::move(mem)));
     }
 
-    // Create CUDABackend with mixed ownership (takes ownership of deconv, external memory)
+    // Create CUDABackend with mixed ownership (takes ownership of compute, external memory)
     static std::shared_ptr<CUDABackend> createWithMixedOwnership(
         CUDABackendConfig config,
-        std::unique_ptr<CUDADeconvolutionBackend> deconv,
+        std::unique_ptr<CUDAComputeBackend> compute,
         CUDABackendMemoryManager& mem) {
-        return std::shared_ptr<CUDABackend>(new CUDABackend(config, std::move(deconv), mem));
+        return std::shared_ptr<CUDABackend>(new CUDABackend(config, std::move(compute), mem));
     }
 
 public:
@@ -305,9 +305,9 @@ public:
 
     static CUDABackend* create(CUDABackendConfig config) {
         try {
-            auto deconv = std::make_unique<CUDADeconvolutionBackend>(config);
+            auto compute = std::make_unique<CUDAComputeBackend>(config);
             auto memoryManager = std::make_unique<CUDABackendMemoryManager>(config);
-            CUDABackend* backend = new CUDABackend(config, std::move(deconv), std::move(memoryManager));
+            CUDABackend* backend = new CUDABackend(config, std::move(compute), std::move(memoryManager));
 
             // size_t freeMem, totalMem;
             // cudaError_t err = cudaMemGetInfo(&freeMem, &totalMem);
@@ -341,8 +341,8 @@ public:
     }
 
     // Ownership query methods
-    bool ownsDeconvolutionBackend() const noexcept override {
-        return owner.ownsDeconvBackend();
+    bool ownsComputeBackend() const noexcept override {
+        return owner.ownsComputeBackend();
     }
 
     bool ownsMemoryManager() const noexcept override {
@@ -355,11 +355,11 @@ public:
     }
 
     // Ownership transfer methods for both components
-    std::unique_ptr<IDeconvolutionBackend> releaseDeconvolutionBackend() override {
-        if (!ownsDeconvolutionBackend()) {
-            throw std::runtime_error("Cannot release deconvolution backend: not owned by this CUDABackend");
+    std::unique_ptr<IComputeBackend> releaseComputeBackend() override {
+        if (!ownsComputeBackend()) {
+            throw std::runtime_error("Cannot release compute backend: not owned by this CUDABackend");
         }
-        return owner.releaseDeconvBackend();
+        return owner.releaseComputeBackend();
     }
 
     std::unique_ptr<IBackendMemoryManager> releaseMemoryManager() override {
@@ -370,14 +370,14 @@ public:
     }
 
     // Take ownership of components
-    void takeOwnership(std::unique_ptr<IDeconvolutionBackend> deconv) override {
-        if (&(*deconv) != &deconvBackend) {
-            throw std::runtime_error("Cannot take ownership: provided deconv backend is not the one currently referenced");
+    void takeOwnership(std::unique_ptr<IComputeBackend> compute) override {
+        if (&(*compute) != &computeBackend) {
+            throw std::runtime_error("Cannot take ownership: provided compute backend is not the one currently referenced");
         }
-        if (!owner.ownsDeconvBackend()) {
-            throw std::runtime_error("Cannot take ownership: deconv backend is not owned by this CUDABackend");
+        if (!owner.ownsComputeBackend()) {
+            throw std::runtime_error("Cannot take ownership: compute backend is not owned by this CUDABackend");
         }
-        owner.takeOwnership(std::move(deconv));
+        owner.takeOwnership(std::move(compute));
     }
 
     void takeOwnership(std::unique_ptr<IBackendMemoryManager> mem) override {
@@ -406,8 +406,8 @@ public:
         return &memoryBackend;
     }
 
-    const IDeconvolutionBackend& getDeconvManager() const noexcept override {
-        return deconvBackend;
+    const IComputeBackend& getComputeManager() const noexcept override {
+        return computeBackend;
     }
 
     const IBackendMemoryManager& getMemoryManager() const noexcept override {
@@ -415,8 +415,8 @@ public:
     }
 
     // Optionally, allow non-const access if you need modification
-    IDeconvolutionBackend& mutableDeconvManager() noexcept override {
-        return deconvBackend;
+    IComputeBackend& mutableComputeManager() noexcept override {
+        return computeBackend;
     }
 
     IBackendMemoryManager& mutableMemoryManager() noexcept override {

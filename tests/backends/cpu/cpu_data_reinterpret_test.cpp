@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
         BackendConfig config;
         config.nThreads = 1;
         IBackend& backend = manager.getBackend(config);
-        IDeconvolutionBackend& deconvBackend = backend.mutableDeconvManager();
+        IComputeBackend& computeBackend = backend.mutableComputeManager();
         IBackendMemoryManager& memoryManager = backend.mutableMemoryManager();
         std::cout << "Backend device: " << backend.getDeviceString() << std::endl;
 
@@ -103,13 +103,13 @@ int main(int argc, char** argv) {
 
             std::cout << "\n[Approach 1 - Step 1] Forward FFT (Real -> Complex)..." << std::endl;
             ComplexData complexFromReal = memoryManager.allocateMemoryOnDeviceComplex(imageShape);
-            deconvBackend.forwardFFT(inputOnDevice, complexFromReal);
+            computeBackend.forwardFFT(inputOnDevice, complexFromReal);
             backend.sync();
             std::cout << "Forward FFT completed" << std::endl;
 
             std::cout << "\n[Approach 1 - Step 2] Backward FFT (Complex -> Real)..." << std::endl;
             RealData resultRealFromComplex = memoryManager.allocateMemoryOnDeviceRealFFTInPlace(imageShape);
-            deconvBackend.backwardFFT(complexFromReal, resultRealFromComplex);
+            computeBackend.backwardFFT(complexFromReal, resultRealFromComplex);
             backend.sync();
             std::cout << "Backward FFT completed" << std::endl;
 
@@ -144,13 +144,13 @@ int main(int argc, char** argv) {
             std::cout << "\n[Approach 2 - Step 2] Forward FFT (Real -> Complex)..." << std::endl;
             ComplexView complexResult= memoryManager.reinterpret(inputOnDevice);
             //inplace
-            deconvBackend.forwardFFT(inputOnDevice, complexResult);
+            computeBackend.forwardFFT(inputOnDevice, complexResult);
             backend.sync();
             std::cout << "Forward FFT completed" << std::endl;
 
             std::cout << "\n[Approach 2 - Step 3] Backward FFT (Complex -> Real)..." << std::endl;
             RealView resultReal = memoryManager.reinterpret(complexResult);
-            deconvBackend.backwardFFT(complexResult, resultReal);
+            computeBackend.backwardFFT(complexResult, resultReal);
             backend.sync();
             std::cout << "Backward FFT completed" << std::endl;
 
