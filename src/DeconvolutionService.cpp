@@ -28,8 +28,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/deconvolutionStrategies/PSFHandler.h"
 #include "dolphin/DeconvolutionStrategyFactory.h"
 #include "dolphin/ThreadPool.h"
-#include "dolphin/IO/TiffReader.h"
-#include "dolphin/IO/TiffWriter.h"
+#include "dolphin_image/IO/TiffReader.h"
+#include "dolphin_image/IO/TiffWriter.h"
 
 
 DeconvolutionService::DeconvolutionService()

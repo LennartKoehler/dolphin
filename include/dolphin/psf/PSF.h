@@ -14,7 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 
-#include "dolphin/Image3D.h"
+#include "dolphin_image/Image3D.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 typedef std::string PSFID;
 class PSF : public Image3D{

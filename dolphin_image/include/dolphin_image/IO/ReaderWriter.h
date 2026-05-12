@@ -1,7 +1,7 @@
 #pragma once
 #include <optional>
-#include "dolphin/Image3D.h"
-#include "dolphin/ImageMetaData.h"
+#include "dolphin_image/Image3D.h"
+#include "dolphin_image/ImageMetaData.h"
 
 class ImageReader{
 public:

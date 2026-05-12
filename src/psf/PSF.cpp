@@ -13,8 +13,8 @@ See the LICENSE file provided with the code for the full license.
 
 #include <filesystem>
 #include "dolphin/psf/PSF.h"
-#include "dolphin/IO/TiffReader.h"
-#include "dolphin/IO/TiffWriter.h"
+#include "dolphin_image/IO/TiffReader.h"
+#include "dolphin_image/IO/TiffWriter.h"
 
 namespace fs = std::filesystem;
 std::string getFilenameFromPath(const std::string& path) {

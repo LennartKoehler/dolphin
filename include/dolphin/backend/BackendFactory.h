@@ -181,8 +181,7 @@ private:
     IBackendManager* loadBackendManager(const std::string& backendName){
         IBackendManager* result = nullptr;
         // Try to load from library
-        const char* symbolName = nullptr;
-        symbolName = "createBackendManager";
+        const char* symbolName = "createBackendManager";
         result = loadSymbolFromLibrary<IBackendManager>(backendName, symbolName);
 
         if (!result){

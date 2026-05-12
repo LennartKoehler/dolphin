@@ -11,7 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "dolphin/Image3D.h"
+#include "dolphin_image/Image3D.h"
 #include <functional>
 #include <itkTestingComparisonImageFilter.h>
 #include <cmath>

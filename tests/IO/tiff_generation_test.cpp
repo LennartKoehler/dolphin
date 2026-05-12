@@ -18,8 +18,8 @@ See the LICENSE file provided with the code for the full license.
 #include <tiffio.h>
 #include <filesystem>
 
-#include "dolphin/Image3D.h"
-#include "dolphin/ImageMetaData.h"
+#include "dolphin_image/Image3D.h"
+#include "dolphin_image/ImageMetaData.h"
 #include "dolphinbackend/CuboidShape.h"
 
 /**

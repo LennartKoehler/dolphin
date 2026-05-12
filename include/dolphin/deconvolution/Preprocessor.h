@@ -19,8 +19,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/ComplexData.h"
 #include "dolphinbackend/IBackend.h"
 #include "dolphin/psf/PSF.h"
-#include "dolphin/Image3D.h"
-#include "dolphin/ImagePadding.h"
+#include "dolphin_image/Image3D.h"
+#include "dolphin_image/ImagePadding.h"
 
 class IBackend;
 

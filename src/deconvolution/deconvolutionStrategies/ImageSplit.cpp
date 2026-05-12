@@ -11,7 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "dolphin/HelperClasses.h"
+#include "dolphin_image/HelperClasses.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphinbackend/CuboidShape.h"

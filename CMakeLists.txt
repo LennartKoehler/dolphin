@@ -62,6 +62,7 @@ message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
 
 add_subdirectory(backends/dolphinbackend)
 add_subdirectory(backends/cpu)
+add_subdirectory(dolphin_image)
 
 option(BUILD_CUDA "Build cuda backend" ON)
 if(NOT BUILD_CUDA)
@@ -72,7 +73,6 @@ else()
 endif()
 
 
-add_subdirectory(dolphin_image)
 
 
 # ------------------------------------------------------------

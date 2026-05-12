@@ -1,6 +1,6 @@
-#include "dolphin/Image3D.h"
-#include "dolphin/IO/TiffReader.h"
-#include "dolphin/IO/TiffWriter.h"
+#include "dolphin_image/Image3D.h"
+#include "dolphin_image/IO/TiffReader.h"
+#include "dolphin_image/IO/TiffWriter.h"
 #include <iostream>
 #include "itkTestingComparisonImageFilter.h"
 #include <string>

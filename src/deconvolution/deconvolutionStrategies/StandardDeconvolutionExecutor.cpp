@@ -19,7 +19,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/Postprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/Exceptions.h"
-#include "dolphin/HelperClasses.h"
+#include "dolphin_image/HelperClasses.h"
 
 
 

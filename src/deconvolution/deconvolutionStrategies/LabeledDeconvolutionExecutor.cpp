@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
-#include "dolphin/Image3D.h"
+#include "dolphin_image/Image3D.h"
 #include "dolphin/deconvolution/Postprocessor.h"
 #include <functional>
 #include <itkImageRegionIterator.h>
@@ -24,7 +24,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/generators/GaussianPSFGenerator.h"
 #include "dolphinbackend/Exceptions.h"
-#include "dolphin/HelperClasses.h"
+#include "dolphin_image/HelperClasses.h"
 #include "dolphin/SetupConfig.h"
 #include <itkImageRegionConstIterator.h>
 #include <spdlog/spdlog.h>

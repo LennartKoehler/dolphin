@@ -15,4 +15,4 @@ See the LICENSE file provided with the code for the full license.
 // Created by christoph on 08.05.24.
 //
 
-#include "dolphin/ImageMetaData.h"
+#include "dolphin_image/ImageMetaData.h"

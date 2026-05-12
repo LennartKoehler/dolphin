@@ -1,4 +1,4 @@
-#include "dolphin/IO/TiffReaderWriterPair.h"
+#include "dolphin_image/IO/TiffReaderWriterPair.h"
 
 
 TiffReaderWriterPair::TiffReaderWriterPair(const std::string& filenameInput, int channel, const std::string& filenameOutput)

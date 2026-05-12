@@ -11,7 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "dolphin/ImagePadding.h"
+#include "dolphin_image/ImagePadding.h"
 #include <stdexcept>
 #include <cmath>
 #include <itkConstantPadImageFilter.h>
