@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 #include "dolphin/Image3D.h"
 #include "dolphin/ImageMetaData.h"
 
@@ -22,7 +23,7 @@ public:
 
 class ImageReaderWriterPair{
 
-    virtual PaddedImage getSubimage(const BoxCoordWithPadding& box) const = 0;
+    virtual std::optional<PaddedImage> getSubimage(const BoxCoordWithPadding& box) const = 0;
     virtual const ImageMetaData& getMetaData() const = 0;
     virtual bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const = 0;
 };

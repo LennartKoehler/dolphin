@@ -537,4 +537,3 @@ void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<fl
 
     }
 }
-

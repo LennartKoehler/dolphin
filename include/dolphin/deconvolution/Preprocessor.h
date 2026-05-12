@@ -12,19 +12,15 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
-#include <vector>
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <iostream>
 
-#include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphinbackend/ComplexData.h"
-#include "dolphin/psf/PSF.h"
 #include "dolphinbackend/IBackend.h"
+#include "dolphin/psf/PSF.h"
 #include "dolphin/Image3D.h"
 #include "dolphin/ImagePadding.h"
-#include "dolphin/backend/BackendFactory.h"
 
 class IBackend;
 

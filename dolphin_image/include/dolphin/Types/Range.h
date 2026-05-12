@@ -377,27 +377,3 @@ private:
         }
     }
 };
-
-// template <typename T>
-// class NonoverlappingRangeMap : public RangeMap<T>{
-//     void addRange(int start, int end, T value) override {
-//         for (int i = start; i < end; i++) {
-//             Range<T> range = getRange(i); // should actually only be one range as theire nonoverlapping
-//             if ()
-//         }
-//         // Create new range
-//         ranges.emplace_back(start, end, std::forward<T>(value));
-//     }
-
-//     Range<T> getRange(int index){
-//         Range<T> result;
-
-//         for (const auto& range : ranges) {
-//             if (range.contains(index)) {
-//                 return range;
-//             }
-//         }
-//         return result;
-
-//     }
-// };

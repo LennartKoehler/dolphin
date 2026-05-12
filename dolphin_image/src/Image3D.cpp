@@ -666,5 +666,3 @@ void LazyImage3D::update(){
         }
     }
 }
-
-

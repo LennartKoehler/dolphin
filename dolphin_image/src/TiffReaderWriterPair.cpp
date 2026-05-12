@@ -3,10 +3,10 @@
 
 TiffReaderWriterPair::TiffReaderWriterPair(const std::string& filenameInput, int channel, const std::string& filenameOutput)
     : reader(filenameInput, channel),
-    writer(filenameOutput, TiffReader::readMetadata(filenameInput)){}
+    writer(filenameOutput, reader.getMetaData().getShape()){}
 
 
-PaddedImage TiffReaderWriterPair::getSubimage(const BoxCoordWithPadding& box) const {
+std::optional<PaddedImage> TiffReaderWriterPair::getSubimage(const BoxCoordWithPadding& box) const {
     return reader.getSubimage(box);
 }
 const ImageMetaData& TiffReaderWriterPair::getMetaData() const{
