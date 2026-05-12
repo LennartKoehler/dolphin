@@ -72,39 +72,7 @@ else()
 endif()
 
 
-# ------------------------------------------------------------
-# dolphin_image: Image handling library (Image3D, TIFF IO, padding, operations)
-# ------------------------------------------------------------
-set(DOLPHIN_IMAGE_SOURCES
-    src/image/Image3D.cpp
-    src/image/ImageMetaData.cpp
-    src/image/ImagePadding.cpp
-    src/image/ImageOperations.cpp
-
-    src/IO/TiffReader.cpp
-    src/IO/TiffWriter.cpp
-)
-
-add_library(dolphin_image STATIC ${DOLPHIN_IMAGE_SOURCES})
-
-target_link_libraries(dolphin_image PUBLIC project_options)
-
-target_include_directories(dolphin_image
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/dolphinbackend/include/>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/spdlog/include/>
-        $<INSTALL_INTERFACE:include>
-        ${TIFF_INCLUDE_DIR}
-        ${ITK_INCLUDE_DIRS}
-)
-
-target_link_libraries(dolphin_image
-    PUBLIC
-        ${TIFF_LIBRARIES}
-        ${ITK_LIBRARIES}
-)
+add_subdirectory(dolphin_image)
 
 
 # ------------------------------------------------------------
@@ -195,6 +163,7 @@ endif()
 target_include_directories(dolphin
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dolphin_image/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/cpu/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backends/dolphinbackend/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
@@ -292,6 +261,10 @@ install(DIRECTORY lib/dolphinbackend/include/
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
 install(DIRECTORY include/dolphin
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
+install(DIRECTORY dolphin_image/include/dolphin
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )

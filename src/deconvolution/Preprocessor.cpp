@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/deconvolution/Preprocessor.h"
-#include <stdexcept>
+#include "dolphin/backend/BackendFactory.h"
 #include <cmath>
 #include <itkConstantPadImageFilter.h>
 #include <itkMirrorPadImageFilter.h>

@@ -12,7 +12,6 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/ImageOperations.h"
-#include <stdexcept>
 #include <limits>
 #include <itkImage.h>
 #include <itkImageRegionIterator.h>

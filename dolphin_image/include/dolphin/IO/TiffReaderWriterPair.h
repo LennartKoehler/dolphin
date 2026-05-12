@@ -1,16 +1,16 @@
 
 #pragma once
 
-#include "dolphin/ReaderWriter.h"
-#include "dolphin/TiffReader.h"
-#include "dolphin/TiffWriter.h"
+#include "dolphin/IO/ReaderWriter.h"
+#include "dolphin/IO/TiffReader.h"
+#include "dolphin/IO/TiffWriter.h"
 
 
 
 class TiffReaderWriterPair : public ImageReaderWriterPair{
-
+public:
     TiffReaderWriterPair(const std::string& filenameInput, int channel, const std::string& filenameOutput);
-    virtual PaddedImage getSubimage(const BoxCoordWithPadding& box) const override;
+    virtual std::optional<PaddedImage> getSubimage(const BoxCoordWithPadding& box) const override;
     virtual const ImageMetaData& getMetaData() const override;
     virtual bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const override;
 
