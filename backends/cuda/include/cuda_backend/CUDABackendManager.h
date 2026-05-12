@@ -15,7 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/IComputeBackend.h"
 #include "dolphinbackend/IBackendMemoryManager.h"
 #include "dolphinbackend/IBackendManager.h"
-#include "CUDABackend.h"
+#include "cuda_backend/CUDABackend.h"
 #include <memory>
 #include <vector>
 #include <queue>
@@ -68,11 +68,11 @@ private:
     // Threading synchronization
 
     LogCallback logger_;
-    std::mutex mutex_; 
+    std::mutex mutex_;
     // Configuration
     int nDevices;
     int usedDeviceCounter = 0;
-    
+
     CUDABackendConfig configToConfig(const BackendConfig& config) const;
     // Helper methods
     CUDABackend& createNewBackend(CUDABackendConfig config);

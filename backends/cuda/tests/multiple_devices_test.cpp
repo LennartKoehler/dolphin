@@ -4,7 +4,7 @@
 #include "dolphinbackend/CuboidShape.h"
 #include <thread>
 #include "dolphinbackend/IBackend.h"
-#include "CUDABackend.h"
+#include "cuda_backend/CUDABackend.h"
 void testMultipleDevices() {
 }
 
