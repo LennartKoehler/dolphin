@@ -28,11 +28,11 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include <cmath>
 
-#include "dolphin/IO/TiffReader.h"
-#include "dolphin/IO/TiffWriter.h"
+#include "dolphin_image/IO/TiffReader.h"
+#include "dolphin_image/IO/TiffWriter.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphin/deconvolution/Preprocessor.h"
-#include "dolphin/Image3D.h"
+#include "dolphin_image/Image3D.h"
 #include "dolphin/Logging.h"
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IBackendManager.h"

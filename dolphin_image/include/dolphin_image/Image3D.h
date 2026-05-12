@@ -21,7 +21,7 @@ See the LICENSE file provided with the code for the full license.
 #include <itkExtractImageFilter.h>
 #include <itkRegionOfInterestImageFilter.h>
 #include <itkImageDuplicator.h>
-#include "dolphin/HelperClasses.h"
+#include "dolphin_image/HelperClasses.h"
 
 using PixelType = float;
 constexpr unsigned int Dimension = 3;

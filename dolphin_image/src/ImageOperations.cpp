@@ -11,7 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "dolphin/ImageOperations.h"
+#include "dolphin_image/ImageOperations.h"
 #include <limits>
 #include <itkImage.h>
 #include <itkImageRegionIterator.h>

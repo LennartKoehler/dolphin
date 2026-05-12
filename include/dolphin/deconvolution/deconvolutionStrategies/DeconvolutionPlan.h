@@ -19,14 +19,14 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/psf/PSF.h"
-#include "dolphin/Image3D.h"
+#include "dolphin_image/Image3D.h"
 #include "dolphin/SetupConfig.h"
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphin/ThreadPool.h"
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
 #include "dolphin/deconvolution/Preprocessor.h"
-#include "dolphin/IO/TiffWriter.h"
-#include "dolphin/IO/TiffReader.h"
+#include "dolphin_image/IO/TiffWriter.h"
+#include "dolphin_image/IO/TiffReader.h"
 #include "dolphin/ServiceAbstractions.h"
 
 

@@ -15,7 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include <cassert>
 #include <cmath>
 #include <vector>
-#include "dolphin/HelperClasses.h"
+#include "dolphin_image/HelperClasses.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphinbackend/CuboidShape.h"

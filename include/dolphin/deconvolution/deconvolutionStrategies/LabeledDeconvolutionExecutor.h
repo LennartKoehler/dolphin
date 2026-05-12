@@ -12,7 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
-#include "dolphin/Image3D.h"
+#include "dolphin_image/Image3D.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionExecutor.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/psf/PSF.h"
@@ -22,8 +22,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
-#include "dolphin/IO/TiffReader.h"
-#include "dolphin/IO/TiffWriter.h"
+#include "dolphin_image/IO/TiffReader.h"
+#include "dolphin_image/IO/TiffWriter.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IBackendMemoryManager.h"

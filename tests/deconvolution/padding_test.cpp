@@ -9,9 +9,9 @@ padding_type: linear | quadratic | sinusoid | gaussian  (default: linear)
 shape_scale: float, controls shape for quadratic and gaussian (default: 1.0)
 */
 
-#include "dolphin/Image3D.h"
-#include "dolphin/IO/TiffReader.h"
-#include "dolphin/IO/TiffWriter.h"
+#include "dolphin_image/Image3D.h"
+#include "dolphin_image/IO/TiffReader.h"
+#include "dolphin_image/IO/TiffWriter.h"
 #include "dolphin/deconvolution/Preprocessor.h"
 #include <iostream>
 #include <string>

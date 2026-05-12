@@ -17,11 +17,11 @@ instead of generating a default Gaussian kernel.
 */
 
 #include "dolphin/deconvolution/deconvolutionStrategies/LabeledDeconvolutionExecutor.h"
-#include "dolphin/IO/TiffReader.h"
-#include "dolphin/IO/TiffWriter.h"
+#include "dolphin_image/IO/TiffReader.h"
+#include "dolphin_image/IO/TiffWriter.h"
 #include "dolphin/psf/PSF.h"
-#include "dolphin/Image3D.h"
-#include "dolphin/HelperClasses.h"
+#include "dolphin_image/Image3D.h"
+#include "dolphin_image/HelperClasses.h"
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/deconvolution/Postprocessor.h"
 #include "dolphin/backend/BackendFactory.h"

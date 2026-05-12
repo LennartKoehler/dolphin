@@ -17,8 +17,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/ComplexData.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include <itkImage.h>
-#include "dolphin/Image3D.h"
-#include "dolphin/ImageOperations.h"
+#include "dolphin_image/Image3D.h"
+#include "dolphin_image/ImageOperations.h"
 
 
 namespace Postprocessor{

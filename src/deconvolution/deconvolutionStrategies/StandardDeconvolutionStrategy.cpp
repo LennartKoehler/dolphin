@@ -20,7 +20,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
-#include "dolphin/HelperClasses.h"
+#include "dolphin_image/HelperClasses.h"
 #include "dolphin/SetupConfig.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphin/PSFCreator.h"

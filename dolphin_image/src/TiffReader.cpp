@@ -11,9 +11,9 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "dolphin/IO/TiffReader.h"
-#include "dolphin/IO/TiffExceptions.h"
-#include "dolphin/ImagePadding.h"
+#include "dolphin_image/IO/TiffReader.h"
+#include "dolphin_image/IO/TiffExceptions.h"
+#include "dolphin_image/ImagePadding.h"
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>

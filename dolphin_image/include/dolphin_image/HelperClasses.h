@@ -15,8 +15,8 @@ See the LICENSE file provided with the code for the full license.
 
 // Backward-compatible wrapper - includes all split headers
 // New code should include the specific headers directly:
-//   #include "dolphin/Types/BoxCoord.h"  for Padding, BoxCoord, BoxCoordWithPadding, BoxEntryPair
-//   #include "dolphin/Types/Range.h"     for Range, RangeMap
+//   #include "dolphin_image/Types/BoxCoord.h"  for Padding, BoxCoord, BoxCoordWithPadding, BoxEntryPair
+//   #include "dolphin_image/Types/Range.h"     for Range, RangeMap
 
-#include "dolphin/Types/BoxCoord.h"
-#include "dolphin/Types/Range.h"
+#include "dolphin_image/Types/BoxCoord.h"
+#include "dolphin_image/Types/Range.h"

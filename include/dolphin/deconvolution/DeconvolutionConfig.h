@@ -14,11 +14,11 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <string>
-#include "dolphin/HelperClasses.h"
+#include "dolphin_image/HelperClasses.h"
 #include "dolphin/Config.h"
-#include "dolphin/Types/PaddingFillType.h"
+#include "dolphin_image/Types/PaddingFillType.h"
 
-// PaddingFillType is now defined in dolphin/Types/PaddingFillType.h
+// PaddingFillType is now defined in dolphin_image/Types/PaddingFillType.h
 // It is still available here for backward compatibility.
 
 enum PaddingStrategyType {

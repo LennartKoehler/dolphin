@@ -27,7 +27,7 @@ See the LICENSE file provided with the code for the full license.
 #include <itkPoint.h>
 #include <itkIndex.h>
 
-#include "dolphin/Image3D.h"
+#include "dolphin_image/Image3D.h"
 #include "dolphin/Logging.h"
 
 // Create a 2x2x2 3D ITK image with custom values

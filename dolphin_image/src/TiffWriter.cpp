@@ -11,8 +11,8 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "dolphin/IO/TiffWriter.h"
-#include "dolphin/ImageOperations.h"
+#include "dolphin_image/IO/TiffWriter.h"
+#include "dolphin_image/ImageOperations.h"
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>
