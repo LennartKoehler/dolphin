@@ -11,9 +11,8 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include "CUDABackend.h"
-#include "CUDABackendManager.h"
-#include "dolphinbackend/IComputeBackend.h"
+#include "cuda_backend/CUDABackend.h"
+#include "cuda_backend/CUDABackendManager.h"
 // #include <ioconfig.stream>
 // #include <sconfig.stream>
 #include <cassert>

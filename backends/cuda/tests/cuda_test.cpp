@@ -3,7 +3,7 @@
 #include "dolphinbackend/ComplexData.h"
 #include "dolphinbackend/CuboidShape.h"
 #include <thread>
-#include "CUDABackend.h"
+#include "cuda_backend/CUDABackend.h"
 
 void testCUDABackendInitialization() {
 }

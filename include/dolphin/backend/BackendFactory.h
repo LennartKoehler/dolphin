@@ -29,6 +29,13 @@ See the LICENSE file provided with the code for the full license.
     throw std::runtime_error(std::string(#func_name) + " not implemented in " + typeid(*this).name())
 
 
+// Safely get the "backend" logger; falls back to the default logger
+// if Logging::init() has not been called yet.
+static std::shared_ptr<spdlog::logger> getBackendLogger() {
+    auto logger = spdlog::get("backend");
+    return logger ? logger : spdlog::default_logger();
+}
+
 static std::function<std::function<void(const std::string&, LogLevel)>(const std::string&)> logWrapper = [](const std::string& backendName){
 
     std::function<void(const std::string&, LogLevel)> logCallback_fn = [backendName](const std::string& backendMessage, LogLevel level){
@@ -36,16 +43,16 @@ static std::function<std::function<void(const std::string&, LogLevel)>(const std
         std::string msg = backendName + ": " + backendMessage;
         switch(level){
         case LogLevel::INFO:
-            spdlog::get("backend")->info(msg);
+            getBackendLogger()->info(msg);
             break;
         case LogLevel::DEBUG:
-            spdlog::get("backend")->debug(msg);
+            getBackendLogger()->debug(msg);
             break;
         case LogLevel::WARN:
-            spdlog::get("backend")->warn(msg);
+            getBackendLogger()->warn(msg);
             break;
         case LogLevel::ERROR:
-            spdlog::get("backend")->error(msg);
+            getBackendLogger()->error(msg);
             break;
         default:
             break;
@@ -84,7 +91,7 @@ struct BackendFactory {
         IBackendManager* manager = findBackendManager(backendName);
         if (!manager) manager = loadBackendManager(backendName);
         if (!manager){
-            spdlog::get("backend")->warn("Failed to get backend '{}' out of selection {}, using default instead", backendName, printRegisteredBackends());
+            getBackendLogger()->warn("Failed to get backend '{}' out of selection {}, using default instead", backendName, printRegisteredBackends());
             return getBackendManager(DEFAULT_BACKEND);
         }
         assert(manager && "Couldnt even load default manager");
@@ -185,7 +192,7 @@ private:
         result = loadSymbolFromLibrary<IBackendManager>(backendName, symbolName);
 
         if (!result){
-            spdlog::get("backend")->warn("Unable to load backend '{}'", backendName);
+            getBackendLogger()->warn("Unable to load backend '{}'", backendName);
             result = nullptr;
         }
         else addBackendManager(backendName, std::move(std::unique_ptr<IBackendManager>(result)));
