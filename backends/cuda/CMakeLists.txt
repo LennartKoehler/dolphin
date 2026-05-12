@@ -29,7 +29,7 @@ add_library(cuda_backend STATIC
 
 target_include_directories(cuda_backend
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_backend>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
 
