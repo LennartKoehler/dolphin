@@ -78,9 +78,9 @@ public:
     virtual ~CPUBackendManager() override = default;
     void init(LogCallback fn) override;
 
-    IComputeBackend& getComputeBackend(const BackendConfig& config) override;
-    IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;
-    IBackend& getBackend(const BackendConfig& config) override;
+    virtual IComputeBackend& getComputeBackend(const BackendConfig& config) override;
+    virtual IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;
+    virtual IBackend& getBackend(const BackendConfig& config) override;
 
     IBackend& clone(IBackend& backend, const BackendConfig& config) override ;
     IBackend& cloneSharedMemory(IBackend& backend, const BackendConfig& config) override;
@@ -91,6 +91,9 @@ public:
 protected:
 
     CPUBackendConfig configToConfig(const BackendConfig& config) const;
+
+    virtual std::unique_ptr<CPUComputeBackend> createComputeBackend(CPUBackendConfig config);
+    virtual std::unique_ptr<CPUBackendMemoryManager> createMemoryManager(CPUBackendConfig config);
 
     std::vector<std::unique_ptr<CPUBackend>> backends;
     std::vector<std::unique_ptr<CPUComputeBackend>> computeBackends;

@@ -44,9 +44,9 @@ public:
     ~CUDABackendManager() override = default;
     void init(LogCallback fn) override;
 
-    IComputeBackend& getComputeBackend(const BackendConfig& config) override;
-    IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;
-    IBackend& getBackend(const BackendConfig& config) override;
+    virtual IComputeBackend& getComputeBackend(const BackendConfig& config) override;
+    virtual IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;
+    virtual IBackend& getBackend(const BackendConfig& config) override;
 
 
     IBackend& clone(IBackend& backend, const BackendConfig& config) override ;
@@ -74,7 +74,9 @@ protected:
     int usedDeviceCounter = 0;
 
     CUDABackendConfig configToConfig(const BackendConfig& config) const;
-    // Helper methods
     CUDABackend& createNewBackend(CUDABackendConfig config);
     cudaStream_t createStream() const ;
+
+    virtual std::unique_ptr<CUDAComputeBackend> createComputeBackend(CUDABackendConfig config);
+    virtual std::unique_ptr<CUDABackendMemoryManager> createMemoryManager(CUDABackendConfig config);
 };

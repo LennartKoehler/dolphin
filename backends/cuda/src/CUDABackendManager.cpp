@@ -92,24 +92,24 @@ void CUDABackendManager::setThreadDistribution(const size_t& totalThreads, size_
 }
 
 IComputeBackend& CUDABackendManager::getComputeBackend(const BackendConfig& config) {
-    auto deconv = std::make_unique<CUDAComputeBackend>(configToConfig(config));
+    auto compute = createComputeBackend(configToConfig(config));
     std::unique_lock<std::mutex> lock(mutex_);
-    computeBackends.push_back(std::move(deconv));
+    computeBackends.push_back(std::move(compute));
     return *computeBackends.back();
 }
 
 IBackendMemoryManager& CUDABackendManager::getBackendMemoryManager(const BackendConfig& config) {
-    auto manager = std::make_unique<CUDABackendMemoryManager>(configToConfig(config));
+    auto manager = createMemoryManager(configToConfig(config));
     std::unique_lock<std::mutex> lock(mutex_);
     memoryManagers.push_back(std::move(manager));
     return *memoryManagers.back();
 }
 
 IBackend& CUDABackendManager::getBackend(const BackendConfig& config) {
-
-    auto backend = std::unique_ptr<CUDABackend>(
-        CUDABackend::create(configToConfig(config))
-    );
+    CUDABackendConfig cudaconfig = configToConfig(config);
+    auto compute = createComputeBackend(cudaconfig);
+    auto mem = createMemoryManager(cudaconfig);
+    auto backend = std::unique_ptr<CUDABackend>(new CUDABackend(cudaconfig, std::move(compute), std::move(mem)));
     std::unique_lock<std::mutex> lock(mutex_);
     IBackend& ref = *backend;
     backends.push_back(std::move(backend));
@@ -139,6 +139,14 @@ IBackend& CUDABackendManager::cloneSharedMemory(IBackend& backend, const Backend
 }
 
 // TODO make stream management more native, different streams in one cuda backend should not be permitted, one origin of truth
+std::unique_ptr<CUDAComputeBackend> CUDABackendManager::createComputeBackend(CUDABackendConfig config) {
+    return std::make_unique<CUDAComputeBackend>(config);
+}
+
+std::unique_ptr<CUDABackendMemoryManager> CUDABackendManager::createMemoryManager(CUDABackendConfig config) {
+    return std::make_unique<CUDABackendMemoryManager>(config);
+}
+
 CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
     // initializeGlobalCUDA();
 
@@ -159,7 +167,9 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
     CUDA_CHECK(err, "createNewBackend - cudaStreamCreateWithFlags");
 
     try {
-        std::unique_ptr<CUDABackend> backend = std::unique_ptr<CUDABackend>(CUDABackend::create(config));
+        auto compute = createComputeBackend(config);
+        auto mem = createMemoryManager(config);
+        std::unique_ptr<CUDABackend> backend = std::unique_ptr<CUDABackend>(new CUDABackend(config, std::move(compute), std::move(mem)));
         if (!backend) {
             throw dolphin::backend::BackendException(
                 "Failed to create CUDABackend", "CUDA", "createNewBackend");
