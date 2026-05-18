@@ -218,6 +218,7 @@ private:
 class CPUBackend : public IBackend {
 
     friend class CPUBackendManager;
+
 private:
 
     static CPUBackend* create(CPUBackendConfig config, FFTWManager& fftwManager, MemoryTracking& memory) {

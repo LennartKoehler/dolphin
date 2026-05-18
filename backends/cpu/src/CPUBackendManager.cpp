@@ -21,24 +21,32 @@ void CPUBackendManager::init(LogCallback fn) {
 }
 
 IComputeBackend& CPUBackendManager::getComputeBackend(const BackendConfig& config) {
-    auto deconv = std::make_unique<CPUComputeBackend>(configToConfig(config), *fftwManager);
+    auto compute = createComputeBackend(configToConfig(config));
     std::unique_lock<std::mutex> lock(mutex_);
-    computeBackends.push_back(std::move(deconv));
+    computeBackends.push_back(std::move(compute));
     return *computeBackends.back();
 }
 
 IBackendMemoryManager& CPUBackendManager::getBackendMemoryManager(const BackendConfig& config) {
-    auto manager = std::make_unique<CPUBackendMemoryManager>(configToConfig(config), memory);
+    auto manager = createMemoryManager(configToConfig(config));
     std::unique_lock<std::mutex> lock(mutex_);
     memoryManagers.push_back(std::move(manager));
     return *memoryManagers.back();
 }
 
-IBackend& CPUBackendManager::getBackend(const BackendConfig& config) {
+std::unique_ptr<CPUComputeBackend> CPUBackendManager::createComputeBackend(CPUBackendConfig config) {
+    return std::make_unique<CPUComputeBackend>(config, *fftwManager);
+}
 
-    auto backend = std::unique_ptr<CPUBackend>(
-        CPUBackend::create(configToConfig(config), *fftwManager, memory)
-    );
+std::unique_ptr<CPUBackendMemoryManager> CPUBackendManager::createMemoryManager(CPUBackendConfig config) {
+    return std::make_unique<CPUBackendMemoryManager>(config, memory);
+}
+
+IBackend& CPUBackendManager::getBackend(const BackendConfig& config) {
+    CPUBackendConfig cpuconfig = configToConfig(config);
+    auto compute = createComputeBackend(cpuconfig);
+    auto mem = createMemoryManager(cpuconfig);
+    auto backend = std::unique_ptr<CPUBackend>(new CPUBackend(std::move(compute), std::move(mem), cpuconfig));
     std::unique_lock<std::mutex> lock(mutex_);
     IBackend& ref = *backend;
     backends.push_back(std::move(backend));
