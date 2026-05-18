@@ -56,7 +56,7 @@ public:
     void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads, BackendConfig& ioconfig, BackendConfig& workerConfig) override;
 
     int getNumberDevices() const override;
-private:
+protected:
 
     CUDABackendConfig config;
     std::vector<CUDADevice> devices;
