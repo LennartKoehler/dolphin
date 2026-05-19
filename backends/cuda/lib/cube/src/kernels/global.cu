@@ -82,8 +82,8 @@ void complexScalarMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t B, c
         int index = z * (Nx * Ny) + y * Nx + x;
         real_t realA = A[index][0];
         real_t imagA = A[index][1];
-        C[index][0] = realA * realB - imagA * imagB; // Realteil
-        C[index][1] = realA * imagB + imagA * realB; // Imaginärteil
+        C[index][0] = realA * realB;
+        C[index][1] = imagA * imagB;
     }
 }
 
