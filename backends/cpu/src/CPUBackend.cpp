@@ -416,7 +416,7 @@ void CPUComputeBackend::backwardFFT(const ComplexData& in, ComplexData& out) con
     FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize(), inPlace);
     fftwManager.executeBackwardFFT(description, reinterpret_cast<fftwf_complex*>(in.getData()), reinterpret_cast<fftwf_complex*>(out.getData()));
 
-    complex_t normFactor{1.0f / out.getSize().getVolume(), 1.0f / out.getSize().getVolume()};//TESTVALUE
+    complex_t normFactor{1.0f / out.getSize().getVolume(), 0.0f};//TESTVALUE
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
@@ -714,8 +714,10 @@ void CPUComputeBackend::scalarMultiplication(const ComplexData& a, complex_t sca
     const real_t iscalar = scalar[1];
     stridedIteration(a, result, [rscalar, iscalar](auto* rowA, auto* rowR, int w) {
         for (int x = 0; x < w; ++x) {
-            rowR[x][0] = rowA[x][0] * rscalar;
-            rowR[x][1] = rowA[x][1] * iscalar;
+            real_t re = rowA[x][0];
+            real_t im = rowA[x][1];
+            rowR[x][0] = re * rscalar - im * iscalar;
+            rowR[x][1] = re * iscalar + im * rscalar;
         }
     });
 }

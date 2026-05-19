@@ -573,7 +573,7 @@ void CUDAComputeBackend::backwardFFT(const ComplexData& in, ComplexData& out) co
 
     CUFFT_CHECK(cufftExecC2C(backwardPlan, reinterpret_cast<cufftComplex*>(in.getData()), reinterpret_cast<cufftComplex*>(out.getData()), CUFFT_INVERSE), "backwardFFT");
 
-    complex_t normFactor{1.0f / out.getSize().getVolume(), 1.0f / out.getSize().getVolume()};//TESTVALUE
+    complex_t normFactor{1.0f / out.getSize().getVolume(), 0.0f};//TESTVALUE
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
@@ -697,7 +697,7 @@ void CUDAComputeBackend::division(const RealData& a, const RealData& b, RealData
 
 void CUDAComputeBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
     BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in scalarMultiplication", "CUDA", "scalarMultiplication");
-    cudaError_t err = CUBE_MAT::complexScalarMul(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), scalar , result.getData(), config.stream);
+    cudaError_t err = CUBE_MAT::complexScalarMul(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), scalar[0], scalar[1], result.getData(), config.stream);
     CUDA_CHECK(err, "scalarMultiplication");
 }
 

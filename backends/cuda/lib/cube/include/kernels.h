@@ -11,7 +11,7 @@ typedef float real_t;
 typedef real_t complex_t[2];
 // Mat operations
 __global__ void complexMatMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C);
-__global__ void complexScalarMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t B, complex_t* C);
+__global__ void complexScalarMulGlobal(int Nx, int Ny, int Nz, complex_t* A, real_t realB, real_t imagB, complex_t* C);
 __global__ void complexElementwiseMatMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C);
 __global__ void complexElementwiseMatMulConjugateGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C);
 __global__ void complexElementwiseMatDivGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon);

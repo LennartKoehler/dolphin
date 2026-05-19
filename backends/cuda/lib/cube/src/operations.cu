@@ -116,18 +116,17 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
         return cudaSuccess;
     }
 
-    cudaError_t complexScalarMul(int Nx, int Ny, int Nz, complex_t* A, complex_t B, complex_t* C, cudaStream_t stream){
-        if (!A || !B || !C) {
+    cudaError_t complexScalarMul(int Nx, int Ny, int Nz, complex_t* A, real_t scalarReal, real_t scalarImag, complex_t* C, cudaStream_t stream){
+        if (!A || !C) {
             return cudaErrorInvalidValue;
         }
 
         cudaEvent_t event;
         cudaEventCreate(&event);
 
-        // Use global kernel configuration
         dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
 
-        complexScalarMulGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, B, C);
+        complexScalarMulGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, A, scalarReal, scalarImag, C);
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
