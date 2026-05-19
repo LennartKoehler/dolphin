@@ -71,19 +71,17 @@ void elementwiseMatDivGlobal(int Nx, int Ny, int Nz, int strideA, int strideB, i
 }
 
 __global__
-void complexScalarMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t B, complex_t* C) {
+void complexScalarMulGlobal(int Nx, int Ny, int Nz, complex_t* A, real_t realB, real_t imagB, complex_t* C) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int z = blockIdx.z * blockDim.z + threadIdx.z;
 
-    real_t realB = B[0];
-    real_t imagB = B[1];
     if (x < Nx && y < Ny && z < Nz) {
         int index = z * (Nx * Ny) + y * Nx + x;
         real_t realA = A[index][0];
         real_t imagA = A[index][1];
-        C[index][0] = realA * realB;
-        C[index][1] = imagA * imagB;
+        C[index][0] = realA * realB - imagA * imagB;
+        C[index][1] = realA * imagB + imagA * realB;
     }
 }
 
