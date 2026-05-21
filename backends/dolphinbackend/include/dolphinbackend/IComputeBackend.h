@@ -87,8 +87,6 @@ public:
     // Debug functions
     virtual void hasNAN(const ComplexData& data) const = 0;
 
-    // Data manipulation
-    virtual void reorderLayers(ComplexData& data) const = 0;
 
     // FFT functions
     virtual void forwardFFT(const ComplexData& in, ComplexData& out) const = 0;
@@ -112,8 +110,6 @@ public:
 
     virtual void multiplication(const RealData& a, const RealData& b, RealData& result) const = 0;
 
-    virtual void sumToOne(std::vector<ComplexData>& data) const = 0;
-
     virtual void sum(const ComplexData& data, complex_t* result) const = 0;
 
     virtual void meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const = 0;
@@ -134,8 +130,6 @@ public:
 
     virtual void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const = 0;
 
-    // Advanced operations
-    virtual void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const = 0;
 
     // Gradient operations
     virtual void gradientX(const ComplexData& image, ComplexData& gradX) const = 0;
