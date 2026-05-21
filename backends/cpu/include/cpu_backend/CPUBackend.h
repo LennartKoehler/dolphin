@@ -141,7 +141,7 @@ private:
 };
 
 
-class CPUComputeBackend : public IComputeBackend{
+class CPUComputeBackend : public virtual IComputeBackend{
 public:
     CPUComputeBackend(CPUBackendConfig config, FFTWManager& manager);
     ~CPUComputeBackend() override;
