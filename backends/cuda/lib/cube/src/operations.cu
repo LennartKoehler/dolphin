@@ -147,6 +147,30 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
 
 
 
+    cudaError_t sum(int Nx, int Ny, int Nz, complex_t* data, complex_t* result, cudaStream_t stream){
+        if (!data || !result) {
+            return cudaErrorInvalidValue;
+        }
+
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+        CUDA_CHECK_KERNEL(
+                (sumGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, data, result)),
+                stream);
+        return cudaSuccess;
+    }
+
+    cudaError_t meanSquareError(int Nx, int Ny, int Nz, complex_t* a, complex_t* b, real_t* result, cudaStream_t stream){
+        if (!a || !b || !result) {
+            return cudaErrorInvalidValue;
+        }
+
+        dim3 blocksPerGrid = computeBlocksPerGrid(Nx, Ny, Nz);
+        CUDA_CHECK_KERNEL(
+                (meanSquareErrorGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, a, b, result)),
+                stream);
+        return cudaSuccess;
+    }
+
     cudaError_t sumToOne(real_t** A, int nImages, int imageVolume, cudaStream_t stream){
         if (!A ) {
             return cudaErrorInvalidValue;

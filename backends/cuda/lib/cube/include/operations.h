@@ -17,6 +17,8 @@ namespace CUBE_MAT {
     cudaError_t scalarMul(int Nx, int Ny, int Nz, int strideA, int strideC, real_t* A, real_t scalar , real_t* C, cudaStream_t stream = 0);
     cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B , real_t* C, cudaStream_t stream = 0);
 
+    cudaError_t sum(int Nx, int Ny, int Nz, complex_t* data, complex_t* result, cudaStream_t stream = 0);
+    cudaError_t meanSquareError(int Nx, int Ny, int Nz, complex_t* a, complex_t* b, real_t* result, cudaStream_t stream = 0);
     cudaError_t sumToOne(real_t** data, int nImages, int imageVolume, cudaStream_t stream = 0);
 }
 

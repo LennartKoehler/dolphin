@@ -145,6 +145,14 @@ public:
         NOT_IMPLEMENTED(sumToOneReal);
     }
 
+    virtual void sum(const ComplexData& data, complex_t* result) const {
+        NOT_IMPLEMENTED(sum);
+    }
+
+    virtual void meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const {
+        NOT_IMPLEMENTED(meanSquareError);
+    }
+
     virtual void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
         NOT_IMPLEMENTED(complexDivision);
     }
