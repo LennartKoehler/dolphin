@@ -141,7 +141,7 @@ private:
 };
 
 //these actually own the plan as the plan is streamspecific, and i should never have more than one of these on a stream
-class CUDAComputeBackend : public IComputeBackend{
+class CUDAComputeBackend : public virtual IComputeBackend{
 public:
     explicit CUDAComputeBackend(CUDABackendConfig config);
     ~CUDAComputeBackend() override;
