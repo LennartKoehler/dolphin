@@ -626,6 +626,11 @@ void CUDAComputeBackend::octantFourierShift(RealData& data) const {
     CUDA_CHECK(err, "octantFourierShift");
 }
 
+void CUDAComputeBackend::inverseQuadrantShift(ComplexData& data) const {
+    // cudaError_t err = CUBE_FTT::octantFourierShift(data.getSize().width, data.getSize().height, data.getSize().depth, data.getData(), config.stream);
+    // CUDA_CHECK(err, "octantFourierShift");
+}
+
 
 
 void CUDAComputeBackend::sum(const ComplexData& data, complex_t* result) const {
@@ -782,10 +787,10 @@ void CUDAComputeBackend::hasNAN(const ComplexData& data) const {
     g_logger_cuda(std::format("hasNAN called on CUDA backend"), LogLevel::DEBUG);
 }
 
-void CUDAComputeBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
-    cudaError_t err = CUBE_REG::calculateLaplacian(psf.getSize().width, psf.getSize().height, psf.getSize().depth, psf.getData(), laplacian.getData(), config.stream);
-    CUDA_CHECK(err, "calculateLaplacianOfPSF");
-}
+// void CUDAComputeBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
+//     cudaError_t err = CUBE_REG::calculateLaplacian(psf.getSize().width, psf.getSize().height, psf.getSize().depth, psf.getData(), laplacian.getData(), config.stream);
+//     CUDA_CHECK(err, "calculateLaplacianOfPSF");
+// }
 
 // void CUDAComputeBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
 //     cudaError_t err = CUBE_FTT::normalizeData(1, 1, 1, resultImage.getData(), config.stream);

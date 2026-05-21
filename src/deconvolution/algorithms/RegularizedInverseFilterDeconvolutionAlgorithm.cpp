@@ -63,7 +63,9 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     deconvolution.complexMultiplication(H, H, H2);
 
     // Laplacian L
-    deconvolution.calculateLaplacianOfPSF(H, L);
+
+    assert(false); //laplacian not implemented
+    // deconvolution.calculateLaplacianOfPSF(H, L);
     deconvolution.complexMultiplication(L, L, L2);
     deconvolution.scalarMultiplication(L2, lambdacomplex, L2);
 

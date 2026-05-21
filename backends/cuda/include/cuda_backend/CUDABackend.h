@@ -164,7 +164,7 @@ public:
     // Shift functions
     void octantFourierShift(ComplexData& data) const override;
     void octantFourierShift(RealData& data) const override;
-    // void inverseQuadrantShift(ComplexData& data) const override;
+    void inverseQuadrantShift(ComplexData& data) const override;
 
     // Complex arithmetic functions
     void complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
@@ -181,8 +181,6 @@ public:
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
 
-    // Specialized functions
-    void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const override;
 
     // void saveInterimImages(const ComplexData& resultImage, int gridNum, int channel_z, int i) const override;
 
