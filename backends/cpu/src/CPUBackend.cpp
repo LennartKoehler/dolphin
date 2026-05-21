@@ -678,6 +678,39 @@ void CPUComputeBackend::complexAddition(const ComplexData& a, const ComplexData&
     });
 }
 
+void CPUComputeBackend::sum(const ComplexData& data, complex_t* result) const {
+    BACKEND_CHECK(data.getData() != nullptr, "Input data pointer is null", "CPU", "sum - input data");
+    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "sum - result");
+
+    result[0][0] = 0.0f;
+    result[0][1] = 0.0f;
+
+    stridedIteration(data, [&](auto* rowData, int w) {
+        for (int x = 0; x < w; ++x) {
+            result[0][0] += rowData[x][0];
+            result[0][1] += rowData[x][1];
+        }
+    });
+}
+
+void CPUComputeBackend::meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const {
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "meanSquareError - input a");
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "meanSquareError - input b");
+    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "meanSquareError - result");
+
+    real_t sumSq = 0.0f;
+
+    stridedIteration(a, b, [&](auto* rowA, auto* rowB, int w) {
+        for (int x = 0; x < w; ++x) {
+            real_t dr = rowA[x][0] - rowB[x][0];
+            real_t di = rowA[x][1] - rowB[x][1];
+            sumSq += dr * dr + di * di;
+        }
+    });
+
+    *result = sumSq / static_cast<real_t>(a.getSize().getVolume());
+}
+
 void CPUComputeBackend::sumToOne(real_t** data, int nImages, int imageVolume) const {
     // NOTE: Uses raw real_t** with flat indexing. External pointers are assumed
     // to share the same stride layout but we don't have CuboidShape for them.

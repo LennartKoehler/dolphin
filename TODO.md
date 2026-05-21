@@ -1,3 +1,5 @@
+in the backend properly write the move to device and copy to device aswell as move from and copy from, use move semantics and then make the input nullptr
+
 the image reading is to somehow be seperate from iothreads, iothreads should only preprocess on host and move data to device, the reader and writer (perhaps new threads) should handle the reading and writing:
 on cuda the deconvolution might be fast, lets say not enough memory so the image has to be split. But now they might need to wait on the reader for the image to be available. In this time the gpu is idle. If i just increase the iothread, then reading will be fast, because more data will be available, but this data is not only read but also moved to the device, so i have less memory on the device. So iothreads have to be seperate from readers and writer, or somehow manage this differently. Also the reader and writer memory still has to be incorporated into the memory model, also that there is different memory pools on cpu and gpu when using gpu, the memory the reader and writer use is not on the gpu
 

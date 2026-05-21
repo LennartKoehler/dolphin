@@ -120,6 +120,33 @@ void complexAdditionGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, c
     }
 }
 __global__
+void sumGlobal(int Nx, int Ny, int Nz, complex_t* data, complex_t* result) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
+        atomicAdd(&result[0][0], data[index][0]);
+        atomicAdd(&result[0][1], data[index][1]);
+    }
+}
+
+__global__
+void meanSquareErrorGlobal(int Nx, int Ny, int Nz, complex_t* a, complex_t* b, real_t* result) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x < Nx && y < Ny && z < Nz) {
+        int index = z * (Nx * Ny) + y * Nx + x;
+        real_t dr = a[index][0] - b[index][0];
+        real_t di = a[index][1] - b[index][1];
+        atomicAdd(result, dr * dr + di * di);
+    }
+}
+
+__global__
 void sumToOneGlobal(real_t** data, int nImages, int imageVolume) {
     int position = blockIdx.x * blockDim.x + threadIdx.x;
 

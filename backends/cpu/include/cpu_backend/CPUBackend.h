@@ -176,6 +176,8 @@ public:
     void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
     void complexAddition(complex_t** data, ComplexData& sum, int nImages, int imageVolume) const override;
     void sumToOne(real_t** data, int nImages, int imageVolume) const override;
+    void sum(const ComplexData& data, complex_t* result) const override;
+    void meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const override;
     void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const override;
     void scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const override;
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;

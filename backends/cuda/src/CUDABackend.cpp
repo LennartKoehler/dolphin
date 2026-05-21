@@ -628,6 +628,66 @@ void CUDAComputeBackend::octantFourierShift(RealData& data) const {
 
 
 
+void CUDAComputeBackend::sum(const ComplexData& data, complex_t* result) const {
+    BACKEND_CHECK(data.getData() != nullptr, "Input data pointer is null", "CUDA", "sum - input data");
+    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CUDA", "sum - result");
+
+    complex_t* d_result;
+    cudaError_t err = cudaMallocAsync(&d_result, sizeof(complex_t), config.stream);
+    CUDA_CHECK(err, "sum - cudaMallocAsync");
+
+    err = cudaMemsetAsync(d_result, 0, sizeof(complex_t), config.stream);
+    if (err != cudaSuccess) {
+        cudaFreeAsync(d_result, config.stream);
+        CUDA_CHECK(err, "sum - cudaMemsetAsync");
+    }
+
+    err = CUBE_MAT::sum(data.getSize().width, data.getSize().height, data.getSize().depth, data.getData(), d_result, config.stream);
+    if (err != cudaSuccess) {
+        cudaFreeAsync(d_result, config.stream);
+        CUDA_CHECK(err, "sum");
+    }
+
+    err = cudaMemcpyAsync(result, d_result, sizeof(complex_t), cudaMemcpyDeviceToHost, config.stream);
+    cudaFreeAsync(d_result, config.stream);
+    CUDA_CHECK(err, "sum - cudaMemcpyAsync");
+
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "sum - cudaStreamSynchronize");
+}
+
+void CUDAComputeBackend::meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const {
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "meanSquareError - input a");
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CUDA", "meanSquareError - input b");
+    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CUDA", "meanSquareError - result");
+
+    real_t* d_result;
+    cudaError_t err = cudaMallocAsync(&d_result, sizeof(real_t), config.stream);
+    CUDA_CHECK(err, "meanSquareError - cudaMallocAsync");
+
+    err = cudaMemsetAsync(d_result, 0, sizeof(real_t), config.stream);
+    if (err != cudaSuccess) {
+        cudaFreeAsync(d_result, config.stream);
+        CUDA_CHECK(err, "meanSquareError - cudaMemsetAsync");
+    }
+
+    err = CUBE_MAT::meanSquareError(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), b.getData(), d_result, config.stream);
+    if (err != cudaSuccess) {
+        cudaFreeAsync(d_result, config.stream);
+        CUDA_CHECK(err, "meanSquareError");
+    }
+
+    real_t d_sumSq;
+    err = cudaMemcpyAsync(&d_sumSq, d_result, sizeof(real_t), cudaMemcpyDeviceToHost, config.stream);
+    cudaFreeAsync(d_result, config.stream);
+    CUDA_CHECK(err, "meanSquareError - cudaMemcpyAsync");
+
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "meanSquareError - cudaStreamSynchronize");
+
+    *result = d_sumSq / static_cast<real_t>(a.getSize().getVolume());
+}
+
 void CUDAComputeBackend::complexAddition(complex_t** dataPointer, ComplexData& sums, int nImages, int imageVolume) const {
     cudaError_t err = CUBE_MAT::complexAddition(dataPointer, sums.getData(), nImages, imageVolume, config.stream);
 }

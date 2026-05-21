@@ -24,6 +24,8 @@ __global__ void elementwiseMatMulGlobal(int Nx, int Ny, int Nz, int strideA, int
 __global__ void scalarMulGlobal(int Nx, int Ny, int Nz, int strideA, int strideC, real_t* A, real_t B, real_t* C);
 __global__ void elementwiseMatDivGlobal(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B, real_t* C, real_t epsilon);
 
+__global__ void sumGlobal(int Nx, int Ny, int Nz, complex_t* data, complex_t* result);
+__global__ void meanSquareErrorGlobal(int Nx, int Ny, int Nz, complex_t* a, complex_t* b, real_t* result);
 __global__ void sumToOneGlobal(real_t** data, int nImages, int imageVolume);
 
 // Regularization
