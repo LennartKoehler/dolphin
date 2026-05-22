@@ -78,7 +78,7 @@ Image3D& Image3D::operator=(const Image3D& other) {
     return *this;
 }
 
-bool Image3D::operator==(const Image3D& other) const{
+bool Image3D::isEqual(const Image3D& other, float tolerance) const{
 
     // Handle null images
     if (image.IsNull() && other.image.IsNull()) {
@@ -115,8 +115,7 @@ bool Image3D::operator==(const Image3D& other) const{
     compare->SetValidInput(this->getItkImage());
     compare->SetTestInput(other.getItkImage());
 
-    float difference = this->getPixel(0,0,0) / 100;
-    compare->SetDifferenceThreshold(difference);  // tolerance per pixel
+    compare->SetDifferenceThreshold(tolerance);  // tolerance per pixel
 
     compare->Update();
 
