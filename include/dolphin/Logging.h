@@ -10,6 +10,7 @@
 #include <functional>
 #include <mutex>
 #include <string>
+#include <iostream>
 
 namespace Logging{
 
@@ -79,6 +80,7 @@ namespace Logging{
             auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
             bool truncate = true;
             auto debugLogPath = logDir / "debug.log";
+            std::cout << "[info] Writing log to" << debugLogPath << std::endl;
             auto debugLogSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(debugLogPath.string(), truncate);
             debugLogSink->set_level(spdlog::level::trace);
             consoleSink->set_level(spdlog::level::warn);
