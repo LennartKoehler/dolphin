@@ -47,7 +47,7 @@ find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
 
-set(FFTW_PATH "/usr/local/fftw-release/lib" CACHE PATH "Path to FFTW installation")
+set(FFTW_PATH "/usr/local/fftw3/lib" CACHE PATH "Path to FFTW installation") # set default path
 message(STATUS "Using the following FFTW lib: ${FFTW_PATH}")
 
 message(STATUS "ITK version: ${ITK_VERSION}")
@@ -256,15 +256,21 @@ install(DIRECTORY lib/spdlog/include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
-install(DIRECTORY lib/dolphinbackend/include/
+install(DIRECTORY backends/cpu/include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
+if(BUILD_CUDA)
+    install(DIRECTORY backends/cuda/include/
+        DESTINATION include
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+    )
+endif()
 install(DIRECTORY include/dolphin
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
-install(DIRECTORY dolphin_image/include/dolphin
+install(DIRECTORY dolphin_image/include/dolphin_image
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )

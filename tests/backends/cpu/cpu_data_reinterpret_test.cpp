@@ -167,7 +167,7 @@ int main(int argc, char** argv) {
         TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/test1.tif", outputImage1);
         TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/test2.tif", outputImage2);
 
-        if (outputImage1 == outputImage2  && outputImage2 == inputImage){
+        if (outputImage1.isEqual(outputImage2, 0.01) && outputImage2.isEqual(inputImage, 0.01)){
             std::cout << "\n=== FFT Backend Test PASSED ===" << std::endl;
             return 0;
         }

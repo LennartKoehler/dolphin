@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include <stdexcept>
 #include "cuda_backend/CUDABackend.h"
 #include "dolphinbackend/Exceptions.h"
+#include <spdlog/fmt/fmt.h>
 
 
 
@@ -59,7 +60,7 @@ void CUDABackendManager::init(LogCallback fn) {
 
         devices.push_back(CUDADevice{device, new MemoryTracking(totalMem)});
 
-        g_logger_cuda(std::format("Device {} has compute capability {}.{} and {:.2f} GB memory", device, deviceProp.major, deviceProp.minor, (totalMem/1e9)), LogLevel::INFO);
+        g_logger_cuda(fmt::format("Device {} has compute capability {}.{} and {:.2f} GB memory", device, deviceProp.major, deviceProp.minor, (totalMem/1e9)), LogLevel::INFO);
         // printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
         // device, deviceProp.major, deviceProp.minor, (totalMem/1e9));
 
@@ -205,7 +206,7 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
 
 
 
-//     g_logger_cuda(std::format("Cleaned up CUDA backend manager"), LogLevel::INFO);
+//     g_logger_cuda(fmt::format("Cleaned up CUDA backend manager"), LogLevel::INFO);
 // }
 
 cudaStream_t CUDABackendManager::createStream() const {

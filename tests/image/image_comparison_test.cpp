@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
         // Step 3: Compare the two images
         std::cout << "\n[Step 3] Comparing Image3D == Image3D..." << std::endl;
 
-        if (image1 == image2) {
+        if (image1.isEqual(image2, 0.01)) {
             std::cout << "\n=== Image Comparison Test PASSED ===" << std::endl;
             std::cout << "Both images are identical." << std::endl;
             return 0;

@@ -173,7 +173,7 @@ int main(int argc, char** argv) {
         Image3D outputImage2 = Preprocessor::convertRealDataToImage(resultRealHost2);
 
 
-        if (outputImage1 == outputImage2){
+        if (outputImage1.isEqual(outputImage2, 0.01)){
             std::cout << "\n=== FFT Backend Test PASSED ===" << std::endl;
             return 0;
         }

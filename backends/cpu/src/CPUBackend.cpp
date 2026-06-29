@@ -3,7 +3,7 @@
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IComputeBackend.h"
 #include <algorithm>
-#include <format>
+#include <spdlog/fmt/fmt.h>
 #include <cmath>
 #include <cstring>
 #include <cassert>
@@ -224,7 +224,7 @@ void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
     if ((access.data.totalUsedMemory + requiredSize) > access.data.maxMemorySize) {
 
         throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CPU", requiredSize, "Memory Allocation");
-        // log(std::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::ERROR);
+        // log(fmt::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::ERROR);
     }
     // backend.memory.memoryCondition.wait(lock, [this, requiredSize]() {
     //     return backend.memory.maxMemorySize == 0 || (backend.memory.totalUsedMemory + requiredSize) <= backend.memory.maxMemorySize;
@@ -305,7 +305,7 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
     // Update memory tracking using getAccess()
     auto access = memory.getAccess();
     access.data.totalUsedMemory += requested_size;
-    log(std::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::DEBUG);
+    log(fmt::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::DEBUG);
     return data;
 
 }
@@ -354,7 +354,7 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
     }
 
     ptr = nullptr;
-    log(std::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::DEBUG);
+    log(fmt::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::DEBUG);
 }
 
 
@@ -364,7 +364,7 @@ size_t CPUBackendMemoryManager::getAvailableMemory() const {
         return staticGetAvailableMemory();
     }
     catch (const std::exception& e) {
-        log(std::format("Exception in getAvailableMemory: {}", e.what()), LogLevel::ERROR);
+        log(fmt::format("Exception in getAvailableMemory: {}", e.what()), LogLevel::ERROR);
         throw; // Re-throw to propagate the exception
     }
 }
@@ -853,12 +853,12 @@ void CPUComputeBackend::hasNAN(const ComplexData& data) const {
                 if (std::isnan(rv) || std::isnan(iv)) {
                     nanCount++;
                     if (nanCount <= 10)
-                        log(std::format("NaN at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::DEBUG);
+                        log(fmt::format("NaN at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::DEBUG);
                 }
                 if (std::isinf(rv) || std::isinf(iv)) {
                     infCount++;
                     if (infCount <= 10)
-                        log(std::format("Inf at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::DEBUG);
+                        log(fmt::format("Inf at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::DEBUG);
                 }
                 if (std::isfinite(rv)) {
                     minReal = std::min(minReal, rv);
@@ -872,9 +872,9 @@ void CPUComputeBackend::hasNAN(const ComplexData& data) const {
         }
     }
 
-    log(std::format("Data stats - NaN: {}, Inf: {}", nanCount, infCount), LogLevel::DEBUG);
-    log(std::format("Real range: [{}, {}]", minReal, maxReal), LogLevel::DEBUG);
-    log(std::format("Imag range: [{}, {}]", minImag, maxImag), LogLevel::DEBUG);
+    log(fmt::format("Data stats - NaN: {}, Inf: {}", nanCount, infCount), LogLevel::DEBUG);
+    log(fmt::format("Real range: [{}, {}]", minReal, maxReal), LogLevel::DEBUG);
+    log(fmt::format("Imag range: [{}, {}]", minImag, maxImag), LogLevel::DEBUG);
 }
 
 

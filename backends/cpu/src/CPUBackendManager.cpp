@@ -2,7 +2,7 @@
 #include "CPUBackend.h"
 #include <dolphinbackend/Exceptions.h>
 #include <fftw3.h>
-#include <format>
+#include <spdlog/fmt/fmt.h>
 #include <filesystem>
 #include <fstream>
 
@@ -209,7 +209,7 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
 
         FFTW_UNIFIED_CHECK(plan, "initializePlanRealToComplex - r2c plan");
 
-        std::string msg = std::format(
+        std::string msg = fmt::format(
             "Successfully created FFTW r2c plan ({}) which uses {} threads for shape: {}x{}x{}",
             description.inPlace ? "in-place" : "out-of-place",
             description.ompThreads, description.shape.width, description.shape.height, description.shape.depth
@@ -301,7 +301,7 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
 
         FFTW_UNIFIED_CHECK(plan, "initializePlanComplexToReal - c2r plan");
 
-        std::string msg = std::format(
+        std::string msg = fmt::format(
             "Successfully created FFTW c2r plan ({}) which uses {} threads for shape: {}x{}x{}",
             description.inPlace ? "in-place" : "out-of-place",
             description.ompThreads, description.shape.width, description.shape.height, description.shape.depth
@@ -357,7 +357,7 @@ fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& descrip
 
         FFTW_UNIFIED_CHECK(plan, "initializePlan - forward plan");
 
-        std::string msg = std::format(
+        std::string msg = fmt::format(
             "Successfully created FFTW plan which uses {} threads for shape: {}x{}x{}",
             description.ompThreads, description.shape.width, description.shape.height, description.shape.depth
         );
