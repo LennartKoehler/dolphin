@@ -32,16 +32,20 @@ bool CLIFrontend::parseCLI(){
         app.parse(argc, argv);
         return true;
     }
+    catch (const CLI::CallForHelp& e) {
+        std::cout << app.help() << std::endl;
+        return false;
+    }
     catch (const CLI::ParseError& e) {
         // CLI11 throws ParseError (and subclasses like RequiredError) for missing required options,
         // validation failures, etc. Print the error and return false so the caller knows parsing failed.
         spdlog::error("{}", e.what());
-        spdlog::info("{}", app.help());
+        std::cout << app.help() << std::endl;
         return false;
     }
     catch (const std::exception& e) {
         spdlog::error("{}", e.what());
-        spdlog::info("{}", app.help());
+        std::cout << app.help() << std::endl;
         return false;
     }
 }
@@ -58,7 +62,6 @@ void CLIFrontend::run() {
     if (!success) {
         return;
     }
-    setupConfig.printValues();
 
     // 3. Handle based on which subcommand was selected
     if (*psfCLI) {
@@ -78,8 +81,7 @@ void CLIFrontend::run() {
         }
     }
     else {
-        spdlog::error("No subcommand selected");
-        spdlog::info("{}", app.help());
+        std::cout << app.help() << std::endl;
     }
 }
 
@@ -113,11 +115,10 @@ bool CLIFrontend::handlePSFGeneration() {
 
     std::vector<std::string> missingParams = checkRequired(psfConfig);
     if (!missingParams.empty()) {
-        spdlog::error("Required parameter(s) missing:");
-        for (const auto& p : missingParams) {
-            spdlog::error("  - {}", p);
-        }
-        spdlog::info("{}", psfCLI->help());
+        // for (const auto& p : missingParams) {
+        //     spdlog::error("  - {}", p);
+        // }
+        std::cout << psfCLI->help() << std::endl;
         return false;
     }
 
@@ -222,11 +223,17 @@ void CLIFrontend::addParameters(Config& config, CLI::Option_group* group){
                 return;
             }
             if (std::string(param.cliFlag) == "--psf_file_paths" || std::string(param.cliFlag) == "--multiple_psf_config_paths" || std::string(param.cliFlag) == "--psf_config_path"){
-                static CLI::Option_group* group=app.add_option_group("subgroup");
-                group->excludes(configGroup);
-                configGroup->excludes(group);
-                group->add_flag(param.cliFlag, value, param.cliDesc)->ignore_case();
-                group->require_option(1);
+                if (!psfPathGroup) {
+                    psfPathGroup = group->add_option_group("PSF Path", "PSF file path options (mutually exclusive)");
+                    if (configGroup) {
+                        psfPathGroup->excludes(configGroup);
+                        configGroup->excludes(psfPathGroup);
+                    }
+                }
+                auto opt = psfPathGroup->add_option(param.cliFlag, value, param.cliDesc);
+                opt->configurable(false);
+                opt->ignore_case();
+                psfPathGroup->require_option(1);
                 return;
             }
             auto opt = group->add_option(param.cliFlag, value, param.cliDesc);

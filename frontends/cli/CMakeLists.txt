@@ -30,3 +30,6 @@ target_link_libraries(dolphin_cli
         dolphin::dolphin
 )
 
+# Statically link libstdc++ and libgcc so the binary runs on older systems
+target_link_options(dolphin_cli PRIVATE -static-libstdc++ -static-libgcc)
+
