@@ -7,11 +7,10 @@
     "border_type": "mirror"
   },
 
-  "psf_config_path": ["../configs/default_psf_config_gaussian.json"],
-  "psf_file_path": [],
-  "psf_dir_path": "",
+  "psf_config_paths": ["../configs/default_psf_config_gaussian.json"],
+  "psf_file_paths": [],
   "save_psf": true,
-  "output_dir": "/home/lennart-k-hler/data/dolphin_results",
+  "output": "/home/lennart-k-hler/data/dolphin_results/deconv_bacteria.tif",
 
   "backend": "cpu",
   "n_io_threads": 2,

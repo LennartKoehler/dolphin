@@ -19,11 +19,12 @@ private:
     CLI::App* deconvolutionCLI = nullptr;
     CLI::App* psfCLI = nullptr;
 
-    CLI::Option_group* cli_group;
-    CLI::Option_group* configGroup;
+    CLI::Option_group* cli_group = nullptr;
+    CLI::Option_group* configGroup = nullptr;
 
-    CLI::Option_group* psfcli_group;
-    CLI::Option_group* psfconfigGroup;
+    CLI::Option_group* psfcli_group = nullptr;
+    CLI::Option_group* psfconfigGroup = nullptr;
+    CLI::Option_group* psfPathGroup = nullptr;
 
     SetupConfigPSF psfConfig;
     SetupConfig setupConfig;

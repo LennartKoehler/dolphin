@@ -83,6 +83,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     int maxSubCubes = 10;
     CuboidShape minShape = imageSize / maxSubCubes + padding.getTotalPadding(); // TESTVALUE "max of 10 subcubes"
+
     Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(padding, imageSize, maxMemCubeVolume, workerThreads, deconvConfig.paddingStrategyType, minShape);
     if (!cubeCoordinatesWithPaddingResult.success) {
         return Result<DeconvolutionPlan>(cubeCoordinatesWithPaddingResult);
@@ -138,7 +139,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     spdlog::get("deconvolution")
         ->info("Successfully created deconvolution plan with {} total cubes. Each cube has size (width x height x depth) ({}) which includes padding (padding before, padding after) ({}, {})",
-        totalTasks, (workShape.getBox().dimensions).print(), padding.before.print(), padding.after.print());
+        totalTasks, (workShape.getBox().dimensions).print(), workShape.padding.before.print(), workShape.padding.after.print());
 
     DeconvolutionPlan plan {
         std::move(tasks),
