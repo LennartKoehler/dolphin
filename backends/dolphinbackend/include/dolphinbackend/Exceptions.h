@@ -14,7 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include <string>
 #include <stdexcept>
-#include <format>
+#include <cstdio>
 #include <cassert>
 
 namespace dolphin {
@@ -57,10 +57,16 @@ public:
     size_t getRequestedSize() const { return requested_size_; }
 
     std::string getDetailedMessage() const override {
-        return std::string(what()) +
+        std::string msg = std::string(what()) +
                " [Backend: " + backend_type_ +
-               ", Operation: " + operation_ +
-               (requested_size_ > 0 ? std::format(", Requested Size: {:.2f} GB", (static_cast<double>(requested_size_) / 1e9)) : "") + "]";
+               ", Operation: " + operation_;
+        if (requested_size_ > 0) {
+            char buf[64];
+            snprintf(buf, sizeof(buf), ", Requested Size: %.2f GB", static_cast<double>(requested_size_) / 1e9);
+            msg += buf;
+        }
+        msg += "]";
+        return msg;
     }
 
 private:

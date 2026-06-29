@@ -7,7 +7,7 @@ project(CPUBackend VERSION 1.0.0)
 
 
 if (NOT DEFINED FFTW_PATH)
-    set(FFTW_PATH "/usr/local/fftw-debug/lib" CACHE PATH "Path to FFTW installation")
+    set(FFTW_PATH "/usr/local/fftw3/lib" CACHE PATH "Path to FFTW installation")
 endif()
 
 # FFTW wisdom file path - can be customized for different operating systems
@@ -23,6 +23,8 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
 
 find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads fftw3f_omp PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
+
+get_filename_component(FFTW_INCLUDE_DIR "${FFTW_PATH}/../include" ABSOLUTE)
 
 
 
@@ -50,6 +52,8 @@ target_include_directories(cpu_backend
         ${CMAKE_CURRENT_SOURCE_DIR}/include/cpu_backend
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib/spdlog/include>
+        ${FFTW_INCLUDE_DIR}
 )
 
 

@@ -17,7 +17,7 @@ See the LICENSE file provided with the code for the full license.
 // #include <sconfig.stream>
 #include <cassert>
 #include <iostream>
-#include <format>
+#include <spdlog/fmt/fmt.h>
 
 
 
@@ -228,7 +228,7 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
     // Update memory tracking using getAccess()
     auto access = getMemoryTracking()->getAccess();
 
-    g_logger_cuda(std::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::DEBUG);
+    g_logger_cuda(fmt::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::DEBUG);
     access.data.totalUsedMemory += requested_size;
 
     return devicePtr;
@@ -279,11 +279,11 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const 
     auto access = getMemoryTracking()->getAccess();
     if (access.data.totalUsedMemory < size) {
         access.data.totalUsedMemory = static_cast<size_t>(0); // this should never happen
-        g_logger_cuda(std::format("Memory tracking inconsistency detected in freeMemoryOnDevice"), LogLevel::WARN);
+        g_logger_cuda(fmt::format("Memory tracking inconsistency detected in freeMemoryOnDevice"), LogLevel::WARN);
     } else {
         access.data.totalUsedMemory -= size;
     }
-    g_logger_cuda(std::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::DEBUG);
+    g_logger_cuda(fmt::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::DEBUG);
 
     ptr = nullptr;
 }
@@ -298,7 +298,7 @@ size_t CUDABackendMemoryManager::getAvailableMemory() const {
     CUDA_CHECK(err, "getAvailableMemory - cudaMemGetInfo");
 
     if (freeMem > totalMem) {
-        g_logger_cuda(std::format("Available memory ({}) exceeds total memory ({})", freeMem, totalMem), LogLevel::WARN);
+        g_logger_cuda(fmt::format("Available memory ({}) exceeds total memory ({})", freeMem, totalMem), LogLevel::WARN);
         return 0; // Return 0 to indicate error condition
     }
 
@@ -401,7 +401,7 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
         ), "createPlan - C2R plan setup, might be out of memory");
 
 
-        std::string msg = std::format(
+        std::string msg = fmt::format(
             "Successfully created cuFFT r2c plan ({}) for shape: {}x{}x{}",
             description.inPlace ? "in-place" : "out-of-place",
             description.shape.width, description.shape.height, description.shape.depth
@@ -470,7 +470,7 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPla
         ), "createPlan - C2R plan setup, might be out of memory");
 
 
-        std::string msg = std::format(
+        std::string msg = fmt::format(
             "Successfully created cuFFT c2r plan ({}) for shape: {}x{}x{}",
             description.inPlace ? "in-place" : "out-of-place",
             description.shape.width, description.shape.height, description.shape.depth
@@ -784,7 +784,7 @@ void CUDAComputeBackend::complexDivisionStabilized(const ComplexData& a, const C
 // Specialized Functions
 void CUDAComputeBackend::hasNAN(const ComplexData& data) const {
     // Implementation would go here
-    g_logger_cuda(std::format("hasNAN called on CUDA backend"), LogLevel::DEBUG);
+    g_logger_cuda(fmt::format("hasNAN called on CUDA backend"), LogLevel::DEBUG);
 }
 
 // void CUDAComputeBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {

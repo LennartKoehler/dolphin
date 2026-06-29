@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
 
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
-        std::cout << "\nDuration for cubeSize " << CuboidShape{deconvconfig.cubeSize}.print() << " was " << duration <<" seconds" << std::endl;
+        std::cout << "\nDuration for cubeSize " << CuboidShape{deconvconfig.cubeSize}.print() << " was " << duration.count() <<" seconds" << std::endl;
     }
     // Run the tests
 
