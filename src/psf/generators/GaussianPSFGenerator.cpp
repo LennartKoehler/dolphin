@@ -11,6 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
+#include <algorithm>
 #include <cmath>
 #include <itkImage.h>
 #include <itkImageRegionIterator.h>
@@ -47,6 +48,34 @@ CuboidShape GaussianPSFGenerator::getPadding(PaddingStrategyType paddingType) co
     }
 }
 
+ImageType::RegionType GaussianPSFGenerator::getNonNegligibleRegion(int width, int height, int layers,
+                                                      double centerX, double centerY, double centerZ) const {
+    constexpr double cutoffFactor = 5.0;
+
+    int xMin = std::max(0, static_cast<int>(std::floor(centerX - cutoffFactor * config->sigmaX)));
+    int xMax = std::min(width - 1, static_cast<int>(std::ceil(centerX + cutoffFactor * config->sigmaX)));
+    int yMin = std::max(0, static_cast<int>(std::floor(centerY - cutoffFactor * config->sigmaY)));
+    int yMax = std::min(height - 1, static_cast<int>(std::ceil(centerY + cutoffFactor * config->sigmaY)));
+    int zMin = std::max(0, static_cast<int>(std::floor(centerZ - cutoffFactor * config->sigmaZ)));
+    int zMax = std::min(layers - 1, static_cast<int>(std::ceil(centerZ + cutoffFactor * config->sigmaZ)));
+
+    ImageType::IndexType start;
+    start[0] = xMin;
+    start[1] = yMin;
+    start[2] = zMin;
+
+    ImageType::SizeType size;
+    size[0] = xMax - xMin + 1;
+    size[1] = yMax - yMin + 1;
+    size[2] = zMax - zMin + 1;
+
+    ImageType::RegionType region;
+    region.SetSize(size);
+    region.SetIndex(start);
+
+    return region;
+}
+
 PSF GaussianPSFGenerator::generatePSF() const {
     int width = config->sizeX, height = config->sizeY, layers = config->sizeZ;
     double centerX = (width - 1) / 2.0;
@@ -71,16 +100,21 @@ PSF GaussianPSFGenerator::generatePSF() const {
 
     itkImage->SetRegions(region);
     itkImage->Allocate();
+    itkImage->FillBuffer(0.0f);
 
-    // Create iterator for the entire image
-    itk::ImageRegionIterator<ImageType> it(itkImage, region);
+    // Compute the effective region where the Gaussian is non-negligible
+    ImageType::RegionType clippedRegion = getNonNegligibleRegion(width, height, layers, centerX, centerY, centerZ);
+
+    // Create iterator over only the clipped sub-region
+    itk::ImageRegionIterator<ImageType> it(itkImage, clippedRegion);
 
     // Generate Gaussian PSF values
     double sum = 0.0;
 
-    int max = width * height * layers;
+    int64_t max = clippedRegion.GetNumberOfPixels();
     progressTracker.setMax(max);
     int counter = 0;
+    int64_t step = std::max<int64_t>(1, max / 20);
 
     for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
         counter ++;
@@ -100,7 +134,7 @@ PSF GaussianPSFGenerator::generatePSF() const {
         sum += value;
 
 
-        if (counter % (max / 20) == 0){
+        if (counter % step == 0){
             progressTracker.add(static_cast<float>(max)/20);
         }
     }

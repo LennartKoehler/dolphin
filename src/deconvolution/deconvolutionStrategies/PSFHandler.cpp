@@ -2,6 +2,7 @@
 #include "dolphin/PSFCreator.h"
 #include "dolphin/psf/PSFGeneratorFactory.h"
 
+
 CuboidShape PSFHandler::getPSFPadding(const PSF& psf, PaddingStrategyType paddingType, float paddingRelativeMax) const {
     CuboidShape padding;
     switch(paddingType){
@@ -99,7 +100,12 @@ std::vector<std::shared_ptr<PSF>> PSFHandler::createPSFs(
         config->sizeX = psfShape.width;
         config->sizeY = psfShape.height;
         config->sizeZ = psfShape.depth;
-        psfs.emplace_back(std::make_shared<PSF>(PSFCreator::generatePSFFromPSFConfig(config, threadpool, progressFn)));
+        std::shared_ptr<PSF> psf = std::make_shared<PSF>(PSFCreator::generatePSFFromPSFConfig(config, threadpool, progressFn));
+        auto logger = spdlog::get("config");
+        logger->info("Using the following PSF from config");
+        config->printValues();
+        psfs.emplace_back(psf);
+
     }
 
     //dont need to reread, already read when getting padding
