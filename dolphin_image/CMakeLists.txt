@@ -20,11 +20,11 @@ set(DOLPHIN_IMAGE_SOURCES
 add_library(dolphin_image STATIC ${DOLPHIN_IMAGE_SOURCES})
 
 target_link_libraries(dolphin_image PUBLIC
-    project_options
     dolphinbackend
     ${TIFF_LIBRARIES}
     ${ITK_LIBRARIES}
 )
+target_link_libraries(dolphin_image PRIVATE project_options)
 
 target_include_directories(dolphin_image
     PUBLIC
