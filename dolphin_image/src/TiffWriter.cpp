@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin_image/IO/TiffWriter.h"
 #include "dolphin_image/ImageOperations.h"
+#include <cstdint>
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>
@@ -38,13 +39,7 @@ TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShap
     // metaData.filename = filename;
 
     TIFFSetWarningHandler(TiffWriter::customTifWarningHandler);
-
-    // Create or open the TIFF file
-    TIFF* tif = TIFFOpen(filename.c_str(), "w");
-    if (!tif) {
-        throw TiffFileOpenException(filename);
-    }
-    this->tif = tif;
+    this->tif = openTiff(filename.c_str(), imageShape);
 }
 
 
@@ -344,25 +339,6 @@ void TiffWriter::customTifWarningHandler(const char* module, const char* fmt, va
 
 
 ImageMetaData TiffWriter::extractMetaData(const Image3D& image){
-    // Convert to target type based on metadata
-    // std::vector<uint8_t> convertedData;
-    // convertSliceDataToTargetType(sliceData, convertedData, imageShape.width, imageShape.height, metaData);
-
-    // Use metadata values for TIFF fields
-    // uint16_t bitsPerSample = metaData.bitsPerSample;
-    // uint16_t samplesPerPixel = metaData.samplesPerPixel;
-    // int sampleFormat = metaData.sampleFormat;
-
-    // Process description to remove min/max/mode lines
-    // std::istringstream iss(metaData.description);
-    // std::ostringstream oss;
-    // std::string line;
-    // while (std::getline(iss, line)) {
-    //     if (line.find("min=") == std::string::npos && line.find("max=") == std::string::npos && line.find("mode=") == std::string::npos) {
-    //         oss << line << "\\n";
-    //     }
-    // }
-    // std::string cutted_description = oss.str();
     ImageMetaData metaData;
     CuboidShape size = image.getShape();
     metaData.imageWidth = size.width;
@@ -376,6 +352,21 @@ ImageMetaData TiffWriter::extractMetaData(const Image3D& image){
     return metaData;
 
 }
+
+TIFF* TiffWriter::openTiff(const char* filename, const CuboidShape& size){
+    uint64_t imageBytes = size.getVolume() * 4; // pixels are float
+
+    // Create or open the TIFF file
+    const uint64_t TWO_GIGABYTES = 2ULL * 1024 * 1024 * 1024;
+
+    const char* mode = (imageBytes >= TWO_GIGABYTES) ? "w8" : "w";
+    TIFF* tif = TIFFOpen(filename, mode);
+    if (!tif) {
+        throw TiffFileOpenException(filename);
+    }
+    return tif;
+}
+
 // Static method for writing entire Image3D to file
 bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) {
     try {
@@ -390,10 +381,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) 
         TIFFSetWarningHandler(TiffWriter::customTifWarningHandler);
 
         // Create or open the TIFF file
-        TIFF* tif = TIFFOpen(filename.c_str(), "w");
-        if (!tif) {
-            throw TiffFileOpenException(filename);
-        }
+        TIFF* tif = openTiff(filename.c_str(), imageShape);
 
 
         // Process description to remove min/max/mode lines

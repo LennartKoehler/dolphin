@@ -63,6 +63,7 @@ TiffReader::~TiffReader() {
 }
 
 
+
 // Static method for reading entire TIFF file
 std::optional<Image3D> TiffReader::readTiffFile(const std::string& filename, int channel) {
     try {
