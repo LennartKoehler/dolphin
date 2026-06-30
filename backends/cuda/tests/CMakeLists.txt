@@ -1,42 +1,24 @@
-cmake_minimum_required(VERSION 3.10)
-
-set(CMAKE_CUDA_RUNTIME_LIBRARY Static)
-set(CMAKE_BUILD_TYPE Debug)
-set(GLIBCXX_USE_CXX11_ABI 0)
+cmake_minimum_required(VERSION 3.14)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/backends/cuda/tests)
 
 enable_testing()
 
-add_executable(cuda_test
-    cuda_test.cpp
+add_executable(cuda_backend_test
+    test_cuda_backend.cpp
 )
 
-add_executable(cuda_multiple_devices_test
-    multiple_devices_test.cpp
-)
-
-target_link_libraries(cuda_multiple_devices_test
-    PRIVATE
-        cuda_backend)
-target_link_libraries(cuda_test
+target_link_libraries(cuda_backend_test
     PRIVATE
         cuda_backend
+        GTest::gtest_main
 )
 
-set_target_properties(cuda_test PROPERTIES
+target_compile_options(cuda_backend_test PRIVATE -fno-fast-math)
+
+gtest_discover_tests(cuda_backend_test)
+
+set_target_properties(cuda_backend_test PROPERTIES
     BUILD_RPATH "\$ORIGIN/../lib"
     INSTALL_RPATH "\$ORIGIN/../lib"
 )
-set_target_properties(cuda_multiple_devices_test PROPERTIES
-    BUILD_RPATH "$ORIGIN/../lib"
-    INSTALL_RPATH "$ORIGIN/../lib"
-)
-add_test(NAME CUDABackendTest COMMAND $<TARGET_FILE:cuda_test>)
-add_test(NAME CUDAMultipleDevices COMMAND $<TARGET_FILE:cuda_multiple_devices_test>)
-
-target_compile_options(cuda_test PRIVATE "-static-libstdc++" "-static-libgcc")
-target_link_options(cuda_test PRIVATE "-static-libstdc++" "-static-libgcc")
-
-target_compile_options(cuda_multiple_devices_test PRIVATE "-static-libstdc++" "-static-libgcc")
-target_link_options(cuda_multiple_devices_test PRIVATE "-static-libstdc++" "-static-libgcc")

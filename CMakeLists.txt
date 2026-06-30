@@ -60,6 +60,17 @@ get_target_property(itk_debug   ITKCommon IMPORTED_LOCATION_DEBUG)
 message(STATUS "ITKCommon RELEASE: ${itk_release}")
 message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
 
+# GoogleTest — fetched early so backend test subdirectories can use it
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.14.0
+)
+set(gtest_force_shared_rcs ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+include(GoogleTest)
+
 add_subdirectory(backends/dolphinbackend)
 add_subdirectory(backends/cpu)
 add_subdirectory(dolphin_image)
@@ -135,7 +146,7 @@ set(DOLPHIN_SOURCES
 add_library(dolphin STATIC ${DOLPHIN_SOURCES})
 
 
-target_link_libraries(dolphin PUBLIC project_options)
+target_link_libraries(dolphin PRIVATE project_options)
 
 
 

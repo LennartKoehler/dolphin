@@ -333,8 +333,8 @@ public:
         if (&(*compute) != &computeBackend) {
             throw std::runtime_error("Cannot take ownership: provided compute backend is not the one currently referenced");
         }
-        if (!owner.ownsComputeBackend()) {
-            throw std::runtime_error("Cannot take ownership: compute backend is not owned by this CPUBackend");
+        if (owner.ownsComputeBackend()) {
+            throw std::runtime_error("Cannot take ownership: compute backend is already owned");
         }
         owner.takeOwnership(std::move(compute));
     }
@@ -343,8 +343,8 @@ public:
         if (&(*mem) != &memoryManager) {
             throw std::runtime_error("Cannot take ownership: provided memory manager is not the one currently referenced");
         }
-        if (!owner.ownsMemoryManager()) {
-            throw std::runtime_error("Cannot take ownership: memory manager is not owned by this CPUBackend");
+        if (owner.ownsMemoryManager()) {
+            throw std::runtime_error("Cannot take ownership: memory manager is already owned");
         }
         owner.takeOwnership(std::move(mem));
     }

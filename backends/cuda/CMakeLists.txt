@@ -52,7 +52,7 @@ set_target_properties(CUBE PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # )
 
 
-target_link_libraries(cuda_backend PUBLIC project_options)
+target_link_libraries(cuda_backend PRIVATE project_options)
 
 
 

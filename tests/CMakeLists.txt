@@ -2,17 +2,6 @@ cmake_minimum_required(VERSION 3.14)
 
 enable_testing()
 
-include(FetchContent)
-FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG v1.14.0
-)
-set(gtest_force_shared_rcs ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-
-include(GoogleTest)
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 
 function(dolphin_add_test name)
@@ -22,6 +11,7 @@ function(dolphin_add_test name)
     if(ARG_INCLUDES)
         target_include_directories(${name} PRIVATE ${ARG_INCLUDES})
     endif()
+    target_compile_options(${name} PRIVATE -fno-fast-math)
     target_compile_definitions(${name} PRIVATE
         CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
         CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
