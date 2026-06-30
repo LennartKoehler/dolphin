@@ -27,19 +27,19 @@ See the LICENSE file provided with the code for the full license.
 class TiffReader : public ImageReader {
 public:
     explicit TiffReader(const std::string& filename, int channel);
-    
+
     ~TiffReader();
-    
+
     static std::optional<Image3D> readTiffFile(const std::string& filename, int channel);
     static std::optional<ImageMetaData> readMetadata(const std::string& filename);
-    
+
     // Non-static buffered reading methods
     std::optional<PaddedImage> getSubimage(const BoxCoordWithPadding& box) const override;
     const ImageMetaData& getMetaData() const override;
-    
 
-    
-    
+
+
+
 private:
     // Buffer management for getSubimage
     mutable CustomList<ImageBuffer> loadedImageStrips;
@@ -50,7 +50,7 @@ private:
     mutable std::mutex mutex;
     int channel;
     TIFF* tif; // Member variable to keep TIFF file open
-    
+
     // Non-static helper methods for buffered reading
 
 
@@ -59,7 +59,7 @@ private:
     PaddedImage getFromBuffer(const BoxCoordWithPadding& coord, int bufferIndex) const;
     void updateCurrentMemoryBuffer(size_t memory) const;
     Image3D managedReader(const BoxCoord& coord) const;
-    
+
 
     static ImageMetaData readMetadata_(const std::string& filename);
     static void readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers, int channel);

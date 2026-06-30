@@ -115,6 +115,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
 
         int channel = 0; //TESTVLAUE unused
         std::shared_ptr<TiffReader> reader = std::make_shared<TiffReader>(setupConfig->imagePath, channel);
+
         std::optional<ImageMetaData> metadata = reader->getMetaData();
 
         std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path, metadata.value().getShape());
