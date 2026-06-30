@@ -1,92 +1,83 @@
+#include <gtest/gtest.h>
 #include "dolphin_image/Image3D.h"
 #include "dolphin_image/IO/TiffReader.h"
 #include "dolphin_image/IO/TiffWriter.h"
-#include <iostream>
-#include "itkTestingComparisonImageFilter.h"
-#include <string>
+#include "dolphin_image/Types/BoxCoord.h"
+#include "TestUtils.h"
 
+class MirrorPaddingTest : public ::testing::Test {
+protected:
+    std::string testDir;
+    std::string testTiffPath;
 
+    void SetUp() override {
+        testDir = TestUtils::outputPath();
+        testTiffPath = testDir + "/mirror_test_input.tif";
 
+        Image3D img(CuboidShape(16, 16, 8), 0.0f);
+        for (int i = 0; i < 16 * 16 * 8; i++) {
+            img[i] = static_cast<float>(i);
+        }
+        TiffWriter::writeToFile(testTiffPath, img);
+    }
+};
 
-bool isEqual(ImageType::Pointer im1, ImageType::Pointer im2){
-    using CompareType =
-        itk::Testing::ComparisonImageFilter<ImageType, ImageType>;
+TEST_F(MirrorPaddingTest, ReadSubimageNoPadding) {
+    TiffReader reader(testTiffPath, 0);
+    BoxCoordWithPadding box;
+    box.box.position = CuboidShape(0, 0, 0);
+    box.box.dimensions = CuboidShape(8, 8, 4);
+    box.padding.before = CuboidShape(0, 0, 0);
+    box.padding.after = CuboidShape(0, 0, 0);
 
-    auto compare = CompareType::New();
-    compare->SetValidInput(im1);
-    compare->SetTestInput(im2);
-
-    // tolerance for floating point differences
-    compare->SetDifferenceThreshold(1e-6);
-    compare->SetVerifyInputInformation(false);
-    compare->Update();
-    return compare->GetNumberOfPixelsWithDifferences() == 0;
+    auto result = reader.getSubimage(box);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->image.getShape(), CuboidShape(8, 8, 4));
 }
 
+TEST_F(MirrorPaddingTest, ReadSubimageWithPadding) {
+    TiffReader reader(testTiffPath, 0);
+    BoxCoordWithPadding box;
+    box.box.position = CuboidShape(0, 0, 0);
+    box.box.dimensions = CuboidShape(8, 8, 4);
+    box.padding.before = CuboidShape(2, 2, 2);
+    box.padding.after = CuboidShape(2, 2, 2);
 
-int main(int argc, char** argv){
-    if(argc < 2){
-        std::cerr << "Usage: " << argv[0] << " <input.tif> [output.tif]" << std::endl;
-        return 1;
-    }
-
-    std::string input = argv[1];
-    std::string output;
-    if(argc >= 3){
-        output = argv[2];
-    } else {
-        // default output file name
-        output = input + "_copy.tif";
-    }
-
-
-    int channel = 0;
-    TiffReader readerPadding = TiffReader(input, channel);
-
-    TiffReader reader = TiffReader(input, channel);
-    BoxCoordWithPadding box_withPadding(
-        BoxCoord{
-            CuboidShape(120, 120, 20),
-            CuboidShape(50,50,50),
-        },
-        Padding{
-            CuboidShape(50, 50, 20),
-            CuboidShape(50, 50, 20)
-        }
-    );
-    BoxCoordWithPadding box_withoutPadding(
-        BoxCoord{
-            CuboidShape(70, 70, 0),
-            CuboidShape(150,150,90)
-        },
-        Padding{
-            CuboidShape(0, 0, 0),
-            CuboidShape(0, 0, 0)
-        }
-    );
-    try{
-        auto maybeImage1 = readerPadding.getSubimage(box_withPadding);
-        auto maybeImageTest = readerPadding.getSubimage(box_withoutPadding);
-        // shouldnt actually read new slice as its the same image data as above and uses same reader which should have it in buffer
-        std::cerr << "Should have only read one slice by now" << std::endl;
-        auto maybeImage2 = reader.getSubimage(box_withoutPadding);
-
-        Image3D imagep = std::move(maybeImage1.value().image);
-        Image3D image = std::move(maybeImage2.value().image);
-
-        bool same = isEqual(imagep.getItkImage(), image.getItkImage());
-        std::cerr << "Images are the same: " << same << std::endl;
-
-        // bool ok = TiffWriter::writeToFile(output, image);
-        // if(!ok){
-        //     std::cerr << "Failed to write output file: " << output << std::endl;
-        //     return 2;
-        // }
-    } catch(const std::exception& e){
-        std::cerr << "Exception: " << e.what() << std::endl;
-        return 3;
-    }
-
-    return 0;
+    auto result = reader.getSubimage(box);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->image.getShape(), CuboidShape(12, 12, 8));
 }
 
+TEST_F(MirrorPaddingTest, ReadFullImage) {
+    TiffReader reader(testTiffPath, 0);
+    BoxCoordWithPadding box;
+    box.box.position = CuboidShape(0, 0, 0);
+    box.box.dimensions = CuboidShape(16, 16, 8);
+    box.padding.before = CuboidShape(0, 0, 0);
+    box.padding.after = CuboidShape(0, 0, 0);
+
+    auto result = reader.getSubimage(box);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->image.getShape(), CuboidShape(16, 16, 8));
+}
+
+TEST_F(MirrorPaddingTest, ReadSubimageAtOffset) {
+    TiffReader reader(testTiffPath, 0);
+    BoxCoordWithPadding box;
+    box.box.position = CuboidShape(4, 4, 2);
+    box.box.dimensions = CuboidShape(8, 8, 4);
+    box.padding.before = CuboidShape(0, 0, 0);
+    box.padding.after = CuboidShape(0, 0, 0);
+
+    auto result = reader.getSubimage(box);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->image.getShape(), CuboidShape(8, 8, 4));
+}
+
+TEST_F(MirrorPaddingTest, ReadMetadata) {
+    auto meta = TiffReader::readMetadata(testTiffPath);
+    ASSERT_TRUE(meta.has_value());
+    EXPECT_EQ(meta->imageWidth, 16);
+    EXPECT_EQ(meta->imageLength, 16);
+    EXPECT_EQ(meta->slices, 8);
+}

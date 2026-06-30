@@ -292,11 +292,14 @@ void testComplexArithmetic() {
                     "Complex addition result should match expected");
     }
 
-    // Scalar multiplication
+    // Scalar multiplication (complex multiplication with a scalar)
     complex_t scalar = {2.0f, 3.0f};
     deconv.scalarMultiplication(a, scalar, result);
     for (int i = 0; i < shape.getVolume(); ++i) {
-        TEST_ASSERT(approxEqualComplex(result[i], a[i][0] * scalar[0], a[i][1] * scalar[1], 1e-3f),
+        real_t ra = a[i][0], ia = a[i][1];
+        float expectedReal = ra * scalar[0] - ia * scalar[1];
+        float expectedImag = ra * scalar[1] + ia * scalar[0];
+        TEST_ASSERT(approxEqualComplex(result[i], expectedReal, expectedImag, 1e-3f),
                     "Scalar multiplication result should match expected");
     }
 

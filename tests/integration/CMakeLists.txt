@@ -1,35 +1,23 @@
-# Integration Tests CMakeLists.txt
-cmake_minimum_required(VERSION 3.10)
-
-enable_testing()
+cmake_minimum_required(VERSION 3.14)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/integration)
 
-set(CMAKE_BUILD_TYPE Debug)
+set(TEST_INCLUDES
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/backends/dolphinbackend/include
+    ${CMAKE_SOURCE_DIR}/dolphin_image/include
+    ${CMAKE_SOURCE_DIR}/tests/utils
+)
 
-# Cube Shape Test
-add_executable(cube_shape_test
-    cubeShapeTest.cpp
+dolphin_add_test(cube_shape_test
+    SOURCES cubeShapeTest.cpp
+    LIBS dolphin project_options
+    INCLUDES ${TEST_INCLUDES}
 )
-target_link_libraries(cube_shape_test
-    PRIVATE
-        dolphin
-        project_options
-)
-add_test(NAME CubeShapeTest COMMAND $<TARGET_FILE:cube_shape_test>)
-set_tests_properties(CubeShapeTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-# Main Integration Test
-add_executable(main_test
-    main_test.cpp
+dolphin_add_test(main_test
+    SOURCES main_test.cpp
+    LIBS dolphin
+    INCLUDES ${TEST_INCLUDES}
 )
-target_link_libraries(main_test
-    PRIVATE
-        dolphin
-)
-target_include_directories(main_test
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/src
-)
-add_test(NAME MainTest COMMAND $<TARGET_FILE:main_test>)

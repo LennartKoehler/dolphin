@@ -1,46 +1,67 @@
+#include <gtest/gtest.h>
 #include "dolphin/deconvolution/Postprocessor.h"
-#include "dolphin_image/IO/TiffReader.h"
-#include "dolphin_image/IO/TiffWriter.h"
-#include <iostream>
+#include "dolphin_image/Image3D.h"
+#include "dolphin_image/Types/BoxCoord.h"
+#include "TestUtils.h"
 
-int main(){
+class FeatheringTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        imageA = Image3D(CuboidShape(16, 16, 8), 0.0f);
+        imageB = Image3D(CuboidShape(16, 16, 8), 0.0f);
 
-    std::string filename1 = "/home/lennart-k-hler/data/labeledImage/simpleMaskSmall.tif";
-    int channel = 0;
-    auto maybeImage1 = TiffReader::readTiffFile(filename1, channel);
-    if(!maybeImage1.has_value()){
-        std::cerr << "Failed to read TIFF file: " << filename1 << std::endl;
-        return 1;
+        for (int z = 0; z < 8; z++) {
+            for (int y = 0; y < 16; y++) {
+                for (int x = 0; x < 16; x++) {
+                    if (x < 8) {
+                        imageA.setPixel(x, y, z, 1.0f);
+                    } else {
+                        imageB.setPixel(x, y, z, 1.0f);
+                    }
+                }
+            }
+        }
+
+        maskA = imageA.getInRange(0.5f, 1.5f);
+        maskB = imageB.getInRange(0.5f, 1.5f);
     }
-    Image3D image1 = std::move(*maybeImage1);
 
-    std::string filename2 = "/home/lennart-k-hler/data/labeledImage/simpleMaskSmall_darker.tif";
-    auto maybeImage2 = TiffReader::readTiffFile(filename2, channel);
-    if(!maybeImage2.has_value()){
-        std::cerr << "Failed to read TIFF file: " << filename2 << std::endl;
-        return 1;
-    }
-    Image3D image2 = std::move(*maybeImage2);
+    Image3D imageA, imageB;
+    Image3D maskA, maskB;
+};
 
-    PaddedImage pImage1{image1};
-
-    PaddedImage pImage2{image2};
+TEST_F(FeatheringTest, AddFeatheringDoesNotCrash) {
+    std::vector<ImageMaskPair> pairs;
+    pairs.push_back({imageA, maskA});
+    pairs.push_back({imageB, maskB});
 
     int radius = 5;
-    double epsilon = 5.0;
+    float epsilon = 5.0f;
+    EXPECT_NO_THROW(Postprocessor::addFeathering(pairs, radius, epsilon));
+}
 
-    // Create masks using ITK-based Image3D methods
-    Image3D mask1 = image1.getInRange(255.0f, 255.0f);  // Create mask where pixel value equals 255
-    Image3D mask2 = image1.getInRange(0.0f, 0.0f);      // Create mask where pixel value equals 0
-    
-    std::vector<ImageMaskPair> pairs{ImageMaskPair{image1, mask1}, ImageMaskPair{image2, mask2}};
+TEST_F(FeatheringTest, AddFeatheringProducesValidOutput) {
+    std::vector<ImageMaskPair> pairs;
+    pairs.push_back({imageA, maskA});
+    pairs.push_back({imageB, maskB});
 
-    Image3D out = Postprocessor::addFeathering(
-        pairs,
-        radius,
-        epsilon
-    );
+    auto result = Postprocessor::addFeathering(pairs, 3, 1.0f);
+    EXPECT_EQ(result.getShape(), imageA.getShape());
+    EXPECT_FALSE(TestUtils::hasNaN(result));
+}
 
-    TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/test.tif", out);
+TEST_F(FeatheringTest, AddFeatheringSingleImage) {
+    std::vector<ImageMaskPair> pairs;
+    pairs.push_back({imageA, maskA});
 
+    auto result = Postprocessor::addFeathering(pairs, 3, 1.0f);
+    EXPECT_EQ(result.getShape(), imageA.getShape());
+}
+
+TEST_F(FeatheringTest, AddFeatheringZeroRadius) {
+    std::vector<ImageMaskPair> pairs;
+    pairs.push_back({imageA, maskA});
+    pairs.push_back({imageB, maskB});
+
+    EXPECT_NO_THROW(Postprocessor::addFeathering(pairs, 0, 1.0f));
 }

@@ -1,23 +1,37 @@
-# Test CMakeLists.txt
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 
 enable_testing()
 
-# Place test binaries in a directory structure mirroring the source tree
-# e.g. tests/IO/read_write_test -> bin/tests/IO/read_write_test
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.14.0
+)
+set(gtest_force_shared_rcs ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+include(GoogleTest)
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 
-# Backend tests (dolphin-dependent backend tests)
+function(dolphin_add_test name)
+    cmake_parse_arguments(ARG "" "" "SOURCES;LIBS;INCLUDES" ${ARGN})
+    add_executable(${name} ${ARG_SOURCES})
+    target_link_libraries(${name} PRIVATE GTest::gtest_main ${ARG_LIBS})
+    if(ARG_INCLUDES)
+        target_include_directories(${name} PRIVATE ${ARG_INCLUDES})
+    endif()
+    target_compile_definitions(${name} PRIVATE
+        CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+        CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
+    )
+    gtest_discover_tests(${name})
+endfunction()
+
 add_subdirectory(backends)
-
-# IO tests
 add_subdirectory(IO)
-
-# Deconvolution tests
 add_subdirectory(deconvolution)
-
-# Image tests
 add_subdirectory(image)
-
-# Integration tests
 add_subdirectory(integration)
+add_subdirectory(unit)

@@ -1,32 +1,23 @@
-# Deconvolution Strategies Tests CMakeLists.txt
-cmake_minimum_required(VERSION 3.10)
-
-enable_testing()
+cmake_minimum_required(VERSION 3.14)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/deconvolution/deconvolutionStrategies)
 
-# ImageSplit Test
-add_executable(imageSplit_test
-    imageSplit_test.cpp
+set(TEST_INCLUDES
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/backends/dolphinbackend/include
+    ${CMAKE_SOURCE_DIR}/dolphin_image/include
+    ${CMAKE_SOURCE_DIR}/tests/utils
 )
-target_link_libraries(imageSplit_test
-    PRIVATE
-        dolphin
-)
-add_test(NAME ImageSplitTest COMMAND $<TARGET_FILE:imageSplit_test>)
 
-# GetLabelGroups Test
-add_executable(getLabelGroups_test
-    getLabelGroups_test.cpp
+dolphin_add_test(imageSplit_test
+    SOURCES imageSplit_test.cpp
+    LIBS dolphin
+    INCLUDES ${TEST_INCLUDES}
 )
-target_link_libraries(getLabelGroups_test
-    PRIVATE
-        dolphin
+
+dolphin_add_test(getLabelGroups_test
+    SOURCES getLabelGroups_test.cpp
+    LIBS dolphin
+    INCLUDES ${TEST_INCLUDES}
 )
-target_include_directories(getLabelGroups_test
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/src
-)
-add_test(NAME GetLabelGroupsTest COMMAND $<TARGET_FILE:getLabelGroups_test>)
-set_tests_properties(GetLabelGroupsTest PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
