@@ -82,13 +82,13 @@ std::optional<Image3D> TiffReader::readTiffFile(const std::string& filename, int
 
     } catch (const TiffMemoryException& e) {
         spdlog::warn("Insufficient memory to read TIFF file {}: {}", filename, e.what());
-        throw;
+        return std::nullopt;
     } catch (const TiffException& e) {
         spdlog::error("{}", e.what());
-        throw;
+        return std::nullopt;
     } catch (const std::runtime_error& e) {
         spdlog::error("{}",e.what());
-        throw;
+        return std::nullopt;
     }
 }
 
@@ -100,8 +100,7 @@ std::optional<ImageMetaData> TiffReader::readMetadata(const std::string& filenam
         return std::optional<ImageMetaData>(readMetadata_(filename));
     }
     catch(...){
-        throw;
-        return {};
+        return std::nullopt;
     }
 }
 

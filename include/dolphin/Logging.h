@@ -67,7 +67,7 @@ namespace Logging{
     //   logDir — directory where debug.log will be written.
     //            Defaults to the current working directory.
     //            The directory is created automatically if it does not exist.
-    static void init(const std::filesystem::path& logDir = std::filesystem::current_path()){
+    inline void init(const std::filesystem::path& logDir = std::filesystem::current_path()){
         static bool isInitialized;
         if (!isInitialized){
 
