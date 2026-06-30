@@ -102,7 +102,7 @@ std::vector<std::shared_ptr<PSF>> PSFHandler::createPSFs(
         config->sizeZ = psfShape.depth;
         std::shared_ptr<PSF> psf = std::make_shared<PSF>(PSFCreator::generatePSFFromPSFConfig(config, threadpool, progressFn));
         auto logger = spdlog::get("config");
-        logger->info("Using the following PSF from config");
+        logger->debug("Using the following PSF from config");
         config->printValues();
         psfs.emplace_back(psf);
 

@@ -1,3 +1,5 @@
+error when psf config or other path not found
+
 make fusable compute kernels for the backend, so that not every function iterates over the data, but rather the backend stores a vector of operations (similar to the operations in image3d) and then only iterates data once. This makes data access much fasted. Then in the code that uses the backend each function can either be fused or run instantly. This allows the user to either build pipelines (if its the same data) or just run function as is (e.g. for fourier transform the data acess is irregular anyway) but if multiple functions that access data and are elementwise are run after oneanother then this can be used. E.g. for the aberration i can then have a fused kernel that adds the phase and then in the same kernel computed the error.
 
 in the backend properly write the move to device and copy to device aswell as move from and copy from, use move semantics and then make the input nullptr

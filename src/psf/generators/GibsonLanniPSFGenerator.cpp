@@ -62,6 +62,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/generators/BesselHelper.h"
 #include <itkImage.h>
 #include <itkImageRegionIterator.h>
+#include <algorithm>
 #include <cmath>
 #include <future>
 #include <spdlog/spdlog.h>
@@ -118,6 +119,27 @@ void GibsonLanniPSFGenerator::initBesselHelper() const {
     besselHelper.init(0, maxValue, dx);
 }
 
+LateralClip GibsonLanniPSFGenerator::clipSize() const {
+    int nx = config->sizeX;
+    int ny = config->sizeY;
+    double x0 = (nx - 1) / 2.0;
+    double y0 = (ny - 1) / 2.0;
+
+    // Characteristic lateral scale: Airy disk radius in pixels
+    double airyRadius_px = 0.61 * config->lambda_nm / (config->NA * config->pixelSizeLateral_nm);
+
+    // Generous cutoff to capture all significant energy including sidelobes
+    constexpr double cutoffFactor = 10.0;
+    double cutoffRadius = cutoffFactor * airyRadius_px;
+
+    int xMin = std::max(0, static_cast<int>(std::floor(x0 - cutoffRadius)));
+    int xMax = std::min(nx - 1, static_cast<int>(std::ceil(x0 + cutoffRadius)));
+    int yMin = std::max(0, static_cast<int>(std::floor(y0 - cutoffRadius)));
+    int yMax = std::min(ny - 1, static_cast<int>(std::ceil(y0 + cutoffRadius)));
+
+    return {xMin, xMax, yMin, yMax};
+}
+
 PSF GibsonLanniPSFGenerator::generatePSF() const {
     initBesselHelper();
 
@@ -139,6 +161,10 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
 
     itkImage->SetRegions(region);
     itkImage->Allocate();
+    itkImage->FillBuffer(0.0f);
+
+    // Compute the effective lateral region where the PSF is non-negligible
+    LateralClip clip = clipSize();
 
     // Process each z-slice using threading
     std::vector<std::future<std::vector<float>>> tempSphereLayers;
@@ -149,31 +175,31 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
     for (int z = 0; z < config->sizeZ; z++){
         GibsonLanniPSFConfig configCopy = *(this->config);
         configCopy.ti_nm = configCopy.ti0_nm + configCopy.pixelSizeAxial_nm * (z - (config->sizeZ - 1.0) / 2.0);
-        tempSphereLayers.emplace_back(threadPool->enqueue([this, configCopy](){
-            return SinglePlanePSFAsVector(configCopy);
+        tempSphereLayers.emplace_back(threadPool->enqueue([this, configCopy, clip](){
+            return SinglePlanePSFAsVector(configCopy, clip);
         }));
     }
 
-    // Copy data from computed slices into ITK image
+    int clippedWidth = clip.xMax - clip.xMin + 1;
+
+    // Copy data from computed slices into the clipped sub-region of the ITK image
     for (int z = 0; z < config->sizeZ; z++) {
         std::vector<float> sliceData = tempSphereLayers[z].get();
 
-        // Define the slice region for z-th slice
         ImageType::IndexType sliceStart;
-        sliceStart[0] = 0;
-        sliceStart[1] = 0;
+        sliceStart[0] = clip.xMin;
+        sliceStart[1] = clip.yMin;
         sliceStart[2] = z;
 
         ImageType::SizeType sliceSize;
-        sliceSize[0] = config->sizeX;
-        sliceSize[1] = config->sizeY;
+        sliceSize[0] = clippedWidth;
+        sliceSize[1] = clip.yMax - clip.yMin + 1;
         sliceSize[2] = 1;
 
         ImageType::RegionType sliceRegion;
         sliceRegion.SetIndex(sliceStart);
         sliceRegion.SetSize(sliceSize);
 
-        // Iterator over the slice
         itk::ImageRegionIterator<ImageType> it(itkImage, sliceRegion);
 
         int dataIndex = 0;
@@ -186,7 +212,7 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
 }
 
 
-std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config) const {
+std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config, const LateralClip& clip) const {
     int nx = config.sizeX;
     int ny = config.sizeY;
     int OVER_SAMPLING = config.OVER_SAMPLING;
@@ -201,17 +227,18 @@ std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonL
     double y0 = (ny - 1) / 2.0;
 
     // Lateral particle position in units of [pixels]
-    double xp = x0; // 0.0/pixelSize;
-    double yp = y0; // 0.0/pixelSize;
+    double xp = x0;
+    double yp = y0;
 
-    // Calculate maximum radius
-    int maxRadius = static_cast<int>(std::round(std::sqrt((nx - x0) * (nx - x0) + (ny - y0) * (ny - y0)))) + 1;
+    // Calculate maximum radius — limited to the clipped region
+    double dxMax = std::max(std::abs(clip.xMax - x0), std::abs(clip.xMin - x0));
+    double dyMax = std::max(std::abs(clip.yMax - y0), std::abs(clip.yMin - y0));
+    int maxRadius = static_cast<int>(std::round(std::sqrt(dxMax * dxMax + dyMax * dyMax))) + 1;
 
     std::vector<double> r(maxRadius * OVER_SAMPLING);
     std::vector<double> h(r.size());
 
     //TODO set tolerance and K/accuracy for numerical integrator
-    //TODO what do i want to pass to the kirchhoffequation as parameteres, what is r, what is rho? do i want to pass r or rho
     double a = 0.0;
     double b = std::min(1.0, config.ns / NA);
     int integrationAccuracy = config.accuracy;
@@ -224,22 +251,26 @@ std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonL
         h[n] = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
     }
 
-    // Linear interpolation of the pixel values
-    std::vector<float> sliceData(nx * ny);
+    // Linear interpolation of the pixel values — only within the clipped region
+    int clippedWidth = clip.xMax - clip.xMin + 1;
+    int clippedHeight = clip.yMax - clip.yMin + 1;
+    std::vector<float> sliceData(clippedWidth * clippedHeight, 0.0f);
     double rPixel, value;
     int index;
 
-    for (int x = 0; x < nx; x++) {
-        for (int y = 0; y < ny; y++) {
+    for (int x = clip.xMin; x <= clip.xMax; x++) {
+        for (int y = clip.yMin; y <= clip.yMax; y++) {
             rPixel = std::sqrt((x - xp) * (x - xp) + (y - yp) * (y - yp));
             index = static_cast<int>(std::floor(rPixel * OVER_SAMPLING));
 
             if (index + 1 < static_cast<int>(h.size())) {
                 value = h[index] + (h[index + 1] - h[index]) * (rPixel - r[index]) * OVER_SAMPLING;
-            } else {
+            } else if (index < static_cast<int>(h.size())) {
                 value = h[index];
+            } else {
+                value = 0.0;
             }
-            sliceData[y * nx + x] = static_cast<float>(value);
+            sliceData[(y - clip.yMin) * clippedWidth + (x - clip.xMin)] = static_cast<float>(value);
         }
     }
     progressTracker.add(1);
