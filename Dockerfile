@@ -117,5 +117,7 @@ COPY . /workspace
 WORKDIR /workspace
 RUN rm -rf build && mkdir build
 WORKDIR /workspace/build
-RUN cmake -DCMAKE_BUILD_TYPE=Release .. && \
+RUN cmake -DCMAKE_BUILD_TYPE=Release \
+          -DFFTW_PATH="/usr/local/fftw3/lib" \
+          .. && \
     cmake --build . -- -j$(nproc)
