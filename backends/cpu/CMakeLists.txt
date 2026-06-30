@@ -6,9 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 project(CPUBackend VERSION 1.0.0)
 
 
-if (NOT DEFINED FFTW_PATH)
-    set(FFTW_PATH "/usr/local/fftw3/lib" CACHE PATH "Path to FFTW installation")
-endif()
 
 # FFTW wisdom file path - can be customized for different operating systems
 # Default: "~/.fftw/wisdom" on Unix, ".fftw/wisdom" in user directory on Windows

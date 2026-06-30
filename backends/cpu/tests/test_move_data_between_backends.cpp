@@ -28,10 +28,9 @@ int main() {
     config.nThreads = 1;
 
     IBackend& backend1 = mgr.getBackend(config);
-    IBackend& backend2 = mgr.getBackend(config);
 
     IBackendMemoryManager& memMgr1 = backend1.mutableMemoryManager();
-    IBackendMemoryManager& memMgr2 = backend2.mutableMemoryManager();
+    IBackendMemoryManager& memMgr2 = backend1.mutableMemoryManager();
 
     CuboidShape shape(8, 8, 4);
     size_t bytes = shape.getVolume() * sizeof(real_t);

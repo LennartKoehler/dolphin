@@ -1,42 +1,34 @@
+#include <gtest/gtest.h>
 #include "dolphinbackend/Exceptions.h"
-#include <iostream>
+#include <cstdlib>
 
-// Example function that demonstrates unified exception handling
-void exampleMemoryOperation() {
+TEST(MemoryExceptionTest, LargeAllocationThrows) {
+    size_t hugeSize = SIZE_MAX / 2;
+    EXPECT_THROW(
+        {
+            void* ptr = malloc(hugeSize);
+            if (!ptr) {
+                throw dolphin::backend::MemoryException("test", "malloc", hugeSize);
+            }
+            free(ptr);
+        },
+        dolphin::backend::MemoryException
+    );
+}
+
+TEST(MemoryExceptionTest, ExceptionMessage) {
     try {
-        // Simulate a memory allocation that could fail
-        size_t large_size = 1000000000000ULL; // 1TB - likely to fail
-        void* ptr = malloc(large_size);
-
-        // Use the unified memory allocation check macro
-        MEMORY_ALLOC_CHECK(ptr, large_size, "CPU", "exampleMemoryOperation");
-
-        // If we get here, allocation succeeded
-        std::cout << "Memory allocation succeeded" << std::endl;
-        free(ptr);
-
+        throw dolphin::backend::MemoryException("allocation failed", "test_backend", 999999, "allocate");
     } catch (const dolphin::backend::MemoryException& e) {
-        // Catch memory-specific exceptions with detailed information
-        std::cerr << "Caught memory exception: " << e.getDetailedMessage() << std::endl;
-
-        // You can access specific properties
-        if (e.getBackendType() == "CUDA") {
-            std::cerr << "CUDA-specific error occurred" << std::endl;
-        } else if (e.getBackendType() == "CPU") {
-            std::cerr << "CPU-specific error occurred" << std::endl;
-        }
-
-        // You can also check the operation that failed
-        if (e.getOperation() == "allocateMemoryOnDevice") {
-            std::cerr << "Memory allocation failed" << std::endl;
-        }
-
-    } catch (const std::exception& e) {
-        // Handle other types of exceptions
-        std::cerr << "General exception: " << e.what() << std::endl;
+        std::string msg = e.what();
+        EXPECT_FALSE(msg.empty());
+        EXPECT_EQ(e.getBackendType(), "test_backend");
     }
 }
 
-int main(){
-    exampleMemoryOperation();
+TEST(MemoryExceptionTest, BackendExceptionType) {
+    dolphin::backend::BackendException ex("backend error", "cpu", "operation");
+    EXPECT_EQ(ex.getBackendType(), "cpu");
+    EXPECT_EQ(ex.getOperation(), "operation");
+    EXPECT_FALSE(ex.getDetailedMessage().empty());
 }

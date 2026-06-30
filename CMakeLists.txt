@@ -8,6 +8,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS On)
 
 
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
 
 # Optimization flags for different build types
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -march=native")
@@ -18,9 +21,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS On)
 
 add_library(project_options INTERFACE)
 
-if (NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
-endif()
 
 target_compile_options(project_options INTERFACE
   # Release
@@ -47,7 +47,7 @@ find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
 
-set(FFTW_PATH "/usr/local/fftw3/lib" CACHE PATH "Path to FFTW installation") # set default path
+set(FFTW_PATH "/usr/local/fftw-release/lib" CACHE PATH "Path to FFTW installation") # set default path
 message(STATUS "Using the following FFTW lib: ${FFTW_PATH}")
 
 message(STATUS "ITK version: ${ITK_VERSION}")
@@ -321,6 +321,11 @@ if (${ENABLE_TESTS})
 
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
+if (ENABLE_BENCHMARKS)
+    add_subdirectory(benchmarks)
 endif()
 
 

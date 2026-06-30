@@ -1,48 +1,39 @@
-#include <iostream>
-#include "dolphin/Dolphin.h"
-#include "dolphin/SetupConfig.h"
-#include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include <gtest/gtest.h>
 #include "dolphinbackend/CuboidShape.h"
-
+#include "dolphin/Logging.h"
 #include <chrono>
 
-
-
-
-int main(int argc, char** argv) {
-    std::cout << "=== DOLPHIN Test ===" << std::endl;
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <config.json>" << std::endl;
-        return 1;
+class CubeShapeIntegrationTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        Logging::init();
     }
-    std::string configPath = argv[1];
+};
 
-    SetupConfig config = SetupConfig::createFromJSONFile(configPath);
-    DeconvolutionConfig deconvconfig = DeconvolutionConfig::createFromJSONFile(configPath);
+TEST_F(CubeShapeIntegrationTest, PrintFormatting) {
+    CuboidShape s(128, 128, 64);
+    EXPECT_EQ(s.print(), "128 x 128 x 64");
+}
 
-    int base = 64;
-    deconvconfig.cubePadding = std::array<int, 3>{base, base, base};
+TEST_F(CubeShapeIntegrationTest, VolumeCalculation) {
+    CuboidShape s(128, 128, 64);
+    EXPECT_EQ(s.getVolume(), 1048576);
+}
 
+TEST_F(CubeShapeIntegrationTest, NextPowerOfTwo) {
+    CuboidShape s(100, 128, 64);
+    s.toNextPowerOfTwo();
+    EXPECT_EQ(s.width, 128);
+    EXPECT_EQ(s.height, 128);
+    EXPECT_EQ(s.depth, 64);
+}
 
-    for (int i = 2; i < 8; i++){
-
-        int v = static_cast<int>(base + (base*i)/2 );
-        deconvconfig.cubeSize = std::array<int, 3>{v, v, v};
-        // config.cubeSize = std::array<int, 3>{180 + base, 360 + base, 50 + base};
-        auto start = std::chrono::high_resolution_clock::now();
-
-        Dolphin* dolphin = new Dolphin();
-        dolphin->init();
-        DeconvolutionRequest request(std::make_shared<SetupConfig>(config), std::make_shared<DeconvolutionConfig>(deconvconfig));
-        dolphin->deconvolve(request);
-
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
-        std::cout << "\nDuration for cubeSize " << CuboidShape{deconvconfig.cubeSize}.print() << " was " << duration.count() <<" seconds" << std::endl;
-    }
-    // Run the tests
-
-
-    std::cout << "\n=== Test completed ===" << std::endl;
-    return 0;
+TEST_F(CubeShapeIntegrationTest, CeilingDivideForCubes) {
+    CuboidShape image(256, 256, 64);
+    CuboidShape cube(64, 64, 32);
+    CuboidShape numCubes = image.ceilingDivide(cube);
+    EXPECT_EQ(numCubes.width, 4);
+    EXPECT_EQ(numCubes.height, 4);
+    EXPECT_EQ(numCubes.depth, 2);
+    EXPECT_EQ(numCubes.getVolume(), 32);
 }
