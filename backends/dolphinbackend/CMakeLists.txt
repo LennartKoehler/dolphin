@@ -15,7 +15,7 @@ endif()
 
 add_library(dolphinbackend STATIC ${SOURCES})
 
-target_link_libraries(dolphinbackend PUBLIC project_options)
+target_link_libraries(dolphinbackend PRIVATE project_options)
 # target_compile_options(dolphinbackend PRIVATE
 #     -g
 #     -O0

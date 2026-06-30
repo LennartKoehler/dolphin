@@ -66,7 +66,7 @@ if(USE_OPENMP)
     OpenMP::OpenMP_CXX)
 endif()
 
-target_link_libraries(cpu_backend PUBLIC
+target_link_libraries(cpu_backend PRIVATE
     project_options)
 
 # Define FFTW wisdom file path as a compile definition

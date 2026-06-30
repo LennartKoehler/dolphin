@@ -26,7 +26,7 @@ set(CUDA_SOURCES
 add_library(CUBE STATIC ${CPP_SOURCES} ${CUDA_SOURCES})
 
 
-target_link_libraries(CUBE PUBLIC project_options)
+target_link_libraries(CUBE PRIVATE project_options)
 
 if(DOUBLE_PRECISION)
     target_compile_definitions(myapp PRIVATE DOUBLE_PRECISION)
