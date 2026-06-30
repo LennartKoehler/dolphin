@@ -97,7 +97,7 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, Rea
         deconvolution.multiplication(f, c_real, f);
 
         backend->sync();
-        progressFunction(iterations);
+        if (progressFunction) progressFunction(iterations);
     }
 }
 

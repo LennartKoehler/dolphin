@@ -59,7 +59,7 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
     memory.memCopy(g, f);
 
     for (int n = 0; n < iterations; ++n) {
-        progressFunction(iterations);
+        if (progressFunction) progressFunction(iterations);
 
         // a) First transformation: Fn = FFT(fn)
         deconvolution.forwardFFT(f, f_complex);

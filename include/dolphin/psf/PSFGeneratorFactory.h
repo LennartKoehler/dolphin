@@ -25,6 +25,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/psf/configs/PSFConfig.h"
+#include "dolphin/ThreadPool.h"
 
 
 // factory singleton which creates either PSFConfigs or PSFGenerators, usually using the string name
@@ -66,6 +67,7 @@ public:
         // Create generator and set config
         auto generator = genIt->second();
         generator->setConfig(std::move(config));
+        generator->configure(std::make_shared<ThreadPool>(), nullptr);
 
         return generator;
     }
@@ -80,6 +82,7 @@ public:
 
         auto generator = it->second();
         generator->setConfig(std::move(config));
+        generator->configure(std::make_shared<ThreadPool>(), nullptr);
         return generator;
     }
 

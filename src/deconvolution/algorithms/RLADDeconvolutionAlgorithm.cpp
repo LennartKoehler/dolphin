@@ -27,9 +27,9 @@ void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 void RLADDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Richardson-Lucy with Adaptive Damping algorithm initialization");\
     
-    // Allocate memory for intermediate arrays
-    c = std::move(backend->getMemoryManager().allocateMemoryOnDeviceReal(dataSize));
-    c_complex = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
+    c = std::move(memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize));
+    c_complex = c.reinterpret();
     
     initialized = true;
 }
@@ -90,7 +90,7 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         deconvolution.multiplication(f, c, f);
 
         backend->sync();
-        progressFunction(iterations);
+        if (progressFunction) progressFunction(iterations);
     }
 }
 
