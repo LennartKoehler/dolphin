@@ -20,6 +20,10 @@ See the LICENSE file provided with the code for the full license.
 
 class GibsonLanniPSFConfig;
 
+struct LateralClip {
+	int xMin, xMax, yMin, yMax;
+};
+
 class GibsonLanniPSFGenerator : public BasePSFGenerator {
 public:
 	GibsonLanniPSFGenerator(std::unique_ptr<NumericalIntegrator> integrator = std::make_unique<SimpsonIntegrator>());
@@ -28,11 +32,12 @@ public:
     void setConfig(const std::shared_ptr<const PSFConfig> config) override;
     bool hasConfig() override;
 	void setIntegrator(std::unique_ptr<NumericalIntegrator> integrator);
-	std::vector<float> SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config) const; // gibson lanni equation for one z-slice, returns data as vector
+	std::vector<float> SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config, const LateralClip& clip) const;
     CuboidShape getPadding(PaddingStrategyType paddingType) const override;
 
 private:
 	void initBesselHelper() const;
+	LateralClip clipSize() const;
 	std::unique_ptr<NumericalIntegrator> numericalIntegrator;
     std::shared_ptr<GibsonLanniPSFConfig> config;
 
