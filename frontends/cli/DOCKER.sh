@@ -9,7 +9,8 @@ rm -rf ./dockerbuild
 docker create --name tempcontainer dolphin_cli
 
 # Copy the binary from container to host
-docker cp tempcontainer:/workspace/frontends/cli/build ./dockerbuild
+docker cp tempcontainer:/workspace/dolphin_build ./dockerbuild
+docker cp tempcontainer:/workspace/cli_build ./dockerbuild
 
 # Remove the temporary container
 docker rm tempcontainer
