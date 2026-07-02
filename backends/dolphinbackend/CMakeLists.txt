@@ -16,6 +16,8 @@ endif()
 add_library(dolphinbackend STATIC ${SOURCES})
 
 target_link_libraries(dolphinbackend PRIVATE project_options)
+# Statically link libstdc++ and libgcc so binaries run on older systems
+target_link_options(dolphinbackend PUBLIC -static-libstdc++ -static-libgcc)
 # target_compile_options(dolphinbackend PRIVATE
 #     -g
 #     -O0
