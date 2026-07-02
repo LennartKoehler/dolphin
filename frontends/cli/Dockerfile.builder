@@ -105,43 +105,6 @@ RUN apt-get update && apt-get install -y software-properties-common && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 130 && \
     rm -rf /var/lib/apt/lists/*
 
-# -----------------------
-# Copy project
-# -----------------------
 WORKDIR /workspace
-COPY . /workspace
 
-# -----------------------
-# Build and install the dolphin library
-# -----------------------
-RUN rm -rf /workspace/dolphin_build && mkdir /workspace/dolphin_build
-WORKDIR /workspace/dolphin_build
-RUN cmake -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=/usr/local \
-          -DBUILD_CUDA=ON \
-          -DFFTW_PATH="/usr/local/fftw3/lib" \
-          .. && \
-    cmake --build . -- -j$(nproc) && \
-    cmake --install .
-
-# -----------------------
-# Build the CLI frontend
-# -----------------------
-RUN rm -rf /workspace/cli_build && mkdir /workspace/cli_build
-WORKDIR /workspace/cli_build
-# Configure the CLI as a standalone consumer of the *installed* dolphin
-# package (built in the previous stage). The source dir must point at
-# frontends/cli, NOT at the project root — otherwise CMake re-runs the
-# whole library build from source, ignores find_package(dolphin), and
-# falls back to the hardcoded FFTW_PATH default (/usr/local/fftw-release/lib).
-# The installed dolphinTargets.cmake already carries the absolute FFTW
-# library paths, so no FFTW_PATH is needed here.
-RUN cmake -DCMAKE_PREFIX_PATH="/usr/local" \
-          ../frontends/cli && \
-    cmake --build . -- -j$(nproc)
-
-# -----------------------
-# Set entrypoint
-# -----------------------
-WORKDIR /workspace
-ENTRYPOINT ["./cli_build/dolphin_cli"]
+CMD ["bash"]

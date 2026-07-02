@@ -1,16 +1,35 @@
-#!/bin/bash
-# Build the image
-docker build -t dolphin_cli -f Dockerfile ../..
+#!/usr/bin/env bash
+set -e
 
-# Remove stale dockerbuild directory
-rm -rf ./dockerbuild
+IMAGE=dolphin-builder:cuda13
 
-# Create a container (without running it)
-docker create --name tempcontainer dolphin_cli
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    docker build \
+        -f frontends/cli/Dockerfile.builder \
+        -t "$IMAGE" \
+        .
+fi
 
-# Copy the binary from container to host
-docker cp tempcontainer:/workspace/dolphin_build ./dockerbuild
-docker cp tempcontainer:/workspace/cli_build ./dockerbuild
+docker run --rm \
+    -v "$PWD:/workspace" \
+    "$IMAGE" \
+    bash -c '
+        cmake \
+            -S /workspace \
+            -B /workspace/dockerbuild/dolphin_build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DBUILD_CUDA=ON \
+            -DFFTW_PATH=/usr/local/fftw3/lib
 
-# Remove the temporary container
-docker rm tempcontainer
+        cmake --build /workspace/dockerbuild/dolphin_build --parallel
+
+        cmake --install /workspace/dockerbuild/dolphin_build
+
+        cmake \
+            -S /workspace/frontends/cli \
+            -B /workspace/dockerbuild/cli_build \
+            -DCMAKE_PREFIX_PATH=/usr/local
+
+        cmake --build /workspace/dockerbuild/cli_build --parallel
+    '
