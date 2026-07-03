@@ -166,7 +166,7 @@ TEST(RangeMapTest, CopyConstructor) {
     EXPECT_EQ(copy.get(2).size(), 1u);
 }
 
-class BoxCoordTest : public ::testing::Test {
+class BoxCoordRangeTest : public ::testing::Test {
 protected:
     BoxCoord inner, outer;
     void SetUp() override {
@@ -177,22 +177,22 @@ protected:
     }
 };
 
-TEST_F(BoxCoordTest, IsWithinTrue) {
+TEST_F(BoxCoordRangeTest, IsWithinTrue) {
     EXPECT_TRUE(inner.isWithin(outer));
 }
 
-TEST_F(BoxCoordTest, IsWithinFalse) {
+TEST_F(BoxCoordRangeTest, IsWithinFalse) {
     BoxCoord outside;
     outside.position = CuboidShape(8, 8, 8);
     outside.dimensions = CuboidShape(5, 5, 5);
     EXPECT_FALSE(outside.isWithin(outer));
 }
 
-TEST_F(BoxCoordTest, IsWithinEqual) {
+TEST_F(BoxCoordRangeTest, IsWithinEqual) {
     EXPECT_TRUE(outer.isWithin(outer));
 }
 
-TEST_F(BoxCoordTest, Print) {
+TEST_F(BoxCoordRangeTest, Print) {
     BoxCoord bc;
     bc.position = CuboidShape(1, 2, 3);
     bc.dimensions = CuboidShape(4, 5, 6);
@@ -200,7 +200,7 @@ TEST_F(BoxCoordTest, Print) {
     EXPECT_FALSE(s.empty());
 }
 
-TEST_F(BoxCoordTest, CropToNoCrop) {
+TEST_F(BoxCoordRangeTest, CropToNoCrop) {
     BoxCoord box;
     box.position = CuboidShape(2, 2, 2);
     box.dimensions = CuboidShape(4, 4, 4);
@@ -210,7 +210,7 @@ TEST_F(BoxCoordTest, CropToNoCrop) {
     EXPECT_EQ(padding.before.depth, 0);
 }
 
-TEST_F(BoxCoordTest, CropToPartialOverlap) {
+TEST_F(BoxCoordRangeTest, CropToPartialOverlap) {
     BoxCoord box;
     box.position = CuboidShape(8, 8, 8);
     box.dimensions = CuboidShape(4, 4, 4);
