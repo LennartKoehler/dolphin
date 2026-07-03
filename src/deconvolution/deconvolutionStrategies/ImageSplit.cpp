@@ -15,6 +15,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphinbackend/CuboidShape.h"
+#include <algorithm>    // std::sort, std::stable_sort
+#include <vector>
 #include <stdexcept>
 
 // --- Optimize for FFTW (Smooth Numbers) ---
@@ -159,14 +161,30 @@ void addCubeRecursion(
 }
 
 
-bool decreaseSize(std::array<int*, 3>& tempCubeAccessor, int& dimIterator, const CuboidShape& minSize){
-    int tries = 0;
-    while (tries < 3){
-        tries++;
-        dimIterator = (++dimIterator) % 3;
-        int newSize = previousSmooth(*tempCubeAccessor[dimIterator]);
-        if (newSize >= minSize.getArray()[dimIterator]){
-            *(tempCubeAccessor[dimIterator]) = newSize;
+template <typename T>
+std::array<size_t, 3> sort_indexes(const std::array<T*, 3> &v) {
+
+    // initialize original index locations
+    std::array<size_t, 3> idx;
+    std::iota(idx.begin(), idx.end(), 0);
+
+    // sort indexes based on comparing values in v
+    // using std::stable_sort instead of std::sort
+    // to avoid unnecessary index re-orderings
+    // when v contains elements of equal values
+    std::stable_sort(idx.begin(), idx.end(),
+                [&v](size_t i1, size_t i2) {return *v[i1] > *v[i2];});
+
+    return idx;
+}
+
+bool decreaseSize(std::array<int*, 3>& tempCubeAccessor, const CuboidShape& minSize){
+
+    std::array<size_t, 3> sortedIndices = sort_indexes<int>(tempCubeAccessor);
+    for (const auto dimIndex : sortedIndices){
+        int newSize = previousSmooth(*tempCubeAccessor[dimIndex]);
+        if (newSize >= minSize.getArray()[dimIndex]){
+            *(tempCubeAccessor[dimIndex]) = newSize;
             return true;
         }
     }
@@ -200,22 +218,28 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     currentMaxSize.depth = nextSmooth(currentMaxSize.depth);
 
     std::array<int*, 3> tempCubeAccessor  = currentMaxSize.getReference();
-    int dimIterator = 2;
 
     std::vector<BoxCoordWithPadding> cubePositions;
+    std::vector<BoxCoordWithPadding> lastCubePositions;
+    bool firstTimeMinNCubesCondition = true;
+
     int ncubes = 0;
     CuboidShape cubeSizeToUse = currentMaxSize;
 
-    while (ncubes < minNumberCubes){
-
+    while (true)
+    {
+        lastCubePositions = cubePositions;
         cubePositions.clear();
 
         cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
 
-        BoxCoordWithPadding startCube{BoxCoord{CuboidShape(0,0,0), cubeSizeToUse}, cubePadding};
+        BoxCoordWithPadding startCube{
+            BoxCoord{CuboidShape(0,0,0), cubeSizeToUse},
+            cubePadding
+        };
 
-        if (startCube.getBox().dimensions.getVolume() < maxVolumePerCube){
-
+        if (startCube.getBox().dimensions.getVolume() < maxVolumePerCube)
+        {
             addCubeRecursion(
                 cubePositions,
                 startCube,
@@ -225,12 +249,27 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
             ncubes = cubePositions.size();
         }
 
-        bool success = decreaseSize(tempCubeAccessor, dimIterator, minSize);
-        if (!success){
-            return Result<std::vector<BoxCoordWithPadding>>::fail("Not enough memory to fit the smallest possible cube");
+
+        // We have enough cubes, and shrinking further increased the count.
+        if (ncubes >= minNumberCubes){
+            if (lastCubePositions.size() < cubePositions.size() && !firstTimeMinNCubesCondition) break;
+            // if both conditions are met at the same time, then lastCubePositions needs to be updated
+            if (!lastCubePositions.empty() && lastCubePositions.size() < cubePositions.size() && firstTimeMinNCubesCondition){
+                lastCubePositions = cubePositions;
+                break;
+            }
+            firstTimeMinNCubesCondition = false;
+        }
+
+        bool success = decreaseSize(tempCubeAccessor, minSize);
+        if (!success)
+        {
+            return Result<std::vector<BoxCoordWithPadding>>::fail(
+                "Not enough memory to fit the smallest possible cube");
         }
     }
-    return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(cubePositions));
-}
+
+    return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(lastCubePositions));
+    }
 
 
