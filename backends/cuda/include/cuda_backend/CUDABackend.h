@@ -29,20 +29,21 @@ class CUDABackendManager;
 #define CUDA_CHECK(err, operation) { \
     if (err == cudaErrorMemoryAllocation){ \
         throw dolphin::backend::MemoryException( \
-            "Temoprary buffer allocation failed with " + std::string("CUDA error: ") + cudaGetErrorString(err), \
+            std::string("Temporary buffer allocation failed with CUDA error: ") \
+            + cudaGetErrorString(err) + " (" + cudaGetErrorName(err) + ")", \
             "CUDA", \
             0, \
             operation \
         ); \
+    } else if (err != cudaSuccess) { \
+        throw dolphin::backend::BackendException( \
+            std::string("CUDA error in '") + operation + "': " \
+            + cudaGetErrorString(err) + " (" + cudaGetErrorName(err) + ")", \
+            "CUDA", \
+            operation \
+        ); \
     } \
-    assert(err == cudaSuccess);}
-    // else if (err != cudaSuccess) { \
-    //     throw dolphin::backend::BackendException( \
-    //         std::string("CUDA error: ") + cudaGetErrorString(err), \
-    //         "CUDA", \
-    //         operation \
-    //     ); \
-    // } \
+}
 
 #define CUDA_MEMORY_ALLOC_CHECK(err, size, operation) { \
     if (err != cudaSuccess){ \
@@ -58,14 +59,14 @@ class CUDABackendManager;
 // Unified cuFFT error check macro
 #define CUFFT_CHECK(call, operation) { \
     cufftResult res = call; \
-    assert(res == CUFFT_SUCCESS);}
-    // if (res != CUFFT_SUCCESS) { \
-    //     throw dolphin::backend::BackendException( \
-    //         "cuFFT error code: " + std::to_string(res), \
-    //         "CUDA", \
-    //         operation \
-    // } \
-    //     ); \
+    if (res != CUFFT_SUCCESS) { \
+        throw dolphin::backend::BackendException( \
+            std::string("cuFFT error in '") + operation + "': code " + std::to_string(res), \
+            "CUDA", \
+            operation \
+        ); \
+    } \
+}
 
 #define CUFFT_RUNTIME_CHECK(call, operation) { \
     cufftResult res = call; \
@@ -117,6 +118,7 @@ public:
     bool isOnDevice(const void* data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
+    size_t estimateFFTWorkspace(const CuboidShape& shape) const override;
 
     void* copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const override;
     void* moveDataFromDevice(void* src, size_t size, const CuboidShape& shape,
