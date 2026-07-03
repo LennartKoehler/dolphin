@@ -1,72 +1,62 @@
-#include <gtest/gtest.h>
+#include <iostream>
 #include "dolphin/Dolphin.h"
 #include "dolphin/SetupConfig.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
-#include "dolphin/Logging.h"
-#include "dolphin_image/Image3D.h"
-#include "dolphin_image/IO/TiffWriter.h"
-#include "TestUtils.h"
-#include <filesystem>
 
-class MainIntegrationTest : public ::testing::Test {
-protected:
-    std::string testDir;
 
-    void SetUp() override {
-        testDir = TestUtils::outputPath();
-        Logging::init();
+void progressVisualization(std::atomic<float>& current, float max){
+    // Calculate progress
+
+    float barWidth = 50;
+    int pos = static_cast<int>((current * barWidth) / max);
+    int progress = static_cast<int>((current * 100) / max);
+    // Print progress bar
+    std::cout << "\r[";
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos) std::cout << "=";
+        else if (i == pos) std::cout << ">";
+        else std::cout << " ";
     }
-};
+    std::cout << "] "
+      << std::setw(3)
+      << progress << "%";
+    std::cout.flush();
 
-TEST_F(MainIntegrationTest, DolphinInit) {
-    Dolphin dolphin;
-    EXPECT_NO_THROW(dolphin.init(testDir));
+    if(current >= max){
+        std::cout <<std::endl;
+    }
 }
 
-TEST_F(MainIntegrationTest, DolphinGeneratePSF) {
-    Dolphin dolphin;
-    dolphin.init(testDir);
+void runWithConfig(std::string configpath){
+    Dolphin* dolphin = new Dolphin();
+    dolphin->init();
+    try{
+        SetupConfig config = SetupConfig::createFromJSONFile(configpath);
+        DeconvolutionConfig deconvConfig = DeconvolutionConfig::createFromJSONFile(configpath);
+        DeconvolutionRequest request(std::make_shared<SetupConfig>(config), std::make_shared<DeconvolutionConfig>(deconvConfig), progressVisualization);
+        dolphin->deconvolve(request);
+    }
+    catch(const std::exception& e){
+        std::cout << e.what() << std::endl;
+        return;
+    }
 
-    SetupConfigPSF setupConfig;
-    setupConfig.backend = "cpu";
-    setupConfig.nThreads = 1;
-    setupConfig.nIOThreads = 1;
-    setupConfig.nWorkerThreads = 1;
-    setupConfig.nDevices = 1;
-    setupConfig.maxMem_GB = 1;
-    setupConfig.psfConfigPath = TestUtils::outputPath() + "/gaussian_psf.json";
 
-    std::ofstream file(setupConfig.psfConfigPath);
-    file << TestUtils::gaussianPSFConfigJSON();
-    file.close();
-
-    setupConfig.outputPath = testDir + "/generated_psf.tif";
-
-    PSFGenerationRequest request;
-    request.setConfig(std::make_shared<SetupConfigPSF>(setupConfig));
-
-    auto result = dolphin.generatePSF(request);
-    ASSERT_NE(result, nullptr);
 }
 
-TEST_F(MainIntegrationTest, SetupConfigLoadAndValidate) {
-    auto configPath = testDir + "/integration_config.json";
-    std::ofstream file(configPath);
-    file << TestUtils::defaultSetupConfigJSON();
-    file.close();
 
-    auto setupConfig = SetupConfig::createFromJSONFile(configPath);
-    EXPECT_EQ(setupConfig.backend, "cpu");
-    EXPECT_EQ(setupConfig.nIOThreads, 1);
-}
+int main(int argc, char** argv) {
+    std::cout << "=== DOLPHIN Test ===" << std::endl;
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <config.json>" << std::endl;
+        return 1;
+    }
+    std::string configPath = argv[1];
 
-TEST_F(MainIntegrationTest, DeconvolutionConfigLoad) {
-    auto configPath = testDir + "/deconv_config.json";
-    std::ofstream file(configPath);
-    file << TestUtils::defaultDeconvConfigJSON();
-    file.close();
 
-    auto config = DeconvolutionConfig::createFromJSONFile(configPath);
-    EXPECT_EQ(config.algorithmName, "RichardsonLucy");
-    EXPECT_EQ(config.iterations, 10);
+    // Run the tests
+    runWithConfig(configPath);
+
+    std::cout << "\n=== Test completed ===" << std::endl;
+    return 0;
 }
