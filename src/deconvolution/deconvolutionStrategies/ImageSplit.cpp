@@ -22,22 +22,22 @@ See the LICENSE file provided with the code for the full license.
 // --- Optimize for FFTW (Smooth Numbers) ---
 // A "smooth" number has prime factors of only 2, 3, and 5.
 // This ensures FFTW can use its fastest algorithms.
-static bool isSmooth(int n){
+static bool isSmooth(size_t n){
     while (n % 2 == 0) n /= 2;
     while (n % 3 == 0) n /= 3;
     while (n % 5 == 0) n /= 5;
     return n == 1;
 };
 
-static int nextSmooth(int dim){
-    if (dim <= 0) return dim;
+static size_t nextSmooth(size_t dim){
+    if (dim == 0) return dim;
     while (!isSmooth(dim)) {
         dim++;
     }
     return dim;
 };
-static int previousSmooth(int dim){
-    if (dim <= 0) return dim;
+static size_t previousSmooth(size_t dim){
+    if (dim <= 1) return dim;
     dim--;
     while (!isSmooth(dim)) {
         dim--;
@@ -178,11 +178,11 @@ std::array<size_t, 3> sort_indexes(const std::array<T*, 3> &v) {
     return idx;
 }
 
-bool decreaseSize(std::array<int*, 3>& tempCubeAccessor, const CuboidShape& minSize){
+bool decreaseSize(std::array<size_t*, 3>& tempCubeAccessor, const CuboidShape& minSize){
 
-    std::array<size_t, 3> sortedIndices = sort_indexes<int>(tempCubeAccessor);
+    std::array<size_t, 3> sortedIndices = sort_indexes<size_t>(tempCubeAccessor);
     for (const auto dimIndex : sortedIndices){
-        int newSize = previousSmooth(*tempCubeAccessor[dimIndex]);
+        size_t newSize = previousSmooth(*tempCubeAccessor[dimIndex]);
         if (newSize >= minSize.getArray()[dimIndex]){
             *(tempCubeAccessor[dimIndex]) = newSize;
             return true;
@@ -217,7 +217,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     currentMaxSize.height = nextSmooth(currentMaxSize.height);
     currentMaxSize.depth = nextSmooth(currentMaxSize.depth);
 
-    std::array<int*, 3> tempCubeAccessor  = currentMaxSize.getReference();
+    std::array<size_t*, 3> tempCubeAccessor  = currentMaxSize.getReference();
 
     std::vector<BoxCoordWithPadding> cubePositions;
     std::vector<BoxCoordWithPadding> lastCubePositions;

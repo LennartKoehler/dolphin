@@ -21,7 +21,7 @@ See the LICENSE file provided with the code for the full license.
 class GibsonLanniPSFConfig;
 
 struct LateralClip {
-	int xMin, xMax, yMin, yMax;
+	size_t xMin, xMax, yMin, yMax;
 };
 
 class GibsonLanniPSFGenerator : public BasePSFGenerator {

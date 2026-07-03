@@ -43,7 +43,7 @@ TEST_F(IndependentFFTTest, TwoBackendsIndependentFFTRoundTrip) {
     ComplexData out1 = memMgr1.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData rt1 = memMgr1.allocateMemoryOnDeviceComplexFull(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         in1.access(i)[0] = 0.0f;
         in1.access(i)[1] = 0.0f;
     }
@@ -53,7 +53,7 @@ TEST_F(IndependentFFTTest, TwoBackendsIndependentFFTRoundTrip) {
     ComplexData out2 = memMgr2.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData rt2 = memMgr2.allocateMemoryOnDeviceComplexFull(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         in2.access(i)[0] = 2.0f;
         in2.access(i)[1] = 0.0f;
     }
@@ -64,7 +64,7 @@ TEST_F(IndependentFFTTest, TwoBackendsIndependentFFTRoundTrip) {
     compute2.forwardFFT(in2, out2);
     compute2.backwardFFT(out2, rt2);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_NEAR(rt1.access(i)[0], in1.access(i)[0], 1e-3f)
             << "Backend1 FFT round-trip should recover impulse at index " << i;
         EXPECT_NEAR(rt1.access(i)[1], in1.access(i)[1], 1e-3f)

@@ -93,7 +93,7 @@ CuboidShape GibsonLanniPSFGenerator::getPadding(PaddingStrategyType paddingType)
     case(FULL_PSF):
         return CuboidShape{config->sizeX, config->sizeY, config->sizeZ};
     default:
-        return CuboidShape{-1, -1, -1};
+        return CuboidShape{SIZE_MAX, SIZE_MAX, SIZE_MAX};
     }
 }
 
@@ -108,7 +108,7 @@ void GibsonLanniPSFGenerator::initBesselHelper() const {
     double y0 = (ny - 1) / 2.0;
 
     double k0 = 2.0 * M_PI / config->lambda_nm;
-    int maxRadius = static_cast<int>(std::round(std::sqrt((nx - x0) * (nx - x0) + (ny - y0) * (ny - y0)))) + 1;
+    size_t maxRadius = static_cast<size_t>(std::round(std::sqrt((nx - x0) * (nx - x0) + (ny - y0) * (ny - y0)))) + 1;
 
     double max_k0NAr = k0 * config->NA * maxRadius * config->pixelSizeLateral_nm;
     double maxRho = std::min(float(1), config->ns / config->NA);
@@ -120,8 +120,8 @@ void GibsonLanniPSFGenerator::initBesselHelper() const {
 }
 
 LateralClip GibsonLanniPSFGenerator::clipSize() const {
-    int nx = config->sizeX;
-    int ny = config->sizeY;
+    size_t nx = config->sizeX;
+    size_t ny = config->sizeY;
     double x0 = (nx - 1) / 2.0;
     double y0 = (ny - 1) / 2.0;
 
@@ -132,10 +132,10 @@ LateralClip GibsonLanniPSFGenerator::clipSize() const {
     constexpr double cutoffFactor = 10.0;
     double cutoffRadius = cutoffFactor * airyRadius_px;
 
-    int xMin = std::max(0, static_cast<int>(std::floor(x0 - cutoffRadius)));
-    int xMax = std::min(nx - 1, static_cast<int>(std::ceil(x0 + cutoffRadius)));
-    int yMin = std::max(0, static_cast<int>(std::floor(y0 - cutoffRadius)));
-    int yMax = std::min(ny - 1, static_cast<int>(std::ceil(y0 + cutoffRadius)));
+    size_t xMin = static_cast<size_t>(std::max(0L, static_cast<long>(std::floor(x0 - cutoffRadius))));
+    size_t xMax = std::min(nx - 1, static_cast<size_t>(std::max(0L, static_cast<long>(std::ceil(x0 + cutoffRadius)))));
+    size_t yMin = static_cast<size_t>(std::max(0L, static_cast<long>(std::floor(y0 - cutoffRadius))));
+    size_t yMax = std::min(ny - 1, static_cast<size_t>(std::max(0L, static_cast<long>(std::ceil(y0 + cutoffRadius)))));
 
     return {xMin, xMax, yMin, yMax};
 }
@@ -172,24 +172,24 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
 
     progressTracker.setMax(config->sizeZ);
 
-    for (int z = 0; z < config->sizeZ; z++){
+    for (size_t z = 0; z < config->sizeZ; z++){
         GibsonLanniPSFConfig configCopy = *(this->config);
-        configCopy.ti_nm = configCopy.ti0_nm + configCopy.pixelSizeAxial_nm * (z - (config->sizeZ - 1.0) / 2.0);
+        configCopy.ti_nm = configCopy.ti0_nm + configCopy.pixelSizeAxial_nm * (static_cast<double>(z) - (config->sizeZ - 1.0) / 2.0);
         tempSphereLayers.emplace_back(threadPool->enqueue([this, configCopy, clip](){
             return SinglePlanePSFAsVector(configCopy, clip);
         }));
     }
 
-    int clippedWidth = clip.xMax - clip.xMin + 1;
+    size_t clippedWidth = clip.xMax - clip.xMin + 1;
 
     // Copy data from computed slices into the clipped sub-region of the ITK image
-    for (int z = 0; z < config->sizeZ; z++) {
+    for (size_t z = 0; z < config->sizeZ; z++) {
         std::vector<float> sliceData = tempSphereLayers[z].get();
 
         ImageType::IndexType sliceStart;
-        sliceStart[0] = clip.xMin;
-        sliceStart[1] = clip.yMin;
-        sliceStart[2] = z;
+        sliceStart[0] = static_cast<itk::IndexValueType>(clip.xMin);
+        sliceStart[1] = static_cast<itk::IndexValueType>(clip.yMin);
+        sliceStart[2] = static_cast<itk::IndexValueType>(z);
 
         ImageType::SizeType sliceSize;
         sliceSize[0] = clippedWidth;
@@ -202,7 +202,7 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
 
         itk::ImageRegionIterator<ImageType> it(itkImage, sliceRegion);
 
-        int dataIndex = 0;
+        size_t dataIndex = 0;
         for (it.GoToBegin(); !it.IsAtEnd(); ++it, ++dataIndex) {
             it.Set(sliceData[dataIndex]);
         }
@@ -213,8 +213,8 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
 
 
 std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config, const LateralClip& clip) const {
-    int nx = config.sizeX;
-    int ny = config.sizeY;
+    size_t nx = config.sizeX;
+    size_t ny = config.sizeY;
     int OVER_SAMPLING = config.OVER_SAMPLING;
     double NA = config.NA;
     double lambda_nm = config.lambda_nm;
@@ -231,9 +231,9 @@ std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonL
     double yp = y0;
 
     // Calculate maximum radius — limited to the clipped region
-    double dxMax = std::max(std::abs(clip.xMax - x0), std::abs(clip.xMin - x0));
-    double dyMax = std::max(std::abs(clip.yMax - y0), std::abs(clip.yMin - y0));
-    int maxRadius = static_cast<int>(std::round(std::sqrt(dxMax * dxMax + dyMax * dyMax))) + 1;
+    double dxMax = std::max(std::abs(static_cast<double>(clip.xMax) - x0), std::abs(static_cast<double>(clip.xMin) - x0));
+    double dyMax = std::max(std::abs(static_cast<double>(clip.yMax) - y0), std::abs(static_cast<double>(clip.yMin) - y0));
+    size_t maxRadius = static_cast<size_t>(std::round(std::sqrt(dxMax * dxMax + dyMax * dyMax))) + 1;
 
     std::vector<double> r(maxRadius * OVER_SAMPLING);
     std::vector<double> h(r.size());
@@ -252,20 +252,20 @@ std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonL
     }
 
     // Linear interpolation of the pixel values — only within the clipped region
-    int clippedWidth = clip.xMax - clip.xMin + 1;
-    int clippedHeight = clip.yMax - clip.yMin + 1;
+    size_t clippedWidth = clip.xMax - clip.xMin + 1;
+    size_t clippedHeight = clip.yMax - clip.yMin + 1;
     std::vector<float> sliceData(clippedWidth * clippedHeight, 0.0f);
     double rPixel, value;
-    int index;
+    size_t index;
 
-    for (int x = clip.xMin; x <= clip.xMax; x++) {
-        for (int y = clip.yMin; y <= clip.yMax; y++) {
-            rPixel = std::sqrt((x - xp) * (x - xp) + (y - yp) * (y - yp));
-            index = static_cast<int>(std::floor(rPixel * OVER_SAMPLING));
+    for (size_t x = clip.xMin; x <= clip.xMax; x++) {
+        for (size_t y = clip.yMin; y <= clip.yMax; y++) {
+            rPixel = std::sqrt((static_cast<double>(x) - xp) * (static_cast<double>(x) - xp) + (static_cast<double>(y) - yp) * (static_cast<double>(y) - yp));
+            index = static_cast<size_t>(std::floor(rPixel * OVER_SAMPLING));
 
-            if (index + 1 < static_cast<int>(h.size())) {
+            if (index + 1 < h.size()) {
                 value = h[index] + (h[index + 1] - h[index]) * (rPixel - r[index]) * OVER_SAMPLING;
-            } else if (index < static_cast<int>(h.size())) {
+            } else if (index < h.size()) {
                 value = h[index];
             } else {
                 value = 0.0;

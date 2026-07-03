@@ -13,7 +13,7 @@ CuboidShape PSFHandler::getPSFPadding(const PSF& psf, PaddingStrategyType paddin
         padding = PaddingStrategy::fullPSFPadding(psf);
         break;
     default:
-        padding = CuboidShape{-1, -1, -1};
+        padding = CuboidShape{0, 0, 0};
         break;
     }
     return padding;
@@ -44,7 +44,11 @@ Result<Padding> PSFHandler::getPadding(
             break;
         }
         case MANUAL:{
-            CuboidShape manualPadding = CuboidShape(deconvConfig.cubePadding);
+            CuboidShape manualPadding{
+                static_cast<size_t>(std::max(0, deconvConfig.cubePadding[0])),
+                static_cast<size_t>(std::max(0, deconvConfig.cubePadding[1])),
+                static_cast<size_t>(std::max(0, deconvConfig.cubePadding[2]))
+            };
             padding = Padding{manualPadding / 2, manualPadding - manualPadding / 2};
             break;
         }

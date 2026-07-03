@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include <sstream>
 #include <stdexcept>
 #include <cassert>
+#include <cstdint>
 
 #include "nlohmann/json.hpp"
 #include <spdlog/spdlog.h>
@@ -26,21 +27,21 @@ using json = nlohmann::json;
 
 template<typename T>
 struct Range {
-    int start;
-    int end;  // -1 means open-ended
+    size_t start;
+    size_t end;  // SIZE_MAX means open-ended
     std::vector<T> values;
 
     // Default constructor
     Range() : start(0), end(0) {}
 
-    Range(int s, int e, T value) : start(s), end(e) {
+    Range(size_t s, size_t e, T value) : start(s), end(e) {
         values.push_back(std::forward<T>(value));
     }
-    Range(int s, int e, std::vector<T> values) : start(s), end(e), values(values){}
+    Range(size_t s, size_t e, std::vector<T> values) : start(s), end(e), values(values){}
 
-    bool contains(int index) const {
+    bool contains(size_t index) const {
         if (index == start && index == end){ return true; } // for the case of not a range, but just an index
-        return index >= start && (end == -1 || index < end);
+        return index >= start && (end == SIZE_MAX || index < end);
     }
 
     std::vector<T> get() const {
@@ -62,7 +63,7 @@ public:
     RangeMap(const RangeMap& other) : ranges(other.ranges) {}
 
     bool empty() { return ranges.empty(); }
-    virtual void addRange(int start, int end, T value) {
+    virtual void addRange(size_t start, size_t end, T value) {
         // Find if there's an existing range that matches exactly
         for (auto& range : ranges) {
             if (range.start == start && range.end == end) {
@@ -75,7 +76,7 @@ public:
         ranges.emplace_back(start, end, std::forward<T>(value));
     }
 
-    std::vector<Range<T>> get(int index) const {
+    std::vector<Range<T>> get(size_t index) const {
         std::vector<Range<T>> result;
 
         for (const auto& range : ranges) {
@@ -88,7 +89,7 @@ public:
     }
 
     // Get pointers to the values without copying
-    std::vector<const T*> getPointers(int index) const {
+    std::vector<const T*> getPointers(size_t index) const {
         std::vector<const T*> result;
 
         for (const auto& range : ranges) {
@@ -102,7 +103,7 @@ public:
         return result;
     }
 
-    Range<T> operator[](int index) const {
+    Range<T> operator[](size_t index) const {
         return get(index);
     }
 
@@ -136,9 +137,9 @@ public:
             const std::string& rangeKey = it.key();
             const json& valueArray = it.value();
             try {
-                std::pair<int, int> rangePair = parseRange(rangeKey);
-                int start = rangePair.first;
-                int end = rangePair.second;
+                std::pair<size_t, size_t> rangePair = parseRange(rangeKey);
+                size_t start = rangePair.first;
+                size_t end = rangePair.second;
 
                 if (valueArray.is_array()) {
                     for (const auto& valueJson : valueArray) {
@@ -229,7 +230,7 @@ public:
     const_iterator cend() const { return const_iterator(ranges.end()); }
 
     // Find ranges that contain a specific index
-    std::vector<iterator> findRangesContaining(int index) {
+    std::vector<iterator> findRangesContaining(size_t index) {
         std::vector<iterator> result;
         for (auto it = begin(); it != end(); ++it) {
             if (it->contains(index)) {
@@ -244,7 +245,7 @@ public:
         spdlog::info("[DEBUG] RangeMap contents:");
         for (const auto& range : ranges) {
             spdlog::info("[DEBUG] Range {}:", range.start);
-            if (range.end == -1) {
+            if (range.end == SIZE_MAX) {
                 spdlog::info("END");
             } else {
                 spdlog::info("{}", range.end);
@@ -259,14 +260,14 @@ public:
 
 private:
     // Fixed parseRange function
-    std::pair<int, int> parseRange(const std::string& rangeStr) const {
+    std::pair<size_t, size_t> parseRange(const std::string& rangeStr) const {
         assert (!rangeStr.empty() && "Trying to parse empty string");
         size_t colonPos = rangeStr.find(':');
-        int start, end;
+        size_t start, end;
 
         if (colonPos == std::string::npos) {
-            start = std::stoi(rangeStr);
-            end = std::stoi(rangeStr);
+            start = static_cast<size_t>(std::stoull(rangeStr));
+            end = start;
             return {start, end};
         }
 
@@ -275,18 +276,18 @@ private:
         if (colonPos == 0) {
             start = 0;
         } else {
-            start = std::stoi(rangeStr.substr(0, colonPos));
+            start = static_cast<size_t>(std::stoull(rangeStr.substr(0, colonPos)));
         }
 
         // Handle end
         if (colonPos == rangeStr.length() - 1) {
-            end = -1; // Open-ended
+            end = SIZE_MAX; // Open-ended
         } else {
             std::string endStr = rangeStr.substr(colonPos + 1);
             if (endStr.empty()) {
-                end = -1;
+                end = SIZE_MAX;
             } else {
-                end = std::stoi(endStr);
+                end = static_cast<size_t>(std::stoull(endStr));
             }
         }
 

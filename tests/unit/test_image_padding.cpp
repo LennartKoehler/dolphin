@@ -9,9 +9,9 @@ protected:
     Image3D img{CuboidShape(8, 8, 8), 1.0f};
 
     void SetUp() override {
-        for (int z = 0; z < 8; z++) {
-            for (int y = 0; y < 8; y++) {
-                for (int x = 0; x < 8; x++) {
+        for (size_t z = 0; z < 8; z++) {
+            for (size_t y = 0; y < 8; y++) {
+                for (size_t x = 0; x < 8; x++) {
                     img.setPixel(x, y, z, static_cast<float>(x + y * 8 + z * 64));
                 }
             }

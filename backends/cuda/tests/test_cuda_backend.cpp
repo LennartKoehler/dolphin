@@ -229,7 +229,7 @@ TEST_F(CUDAMemoryManagerTest, MemoryCopy) {
     size_t bytes = shape.getVolume() * sizeof(real_t);
 
     std::vector<real_t> hostData(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         hostData[i] = static_cast<real_t>(i * 3);
 
     void* devicePtr = memMgr.copyDataToDevice(hostData.data(), bytes, shape);
@@ -239,7 +239,7 @@ TEST_F(CUDAMemoryManagerTest, MemoryCopy) {
     memMgr.memCopy(devicePtr, dst.getData(), bytes, shape);
 
     auto readback = readbackReal(dst);
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         EXPECT_FLOAT_EQ(readback[i], hostData[i]);
 
     memMgr.freeMemoryOnDevice(devicePtr, bytes);
@@ -251,7 +251,7 @@ TEST_F(CUDAMemoryManagerTest, CopyDataToDevice) {
     size_t bytes = shape.getVolume() * sizeof(real_t);
 
     std::vector<real_t> hostData(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         hostData[i] = static_cast<real_t>(i * 2);
 
     void* devicePtr = memMgr.copyDataToDevice(hostData.data(), bytes, shape);
@@ -259,7 +259,7 @@ TEST_F(CUDAMemoryManagerTest, CopyDataToDevice) {
 
     std::vector<real_t> readback(shape.getVolume());
     memMgr.memCopy(devicePtr, readback.data(), bytes, shape);
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         EXPECT_FLOAT_EQ(readback[i], hostData[i]);
 
     memMgr.freeMemoryOnDevice(devicePtr, bytes);
@@ -271,7 +271,7 @@ TEST_F(CUDAMemoryManagerTest, MoveDataBetweenBackends) {
     size_t bytes = shape.getVolume() * sizeof(real_t);
 
     std::vector<real_t> hostData(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         hostData[i] = static_cast<real_t>(i * 5);
 
     void* devicePtr = memMgr.copyDataToDevice(hostData.data(), bytes, shape);
@@ -282,7 +282,7 @@ TEST_F(CUDAMemoryManagerTest, MoveDataBetweenBackends) {
 
     std::vector<real_t> readback(shape.getVolume());
     memMgr.memCopy(movedPtr, readback.data(), bytes, shape);
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         EXPECT_FLOAT_EQ(readback[i], hostData[i]);
 
     memMgr.freeMemoryOnDevice(movedPtr, bytes);
@@ -352,7 +352,7 @@ TEST_F(CUDAMemoryManagerTest, CreateCopy) {
     size_t bytes = shape.getVolume() * sizeof(real_t);
 
     std::vector<real_t> hostData(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         hostData[i] = static_cast<real_t>(i * 7);
 
     void* devicePtr = memMgr.copyDataToDevice(hostData.data(), bytes, shape);
@@ -363,7 +363,7 @@ TEST_F(CUDAMemoryManagerTest, CreateCopy) {
     EXPECT_TRUE(copy.isValid());
 
     auto readback = readbackReal(copy);
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         EXPECT_FLOAT_EQ(readback[i], hostData[i]);
 
     src.setData(nullptr);
@@ -389,7 +389,7 @@ TEST_F(CUDAComputeBackendTest, ComplexFFTRoundTrip) {
     ComplexData roundtrip = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
     std::vector<complex_t> hostIn(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostIn[i][0] = 0.0f;
         hostIn[i][1] = 0.0f;
     }
@@ -404,7 +404,7 @@ TEST_F(CUDAComputeBackendTest, ComplexFFTRoundTrip) {
     memMgr.memCopy(roundtrip.getData(), hostRt.data(),
                    roundtrip.getSize().getVolume() * sizeof(complex_t), roundtrip.getSize());
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_NEAR(hostRt[i][0], hostIn[i][0], 1e-2f);
         EXPECT_NEAR(hostRt[i][1], hostIn[i][1], 1e-2f);
     }
@@ -421,7 +421,7 @@ TEST_F(CUDAComputeBackendTest, RealFFTRoundTrip) {
     // RealData realOut = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
 
     std::vector<real_t> hostIn(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         hostIn[i] = static_cast<real_t>(i % 10) * 0.1f;
 
     writeRealToDevice(realIn, hostIn);
@@ -431,7 +431,7 @@ TEST_F(CUDAComputeBackendTest, RealFFTRoundTrip) {
     backend->sync();
 
     auto readback = readbackReal(realIn);
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         EXPECT_NEAR(readback[i], hostIn[i], 1e-2f);
 }
 
@@ -445,7 +445,7 @@ TEST_F(CUDAComputeBackendTest, ComplexMultiplication) {
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
     std::vector<complex_t> hostA(shape.getVolume()), hostB(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostA[i][0] = static_cast<real_t>(i + 1);
         hostA[i][1] = static_cast<real_t>(i + 2);
         hostB[i][0] = static_cast<real_t>(i + 3);
@@ -461,7 +461,7 @@ TEST_F(CUDAComputeBackendTest, ComplexMultiplication) {
     memMgr.memCopy(result.getData(), hostRt.data(),
                    result.getSize().getVolume() * sizeof(complex_t), result.getSize());
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         real_t ra = hostA[i][0], ia = hostA[i][1];
         real_t rb = hostB[i][0], ib = hostB[i][1];
         EXPECT_NEAR(hostRt[i][0], ra*rb - ia*ib, 1e-2f);
@@ -479,7 +479,7 @@ TEST_F(CUDAComputeBackendTest, ComplexAddition) {
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
     std::vector<complex_t> hostA(shape.getVolume()), hostB(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostA[i][0] = static_cast<real_t>(i + 1);
         hostA[i][1] = static_cast<real_t>(i + 2);
         hostB[i][0] = static_cast<real_t>(i + 3);
@@ -495,7 +495,7 @@ TEST_F(CUDAComputeBackendTest, ComplexAddition) {
     memMgr.memCopy(result.getData(), hostRt.data(),
                    result.getSize().getVolume() * sizeof(complex_t), result.getSize());
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_NEAR(hostRt[i][0], hostA[i][0] + hostB[i][0], 1e-3f);
         EXPECT_NEAR(hostRt[i][1], hostA[i][1] + hostB[i][1], 1e-3f);
     }
@@ -511,7 +511,7 @@ TEST_F(CUDAComputeBackendTest, RealMultiplication) {
     RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
 
     std::vector<real_t> hostA(shape.getVolume()), hostB(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostA[i] = static_cast<real_t>(i + 1);
         hostB[i] = static_cast<real_t>(i + 2);
     }
@@ -522,7 +522,7 @@ TEST_F(CUDAComputeBackendTest, RealMultiplication) {
     backend->sync();
 
     auto readback = readbackReal(result);
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         EXPECT_NEAR(readback[i], hostA[i] * hostB[i], 1e-2f);
 }
 
@@ -535,7 +535,7 @@ TEST_F(CUDAComputeBackendTest, RealScalarMultiplication) {
     RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
 
     std::vector<real_t> hostA(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         hostA[i] = static_cast<real_t>(i + 1);
     writeRealToDevice(a, hostA);
 
@@ -544,7 +544,7 @@ TEST_F(CUDAComputeBackendTest, RealScalarMultiplication) {
     backend->sync();
 
     auto readback = readbackReal(result);
-    for (int i = 0; i < shape.getVolume(); ++i)
+    for (size_t i = 0; i < shape.getVolume(); ++i)
         EXPECT_NEAR(readback[i], hostA[i] * scalar, 1e-2f);
 }
 
@@ -557,7 +557,7 @@ TEST_F(CUDAComputeBackendTest, ComplexScalarMultiplication) {
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
     std::vector<complex_t> hostA(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostA[i][0] = static_cast<real_t>(i + 1);
         hostA[i][1] = static_cast<real_t>(i + 2);
     }
@@ -571,7 +571,7 @@ TEST_F(CUDAComputeBackendTest, ComplexScalarMultiplication) {
     memMgr.memCopy(result.getData(), hostRt.data(),
                    result.getSize().getVolume() * sizeof(complex_t), result.getSize());
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         real_t ra = hostA[i][0], ia = hostA[i][1];
         EXPECT_NEAR(hostRt[i][0], ra*scalar[0] - ia*scalar[1], 1e-2f);
         EXPECT_NEAR(hostRt[i][1], ra*scalar[1] + ia*scalar[0], 1e-2f);
@@ -588,7 +588,7 @@ TEST_F(CUDAComputeBackendTest, ComplexMultiplicationWithConjugate) {
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
     std::vector<complex_t> hostA(shape.getVolume()), hostB(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostA[i][0] = static_cast<real_t>(i + 1);
         hostA[i][1] = static_cast<real_t>(i + 2);
         hostB[i][0] = static_cast<real_t>(i + 3);
@@ -604,7 +604,7 @@ TEST_F(CUDAComputeBackendTest, ComplexMultiplicationWithConjugate) {
     memMgr.memCopy(result.getData(), hostRt.data(),
                    result.getSize().getVolume() * sizeof(complex_t), result.getSize());
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         real_t ra = hostA[i][0], ia = hostA[i][1];
         real_t rb = hostB[i][0], ib = -hostB[i][1];
         EXPECT_NEAR(hostRt[i][0], ra*rb - ia*ib, 1e-2f);
@@ -620,7 +620,7 @@ TEST_F(CUDAComputeBackendTest, OctantFourierShiftDoubleIsIdentity) {
     ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
     std::vector<complex_t> hostIn(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostIn[i][0] = static_cast<real_t>(i);
         hostIn[i][1] = static_cast<real_t>(i * 2);
     }
@@ -634,7 +634,7 @@ TEST_F(CUDAComputeBackendTest, OctantFourierShiftDoubleIsIdentity) {
     memMgr.memCopy(data.getData(), hostRt.data(),
                    data.getSize().getVolume() * sizeof(complex_t), data.getSize());
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_NEAR(hostRt[i][0], hostIn[i][0], 1e-2f);
         EXPECT_NEAR(hostRt[i][1], hostIn[i][1], 1e-2f);
     }
@@ -661,7 +661,7 @@ TEST_F(CUDAComputeBackendTest, TVNormalization) {
     auto rbX = readbackReal(gx);
     auto rbY = readbackReal(gy);
     auto rbZ = readbackReal(gz);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_NEAR(rbX[i], expected, 1e-2f);
         EXPECT_NEAR(rbY[i], expected, 1e-2f);
         EXPECT_NEAR(rbZ[i], expected, 1e-2f);
@@ -675,7 +675,7 @@ TEST_F(CUDAComputeBackendTest, HasNANDoesNotThrow) {
     ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
     std::vector<complex_t> hostIn(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostIn[i][0] = static_cast<real_t>(i);
         hostIn[i][1] = 0.0f;
     }

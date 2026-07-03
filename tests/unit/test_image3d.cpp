@@ -7,7 +7,7 @@ class Image3DTest : public ::testing::Test {
 protected:
     void SetUp() override {
         img3x3x3 = TestUtils::createConstantImage(3, 3, 3, 0.0f);
-        for (int i = 0; i < 27; i++) {
+        for (size_t i = 0; i < 27; i++) {
             img3x3x3[i] = static_cast<float>(i);
         }
     }
@@ -120,12 +120,12 @@ TEST_F(Image3DTest, GetSubimageCopyOffset) {
 
 TEST_F(Image3DTest, IteratorBasic) {
     Image3D img(CuboidShape(2, 2, 2), 0.0f);
-    int count = 0;
+    size_t count = 0;
     for (auto it = img.begin(); it != img.end(); ++it) {
         *it = static_cast<float>(count);
         count++;
     }
-    EXPECT_EQ(count, 8);
+    EXPECT_EQ(count, 8u);
     EXPECT_FLOAT_EQ(img[0], 0.0f);
     EXPECT_FLOAT_EQ(img[7], 7.0f);
 }
@@ -133,7 +133,7 @@ TEST_F(Image3DTest, IteratorBasic) {
 TEST_F(Image3DTest, IteratorGetCoordinates) {
     Image3D img(CuboidShape(3, 3, 3), 0.0f);
     auto it = img.begin();
-    int x, y, z;
+    size_t x, y, z;
     it.getCoordinates(x, y, z);
     EXPECT_EQ(x, 0);
     EXPECT_EQ(y, 0);
@@ -142,12 +142,12 @@ TEST_F(Image3DTest, IteratorGetCoordinates) {
 
 TEST_F(Image3DTest, ConstIterator) {
     Image3D img(CuboidShape(2, 2, 2), 3.14f);
-    int count = 0;
+    size_t count = 0;
     for (auto it = img.cbegin(); it != img.cend(); ++it) {
         EXPECT_FLOAT_EQ(*it, 3.14f);
         count++;
     }
-    EXPECT_EQ(count, 8);
+    EXPECT_EQ(count, 8u);
 }
 
 TEST_F(Image3DTest, Flip) {

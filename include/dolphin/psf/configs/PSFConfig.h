@@ -24,9 +24,9 @@ class PSFConfig : public Config{
 public:
     PSFConfig();
     PSFConfig(
-        int sizeX,
-        int sizeY,
-        int sizeZ,
+        size_t sizeX,
+        size_t sizeY,
+        size_t sizeZ,
         float NA,
         float resLateral_nm,
         float resAxial_nm)
@@ -54,9 +54,9 @@ public:
     std::string psfModelName;
     std::string ID;
 
-    int sizeX = 20;
-    int sizeY = 20;
-    int sizeZ = 10;
+    size_t sizeX = 20;
+    size_t sizeY = 20;
+    size_t sizeZ = 10;
     float NA = 1.0;
     float resLateral_nm = 200;
     float resAxial_nm = 200;

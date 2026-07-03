@@ -22,11 +22,11 @@ inline std::string outputPath() {
     return dir;
 }
 
-inline Image3D createConstantImage(int w, int h, int d, float value) {
+inline Image3D createConstantImage(size_t w, size_t h, size_t d, float value) {
     return Image3D(CuboidShape(w, h, d), value);
 }
 
-inline Image3D createRandomImage(int w, int h, int d, unsigned seed = 42) {
+inline Image3D createRandomImage(size_t w, size_t h, size_t d, unsigned seed = 42) {
     Image3D img(CuboidShape(w, h, d), 0.0f);
     std::mt19937 gen(seed);
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
@@ -36,17 +36,17 @@ inline Image3D createRandomImage(int w, int h, int d, unsigned seed = 42) {
     return img;
 }
 
-inline Image3D createImpulseImage(int w, int h, int d) {
+inline Image3D createImpulseImage(size_t w, size_t h, size_t d) {
     Image3D img(CuboidShape(w, h, d), 0.0f);
     img.setPixel(w / 2, h / 2, d / 2, 1.0f);
     return img;
 }
 
-inline Image3D createGradientImage(int w, int h, int d) {
+inline Image3D createGradientImage(size_t w, size_t h, size_t d) {
     Image3D img(CuboidShape(w, h, d), 0.0f);
-    for (int z = 0; z < d; z++) {
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
+    for (size_t z = 0; z < d; z++) {
+        for (size_t y = 0; y < h; y++) {
+            for (size_t x = 0; x < w; x++) {
                 img.setPixel(x, y, z, static_cast<float>(x + y * w + z * w * h));
             }
         }

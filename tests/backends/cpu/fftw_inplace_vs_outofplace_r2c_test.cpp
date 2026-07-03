@@ -116,7 +116,7 @@ static fftwf_plan createOutOfPlaceC2RPlan(int Nx, int Ny, int Nz) {
 
 // just to mix up cache a bit
 void square(real_t* in, size_t length){
-    for (int i = 0; i < length; i++){
+    for (size_t i = 0; i < length; i++){
          in[i] = in[i] * in[i];
     }
 }

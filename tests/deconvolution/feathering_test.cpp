@@ -10,9 +10,9 @@ protected:
         imageA = Image3D(CuboidShape(16, 16, 8), 0.0f);
         imageB = Image3D(CuboidShape(16, 16, 8), 0.0f);
 
-        for (int z = 0; z < 8; z++) {
-            for (int y = 0; y < 16; y++) {
-                for (int x = 0; x < 16; x++) {
+        for (size_t z = 0; z < 8; z++) {
+            for (size_t y = 0; y < 16; y++) {
+                for (size_t x = 0; x < 16; x++) {
                     if (x < 8) {
                         imageA.setPixel(x, y, z, 1.0f);
                     } else {
@@ -35,7 +35,7 @@ TEST_F(FeatheringTest, AddFeatheringDoesNotCrash) {
     pairs.push_back({imageA, maskA});
     pairs.push_back({imageB, maskB});
 
-    int radius = 5;
+    size_t radius = 5;
     float epsilon = 5.0f;
     EXPECT_NO_THROW(Postprocessor::addFeathering(pairs, radius, epsilon));
 }

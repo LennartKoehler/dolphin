@@ -15,7 +15,7 @@ protected:
         testTiffPath = testDir + "/mirror_test_input.tif";
 
         Image3D img(CuboidShape(16, 16, 8), 0.0f);
-        for (int i = 0; i < 16 * 16 * 8; i++) {
+        for (size_t i = 0; i < 16 * 16 * 8; i++) {
             img[i] = static_cast<float>(i);
         }
         TiffWriter::writeToFile(testTiffPath, img);

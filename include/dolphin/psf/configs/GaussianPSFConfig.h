@@ -21,7 +21,7 @@ public:
 
     GaussianPSFConfig(float qualityFactor, float sigmaX, float sigmaY, float sigmaZ,
                       float nanometerScale, float pixelScaling,
-                      int sizeX = 20, int sizeY = 20, int sizeZ = 10,
+                      size_t sizeX = 20, size_t sizeY = 20, size_t sizeZ = 10,
                       float NA = 1.0, float resLateral_nm = 200, float resAxial_nm = 200);
     GaussianPSFConfig(const GaussianPSFConfig& other);
 

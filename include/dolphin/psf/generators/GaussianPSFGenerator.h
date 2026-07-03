@@ -31,7 +31,7 @@ public:
     CuboidShape getPadding(PaddingStrategyType paddingType) const override;
 
 private:
-    ImageType::RegionType getNonNegligibleRegion(int width, int height, int layers,
+    ImageType::RegionType getNonNegligibleRegion(size_t width, size_t height, size_t layers,
                                    double centerX, double centerY, double centerZ) const;
 
     std::shared_ptr<GaussianPSFConfig> config;

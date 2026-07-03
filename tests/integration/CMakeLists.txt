@@ -16,8 +16,14 @@ dolphin_add_test(cube_shape_test
     INCLUDES ${TEST_INCLUDES}
 )
 
-dolphin_add_test(main_test
-    SOURCES main_test.cpp
+dolphin_add_test(main_integration_test
+    SOURCES main_integration_test.cpp
     LIBS dolphin
     INCLUDES ${TEST_INCLUDES}
 )
+
+add_executable(main_test
+    main_test.cpp)
+
+target_link_libraries(main_test PRIVATE dolphin)
+target_include_directories(main_test PRIVATE ${TEST_INCLUDES})

@@ -25,21 +25,21 @@ struct ImageMetaData {
 
     std::string imageType;
     std::string description;
-    int imageWidth, imageLength = 0;
-    int slices = 0;
-    int frameCount = 0;
+    size_t imageWidth = 0, imageLength = 0;
+    size_t slices = 0;
+    size_t frameCount = 0;
     uint16_t resolutionUnit = 0;
     uint16_t samplesPerPixel = 1; //num of channels
     uint16_t bitsPerSample = 0;//bit depth
     uint16_t photometricInterpretation = 0;
     int linChannels = 1;//in Description (linearized channels)
     uint16_t planarConfig = 0;
-    int totalImages = -1;
+    size_t totalImages = SIZE_MAX;
     int dataType = 0; //calculated
     float xResolution, yResolution = 0.0f;
     float maxSampleValue = 0;
     float minSampleValue = 0;
-    int sampleFormat;
+    int sampleFormat = 0;
 
     CuboidShape getShape() const {
         return CuboidShape(imageWidth, imageLength, slices);

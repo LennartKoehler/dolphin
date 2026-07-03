@@ -26,7 +26,7 @@ ComplexData Preprocessor::convertImageToComplexData(
     CuboidShape shape = input.getShape();
     ComplexData result = BackendFactory::getInstance().getDefaultBackendMemoryManager().allocateMemoryOnDeviceComplexFull(shape);
 
-    int index = 0;
+    size_t index = 0;
 
     for (const auto& it : input) {
         result[index][0] = static_cast<real_t>(it);
@@ -45,7 +45,7 @@ RealData Preprocessor::convertImageToRealData(
     // thats also why this has to be done on the cpu first, and then another copy operation of the memory
     // with correct layout to gpu
 
-    int index = 0;
+    size_t index = 0;
 
     for (const auto& it : input) {
         result[index] = static_cast<real_t>(it);
@@ -60,7 +60,7 @@ Image3D Preprocessor::convertComplexDataToImage(
 
     Image3D output(input.getSize(), 0.0f);
 
-    int index = 0;
+    size_t index = 0;
     for (auto& it : output) {
         real_t real = input[index][0];
         real_t imag = input[index][1];
@@ -80,7 +80,7 @@ Image3D Preprocessor::convertRealDataToImage(
     // thats also why this has to be done on the cpu first, and then another copy operation of the memory
     // with correct layout to gpu
 
-    int index = 0;
+    size_t index = 0;
     for (auto& it : output) {
         real_t real = input[index];
         it = static_cast<float>(real);

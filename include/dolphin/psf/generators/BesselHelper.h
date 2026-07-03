@@ -28,8 +28,8 @@ public:
         min = minVal;
         max = maxVal;
         dx = dxVal;
-        besselValues.resize(static_cast<int>((max - min) / dx) + 1);
-        for (int i = 0; i < besselValues.size(); i++) {
+        besselValues.resize(static_cast<size_t>((max - min) / dx) + 1);
+        for (size_t i = 0; i < besselValues.size(); i++) {
             double x = min + i * dx;
             besselValues[i] = std::cyl_bessel_j(0, x);
         }
@@ -37,8 +37,8 @@ public:
 
     double get(double x) const {
         assert(besselValues.size() != 0 && "BesselHelper not initliazed");
-        int index = static_cast<int>((x - min) / dx);
-        assert(index < besselValues.size() -1 && index >= 0 && "Index to large or small");
+        size_t index = static_cast<size_t>((x - min) / dx);
+        assert(index < besselValues.size() - 1 && "Index to large or small");
         return besselValues[index];
     }
 

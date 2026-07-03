@@ -50,7 +50,7 @@ public:
 protected:
     void runTask(const CubeTaskDescriptor& task) override;
 
-    std::shared_ptr<PSF> createGaussianKernel(int featheringRadius);
+    std::shared_ptr<PSF> createGaussianKernel(size_t featheringRadius);
 
     std::vector<Label<RealData>> makeMasksWeighted(
         std::vector<Label<Image3D>>& labels,
