@@ -4,6 +4,7 @@
 // #include "CPUBackendManager.h"
 
 #include <fftw3.h>
+#include "dolphinbackend/Exceptions.h"
 
 
 class CPUBackendManager;
@@ -37,7 +38,13 @@ struct CPUBackendConfig{
 
 // Unified FFTW error check macro
 #define FFTW_UNIFIED_CHECK(fftw_result, operation) { \
-    assert(fftw_result != nullptr);}
+    if ((fftw_result) == nullptr) { \
+        throw dolphin::backend::BackendException( \
+            "FFTW operation failed", \
+            "CPU", \
+            operation \
+        ); \
+    } }
     // if ((fftw_result) == nullptr) { \
     //     throw dolphin::backend::BackendException( \
     //         "FFTW operation failed", \
@@ -86,6 +93,7 @@ public:
     bool isOnDevice(const void* data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
+    size_t estimateFFTWorkspace(const CuboidShape& shape) const override;
 
 
 

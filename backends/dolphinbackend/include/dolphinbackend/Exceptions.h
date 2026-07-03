@@ -92,11 +92,10 @@ private:
 
 // General backend error check macro
 #define BACKEND_CHECK(condition, message, backend_type, operation) { \
-    assert(condition);}
-    // if (!(condition)) { \
-    //     throw dolphin::backend::BackendException( \
-    //         message, \
-    //         backend_type, \
-    //         operation \
-    //     ); \
-    // }
+    if (!(condition)) { \
+        throw dolphin::backend::BackendException( \
+            message, \
+            backend_type, \
+            operation \
+        ); \
+    } }
