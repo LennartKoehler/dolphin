@@ -116,6 +116,7 @@ bool CUDABackendMemoryManager::isOnDevice(const void* ptr) const {
 // }
 
 RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
+    g_logger_cuda(fmt::format("allocateMemoryOnDeviceRealFFTInPlace for shape: {} on device {}", shape.print(), getDeviceString()), LogLevel::DEBUG);
     CuboidShape shapeForInplaceFFT = shape;
     shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
     size_t padding = shapeForInplaceFFT.width - shape.width;
@@ -129,6 +130,7 @@ RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const Cu
     return result;
 }
 RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const {
+    g_logger_cuda(fmt::format("allocateMemoryOnDeviceReal for shape: {} on device {}", shape.print(), getDeviceString()), LogLevel::DEBUG);
     std::size_t bytes = shape.getVolume() * sizeof(real_t);
 
     RealData result{ this, nullptr, shape, shape, bytes, 0};
@@ -138,6 +140,7 @@ RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape&
 
 
 ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
+    g_logger_cuda(fmt::format("allocateMemoryOnDeviceComplex for shape: {} on device {}", shape.print(), getDeviceString()), LogLevel::DEBUG);
     CuboidShape complexShape = shape;
     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
     CuboidShape originalShape = shape;
@@ -148,6 +151,7 @@ ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplex(const Cuboid
     return result;
 }
 ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
+    g_logger_cuda(fmt::format("allocateMemoryOnDeviceComplexFull for shape: {} on device {}", shape.print(), getDeviceString()), LogLevel::DEBUG);
     ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
@@ -228,7 +232,7 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
     // Update memory tracking using getAccess()
     auto access = getMemoryTracking()->getAccess();
 
-    g_logger_cuda(fmt::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::DEBUG);
+    g_logger_cuda(fmt::format("Allocated {:.2f} MB on device {}", requested_size / 1e6, getDeviceString()), LogLevel::DEBUG);
     access.data.totalUsedMemory += requested_size;
 
     return devicePtr;
@@ -237,6 +241,7 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
 
 
 void* CUDABackendMemoryManager::copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
+    g_logger_cuda(fmt::format("copyDataToDevice: {:.2f} MB, shape: {}, device {}", size / 1e6, shape.print(), getDeviceString()), LogLevel::DEBUG);
     void* dest = allocateMemoryOnDevice(size);
 
     cudaError_t err = cudaMemcpyAsync(dest, src, size, cudaMemcpyHostToDevice, config.stream);
@@ -248,9 +253,12 @@ void* CUDABackendMemoryManager::copyDataToDevice(void* src, size_t size, const C
 }
 
 void* CUDABackendMemoryManager::moveDataFromDevice(void* src, size_t size, const CuboidShape& shape, const IBackendMemoryManager& destBackend) const {
+    g_logger_cuda(fmt::format("moveDataFromDevice: {:.2f} MB, shape: {}, from device {} to {}", size / 1e6, shape.print(), getDeviceString(), destBackend.getDeviceString()), LogLevel::DEBUG);
     if (&destBackend == this){
+        g_logger_cuda(fmt::format("moveDataFromDevice: same backend ({}), returning source pointer directly", getDeviceString()), LogLevel::DEBUG);
         return src;
     }
+    g_logger_cuda(fmt::format("moveDataFromDevice: cross-backend transfer to {}", destBackend.getDeviceString()), LogLevel::DEBUG);
     void* dest = destBackend.allocateMemoryOnDevice(size);
 
     cudaMemcpyAsync(dest, src, size, cudaMemcpyDeviceToHost, config.stream);
@@ -260,9 +268,11 @@ void* CUDABackendMemoryManager::moveDataFromDevice(void* src, size_t size, const
 }
 
 void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
-    //TODO make check if all is on device
-    cudaMemcpyAsync(dest, src, size, cudaMemcpyDeviceToDevice, config.stream);
-    cudaStreamSynchronize(config.stream);
+    g_logger_cuda(fmt::format("memCopy: {:.2f} MB, shape: {}, device {}", size / 1e6, shape.print(), getDeviceString()), LogLevel::DEBUG);
+    cudaError_t err = cudaMemcpyAsync(dest, src, size, cudaMemcpyDefault, config.stream);
+    CUDA_CHECK(err, "memCopy - cudaMemcpyAsync");
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "memCopy - cudaStreamSynchronize");
 }
 
 void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const {
@@ -279,11 +289,11 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const 
     auto access = getMemoryTracking()->getAccess();
     if (access.data.totalUsedMemory < size) {
         access.data.totalUsedMemory = static_cast<size_t>(0); // this should never happen
-        g_logger_cuda(fmt::format("Memory tracking inconsistency detected in freeMemoryOnDevice"), LogLevel::WARN);
+        g_logger_cuda(fmt::format("Memory tracking inconsistency detected in freeMemoryOnDevice on device {}", getDeviceString()), LogLevel::WARN);
     } else {
         access.data.totalUsedMemory -= size;
     }
-    g_logger_cuda(fmt::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::DEBUG);
+    g_logger_cuda(fmt::format("Deallocated {:.2f} MB on device {}", size / 1e6, getDeviceString()), LogLevel::DEBUG);
 
     ptr = nullptr;
 }
@@ -298,7 +308,7 @@ size_t CUDABackendMemoryManager::getAvailableMemory() const {
     CUDA_CHECK(err, "getAvailableMemory - cudaMemGetInfo");
 
     if (freeMem > totalMem) {
-        g_logger_cuda(fmt::format("Available memory ({}) exceeds total memory ({})", freeMem, totalMem), LogLevel::WARN);
+        g_logger_cuda(fmt::format("Available memory ({}) exceeds total memory ({}) on device {}", freeMem, totalMem, getDeviceString()), LogLevel::WARN);
         return 0; // Return 0 to indicate error condition
     }
 
@@ -307,7 +317,53 @@ size_t CUDABackendMemoryManager::getAvailableMemory() const {
 
 size_t CUDABackendMemoryManager::getAllocatedMemory() const {
     auto access = getMemoryTracking()->getAccess();
+    g_logger_cuda(fmt::format("getAllocatedMemory: {:.2f} MB currently allocated on device {}", access.data.totalUsedMemory / 1e6, getDeviceString()), LogLevel::DEBUG);
     return access.data.totalUsedMemory;
+}
+
+size_t CUDABackendMemoryManager::estimateFFTWorkspace(const CuboidShape& shape) const {
+    long long int Nx = shape.width;
+    long long int Ny = shape.height;
+    long long int Nz = shape.depth;
+
+    int rank = 3;
+    long long int n[3] = {Nz, Ny, Nx};
+
+    long long int istride = 1;
+    long long int ostride = 1;
+
+    long long int inembed_r2c[3] = {Nz, Ny, 2*(Nx/2+1)};
+    long long int onembed_r2c[3] = {Nz, Ny, Nx/2+1};
+    long long int idist_r2c = Nz * Ny * 2*(Nx/2+1);
+    long long int odist_r2c = Nz * Ny * (Nx/2+1);
+
+    size_t r2cWorkSize = 0;
+    cufftResult r2cResult = cufftEstimateMany64(
+        rank, n,
+        inembed_r2c, istride, idist_r2c,
+        onembed_r2c, ostride, odist_r2c,
+        CUFFT_R2C, 1, &r2cWorkSize);
+
+    long long int inembed_c2r[3] = {Nz, Ny, Nx/2+1};
+    long long int onembed_c2r[3] = {Nz, Ny, 2*(Nx/2+1)};
+    long long int idist_c2r = Nz * Ny * (Nx/2+1);
+    long long int odist_c2r = Nz * Ny * 2*(Nx/2+1);
+
+    size_t c2rWorkSize = 0;
+    cufftResult c2rResult = cufftEstimateMany64(
+        rank, n,
+        inembed_c2r, istride, idist_c2r,
+        onembed_c2r, ostride, odist_c2r,
+        CUFFT_C2R, 1, &c2rWorkSize);
+
+    size_t totalWorkspace = 0;
+    if (r2cResult == CUFFT_SUCCESS) totalWorkspace += r2cWorkSize;
+    if (c2rResult == CUFFT_SUCCESS) totalWorkspace += c2rWorkSize;
+
+    g_logger_cuda(fmt::format("Estimated cuFFT workspace for shape {}: {:.2f} MB (R2C: {:.2f} MB, C2R: {:.2f} MB)",
+        shape.print(), totalWorkspace / 1e6, r2cWorkSize / 1e6, c2rWorkSize / 1e6), LogLevel::DEBUG);
+
+    return totalWorkspace;
 }
 
 
@@ -353,24 +409,24 @@ void CUDAComputeBackend::addPlan(const FFTPlanDescription& description, cufftHan
 
 void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPlanDescription& description) const {
     int rank = 3;
-    int Nx = description.shape.width;
-    int Ny = description.shape.height;
-    int Nz = description.shape.depth;
+    long long int Nx = description.shape.width;
+    long long int Ny = description.shape.height;
+    long long int Nz = description.shape.depth;
 
-    int n[3] = {Nz, Ny, Nx};
+    long long int n[3] = {Nz, Ny, Nx};
 
     // For out-of-place: real input is unpadded, inembed matches logical dimensions.
     // For in-place: real input must be padded on the last dimension to 2*(Nx/2+1)
     //              to accommodate the complex output, so inembed reflects the padded size.
     // onembed is always {Nz, Ny, Nx/2+1} (complex output has halved last dimension).
-    int inembed[3];
-    int onembed[3] = {Nz, Ny, Nx/2+1};
+    long long int inembed[3];
+    long long int onembed[3] = {Nz, Ny, Nx/2+1};
 
-    int istride = 1;
-    int ostride = 1;
+    long long int istride = 1;
+    long long int ostride = 1;
 
-    int idist;
-    int odist = Nz * Ny * (Nx/2+1);
+    long long int idist;
+    long long int odist = Nz * Ny * (Nx/2+1);
 
     // if (description.inPlace) {
     inembed[0] = Nz;
@@ -388,7 +444,7 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
     try {
 
         // Create FFT plan using advanced r2c interface
-        CUFFT_RUNTIME_CHECK(cufftMakePlanMany(
+        CUFFT_RUNTIME_CHECK(cufftMakePlanMany64(
             plan,
             rank, n,
             inembed,
@@ -398,7 +454,7 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
             CUFFT_R2C,
             1,
             &worksize
-        ), "createPlan - C2R plan setup, might be out of memory");
+        ), "createPlan - R2C plan setup, might be out of memory");
 
 
         std::string msg = fmt::format(
@@ -422,24 +478,24 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
 
 void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPlanDescription& description) const {
     int rank = 3;
-    int Nx = description.shape.width;
-    int Ny = description.shape.height;
-    int Nz = description.shape.depth;
+    long long int Nx = description.shape.width;
+    long long int Ny = description.shape.height;
+    long long int Nz = description.shape.depth;
 
-    int n[3] = {Nz, Ny, Nx};
+    long long int n[3] = {Nz, Ny, Nx};
 
     // For out-of-place: real input is unpadded, inembed matches logical dimensions.
     // For in-place: real input must be padded on the last dimension to 2*(Nx/2+1)
     //              to accommodate the complex output, so inembed reflects the padded size.
     // onembed is always {Nz, Ny, Nx/2+1} (complex output has halved last dimension).
-    int onembed[3];
-    int inembed[3] = {Nz, Ny, Nx/2+1};
+    long long int onembed[3];
+    long long int inembed[3] = {Nz, Ny, Nx/2+1};
 
-    int istride = 1;
-    int ostride = 1;
+    long long int istride = 1;
+    long long int ostride = 1;
 
-    int odist;
-    int idist = Nz * Ny * (Nx/2+1);
+    long long int odist;
+    long long int idist = Nz * Ny * (Nx/2+1);
 
     // if (description.inPlace) {
     onembed[0] = Nz;
@@ -457,7 +513,7 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPla
     try {
 
         // Create FFT plan using advanced r2c interface
-        CUFFT_RUNTIME_CHECK(cufftMakePlanMany(
+        CUFFT_RUNTIME_CHECK(cufftMakePlanMany64(
             plan,
             rank, n,
             inembed,

@@ -239,6 +239,7 @@ bool CPUBackendMemoryManager::isOnDevice(const void* ptr) const {
 
 
 RealData CPUBackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
+    log(fmt::format("allocateMemoryOnDeviceRealFFTInPlace for shape: {}", shape.print()), LogLevel::DEBUG);
     CuboidShape shapeForInplaceFFT = shape;
     shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
     size_t padding = shapeForInplaceFFT.width - shape.width;
@@ -252,6 +253,7 @@ RealData CPUBackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const Cub
     return result;
 }
 RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const {
+    log(fmt::format("allocateMemoryOnDeviceReal for shape: {}", shape.print()), LogLevel::DEBUG);
     std::size_t bytes = shape.getVolume() * sizeof(real_t);
 
     RealData result{ this, nullptr, shape, shape, bytes, 0};
@@ -261,6 +263,7 @@ RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& 
 
 
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
+    log(fmt::format("allocateMemoryOnDeviceComplex for shape: {}", shape.print()), LogLevel::DEBUG);
     CuboidShape complexShape = shape;
     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
     CuboidShape originalShape = shape;
@@ -271,6 +274,7 @@ ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidS
     return result;
 }
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
+    log(fmt::format("allocateMemoryOnDeviceComplexFull for shape: {}", shape.print()), LogLevel::DEBUG);
     ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
@@ -313,6 +317,7 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 
 
  void* CPUBackendMemoryManager::copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
+    log(fmt::format("copyDataToDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
     BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data");
     void* result = allocateMemoryOnDevice(size);
     std::memcpy(result, src, size);
@@ -320,13 +325,16 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 }
 
  void* CPUBackendMemoryManager::moveDataFromDevice(void* src, size_t size, const CuboidShape& shape, const IBackendMemoryManager& destBackend) const {
+    log(fmt::format("moveDataFromDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
     BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "moveDataFromDevice - source data");
     if (&destBackend == this) {
+        log(fmt::format("moveDataFromDevice: same backend, returning source pointer directly"), LogLevel::DEBUG);
         return src;
     }
     else {
         // For cross-backend transfer, use the destination backend's copy method
         // since cpubackend is the "default" it is simple, be careful how this works for other backends though
+        log(fmt::format("moveDataFromDevice: cross-backend transfer to {}", destBackend.getDeviceString()), LogLevel::DEBUG);
         return destBackend.copyDataToDevice(src, size, shape);
     }
 }
@@ -335,6 +343,7 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 
 
 void CPUBackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
+    log(fmt::format("memCopy: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
     BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "memCopy - source data");
     BACKEND_CHECK(dest != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data");
     std::memcpy(dest, src, size);
@@ -371,7 +380,27 @@ size_t CPUBackendMemoryManager::getAvailableMemory() const {
 
 size_t CPUBackendMemoryManager::getAllocatedMemory() const {
     auto access = memory.getAccess();
+    log(fmt::format("getAllocatedMemory: {:.2f} MB currently allocated", access.data.totalUsedMemory / 1e6), LogLevel::DEBUG);
     return access.data.totalUsedMemory;
+}
+
+size_t CPUBackendMemoryManager::estimateFFTWorkspace(const CuboidShape& shape) const {
+    int Nx = shape.width;
+    int Ny = shape.height;
+    int Nz = shape.depth;
+
+    size_t complexElements = static_cast<size_t>(Nz) * Ny * (Nx / 2 + 1);
+
+    size_t planCreationTemp = sizeof(complex_t) * complexElements;
+    // size_t fftwMeasureScratch = sizeof(complex_t) * complexElements;
+    // size_t persistentPlanOverhead = sizeof(complex_t) * complexElements;
+
+    size_t totalWorkspace = planCreationTemp; //+ fftwMeasureScratch + persistentPlanOverhead;
+
+    log(fmt::format("Estimated FFTW workspace for shape {}: {:.2f} MB",
+        shape.print(), totalWorkspace / 1e6), LogLevel::DEBUG);
+
+    return totalWorkspace;
 }
 
 

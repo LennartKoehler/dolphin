@@ -30,7 +30,7 @@ protected:
         static bool initialized = false;
         if (!initialized) {
             manager.init([](const std::string& msg, LogLevel level) {
-                if (level >= LogLevel::ERROR) {
+                if (level > LogLevel::INFO){
                     std::cerr << "[CPU] " << msg << std::endl;
                 }
             });
@@ -141,19 +141,45 @@ TEST_F(CPUBackendManagerTest, DifferentThreadConfigsProduceSameResults) {
     ComplexData out2 = m2.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData rt2 = m2.allocateMemoryOnDeviceComplexFull(shape);
 
+    ASSERT_TRUE(in1.isValid()) << "in1 allocation failed";
+    ASSERT_TRUE(out1.isValid()) << "out1 allocation failed";
+    ASSERT_TRUE(rt1.isValid()) << "rt1 allocation failed";
+    ASSERT_TRUE(in2.isValid()) << "in2 allocation failed";
+    ASSERT_TRUE(out2.isValid()) << "out2 allocation failed";
+    ASSERT_TRUE(rt2.isValid()) << "rt2 allocation failed";
+
     for (int i = 0; i < shape.getVolume(); ++i) {
         in1[i][0] = 1.0f; in1[i][1] = 0.0f;
         in2[i][0] = 1.0f; in2[i][1] = 0.0f;
     }
 
-    d1.forwardFFT(in1, out1);
-    d1.backwardFFT(out1, rt1);
-    d2.forwardFFT(in2, out2);
-    d2.backwardFFT(out2, rt2);
+    try {
+        d1.forwardFFT(in1, out1);
+    } catch (const std::exception& e) {
+        FAIL() << "d1.forwardFFT threw: " << e.what();
+    }
+
+    try {
+        d1.backwardFFT(out1, rt1);
+    } catch (const std::exception& e) {
+        FAIL() << "d1.backwardFFT threw: " << e.what();
+    }
+
+    try {
+        d2.forwardFFT(in2, out2);
+    } catch (const std::exception& e) {
+        FAIL() << "d2.forwardFFT threw: " << e.what();
+    }
+
+    try {
+        d2.backwardFFT(out2, rt2);
+    } catch (const std::exception& e) {
+        FAIL() << "d2.backwardFFT threw: " << e.what();
+    }
 
     for (int i = 0; i < shape.getVolume(); ++i) {
-        EXPECT_NEAR(rt1[i][0], rt2[i][0], 1e-3f);
-        EXPECT_NEAR(rt1[i][1], rt2[i][1], 1e-3f);
+        EXPECT_NEAR(rt1[i][0], rt2[i][0], 1e-3f) << " mismatch at index " << i << " real";
+        EXPECT_NEAR(rt1[i][1], rt2[i][1], 1e-3f) << " mismatch at index " << i << " imag";
     }
 }
 
