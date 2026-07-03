@@ -34,6 +34,7 @@ public:
 private:
     std::string wisdomFilename_;
     std::string getFullPath() const;
+    std::string resolveWritablePath() const;
 };
 
 
@@ -104,4 +105,3 @@ protected:
 
     std::mutex mutex_;
 };
-

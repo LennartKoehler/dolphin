@@ -1,3 +1,5 @@
+se if cuda always says create plan with 1 subcube, even if it doesnt fit, weird behavior
+
 restructure the build process to have a build image which stays the same and then compile the application using that build image. See chatgpt discussion
 then move to use github actions to get automatic builds
 

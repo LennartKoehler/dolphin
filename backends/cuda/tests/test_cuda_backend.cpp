@@ -48,10 +48,23 @@ protected:
     }
 
     std::vector<real_t> readbackReal(const RealData& deviceData) {
-        IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
-        size_t bytes = deviceData.getDataBytes();
-        std::vector<real_t> host(deviceData.getSize().getVolume());
-        memMgr.memCopy(deviceData.getData(), host.data(), bytes, deviceData.getSize());
+        size_t volume = deviceData.getSize().getVolume();
+        size_t width = deviceData.getSize().width;
+        size_t padding = deviceData.getPadding();
+        std::vector<real_t> host(volume);
+
+        if (padding > 0) {
+            size_t srcPitch = (width + padding) * sizeof(real_t);
+            size_t dstPitch = width * sizeof(real_t);
+            cudaMemcpy2DAsync(host.data(), dstPitch,
+                              deviceData.getData(), srcPitch,
+                              dstPitch, deviceData.getSize().height * deviceData.getSize().depth,
+                              cudaMemcpyDeviceToHost);
+        } else {
+            cudaMemcpyAsync(host.data(), deviceData.getData(),
+                            volume * sizeof(real_t), cudaMemcpyDeviceToHost);
+        }
+        cudaDeviceSynchronize();
         return host;
     }
 
@@ -59,7 +72,7 @@ protected:
         IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
         size_t bytes = deviceData.getDataBytes();
         std::vector<complex_t> host(deviceData.getSize().getVolume());
-        memMgr.memCopy(deviceData.getData(), host.data(), bytes, deviceData.getSize());
+        cudaMemcpyAsync(host.data(), deviceData.getData(), bytes, cudaMemcpyDeviceToHost);
         std::vector<float> mags(host.size());
         for (size_t i = 0; i < host.size(); ++i) {
             mags[i] = std::sqrt(host[i][0] * host[i][0] + host[i][1] * host[i][1]);
@@ -68,9 +81,22 @@ protected:
     }
 
     void writeRealToDevice(RealData& deviceData, std::vector<real_t>& hostData) {
-        IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
-        memMgr.memCopy(hostData.data(), deviceData.getData(),
-                       deviceData.getSize().getVolume() * sizeof(real_t), deviceData.getSize());
+        size_t width = deviceData.getSize().width;
+        size_t padding = deviceData.getPadding();
+
+        if (padding > 0) {
+            size_t dstPitch = (width + padding) * sizeof(real_t);
+            size_t srcPitch = width * sizeof(real_t);
+            cudaMemcpy2DAsync(deviceData.getData(), dstPitch,
+                              hostData.data(), srcPitch,
+                              srcPitch, deviceData.getSize().height * deviceData.getSize().depth,
+                              cudaMemcpyHostToDevice);
+        } else {
+            cudaMemcpyAsync(deviceData.getData(), hostData.data(),
+                            deviceData.getSize().getVolume() * sizeof(real_t),
+                            cudaMemcpyHostToDevice);
+        }
+        cudaDeviceSynchronize();
     }
 
     void writeComplexToDevice(ComplexData& deviceData, std::vector<complex_t>& hostData) {
@@ -385,25 +411,26 @@ TEST_F(CUDAComputeBackendTest, ComplexFFTRoundTrip) {
 }
 
 TEST_F(CUDAComputeBackendTest, RealFFTRoundTrip) {
-    GTEST_SKIP() << "CUDA R2C FFT round-trip causes heap corruption — needs investigation";
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
     CuboidShape shape(16, 16, 8);
 
     RealData realIn = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
-    ComplexData complexOut = memMgr.allocateMemoryOnDeviceComplex(shape);
-    RealData realOut = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+    // ComplexData complexOut = memMgr.allocateMemoryOnDeviceComplex(shape);
+    DataView<complex_t> complexOut = realIn.reinterpret();
+    // RealData realOut = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
 
     std::vector<real_t> hostIn(shape.getVolume());
     for (int i = 0; i < shape.getVolume(); ++i)
         hostIn[i] = static_cast<real_t>(i % 10) * 0.1f;
+
     writeRealToDevice(realIn, hostIn);
 
     deconv.forwardFFT(realIn, complexOut);
-    deconv.backwardFFT(complexOut, realOut);
+    deconv.backwardFFT(complexOut, realIn);
     backend->sync();
 
-    auto readback = readbackReal(realOut);
+    auto readback = readbackReal(realIn);
     for (int i = 0; i < shape.getVolume(); ++i)
         EXPECT_NEAR(readback[i], hostIn[i], 1e-2f);
 }
