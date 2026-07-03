@@ -37,11 +37,15 @@ void StandardDeconvolutionExecutor::execute(DeconvolutionPlan plan) {
 }
 
 void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) {
+    spdlog::get("deconvolution")->debug("Configuring StandardDeconvolutionExecutor");
     loadingBar.setCallback(fn);
 }
 
 
 void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
+
+    spdlog::get("deconvolution")->debug("[Task {}] Starting deconvolution of cube ({}). Padding before: {}; padding after: {}",
+        task.taskId, task.paddedBox.box.print(), task.paddedBox.padding.before.print(), task.paddedBox.padding.after.print());
 
     std::shared_ptr<TaskContext> context = task.context;
     // thread_local IBackend& iodevice = context->iodevice.cloneSharedMemory();
@@ -52,22 +56,26 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     std::shared_ptr<ImageWriter> writer = task.sharedDescriptor->writer;
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
+    spdlog::get("deconvolution")->debug("[Task {}] Work shape (with padding): {}", task.taskId, workShape.print());
 
 
     RealData g_host;
 
     {
+        spdlog::get("deconvolution")->debug("[Task {}] Reading subimage from input", task.taskId);
         std::optional<PaddedImage> cubeImage_o = reader->getSubimage(task.paddedBox);
         if (!cubeImage_o.has_value()){
             throw std::runtime_error("StandardDeconvolutionExecutor: No input image recieved from reader");
         }
         PaddedImage& cubeImage = *cubeImage_o;
+        spdlog::get("deconvolution")->debug("[Task {}] Converting input image to real data", task.taskId);
         g_host = Preprocessor::convertImageToRealData(cubeImage.image);
-        // delete cubeImage
     }
 
+    spdlog::get("deconvolution")->debug("[Task {}] Copying input data to device", task.taskId);
     RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
     BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
+    spdlog::get("deconvolution")->debug("[Task {}] Allocating output buffer on device", task.taskId);
     RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
 
     using progressFunction = std::function<void(int)>;
@@ -76,6 +84,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         this->loadingBar.add(iteration);
     };
 
+    spdlog::get("deconvolution")->info("[Task {}] Starting deconvolution with {} PSF(s)", task.taskId, task.sharedDescriptor->psfs.size());
     std::future<void> resultDone = context->processor.deconvolveSingleCube(
         workerbackend,
         task.sharedDescriptor->prototypeAlgorithm,
@@ -87,22 +96,30 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         tracker);
 
     resultDone.get(); //wait for result
+    spdlog::get("deconvolution")->debug("[Task {}] Deconvolution finished, syncing backend", task.taskId);
     iobackend.sync();
 
+    spdlog::get("deconvolution")->debug("[Task {}] Moving result data from device to host", task.taskId);
     RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
 
+    spdlog::get("deconvolution")->debug("[Task {}] Converting result to image", task.taskId);
     Image3D resultImage = Preprocessor::convertRealDataToImage(f_host);
 
+    spdlog::get("deconvolution")->debug("[Task {}] Writing result subimage", task.taskId);
     writer->setSubimage(resultImage, task.paddedBox);
+    spdlog::get("deconvolution")->debug("[Task {}] Done", task.taskId);
 }
 
 
 std::function<void()> StandardDeconvolutionExecutor::createTask(
     CubeTaskDescriptor& taskDesc) {
 
+    spdlog::get("deconvolution")->debug("[Task {}] Creating task for cube ({})", taskDesc.taskId, taskDesc.paddedBox.box.print());
+
     return [this, &taskDesc]() {
 
         std::shared_ptr<TaskContext> context = taskDesc.context;
+        spdlog::get("deconvolution")->debug("[Task {}] Task dispatched to worker thread", taskDesc.taskId);
         try {
             runTask(taskDesc);
         }
@@ -132,6 +149,8 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
 void StandardDeconvolutionExecutor::parallelDeconvolution(
     DeconvolutionPlan channelPlan) {
 
+    spdlog::get("deconvolution")->info("Starting parallel deconvolution with {} task(s)", channelPlan.totalTasks);
+
     std::vector<std::future<void>> runningTasks;
     loadingBar.setMax(channelPlan.totalTasks);
 
@@ -140,10 +159,13 @@ void StandardDeconvolutionExecutor::parallelDeconvolution(
         std::function<void()> threadtask = createTask(*task);
         runningTasks.push_back(context->ioPool.enqueue(threadtask));
     }
+    spdlog::get("deconvolution")->debug("All {} task(s) enqueued, waiting for completion", channelPlan.totalTasks);
 
     // Wait for all remaining tasks to finish
     for (auto& f : runningTasks)
         f.get();
+
+    spdlog::get("deconvolution")->info("Parallel deconvolution finished");
 }
 
 

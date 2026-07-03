@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <string>
+#include <sstream>
 #include <cstdint>
 #include "dolphinbackend/CuboidShape.h"
 
@@ -42,6 +43,33 @@ struct ImageMetaData {
 
     CuboidShape getShape() const {
         return CuboidShape(imageWidth, imageLength, slices);
+    }
+
+    std::string print() const {
+        std::ostringstream oss;
+        oss << "ImageMetaData:\n"
+            << "  filename:                 " << filename << '\n'
+            << "  imageType:                " << imageType << '\n'
+            << "  description:              " << description << '\n'
+            << "  imageWidth:               " << imageWidth << '\n'
+            << "  imageLength:              " << imageLength << '\n'
+            << "  slices:                   " << slices << '\n'
+            << "  frameCount:               " << frameCount << '\n'
+            << "  resolutionUnit:           " << resolutionUnit << '\n'
+            << "  samplesPerPixel:          " << samplesPerPixel << '\n'
+            << "  bitsPerSample:            " << bitsPerSample << '\n'
+            << "  photometricInterpretation: " << photometricInterpretation << '\n'
+            << "  linChannels:              " << linChannels << '\n'
+            << "  planarConfig:             " << planarConfig << '\n'
+            << "  totalImages:              " << totalImages << '\n'
+            << "  dataType:                 " << dataType << '\n'
+            << "  xResolution:              " << xResolution << '\n'
+            << "  yResolution:              " << yResolution << '\n'
+            << "  maxSampleValue:           " << maxSampleValue << '\n'
+            << "  minSampleValue:           " << minSampleValue << '\n'
+            << "  sampleFormat:             " << sampleFormat << '\n'
+            << "  shape:                    " << getShape().print();
+        return oss.str();
     }
 
 };
