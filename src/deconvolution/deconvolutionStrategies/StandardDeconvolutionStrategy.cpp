@@ -224,7 +224,23 @@ size_t StandardDeconvolutionStrategy::getMaxMemoryPerCube(
     size_t threadallocations = ioAllocations + workerAllocations;
     assert(threadallocations != 0 && "Error, no threadallocations");
 
-    size_t memoryPerCube = availableMemory / threadallocations ;
+    size_t memoryPerCube = availableMemory / threadallocations;
+
+    size_t fftWorkspace = 0;
+    for (int i = 0; i < 2; ++i) {
+        size_t cubeVolume = memoryPerCube / sizeof(real_t);
+        if (cubeVolume == 0) break;
+        int side = static_cast<int>(std::cbrt(static_cast<double>(cubeVolume)));
+        if (side < 1) side = 1;
+        CuboidShape estimatedShape(side, side, side);
+        fftWorkspace = backend.estimateFFTWorkspace(estimatedShape);
+
+        size_t totalFFTWorkspace = workerThreads * fftWorkspace;
+        if (totalFFTWorkspace >= availableMemory) {
+            throw std::runtime_error("Not enough memory for FFT workspace on device");
+        }
+        memoryPerCube = (availableMemory - totalFFTWorkspace) / threadallocations;
+    }
 
     return memoryPerCube;
 }

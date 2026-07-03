@@ -234,5 +234,16 @@ public:
         NOT_IMPLEMENTED(getAllocatedMemory);
     }
 
+    /**
+     * Estimate the FFT library's internal workspace memory for the given shape.
+     * This accounts for memory allocated by the FFT library (e.g. cuFFT) during
+     * plan creation, separate from user-allocated data buffers.
+     * @param shape The shape of the data to be transformed
+     * @return Estimated workspace in bytes (0 if the backend has no FFT workspace overhead)
+     */
+    virtual size_t estimateFFTWorkspace(const CuboidShape& shape) const {
+        return 0;
+    }
+
 
 };
