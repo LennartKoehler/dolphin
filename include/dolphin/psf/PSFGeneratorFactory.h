@@ -89,7 +89,7 @@ public:
     std::shared_ptr<PSFConfig> createConfig(const json& configJson) {
         std::string psfModel;
         try{
-            psfModel = configJson["model_name"].get<std::string>(); // TODO make nicer
+            psfModel = configJson.at("model_name").get<std::string>(); // TODO make nicer
         }
         catch (...) {throw std::runtime_error("model_name tag missing");}
 

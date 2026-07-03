@@ -9,7 +9,7 @@
 
 // manages all backends of its type, also is responsible for lifetime of these
 class IBackendManager{
-public: 
+public:
     IBackendManager() = default;
     virtual ~IBackendManager() = default;
 
