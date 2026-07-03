@@ -47,7 +47,7 @@ set(ALL_TEST_SOURCES
     backends/dolphinbackend/memory_exception_example.cpp
     backends/independent_fft_test.cpp
     integration/cubeShapeTest.cpp
-    integration/main_test.cpp
+    integration/main_integration_test.cpp
     image/image_comparison_test.cpp
     deconvolution/feathering_test.cpp
     deconvolution/padding_test.cpp
