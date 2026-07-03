@@ -70,12 +70,9 @@ int CPUBackendManager::getNumberDevices() const {
 }
 
 void CPUBackendManager::setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads, BackendConfig& ioconfig, BackendConfig& workerConfig) {
-    // workerThreads = static_cast<size_t>(2*totalThreads/3);
-    // config.ompThreads = static_cast<int>(workerThreads);
     ioconfig.nThreads = 1;
     workerConfig.nThreads = workerThreads == 0 ? static_cast<size_t>(2*totalThreads/3) : workerThreads;
     workerConfig.nThreads = workerConfig.nThreads == 0 ? 1 : workerConfig.nThreads;
-    // workerConfig.nThreads = 1; //TESTVALUE
 
     ioThreads = ioThreads == 0 ? totalThreads : ioThreads;
     workerThreads = 1; //TESTVALUE
@@ -91,7 +88,9 @@ FFTWManager::~FFTWManager() {
     if (!didInit_.load(std::memory_order_acquire)) return;
 
     destroyFFTPlans();
-    wisdomManager_.exportWisdom();
+    try {
+        wisdomManager_.exportWisdom();
+    } catch (...) {}
     fftwf_cleanup_threads();
 }
 
@@ -100,7 +99,11 @@ std::once_flag FFTWManager::initFlag_;
 void FFTWManager::init(){
     std::call_once(initFlag_, [this]{
         fftwf_init_threads();
-        wisdomManager_.importWisdom();
+        try {
+            wisdomManager_.importWisdom();
+        } catch (...) {
+            log("FFTW wisdom import failed, continuing without wisdom", LogLevel::WARN);
+        }
         didInit_.store(true, std::memory_order_release);
     });
 }
@@ -109,32 +112,24 @@ void FFTWManager::init(){
 void FFTWManager::executeForwardFFT(const FFTWPlanDescription& description, fftwf_complex* in, fftwf_complex* out){
     auto* plan = findPlan(description);
     BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
-    BACKEND_CHECK(plan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
-
     fftwf_execute_dft(*plan, in, out);
 }
 
 void FFTWManager::executeBackwardFFT(const FFTWPlanDescription& description, fftwf_complex* in, fftwf_complex* out){
     auto* plan = findPlan(description);
-    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
-    BACKEND_CHECK(plan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
-
+    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "backwardFFT - plan creation");
     fftwf_execute_dft(*plan, in, out);
 }
 
 void FFTWManager::executeForwardFFTReal(const FFTWPlanDescription& description, real_t* in, fftwf_complex* out){
     auto* plan = findPlan(description);
-    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
-    BACKEND_CHECK(plan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
-
+    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFTReal - plan creation");
     fftwf_execute_dft_r2c(*plan, in, out);
 }
 
 void FFTWManager::executeBackwardFFTReal(const FFTWPlanDescription& description, fftwf_complex* in, real_t* out){
     auto* plan = findPlan(description);
-    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
-    BACKEND_CHECK(plan != nullptr, "Forward FFT plan is null", "CPU", "forwardFFT - FFT plan");
-
+    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "backwardFFTReal - plan creation");
     fftwf_execute_dft_c2r(*plan, in, out);
 }
 
@@ -145,14 +140,12 @@ void FFTWManager::executeBackwardFFTReal(const FFTWPlanDescription& description,
 fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& description) {
     //has to be holding lock
 
-    assert(getGlobalLogger() && "logger not yet set");
+    BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanRealToComplex - logger");
 
-    fftwf_plan_with_nthreads(description.ompThreads); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
+    fftwf_plan_with_nthreads(description.ompThreads);
 
-    // Allocate temporary memory for plan creation
     real_t* in = nullptr;
     complex_t* out = nullptr;
-
 
     int rank = 3;
     int Nx = description.shape.width;
@@ -174,17 +167,10 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
     int idist;
     int odist = Nz * Ny * (Nx/2+1);
 
-    // if (description.inPlace) {
     inembed[0] = Nz;
     inembed[1] = Ny;
     inembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
     idist = Nz * Ny * 2*(Nx/2+1);
-    // } else {
-    //     inembed[0] = Nz;
-    //     inembed[1] = Ny;
-    //     inembed[2] = Nx;           // unpadded last dimension
-    //     idist = Nz * Ny * Nx;
-    // }
 
     try {
         out = (complex_t*)fftwf_malloc(sizeof(complex_t) * Nz * Ny * (Nx/2+1));
@@ -238,11 +224,10 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
 fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& description) {
     //has to be holding lock
 
-    assert(getGlobalLogger() && "logger not yet set");
+    BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanComplexToReal - logger");
 
-    fftwf_plan_with_nthreads(description.ompThreads); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
+    fftwf_plan_with_nthreads(description.ompThreads);
 
-    // Allocate temporary memory for plan creation
     complex_t* in = nullptr;
     real_t* out = nullptr;
 
@@ -266,17 +251,10 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
     int idist = Nz * Ny * (Nx/2+1);
     int odist;
 
-    // if (description.inPlace) {
     onembed[0] = Nz;
     onembed[1] = Ny;
     onembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
     odist = Nz * Ny * 2*(Nx/2+1);
-    // } else {
-    //     onembed[0] = Nz;
-    //     onembed[1] = Ny;
-    //     onembed[2] = Nx;           // unpadded last dimension
-    //     odist = Nz * Ny * Nx;
-    // }
 
     try {
         in = (complex_t*)fftwf_malloc(sizeof(complex_t) * Nz * Ny * (Nx/2+1));
@@ -336,11 +314,10 @@ void FFTWManager::initializePlan(const FFTWPlanDescription& description) {
 fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& description) {
     // not threadsafe!
 
-    assert(getGlobalLogger() && "logger not yet set");
+    BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanComplex - logger");
 
-    fftwf_plan_with_nthreads(description.ompThreads); // each thread that calls the fftw_execute should run the fftw singlethreaded, but its called in parallel
+    fftwf_plan_with_nthreads(description.ompThreads);
 
-    // Allocate temporary memory for plan creation
     complex_t* temp = nullptr;
     complex_t* tempout = nullptr;
     try {
@@ -353,7 +330,6 @@ fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& descrip
         // Create FFT plan
         fftwf_plan plan = fftwf_plan_dft_3d(description.shape.depth, description.shape.height, description.shape.width,
             temp, tempout, description.direction == PlanDirection::FORWARD ? FFTW_FORWARD : FFTW_BACKWARD, FFTW_MEASURE);
-
 
         FFTW_UNIFIED_CHECK(plan, "initializePlan - forward plan");
 
@@ -408,7 +384,6 @@ const fftwf_plan* FFTWManager::findPlan(const FFTWPlanDescription& description) 
     }
 
     // Create new plan and store it
-    fftwf_plan newPlan;
     initializePlan(description);
 
     for (const FFTWPlan& plan : fftwPlans){
@@ -416,8 +391,11 @@ const fftwf_plan* FFTWManager::findPlan(const FFTWPlanDescription& description) 
             return &plan.plan;
         }
     }
-    assert(false); // sohuld never happen
-    return nullptr;
+    throw dolphin::backend::BackendException(
+        "FFTW plan not found after creation",
+        "CPU",
+        "findPlan - plan not found after initializePlan"
+    );
 }
 
 void FFTWManager::addPlan(fftwf_plan& handle, const FFTWPlanDescription& description){
@@ -448,49 +426,109 @@ std::string FFTWWisdomManager::getFullPath() const {
     return path;
 }
 
+std::string FFTWWisdomManager::resolveWritablePath() const {
+    // 1. Try the configured path (e.g. ~/.cache/dolphin/fftw/wisdom)
+    std::string primaryPath = getFullPath();
+    fs::path primaryDir = fs::path(primaryPath).parent_path();
+
+    try {
+        if (!primaryDir.empty()) {
+            if (!fs::exists(primaryDir)) {
+                fs::create_directories(primaryDir);
+            }
+            // Test writability
+            fs::path testFile = primaryDir / ".dolphin_write_test";
+            std::ofstream test(testFile);
+            if (test) {
+                test.close();
+                fs::remove(testFile);
+                return primaryPath;
+            }
+        }
+    } catch (const std::exception& e) {
+        log(std::string("FFTW wisdom path not accessible: ") + primaryPath + " (" + e.what() + ")", LogLevel::WARN);
+    }
+
+    // 2. Fall back to a directory next to the running application
+    try {
+        fs::path cwd = fs::current_path();
+        fs::path fallbackDir = cwd / ".dolphin" / "fftw";
+        fs::create_directories(fallbackDir);
+
+        fs::path testFile = fallbackDir / ".dolphin_write_test";
+        std::ofstream test(testFile);
+        if (test) {
+            test.close();
+            fs::remove(testFile);
+            std::string fallbackPath = (fallbackDir / "wisdom").string();
+            log(std::string("FFTW wisdom using fallback path: ") + fallbackPath, LogLevel::WARN);
+            return fallbackPath;
+        }
+    } catch (const std::exception& e) {
+        log(std::string("FFTW wisdom fallback path not writable: ") + std::string(e.what()), LogLevel::WARN);
+    }
+
+    // 3. No writable location found
+    log("FFTW wisdom will not be used (no writable path available)", LogLevel::WARN);
+    return "";
+}
+
 bool FFTWWisdomManager::wisdomFileExists() const {
-    return fs::exists(getFullPath());
+    try {
+        return fs::exists(getFullPath());
+    } catch (...) {
+        return false;
+    }
 }
 
 bool FFTWWisdomManager::importWisdom() {
-    std::string fullPath = getFullPath();
+    try {
+        std::string fullPath = resolveWritablePath();
+        if (fullPath.empty()) {
+            return false;
+        }
 
-    if (!fs::exists(fullPath)) {
-        log(std::string("FFTW wisdom file not found at: ") + fullPath + ", skipping import", LogLevel::INFO);
-        return false;
-    }
+        if (!fs::exists(fullPath)) {
+            log(std::string("FFTW wisdom file not found at: ") + fullPath + ", skipping import", LogLevel::INFO);
+            return false;
+        }
 
-    int success = fftwf_import_wisdom_from_filename(fullPath.c_str());
-    if (success) {
-        log(std::string("Successfully imported FFTW wisdom from: ") + fullPath, LogLevel::DEBUG);
-        return true;
-    } else {
-        log(std::string("Failed to import FFTW wisdom from: ") + fullPath, LogLevel::WARN);
+        int success = fftwf_import_wisdom_from_filename(fullPath.c_str());
+        if (success) {
+            log(std::string("Successfully imported FFTW wisdom from: ") + fullPath, LogLevel::DEBUG);
+            return true;
+        } else {
+            log(std::string("Failed to import FFTW wisdom from: ") + fullPath, LogLevel::WARN);
+            return false;
+        }
+    } catch (const std::exception& e) {
+        log(std::string("Error importing FFTW wisdom: ") + e.what(), LogLevel::WARN);
         return false;
     }
 }
 
 bool FFTWWisdomManager::exportWisdom() {
-    std::string fullPath = getFullPath();
-
-    // Ensure directory exists
-    fs::path dirPath = fs::path(fullPath).parent_path();
-    if (!dirPath.empty() && !fs::exists(dirPath)) {
-        try {
-            fs::create_directories(dirPath);
-        } catch (const fs::filesystem_error& e) {
-            log(std::string("Failed to create FFTW wisdom directory: ") + std::string(e.what()), LogLevel::ERROR);
+    try {
+        std::string fullPath = resolveWritablePath();
+        if (fullPath.empty()) {
             return false;
         }
-    }
 
-    int success = fftwf_export_wisdom_to_filename(fullPath.c_str());
-    if (success) {
-        std::string message = std::string("Successfully exported FFTW wisdom to: ") + fullPath;
-        log(message, LogLevel::DEBUG);
-        return true;
-    } else {
-        log(std::string("Failed to export FFTW wisdom to: ") + fullPath, LogLevel::ERROR);
+        fs::path dirPath = fs::path(fullPath).parent_path();
+        if (!dirPath.empty() && !fs::exists(dirPath)) {
+            fs::create_directories(dirPath);
+        }
+
+        int success = fftwf_export_wisdom_to_filename(fullPath.c_str());
+        if (success) {
+            log(std::string("Successfully exported FFTW wisdom to: ") + fullPath, LogLevel::DEBUG);
+            return true;
+        } else {
+            log(std::string("Failed to export FFTW wisdom to: ") + fullPath, LogLevel::ERROR);
+            return false;
+        }
+    } catch (const std::exception& e) {
+        log(std::string("Error exporting FFTW wisdom: ") + e.what(), LogLevel::WARN);
         return false;
     }
 }
