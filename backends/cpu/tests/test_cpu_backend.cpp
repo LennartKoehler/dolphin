@@ -148,7 +148,7 @@ TEST_F(CPUBackendManagerTest, DifferentThreadConfigsProduceSameResults) {
     ASSERT_TRUE(out2.isValid()) << "out2 allocation failed";
     ASSERT_TRUE(rt2.isValid()) << "rt2 allocation failed";
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         in1[i][0] = 1.0f; in1[i][1] = 0.0f;
         in2[i][0] = 1.0f; in2[i][1] = 0.0f;
     }
@@ -177,7 +177,7 @@ TEST_F(CPUBackendManagerTest, DifferentThreadConfigsProduceSameResults) {
         FAIL() << "d2.backwardFFT threw: " << e.what();
     }
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_NEAR(rt1[i][0], rt2[i][0], 1e-3f) << " mismatch at index " << i << " real";
         EXPECT_NEAR(rt1[i][1], rt2[i][1], 1e-3f) << " mismatch at index " << i << " imag";
     }
@@ -225,10 +225,10 @@ TEST_F(CPUMemoryManagerTest, DataAccessReal) {
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
     CuboidShape shape(8, 8, 4);
     RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         data[i] = static_cast<real_t>(i);
     }
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_FLOAT_EQ(data[i], static_cast<real_t>(i));
     }
 }
@@ -237,11 +237,11 @@ TEST_F(CPUMemoryManagerTest, DataAccessComplex) {
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
     CuboidShape shape(8, 8, 4);
     ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         data[i][0] = static_cast<real_t>(i);
         data[i][1] = static_cast<real_t>(i * 2);
     }
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_FLOAT_EQ(data[i][0], static_cast<real_t>(i));
         EXPECT_FLOAT_EQ(data[i][1], static_cast<real_t>(i * 2));
     }
@@ -276,11 +276,11 @@ TEST_F(CPUMemoryManagerTest, MemoryCopy) {
     CuboidShape shape(8, 8, 4);
     RealData src = memMgr.allocateMemoryOnDeviceReal(shape);
     RealData dst = memMgr.allocateMemoryOnDeviceReal(shape);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         src[i] = static_cast<real_t>(i * 3);
     }
     memMgr.memCopy(src, dst);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_FLOAT_EQ(dst[i], static_cast<real_t>(i * 3));
     }
 }
@@ -290,14 +290,14 @@ TEST_F(CPUMemoryManagerTest, CopyDataToDevice) {
     CuboidShape shape(8, 8, 4);
     size_t bytes = shape.getVolume() * sizeof(real_t);
     std::vector<real_t> hostData(shape.getVolume());
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostData[i] = static_cast<real_t>(i * 2);
     }
     void* devicePtr = memMgr.copyDataToDevice(hostData.data(), bytes, shape);
     EXPECT_NE(devicePtr, nullptr);
     std::vector<real_t> readback(shape.getVolume());
     memMgr.memCopy(devicePtr, readback.data(), bytes, shape);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_FLOAT_EQ(readback[i], hostData[i]);
     }
     memMgr.freeMemoryOnDevice(devicePtr, bytes);
@@ -308,7 +308,7 @@ TEST_F(CPUMemoryManagerTest, MoveDataBetweenBackends) {
     CuboidShape shape(8, 8, 4);
     size_t bytes = shape.getVolume() * sizeof(real_t);
     RealData src = memMgr.allocateMemoryOnDeviceReal(shape);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         src[i] = static_cast<real_t>(i * 5);
     }
     void* movedPtr = memMgr.moveDataFromDevice(src.getData(), bytes, shape, memMgr);
@@ -323,7 +323,7 @@ TEST_F(CPUMemoryManagerTest, ReinterpretRealToComplex) {
     CuboidShape shape(16, 8, 4);
     RealData realData = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
     EXPECT_NE(realData.getData(), nullptr);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         realData[i] = static_cast<real_t>(i);
     }
     DataView<complex_t> complexView = memMgr.reinterpret(realData);
@@ -336,7 +336,7 @@ TEST_F(CPUMemoryManagerTest, ReinterpretComplexToReal) {
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
     CuboidShape shape(16, 8, 4);
     RealData realData = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         realData[i] = static_cast<real_t>(i);
     }
     DataView<complex_t> complexView = memMgr.reinterpret(realData);
@@ -372,13 +372,13 @@ TEST_F(CPUMemoryManagerTest, CreateCopy) {
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
     CuboidShape shape(8, 8, 4);
     RealData src = memMgr.allocateMemoryOnDeviceReal(shape);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         src[i] = static_cast<real_t>(i * 7);
     }
     RealData copy = memMgr.createCopy(src);
     EXPECT_NE(copy.getData(), nullptr);
     EXPECT_TRUE(copy.isValid());
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_FLOAT_EQ(copy[i], src[i]);
     }
 }
@@ -401,7 +401,7 @@ TEST_F(CPUComputeBackendTest, ComplexFFTRoundTrip) {
     ComplexData output = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData roundtrip = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         input[i][0] = 0.0f;
         input[i][1] = 0.0f;
     }
@@ -410,7 +410,7 @@ TEST_F(CPUComputeBackendTest, ComplexFFTRoundTrip) {
     deconv.forwardFFT(input, output);
     deconv.backwardFFT(output, roundtrip);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_TRUE(approxEqualComplex(roundtrip[i], input[i][0], input[i][1], 1e-3f));
     }
 }
@@ -424,14 +424,14 @@ TEST_F(CPUComputeBackendTest, RealFFTRoundTrip) {
     ComplexData complexOut = memMgr.allocateMemoryOnDeviceComplex(shape);
     RealData realOut = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         realIn[i] = static_cast<real_t>(i % 10) * 0.1f;
     }
 
     deconv.forwardFFT(realIn, complexOut);
     deconv.backwardFFT(complexOut, realOut);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_TRUE(approxEqual(realOut[i], realIn[i], 1e-3f));
     }
 }
@@ -445,7 +445,7 @@ TEST_F(CPUComputeBackendTest, ComplexMultiplication) {
     ComplexData b = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         a[i][0] = static_cast<real_t>(i + 1);
         a[i][1] = static_cast<real_t>(i + 2);
         b[i][0] = static_cast<real_t>(i + 3);
@@ -453,7 +453,7 @@ TEST_F(CPUComputeBackendTest, ComplexMultiplication) {
     }
 
     deconv.complexMultiplication(a, b, result);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         real_t ra = a[i][0], ia = a[i][1];
         real_t rb = b[i][0], ib = b[i][1];
         EXPECT_TRUE(approxEqualComplex(result[i], ra*rb - ia*ib, ra*ib + ia*rb, 1e-3f));
@@ -469,7 +469,7 @@ TEST_F(CPUComputeBackendTest, ComplexAddition) {
     ComplexData b = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         a[i][0] = static_cast<real_t>(i + 1);
         a[i][1] = static_cast<real_t>(i + 2);
         b[i][0] = static_cast<real_t>(i + 3);
@@ -477,7 +477,7 @@ TEST_F(CPUComputeBackendTest, ComplexAddition) {
     }
 
     deconv.complexAddition(a, b, result);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_TRUE(approxEqualComplex(result[i], a[i][0]+b[i][0], a[i][1]+b[i][1], 1e-4f));
     }
 }
@@ -490,14 +490,14 @@ TEST_F(CPUComputeBackendTest, ComplexScalarMultiplication) {
     ComplexData a = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         a[i][0] = static_cast<real_t>(i + 1);
         a[i][1] = static_cast<real_t>(i + 2);
     }
 
     complex_t scalar = {2.0f, 3.0f};
     deconv.scalarMultiplication(a, scalar, result);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         real_t ra = a[i][0], ia = a[i][1];
         EXPECT_TRUE(approxEqualComplex(result[i], ra*scalar[0]-ia*scalar[1], ra*scalar[1]+ia*scalar[0], 1e-3f));
     }
@@ -512,7 +512,7 @@ TEST_F(CPUComputeBackendTest, ComplexMultiplicationWithConjugate) {
     ComplexData b = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         a[i][0] = static_cast<real_t>(i + 1);
         a[i][1] = static_cast<real_t>(i + 2);
         b[i][0] = static_cast<real_t>(i + 3);
@@ -520,7 +520,7 @@ TEST_F(CPUComputeBackendTest, ComplexMultiplicationWithConjugate) {
     }
 
     deconv.complexMultiplicationWithConjugate(a, b, result);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         real_t ra = a[i][0], ia = a[i][1];
         real_t rb = b[i][0], ib = -b[i][1];
         EXPECT_TRUE(approxEqualComplex(result[i], ra*rb-ia*ib, ra*ib+ia*rb, 1e-3f));
@@ -536,7 +536,7 @@ TEST_F(CPUComputeBackendTest, ComplexDivision) {
     ComplexData b = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         a[i][0] = static_cast<real_t>(i + 1);
         a[i][1] = static_cast<real_t>(i + 2);
         b[i][0] = static_cast<real_t>(i + 3);
@@ -544,7 +544,7 @@ TEST_F(CPUComputeBackendTest, ComplexDivision) {
     }
 
     deconv.complexDivision(a, b, result, 1e-6f);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         real_t ra = a[i][0], ia = a[i][1];
         real_t rb = b[i][0], ib = b[i][1];
         float denom = rb*rb + ib*ib;
@@ -565,7 +565,7 @@ TEST_F(CPUComputeBackendTest, ComplexDivisionStabilized) {
     ComplexData b = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         a[i][0] = static_cast<real_t>(i + 1);
         a[i][1] = static_cast<real_t>(i + 2);
         b[i][0] = static_cast<real_t>(i + 3);
@@ -573,7 +573,7 @@ TEST_F(CPUComputeBackendTest, ComplexDivisionStabilized) {
     }
 
     deconv.complexDivisionStabilized(a, b, result, 1e-6f);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         real_t ra = a[i][0], ia = a[i][1];
         real_t rb = b[i][0], ib = b[i][1];
         float mag = std::max(1e-6f, rb*rb + ib*ib);
@@ -590,13 +590,13 @@ TEST_F(CPUComputeBackendTest, RealMultiplication) {
     RealData b = memMgr.allocateMemoryOnDeviceReal(shape);
     RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         a[i] = static_cast<real_t>(i + 1);
         b[i] = static_cast<real_t>(i + 2);
     }
 
     deconv.multiplication(a, b, result);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_TRUE(approxEqual(result[i], a[i] * b[i], 1e-3f));
     }
 }
@@ -610,13 +610,13 @@ TEST_F(CPUComputeBackendTest, RealDivision) {
     RealData b = memMgr.allocateMemoryOnDeviceReal(shape);
     RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         a[i] = static_cast<real_t>(i + 1);
         b[i] = static_cast<real_t>(i + 2);
     }
 
     deconv.division(a, b, result, 1e-6f);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         real_t denom = b[i] < 1e-6f ? 1e-6f : b[i];
         EXPECT_TRUE(approxEqual(result[i], a[i] / denom, 1e-2f));
     }
@@ -630,13 +630,13 @@ TEST_F(CPUComputeBackendTest, RealScalarMultiplication) {
     RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
     RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         a[i] = static_cast<real_t>(i + 1);
     }
 
     real_t scalar = 2.5f;
     deconv.scalarMultiplication(a, scalar, result);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_TRUE(approxEqual(result[i], a[i] * scalar, 1e-3f));
     }
 }
@@ -647,7 +647,7 @@ TEST_F(CPUComputeBackendTest, OctantFourierShiftDoubleIsIdentity) {
     CuboidShape shape(8, 8, 8);
 
     ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         data[i][0] = static_cast<real_t>(i);
         data[i][1] = static_cast<real_t>(i * 2);
     }
@@ -655,7 +655,7 @@ TEST_F(CPUComputeBackendTest, OctantFourierShiftDoubleIsIdentity) {
     deconv.octantFourierShift(data);
     deconv.octantFourierShift(data);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_TRUE(approxEqualComplex(data[i], static_cast<real_t>(i), static_cast<real_t>(i * 2), 1e-3f));
     }
 }
@@ -668,15 +668,15 @@ TEST_F(CPUComputeBackendTest, GradientX) {
     RealData image = memMgr.allocateMemoryOnDeviceReal(shape);
     RealData gradX = memMgr.allocateMemoryOnDeviceReal(shape);
 
-    for (int z = 0; z < shape.depth; ++z)
-        for (int y = 0; y < shape.height; ++y)
-            for (int x = 0; x < shape.width; ++x)
+    for (size_t z = 0; z < shape.depth; ++z)
+        for (size_t y = 0; y < shape.height; ++y)
+            for (size_t x = 0; x < shape.width; ++x)
                 image[z * shape.height * shape.width + y * shape.width + x] = static_cast<real_t>(x);
 
     deconv.gradientX(image, gradX);
-    for (int z = 0; z < shape.depth; ++z)
-        for (int y = 0; y < shape.height; ++y)
-            for (int x = 0; x < shape.width - 1; ++x)
+    for (size_t z = 0; z < shape.depth; ++z)
+        for (size_t y = 0; y < shape.height; ++y)
+            for (size_t x = 0; x < shape.width - 1; ++x)
                 EXPECT_TRUE(approxEqual(gradX[z * shape.height * shape.width + y * shape.width + x], -1.0f, 1e-4f));
 }
 
@@ -690,7 +690,7 @@ TEST_F(CPUComputeBackendTest, ComplexGradients) {
     ComplexData gradY = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData gradZ = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         image[i][0] = static_cast<real_t>(i);
         image[i][1] = 0.0f;
     }
@@ -700,7 +700,7 @@ TEST_F(CPUComputeBackendTest, ComplexGradients) {
     deconv.gradientZ(image, gradZ);
 
     bool hasNonZero = false;
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         if (gradX[i][0] != 0.0f || gradY[i][0] != 0.0f || gradZ[i][0] != 0.0f) {
             hasNonZero = true;
             break;
@@ -718,7 +718,7 @@ TEST_F(CPUComputeBackendTest, TVNormalization) {
     RealData gy = memMgr.allocateMemoryOnDeviceReal(shape);
     RealData gz = memMgr.allocateMemoryOnDeviceReal(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         gx[i] = 1.0f;
         gy[i] = 1.0f;
         gz[i] = 1.0f;
@@ -726,7 +726,7 @@ TEST_F(CPUComputeBackendTest, TVNormalization) {
 
     deconv.normalizeTV(gx, gy, gz, 1e-6f);
     float expected = 1.0f / std::sqrt(3.0f);
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_TRUE(approxEqual(gx[i], expected, 1e-3f));
         EXPECT_TRUE(approxEqual(gy[i], expected, 1e-3f));
         EXPECT_TRUE(approxEqual(gz[i], expected, 1e-3f));
@@ -739,7 +739,7 @@ TEST_F(CPUComputeBackendTest, HasNANDoesNotThrow) {
     CuboidShape shape(4, 4, 4);
     ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    for (int i = 0; i < shape.getVolume(); ++i) {
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
         data[i][0] = static_cast<real_t>(i);
         data[i][1] = 0.0f;
     }
@@ -810,14 +810,14 @@ TEST_F(CPUConcurrencyTest, ConcurrentFFTSameBackend) {
             ComplexData output = memMgr.allocateMemoryOnDeviceComplexFull(shape);
             ComplexData roundtrip = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-            for (int i = 0; i < shape.getVolume(); ++i) {
+            for (size_t i = 0; i < shape.getVolume(); ++i) {
                 input[i][0] = static_cast<real_t>(threadId);
                 input[i][1] = 0.0f;
             }
             deconv.forwardFFT(input, output);
             deconv.backwardFFT(output, roundtrip);
 
-            for (int i = 0; i < shape.getVolume(); ++i) {
+            for (size_t i = 0; i < shape.getVolume(); ++i) {
                 if (!approxEqual(roundtrip[i][0], static_cast<real_t>(threadId), 1e-3f) ||
                     !approxEqual(roundtrip[i][1], 0.0f, 1e-3f)) {
                     errors++;
@@ -856,14 +856,14 @@ TEST_F(CPUConcurrencyTest, ConcurrentDifferentBackends) {
             ComplexData output = memMgr.allocateMemoryOnDeviceComplexFull(shape);
             ComplexData roundtrip = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-            for (int i = 0; i < shape.getVolume(); ++i) {
+            for (size_t i = 0; i < shape.getVolume(); ++i) {
                 input[i][0] = value;
                 input[i][1] = 0.0f;
             }
             deconv.forwardFFT(input, output);
             deconv.backwardFFT(output, roundtrip);
 
-            for (int i = 0; i < shape.getVolume(); ++i) {
+            for (size_t i = 0; i < shape.getVolume(); ++i) {
                 if (!approxEqual(roundtrip[i][0], value, 1e-3f) ||
                     !approxEqual(roundtrip[i][1], 0.0f, 1e-3f)) {
                     errors++;

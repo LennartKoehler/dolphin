@@ -93,7 +93,7 @@ void TiffWriter::createNewTile(const BoxCoordWithPadding& coord) const {
     ImageBuffer tile;
     BoxCoordWithPadding source{
         BoxCoord{
-            CuboidShape{0,0,coord.box.position.depth},
+            CuboidPosition{0,0,coord.box.position.depth},
             CuboidShape{imageShape.width, imageShape.height, coord.box.dimensions.depth}},
         coord.padding
     };
@@ -112,9 +112,9 @@ int TiffWriter::getStripIndex(const BoxCoordWithPadding& coord) const {
     BoxCoordWithPadding actualCoord = coord;
     actualCoord.padding.before = CuboidShape(0,0,0);
     actualCoord.padding.after = CuboidShape(0,0,0); // padding doesnt matter here
-    for (int i = 0; i < tileBuffer.size(); i++){
+    for (size_t i = 0; i < tileBuffer.size(); i++){
         if (coord.isWithin(tileBuffer.find(i).source)){
-            return i;
+            return static_cast<int>(i);
         }
     }
     return -1;
@@ -172,10 +172,10 @@ void TiffWriter::processReadyToWriteQueue() const {
             queuedTiles.push_back(tileIndex);
 
             const ImageBuffer& tile = tileBuffer.find(tileIndex);
-            int zPos = tile.source.box.position.depth;
+            int64_t zPos = tile.source.box.position.depth;
 
             // Check if this tile is the next one to write
-            if (zPos <= writtenToDepth && zPos < minZPosition) {
+            if (zPos <= static_cast<int64_t>(writtenToDepth) && zPos < minZPosition) {
                 minZPosition = zPos;
                 nextTileIndex = tileIndex;
             }
@@ -211,15 +211,15 @@ void TiffWriter::processReadyToWriteQueue() const {
 }
 
 bool TiffWriter::writeTile(const std::string& filename, const ImageBuffer& tile) const {
-    int y = tile.source.box.position.height;
-    int z = tile.source.box.position.depth;
-    int height = tile.source.box.dimensions.height;
-    int depth = tile.source.box.dimensions.depth;
-    return writeToFile_(filename, z, depth, tile.image);
+    int64_t y = tile.source.box.position.height;
+    int64_t z = tile.source.box.position.depth;
+    size_t height = tile.source.box.dimensions.height;
+    size_t depth = tile.source.box.dimensions.depth;
+    return writeToFile_(filename, static_cast<size_t>(z), depth, tile.image);
 
 }
 
-bool TiffWriter::writeToFile_(const std::string& filename, int z, int depth, const Image3D& layers) const {
+bool TiffWriter::writeToFile_(const std::string& filename, size_t z, size_t depth, const Image3D& layers) const {
     // try {
     if (!tif) {
         throw TiffWriteException("TIFF file handle is null");
@@ -251,7 +251,7 @@ bool TiffWriter::writeToFile_(const std::string& filename, int z, int depth, con
 }
 
 
-void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceIndex){
+void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image,  size_t sliceIndex){
     CuboidShape imageShape = image.getShape();
     if (sliceIndex >= imageShape.depth) {
         throw TiffWriteException("Slice index out of bounds: " + std::to_string(sliceIndex));
@@ -278,10 +278,10 @@ void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceInd
 
     // Write scanlines
     // size_t bytesPerPixel = bitsPerSample / 8 * samplesPerPixel;
-    for (uint32_t row = 0; row < imageShape.height; ++row) {
+    for (size_t row = 0; row < imageShape.height; ++row) {
         size_t srcOffset = row * imageShape.width ;
         memcpy(buf, &sliceData[srcOffset], scanlineSize);
-        if (TIFFWriteScanline(tif, buf, row, 0) == -1) {
+        if (TIFFWriteScanline(tif, buf, static_cast<uint32_t>(row), 0) == -1) {
             _TIFFfree(buf);
             throw TiffWriteException("Failed to write scanline " + std::to_string(row));
         }
@@ -294,8 +294,8 @@ void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceInd
 
 void TiffWriter::setTiffFields(TIFF* tif, const ImageMetaData& metaData){
     try {
-        TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, metaData.imageWidth);
-        TIFFSetField(tif, TIFFTAG_IMAGELENGTH, metaData.imageLength);
+        TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint32_t>(metaData.imageWidth));
+        TIFFSetField(tif, TIFFTAG_IMAGELENGTH, static_cast<uint32_t>(metaData.imageLength));
         TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, metaData.bitsPerSample);
         TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, metaData.samplesPerPixel);
         // TIFFSetField(tif, TIFFTAG_ORIENTATION, metaData.orientation);
@@ -402,7 +402,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image) 
 
 
         // Write each slice as a separate directory in the TIFF file
-        for (int zIndex = 0; zIndex < imageShape.depth; ++zIndex) {
+        for (size_t zIndex = 0; zIndex < imageShape.depth; ++zIndex) {
             writeSliceToTiff(tif, image, zIndex);
             // Set directory for next slice (except for the last one)
             if (zIndex < imageShape.depth - 1) {
@@ -446,7 +446,7 @@ int TiffWriter::getTargetItkType(const ImageMetaData& metadata) {
 
 }
 
-void TiffWriter::extractSliceData(const Image3D& image, int sliceIndex, std::vector<float>& sliceData) {
+void TiffWriter::extractSliceData(const Image3D& image, size_t sliceIndex, std::vector<float>& sliceData) {
     CuboidShape shape = image.getShape();
     if (sliceIndex >= shape.depth) {
         throw TiffWriteException("Slice index out of bounds: " + std::to_string(sliceIndex));
@@ -461,7 +461,7 @@ void TiffWriter::extractSliceData(const Image3D& image, int sliceIndex, std::vec
     ImageType::IndexType start;
     start[0] = 0;
     start[1] = 0;
-    start[2] = sliceIndex;
+    start[2] = static_cast<itk::IndexValueType>(sliceIndex);
 
     ImageType::SizeType size;
     size[0] = shape.width;
@@ -474,7 +474,7 @@ void TiffWriter::extractSliceData(const Image3D& image, int sliceIndex, std::vec
 
     itk::ImageRegionIterator<ImageType> it(itkImage, sliceRegion);
 
-    int pixelIndex = 0;
+    size_t pixelIndex = 0;
     for (it.GoToBegin(); !it.IsAtEnd(); ++it, ++pixelIndex) {
         sliceData[pixelIndex] = it.Get();
     }
@@ -483,7 +483,7 @@ void TiffWriter::extractSliceData(const Image3D& image, int sliceIndex, std::vec
 
 void TiffWriter::convertSliceDataToTargetType(const std::vector<float>& sourceData,
                                             std::vector<uint8_t>& targetData,
-                                            int width, int height,
+                                            size_t width, size_t height,
                                             const ImageMetaData& metadata) {
     size_t numPixels = width * height;
 

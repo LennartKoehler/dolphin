@@ -38,31 +38,31 @@ CuboidShape GaussianPSFGenerator::getPadding(PaddingStrategyType paddingType) co
         case(NONE):
             return CuboidShape{0,0,0};
         case(PARENT):
-            return CuboidShape{static_cast<int>(config->sigmaX * 4), static_cast<int>(config->sigmaY * 4), static_cast<int>(config->sigmaZ * 4)};
+            return CuboidShape{static_cast<size_t>(config->sigmaX * 4), static_cast<size_t>(config->sigmaY * 4), static_cast<size_t>(config->sigmaZ * 4)};
         case(FULL_PSF):
             return CuboidShape{config->sizeX, config->sizeY, config->sizeZ};
         case(MANUAL):
-            return CuboidShape{-1, -1, -1};
+            return CuboidShape{SIZE_MAX, SIZE_MAX, SIZE_MAX};
         default:
-            return CuboidShape{-1, -1, -1};
+            return CuboidShape{SIZE_MAX, SIZE_MAX, SIZE_MAX};
     }
 }
 
-ImageType::RegionType GaussianPSFGenerator::getNonNegligibleRegion(int width, int height, int layers,
+ImageType::RegionType GaussianPSFGenerator::getNonNegligibleRegion(size_t width, size_t height, size_t layers,
                                                       double centerX, double centerY, double centerZ) const {
     constexpr double cutoffFactor = 5.0;
 
-    int xMin = std::max(0, static_cast<int>(std::floor(centerX - cutoffFactor * config->sigmaX)));
-    int xMax = std::min(width - 1, static_cast<int>(std::ceil(centerX + cutoffFactor * config->sigmaX)));
-    int yMin = std::max(0, static_cast<int>(std::floor(centerY - cutoffFactor * config->sigmaY)));
-    int yMax = std::min(height - 1, static_cast<int>(std::ceil(centerY + cutoffFactor * config->sigmaY)));
-    int zMin = std::max(0, static_cast<int>(std::floor(centerZ - cutoffFactor * config->sigmaZ)));
-    int zMax = std::min(layers - 1, static_cast<int>(std::ceil(centerZ + cutoffFactor * config->sigmaZ)));
+    size_t xMin = static_cast<size_t>(std::max(0L, static_cast<long>(std::floor(centerX - cutoffFactor * config->sigmaX))));
+    size_t xMax = std::min(width - 1, static_cast<size_t>(std::max(0L, static_cast<long>(std::ceil(centerX + cutoffFactor * config->sigmaX)))));
+    size_t yMin = static_cast<size_t>(std::max(0L, static_cast<long>(std::floor(centerY - cutoffFactor * config->sigmaY))));
+    size_t yMax = std::min(height - 1, static_cast<size_t>(std::max(0L, static_cast<long>(std::ceil(centerY + cutoffFactor * config->sigmaY)))));
+    size_t zMin = static_cast<size_t>(std::max(0L, static_cast<long>(std::floor(centerZ - cutoffFactor * config->sigmaZ))));
+    size_t zMax = std::min(layers - 1, static_cast<size_t>(std::max(0L, static_cast<long>(std::ceil(centerZ + cutoffFactor * config->sigmaZ)))));
 
     ImageType::IndexType start;
-    start[0] = xMin;
-    start[1] = yMin;
-    start[2] = zMin;
+    start[0] = static_cast<itk::IndexValueType>(xMin);
+    start[1] = static_cast<itk::IndexValueType>(yMin);
+    start[2] = static_cast<itk::IndexValueType>(zMin);
 
     ImageType::SizeType size;
     size[0] = xMax - xMin + 1;
@@ -77,7 +77,7 @@ ImageType::RegionType GaussianPSFGenerator::getNonNegligibleRegion(int width, in
 }
 
 PSF GaussianPSFGenerator::generatePSF() const {
-    int width = config->sizeX, height = config->sizeY, layers = config->sizeZ;
+    size_t width = config->sizeX, height = config->sizeY, layers = config->sizeZ;
     double centerX = (width - 1) / 2.0;
     double centerY = (height - 1) / 2.0;
     double centerZ = (layers - 1) / 2.0;
@@ -113,20 +113,20 @@ PSF GaussianPSFGenerator::generatePSF() const {
 
     int64_t max = clippedRegion.GetNumberOfPixels();
     progressTracker.setMax(max);
-    int counter = 0;
+    size_t counter = 0;
     int64_t step = std::max<int64_t>(1, max / 20);
 
     for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
         counter ++;
 
         ImageType::IndexType index = it.GetIndex();
-        int x = index[0];
-        int y = index[1];
-        int z = index[2];
+        size_t x = static_cast<size_t>(index[0]);
+        size_t y = static_cast<size_t>(index[1]);
+        size_t z = static_cast<size_t>(index[2]);
 
-        double dx = (x - centerX) / config->sigmaX;
-        double dy = (y - centerY) / config->sigmaY;
-        double dz = (z - centerZ) / config->sigmaZ;
+        double dx = (static_cast<double>(x) - centerX) / config->sigmaX;
+        double dy = (static_cast<double>(y) - centerY) / config->sigmaY;
+        double dz = (static_cast<double>(z) - centerZ) / config->sigmaZ;
 
         // Calculate 3D Gaussian value
         float value = static_cast<float>(exp(-0.5 * (dx * dx + dy * dy + dz * dz)));

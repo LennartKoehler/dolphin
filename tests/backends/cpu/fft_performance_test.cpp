@@ -18,7 +18,7 @@ void fillComplexDataWithRandom(ComplexData& result) {
 
 
     // Fill with random data
-    for (int i = 0; i < result.getSize().getVolume(); ++i) {
+    for (size_t i = 0; i < result.getSize().getVolume(); ++i) {
         result.getData()[i][0] = real_dist(gen);  // Real part
         result.getData()[i][1] = imag_dist(gen);  // Imaginary part
     }

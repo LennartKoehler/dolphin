@@ -43,12 +43,12 @@ private:
     std::string outputFilename;
     TIFF* tif;
     CuboidShape imageShape;
-    mutable int writtenToDepth = 0;
+    mutable size_t writtenToDepth = 0;
     mutable std::queue<int> readyToWriteQueue; // Queue of tile indices ready to write
 
     // Helper methods
 
-    bool writeToFile_(const std::string& filename, int z, int depth, const Image3D& layers) const;
+    bool writeToFile_(const std::string& filename, size_t z, size_t depth, const Image3D& layers) const;
     void createNewTile(const BoxCoordWithPadding& coord) const;
     bool isTileFull(const ImageBuffer& strip) const;
     bool writeTile(const std::string& filename, const ImageBuffer& strip) const;
@@ -60,15 +60,15 @@ private:
 
     static ImageMetaData extractMetaData(const Image3D& image);
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
-    static void writeSliceToTiff(TIFF* tif, const Image3D& image,  int sliceIndex);
+    static void writeSliceToTiff(TIFF* tif, const Image3D& image,  size_t sliceIndex);
     static void setTiffFields(TIFF* tif, const ImageMetaData& metaData);
 
     // Helper functions for ITK-based operations
     static int getTargetItkType(const ImageMetaData& metadata);
-    static void extractSliceData(const Image3D& image, int sliceIndex, std::vector<float>& sliceData);
+    static void extractSliceData(const Image3D& image, size_t sliceIndex, std::vector<float>& sliceData);
     static void convertSliceDataToTargetType(const std::vector<float>& sourceData,
                                            std::vector<uint8_t>& targetData,
-                                           int width, int height,
+                                           size_t width, size_t height,
                                            const ImageMetaData& metadata);
 
 };

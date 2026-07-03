@@ -10,12 +10,12 @@ protected:
     Image3D img{CuboidShape(8, 8, 8), 0.0f};
 
     void SetUp() override {
-        for (int i = 0; i < 8 * 8 * 8; i++) {
+        for (size_t i = 0; i < 8 * 8 * 8; i++) {
             img[i] = static_cast<float>(i);
         }
     }
 
-    Padding makePadding(int w, int h, int d) {
+    Padding makePadding(size_t w, size_t h, size_t d) {
         Padding p;
         p.before = CuboidShape(w, h, d);
         p.after = CuboidShape(w, h, d);

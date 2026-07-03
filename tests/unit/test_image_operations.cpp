@@ -9,7 +9,7 @@ protected:
     Image3D img{CuboidShape(8, 8, 8), 0.0f};
 
     void SetUp() override {
-        for (int i = 0; i < 8 * 8 * 8; i++) {
+        for (size_t i = 0; i < 8 * 8 * 8; i++) {
             img[i] = static_cast<float>(i);
         }
     }
@@ -40,9 +40,9 @@ TEST_F(ImageOperationsTest, AddCubeToImage) {
 
 TEST_F(ImageOperationsTest, RemovePadding) {
     Image3D padded(CuboidShape(12, 12, 12), 0.0f);
-    for (int z = 2; z < 10; z++) {
-        for (int y = 2; y < 10; y++) {
-            for (int x = 2; x < 10; x++) {
+        for (size_t z = 2; z < 10; z++) {
+            for (size_t y = 2; y < 10; y++) {
+                for (size_t x = 2; x < 10; x++) {
                 padded.setPixel(x, y, z, 1.0f);
             }
         }

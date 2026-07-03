@@ -58,7 +58,7 @@ void Postprocessor::createWeightMasks(
 // unused anyway
 Image3D Postprocessor::addFeathering(
     std::vector<ImageMaskPair>& pairs,
-    int radius,
+    size_t radius,
     double epsilon
 ) {
     using PixelType = float;

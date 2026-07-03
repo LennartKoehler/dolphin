@@ -17,7 +17,7 @@ TEST(CuboidShapeTest, ParameterizedConstructor) {
 }
 
 TEST(CuboidShapeTest, ArrayConstructor) {
-    CuboidShape s(std::array<int, 3>{5, 10, 15});
+    CuboidShape s(std::array<size_t, 3>{5, 10, 15});
     EXPECT_EQ(s.width, 5);
     EXPECT_EQ(s.height, 10);
     EXPECT_EQ(s.depth, 15);
@@ -89,7 +89,7 @@ TEST(CuboidShapeTest, DivisionByInt) {
 
 TEST(CuboidShapeTest, MultiplicationByInt) {
     CuboidShape a(2, 3, 4);
-    CuboidShape c = a * 3;
+    CuboidShape c = a * size_t{3};
     EXPECT_EQ(c.width, 6);
     EXPECT_EQ(c.height, 9);
     EXPECT_EQ(c.depth, 12);

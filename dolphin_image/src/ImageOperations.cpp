@@ -34,9 +34,9 @@ void ImageOperations::insertCubeInImage(
     // Extract the region from the cube based on cubeBox
     ImageType::RegionType extractRegion;
     ImageType::IndexType extractStart;
-    extractStart[0] = cubeBox.position.width;
-    extractStart[1] = cubeBox.position.height;
-    extractStart[2] = cubeBox.position.depth;
+    extractStart[0] = static_cast<itk::IndexValueType>(cubeBox.position.width);
+    extractStart[1] = static_cast<itk::IndexValueType>(cubeBox.position.height);
+    extractStart[2] = static_cast<itk::IndexValueType>(cubeBox.position.depth);
 
     ImageType::SizeType extractSize;
     extractSize[0] = cubeBox.dimensions.width;
@@ -54,9 +54,9 @@ void ImageOperations::insertCubeInImage(
 
     // Set up the destination region in the target image
     ImageType::IndexType destIndex;
-    destIndex[0] = srcBox.position.width;
-    destIndex[1] = srcBox.position.height;
-    destIndex[2] = srcBox.position.depth;
+    destIndex[0] = static_cast<itk::IndexValueType>(srcBox.position.width);
+    destIndex[1] = static_cast<itk::IndexValueType>(srcBox.position.height);
+    destIndex[2] = static_cast<itk::IndexValueType>(srcBox.position.depth);
 
     // Use PasteImageFilter to paste the extracted region into the target image
     auto pasteFilter = PasteFilterType::New();
@@ -115,9 +115,9 @@ void ImageOperations::cropToOriginalSize(Image3D& image, const CuboidShape& orig
     CuboidShape currentSize = image.getShape();
 
     // Calculate how much to crop from each dimension
-    CuboidShape cropAmount(std::max(0, currentSize.width - originalSize.width),
-                             std::max(0, currentSize.height - originalSize.height),
-                             std::max(0, currentSize.depth - originalSize.depth));
+    CuboidShape cropAmount(currentSize.width > originalSize.width ? currentSize.width - originalSize.width : 0,
+                             currentSize.height > originalSize.height ? currentSize.height - originalSize.height : 0,
+                             currentSize.depth > originalSize.depth ? currentSize.depth - originalSize.depth : 0);
 
     // For symmetric cropping, distribute evenly between start and end
     CuboidShape cropStart(cropAmount.width / 2, cropAmount.height / 2, cropAmount.depth / 2);

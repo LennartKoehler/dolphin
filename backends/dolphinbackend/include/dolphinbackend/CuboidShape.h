@@ -13,37 +13,40 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
+#include <cstdint>
+#include <cstddef>
 #include <string>
 #include <array>
 #include <bit>
 #include <cassert>
 #include <vector>
+#include <algorithm>
 
 struct CuboidShape{
-    int width;
-    int height;
-    int depth;
+    size_t width;
+    size_t height;
+    size_t depth;
 
     CuboidShape() = default;
-    CuboidShape(int width, int height, int depth)
+    CuboidShape(size_t width, size_t height, size_t depth)
         : width(width),
         height(height),
         depth(depth){
         }
-    CuboidShape(const std::array<int, 3>& dimensions)
+    CuboidShape(const std::array<size_t, 3>& dimensions)
         : width(dimensions[0]),
         height(dimensions[1]),
         depth(dimensions[2]){}
 
-    std::array<int, 3> getArray() const {
-        return std::array<int, 3>{width, height, depth};
+    std::array<size_t, 3> getArray() const {
+        return std::array<size_t, 3>{width, height, depth};
     }
 
-    std::array<int*, 3> getReference() {
-        return std::array<int*, 3>{&width, &height, &depth};
+    std::array<size_t*, 3> getReference() {
+        return std::array<size_t*, 3>{&width, &height, &depth};
     }
 
-    int getVolume() const {
+    size_t getVolume() const {
         return width * height * depth;
     }
 
@@ -57,21 +60,8 @@ struct CuboidShape{
         height = height < maxSize.height ? height : maxSize.height;
         depth  = depth  < maxSize.depth  ? depth  : maxSize.depth;
     }
-    // std::array<int*, 3> getDimensionsAscending()
-    // {
-    //     // Create an array of pointers to members
-    //     std::array<int*, 3> dims = { &width, &height, &depth };
 
-    //     // Sort pointers based on the values they point to
-    //     std::sort(dims.begin(), dims.end(),
-    //         [](const int* a, const int* b) {
-    //             return *a < *b;  // ascending order
-    //         });
-
-    //     return dims;
-    // }
-
-    inline int getNumberSubcubes(CuboidShape other) const {
+    inline size_t getNumberSubcubes(CuboidShape other) const {
         other.setMin(CuboidShape{1, 1, 1});
         CuboidShape temp = this->ceilingDivide(other);
         return temp.getVolume();
@@ -132,16 +122,16 @@ struct CuboidShape{
         );
     }
 
-    inline CuboidShape operator/(const int value) const {
+    inline CuboidShape operator/(const size_t value) const {
         return CuboidShape(this->width/value, this->height/value, this->depth/value);
     }
-    inline CuboidShape operator*(const int value) const {
+    inline CuboidShape operator*(const size_t value) const {
         return CuboidShape(this->width*value, this->height*value, this->depth*value);
     }
     inline CuboidShape operator*(const double value) const {
-        return CuboidShape(this->width*value, this->height*value, this->depth*value);
+        return CuboidShape(static_cast<size_t>(this->width*value), static_cast<size_t>(this->height*value), static_cast<size_t>(this->depth*value));
     }
-    inline CuboidShape operator+(const int value) const {
+    inline CuboidShape operator+(const size_t value) const {
         return CuboidShape(this->width+value, this->height+value, this->depth+value);
     }
     inline bool operator>(const CuboidShape& other) const {
@@ -152,10 +142,10 @@ struct CuboidShape{
         if (this->width >= other.width && this->height >= other.height && this->depth >= other.depth) return true;
         else return false;
     }
-    inline bool operator<(int size){
+    inline bool operator<(size_t size) const {
         return (this->width < size || this->height < size || this->depth < size);
     }
-    inline bool operator>(int size){
+    inline bool operator>(size_t size) const {
         return (this->width > size || this->height > size || this->depth > size);
     }
     inline bool operator<(const CuboidShape& other) const {
@@ -164,11 +154,92 @@ struct CuboidShape{
 
 };
 
+struct CuboidPosition {
+    int64_t width;
+    int64_t height;
+    int64_t depth;
+
+    CuboidPosition() = default;
+    CuboidPosition(int64_t width, int64_t height, int64_t depth)
+        : width(width), height(height), depth(depth) {}
+    CuboidPosition(const CuboidShape& shape)
+        : width(static_cast<int64_t>(shape.width)),
+          height(static_cast<int64_t>(shape.height)),
+          depth(static_cast<int64_t>(shape.depth)) {}
+
+    CuboidPosition operator-(const CuboidPosition& other) const {
+        return CuboidPosition(width - other.width, height - other.height, depth - other.depth);
+    }
+    CuboidPosition operator-(const CuboidShape& other) const {
+        return CuboidPosition(width - static_cast<int64_t>(other.width),
+                              height - static_cast<int64_t>(other.height),
+                              depth - static_cast<int64_t>(other.depth));
+    }
+    CuboidPosition operator+(const CuboidShape& other) const {
+        return CuboidPosition(width + static_cast<int64_t>(other.width),
+                              height + static_cast<int64_t>(other.height),
+                              depth + static_cast<int64_t>(other.depth));
+    }
+    CuboidPosition operator+(const CuboidPosition& other) const {
+        return CuboidPosition(width + other.width, height + other.height, depth + other.depth);
+    }
+    CuboidPosition& operator-=(const CuboidShape& other) {
+        width -= static_cast<int64_t>(other.width);
+        height -= static_cast<int64_t>(other.height);
+        depth -= static_cast<int64_t>(other.depth);
+        return *this;
+    }
+    CuboidPosition& operator+=(const CuboidShape& other) {
+        width += static_cast<int64_t>(other.width);
+        height += static_cast<int64_t>(other.height);
+        depth += static_cast<int64_t>(other.depth);
+        return *this;
+    }
+    bool operator==(const CuboidPosition& other) const {
+        return width == other.width && height == other.height && depth == other.depth;
+    }
+    bool operator!=(const CuboidPosition& other) const {
+        return !(*this == other);
+    }
+    bool operator>=(const CuboidShape& other) const {
+        return width >= static_cast<int64_t>(other.width) &&
+               height >= static_cast<int64_t>(other.height) &&
+               depth >= static_cast<int64_t>(other.depth);
+    }
+    bool operator<(const CuboidShape& other) const {
+        return width < static_cast<int64_t>(other.width) ||
+               height < static_cast<int64_t>(other.height) ||
+               depth < static_cast<int64_t>(other.depth);
+    }
+    bool operator>(const CuboidShape& other) const {
+        return width > static_cast<int64_t>(other.width) ||
+               height > static_cast<int64_t>(other.height) ||
+               depth > static_cast<int64_t>(other.depth);
+    }
+    bool operator<=(const CuboidShape& other) const {
+        return width <= static_cast<int64_t>(other.width) &&
+               height <= static_cast<int64_t>(other.height) &&
+               depth <= static_cast<int64_t>(other.depth);
+    }
+
+    CuboidShape toShape() const {
+        return CuboidShape(static_cast<size_t>(width), static_cast<size_t>(height), static_cast<size_t>(depth));
+    }
+
+    std::string print() const {
+        return std::to_string(width) + " x " + std::to_string(height) + " x " + std::to_string(depth);
+    }
+};
+
+inline CuboidShape operator-(const CuboidShape& s, const CuboidPosition& p) {
+    return CuboidShape(static_cast<size_t>(static_cast<int64_t>(s.width) - p.width),
+                       static_cast<size_t>(static_cast<int64_t>(s.height) - p.height),
+                       static_cast<size_t>(static_cast<int64_t>(s.depth) - p.depth));
+}
+
 inline CuboidShape getLargestShape(const std::vector<CuboidShape>& psfSizes) {
     CuboidShape maxPsfShape{0, 0, 0};
-    // Find the largest PSF dimensions
     for (const auto& psf : psfSizes) {
-
         maxPsfShape.width = std::max(maxPsfShape.width, psf.width);
         maxPsfShape.height = std::max(maxPsfShape.height, psf.height);
         maxPsfShape.depth = std::max(maxPsfShape.depth, psf.depth);

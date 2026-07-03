@@ -163,9 +163,9 @@ Image3D Image3D::getSubimageCopy(const BoxCoord& coords) {
     assert(!image.IsNull() && "Empty image");
     // Set up the region to extract
     ImageType::IndexType start;
-    start[0] = coords.position.width;
-    start[1] = coords.position.height;
-    start[2] = coords.position.depth;
+    start[0] = static_cast<itk::IndexValueType>(coords.position.width);
+    start[1] = static_cast<itk::IndexValueType>(coords.position.height);
+    start[2] = static_cast<itk::IndexValueType>(coords.position.depth);
 
     ImageType::SizeType size;
     size[0] = coords.dimensions.width;
@@ -253,11 +253,11 @@ bool Image3D::Iterator::operator!=(const Iterator& other) const {
     return !(*this == other);
 }
 
-void Image3D::Iterator::getCoordinates(int& x, int& y, int& z) const {
+void Image3D::Iterator::getCoordinates(size_t& x, size_t& y, size_t& z) const {
     if (!itkIterator.IsAtEnd()) {
-        x = currentIndex[0];
-        y = currentIndex[1];
-        z = currentIndex[2];
+        x = static_cast<size_t>(currentIndex[0]);
+        y = static_cast<size_t>(currentIndex[1]);
+        z = static_cast<size_t>(currentIndex[2]);
     }
 }
 
@@ -299,17 +299,15 @@ float Image3D::Iterator::getNeighbor(int dx, int dy, int dz) const {
     return 0.0f; // or throw exception for out of bounds
 }
 
-bool Image3D::Iterator::isValidCoordinate(int x, int y, int z) const {
-    return x >= 0 && x < static_cast<int>(imageSize[0]) &&
-           y >= 0 && y < static_cast<int>(imageSize[1]) &&
-           z >= 0 && z < static_cast<int>(imageSize[2]);
+bool Image3D::Iterator::isValidCoordinate(size_t x, size_t y, size_t z) const {
+    return x < imageSize[0] && y < imageSize[1] && z < imageSize[2];
 }
 
 PixelData Image3D::Iterator::getPixelData() const {
     if (itkIterator.IsAtEnd()) {
-        return PixelData(0.0f, -1, -1, -1);
+        return PixelData(0.0f, SIZE_MAX, SIZE_MAX, SIZE_MAX);
     }
-    return PixelData(itkIterator.Get(), currentIndex[0], currentIndex[1], currentIndex[2]);
+    return PixelData(itkIterator.Get(), static_cast<size_t>(currentIndex[0]), static_cast<size_t>(currentIndex[1]), static_cast<size_t>(currentIndex[2]));
 }
 
 PixelData Image3D::Iterator::getNeighborData(int dx, int dy, int dz) const {
@@ -325,7 +323,7 @@ PixelData Image3D::Iterator::getNeighborData(int dx, int dy, int dz) const {
         float value = itkIterator.GetImage()->GetPixel(neighborIndex);
         return PixelData(value, neighborIndex[0], neighborIndex[1], neighborIndex[2]);
     }
-    return PixelData(0.0f, -1, -1, -1); // Invalid coordinates for out of bounds
+    return PixelData(0.0f, SIZE_MAX, SIZE_MAX, SIZE_MAX); // Invalid coordinates for out of bounds
 }
 
 // ConstIterator implementation
@@ -388,11 +386,11 @@ bool Image3D::ConstIterator::operator!=(const ConstIterator& other) const {
     return !(*this == other);
 }
 
-void Image3D::ConstIterator::getCoordinates(int& x, int& y, int& z) const {
+void Image3D::ConstIterator::getCoordinates(size_t& x, size_t& y, size_t& z) const {
     if (!itkIterator.IsAtEnd()) {
-        x = currentIndex[0];
-        y = currentIndex[1];
-        z = currentIndex[2];
+        x = static_cast<size_t>(currentIndex[0]);
+        y = static_cast<size_t>(currentIndex[1]);
+        z = static_cast<size_t>(currentIndex[2]);
     }
 }
 
@@ -429,17 +427,15 @@ float Image3D::ConstIterator::getNeighbor(int dx, int dy, int dz) const {
     return 0.0f;
 }
 
-bool Image3D::ConstIterator::isValidCoordinate(int x, int y, int z) const {
-    return x >= 0 && x < static_cast<int>(imageSize[0]) &&
-           y >= 0 && y < static_cast<int>(imageSize[1]) &&
-           z >= 0 && z < static_cast<int>(imageSize[2]);
+bool Image3D::ConstIterator::isValidCoordinate(size_t x, size_t y, size_t z) const {
+    return x < imageSize[0] && y < imageSize[1] && z < imageSize[2];
 }
 
 PixelData Image3D::ConstIterator::getPixelData() const {
     if (itkIterator.IsAtEnd()) {
-        return PixelData(0.0f, -1, -1, -1);
+        return PixelData(0.0f, SIZE_MAX, SIZE_MAX, SIZE_MAX);
     }
-    return PixelData(itkIterator.Get(), currentIndex[0], currentIndex[1], currentIndex[2]);
+    return PixelData(itkIterator.Get(), static_cast<size_t>(currentIndex[0]), static_cast<size_t>(currentIndex[1]), static_cast<size_t>(currentIndex[2]));
 }
 
 PixelData Image3D::ConstIterator::getNeighborData(int dx, int dy, int dz) const {
@@ -454,7 +450,7 @@ PixelData Image3D::ConstIterator::getNeighborData(int dx, int dy, int dz) const 
         float value = itkIterator.GetImage()->GetPixel(neighborIndex);
         return PixelData(value, neighborIndex[0], neighborIndex[1], neighborIndex[2]);
     }
-    return PixelData(0.0f, -1, -1, -1); // Invalid coordinates for out of bounds
+    return PixelData(0.0f, SIZE_MAX, SIZE_MAX, SIZE_MAX); // Invalid coordinates for out of bounds
 }
 
 
@@ -490,20 +486,20 @@ CuboidShape Image3D::getRegionLargerThreshold(float threshold) const{
     const auto size = region.GetSize();
     const auto startIndex = region.GetIndex();
 
-    int minX = static_cast<int>(size[0]);
-    int minY = static_cast<int>(size[1]);
-    int minZ = static_cast<int>(size[2]);
-    int maxX = -1;
-    int maxY = -1;
-    int maxZ = -1;
+    int64_t minX = static_cast<int64_t>(size[0]);
+    int64_t minY = static_cast<int64_t>(size[1]);
+    int64_t minZ = static_cast<int64_t>(size[2]);
+    int64_t maxX = -1;
+    int64_t maxY = -1;
+    int64_t maxZ = -1;
 
     itk::ImageRegionConstIterator<ImageType> it(image, region);
     for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
         if (it.Get() > threshold) {
             auto idx = it.GetIndex();
-            int x = idx[0] - startIndex[0];
-            int y = idx[1] - startIndex[1];
-            int z = idx[2] - startIndex[2];
+            int64_t x = static_cast<int64_t>(idx[0] - startIndex[0]);
+            int64_t y = static_cast<int64_t>(idx[1] - startIndex[1]);
+            int64_t z = static_cast<int64_t>(idx[2] - startIndex[2]);
             minX = std::min(minX, x);
             minY = std::min(minY, y);
             minZ = std::min(minZ, z);
@@ -513,41 +509,40 @@ CuboidShape Image3D::getRegionLargerThreshold(float threshold) const{
         }
     }
 
-    // No pixel above threshold found
     if (maxX < 0) return CuboidShape{0, 0, 0};
 
     return CuboidShape{
-        maxX - minX + 1,
-        maxY - minY + 1,
-        maxZ - minZ + 1
+        static_cast<size_t>(maxX - minX + 1),
+        static_cast<size_t>(maxY - minY + 1),
+        static_cast<size_t>(maxZ - minZ + 1)
     };
 }
 
-void Image3D::scale(int new_size_x, int new_size_y, int new_size_z) {
+void Image3D::scale(size_t new_size_x, size_t new_size_y, size_t new_size_z) {
 
 }
 
-float Image3D::getPixel(int x, int y, int z) const {
+float Image3D::getPixel(size_t x, size_t y, size_t z) const {
     if (image.IsNull()) return 0.0f;
 
-    ImageType::IndexType index = {x, y, z};
+    ImageType::IndexType index = {static_cast<itk::IndexValueType>(x), static_cast<itk::IndexValueType>(y), static_cast<itk::IndexValueType>(z)};
     return image->GetPixel(index);
 }
 
-void Image3D::setPixel(int x, int y, int z, float value) {
+void Image3D::setPixel(size_t x, size_t y, size_t z, float value) {
     if (image.IsNull()) return;
 
-    ImageType::IndexType index = {x, y, z};
+    ImageType::IndexType index = {static_cast<itk::IndexValueType>(x), static_cast<itk::IndexValueType>(y), static_cast<itk::IndexValueType>(z)};
     image->SetPixel(index, value);
 }
 
-float& Image3D::operator[](int offset){return image->GetBufferPointer()[offset];}
+float& Image3D::operator[](size_t offset){return image->GetBufferPointer()[offset];}
 
 CuboidShape Image3D::getShape() const {
     if (image.IsNull()) return CuboidShape{0, 0, 0};
 
     ImageType::SizeType size = image->GetLargestPossibleRegion().GetSize();
-    return CuboidShape{static_cast<int>(size[0]), static_cast<int>(size[1]), static_cast<int>(size[2])};
+    return CuboidShape{size[0], size[1], size[2]};
 }
 
 
@@ -578,7 +573,7 @@ void Image3D::executeOperations(std::vector<std::reference_wrapper<IConstImageOp
     }
 }
 
-void Image3D::setSlice(int sliceindex, const void* data) {
+void Image3D::setSlice(size_t sliceindex, const void* data) {
     using PixelType = ImageType::PixelType;
 
     // Compute number of pixels in a slice
@@ -594,7 +589,7 @@ void Image3D::setSlice(int sliceindex, const void* data) {
     ImageType::IndexType start;
     start[0] = 0;
     start[1] = 0;
-    start[2] = sliceindex;
+    start[2] = static_cast<itk::IndexValueType>(sliceindex);
 
     ImageType::SizeType size;
     size[0] = fullSize[0];
@@ -615,7 +610,7 @@ void Image3D::setSlice(int sliceindex, const void* data) {
     }
 }
 
-void Image3D::setRow(int colindex, int sliceindex, const float* data) {
+void Image3D::setRow(size_t colindex, size_t sliceindex, const float* data) {
     using PixelType = ImageType::PixelType;
 
     // Compute number of pixels in a slice
@@ -630,8 +625,8 @@ void Image3D::setRow(int colindex, int sliceindex, const float* data) {
     // Define the slice region
     ImageType::IndexType start;
     start[0] = 0;
-    start[1] = colindex;
-    start[2] = sliceindex;
+    start[1] = static_cast<itk::IndexValueType>(colindex);
+    start[2] = static_cast<itk::IndexValueType>(sliceindex);
 
     ImageType::SizeType size;
     size[0] = fullSize[0];

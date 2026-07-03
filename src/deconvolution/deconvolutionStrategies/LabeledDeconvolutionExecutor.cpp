@@ -141,11 +141,11 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     writer->setSubimage(result, task.paddedBox);
 }
 
-std::shared_ptr<PSF> LabeledDeconvolutionExecutor::createGaussianKernel(int featheringRadius){
+std::shared_ptr<PSF> LabeledDeconvolutionExecutor::createGaussianKernel(size_t featheringRadius){
     // TODO appropriately use featheringRadius
-    int sizeX = 20;
-    int sizeY = 20;
-    int sizeZ = 20;
+    size_t sizeX = 20;
+    size_t sizeY = 20;
+    size_t sizeZ = 20;
     float sigmaX = 5;
     float sigmaY = 5;
     float sigmaZ = 5;
@@ -172,7 +172,7 @@ std::vector<Label<RealData>> LabeledDeconvolutionExecutor::makeMasksWeighted(
 ) const {
     std::vector<Label<RealData>> newlabels;
     std::vector<RealData*> binaryMasks; // for later access
-    for (int i = 0; i < labels.size(); i++){
+    for (size_t i = 0; i < labels.size(); i++){
         Image3D& image = *labels[i].getMask();
         RealData mask = Preprocessor::convertImageToRealData(image);
         newlabels.emplace_back(Label<RealData>{std::move(mask), labels[i].getPSFs()});

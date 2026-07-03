@@ -20,9 +20,9 @@ protected:
         Logging::init();
 
         labelImage = Image3D(CuboidShape(16, 16, 4), 0.0f);
-        for (int z = 0; z < 4; z++) {
-            for (int y = 0; y < 16; y++) {
-                for (int x = 0; x < 16; x++) {
+        for (size_t z = 0; z < 4; z++) {
+            for (size_t y = 0; y < 16; y++) {
+                for (size_t x = 0; x < 16; x++) {
                     if (x < 8) {
                         labelImage.setPixel(x, y, z, 1.0f);
                     } else {

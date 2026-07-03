@@ -62,13 +62,13 @@ private:
 
 
     static ImageMetaData readMetadata_(const std::string& filename);
-    static void readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers, int channel);
-    static void readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, int y, int z, int height, int depth, int width, Image3D& layers, int channel);
+    static void readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& layers, int channel);
+    static void readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& layers, int channel);
     static size_t getMemoryForShape(const CuboidShape& shape, const ImageMetaData& metaData);
     static void convertImageTo32F(Image3D& layers, const ImageMetaData& metaData);
     static ImageMetaData extractMetadataFromTiff(TIFF*& tifFile);
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
-    static void convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, int width, const ImageMetaData& metaData, int channel);
+    static void convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, size_t width, const ImageMetaData& metaData, int channel);
 
     static int countTiffDirectories(TIFF* tif);
 };

@@ -6,7 +6,7 @@ class ImageComparisonTest : public ::testing::Test {
 protected:
     void SetUp() override {
         img1 = Image3D(CuboidShape(4, 4, 2), 0.0f);
-        for (int i = 0; i < 4 * 4 * 2; i++) {
+        for (size_t i = 0; i < 4 * 4 * 2; i++) {
             img1[i] = static_cast<float>(i + 1);
         }
         img2 = img1;

@@ -56,7 +56,7 @@ namespace Postprocessor{
 
     Image3D addFeathering(
         std::vector<ImageMaskPair>& pair,
-        int radius,
+        size_t radius,
         double epsilon
     );
     void performWeightedBlending(

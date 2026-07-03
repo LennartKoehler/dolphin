@@ -77,17 +77,17 @@ static void applyPaddingWeight(
     const CuboidShape& originalShape,
     std::function<float(float t)> weightFn)
 {
-    const int currentWidth = originalShape.width;
-    const int currentHeight = originalShape.height;
-    const int currentDepth = originalShape.depth;
+    const int64_t currentWidth = static_cast<int64_t>(originalShape.width);
+    const int64_t currentHeight = static_cast<int64_t>(originalShape.height);
+    const int64_t currentDepth = static_cast<int64_t>(originalShape.depth);
 
-    const int widthPaddingLeft = padding.before.width;
-    const int heightPaddingTop = padding.before.height;
-    const int depthPaddingBefore = padding.before.depth;
+    const int64_t widthPaddingLeft = static_cast<int64_t>(padding.before.width);
+    const int64_t heightPaddingTop = static_cast<int64_t>(padding.before.height);
+    const int64_t depthPaddingBefore = static_cast<int64_t>(padding.before.depth);
 
-    const int widthPaddingRight = padding.after.width;
-    const int heightPaddingBottom = padding.after.height;
-    const int depthPaddingAfter = padding.after.depth;
+    const int64_t widthPaddingRight = static_cast<int64_t>(padding.after.width);
+    const int64_t heightPaddingBottom = static_cast<int64_t>(padding.after.height);
+    const int64_t depthPaddingAfter = static_cast<int64_t>(padding.after.depth);
 
     using IteratorType = itk::ImageRegionIteratorWithIndex<ImageType>;
     IteratorType it(paddedImage, paddedImage->GetLargestPossibleRegion());
@@ -223,18 +223,18 @@ void ImagePadding::padImageMirror(Image3D& image, const Padding& padding){
 
     // Get current image dimensions using ITK
     CuboidShape currentShape = image.getShape();
-    int currentDepth = currentShape.depth;
-    int currentHeight = currentShape.height;
-    int currentWidth = currentShape.width;
+    size_t currentDepth = currentShape.depth;
+    size_t currentHeight = currentShape.height;
+    size_t currentWidth = currentShape.width;
 
     // Set up padding amounts
-    int depthPaddingBefore = padding.before.depth;
-    int heightPaddingTop = padding.before.height;
-    int widthPaddingLeft = padding.before.width;
+    size_t depthPaddingBefore = padding.before.depth;
+    size_t heightPaddingTop = padding.before.height;
+    size_t widthPaddingLeft = padding.before.width;
 
-    int depthPaddingAfter = padding.after.depth;
-    int heightPaddingBottom = padding.after.height;
-    int widthPaddingRight = padding.after.width;
+    size_t depthPaddingAfter = padding.after.depth;
+    size_t heightPaddingBottom = padding.after.height;
+    size_t widthPaddingRight = padding.after.width;
 
 
     // Reflective padding using ITK MirrorPadImageFilter
@@ -294,22 +294,22 @@ Padding ImagePadding::padToShape(Image3D& image, const CuboidShape& targetShape,
     if (currentShape == targetShape)
         return Padding{CuboidShape{0,0,0}, CuboidShape{0,0,0}};
 
-    int currentDepth = currentShape.depth;
-    int currentHeight = currentShape.height;
-    int currentWidth = currentShape.width;
+    size_t currentDepth = currentShape.depth;
+    size_t currentHeight = currentShape.height;
+    size_t currentWidth = currentShape.width;
 
     // Calculate total padding needed
-    int totalDepthPadding = targetShape.depth - currentDepth;
-    int totalHeightPadding = targetShape.height - currentHeight;
-    int totalWidthPadding = targetShape.width - currentWidth;
+    size_t totalDepthPadding = targetShape.depth > currentDepth ? targetShape.depth - currentDepth : 0;
+    size_t totalHeightPadding = targetShape.height > currentHeight ? targetShape.height - currentHeight : 0;
+    size_t totalWidthPadding = targetShape.width > currentWidth ? targetShape.width - currentWidth : 0;
 
-    int depthPaddingBefore = 0;
-    int heightPaddingTop = 0;
-    int widthPaddingLeft = 0;
+    size_t depthPaddingBefore = 0;
+    size_t heightPaddingTop = 0;
+    size_t widthPaddingLeft = 0;
 
-    int depthPaddingAfter = 0;
-    int heightPaddingBottom = 0;
-    int widthPaddingRight = 0;
+    size_t depthPaddingAfter = 0;
+    size_t heightPaddingBottom = 0;
+    size_t widthPaddingRight = 0;
 
     // Handle depth padding (3D)
     if (totalDepthPadding > 0) {
@@ -352,14 +352,14 @@ void ImagePadding::expandToMinSize(Image3D& image, const CuboidShape& minSize) {
         return;
     }
 
-    int currentDepth = currentShape.depth;
-    int currentHeight = currentShape.height;
-    int currentWidth = currentShape.width;
+    size_t currentDepth = currentShape.depth;
+    size_t currentHeight = currentShape.height;
+    size_t currentWidth = currentShape.width;
 
     // Calculate padding needed for each dimension
-    int depthPadding = std::max(0, minSize.depth - currentDepth);
-    int heightPadding = std::max(0, minSize.height - currentHeight);
-    int widthPadding = std::max(0, minSize.width - currentWidth);
+    size_t depthPadding = minSize.depth > currentDepth ? minSize.depth - currentDepth : 0;
+    size_t heightPadding = minSize.height > currentHeight ? minSize.height - currentHeight : 0;
+    size_t widthPadding = minSize.width > currentWidth ? minSize.width - currentWidth : 0;
 
     // If no padding needed, return
     if (depthPadding == 0 && heightPadding == 0 && widthPadding == 0) {

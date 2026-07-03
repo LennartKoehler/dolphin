@@ -148,9 +148,9 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
     complex_t* out = nullptr;
 
     int rank = 3;
-    int Nx = description.shape.width;
-    int Ny = description.shape.height;
-    int Nz = description.shape.depth;
+    int Nx = static_cast<int>(description.shape.width);
+    int Ny = static_cast<int>(description.shape.height);
+    int Nz = static_cast<int>(description.shape.depth);
 
     int n[3] = {Nz, Ny, Nx};
 
@@ -232,9 +232,9 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
     real_t* out = nullptr;
 
     int rank = 3;
-    int Nx = description.shape.width;
-    int Ny = description.shape.height;
-    int Nz = description.shape.depth;
+    int Nx = static_cast<int>(description.shape.width);
+    int Ny = static_cast<int>(description.shape.height);
+    int Nz = static_cast<int>(description.shape.depth);
 
     int n[3] = {Nz, Ny, Nx};
 
@@ -328,7 +328,7 @@ fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& descrip
         FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * description.shape.getVolume(), "initializePlan");
 
         // Create FFT plan
-        fftwf_plan plan = fftwf_plan_dft_3d(description.shape.depth, description.shape.height, description.shape.width,
+        fftwf_plan plan = fftwf_plan_dft_3d(static_cast<int>(description.shape.depth), static_cast<int>(description.shape.height), static_cast<int>(description.shape.width),
             temp, tempout, description.direction == PlanDirection::FORWARD ? FFTW_FORWARD : FFTW_BACKWARD, FFTW_MEASURE);
 
         FFTW_UNIFIED_CHECK(plan, "initializePlan - forward plan");

@@ -30,9 +30,9 @@ using ImageType = itk::Image<PixelType, Dimension>;
 // Structure to hold both value and coordinates
 struct PixelData {
     float value;
-    int x, y, z;
+    size_t x, y, z;
 
-    PixelData(float v, int x_coord, int y_coord, int z_coord)
+    PixelData(float v, size_t x_coord, size_t y_coord, size_t z_coord)
         : value(v), x(x_coord), y(y_coord), z(z_coord) {}
 
     // Allow implicit conversion to float for backward compatibility
@@ -94,13 +94,13 @@ public:
     CuboidShape getRegionLargerThreshold(float threshold) const;
     float getMax() const;
     void flip();
-    void scale(int new_size_x, int new_size_y, int new_size_z);
+    void scale(size_t new_size_x, size_t new_size_y, size_t new_size_z);
 
-    float& operator[](int offset);
-    float getPixel(int x, int y, int z) const;
-    void setPixel(int x, int y, int z, float value);
-    void setRow(int row, int slice, const float* data);
-    void setSlice(int sliceindex, const void* data);
+    float& operator[](size_t offset);
+    float getPixel(size_t x, size_t y, size_t z) const;
+    void setPixel(size_t x, size_t y, size_t z, float value);
+    void setRow(size_t row, size_t slice, const float* data);
+    void setSlice(size_t sliceindex, const void* data);
     void executeOperations(std::vector<std::reference_wrapper<IImageOperation>>& operations);
     void executeOperations(std::vector<std::reference_wrapper<IConstImageOperation>>& operations)const;
 
@@ -144,14 +144,14 @@ public:
         bool operator!=(const Iterator& other) const;
 
         // Quality of life methods
-        void getCoordinates(int& x, int& y, int& z) const;
+        void getCoordinates(size_t& x, size_t& y, size_t& z) const;
         ImageType::IndexType getIndex() const;
         size_t getLinearIndex() const;
         bool isAtEnd() const;
         float getValue() const;
         void setValue(float value);
         float getNeighbor(int dx, int dy, int dz) const;
-        bool isValidCoordinate(int x, int y, int z) const;
+        bool isValidCoordinate(size_t x, size_t y, size_t z) const;
 
         // New methods that return both coordinates and value
         PixelData getPixelData() const;
@@ -195,13 +195,13 @@ public:
         bool operator!=(const ConstIterator& other) const;
 
         // Quality of life methods (const versions)
-        void getCoordinates(int& x, int& y, int& z) const;
+        void getCoordinates(size_t& x, size_t& y, size_t& z) const;
         ImageType::IndexType getIndex() const;
         size_t getLinearIndex() const;
         bool isAtEnd() const;
         float getValue() const;
         float getNeighbor(int dx, int dy, int dz) const;
-        bool isValidCoordinate(int x, int y, int z) const;
+        bool isValidCoordinate(size_t x, size_t y, size_t z) const;
 
         // New methods that return both coordinates and value
         PixelData getPixelData() const;
@@ -251,7 +251,7 @@ struct PaddedImage{
 struct ImageBuffer{
     Image3D image;
     BoxCoordWithPadding source;
-    int interactedValue = 0; // TODO make this betterwidth of the imagebuffer which has been readFrom/writtenTo
+    size_t interactedValue = 0; // TODO make this betterwidth of the imagebuffer which has been readFrom/writtenTo
 };
 
 struct ImageMaskPair{
@@ -262,7 +262,7 @@ struct ImageMaskPair{
 template<typename T>
 struct CustomList{
     std::list<T> images; // since this class actually owns the data, perhaps keep track of if its still used or will be used in the future, each cube should be used only once
-    T& find(int index){
+    T& find(size_t index){
             if (index >= images.size()) {
                 throw std::out_of_range("Index out of range");
             }
@@ -272,7 +272,7 @@ struct CustomList{
             return *it;              // return reference to element
         }
 
-    void deleteIndex(int index){
+    void deleteIndex(size_t index){
         if (index >= images.size()) {
             throw std::out_of_range("Index out of range");
         }
