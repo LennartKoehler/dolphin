@@ -14,9 +14,9 @@ protected:
         static CPUBackendManager manager;
         static bool initialized = false;
         if (!initialized) {
-            manager.init([](const std::string& msg, LogLevel level) {
+            manager.init([](const std::string& context, const std::string& msg, LogLevel level) {
                 if (level >= LogLevel::ERROR) {
-                    std::cerr << "[CPU] " << msg << std::endl;
+                    std::cerr << "[" << context << "] " << msg << std::endl;
                 }
             });
             initialized = true;
@@ -29,8 +29,8 @@ TEST_F(IndependentFFTTest, TwoBackendsIndependentFFTRoundTrip) {
     BackendConfig config;
     config.nThreads = 1;
 
-    IBackend& backend1 = mgr->getBackend(config);
-    IBackend& backend2 = mgr->getBackend(config);
+    IBackend& backend1 = mgr->createBackendForCurrentThread(config);
+    IBackend& backend2 = mgr->createBackendForCurrentThread(config);
 
     IComputeBackend& compute1 = backend1.mutableComputeManager();
     IComputeBackend& compute2 = backend2.mutableComputeManager();

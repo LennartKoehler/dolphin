@@ -38,9 +38,12 @@ ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc)
                     task = std::move(tasks.front());
                     tasks.pop();
                 }
-                spdlog::get("default")->trace("Thread ({}) starting task", std::hash<std::thread::id>{}(std::this_thread::get_id()));
+
+                std::ostringstream ctx;
+                ctx << std::this_thread::get_id();
+                spdlog::get("default")->trace("tid:{} starting task", ctx.str());
                 task();
-                spdlog::get("default")->trace("Thread ({}) finished task", std::hash<std::thread::id>{}(std::this_thread::get_id()));
+                spdlog::get("default")->trace("tid:{} finished task", ctx.str());
                 queueSpace.notify_one();
 
             }

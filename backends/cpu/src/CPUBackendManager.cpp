@@ -111,25 +111,25 @@ void FFTWManager::init(){
 
 void FFTWManager::executeForwardFFT(const FFTWPlanDescription& description, fftwf_complex* in, fftwf_complex* out){
     auto* plan = findPlan(description);
-    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation");
+    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFT - plan creation", buildCpuContext());
     fftwf_execute_dft(*plan, in, out);
 }
 
 void FFTWManager::executeBackwardFFT(const FFTWPlanDescription& description, fftwf_complex* in, fftwf_complex* out){
     auto* plan = findPlan(description);
-    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "backwardFFT - plan creation");
+    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "backwardFFT - plan creation", buildCpuContext());
     fftwf_execute_dft(*plan, in, out);
 }
 
 void FFTWManager::executeForwardFFTReal(const FFTWPlanDescription& description, real_t* in, fftwf_complex* out){
     auto* plan = findPlan(description);
-    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFTReal - plan creation");
+    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "forwardFFTReal - plan creation", buildCpuContext());
     fftwf_execute_dft_r2c(*plan, in, out);
 }
 
 void FFTWManager::executeBackwardFFTReal(const FFTWPlanDescription& description, fftwf_complex* in, real_t* out){
     auto* plan = findPlan(description);
-    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "backwardFFTReal - plan creation");
+    BACKEND_CHECK(plan != nullptr, "Failed to create FFT plan for shape", "CPU", "backwardFFTReal - plan creation", buildCpuContext());
     fftwf_execute_dft_c2r(*plan, in, out);
 }
 
@@ -140,7 +140,7 @@ void FFTWManager::executeBackwardFFTReal(const FFTWPlanDescription& description,
 fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& description) {
     //has to be holding lock
 
-    BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanRealToComplex - logger");
+    BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanRealToComplex - logger", buildCpuContext());
 
     fftwf_plan_with_nthreads(description.ompThreads);
 
@@ -174,13 +174,13 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
 
     try {
         out = (complex_t*)fftwf_malloc(sizeof(complex_t) * Nz * Ny * (Nx/2+1));
-        FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(complex_t) * Nz * Ny * (Nx/2+1), "initializePlanRealToComplex");
+        FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(complex_t) * Nz * Ny * (Nx/2+1), "initializePlanRealToComplex", buildCpuContext());
 
         if (description.inPlace) {
             in = (real_t*)out;  // shared buffer: out provides the padded storage
         } else {
             in = (real_t*)fftwf_malloc(sizeof(real_t) * 2 * Nz * Ny * (Nx/2+1));
-            FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(real_t) * 2 * Nz * Ny * (Nx/2+1), "initializePlanRealToComplex");
+            FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(real_t) * 2 * Nz * Ny * (Nx/2+1), "initializePlanRealToComplex", buildCpuContext());
         }
 
         // Create FFT plan using advanced r2c interface
@@ -193,7 +193,7 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
             FFTW_MEASURE
         );
 
-        FFTW_UNIFIED_CHECK(plan, "initializePlanRealToComplex - r2c plan");
+        FFTW_UNIFIED_CHECK(plan, "initializePlanRealToComplex - r2c plan", buildCpuContext());
 
         std::string msg = fmt::format(
             "Successfully created FFTW r2c plan ({}) which uses {} threads for shape: {}x{}x{}",
@@ -224,7 +224,7 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
 fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& description) {
     //has to be holding lock
 
-    BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanComplexToReal - logger");
+    BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanComplexToReal - logger", buildCpuContext());
 
     fftwf_plan_with_nthreads(description.ompThreads);
 
@@ -258,13 +258,13 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
 
     try {
         in = (complex_t*)fftwf_malloc(sizeof(complex_t) * Nz * Ny * (Nx/2+1));
-        FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(complex_t) * Nz * Ny * (Nx/2+1), "initializePlanComplexToReal");
+        FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(complex_t) * Nz * Ny * (Nx/2+1), "initializePlanComplexToReal", buildCpuContext());
 
         if (description.inPlace) {
             out = (real_t*)in;  // shared buffer: in provides the padded storage
         } else {
             out = (real_t*)fftwf_malloc(sizeof(real_t) * 2 * Nz * Ny * (Nx/2+1));
-            FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(real_t) * 2 * Nz * Ny * (Nx/2+1), "initializePlanComplexToReal");
+            FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(real_t) * 2 * Nz * Ny * (Nx/2+1), "initializePlanComplexToReal", buildCpuContext());
         }
 
         // Create FFT plan using advanced c2r interface
@@ -277,7 +277,7 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
             FFTW_MEASURE
         );
 
-        FFTW_UNIFIED_CHECK(plan, "initializePlanComplexToReal - c2r plan");
+        FFTW_UNIFIED_CHECK(plan, "initializePlanComplexToReal - c2r plan", buildCpuContext());
 
         std::string msg = fmt::format(
             "Successfully created FFTW c2r plan ({}) which uses {} threads for shape: {}x{}x{}",
@@ -314,7 +314,7 @@ void FFTWManager::initializePlan(const FFTWPlanDescription& description) {
 fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& description) {
     // not threadsafe!
 
-    BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanComplex - logger");
+    BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanComplex - logger", buildCpuContext());
 
     fftwf_plan_with_nthreads(description.ompThreads);
 
@@ -325,13 +325,13 @@ fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& descrip
         if (description.inPlace) tempout = temp;
         else tempout = (complex_t*)fftwf_malloc(sizeof(complex_t) * description.shape.getVolume());
 
-        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * description.shape.getVolume(), "initializePlan");
+        FFTW_MALLOC_UNIFIED_CHECK(temp, sizeof(complex_t) * description.shape.getVolume(), "initializePlan", buildCpuContext());
 
         // Create FFT plan
         fftwf_plan plan = fftwf_plan_dft_3d(static_cast<int>(description.shape.depth), static_cast<int>(description.shape.height), static_cast<int>(description.shape.width),
             temp, tempout, description.direction == PlanDirection::FORWARD ? FFTW_FORWARD : FFTW_BACKWARD, FFTW_MEASURE);
 
-        FFTW_UNIFIED_CHECK(plan, "initializePlan - forward plan");
+        FFTW_UNIFIED_CHECK(plan, "initializePlan - forward plan", buildCpuContext());
 
         std::string msg = fmt::format(
             "Successfully created FFTW plan which uses {} threads for shape: {}x{}x{}",
@@ -394,7 +394,8 @@ const fftwf_plan* FFTWManager::findPlan(const FFTWPlanDescription& description) 
     throw dolphin::backend::BackendException(
         "FFTW plan not found after creation",
         "CPU",
-        "findPlan - plan not found after initializePlan"
+        "findPlan - plan not found after initializePlan",
+        buildCpuContext()
     );
 }
 

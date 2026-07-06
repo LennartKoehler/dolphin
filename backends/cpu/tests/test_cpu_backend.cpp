@@ -29,9 +29,9 @@ protected:
         static CPUBackendManager manager;
         static bool initialized = false;
         if (!initialized) {
-            manager.init([](const std::string& msg, LogLevel level) {
+            manager.init([](const std::string& context, const std::string& msg, LogLevel level) {
                 if (level > LogLevel::INFO){
-                    std::cerr << "[CPU] " << msg << std::endl;
+                    std::cerr << "[" << context << "] " << msg << std::endl;
                 }
             });
             initialized = true;
@@ -43,7 +43,7 @@ protected:
     IBackend* backend = nullptr;
 
     void SetUp() override {
-        backend = &getManager().getBackend(config);
+        backend = &getManager().createBackendForCurrentThread(config);
     }
 };
 

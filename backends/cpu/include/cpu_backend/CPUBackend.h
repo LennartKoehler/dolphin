@@ -37,30 +37,25 @@ struct CPUBackendConfig{
 };
 
 // Unified FFTW error check macro
-#define FFTW_UNIFIED_CHECK(fftw_result, operation) { \
+#define FFTW_UNIFIED_CHECK(fftw_result, operation, ...) { \
     if ((fftw_result) == nullptr) { \
         throw dolphin::backend::BackendException( \
             "FFTW operation failed", \
             "CPU", \
             operation \
+            __VA_OPT__(, ) __VA_ARGS__ \
         ); \
     } }
-    // if ((fftw_result) == nullptr) { \
-    //     throw dolphin::backend::BackendException( \
-    //         "FFTW operation failed", \
-    //         "CPU", \
-    //         operation \
-    //     ); \
-    // } \
 
 // Unified FFTW malloc error check macro
-#define FFTW_MALLOC_UNIFIED_CHECK(ptr, size, operation) { \
+#define FFTW_MALLOC_UNIFIED_CHECK(ptr, size, operation, ...) { \
     if ((ptr) == nullptr) { \
         throw dolphin::backend::MemoryException( \
             "FFTW memory allocation failed", \
             "CPU", \
             size, \
             operation \
+            __VA_OPT__(, ) __VA_ARGS__ \
         ); \
     } \
 }

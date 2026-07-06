@@ -13,6 +13,8 @@ See the LICENSE file provided with the code for the full license.
 
 #include "cuda_backend/CUDABackendManager.h"
 #include <iostream>
+#include <sstream>
+#include <thread>
 #include <stdexcept>
 #include "cuda_backend/CUDABackend.h"
 #include "dolphinbackend/Exceptions.h"
@@ -29,11 +31,12 @@ void CUDABackendManager::init(LogCallback fn) {
 
 
     cudaError_t err = cudaGetDeviceCount(&nDevices);
-    CUDA_CHECK(err, "cudaGetDeviceCount");
+    CUDA_CHECK(err, "cudaGetDeviceCount", buildCudaContext({CUDADevice{0, nullptr}, cudaStreamLegacy}));
 
     if (nDevices <= 0) {
         throw dolphin::backend::BackendException(
-            "No CUDA devices found", "CUDA", "CUDABackendManager constructor");
+            "No CUDA devices found", "CUDA", "CUDABackendManager constructor",
+            buildCudaContext({CUDADevice{0, nullptr}, cudaStreamLegacy}));
     }
 
     int device;
@@ -41,26 +44,32 @@ void CUDABackendManager::init(LogCallback fn) {
     for (device = 0; device < nDevices; ++device) {
         cudaDeviceProp deviceProp;
         err = cudaGetDeviceProperties(&deviceProp, device);
-        CUDA_CHECK(err, "cudaGetDeviceProperties");
+        CUDA_CHECK(err, "cudaGetDeviceProperties", buildCudaContext({CUDADevice{device, nullptr}, cudaStreamLegacy}));
 
 
 
         err = cudaSetDevice(device);
-        CUDA_CHECK(err, "cudaSetDevice");
+        CUDA_CHECK(err, "cudaSetDevice", buildCudaContext({CUDADevice{device, nullptr}, cudaStreamLegacy}));
 
         size_t freeMem, totalMem;
         err = cudaMemGetInfo(&freeMem, &totalMem);
-        CUDA_CHECK(err, "cudaMemGetInfo");
+        CUDA_CHECK(err, "cudaMemGetInfo", buildCudaContext({CUDADevice{device, nullptr}, cudaStreamLegacy}));
 
         if (totalMem == 0) {
             throw dolphin::backend::BackendException(
                 "Device " + std::to_string(device) + " reports zero memory",
-                "CUDA", "CUDABackendManager constructor");
+                "CUDA", "CUDABackendManager constructor",
+                buildCudaContext({CUDADevice{device, nullptr}, cudaStreamLegacy}));
         }
 
         devices.push_back(CUDADevice{device, new MemoryTracking(totalMem)});
 
-        g_logger_cuda(fmt::format("Device {} has compute capability {}.{} and {:.2f} GB memory", device, deviceProp.major, deviceProp.minor, (totalMem/1e9)), LogLevel::INFO);
+        std::ostringstream ctx;
+        ctx << "cuda:cuda" << device << ":tid:" << std::this_thread::get_id() << ":stream:n/a";
+        g_logger_cuda(
+            ctx.str(),
+            fmt::format("Device {} has compute capability {}.{} and {:.2f} GB memory", device, deviceProp.major, deviceProp.minor, (totalMem/1e9)),
+            LogLevel::INFO);
         // printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
         // device, deviceProp.major, deviceProp.minor, (totalMem/1e9));
 
@@ -68,7 +77,7 @@ void CUDABackendManager::init(LogCallback fn) {
 
     // Reset to device 0 for default operations
     err = cudaSetDevice(0);
-    CUDA_CHECK(err, "cudaSetDevice");
+    CUDA_CHECK(err, "cudaSetDevice", buildCudaContext({CUDADevice{0, nullptr}, cudaStreamLegacy}));
 
 
 }
@@ -153,19 +162,19 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
 
     if (nDevices == 0) {
         throw dolphin::backend::BackendException(
-            "No CUDA devices available", "CUDA", "createNewBackend");
+            "No CUDA devices available", "CUDA", "createNewBackend", buildCudaContext(config));
     }
 
     if (devices.empty()) {
         throw dolphin::backend::BackendException(
-            "No CUDA devices configured", "CUDA", "createNewBackend");
+            "No CUDA devices configured", "CUDA", "createNewBackend", buildCudaContext(config));
     }
 
     cudaError_t err = cudaSetDevice(config.device.id);
-    CUDA_CHECK(err, "createNewBackend - cudaSetDevice");
+    CUDA_CHECK(err, "createNewBackend - cudaSetDevice", buildCudaContext(config));
 
     err = cudaStreamCreateWithFlags(&config.stream, cudaStreamNonBlocking);
-    CUDA_CHECK(err, "createNewBackend - cudaStreamCreateWithFlags");
+    CUDA_CHECK(err, "createNewBackend - cudaStreamCreateWithFlags", buildCudaContext(config));
 
     try {
         auto compute = createComputeBackend(config);
@@ -173,13 +182,13 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
         std::unique_ptr<CUDABackend> backend = std::unique_ptr<CUDABackend>(new CUDABackend(config, std::move(compute), std::move(mem)));
         if (!backend) {
             throw dolphin::backend::BackendException(
-                "Failed to create CUDABackend", "CUDA", "createNewBackend");
+                "Failed to create CUDABackend", "CUDA", "createNewBackend", buildCudaContext(config));
         }
 
 
 
         // cudaDeviceSynchronize();
-        CUDA_CHECK(err, "createNewBackend - cudaSetDevice reset");
+        CUDA_CHECK(err, "createNewBackend - cudaSetDevice reset", buildCudaContext(config));
 
         backends.push_back(std::move(backend));
         return *backends.back();
@@ -212,7 +221,7 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
 cudaStream_t CUDABackendManager::createStream() const {
     cudaStream_t stream;
     cudaError_t err = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-    CUDA_CHECK(err, "createStream - cudaStreamCreateWithFlags");
+    CUDA_CHECK(err, "createStream - cudaStreamCreateWithFlags", buildCudaContext({CUDADevice{0, nullptr}, cudaStreamLegacy}));
     return stream;
 }
 
