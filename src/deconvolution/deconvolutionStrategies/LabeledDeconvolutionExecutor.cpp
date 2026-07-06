@@ -57,8 +57,8 @@ TODO still slow
 void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     std::shared_ptr<TaskContext> context = task.context;
-    thread_local IBackend& iobackend = context->manager.getBackend(context->ioconfig);
-    thread_local IBackend& workerbackend = context->manager.cloneSharedMemory(iobackend, context->workerconfig); // copied in deconvolutionprocessor
+    thread_local IBackend& iobackend = context->manager.createBackendForCurrentThread(context->ioconfig);
+    thread_local IBackend& workerbackend = context->manager.createBackendSharedMemoryForCurrentThread(iobackend, context->workerconfig); // copied in deconvolutionprocessor
 
 
     std::shared_ptr<ImageReader> reader = task.sharedDescriptor->reader;

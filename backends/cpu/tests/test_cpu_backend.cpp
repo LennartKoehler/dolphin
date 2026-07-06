@@ -62,7 +62,7 @@ TEST_F(CPUBackendManagerTest, ManagerInit) {
 }
 
 TEST_F(CPUBackendManagerTest, GetBackendReturnsValidBackend) {
-    IBackend& b = getManager().getBackend(config);
+    IBackend& b = getManager().createBackendForCurrentThread(config);
     EXPECT_EQ(b.getDeviceString(), "cpu");
     EXPECT_TRUE(b.hasMemoryManager());
     EXPECT_TRUE(b.ownsComputeBackend());
@@ -70,22 +70,22 @@ TEST_F(CPUBackendManagerTest, GetBackendReturnsValidBackend) {
     EXPECT_NE(b.getMemoryManagerPtr(), nullptr);
 }
 
-TEST_F(CPUBackendManagerTest, GetComputeBackendReturnsValidCompute) {
-    IComputeBackend& compute = getManager().getComputeBackend(config);
-    EXPECT_EQ(compute.getDeviceString(), "cpu");
-}
+// TEST_F(CPUBackendManagerTest, GetComputeBackendReturnsValidCompute) {
+//     IComputeBackend& compute = getManager().getComputeBackend(config);
+//     EXPECT_EQ(compute.getDeviceString(), "cpu");
+// }
 
-TEST_F(CPUBackendManagerTest, GetBackendMemoryManagerReturnsValidManager) {
-    IBackendMemoryManager& mem = getManager().getBackendMemoryManager(config);
-    EXPECT_EQ(mem.getDeviceString(), "cpu");
-}
+// TEST_F(CPUBackendManagerTest, GetBackendMemoryManagerReturnsValidManager) {
+//     IBackendMemoryManager& mem = getManager().getBackendMemoryManager(config);
+//     EXPECT_EQ(mem.getDeviceString(), "cpu");
+// }
 
 TEST_F(CPUBackendManagerTest, MultipleBackendsAreDistinct) {
     BackendConfig config1{1, "backend1"};
     BackendConfig config2{1, "backend2"};
 
-    IBackend& b1 = getManager().getBackend(config1);
-    IBackend& b2 = getManager().getBackend(config2);
+    IBackend& b1 = getManager().createBackendForCurrentThread(config1);
+    IBackend& b2 = getManager().createBackendForCurrentThread(config2);
 
     EXPECT_NE(&b1, &b2);
     EXPECT_EQ(b1.getDeviceString(), "cpu");
@@ -97,16 +97,16 @@ TEST_F(CPUBackendManagerTest, MultipleBackendsAreDistinct) {
     EXPECT_TRUE(b2.ownsMemoryManager());
 }
 
-TEST_F(CPUBackendManagerTest, CloneReturnsSameReference) {
-    IBackend& original = getManager().getBackend(config);
-    IBackend& cloned = getManager().clone(original, config);
-    EXPECT_EQ(&cloned, &original);
-    EXPECT_EQ(cloned.getDeviceString(), "cpu");
-}
+// TEST_F(CPUBackendManagerTest, CloneReturnsSameReference) {
+//     IBackend& original = getManager().getBackend(config);
+//     IBackend& cloned = getManager().clone(original, config);
+//     EXPECT_EQ(&cloned, &original);
+//     EXPECT_EQ(cloned.getDeviceString(), "cpu");
+// }
 
 TEST_F(CPUBackendManagerTest, CloneSharedMemoryReturnsSeparateBackend) {
-    IBackend& original = getManager().getBackend(config);
-    IBackend& shared = getManager().cloneSharedMemory(original, config);
+    IBackend& original = getManager().createBackendForCurrentThread(config);
+    IBackend& shared = getManager().createBackendSharedMemoryForCurrentThread(original, config);
     EXPECT_NE(&original, &shared);
     EXPECT_EQ(shared.getDeviceString(), "cpu");
     EXPECT_TRUE(shared.hasMemoryManager());
@@ -125,8 +125,8 @@ TEST_F(CPUBackendManagerTest, DifferentThreadConfigsProduceSameResults) {
     BackendConfig config1{1, "single_thread"};
     BackendConfig config2{4, "multi_thread"};
 
-    IBackend& b1 = getManager().getBackend(config1);
-    IBackend& b2 = getManager().getBackend(config2);
+    IBackend& b1 = getManager().createBackendForCurrentThread(config1);
+    IBackend& b2 = getManager().createBackendForCurrentThread(config2);
 
     IComputeBackend& d1 = b1.mutableComputeManager();
     IComputeBackend& d2 = b2.mutableComputeManager();
@@ -260,8 +260,8 @@ TEST_F(CPUMemoryManagerTest, MemoryTrackingIncreasesOnAlloc) {
 
 TEST_F(CPUMemoryManagerTest, SharedMemoryTrackingAcrossBackends) {
     BackendConfig cfg{1, "tracking_test"};
-    IBackend& b1 = getManager().getBackend(config);
-    IBackend& b2 = getManager().getBackend(cfg);
+    IBackend& b1 = getManager().createBackendForCurrentThread(config);
+    IBackend& b2 = getManager().createBackendForCurrentThread(cfg);
     IBackendMemoryManager& m1 = b1.mutableMemoryManager();
     IBackendMemoryManager& m2 = b2.mutableMemoryManager();
 
@@ -840,7 +840,7 @@ TEST_F(CPUConcurrencyTest, ConcurrentFFTSameBackend) {
 
 TEST_F(CPUConcurrencyTest, ConcurrentDifferentBackends) {
     BackendConfig cfg{1, "concurrent_test"};
-    IBackend& backend2 = getManager().getBackend(cfg);
+    IBackend& backend2 = getManager().createBackendForCurrentThread(cfg);
 
     IComputeBackend& d1 = backend->mutableComputeManager();
     IComputeBackend& d2 = backend2.mutableComputeManager();

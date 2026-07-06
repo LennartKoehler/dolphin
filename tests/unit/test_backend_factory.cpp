@@ -35,7 +35,8 @@ TEST_F(BackendFactoryTest, GetIBackend) {
 TEST_F(BackendFactoryTest, GetMemoryManager) {
     auto& factory = BackendFactory::getInstance();
     BackendConfig config{1, "cpu"};
-    auto& memMgr = factory.getBackend<IBackendMemoryManager>(config);
+    auto& backend = factory.getBackend<IBackend>(config);
+    auto& memMgr = backend.getMemoryManager();
     EXPECT_NO_THROW(memMgr.getAvailableMemory());
 }
 
@@ -48,7 +49,8 @@ TEST_F(BackendFactoryTest, GetDefaultBackendMemoryManager) {
 TEST_F(BackendFactoryTest, CPUMemoryAllocation) {
     auto& factory = BackendFactory::getInstance();
     BackendConfig config{1, "cpu"};
-    auto& memMgr = factory.getBackend<IBackendMemoryManager>(config);
+    auto& backend = factory.getBackend<IBackend>(config);
+    auto& memMgr = backend.getMemoryManager();
 
     CuboidShape shape{8, 8, 8};
     RealData data = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
@@ -61,7 +63,8 @@ TEST_F(BackendFactoryTest, CPUMemoryAllocation) {
 TEST_F(BackendFactoryTest, CPUComplexAllocation) {
     auto& factory = BackendFactory::getInstance();
     BackendConfig config{1, "cpu"};
-    auto& memMgr = factory.getBackend<IBackendMemoryManager>(config);
+    auto& backend = factory.getBackend<IBackend>(config);
+    auto& memMgr = backend.getMemoryManager();
 
     CuboidShape shape{4, 4, 4};
     ComplexData data = memMgr.allocateMemoryOnDeviceComplex(shape);
@@ -155,7 +158,8 @@ TEST_F(BackendFactoryTest, CPUBackendOwnership) {
 TEST_F(BackendFactoryTest, CPUMemoryTracking) {
     auto& factory = BackendFactory::getInstance();
     BackendConfig config{1, "cpu"};
-    auto& memMgr = factory.getBackend<IBackendMemoryManager>(config);
+    auto& backend = factory.getBackend<IBackend>(config);
+    auto& memMgr = backend.getMemoryManager();
 
     size_t before = memMgr.getAllocatedMemory();
     {
@@ -185,6 +189,6 @@ TEST_F(BackendFactoryTest, BackendManagerClone) {
     auto& manager = factory.getBackendManager("cpu");
     BackendConfig config{1, "cpu"};
     auto& backend = factory.getBackend<IBackend>(config);
-    auto& cloned = manager.cloneSharedMemory(backend, config);
+    auto& cloned = manager.createBackendSharedMemoryForCurrentThread(backend, config);
     EXPECT_EQ(cloned.getDeviceString(), "cpu");
 }
