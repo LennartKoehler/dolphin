@@ -164,15 +164,18 @@ void stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& func) {
 // is never destroyed, so captured state (including copied backendName) remains valid.
 
 LogCallback& getGlobalLogger() {
-    static LogCallback* cb = new LogCallback([](const std::string& message, LogLevel level){
-        std::cout << message << std::endl;
+    static LogCallback* cb = new LogCallback([](const std::string& context, const std::string& message, LogLevel level){
+        std::cout << context << ": " << message << std::endl;
     });
     return *cb;
 }
 
 void log(const std::string& message, LogLevel level) {
     auto& cb = getGlobalLogger();
-    if (cb) cb(message, level);
+    if (!cb) return;
+    std::ostringstream ctx;
+    ctx << "cpu:cpu:tid:" << std::this_thread::get_id();
+    cb(ctx.str(), message, level);
 }
 
 
@@ -223,7 +226,7 @@ void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
     auto access = memory.getAccess();
     if ((access.data.totalUsedMemory + requiredSize) > access.data.maxMemorySize) {
 
-        throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CPU", requiredSize, "Memory Allocation");
+        throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CPU", requiredSize, "Memory Allocation", buildCpuContext());
         // log(fmt::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::ERROR);
     }
     // backend.memory.memoryCondition.wait(lock, [this, requiredSize]() {
@@ -304,12 +307,12 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
     waitForMemory(requested_size);
 
     void* data = fftwf_malloc(requested_size);
-    MEMORY_ALLOC_CHECK(data, requested_size, "CPU", "allocateMemoryOnDevice");
+    MEMORY_ALLOC_CHECK(data, requested_size, "CPU", "allocateMemoryOnDevice", buildCpuContext());
 
     // Update memory tracking using getAccess()
     auto access = memory.getAccess();
     access.data.totalUsedMemory += requested_size;
-    log(fmt::format("Allocated {:.2f} MB on device", requested_size / 1e6), LogLevel::DEBUG);
+    log(fmt::format("Allocated {:.2f} MB", requested_size / 1e6), LogLevel::DEBUG);
     return data;
 
 }
@@ -318,7 +321,7 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 
  void* CPUBackendMemoryManager::copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
     log(fmt::format("copyDataToDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
-    BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data");
+    BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data", buildCpuContext());
     void* result = allocateMemoryOnDevice(size);
     std::memcpy(result, src, size);
     return result;
@@ -326,7 +329,7 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 
  void* CPUBackendMemoryManager::moveDataFromDevice(void* src, size_t size, const CuboidShape& shape, const IBackendMemoryManager& destBackend) const {
     log(fmt::format("moveDataFromDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
-    BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "moveDataFromDevice - source data");
+    BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "moveDataFromDevice - source data", buildCpuContext());
     if (&destBackend == this) {
         log(fmt::format("moveDataFromDevice: same backend, returning source pointer directly"), LogLevel::DEBUG);
         return src;
@@ -344,13 +347,13 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 
 void CPUBackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
     log(fmt::format("memCopy: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
-    BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "memCopy - source data");
-    BACKEND_CHECK(dest != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data");
+    BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "memCopy - source data", buildCpuContext());
+    BACKEND_CHECK(dest != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data", buildCpuContext());
     std::memcpy(dest, src, size);
 }
 
 void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
-    BACKEND_CHECK(ptr != nullptr, "Data pointer is null", "CPU", "freeMemoryOnDevice - data pointer");
+    BACKEND_CHECK(ptr != nullptr, "Data pointer is null", "CPU", "freeMemoryOnDevice - data pointer", buildCpuContext());
     fftwf_free(ptr);
 
     // Update memory tracking using getAccess()
@@ -363,7 +366,7 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
     }
 
     ptr = nullptr;
-    log(fmt::format("Deallocated {:.2f} MB on device", size / 1e6), LogLevel::DEBUG);
+    log(fmt::format("Deallocated {:.2f} MB", size / 1e6), LogLevel::DEBUG);
 }
 
 
@@ -429,8 +432,8 @@ void CPUComputeBackend::initializePlan(const FFTPlanDescription& description) {
 
 
 void CPUComputeBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
-    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
-    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
+    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data", buildCpuContext());
+    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data", buildCpuContext());
 
     bool inPlace = in.getData() == out.getData();
     FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::COMPLEX, in.getSize(), inPlace);
@@ -438,8 +441,8 @@ void CPUComputeBackend::forwardFFT(const ComplexData& in, ComplexData& out) cons
 }
 
 void CPUComputeBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
-    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
-    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
+    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data", buildCpuContext());
+    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data", buildCpuContext());
 
     bool inPlace = in.getData() == out.getData();
     FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize(), inPlace);
@@ -450,8 +453,8 @@ void CPUComputeBackend::backwardFFT(const ComplexData& in, ComplexData& out) con
 }
 
 void CPUComputeBackend::forwardFFT(const RealData& in, ComplexData& out) const {
-    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data");
-    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data");
+    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data", buildCpuContext());
+    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data", buildCpuContext());
 
     bool inPlace = in.getData() == (real_t*)out.getData();
     FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::REAL, in.getSize(), inPlace);
@@ -459,8 +462,8 @@ void CPUComputeBackend::forwardFFT(const RealData& in, ComplexData& out) const {
 }
 
 void CPUComputeBackend::backwardFFT(const ComplexData& in, RealData& out) const {
-    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data");
-    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data");
+    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data", buildCpuContext());
+    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data", buildCpuContext());
 
     bool inPlace = in.getData() == (complex_t*)out.getData();
     FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL ,out.getSize(), inPlace);
@@ -610,9 +613,9 @@ void CPUComputeBackend::inverseQuadrantShift(ComplexData& data) const {
 }
 
 void CPUComputeBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a");
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b");
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a", buildCpuContext());
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result", buildCpuContext());
 
     stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {
@@ -625,9 +628,9 @@ void CPUComputeBackend::complexMultiplication(const ComplexData& a, const Comple
 }
 
 void CPUComputeBackend::multiplication(const RealData& a, const RealData& b, RealData& result) const{
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "multiplication - input a");
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "multiplication - input b");
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "multiplication - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "multiplication - input a", buildCpuContext());
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "multiplication - input b", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "multiplication - result", buildCpuContext());
 
     stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x)
@@ -636,9 +639,9 @@ void CPUComputeBackend::multiplication(const RealData& a, const RealData& b, Rea
 }
 
 void CPUComputeBackend::division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "division - input a");
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "division - input b");
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "division - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "division - input a", buildCpuContext());
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "division - input b", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "division - result", buildCpuContext());
 
     stridedIteration(a, b, result, [epsilon](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {
@@ -650,9 +653,9 @@ void CPUComputeBackend::division(const RealData& a, const RealData& b, RealData&
 
 
 void CPUComputeBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a");
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b");
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivision - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a", buildCpuContext());
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivision - result", buildCpuContext());
 
     stridedIteration(a, b, result, [epsilon](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {
@@ -672,7 +675,7 @@ void CPUComputeBackend::complexDivision(const ComplexData& a, const ComplexData&
 
 
 void CPUComputeBackend::complexAddition(complex_t** data, ComplexData& sum, int nImages, size_t imageVolume) const {
-    BACKEND_CHECK(sum.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
+    BACKEND_CHECK(sum.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b", buildCpuContext());
 
     auto si = getStrideInfo(sum);
     complex_t* ptrSum = sum.getData();
@@ -695,9 +698,9 @@ void CPUComputeBackend::complexAddition(complex_t** data, ComplexData& sum, int 
 }
 
 void CPUComputeBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexAddition - input a");
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b");
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexAddition - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexAddition - input a", buildCpuContext());
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexAddition - result", buildCpuContext());
 
     stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {
@@ -708,8 +711,8 @@ void CPUComputeBackend::complexAddition(const ComplexData& a, const ComplexData&
 }
 
 void CPUComputeBackend::sum(const ComplexData& data, complex_t* result) const {
-    BACKEND_CHECK(data.getData() != nullptr, "Input data pointer is null", "CPU", "sum - input data");
-    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "sum - result");
+    BACKEND_CHECK(data.getData() != nullptr, "Input data pointer is null", "CPU", "sum - input data", buildCpuContext());
+    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "sum - result", buildCpuContext());
 
     result[0][0] = 0.0f;
     result[0][1] = 0.0f;
@@ -723,9 +726,9 @@ void CPUComputeBackend::sum(const ComplexData& data, complex_t* result) const {
 }
 
 void CPUComputeBackend::meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "meanSquareError - input a");
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "meanSquareError - input b");
-    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "meanSquareError - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "meanSquareError - input a", buildCpuContext());
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "meanSquareError - input b", buildCpuContext());
+    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "meanSquareError - result", buildCpuContext());
 
     real_t sumSq = 0.0f;
 
@@ -759,8 +762,8 @@ void CPUComputeBackend::sumToOne(real_t** data, int nImages, size_t imageVolume)
     }
 }
 void CPUComputeBackend::scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result", buildCpuContext());
 
     stridedIteration(a, result, [scalar](auto* rowA, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x)
@@ -769,8 +772,8 @@ void CPUComputeBackend::scalarMultiplication(const RealData& a, real_t scalar, R
 }
 
 void CPUComputeBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a");
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result", buildCpuContext());
 
     const real_t rscalar = scalar[0];
     const real_t iscalar = scalar[1];
@@ -785,9 +788,9 @@ void CPUComputeBackend::scalarMultiplication(const ComplexData& a, complex_t sca
 }
 
 void CPUComputeBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplicationWithConjugate - input a");
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplicationWithConjugate - input b");
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplicationWithConjugate - input a", buildCpuContext());
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplicationWithConjugate - input b", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result", buildCpuContext());
 
     stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {
@@ -800,9 +803,9 @@ void CPUComputeBackend::complexMultiplicationWithConjugate(const ComplexData& a,
 }
 
 void CPUComputeBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivisionStabilized - input a");
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivisionStabilized - input b");
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result");
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivisionStabilized - input a", buildCpuContext());
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivisionStabilized - input b", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result", buildCpuContext());
 
     stridedIteration(a, b, result, [epsilon](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {

@@ -136,9 +136,13 @@ std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
         IBackend& backend
     ) -> std::unique_ptr<ComplexData>
         {
+            auto logger = spdlog::get("deconvolution");
+            logger->debug("Preprocessing PSF...");
+
             Preprocessor::padToShape(*inputPSF, targetShape, PaddingFillType::ZERO);
             RealData h = Preprocessor::convertImageToRealData(*inputPSF);
             RealData h_device = backend.getMemoryManager().copyDataToDevice(h);
+
             std::unique_ptr<ComplexView> h_result_device = std::make_unique<ComplexView>(std::move(backend.getMemoryManager().reinterpret(h_device)));
             backend.getComputeManager().octantFourierShift(h_device); // align psf peak at 0,0,0
 

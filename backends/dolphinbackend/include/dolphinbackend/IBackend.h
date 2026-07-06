@@ -13,7 +13,7 @@ class IBackendManager;
 
 enum LogLevel { DEBUG = 0, INFO, WARN, ERROR };
 
-using LogCallback = std::function<void(const std::string& message, LogLevel level)>;
+using LogCallback = std::function<void(const std::string& context, const std::string& message, LogLevel level)>;
 
 struct BackendConfig{
 

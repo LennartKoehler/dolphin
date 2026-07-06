@@ -19,14 +19,15 @@ See the LICENSE file provided with the code for the full license.
 #include <cufft.h>
 #include <CUBE.h>
 #include <cuda_runtime.h>
+#include <sstream>
+#include <thread>
 
 
 class CUDABackendManager;
 
 
-
 // Unified CUDA error check macro
-#define CUDA_CHECK(err, operation) { \
+#define CUDA_CHECK(err, operation, ...) { \
     if (err == cudaErrorMemoryAllocation){ \
         throw dolphin::backend::MemoryException( \
             std::string("Temporary buffer allocation failed with CUDA error: ") \
@@ -34,6 +35,7 @@ class CUDABackendManager;
             "CUDA", \
             0, \
             operation \
+            __VA_OPT__(, ) __VA_ARGS__ \
         ); \
     } else if (err != cudaSuccess) { \
         throw dolphin::backend::BackendException( \
@@ -41,40 +43,44 @@ class CUDABackendManager;
             + cudaGetErrorString(err) + " (" + cudaGetErrorName(err) + ")", \
             "CUDA", \
             operation \
+            __VA_OPT__(, ) __VA_ARGS__ \
         ); \
     } \
 }
 
-#define CUDA_MEMORY_ALLOC_CHECK(err, size, operation) { \
+#define CUDA_MEMORY_ALLOC_CHECK(err, size, operation, ...) { \
     if (err != cudaSuccess){ \
         throw dolphin::backend::MemoryException( \
             "Memory allocation failed with " + std::string("CUDA error: ") + cudaGetErrorString(err), \
             "CUDA", \
             size, \
             operation \
+            __VA_OPT__(, ) __VA_ARGS__ \
         ); \
     } \
 }
 
 // Unified cuFFT error check macro
-#define CUFFT_CHECK(call, operation) { \
+#define CUFFT_CHECK(call, operation, ...) { \
     cufftResult res = call; \
     if (res != CUFFT_SUCCESS) { \
         throw dolphin::backend::BackendException( \
             std::string("cuFFT error in '") + operation + "': code " + std::to_string(res), \
             "CUDA", \
             operation \
+            __VA_OPT__(, ) __VA_ARGS__ \
         ); \
     } \
 }
 
-#define CUFFT_RUNTIME_CHECK(call, operation) { \
+#define CUFFT_RUNTIME_CHECK(call, operation, ...) { \
     cufftResult res = call; \
     if (res != CUFFT_SUCCESS) { \
         throw dolphin::backend::BackendException( \
             "cuFFT error code: " + std::to_string(res), \
             "CUDA", \
             operation \
+            __VA_OPT__(, ) __VA_ARGS__ \
         ); \
     } \
 }
@@ -93,6 +99,15 @@ struct CUDABackendConfig{
     CUDADevice device;
     cudaStream_t stream = cudaStreamLegacy;
 };
+
+
+inline std::string buildCudaContext(const CUDABackendConfig& config) {
+    std::ostringstream ctx;
+    ctx << "cuda:cuda" << config.device.id
+        << ":tid:" << std::this_thread::get_id()
+        << ":stream:0x" << std::hex << reinterpret_cast<uintptr_t>(config.stream);
+    return ctx.str();
+}
 
 
 class CUDABackendMemoryManager : public IBackendMemoryManager{
@@ -127,6 +142,8 @@ public:
     void freeMemoryOnDevice(void* ptr, size_t size) const override;
 
 private:
+
+    void logWithContext(const std::string& msg, LogLevel level) const;
 
     // CUDA stream for memory operations
     CUDABackendConfig config;
@@ -219,6 +236,8 @@ public:
 
 
 private:
+
+    void logWithContext(const std::string& msg, LogLevel level) const;
 
     cufftHandle initializePlan_(const FFTPlanDescription& description);
 

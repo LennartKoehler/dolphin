@@ -36,29 +36,26 @@ static std::shared_ptr<spdlog::logger> getBackendLogger() {
     return logger ? logger : spdlog::default_logger();
 }
 
-static std::function<std::function<void(const std::string&, LogLevel)>(const std::string&)> logWrapper = [](const std::string& backendName){
 
-    std::function<void(const std::string&, LogLevel)> logCallback_fn = [backendName](const std::string& backendMessage, LogLevel level){
+inline void logCallback_fn(const std::string& backendContext, const std::string& backendMessage, LogLevel level){
 
-        std::string msg = backendName + ": " + backendMessage;
-        switch(level){
-        case LogLevel::INFO:
-            getBackendLogger()->info(msg);
-            break;
-        case LogLevel::DEBUG:
-            getBackendLogger()->debug(msg);
-            break;
-        case LogLevel::WARN:
-            getBackendLogger()->warn(msg);
-            break;
-        case LogLevel::ERROR:
-            getBackendLogger()->error(msg);
-            break;
-        default:
-            break;
-        }
-    };
-    return logCallback_fn;
+    std::string msg = backendContext + ": " + backendMessage;
+    switch(level){
+    case LogLevel::INFO:
+        getBackendLogger()->info(msg);
+        break;
+    case LogLevel::DEBUG:
+        getBackendLogger()->debug(msg);
+        break;
+    case LogLevel::WARN:
+        getBackendLogger()->warn(msg);
+        break;
+    case LogLevel::ERROR:
+        getBackendLogger()->error(msg);
+        break;
+    default:
+        break;
+    }
 };
 
 //helper
@@ -82,8 +79,8 @@ struct BackendFactory {
     // Access the default backend memory manager (single shared instance) // does this work
     IBackendMemoryManager& getDefaultBackendMemoryManager(){
         BackendConfig config{1, DEFAULT_BACKEND};
-        static IBackendMemoryManager& mgr = getBackend<IBackendMemoryManager>(config);
-        return mgr;
+        static IBackend& backend = getBackend<IBackend>(config);
+        return backend.mutableMemoryManager();
     }
 
 
@@ -143,14 +140,15 @@ private:
 
         return create_symbol();
     }
+
     template <typename T>
     T& getBackend(IBackendManager& manager, const BackendConfig& config) {
         if constexpr (std::is_same_v<T, IBackend>) {
-            return manager.getBackend(config);
-        } else if constexpr (std::is_same_v<T, IBackendMemoryManager>) {
-            return manager.getBackendMemoryManager(config);
-        } else if constexpr (std::is_same_v<T, IComputeBackend>) {
-            return manager.getComputeBackend(config);
+            return manager.createBackendForCurrentThread(config);
+        // } else if constexpr (std::is_same_v<T, IBackendMemoryManager>) {
+        //     return manager.getBackendMemoryManager(config);
+        // } else if constexpr (std::is_same_v<T, IComputeBackend>) {
+        //     return manager.getComputeBackend(config);
         } else {
             static_assert(always_false<T>, "Unsupported interface type");
         }
@@ -181,7 +179,7 @@ private:
     }
 
     void addBackendManager(const std::string& backendName, std::unique_ptr<IBackendManager> manager){
-        manager->init(logWrapper(backendName));
+        manager->init(logCallback_fn);
         loadedManagers[backendName] = std::move(manager);
     }
 
