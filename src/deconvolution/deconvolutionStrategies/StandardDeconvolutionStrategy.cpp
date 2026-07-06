@@ -209,7 +209,7 @@ size_t StandardDeconvolutionStrategy::getMaxMemoryPerCube(
     std::shared_ptr<DeconvolutionAlgorithm> algorithm
 ){
     BackendConfig backendConfig; //TODO TESTVALUE
-    IBackendMemoryManager& backend = manager.getBackendMemoryManager(backendConfig);
+    const IBackendMemoryManager& backend = manager.createBackendForCurrentThread(backendConfig).getMemoryManager();
 
     size_t availableMemory = backend.getAvailableMemory();
 

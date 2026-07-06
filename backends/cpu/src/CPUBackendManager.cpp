@@ -8,6 +8,8 @@
 
 namespace fs = std::filesystem;
 
+using dolphin::backend::buildCpuContext;
+
 extern void log(const std::string& message, LogLevel level);
 
 extern LogCallback& getGlobalLogger();
@@ -20,19 +22,19 @@ void CPUBackendManager::init(LogCallback fn) {
     fftwManager = std::make_unique<FFTWManager>(std::move(wisdomManager));
 }
 
-IComputeBackend& CPUBackendManager::getComputeBackend(const BackendConfig& config) {
-    auto compute = createComputeBackend(configToConfig(config));
-    std::unique_lock<std::mutex> lock(mutex_);
-    computeBackends.push_back(std::move(compute));
-    return *computeBackends.back();
-}
+// IComputeBackend& CPUBackendManager::getComputeBackend(const BackendConfig& config) {
+//     auto compute = createComputeBackend(configToConfig(config));
+//     std::unique_lock<std::mutex> lock(mutex_);
+//     computeBackends.push_back(std::move(compute));
+//     return *computeBackends.back();
+// }
 
-IBackendMemoryManager& CPUBackendManager::getBackendMemoryManager(const BackendConfig& config) {
-    auto manager = createMemoryManager(configToConfig(config));
-    std::unique_lock<std::mutex> lock(mutex_);
-    memoryManagers.push_back(std::move(manager));
-    return *memoryManagers.back();
-}
+// IBackendMemoryManager& CPUBackendManager::getBackendMemoryManager(const BackendConfig& config) {
+//     auto manager = createMemoryManager(configToConfig(config));
+//     std::unique_lock<std::mutex> lock(mutex_);
+//     memoryManagers.push_back(std::move(manager));
+//     return *memoryManagers.back();
+// }
 
 std::unique_ptr<CPUComputeBackend> CPUBackendManager::createComputeBackend(CPUBackendConfig config) {
     return std::make_unique<CPUComputeBackend>(config, *fftwManager);
@@ -42,7 +44,7 @@ std::unique_ptr<CPUBackendMemoryManager> CPUBackendManager::createMemoryManager(
     return std::make_unique<CPUBackendMemoryManager>(config, memory);
 }
 
-IBackend& CPUBackendManager::getBackend(const BackendConfig& config) {
+IBackend& CPUBackendManager::createBackendForCurrentThread(const BackendConfig& config) {
     CPUBackendConfig cpuconfig = configToConfig(config);
     auto compute = createComputeBackend(cpuconfig);
     auto mem = createMemoryManager(cpuconfig);
@@ -58,11 +60,13 @@ CPUBackendConfig CPUBackendManager::configToConfig(const BackendConfig& config) 
     return cpuconfig;
 }
 
-IBackend& CPUBackendManager::clone(IBackend& backend, const BackendConfig& config){
-    return backend;
-}
-IBackend& CPUBackendManager::cloneSharedMemory(IBackend& backend, const BackendConfig& config){
-    return getBackend(config);
+// IBackend& CPUBackendManager::clone(IBackend& backend, const BackendConfig& config){
+//     return backend;
+// }
+
+// multiple cpu devices e.g. ccNUMA not supported
+IBackend& CPUBackendManager::createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config){
+    return createBackendForCurrentThread(config);
 }
 
 int CPUBackendManager::getNumberDevices() const {

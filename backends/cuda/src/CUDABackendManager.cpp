@@ -101,49 +101,53 @@ void CUDABackendManager::setThreadDistribution(const size_t& totalThreads, size_
 
 }
 
-IComputeBackend& CUDABackendManager::getComputeBackend(const BackendConfig& config) {
-    auto compute = createComputeBackend(configToConfig(config));
-    std::unique_lock<std::mutex> lock(mutex_);
-    computeBackends.push_back(std::move(compute));
-    return *computeBackends.back();
-}
+// IComputeBackend& CUDABackendManager::getComputeBackend(const BackendConfig& config) {
+//     auto compute = createComputeBackend(configToConfig(config));
+//     std::unique_lock<std::mutex> lock(mutex_);
+//     computeBackends.push_back(std::move(compute));
+//     return *computeBackends.back();
+// }
+//
+// IBackendMemoryManager& CUDABackendManager::getBackendMemoryManager(const BackendConfig& config) {
+//     auto manager = createMemoryManager(configToConfig(config));
+//     std::unique_lock<std::mutex> lock(mutex_);
+//     memoryManagers.push_back(std::move(manager));
+//     return *memoryManagers.back();
+// }
 
-IBackendMemoryManager& CUDABackendManager::getBackendMemoryManager(const BackendConfig& config) {
-    auto manager = createMemoryManager(configToConfig(config));
-    std::unique_lock<std::mutex> lock(mutex_);
-    memoryManagers.push_back(std::move(manager));
-    return *memoryManagers.back();
-}
-
-IBackend& CUDABackendManager::getBackend(const BackendConfig& config) {
+IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig& config) {
     CUDABackendConfig cudaconfig = configToConfig(config);
-    auto compute = createComputeBackend(cudaconfig);
-    auto mem = createMemoryManager(cudaconfig);
-    auto backend = std::unique_ptr<CUDABackend>(new CUDABackend(cudaconfig, std::move(compute), std::move(mem)));
-    std::unique_lock<std::mutex> lock(mutex_);
-    IBackend& ref = *backend;
-    backends.push_back(std::move(backend));
-    return ref;
+    // auto compute = createComputeBackend(cudaconfig);
+    // auto mem = createMemoryManager(cudaconfig);
+    // auto backend = std::unique_ptr<CUDABackend>(new CUDABackend(cudaconfig, std::move(compute), std::move(mem)));
+    // std::unique_lock<std::mutex> lock(mutex_);
+    // IBackend& ref = *backend;
+    // backends.push_back(std::move(backend));
+    CUDABackend& backend = createNewBackend(cudaconfig);
+    return backend;
 }
 
-CUDABackendConfig CUDABackendManager::configToConfig(const BackendConfig& config) const {
-    CUDADevice device = devices[0];
+CUDABackendConfig CUDABackendManager::configToConfig(const BackendConfig& config) {
+
+    CUDADevice device = devices[usedDeviceCounter];
+    usedDeviceCounter = ++usedDeviceCounter % nDevices; // keep looping
+
     CUDABackendConfig cudaconfig{device, createStream()};
     return cudaconfig;
 }
 
 
-IBackend& CUDABackendManager::clone(IBackend& backend, const BackendConfig& config){
+// IBackend& CUDABackendManager::clone(IBackend& backend, const BackendConfig& config){cudabacked
+//
+//     CUDADevice newdevice = devices[usedDeviceCounter];
+//     usedDeviceCounter = ++usedDeviceCounter % nDevices; // keep looping
+//
+//     CUDABackendConfig cudaconfig{newdevice, 0};
+//     return createNewBackend(cudaconfig);
+// }
 
-    CUDADevice newdevice = devices[usedDeviceCounter];
-    usedDeviceCounter = ++usedDeviceCounter % nDevices; // keep looping
 
-    CUDABackendConfig cudaconfig{newdevice, 0};
-    return createNewBackend(cudaconfig);
-}
-
-
-IBackend& CUDABackendManager::cloneSharedMemory(IBackend& backend, const BackendConfig& config){
+IBackend& CUDABackendManager::createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config){
     CUDABackend& backend_ = dynamic_cast<CUDABackend&>(backend);
     return createNewBackend(backend_.config);
 }
