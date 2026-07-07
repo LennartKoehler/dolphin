@@ -26,8 +26,9 @@ public:
     virtual bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const = 0;
 };
 
-class ImageReaderWriterPair{
+struct ImageReaderWriterPair{
 
+    virtual ~ImageReaderWriterPair() = default;
     virtual std::future<PaddedImage> getSubimage(const BoxCoordWithPadding& box) const = 0;
     virtual const ImageMetaData& getMetaData() const = 0;
     virtual bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const = 0;

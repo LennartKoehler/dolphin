@@ -126,7 +126,10 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::optional<ImageMetaData> metadata = reader->getMetaData();
         logger_->debug("Using image with the following metadata {}", metadata.value().print());
 
-        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path, metadata.value().getShape());
+        TiffWriterConfig writerConfig;
+        writerConfig.compressionScheme = TiffWriterConfig::parseCompression(setupConfig->outputCompression);
+        writerConfig.compressionLevel = setupConfig->outputCompressionLevel;
+        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path, metadata.value().getShape(), writerConfig);
 
 
         Result<DeconvolutionPlan> plan = strategyPair->getStrategy().createPlan(

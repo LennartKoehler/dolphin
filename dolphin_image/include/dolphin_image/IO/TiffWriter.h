@@ -24,29 +24,35 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/IO/TiffExceptions.h"
 
 
+struct TiffWriterConfig {
+    uint16_t compressionScheme = COMPRESSION_NONE;
+    int compressionLevel = -1;
+
+    static uint16_t parseCompression(const std::string& s);
+    static const char* compressionToString(uint16_t scheme);
+};
+
+
 class TiffWriter : public ImageWriter {
 public:
-    explicit TiffWriter(const std::string& filename, const CuboidShape& imageShape);
+    explicit TiffWriter(const std::string& filename, const CuboidShape& imageShape, TiffWriterConfig config = {});
 
     ~TiffWriter();
 
     bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const override;
 
-    // Static method for writing entire Image3D to file
-    static bool writeToFile(const std::string& filename, const Image3D& image);
+    static bool writeToFile(const std::string& filename, const Image3D& image, TiffWriterConfig config = {});
 
 
 private:
     mutable std::mutex writerMutex;
     mutable CustomList<ImageBuffer> tileBuffer;
-    // ImageMetaData metaData;
     std::string outputFilename;
     TIFF* tif;
     CuboidShape imageShape;
+    TiffWriterConfig config_;
     mutable size_t writtenToDepth = 0;
-    mutable std::queue<int> readyToWriteQueue; // Queue of tile indices ready to write
-
-    // Helper methods
+    mutable std::queue<int> readyToWriteQueue;
 
     bool writeToFile_(const std::string& filename, size_t z, size_t depth, const Image3D& layers) const;
     void createNewTile(const BoxCoordWithPadding& coord) const;
@@ -60,10 +66,9 @@ private:
 
     static ImageMetaData extractMetaData(const Image3D& image);
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
-    static void writeSliceToTiff(TIFF* tif, const Image3D& image,  size_t sliceIndex);
-    static void setTiffFields(TIFF* tif, const ImageMetaData& metaData);
+    void writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceIndex, const ImageMetaData& metaData) const;
+    void setTiffFields(TIFF* tif, const ImageMetaData& metaData) const;
 
-    // Helper functions for ITK-based operations
     static int getTargetItkType(const ImageMetaData& metadata);
     static void extractSliceData(const Image3D& image, size_t sliceIndex, std::vector<float>& sliceData);
     static void convertSliceDataToTargetType(const std::vector<float>& sourceData,
