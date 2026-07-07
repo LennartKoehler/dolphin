@@ -50,7 +50,6 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     std::shared_ptr<TaskContext> context = task.context;
     // thread_local IBackend& iodevice = context->iodevice.cloneSharedMemory();
     thread_local IBackend& iobackend = context->manager.createBackendForCurrentThread(context->ioconfig);
-    thread_local IBackend& workerbackend = context->manager.createBackendSharedMemoryForCurrentThread(iobackend, context->workerconfig); // copied in deconvolutionprocessor
 
     std::shared_ptr<ImageReader> reader = task.sharedDescriptor->reader;
     std::shared_ptr<ImageWriter> writer = task.sharedDescriptor->writer;
@@ -86,13 +85,14 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     spdlog::get("deconvolution")->info("[Task {}] Starting deconvolution with {} PSF(s)", task.taskId, task.sharedDescriptor->psfs.size());
     std::future<void> resultDone = context->processor.deconvolveSingleCube(
-        workerbackend,
+        context,
+        iobackend,
         task.sharedDescriptor->prototypeAlgorithm,
         workShape,
         task.sharedDescriptor->psfs,
         g_device,
         f_device,
-        *context->psfpreprocessor.get(),
+        // *context->psfpreprocessor.get(),
         tracker);
 
     resultDone.get(); //wait for result
@@ -124,7 +124,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
             runTask(taskDesc);
         }
         catch (const dolphin::backend::MemoryException& e){
-            throw std::runtime_error("Not enough free memory on the backend");
+            throw std::runtime_error("Not enough free memory on the backend" + e.getDetailedMessage());
             // // log the exception,  then enqueue the task in another thread, while this thread simply waits for the result
             // // This effectively removes this thread from the pool until the other thread is done. Then just reduce NumberThreads(1)
             // // will remove the first thread that finishes a task (probably this one as its basically )
