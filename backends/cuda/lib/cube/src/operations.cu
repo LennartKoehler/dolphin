@@ -10,11 +10,11 @@ const dim3 GLOBAL_THREADS_PER_BLOCK(4, 8, 8);
 const int GLOBAL_THREADS_PER_BLOCK_1D = 256;
 
 // Helper function to compute blocks per grid
-inline dim3 computeBlocksPerGrid(int Nx, int Ny, int Nz) {
+inline dim3 computeBlocksPerGrid(size_t Nx, size_t Ny, size_t Nz) {
     return dim3(
-        (Nx + GLOBAL_THREADS_PER_BLOCK.x - 1) / GLOBAL_THREADS_PER_BLOCK.x,
-        (Ny + GLOBAL_THREADS_PER_BLOCK.y - 1) / GLOBAL_THREADS_PER_BLOCK.y,
-        (Nz + GLOBAL_THREADS_PER_BLOCK.z - 1) / GLOBAL_THREADS_PER_BLOCK.z
+        static_cast<unsigned int>((Nx + GLOBAL_THREADS_PER_BLOCK.x - 1) / GLOBAL_THREADS_PER_BLOCK.x),
+        static_cast<unsigned int>((Ny + GLOBAL_THREADS_PER_BLOCK.y - 1) / GLOBAL_THREADS_PER_BLOCK.y),
+        static_cast<unsigned int>((Nz + GLOBAL_THREADS_PER_BLOCK.z - 1) / GLOBAL_THREADS_PER_BLOCK.z)
     );
 }
 
@@ -53,7 +53,7 @@ inline dim3 computeBlocksPerGrid(int Nx, int Ny, int Nz) {
 namespace CUBE_MAT {
 
 
-cudaError_t elementwiseMatDiv(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B, real_t* C, real_t epsilon, cudaStream_t stream) {
+cudaError_t elementwiseMatDiv(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t* C, real_t epsilon, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -64,7 +64,7 @@ cudaError_t elementwiseMatDiv(int Nx, int Ny, int Nz, int strideA, int strideB, 
         return cudaSuccess;
     }
 
-cudaError_t scalarMul(int Nx, int Ny, int Nz, int strideA, int strideC, real_t* A, real_t B, real_t* C, cudaStream_t stream) {
+cudaError_t scalarMul(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t B, real_t* C, cudaStream_t stream) {
         if (!A || !C) {
             return cudaErrorInvalidValue;
         }
@@ -75,7 +75,7 @@ cudaError_t scalarMul(int Nx, int Ny, int Nz, int strideA, int strideC, real_t* 
         return cudaSuccess;
     }
 
-cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B, real_t* C, cudaStream_t stream) {
+cudaError_t elementwiseMatMul(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t* C, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -86,7 +86,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
         return cudaSuccess;
     }
 
-    cudaError_t complexMatMul(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream) {
+    cudaError_t complexMatMul(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -116,7 +116,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
         return cudaSuccess;
     }
 
-    cudaError_t complexScalarMul(int Nx, int Ny, int Nz, complex_t* A, real_t scalarReal, real_t scalarImag, complex_t* C, cudaStream_t stream){
+    cudaError_t complexScalarMul(size_t Nx, size_t Ny, size_t Nz, complex_t* A, real_t scalarReal, real_t scalarImag, complex_t* C, cudaStream_t stream){
         if (!A || !C) {
             return cudaErrorInvalidValue;
         }
@@ -147,7 +147,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
 
 
 
-    cudaError_t sum(int Nx, int Ny, int Nz, complex_t* data, complex_t* result, cudaStream_t stream){
+    cudaError_t sum(size_t Nx, size_t Ny, size_t Nz, complex_t* data, complex_t* result, cudaStream_t stream){
         if (!data || !result) {
             return cudaErrorInvalidValue;
         }
@@ -159,7 +159,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
         return cudaSuccess;
     }
 
-    cudaError_t meanSquareError(int Nx, int Ny, int Nz, complex_t* a, complex_t* b, real_t* result, cudaStream_t stream){
+    cudaError_t meanSquareError(size_t Nx, size_t Ny, size_t Nz, complex_t* a, complex_t* b, real_t* result, cudaStream_t stream){
         if (!a || !b || !result) {
             return cudaErrorInvalidValue;
         }
@@ -171,7 +171,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
         return cudaSuccess;
     }
 
-    cudaError_t sumToOne(real_t** A, int nImages, int imageVolume, cudaStream_t stream){
+    cudaError_t sumToOne(real_t** A, size_t nImages, size_t imageVolume, cudaStream_t stream){
         if (!A ) {
             return cudaErrorInvalidValue;
         }
@@ -181,7 +181,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
 
         // Use global kernel configuration
 
-        int blocksPerGrid = GLOBAL_THREADS_PER_BLOCK_1D + GLOBAL_THREADS_PER_BLOCK_1D - 1 / (imageVolume * nImages);
+        size_t blocksPerGrid = (imageVolume + GLOBAL_THREADS_PER_BLOCK_1D - 1) / GLOBAL_THREADS_PER_BLOCK_1D;
         sumToOneGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK_1D, 0, stream>>>(A, nImages, imageVolume);
 
         cudaError_t err = cudaGetLastError();
@@ -201,7 +201,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
         return cudaSuccess;
     }
 
-    cudaError_t complexAddition(complex_t** A, complex_t* sums, int nImages, int imageVolume, cudaStream_t stream){
+    cudaError_t complexAddition(complex_t** A, complex_t* sums, size_t nImages, size_t imageVolume, cudaStream_t stream){
         if (!A ) {
             return cudaErrorInvalidValue;
         }
@@ -210,7 +210,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
         cudaEventCreate(&event);
 
         // Use global kernel configuration
-        int blocksPerGrid = GLOBAL_THREADS_PER_BLOCK_1D + GLOBAL_THREADS_PER_BLOCK_1D - 1 / (imageVolume * nImages);
+        size_t blocksPerGrid = (imageVolume + GLOBAL_THREADS_PER_BLOCK_1D - 1) / GLOBAL_THREADS_PER_BLOCK_1D;
 
         complexAdditionGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK_1D, 0, stream>>>(A, sums, nImages, imageVolume);
 
@@ -231,7 +231,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
         return cudaSuccess;
     }
 
-    cudaError_t complexAddition(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream){
+    cudaError_t complexAddition(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream){
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -263,7 +263,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
 
 
     // Elementwise Matrix Multiplication/Division (always GPU)
-    cudaError_t complexElementwiseMatMul(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream) {
+    cudaError_t complexElementwiseMatMul(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -293,7 +293,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
         return cudaSuccess;
     }
 
-    cudaError_t complexElementwiseMatMulConjugate(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream) {
+    cudaError_t complexElementwiseMatMulConjugate(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -323,7 +323,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
         return cudaSuccess;
     }
 
-    cudaError_t complexElementwiseMatDiv(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon, cudaStream_t stream) {
+    cudaError_t complexElementwiseMatDiv(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -353,7 +353,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
         return cudaSuccess;
     }
 
-    cudaError_t complexElementwiseMatDivStabilized(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon, cudaStream_t stream) {
+    cudaError_t complexElementwiseMatDivStabilized(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon, cudaStream_t stream) {
         if (!A || !B || !C) {
             return cudaErrorInvalidValue;
         }
@@ -386,7 +386,7 @@ cudaError_t elementwiseMatMul(int Nx, int Ny, int Nz, int strideA, int strideB, 
 
 namespace CUBE_REG {
     // Regularization
-    cudaError_t calculateLaplacian(int Nx, int Ny, int Nz, complex_t* psf, complex_t* laplacian_fft, cudaStream_t stream) {
+    cudaError_t calculateLaplacian(size_t Nx, size_t Ny, size_t Nz, complex_t* psf, complex_t* laplacian_fft, cudaStream_t stream) {
         if (!psf || !laplacian_fft) {
             return cudaErrorInvalidValue;
         }
@@ -416,7 +416,7 @@ namespace CUBE_REG {
         return cudaSuccess;
     }
 
-    cudaError_t gradX(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradX, cudaStream_t stream) {
+    cudaError_t gradX(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_t* gradX, cudaStream_t stream) {
         if (!image || !gradX) {
             return cudaErrorInvalidValue;
         }
@@ -446,7 +446,7 @@ namespace CUBE_REG {
         return cudaSuccess;
     }
 
-    cudaError_t gradY(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradY, cudaStream_t stream) {
+    cudaError_t gradY(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_t* gradY, cudaStream_t stream) {
         if (!image || !gradY) {
             return cudaErrorInvalidValue;
         }
@@ -476,7 +476,7 @@ namespace CUBE_REG {
         return cudaSuccess;
     }
 
-    cudaError_t gradZ(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradZ, cudaStream_t stream) {
+    cudaError_t gradZ(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_t* gradZ, cudaStream_t stream) {
         if (!image || !gradZ) {
             return cudaErrorInvalidValue;
         }
@@ -506,7 +506,7 @@ namespace CUBE_REG {
         return cudaSuccess;
     }
 
-cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, complex_t* div, complex_t* tv, cudaStream_t stream) {
+cudaError_t computeTV(size_t Nx, size_t Ny, size_t Nz, real_t lambda, complex_t* div, complex_t* tv, cudaStream_t stream) {
         if (!div || !tv) {
             return cudaErrorInvalidValue;
         }
@@ -536,7 +536,7 @@ cudaError_t computeTV(int Nx, int Ny, int Nz, real_t lambda, complex_t* div, com
         return cudaSuccess;
     }
 
-cudaError_t normalizeTV(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon, cudaStream_t stream) {
+cudaError_t normalizeTV(size_t Nx, size_t Ny, size_t Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon, cudaStream_t stream) {
         if (!gradX || !gradY || !gradZ) {
             return cudaErrorInvalidValue;
         }
@@ -567,7 +567,7 @@ cudaError_t normalizeTV(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gra
     }
 
     // Gradient functions for real-valued data
-cudaError_t gradX(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradX, cudaStream_t stream) {
+cudaError_t gradX(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradX, cudaStream_t stream) {
         if (!image || !gradX) {
             return cudaErrorInvalidValue;
         }
@@ -596,7 +596,7 @@ cudaError_t gradX(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* i
         return cudaSuccess;
     }
 
-cudaError_t gradY(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradY, cudaStream_t stream) {
+cudaError_t gradY(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradY, cudaStream_t stream) {
         if (!image || !gradY) {
             return cudaErrorInvalidValue;
         }
@@ -625,7 +625,7 @@ cudaError_t gradY(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* i
         return cudaSuccess;
     }
 
-cudaError_t gradZ(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradZ, cudaStream_t stream) {
+cudaError_t gradZ(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradZ, cudaStream_t stream) {
         if (!image || !gradZ) {
             return cudaErrorInvalidValue;
         }
@@ -655,7 +655,7 @@ cudaError_t gradZ(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* i
     }
 
 // Combined gradient (computes all three gradients in a single pass)
-cudaError_t grad(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradX, real_t* gradY, real_t* gradZ, cudaStream_t stream) {
+cudaError_t grad(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradX, real_t* gradY, real_t* gradZ, cudaStream_t stream) {
         if (!image || !gradX || !gradY || !gradZ) {
             return cudaErrorInvalidValue;
         }
@@ -668,7 +668,7 @@ cudaError_t grad(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* im
     }
 
 // Divergence (backward differences — adjoint of forward gradient)
-cudaError_t divergence(int Nx, int Ny, int Nz, int strideGx, int strideGy, int strideGz, int strideOut, real_t* gx, real_t* gy, real_t* gz, real_t* result, cudaStream_t stream) {
+cudaError_t divergence(size_t Nx, size_t Ny, size_t Nz, size_t strideGx, size_t strideGy, size_t strideGz, size_t strideOut, real_t* gx, real_t* gy, real_t* gz, real_t* result, cudaStream_t stream) {
         if (!gx || !gy || !gz || !result) {
             return cudaErrorInvalidValue;
         }
@@ -697,7 +697,7 @@ cudaError_t divergence(int Nx, int Ny, int Nz, int strideGx, int strideGy, int s
         return cudaSuccess;
     }
 
-cudaError_t divergence(int Nx, int Ny, int Nz, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* result, cudaStream_t stream) {
+cudaError_t divergence(size_t Nx, size_t Ny, size_t Nz, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* result, cudaStream_t stream) {
         if (!gx || !gy || !gz || !result) {
             return cudaErrorInvalidValue;
         }
@@ -726,7 +726,7 @@ cudaError_t divergence(int Nx, int Ny, int Nz, complex_t* gx, complex_t* gy, com
         return cudaSuccess;
     }
 
-cudaError_t computeTV(int Nx, int Ny, int Nz, int strideDiv, int strideTv, real_t lambda, real_t* div, real_t* tv, cudaStream_t stream) {
+cudaError_t computeTV(size_t Nx, size_t Ny, size_t Nz, size_t strideDiv, size_t strideTv, real_t lambda, real_t* div, real_t* tv, cudaStream_t stream) {
         if (!div || !tv) {
             return cudaErrorInvalidValue;
         }
@@ -755,7 +755,7 @@ cudaError_t computeTV(int Nx, int Ny, int Nz, int strideDiv, int strideTv, real_
         return cudaSuccess;
     }
 
-cudaError_t normalizeTV(int Nx, int Ny, int Nz, int strideGradX, int strideGradY, int strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t beta, cudaStream_t stream) {
+cudaError_t normalizeTV(size_t Nx, size_t Ny, size_t Nz, size_t strideGradX, size_t strideGradY, size_t strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t beta, cudaStream_t stream) {
         if (!gradX || !gradY || !gradZ) {
             return cudaErrorInvalidValue;
         }
@@ -787,7 +787,7 @@ cudaError_t normalizeTV(int Nx, int Ny, int Nz, int strideGradX, int strideGradY
 
 namespace CUBE_TILED {
     // Tiled Memory in GPU
-    cudaError_t calculateLaplacianTiled(int Nx, int Ny, int Nz, complex_t* Afft, complex_t* laplacianfft) {
+    cudaError_t calculateLaplacianTiled(size_t Nx, size_t Ny, size_t Nz, complex_t* Afft, complex_t* laplacianfft) {
         if (!Afft || !laplacianfft) {
             return cudaErrorInvalidValue;
         }
@@ -821,7 +821,7 @@ namespace CUBE_TILED {
 namespace CUBE_FTT {
 
 
-    cudaError_t octantFourierShift(int Nx, int Ny, int Nz, int stride, real_t* data, cudaStream_t stream) {
+    cudaError_t octantFourierShift(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* data, cudaStream_t stream) {
         if (!data) {
             return cudaErrorInvalidValue;
         }
@@ -853,7 +853,7 @@ namespace CUBE_FTT {
         return cudaSuccess;
     }
 
-    cudaError_t octantFourierShift(int Nx, int Ny, int Nz, complex_t* data, cudaStream_t stream) {
+    cudaError_t octantFourierShift(size_t Nx, size_t Ny, size_t Nz, complex_t* data, cudaStream_t stream) {
         if (!data) {
             return cudaErrorInvalidValue;
         }
@@ -885,7 +885,7 @@ namespace CUBE_FTT {
         return cudaSuccess;
     }
 
-    // cudaError_t padMat(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, complex_t* oldMat, complex_t* newMat)
+    // cudaError_t padMat(size_t oldNx, size_t oldNy, size_t oldNz, size_t newNx, size_t newNy, size_t newNz, complex_t* oldMat, complex_t* newMat)
     // {
     //     if (!oldMat || !newMat) {
     //         return cudaErrorInvalidValue;
@@ -898,25 +898,25 @@ namespace CUBE_FTT {
     //     }
     //
     //     // Offset für Padding (Startkoordinaten der alten Matrix in der neuen Matrix)
-    //     int offsetX = (newNx - oldNx) / 2;
-    //     int offsetY = (newNy - oldNy) / 2;
-    //     int offsetZ = (newNz - oldNz) / 2;
+    //     size_t offsetX = (newNx - oldNx) / 2;
+    //     size_t offsetY = (newNy - oldNy) / 2;
+    //     size_t offsetZ = (newNz - oldNz) / 2;
     //
     //     // Initialisiere die neue Matrix mit Nullen
-    //     for (int i = 0; i < newNx * newNy * newNz; ++i) {
+    //     for (size_t i = 0; i < newNx * newNy * newNz; ++i) {
     //         newMat[i][0] = 0.0; // Realteil
     //         newMat[i][1] = 0.0; // Imaginärteil
     //     }
     //
     //     // Kopiere die Werte der alten Matrix in die Mitte der neuen Matrix
-    //     for (int z = 0; z < oldNz; ++z) {
-    //         for (int y = 0; y < oldNy; ++y) {
-    //             for (int x = 0; x < oldNx; ++x) {
+    //     for (size_t z = 0; z < oldNz; ++z) {
+    //         for (size_t y = 0; y < oldNy; ++y) {
+    //             for (size_t x = 0; x < oldNx; ++x) {
     //                 // Index in der alten Matrix
-    //                 int oldIndex = z * oldNy * oldNx + y * oldNx + x;
+    //                 size_t oldIndex = z * oldNy * oldNx + y * oldNx + x;
     //
     //                 // Index in der neuen Matrix
-    //                 int newIndex =
+    //                 size_t newIndex =
     //                     (z + offsetZ) * newNy * newNx +
     //                     (y + offsetY) * newNx +
     //                     (x + offsetX);
@@ -936,7 +936,7 @@ namespace CUBE_FTT {
     //     return cudaSuccess;
     // }
 
-    cudaError_t normalizeData(int Nx, int Ny, int Nz, complex_t* d_data, cudaStream_t stream) {
+    cudaError_t normalizeData(size_t Nx, size_t Ny, size_t Nz, complex_t* d_data, cudaStream_t stream) {
         if (!d_data) {
             return cudaErrorInvalidValue;
         }
@@ -944,9 +944,9 @@ namespace CUBE_FTT {
         cudaEvent_t event;
         cudaEventCreate(&event);
 
-        int num_elements = Nx * Ny * Nz;  // Beispiel: Gesamtzahl der Elemente
+        size_t num_elements = Nx * Ny * Nz;  // Beispiel: Gesamtzahl der Elemente
         int block_size = 1024;
-        int num_blocks = (num_elements + block_size - 1) / block_size;
+        size_t num_blocks = (num_elements + block_size - 1) / block_size;
 
         normalizeDataGlobal<<<num_blocks, block_size, 0, stream>>>(Nx, Ny, Nz, d_data);
         cudaError_t errp = cudaPeekAtLastError();
@@ -966,4 +966,3 @@ namespace CUBE_FTT {
         return cudaSuccess;
     }
 }
-

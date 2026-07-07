@@ -8,12 +8,16 @@
 #include <cstring>
 #include <cassert>
 #include <iostream>
+#include <sstream>
+#include <thread>
 
 #ifdef __linux__
 #include <unistd.h>
 #endif
 
 #include "CPUBackendManager.h"
+
+using dolphin::backend::buildCpuContext;
 
 #ifdef _OPENMP
 //
@@ -672,7 +676,7 @@ void CPUComputeBackend::complexDivision(const ComplexData& a, const ComplexData&
 }
 
 
-void CPUComputeBackend::complexAddition(complex_t** data, ComplexData& sum, int nImages, size_t imageVolume) const {
+void CPUComputeBackend::complexAddition(complex_t** data, ComplexData& sum, size_t nImages, size_t imageVolume) const {
     BACKEND_CHECK(sum.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b", buildCpuContext());
 
     auto si = getStrideInfo(sum);
@@ -741,7 +745,7 @@ void CPUComputeBackend::meanSquareError(const ComplexData& a, const ComplexData&
     *result = sumSq / static_cast<real_t>(a.getSize().getVolume());
 }
 
-void CPUComputeBackend::sumToOne(real_t** data, int nImages, size_t imageVolume) const {
+void CPUComputeBackend::sumToOne(real_t** data, size_t nImages, size_t imageVolume) const {
     // NOTE: Uses raw real_t** with flat indexing. External pointers are assumed
     // to share the same stride layout but we don't have CuboidShape for them.
     // If stride-aware access is needed, the API should be updated to pass shapes.

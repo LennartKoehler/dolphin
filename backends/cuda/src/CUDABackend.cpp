@@ -49,6 +49,7 @@ void CUDABackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
 
 
 bool CUDABackendMemoryManager::isOnDevice(const void* ptr) const {
+    ensureDevice();
     if (ptr == nullptr) return false;
 
     cudaPointerAttributes attributes;
@@ -124,6 +125,7 @@ bool CUDABackendMemoryManager::isOnDevice(const void* ptr) const {
 // }
 
 RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
+    ensureDevice();
     logWithContext(fmt::format("allocateMemoryOnDeviceRealFFTInPlace for shape: {}", shape.print()), LogLevel::DEBUG);
     CuboidShape shapeForInplaceFFT = shape;
     shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
@@ -138,6 +140,7 @@ RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const Cu
     return result;
 }
 RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const {
+    ensureDevice();
     logWithContext(fmt::format("allocateMemoryOnDeviceReal for shape: {}", shape.print()), LogLevel::DEBUG);
     std::size_t bytes = shape.getVolume() * sizeof(real_t);
 
@@ -148,6 +151,7 @@ RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape&
 
 
 ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
+    ensureDevice();
     logWithContext(fmt::format("allocateMemoryOnDeviceComplex for shape: {}", shape.print()), LogLevel::DEBUG);
     CuboidShape complexShape = shape;
     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
@@ -159,6 +163,7 @@ ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplex(const Cuboid
     return result;
 }
 ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
+    ensureDevice();
     logWithContext(fmt::format("allocateMemoryOnDeviceComplexFull for shape: {}", shape.print()), LogLevel::DEBUG);
     ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
@@ -221,6 +226,7 @@ DataView<complex_t> CUDABackendMemoryManager::reinterpret(RealData& data) const{
 //
 
 void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) const {
+    ensureDevice();
     // Wait for memory if max memory limit is set
     // waitForMemory(requested_size);
 
@@ -247,6 +253,7 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
 
 
 void* CUDABackendMemoryManager::copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
+    ensureDevice();
     logWithContext(fmt::format("copyDataToDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
     void* dest = allocateMemoryOnDevice(size);
 
@@ -259,6 +266,7 @@ void* CUDABackendMemoryManager::copyDataToDevice(void* src, size_t size, const C
 }
 
 void* CUDABackendMemoryManager::moveDataFromDevice(void* src, size_t size, const CuboidShape& shape, const IBackendMemoryManager& destBackend) const {
+    ensureDevice();
     logWithContext(fmt::format("moveDataFromDevice: {:.2f} MB, shape: {}, to {}", size / 1e6, shape.print(), destBackend.getDeviceString()), LogLevel::DEBUG);
     if (&destBackend == this){
         logWithContext(fmt::format("moveDataFromDevice: same backend, returning source pointer directly"), LogLevel::DEBUG);
@@ -274,6 +282,7 @@ void* CUDABackendMemoryManager::moveDataFromDevice(void* src, size_t size, const
 }
 
 void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
+    ensureDevice();
     logWithContext(fmt::format("memCopy: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
     cudaError_t err = cudaMemcpyAsync(dest, src, size, cudaMemcpyDefault, config.stream);
     CUDA_CHECK(err, "memCopy - cudaMemcpyAsync", buildCudaContext(config));
@@ -282,6 +291,7 @@ void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const
 }
 
 void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const {
+    ensureDevice();
     BACKEND_CHECK(ptr != nullptr, "Attempting to free null pointer", "CUDA", "freeMemoryOnDevice", buildCudaContext(config));
     BACKEND_CHECK(size > 0, "Invalid data size for deallocation", "CUDA", "freeMemoryOnDevice", buildCudaContext(config));
 
@@ -306,6 +316,7 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const 
 
 
 size_t CUDABackendMemoryManager::getAvailableMemory() const {
+    ensureDevice();
     cudaError_t sync_err = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(sync_err, "getAvailableMemory - sync", buildCudaContext(config));
 
@@ -482,6 +493,7 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
         );
 
         logWithContext(msg, LogLevel::DEBUG);
+        logWithContext(fmt::format("cuFFT r2c workspace: {:.2f} MB", worksize / 1e6), LogLevel::DEBUG);
 
     }
     catch (...) {
@@ -551,6 +563,7 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPla
         );
 
         logWithContext(msg, LogLevel::DEBUG);
+        logWithContext(fmt::format("cuFFT c2r workspace: {:.2f} MB", worksize / 1e6), LogLevel::DEBUG);
 
     }
     catch (...) {
@@ -565,6 +578,7 @@ void CUDAComputeBackend::createPlanComplex(cufftHandle& plan, const FFTPlanDescr
 
 
 cufftHandle CUDAComputeBackend::initializePlan_(const FFTPlanDescription& description){
+    ensureDevice();
     // Plan not found, create a new one
     CuboidShape shape = description.shape;
 
@@ -603,6 +617,7 @@ cufftHandle CUDAComputeBackend::initializePlan_(const FFTPlanDescription& descri
 
 
 void CUDAComputeBackend::destroyPlans(){
+    ensureDevice();
     for (auto& plan : cuFFTPlans) {
         if (plan.plan != 0) {
             CUFFT_CHECK(cufftDestroy(plan.plan), "destroyFFTPlans - plan destruction", buildCudaContext(config));
@@ -615,6 +630,7 @@ void CUDAComputeBackend::destroyPlans(){
 
 // FFT Operations
 void CUDAComputeBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
+    ensureDevice();
     // Validate input data
     BACKEND_CHECK(in.getSize().getVolume() > 0, "Invalid input data size for forwardFFT", "CUDA", "forwardFFT", buildCudaContext(config));
     BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for forwardFFT", "CUDA", "forwardFFT", buildCudaContext(config));
@@ -633,6 +649,7 @@ void CUDAComputeBackend::forwardFFT(const ComplexData& in, ComplexData& out) con
 
 // FFT Operations
 void CUDAComputeBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
+    ensureDevice();
     // Validate input data
     BACKEND_CHECK(in.getSize().getVolume() > 0, "Invalid input data size for backwardFFT", "CUDA", "backwardFFT", buildCudaContext(config));
     BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for backwardFFT", "CUDA", "backwardFFT", buildCudaContext(config));
@@ -653,6 +670,7 @@ void CUDAComputeBackend::backwardFFT(const ComplexData& in, ComplexData& out) co
 
 
 void CUDAComputeBackend::forwardFFT(const RealData& in, ComplexData& out) const {
+    ensureDevice();
     // Validate input data
     BACKEND_CHECK(in.getSize().getVolume() > 0, "Invalid input data size for forwardFFTReal", "CUDA", "forwardFFTReal", buildCudaContext(config));
     BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for forwardFFTReal", "CUDA", "forwardFFTReal", buildCudaContext(config));
@@ -669,6 +687,7 @@ void CUDAComputeBackend::forwardFFT(const RealData& in, ComplexData& out) const 
 
 
 void CUDAComputeBackend::backwardFFT(const ComplexData& in, RealData& out) const {
+    ensureDevice();
     // Validate input data
     BACKEND_CHECK(in.getSize().getVolume() > 0, "Invalid input data size for backwardFFTReal", "CUDA", "backwardFFTReal", buildCudaContext(config));
     BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for backwardFFTReal", "CUDA", "backwardFFTReal", buildCudaContext(config));
@@ -689,18 +708,21 @@ void CUDAComputeBackend::backwardFFT(const ComplexData& in, RealData& out) const
 
 // Shift Operations
 void CUDAComputeBackend::octantFourierShift(ComplexData& data) const {
-    cudaError_t err = CUBE_FTT::octantFourierShift(static_cast<int>(data.getSize().width), static_cast<int>(data.getSize().height), static_cast<int>(data.getSize().depth), data.getData(), config.stream);
+    ensureDevice();
+    cudaError_t err = CUBE_FTT::octantFourierShift(data.getSize().width, data.getSize().height, data.getSize().depth, data.getData(), config.stream);
     CUDA_CHECK(err, "octantFourierShift", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::octantFourierShift(RealData& data) const {
-    int Nx = static_cast<int>(data.getSize().width);
-    int stride = Nx + static_cast<int>(data.getPadding());
-    cudaError_t err = CUBE_FTT::octantFourierShift(Nx, static_cast<int>(data.getSize().height), static_cast<int>(data.getSize().depth), stride, data.getData(), config.stream);
+    ensureDevice();
+    size_t Nx = data.getSize().width;
+    size_t stride = Nx + data.getPadding();
+    cudaError_t err = CUBE_FTT::octantFourierShift(Nx, data.getSize().height, data.getSize().depth, stride, data.getData(), config.stream);
     CUDA_CHECK(err, "octantFourierShift", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::inverseQuadrantShift(ComplexData& data) const {
+    ensureDevice();
     // cudaError_t err = CUBE_FTT::octantFourierShift(static_cast<int>(data.getSize().width), static_cast<int>(data.getSize().height), static_cast<int>(data.getSize().depth), data.getData(), config.stream);
     // CUDA_CHECK(err, "octantFourierShift", buildCudaContext(config));
 }
@@ -708,6 +730,7 @@ void CUDAComputeBackend::inverseQuadrantShift(ComplexData& data) const {
 
 
 void CUDAComputeBackend::sum(const ComplexData& data, complex_t* result) const {
+    ensureDevice();
     BACKEND_CHECK(data.getData() != nullptr, "Input data pointer is null", "CUDA", "sum - input data", buildCudaContext(config));
     BACKEND_CHECK(result != nullptr, "Result pointer is null", "CUDA", "sum - result", buildCudaContext(config));
 
@@ -721,7 +744,7 @@ void CUDAComputeBackend::sum(const ComplexData& data, complex_t* result) const {
         CUDA_CHECK(err, "sum - cudaMemsetAsync", buildCudaContext(config));
     }
 
-    err = CUBE_MAT::sum(static_cast<int>(data.getSize().width), static_cast<int>(data.getSize().height), static_cast<int>(data.getSize().depth), data.getData(), d_result, config.stream);
+    err = CUBE_MAT::sum(data.getSize().width, data.getSize().height, data.getSize().depth, data.getData(), d_result, config.stream);
     if (err != cudaSuccess) {
         cudaFreeAsync(d_result, config.stream);
         CUDA_CHECK(err, "sum", buildCudaContext(config));
@@ -736,6 +759,7 @@ void CUDAComputeBackend::sum(const ComplexData& data, complex_t* result) const {
 }
 
 void CUDAComputeBackend::meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const {
+    ensureDevice();
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "meanSquareError - input a", buildCudaContext(config));
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CUDA", "meanSquareError - input b", buildCudaContext(config));
     BACKEND_CHECK(result != nullptr, "Result pointer is null", "CUDA", "meanSquareError - result", buildCudaContext(config));
@@ -750,7 +774,7 @@ void CUDAComputeBackend::meanSquareError(const ComplexData& a, const ComplexData
         CUDA_CHECK(err, "meanSquareError - cudaMemsetAsync", buildCudaContext(config));
     }
 
-    err = CUBE_MAT::meanSquareError(static_cast<int>(a.getSize().width), static_cast<int>(a.getSize().height), static_cast<int>(a.getSize().depth), a.getData(), b.getData(), d_result, config.stream);
+    err = CUBE_MAT::meanSquareError(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), b.getData(), d_result, config.stream);
     if (err != cudaSuccess) {
         cudaFreeAsync(d_result, config.stream);
         CUDA_CHECK(err, "meanSquareError", buildCudaContext(config));
@@ -767,27 +791,31 @@ void CUDAComputeBackend::meanSquareError(const ComplexData& a, const ComplexData
     *result = d_sumSq / static_cast<real_t>(a.getSize().getVolume());
 }
 
-void CUDAComputeBackend::complexAddition(complex_t** dataPointer, ComplexData& sums, int nImages, size_t imageVolume) const {
-    cudaError_t err = CUBE_MAT::complexAddition(dataPointer, sums.getData(), nImages, static_cast<int>(imageVolume), config.stream);
+void CUDAComputeBackend::complexAddition(complex_t** dataPointer, ComplexData& sums, size_t nImages, size_t imageVolume) const {
+    ensureDevice();
+    cudaError_t err = CUBE_MAT::complexAddition(dataPointer, sums.getData(), nImages, imageVolume, config.stream);
 }
 
-void CUDAComputeBackend::sumToOne(real_t** data, int nImages, size_t imageVolume) const {
-    cudaError_t err = CUBE_MAT::sumToOne(data, nImages, static_cast<int>(imageVolume), config.stream);
+void CUDAComputeBackend::sumToOne(real_t** data, size_t nImages, size_t imageVolume) const {
+    ensureDevice();
+    cudaError_t err = CUBE_MAT::sumToOne(data, nImages, imageVolume, config.stream);
 }
 
 // Complex Arithmetic Operations
 void CUDAComputeBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
+    ensureDevice();
     // Validate input data
     BACKEND_CHECK(a.getSize().getVolume() > 0, "Invalid input data size for complexMultiplication", "CUDA", "complexMultiplication", buildCudaContext(config));
     BACKEND_CHECK(b.getSize().getVolume() > 0, "Invalid input data size for complexMultiplication", "CUDA", "complexMultiplication", buildCudaContext(config));
     BACKEND_CHECK(result.getSize().getVolume() > 0, "Invalid output data size for complexMultiplication", "CUDA", "complexMultiplication", buildCudaContext(config));
     BACKEND_CHECK(a.getSize().getVolume() == b.getSize().getVolume() && a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in complexMultiplication", "CUDA", "complexMultiplication", buildCudaContext(config));
 
-    cudaError_t err = CUBE_MAT::complexElementwiseMatMul(static_cast<int>(a.getSize().width), static_cast<int>(a.getSize().height), static_cast<int>(a.getSize().depth), a.getData(), b.getData(), result.getData(), config.stream);
+    cudaError_t err = CUBE_MAT::complexElementwiseMatMul(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), b.getData(), result.getData(), config.stream);
     CUDA_CHECK(err, "complexMultiplication", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
+    ensureDevice();
     // Validate input data
     BACKEND_CHECK(a.getSize().getVolume() > 0, "Invalid input data size for complexDivision", "CUDA", "complexDivision", buildCudaContext(config));
     BACKEND_CHECK(b.getSize().getVolume() > 0, "Invalid input data size for complexDivision", "CUDA", "complexDivision", buildCudaContext(config));
@@ -795,60 +823,67 @@ void CUDAComputeBackend::complexDivision(const ComplexData& a, const ComplexData
     BACKEND_CHECK(a.getSize().getVolume() == b.getSize().getVolume() && a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in complexDivision", "CUDA", "complexDivision", buildCudaContext(config));
     BACKEND_CHECK(epsilon >= 0.0, "Invalid epsilon value for complexDivision", "CUDA", "complexDivision", buildCudaContext(config));
 
-    cudaError_t err = CUBE_MAT::complexElementwiseMatDiv(static_cast<int>(a.getSize().width), static_cast<int>(a.getSize().height), static_cast<int>(a.getSize().depth), a.getData(), b.getData(), result.getData(), epsilon, config.stream);
+    cudaError_t err = CUBE_MAT::complexElementwiseMatDiv(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), b.getData(), result.getData(), epsilon, config.stream);
     CUDA_CHECK(err, "complexDivision", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
+    ensureDevice();
     BACKEND_CHECK(a.getSize().getVolume() == b.getSize().getVolume() && a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in complexAddition", "CUDA", "complexAddition", buildCudaContext(config));
-    cudaError_t err = CUBE_MAT::complexAddition(static_cast<int>(a.getSize().width), static_cast<int>(a.getSize().height), static_cast<int>(a.getSize().depth), a.getData(), b.getData() , result.getData(), config.stream);
+    cudaError_t err = CUBE_MAT::complexAddition(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), b.getData() , result.getData(), config.stream);
     CUDA_CHECK(err, "complexAddition", buildCudaContext(config));
 }
 
 
 
 void CUDAComputeBackend::multiplication(const RealData& a, const RealData& b, RealData& result) const{
+    ensureDevice();
     BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in elementwiseMatMulReal", "CUDA", "elementwiseMatMulReal", buildCudaContext(config));
-    int Nx = static_cast<int>(a.getSize().width);
-    int strideA = Nx + static_cast<int>(a.getPadding());
-    int strideB = static_cast<int>(b.getSize().width + b.getPadding());
-    int strideC = static_cast<int>(result.getSize().width + result.getPadding());
-    cudaError_t err = CUBE_MAT::elementwiseMatMul(Nx, static_cast<int>(a.getSize().height), static_cast<int>(a.getSize().depth), strideA, strideB, strideC, a.getData(), b.getData(), result.getData(), config.stream);
+    size_t Nx = a.getSize().width;
+    size_t strideA = Nx + a.getPadding();
+    size_t strideB = b.getSize().width + b.getPadding();
+    size_t strideC = result.getSize().width + result.getPadding();
+    cudaError_t err = CUBE_MAT::elementwiseMatMul(Nx, a.getSize().height, a.getSize().depth, strideA, strideB, strideC, a.getData(), b.getData(), result.getData(), config.stream);
     CUDA_CHECK(err, "multiplication", buildCudaContext(config));
 }
 void CUDAComputeBackend::scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const{
+    ensureDevice();
     BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in scalarMultiplicationReal", "CUDA", "scalarMultiplicationReal", buildCudaContext(config));
-    int Nx = static_cast<int>(a.getSize().width);
-    int strideA = Nx + static_cast<int>(a.getPadding());
-    int strideC = static_cast<int>(result.getSize().width + result.getPadding());
-    cudaError_t err = CUBE_MAT::scalarMul(Nx, static_cast<int>(a.getSize().height), static_cast<int>(a.getSize().depth), strideA, strideC, a.getData(), scalar , result.getData(), config.stream);
+    size_t Nx = a.getSize().width;
+    size_t strideA = Nx + a.getPadding();
+    size_t strideC = result.getSize().width + result.getPadding();
+    cudaError_t err = CUBE_MAT::scalarMul(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, a.getData(), scalar , result.getData(), config.stream);
     CUDA_CHECK(err, "scalarMultiplicationReal", buildCudaContext(config));
 }
 void CUDAComputeBackend::division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const{
+    ensureDevice();
     BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in elementwiseDivisionReal", "CUDA", "elementwiseDivisionReal", buildCudaContext(config));
-    int Nx = static_cast<int>(a.getSize().width);
-    int strideA = Nx + static_cast<int>(a.getPadding());
-    int strideB = static_cast<int>(b.getSize().width + b.getPadding());
-    int strideC = static_cast<int>(result.getSize().width + result.getPadding());
-    cudaError_t err = CUBE_MAT::elementwiseMatDiv(Nx, static_cast<int>(a.getSize().height), static_cast<int>(a.getSize().depth), strideA, strideB, strideC, a.getData(), b.getData(), result.getData(), epsilon, config.stream);
+    size_t Nx = a.getSize().width;
+    size_t strideA = Nx + a.getPadding();
+    size_t strideB = b.getSize().width + b.getPadding();
+    size_t strideC = result.getSize().width + result.getPadding();
+    cudaError_t err = CUBE_MAT::elementwiseMatDiv(Nx, a.getSize().height, a.getSize().depth, strideA, strideB, strideC, a.getData(), b.getData(), result.getData(), epsilon, config.stream);
     CUDA_CHECK(err, "elementwiseDivisionReal", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
+    ensureDevice();
     BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in scalarMultiplication", "CUDA", "scalarMultiplication", buildCudaContext(config));
-    cudaError_t err = CUBE_MAT::complexScalarMul(static_cast<int>(a.getSize().width), static_cast<int>(a.getSize().height), static_cast<int>(a.getSize().depth), a.getData(), scalar[0], scalar[1], result.getData(), config.stream);
+    cudaError_t err = CUBE_MAT::complexScalarMul(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), scalar[0], scalar[1], result.getData(), config.stream);
     CUDA_CHECK(err, "scalarMultiplication", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
+    ensureDevice();
     BACKEND_CHECK(a.getSize().getVolume() == b.getSize().getVolume() && a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in complexMultiplicationWithConjugate", "CUDA", "complexMultiplicationWithConjugate", buildCudaContext(config));
-    cudaError_t err = CUBE_MAT::complexElementwiseMatMulConjugate(static_cast<int>(a.getSize().width), static_cast<int>(a.getSize().height), static_cast<int>(a.getSize().depth), a.getData(), b.getData(), result.getData(), config.stream);
+    cudaError_t err = CUBE_MAT::complexElementwiseMatMulConjugate(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), b.getData(), result.getData(), config.stream);
     CUDA_CHECK(err, "complexMultiplicationWithConjugate", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
+    ensureDevice();
     BACKEND_CHECK(a.getSize().getVolume() == b.getSize().getVolume() && a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in complexDivisionStabilized", "CUDA", "complexDivisionStabilized", buildCudaContext(config));
-    cudaError_t err = CUBE_MAT::complexElementwiseMatDivStabilized(static_cast<int>(a.getSize().width), static_cast<int>(a.getSize().height), static_cast<int>(a.getSize().depth), a.getData(), b.getData(), result.getData(), epsilon, config.stream);
+    cudaError_t err = CUBE_MAT::complexElementwiseMatDivStabilized(a.getSize().width, a.getSize().height, a.getSize().depth, a.getData(), b.getData(), result.getData(), epsilon, config.stream);
     CUDA_CHECK(err, "complexDivisionStabilized", buildCudaContext(config));
 }
 
@@ -857,6 +892,7 @@ void CUDAComputeBackend::complexDivisionStabilized(const ComplexData& a, const C
 
 // Specialized Functions
 void CUDAComputeBackend::hasNAN(const ComplexData& data) const {
+    ensureDevice();
     // Implementation would go here
     logWithContext(fmt::format("hasNAN called on CUDA backend"), LogLevel::DEBUG);
 }
@@ -880,98 +916,111 @@ void CUDAComputeBackend::hasNAN(const ComplexData& data) const {
 
 // Gradient and TV Functions
 void CUDAComputeBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
+    ensureDevice();
     cudaError_t err1 = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(err1, "found it", buildCudaContext(config));
 
-    cudaError_t err = CUBE_REG::gradX(static_cast<int>(image.getSize().width), static_cast<int>(image.getSize().height), static_cast<int>(image.getSize().depth), image.getData(), gradX.getData(), config.stream);
+    cudaError_t err = CUBE_REG::gradX(image.getSize().width, image.getSize().height, image.getSize().depth, image.getData(), gradX.getData(), config.stream);
     CUDA_CHECK(err, "gradientX", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
-    cudaError_t err = CUBE_REG::gradY(static_cast<int>(image.getSize().width), static_cast<int>(image.getSize().height), static_cast<int>(image.getSize().depth), image.getData(), gradY.getData(), config.stream);
+    ensureDevice();
+    cudaError_t err = CUBE_REG::gradY(image.getSize().width, image.getSize().height, image.getSize().depth, image.getData(), gradY.getData(), config.stream);
     CUDA_CHECK(err, "gradientY", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
-    cudaError_t err = CUBE_REG::gradZ(static_cast<int>(image.getSize().width), static_cast<int>(image.getSize().height), static_cast<int>(image.getSize().depth), image.getData(), gradZ.getData(), config.stream);
+    ensureDevice();
+    cudaError_t err = CUBE_REG::gradZ(image.getSize().width, image.getSize().height, image.getSize().depth, image.getData(), gradZ.getData(), config.stream);
     CUDA_CHECK(err, "gradientZ", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::computeTV(real_t lambda, const ComplexData& div, ComplexData& tv) const {
-    cudaError_t err = CUBE_REG::computeTV(static_cast<int>(div.getSize().width), static_cast<int>(div.getSize().height), static_cast<int>(div.getSize().depth), lambda, div.getData(), tv.getData(), config.stream);
+    ensureDevice();
+    cudaError_t err = CUBE_REG::computeTV(div.getSize().width, div.getSize().height, div.getSize().depth, lambda, div.getData(), tv.getData(), config.stream);
     CUDA_CHECK(err, "computeTV", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, ComplexData& gradZ, real_t beta) const {
-    cudaError_t err = CUBE_REG::normalizeTV(static_cast<int>(gradX.getSize().width), static_cast<int>(gradX.getSize().height), static_cast<int>(gradX.getSize().depth), gradX.getData(), gradY.getData(), gradZ.getData(), beta, config.stream);
+    ensureDevice();
+    cudaError_t err = CUBE_REG::normalizeTV(gradX.getSize().width, gradX.getSize().height, gradX.getSize().depth, gradX.getData(), gradY.getData(), gradZ.getData(), beta, config.stream);
     CUDA_CHECK(err, "normalizeTV", buildCudaContext(config));
 }
 
 // Gradient functions for real-valued data
 void CUDAComputeBackend::gradientX(const RealData& image, RealData& gradX) const {
-    int Nx = static_cast<int>(image.getSize().width);
-    int strideIn = Nx + static_cast<int>(image.getPadding());
-    int strideOut = static_cast<int>(gradX.getSize().width + gradX.getPadding());
-    cudaError_t err = CUBE_REG::gradX(Nx, static_cast<int>(image.getSize().height), static_cast<int>(image.getSize().depth), strideIn, strideOut, image.getData(), gradX.getData(), config.stream);
+    ensureDevice();
+    size_t Nx = image.getSize().width;
+    size_t strideIn = Nx + image.getPadding();
+    size_t strideOut = gradX.getSize().width + gradX.getPadding();
+    cudaError_t err = CUBE_REG::gradX(Nx, image.getSize().height, image.getSize().depth, strideIn, strideOut, image.getData(), gradX.getData(), config.stream);
     CUDA_CHECK(err, "gradientX (real)", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::gradientY(const RealData& image, RealData& gradY) const {
-    int Nx = static_cast<int>(image.getSize().width);
-    int strideIn = Nx + static_cast<int>(image.getPadding());
-    int strideOut = static_cast<int>(gradY.getSize().width + gradY.getPadding());
-    cudaError_t err = CUBE_REG::gradY(Nx, static_cast<int>(image.getSize().height), static_cast<int>(image.getSize().depth), strideIn, strideOut, image.getData(), gradY.getData(), config.stream);
+    ensureDevice();
+    size_t Nx = image.getSize().width;
+    size_t strideIn = Nx + image.getPadding();
+    size_t strideOut = gradY.getSize().width + gradY.getPadding();
+    cudaError_t err = CUBE_REG::gradY(Nx, image.getSize().height, image.getSize().depth, strideIn, strideOut, image.getData(), gradY.getData(), config.stream);
     CUDA_CHECK(err, "gradientY (real)", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::gradientZ(const RealData& image, RealData& gradZ) const {
-    int Nx = static_cast<int>(image.getSize().width);
-    int strideIn = Nx + static_cast<int>(image.getPadding());
-    int strideOut = static_cast<int>(gradZ.getSize().width + gradZ.getPadding());
-    cudaError_t err = CUBE_REG::gradZ(Nx, static_cast<int>(image.getSize().height), static_cast<int>(image.getSize().depth), strideIn, strideOut, image.getData(), gradZ.getData(), config.stream);
+    ensureDevice();
+    size_t Nx = image.getSize().width;
+    size_t strideIn = Nx + image.getPadding();
+    size_t strideOut = gradZ.getSize().width + gradZ.getPadding();
+    cudaError_t err = CUBE_REG::gradZ(Nx, image.getSize().height, image.getSize().depth, strideIn, strideOut, image.getData(), gradZ.getData(), config.stream);
     CUDA_CHECK(err, "gradientZ (real)", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::gradient(const RealData& image, RealData& gradX, RealData& gradY, RealData& gradZ) const {
-    int Nx = static_cast<int>(image.getSize().width);
-    int strideIn = Nx + static_cast<int>(image.getPadding());
-    int strideX = static_cast<int>(gradX.getSize().width + gradX.getPadding());
-    int strideY = static_cast<int>(gradY.getSize().width + gradY.getPadding());
-    int strideZ = static_cast<int>(gradZ.getSize().width + gradZ.getPadding());
+    ensureDevice();
+    size_t Nx = image.getSize().width;
+    size_t strideIn = Nx + image.getPadding();
+    size_t strideX = gradX.getSize().width + gradX.getPadding();
+    size_t strideY = gradY.getSize().width + gradY.getPadding();
+    size_t strideZ = gradZ.getSize().width + gradZ.getPadding();
     assert(strideX == strideY && strideY == strideZ);
 
-    cudaError_t err = CUBE_REG::grad(Nx, static_cast<int>(image.getSize().height), static_cast<int>(image.getSize().depth), strideIn, strideX, image.getData(), gradX.getData(), gradY.getData(), gradZ.getData(), config.stream);
+    cudaError_t err = CUBE_REG::grad(Nx, image.getSize().height, image.getSize().depth, strideIn, strideX, image.getData(), gradX.getData(), gradY.getData(), gradZ.getData(), config.stream);
     CUDA_CHECK(err, "gradient (real)", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::divergence(const RealData& gx, const RealData& gy, const RealData& gz, RealData& result) const {
-    int Nx = static_cast<int>(gx.getSize().width);
-    int strideGx = Nx + static_cast<int>(gx.getPadding());
-    int strideGy = static_cast<int>(gy.getSize().width + gy.getPadding());
-    int strideGz = static_cast<int>(gz.getSize().width + gz.getPadding());
-    int strideOut = static_cast<int>(result.getSize().width + result.getPadding());
-    cudaError_t err = CUBE_REG::divergence(Nx, static_cast<int>(gx.getSize().height), static_cast<int>(gx.getSize().depth), strideGx, strideGy, strideGz, strideOut, gx.getData(), gy.getData(), gz.getData(), result.getData(), config.stream);
+    ensureDevice();
+    size_t Nx = gx.getSize().width;
+    size_t strideGx = Nx + gx.getPadding();
+    size_t strideGy = gy.getSize().width + gy.getPadding();
+    size_t strideGz = gz.getSize().width + gz.getPadding();
+    size_t strideOut = result.getSize().width + result.getPadding();
+    cudaError_t err = CUBE_REG::divergence(Nx, gx.getSize().height, gx.getSize().depth, strideGx, strideGy, strideGz, strideOut, gx.getData(), gy.getData(), gz.getData(), result.getData(), config.stream);
     CUDA_CHECK(err, "divergence (real)", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::divergence(const ComplexData& gx, const ComplexData& gy, const ComplexData& gz, ComplexData& result) const {
-    cudaError_t err = CUBE_REG::divergence(static_cast<int>(gx.getSize().width), static_cast<int>(gx.getSize().height), static_cast<int>(gx.getSize().depth), gx.getData(), gy.getData(), gz.getData(), result.getData(), config.stream);
+    ensureDevice();
+    cudaError_t err = CUBE_REG::divergence(gx.getSize().width, gx.getSize().height, gx.getSize().depth, gx.getData(), gy.getData(), gz.getData(), result.getData(), config.stream);
     CUDA_CHECK(err, "divergence (complex)", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::computeTV(real_t lambda, const RealData& div, RealData& tv) const {
-    int Nx = static_cast<int>(div.getSize().width);
-    int strideDiv = Nx + static_cast<int>(div.getPadding());
-    int strideTv = static_cast<int>(tv.getSize().width + tv.getPadding());
-    cudaError_t err = CUBE_REG::computeTV(Nx, static_cast<int>(div.getSize().height), static_cast<int>(div.getSize().depth), strideDiv, strideTv, lambda, div.getData(), tv.getData(), config.stream);
+    ensureDevice();
+    size_t Nx = div.getSize().width;
+    size_t strideDiv = Nx + div.getPadding();
+    size_t strideTv = tv.getSize().width + tv.getPadding();
+    cudaError_t err = CUBE_REG::computeTV(Nx, div.getSize().height, div.getSize().depth, strideDiv, strideTv, lambda, div.getData(), tv.getData(), config.stream);
     CUDA_CHECK(err, "computeTV (real)", buildCudaContext(config));
 }
 
 void CUDAComputeBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t beta) const {
-    int Nx = static_cast<int>(gradX.getSize().width);
-    int strideGradX = Nx + static_cast<int>(gradX.getPadding());
-    int strideGradY = static_cast<int>(gradY.getSize().width + gradY.getPadding());
-    int strideGradZ = static_cast<int>(gradZ.getSize().width + gradZ.getPadding());
-    cudaError_t err = CUBE_REG::normalizeTV(Nx, static_cast<int>(gradX.getSize().height), static_cast<int>(gradX.getSize().depth), strideGradX, strideGradY, strideGradZ, gradX.getData(), gradY.getData(), gradZ.getData(), beta, config.stream);
+    ensureDevice();
+    size_t Nx = gradX.getSize().width;
+    size_t strideGradX = Nx + gradX.getPadding();
+    size_t strideGradY = gradY.getSize().width + gradY.getPadding();
+    size_t strideGradZ = gradZ.getSize().width + gradZ.getPadding();
+    cudaError_t err = CUBE_REG::normalizeTV(Nx, gradX.getSize().height, gradX.getSize().depth, strideGradX, strideGradY, strideGradZ, gradX.getData(), gradY.getData(), gradZ.getData(), beta, config.stream);
     CUDA_CHECK(err, "normalizeTV (real)", buildCudaContext(config));
 }

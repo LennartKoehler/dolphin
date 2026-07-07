@@ -2,18 +2,19 @@
 
 // Conversions (removed - no longer needed with single complex_t type)
 //
+//
 
 
 // Mat operations
 // this is not matmul lol
 __global__
-void complexMatMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void complexMatMulGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C) {
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int index = z * (Nx * Ny) + y * Nx + x;
+        size_t index = z * (Nx * Ny) + y * Nx + x;
 
         real_t realA = A[index][0];
         real_t imagA = A[index][1];
@@ -28,42 +29,42 @@ void complexMatMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, com
 
 
 __global__
-void elementwiseMatMulGlobal(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B, real_t* C){
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void elementwiseMatMulGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t* C){
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int indexA = z * (strideA * Ny) + y * strideA + x;
-        int indexB = z * (strideB * Ny) + y * strideB + x;
-        int indexC = z * (strideC * Ny) + y * strideC + x;
+        size_t indexA = z * (strideA * Ny) + y * strideA + x;
+        size_t indexB = z * (strideB * Ny) + y * strideB + x;
+        size_t indexC = z * (strideC * Ny) + y * strideC + x;
         C[indexC] = B[indexB] * A[indexA];
     }
 }
 
 __global__
-void scalarMulGlobal(int Nx, int Ny, int Nz, int strideA, int strideC, real_t* A, real_t b, real_t* C){
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void scalarMulGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t b, real_t* C){
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int indexA = z * (strideA * Ny) + y * strideA + x;
-        int indexC = z * (strideC * Ny) + y * strideC + x;
+        size_t indexA = z * (strideA * Ny) + y * strideA + x;
+        size_t indexC = z * (strideC * Ny) + y * strideC + x;
         C[indexC] = A[indexA] * b;
     }
 }
 
 __global__
-void elementwiseMatDivGlobal(int Nx, int Ny, int Nz, int strideA, int strideB, int strideC, real_t* A, real_t* B, real_t* C, real_t epsilon){
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void elementwiseMatDivGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t* C, real_t epsilon){
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int indexA = z * (strideA * Ny) + y * strideA + x;
-        int indexB = z * (strideB * Ny) + y * strideB + x;
-        int indexC = z * (strideC * Ny) + y * strideC + x;
+        size_t indexA = z * (strideA * Ny) + y * strideA + x;
+        size_t indexB = z * (strideB * Ny) + y * strideB + x;
+        size_t indexC = z * (strideC * Ny) + y * strideC + x;
         real_t denominator = B[indexB];
         if (denominator < epsilon) C[indexC] = 0;
         else C[indexC] = A[indexA] / B[indexB];
@@ -71,13 +72,13 @@ void elementwiseMatDivGlobal(int Nx, int Ny, int Nz, int strideA, int strideB, i
 }
 
 __global__
-void complexScalarMulGlobal(int Nx, int Ny, int Nz, complex_t* A, real_t realB, real_t imagB, complex_t* C) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void complexScalarMulGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, real_t realB, real_t imagB, complex_t* C) {
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int index = z * (Nx * Ny) + y * Nx + x;
+        size_t index = z * (Nx * Ny) + y * Nx + x;
         real_t realA = A[index][0];
         real_t imagA = A[index][1];
         C[index][0] = realA * realB - imagA * imagB;
@@ -88,15 +89,15 @@ void complexScalarMulGlobal(int Nx, int Ny, int Nz, complex_t* A, real_t realB, 
 
 
 __global__
-void complexAdditionGlobal(complex_t** data, complex_t* sums, int nImages, int imageVolume) {
-    int position = blockIdx.x * blockDim.x + threadIdx.x;
+void complexAdditionGlobal(complex_t** data, complex_t* sums, size_t nImages, size_t imageVolume) {
+    size_t position = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
 
     complex_t sum{0,0};
 
     if (position < imageVolume) {
 
 
-        for (int i = 0; i < nImages; ++i){
+        for (size_t i = 0; i < nImages; ++i){
             sum[0] += data[i][position][0];
             sum[1] += data[i][position][1];
         }
@@ -108,38 +109,38 @@ void complexAdditionGlobal(complex_t** data, complex_t* sums, int nImages, int i
 }
 
 __global__
-void complexAdditionGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void complexAdditionGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C) {
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int index = z * (Nx * Ny) + y * Nx + x;
+        size_t index = z * (Nx * Ny) + y * Nx + x;
         C[index][0] = B[index][0] + A[index][0];
         C[index][1] = B[index][1] + A[index][1];
     }
 }
 __global__
-void sumGlobal(int Nx, int Ny, int Nz, complex_t* data, complex_t* result) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void sumGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* data, complex_t* result) {
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int index = z * (Nx * Ny) + y * Nx + x;
+        size_t index = z * (Nx * Ny) + y * Nx + x;
         atomicAdd(&result[0][0], data[index][0]);
         atomicAdd(&result[0][1], data[index][1]);
     }
 }
 
 __global__
-void meanSquareErrorGlobal(int Nx, int Ny, int Nz, complex_t* a, complex_t* b, real_t* result) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void meanSquareErrorGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* a, complex_t* b, real_t* result) {
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int index = z * (Nx * Ny) + y * Nx + x;
+        size_t index = z * (Nx * Ny) + y * Nx + x;
         real_t dr = a[index][0] - b[index][0];
         real_t di = a[index][1] - b[index][1];
         atomicAdd(result, dr * dr + di * di);
@@ -147,19 +148,19 @@ void meanSquareErrorGlobal(int Nx, int Ny, int Nz, complex_t* a, complex_t* b, r
 }
 
 __global__
-void sumToOneGlobal(real_t** data, int nImages, int imageVolume) {
-    int position = blockIdx.x * blockDim.x + threadIdx.x;
+void sumToOneGlobal(real_t** data, size_t nImages, size_t imageVolume) {
+    size_t position = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
 
     real_t sum{0};
 
     if (position < imageVolume) {
 
 
-        for (int i = 0; i < nImages; ++i){
+        for (size_t i = 0; i < nImages; ++i){
             sum += data[i][position];
         }
 
-        for (int i = 0; i < nImages; ++i){
+        for (size_t i = 0; i < nImages; ++i){
             data[i][position] /= sum;
         }
     }
@@ -167,13 +168,13 @@ void sumToOneGlobal(real_t** data, int nImages, int imageVolume) {
 }
 
 __global__
-void complexElementwiseMatMulGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void complexElementwiseMatMulGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C) {
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < Nx && y < Ny && z < Nz) {
-        int index = z * (Nx * Ny) + y * Nx + x;
+        size_t index = z * (Nx * Ny) + y * Nx + x;
 
         real_t realA = A[index][0];
         real_t imagA = A[index][1];
@@ -187,15 +188,15 @@ void complexElementwiseMatMulGlobal(int Nx, int Ny, int Nz, complex_t* A, comple
 }
 
 __global__
-void complexElementwiseMatMulConjugateGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void complexElementwiseMatMulConjugateGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C) {
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     // Check if the thread is within the valid bounds of the 3D grid
     if (x < Nx && y < Ny && z < Nz) {
         // Compute the 1D index from the 3D coordinates
-        int index = z * (Nx * Ny) + y * Nx + x;
+        size_t index = z * (Nx * Ny) + y * Nx + x;
 
         // Get real and imaginary components of A and conjugated B
         real_t real_a = A[index][0];
@@ -214,15 +215,15 @@ void complexElementwiseMatMulConjugateGlobal(int Nx, int Ny, int Nz, complex_t* 
 }
 
 __global__
-void complexElementwiseMatDivGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void complexElementwiseMatDivGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon) {
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     // Check if the thread is within the valid bounds of the 3D grid
     if (x < Nx && y < Ny && z < Nz) {
         // Compute the 1D index from the 3D coordinates
-        int index = z * (Nx * Ny) + y * Nx + x;
+        size_t index = z * (Nx * Ny) + y * Nx + x;
 
         // Get real and imaginary components of A and B
         real_t real_a = A[index][0];
@@ -246,16 +247,16 @@ void complexElementwiseMatDivGlobal(int Nx, int Ny, int Nz, complex_t* A, comple
 }
 
 __global__
-void complexElementwiseMatDivStabilizedGlobal(int Nx, int Ny, int Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon) {
+void complexElementwiseMatDivStabilizedGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon) {
     // Compute the 3D coordinates of the current thread
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     // Check if the thread's coordinates are within bounds of the 3D matrix
     if (x < Nx && y < Ny && z < Nz) {
         // Calculate the linear index for the current thread's position
-        int index = z * (Nx * Ny) + y * Nx + x;
+        size_t index = z * (Nx * Ny) + y * Nx + x;
 
         // Extract the real and imaginary components of A and B
         real_t real_a = A[index][0];
@@ -275,17 +276,17 @@ void complexElementwiseMatDivStabilizedGlobal(int Nx, int Ny, int Nz, complex_t*
 
 // Regularization
 __global__
-void calculateLaplacianGlobal(int Nx, int Ny, int Nz, complex_t* Afft, complex_t* laplacianfft) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void calculateLaplacianGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* Afft, complex_t* laplacianfft) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < width && y < height && z < depth) {
-        int index = (z * height + y) * width + x;
+        size_t index = (z * height + y) * width + x;
 
         // Berechne die Frequenzkomponenten
         real_t wx = 2 * M_PI * x / width;
@@ -303,19 +304,19 @@ void calculateLaplacianGlobal(int Nx, int Ny, int Nz, complex_t* Afft, complex_t
 
 // Gradient kernels for real-valued data
 __global__
-void gradientXGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradX) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void gradientXGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradX) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < width - 1 && y < height && z < depth) {
-        int indexIn = z * (strideIn * height) + y * strideIn + x;
-        int nextIndexIn = indexIn + 1;
-        int indexOut = z * (strideOut * height) + y * strideOut + x;
+        size_t indexIn = z * (strideIn * height) + y * strideIn + x;
+        size_t nextIndexIn = indexIn + 1;
+        size_t indexOut = z * (strideOut * height) + y * strideOut + x;
 
         // Compute gradient in the x-direction
         gradX[indexOut] = image[indexIn] - image[nextIndexIn];
@@ -323,25 +324,25 @@ void gradientXGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, re
 
     // Handle boundary condition at the last x position
     if (x == width - 1 && y < height && z < depth) {
-        int lastIndexOut = z * (strideOut * height) + y * strideOut + x;
+        size_t lastIndexOut = z * (strideOut * height) + y * strideOut + x;
         gradX[lastIndexOut] = 0.0;
     }
 }
 
 __global__
-void gradientYGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradY) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void gradientYGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradY) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (y < height - 1 && x < width && z < depth) {
-        int indexIn = z * (strideIn * height) + y * strideIn + x;
-        int nextIndexIn = indexIn + strideIn;
-        int indexOut = z * (strideOut * height) + y * strideOut + x;
+        size_t indexIn = z * (strideIn * height) + y * strideIn + x;
+        size_t nextIndexIn = indexIn + strideIn;
+        size_t indexOut = z * (strideOut * height) + y * strideOut + x;
 
         // Compute gradient in the y-direction
         gradY[indexOut] = image[indexIn] - image[nextIndexIn];
@@ -349,25 +350,25 @@ void gradientYGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, re
 
     // Handle boundary condition at the last y position
     if (y == height - 1 && x < width && z < depth) {
-        int lastIndexOut = z * (strideOut * height) + y * strideOut + x;
+        size_t lastIndexOut = z * (strideOut * height) + y * strideOut + x;
         gradY[lastIndexOut] = 0.0;
     }
 }
 
 __global__
-void gradientZGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradZ) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void gradientZGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradZ) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (z < depth - 1 && y < height && x < width) {
-        int indexIn = z * (strideIn * height) + y * strideIn + x;
-        int nextIndexIn = indexIn + strideIn * height;
-        int indexOut = z * (strideOut * height) + y * strideOut + x;
+        size_t indexIn = z * (strideIn * height) + y * strideIn + x;
+        size_t nextIndexIn = indexIn + strideIn * height;
+        size_t indexOut = z * (strideOut * height) + y * strideOut + x;
 
         // Compute gradient in the z-direction
         gradZ[indexOut] = image[indexIn] - image[nextIndexIn];
@@ -375,25 +376,25 @@ void gradientZGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, re
 
     // Handle boundary condition at the last z position
     if (z == depth - 1 && y < height && x < width) {
-        int lastIndexOut = z * (strideOut * height) + y * strideOut + x;
+        size_t lastIndexOut = z * (strideOut * height) + y * strideOut + x;
         gradZ[lastIndexOut] = 0.0;
     }
 }
 
 // Combined gradient kernel (computes all three gradients in a single pass)
 __global__
-void gradientGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, real_t* image, real_t* gradX, real_t* gradY, real_t* gradZ) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void gradientGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradX, real_t* gradY, real_t* gradZ) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < width && y < height && z < depth) {
-        int indexIn = z * (strideIn * height) + y * strideIn + x;
-        int indexOut = z * (strideOut * height) + y * strideOut + x;
+        size_t indexIn = z * (strideIn * height) + y * strideIn + x;
+        size_t indexOut = z * (strideOut * height) + y * strideOut + x;
 
         // Gradient in x-direction: forward difference
         if (x < width - 1) {
@@ -419,18 +420,18 @@ void gradientGlobalReal(int Nx, int Ny, int Nz, int strideIn, int strideOut, rea
 }
 
 __global__
-void computeTVGlobalReal(int Nx, int Ny, int Nz, int strideDiv, int strideTv, real_t lambda, real_t* div, real_t* tv) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void computeTVGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideDiv, size_t strideTv, real_t lambda, real_t* div, real_t* tv) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < width && y < height && z < depth) {
-        int indexDiv = z * (strideDiv * height) + y * strideDiv + x;
-        int indexTv = z * (strideTv * height) + y * strideTv + x;
+        size_t indexDiv = z * (strideDiv * height) + y * strideDiv + x;
+        size_t indexTv = z * (strideTv * height) + y * strideTv + x;
 
         // TV damping factor: tv = 1 / (1 + lambda * div)
         // The denominator is always >= 1 for lambda > 0
@@ -443,18 +444,18 @@ void computeTVGlobalReal(int Nx, int Ny, int Nz, int strideDiv, int strideTv, re
 }
 
 __global__
-void normalizeTVGlobalReal(int Nx, int Ny, int Nz, int strideGradX, int strideGradY, int strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+void normalizeTVGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideGradX, size_t strideGradY, size_t strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < width && y < height && z < depth) {
-        int indexGradX = z * (strideGradX * height) + y * strideGradX + x;
-        int indexGradY = z * (strideGradY * height) + y * strideGradY + x;
-        int indexGradZ = z * (strideGradZ * height) + y * strideGradZ + x;
+        size_t indexGradX = z * (strideGradX * height) + y * strideGradX + x;
+        size_t indexGradY = z * (strideGradY * height) + y * strideGradY + x;
+        size_t indexGradZ = z * (strideGradZ * height) + y * strideGradZ + x;
 
         // Smoothed TV subgradient: gx / sqrt(|nabla f|² + beta²)
         // beta prevents noise amplification in flat regions
@@ -471,18 +472,18 @@ void normalizeTVGlobalReal(int Nx, int Ny, int Nz, int strideGradX, int strideGr
 }
 
 __global__
-void gradientXGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradX) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void gradientXGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_t* gradX) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < width - 1 && y < height && z < depth) {
-        int index = z * height * width + y * width + x;
-        int nextIndex = index + 1;
+        size_t index = z * height * width + y * width + x;
+        size_t nextIndex = index + 1;
 
         // Compute gradient in the x-direction
         gradX[index][0] = image[index][0] - image[nextIndex][0]; // Real part
@@ -491,25 +492,25 @@ void gradientXGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradX)
 
     // Handle boundary condition at the last x position
     if (x == width - 1 && y < height && z < depth) {
-        int lastIndex = z * height * width + y * width + x;
+        size_t lastIndex = z * height * width + y * width + x;
         gradX[lastIndex][0] = 0.0;
         gradX[lastIndex][1] = 0.0;
     }
 }
 
 __global__
-void gradientYGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradY) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void gradientYGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_t* gradY) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (y < height - 1 && x < width && z < depth) {
-        int index = z * height * width + y * width + x;
-        int nextIndex = index + width;
+        size_t index = z * height * width + y * width + x;
+        size_t nextIndex = index + width;
 
         // Compute gradient in the y-direction
         gradY[index][0] = image[index][0] - image[nextIndex][0]; // Real part
@@ -518,25 +519,25 @@ void gradientYGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradY)
 
     // Handle boundary condition at the last y position
     if (y == height - 1 && x < width && z < depth) {
-        int lastIndex = z * height * width + y * width + x;
+        size_t lastIndex = z * height * width + y * width + x;
         gradY[lastIndex][0] = 0.0;
         gradY[lastIndex][1] = 0.0;
     }
 }
 
 __global__
-void gradientZGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradZ) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void gradientZGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_t* gradZ) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (z < depth - 1 && y < height && x < width) {
-        int index = z * height * width + y * width + x;
-        int nextIndex = index + height * width;
+        size_t index = z * height * width + y * width + x;
+        size_t nextIndex = index + height * width;
 
         // Compute gradient in the z-direction
         gradZ[index][0] = image[index][0] - image[nextIndex][0]; // Real part
@@ -545,7 +546,7 @@ void gradientZGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradZ)
 
     // Handle boundary condition at the last z position
     if (z == depth - 1 && y < height && x < width) {
-        int lastIndex = z * height * width + y * width + x;
+        size_t lastIndex = z * height * width + y * width + x;
         gradZ[lastIndex][0] = 0.0;
         gradZ[lastIndex][1] = 0.0;
     }
@@ -553,20 +554,20 @@ void gradientZGlobal(int Nx, int Ny, int Nz, complex_t* image, complex_t* gradZ)
 
 // Divergence kernels (backward differences — adjoint of forward gradient)
 __global__
-void divergenceGlobalReal(int Nx, int Ny, int Nz, int strideGx, int strideGy, int strideGz, int strideOut, real_t* gx, real_t* gy, real_t* gz, real_t* result) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void divergenceGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideGx, size_t strideGy, size_t strideGz, size_t strideOut, real_t* gx, real_t* gy, real_t* gz, real_t* result) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < width && y < height && z < depth) {
-        int indexGx = z * (strideGx * height) + y * strideGx + x;
-        int indexGy = z * (strideGy * height) + y * strideGy + x;
-        int indexGz = z * (strideGz * height) + y * strideGz + x;
-        int indexOut = z * (strideOut * height) + y * strideOut + x;
+        size_t indexGx = z * (strideGx * height) + y * strideGx + x;
+        size_t indexGy = z * (strideGy * height) + y * strideGy + x;
+        size_t indexGz = z * (strideGz * height) + y * strideGz + x;
+        size_t indexOut = z * (strideOut * height) + y * strideOut + x;
 
         // Backward difference in x: gx[x] - gx[x-1], with 0 at x=0
         real_t divX = gx[indexGx] - (x > 0 ? gx[indexGx - 1] : real_t(0));
@@ -580,17 +581,17 @@ void divergenceGlobalReal(int Nx, int Ny, int Nz, int strideGx, int strideGy, in
 }
 
 __global__
-void divergenceGlobal(int Nx, int Ny, int Nz, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* result) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void divergenceGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* result) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     if (x < width && y < height && z < depth) {
-        int index = z * height * width + y * width + x;
+        size_t index = z * height * width + y * width + x;
 
         // Backward difference in x (real part only for TV divergence)
         real_t divX_r = gx[index][0] - (x > 0 ? gx[index - 1][0] : real_t(0));
@@ -608,15 +609,15 @@ void divergenceGlobal(int Nx, int Ny, int Nz, complex_t* gx, complex_t* gy, comp
 }
 
 __global__
-void computeTVGlobal(int Nx, int Ny, int Nz, real_t lambda, complex_t* div, complex_t* tv) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void computeTVGlobal(size_t Nx, size_t Ny, size_t Nz, real_t lambda, complex_t* div, complex_t* tv) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-    int index = z * height * width + y * width + x;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t index = z * height * width + y * width + x;
 
     if (x < width && y < height && z < depth) {
         // TV damping factor: tv = 1 / (1 + lambda * div)
@@ -631,14 +632,14 @@ void computeTVGlobal(int Nx, int Ny, int Nz, real_t lambda, complex_t* div, comp
 }
 
 __global__
-void normalizeTVGlobal(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
-    int index = z * height * width + y * width + x;
+void normalizeTVGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t index = z * height * width + y * width + x;
 
     if (x < width && y < height && z < depth) {
         // Smoothed TV subgradient: gx / sqrt(|nabla f|² + beta²)
@@ -660,19 +661,19 @@ void normalizeTVGlobal(int Nx, int Ny, int Nz, complex_t* gradX, complex_t* grad
 
 // Tiled
 __global__
-void calculateLaplacianTiledGlobal(int Nx, int Ny, int Nz, complex_t* Afft, complex_t* laplacianfft) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
+void calculateLaplacianTiledGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* Afft, complex_t* laplacianfft) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
 
     // Tile dimensions, including a halo
     const int TILE_DIM = 8;
     __shared__ complex_t tile[TILE_DIM + 2][TILE_DIM + 2][TILE_DIM + 2];
 
     // Calculate global index
-    int x = blockIdx.x * TILE_DIM + threadIdx.x;
-    int y = blockIdx.y * TILE_DIM + threadIdx.y;
-    int z = blockIdx.z * TILE_DIM + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * TILE_DIM + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * TILE_DIM + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * TILE_DIM + threadIdx.z;
 
     // Shared memory index (with a halo)
     int tx = threadIdx.x + 1;
@@ -682,39 +683,39 @@ void calculateLaplacianTiledGlobal(int Nx, int Ny, int Nz, complex_t* Afft, comp
     // Check if the index is within bounds
     if (x < width && y < height && z < depth) {
         // Load the center of the tile
-        int index = z * width * height + y * width + x;
+        size_t index = z * width * height + y * width + x;
         // Copy components explicitly because `complex_t` is an array type and cannot be assigned directly
         tile[tx][ty][tz][0] = Afft[index][0];
         tile[tx][ty][tz][1] = Afft[index][1];
 
         // Load neighboring elements into shared memory (halo region)
         if (threadIdx.x == 0 && x > 0) {
-            int idx = index - 1;
+            size_t idx = index - 1;
             tile[0][ty][tz][0] = Afft[idx][0]; // left
             tile[0][ty][tz][1] = Afft[idx][1];
         }
         if (threadIdx.x == TILE_DIM - 1 && x < width - 1) {
-            int idx = index + 1;
+            size_t idx = index + 1;
             tile[tx + 1][ty][tz][0] = Afft[idx][0]; // right
             tile[tx + 1][ty][tz][1] = Afft[idx][1];
         }
         if (threadIdx.y == 0 && y > 0) {
-            int idx = index - width;
+            size_t idx = index - width;
             tile[tx][0][tz][0] = Afft[idx][0]; // down
             tile[tx][0][tz][1] = Afft[idx][1];
         }
         if (threadIdx.y == TILE_DIM - 1 && y < height - 1) {
-            int idx = index + width;
+            size_t idx = index + width;
             tile[tx][ty + 1][tz][0] = Afft[idx][0]; // up
             tile[tx][ty + 1][tz][1] = Afft[idx][1];
         }
         if (threadIdx.z == 0 && z > 0) {
-            int idx = index - width * height;
+            size_t idx = index - width * height;
             tile[tx][ty][0][0] = Afft[idx][0]; // back
             tile[tx][ty][0][1] = Afft[idx][1];
         }
         if (threadIdx.z == TILE_DIM - 1 && z < depth - 1) {
-            int idx = index + width * height;
+            size_t idx = index + width * height;
             tile[tx][ty][tz + 1][0] = Afft[idx][0]; // front
             tile[tx][ty][tz + 1][1] = Afft[idx][1];
         }
@@ -735,9 +736,9 @@ void calculateLaplacianTiledGlobal(int Nx, int Ny, int Nz, complex_t* Afft, comp
 
 // Fourier Shift
 __global__
-void normalizeDataGlobal(int Nx, int Ny, int Nz, complex_t* d_data) {
+void normalizeDataGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* d_data) {
     // Calculate the 1D index for the 3D data array
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t idx = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
 
     // Ensure that the thread is within bounds of the data
     if (idx < Nx * Ny * Nz) {
@@ -750,25 +751,25 @@ void normalizeDataGlobal(int Nx, int Ny, int Nz, complex_t* d_data) {
 }
 
 __global__
-void octantFourierShiftGlobal(int Nx, int Ny, int Nz, int stride, real_t* data) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
-    int halfWidth = width / 2;
-    int halfHeight = height / 2;
-    int halfDepth = depth / 2;
+void octantFourierShiftGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* data) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
+    size_t halfWidth = width / 2;
+    size_t halfHeight = height / 2;
+    size_t halfDepth = depth / 2;
 
     // Calculate the indices for the current thread
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     // Ensure that the thread is within bounds, just iterate over the first half of the depth
     if (x < width && y < height && z < halfDepth) {
         // Calculate the linear indices using stride for addressing
         // but modular arithmetic on logical dimensions for swap positions
-        int idx1 = z * (stride * height) + y * stride + x;
-        int idx2 = ((z + halfDepth) % depth) * (stride * height) +
+        size_t idx1 = z * (stride * height) + y * stride + x;
+        size_t idx2 = ((z + halfDepth) % depth) * (stride * height) +
                    ((y + halfHeight) % height) * stride +
                    ((x + halfWidth) % width);
 
@@ -784,24 +785,24 @@ void octantFourierShiftGlobal(int Nx, int Ny, int Nz, int stride, real_t* data) 
 }
 
 __global__
-void octantFourierShiftGlobal(int Nx, int Ny, int Nz, complex_t* data) {
-    int width = Nx;
-    int height = Ny;
-    int depth = Nz;
-    int halfWidth = width / 2;
-    int halfHeight = height / 2;
-    int halfDepth = depth / 2;
+void octantFourierShiftGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* data) {
+    size_t width = Nx;
+    size_t height = Ny;
+    size_t depth = Nz;
+    size_t halfWidth = width / 2;
+    size_t halfHeight = height / 2;
+    size_t halfDepth = depth / 2;
 
     // Calculate the indices for the current thread
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     // Ensure that the thread is within bounds, just iterate over the first 4 octants
     if (z < halfDepth) {
         // Calculate the linear indices for the current element and its counterpart in the other octant
-        int idx1 = z * height * width + y * width + x;
-        int idx2 = ((z + halfDepth) % depth) * height * width +
+        size_t idx1 = z * height * width + y * width + x;
+        size_t idx2 = ((z + halfDepth) % depth) * height * width +
                    ((y + halfHeight) % height) * width +
                    ((x + halfWidth) % width);
 
@@ -823,18 +824,18 @@ void octantFourierShiftGlobal(int Nx, int Ny, int Nz, complex_t* data) {
 }
 
 __global__
-void padMatGlobal(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int newNz, complex_t* oldMat, complex_t* newMat, int offsetX, int offsetY, int offsetZ)
+void padMatGlobal(size_t oldNx, size_t oldNy, size_t oldNz, size_t newNx, size_t newNy, size_t newNz, complex_t* oldMat, complex_t* newMat, size_t offsetX, size_t offsetY, size_t offsetZ)
 {
     // 3D-Index des Threads im Grid
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int z = blockIdx.z * blockDim.z + threadIdx.z;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
 
     // Neue Matrixgröße als Grenze
     if (x >= newNx || y >= newNy || z >= newNz) return;
 
     // Index in der neuen Matrix
-    int newIndex = z * newNy * newNx + y * newNx + x;
+    size_t newIndex = z * newNy * newNx + y * newNx + x;
 
     // Initialisiere die neue Matrix mit Null
     newMat[newIndex][0] = 0.0; // Realteil
@@ -846,14 +847,13 @@ void padMatGlobal(int oldNx, int oldNy, int oldNz, int newNx, int newNy, int new
         z >= offsetZ && z < offsetZ + oldNz)
     {
         // Index in der alten Matrix
-        int oldX = x - offsetX;
-        int oldY = y - offsetY;
-        int oldZ = z - offsetZ;
-        int oldIndex = oldZ * oldNy * oldNx + oldY * oldNx + oldX;
+        size_t oldX = x - offsetX;
+        size_t oldY = y - offsetY;
+        size_t oldZ = z - offsetZ;
+        size_t oldIndex = oldZ * oldNy * oldNx + oldY * oldNx + oldX;
 
         // Kopiere den Wert von der alten in die neue Matrix
         newMat[newIndex][0] = oldMat[oldIndex][0];
         newMat[newIndex][1] = oldMat[oldIndex][1];
     }
 }
-
