@@ -121,7 +121,7 @@ public:
         return std::string("cuda") + std::to_string(config.device.id);
     }
 
-    void sync() override {cudaStreamSynchronize(config.stream);}
+    void sync() override { ensureDevice(); cudaStreamSynchronize(config.stream);}
     // Memory management initialization
     void setMemoryLimit(size_t maxMemorySize = 0) override;
 
@@ -144,6 +144,7 @@ public:
 private:
 
     void logWithContext(const std::string& msg, LogLevel level) const;
+    void ensureDevice() const { cudaSetDevice(config.device.id); }
 
     // CUDA stream for memory operations
     CUDABackendConfig config;
@@ -172,7 +173,7 @@ public:
 
 
     void initializePlan(const FFTPlanDescription& description) override;
-    void sync() override {cudaStreamSynchronize(config.stream);}
+    void sync() override { ensureDevice(); cudaStreamSynchronize(config.stream);}
     // FFT functions
     void forwardFFT(const ComplexData& in, ComplexData& out) const override;
     void backwardFFT(const ComplexData& in, ComplexData& out) const override;
@@ -238,6 +239,7 @@ public:
 private:
 
     void logWithContext(const std::string& msg, LogLevel level) const;
+    void ensureDevice() const { cudaSetDevice(config.device.id); }
 
     cufftHandle initializePlan_(const FFTPlanDescription& description);
 
