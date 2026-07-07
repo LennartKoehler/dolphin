@@ -288,8 +288,7 @@ DataView<real_t> CPUBackendMemoryManager::reinterpret(ComplexData& data) const{
     shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
     size_t padding = shapeForInplaceFFT.width - realShape.width;
 
-    DataView<real_t> result = DataView<real_t>{data.getBackend(), reinterpret_cast<real_t*>(data.getData()), realShape, realShape, data.getDataBytes(), padding};
-    data.setBackend(nullptr); // so it doesnt delete the data
+    DataView<real_t> result = DataView<real_t>{reinterpret_cast<real_t*>(data.getData()), realShape, realShape, data.getDataBytes(), padding};
     return result;
 }
 
@@ -297,8 +296,7 @@ DataView<complex_t> CPUBackendMemoryManager::reinterpret(RealData& data) const{
     CuboidShape complexShape = data.getSize();
     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
 
-    DataView<complex_t> result = DataView<complex_t>{data.getBackend(), reinterpret_cast<complex_t*>(data.getData()), complexShape, data.getSize(), data.getDataBytes(), 0};
-    data.setBackend(nullptr); // so it doesnt delete the data
+    DataView<complex_t> result = DataView<complex_t>{reinterpret_cast<complex_t*>(data.getData()), complexShape, data.getSize(), data.getDataBytes(), 0};
     return result;
 }
 
