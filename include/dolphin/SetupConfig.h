@@ -41,6 +41,9 @@ public:
     bool readerPrefetchEnabled = false;
     int readerPrefetchCount = 4;
 
+    std::string outputCompression = "5";
+    int outputCompressionLevel = -1;
+
 protected:
 
     virtual void registerAllParameters();

@@ -51,13 +51,14 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
     numReaderThreads = other.numReaderThreads;
     readerPrefetchEnabled = other.readerPrefetchEnabled;
     readerPrefetchCount = other.readerPrefetchCount;
+    outputCompression = other.outputCompression;
+    outputCompressionLevel = other.outputCompressionLevel;
 
     registerAllParameters();
 }
 
 SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
     if (this != &other) {
-        // Copy values, then re-register parameters so they point to our own members
         psfConfigPath = other.psfConfigPath;
         backend = other.backend;
         nThreads = other.nThreads;
@@ -69,6 +70,8 @@ SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
         numReaderThreads = other.numReaderThreads;
         readerPrefetchEnabled = other.readerPrefetchEnabled;
         readerPrefetchCount = other.readerPrefetchCount;
+        outputCompression = other.outputCompression;
+        outputCompressionLevel = other.outputCompressionLevel;
 
         parameters.clear();
         registerAllParameters();
@@ -169,6 +172,8 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Int, &numReaderThreads, "Number of Reader Threads", true, "num_reader_threads", "--num_reader_threads", "Number of TIFF reader threads (0=auto)", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Bool, &readerPrefetchEnabled, "Reader Prefetch Enabled", true, "reader_prefetch_enabled", "--reader_prefetch_enabled", "Enable TIFF reader prefetching", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Int, &readerPrefetchCount, "Reader Prefetch Count", true, "reader_prefetch_count", "--reader_prefetch_count", "Number of subimages to prefetch", false, true, 0.0, 1000.0, nullptr});
+    parameters.push_back({ParameterType::String, &outputCompression, "Output Compression", true, "output_compression", "--output_compression", "TIFF compression scheme (none, lzw, deflate)", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Int, &outputCompressionLevel, "Output Compression Level", true, "output_compression_level", "--output_compression_level", "Compression level (-1=default, 1-9 for deflate)", false, true, -1.0, 9.0, nullptr});
     parameters.push_back({ParameterType::Bool, &savePsf, "Save PSF", true, "save_psf", "--save_psf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
 
 

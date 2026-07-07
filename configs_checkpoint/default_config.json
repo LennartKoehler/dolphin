@@ -19,7 +19,9 @@
   "max_mem_gb": 64,
 
   "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
-  "deconvolution_type": "standard"
+  "deconvolution_type": "standard",
 
+  "output_compression": "none",
+  "output_compression_level": -1
 
 }
