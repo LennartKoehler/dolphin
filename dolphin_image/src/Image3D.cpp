@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include <functional>
 #include <itkTestingComparisonImageFilter.h>
 #include <cmath>
+#include <cstring>
 
 Image3D::Image3D(const CuboidShape& shape, float fillValue) {
     image = ImageType::New();
@@ -611,39 +612,17 @@ void Image3D::setSlice(size_t sliceindex, const void* data) {
 }
 
 void Image3D::setRow(size_t colindex, size_t sliceindex, const float* data) {
-    using PixelType = ImageType::PixelType;
-
-    // Compute number of pixels in a slice
     ImageType::RegionType fullRegion = image->GetLargestPossibleRegion();
     ImageType::SizeType fullSize = fullRegion.GetSize();
-    size_t slicePixels = fullSize[0] * fullSize[1];
+    size_t width = fullSize[0];
+    size_t slicePixels = width * fullSize[1];
 
     if (slicePixels == 0) {
         throw std::runtime_error("Data size does not match slice size");
     }
 
-    // Define the slice region
-    ImageType::IndexType start;
-    start[0] = 0;
-    start[1] = static_cast<itk::IndexValueType>(colindex);
-    start[2] = static_cast<itk::IndexValueType>(sliceindex);
-
-    ImageType::SizeType size;
-    size[0] = fullSize[0];
-    size[1] = 1;
-    size[2] = 1;
-
-    ImageType::RegionType sliceRegion;
-    sliceRegion.SetIndex(start);
-    sliceRegion.SetSize(size);
-
-    // Iterator over the slice
-    itk::ImageRegionIterator<ImageType> it(image, sliceRegion);
-
-
-    for (it.GoToBegin(); !it.IsAtEnd(); ++it, ++data) {
-        it.Set(*data);
-    }
+    size_t offset = colindex * width + sliceindex * slicePixels;
+    std::memcpy(image->GetBufferPointer() + offset, data, width * sizeof(float));
 }
 
 

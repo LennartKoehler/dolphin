@@ -76,11 +76,11 @@ private:
     PaddedImage extractFromBuffer(const BoxCoordWithPadding& coord, BufferEntry& entry) const;
     void executeRead(std::list<PendingRead>::iterator pendingIt, const BoxCoordWithPadding& source) const;
 
-    static void readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& layers, int channel);
-    static void readTiledSubimage(TIFF* tif, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& image, int channel);
-    static void readStrippedSubimage(TIFF* tif, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& image, int channel);
-    static void readScanlineSubimage(TIFF* tif, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& image, int channel);
-    static void readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& layers, int channel);
+    static void readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& layers, int channel);
+    static void readTiledSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel);
+    static void readStrippedSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel);
+    static void readScanlineSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel);
+    static void readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, const BoxCoord& region, Image3D& layers, int channel);
     static ImageMetaData readMetadata_(const std::string& filename);
 
     static void resolveChannel(int channel, const ImageMetaData& metaData, int& ifdchannel, int& sppchannel);
