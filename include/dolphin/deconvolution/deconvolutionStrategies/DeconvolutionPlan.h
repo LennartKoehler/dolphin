@@ -141,6 +141,43 @@ private:
 };
 
 
+
+// --- Optimize for FFTW (Smooth Numbers) ---
+// A "smooth" number has prime factors of only 2, 3, and 5.
+// This ensures FFTW can use its fastest algorithms.
+static bool isSmooth(size_t n){
+    while (n % 2 == 0) n /= 2;
+    while (n % 3 == 0) n /= 3;
+    while (n % 5 == 0) n /= 5;
+    return n == 1;
+};
+
+static size_t nextSmooth(size_t dim){
+    if (dim == 0) return dim;
+    while (!isSmooth(dim)) {
+        dim++;
+    }
+    return dim;
+};
+static size_t previousSmooth(size_t dim){
+    if (dim <= 1) return dim;
+    dim--;
+    while (!isSmooth(dim)) {
+        dim--;
+    }
+    return dim;
+};
+
+Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
+    const Padding& cubePadding,
+    const CuboidShape& imageOriginalShape,
+    const size_t& maxVolumePerCube,
+    const size_t& minNumberCubes,
+    const PaddingStrategyType& imagePadding,
+    const CuboidShape& minShape);
+
+
+
 //
 // class LabelBuilder{
 // public:
@@ -172,14 +209,4 @@ private:
 //
 // };
 //
-
-
-Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
-    const Padding& cubePadding,
-    const CuboidShape& imageOriginalShape,
-    const size_t& maxVolumePerCube,
-    const size_t& minNumberCubes,
-    const PaddingStrategyType& imagePadding,
-    const CuboidShape& minShape);
-
 

@@ -63,7 +63,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     size_t maxMemoryPerCube = getMaxMemoryPerCube(
         ioThreads,
         workerThreads,
-        manager,
+        manager.createBackendForCurrentThread(BackendConfig()).getMemoryManager(),
         algorithm
     );
     size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(real_t);
@@ -205,42 +205,52 @@ IBackendManager& StandardDeconvolutionStrategy::getBackendManager(const SetupCon
 size_t StandardDeconvolutionStrategy::getMaxMemoryPerCube(
     size_t ioThreads,
     size_t workerThreads,
-    IBackendManager& manager,
+    const IBackendMemoryManager& backend,
     std::shared_ptr<DeconvolutionAlgorithm> algorithm
 ){
-    BackendConfig backendConfig; //TODO TESTVALUE
-    const IBackendMemoryManager& backend = manager.createBackendForCurrentThread(backendConfig).getMemoryManager();
-
     size_t availableMemory = backend.getAvailableMemory();
 
     size_t memoryBuffer = 1e9;
     if (availableMemory < memoryBuffer) throw std::runtime_error("Available memory too low");
     availableMemory -= memoryBuffer;
 
+    FFTWorkspaceCopiesEstimator estimator = [&backend](const CuboidShape& shape) {
+        return backend.estimateFFTWorkspaceCopies(shape);
+    };
+
+    return computeMaxMemoryPerCube(
+        availableMemory,
+        ioThreads,
+        workerThreads,
+        algorithm->getMemoryMultiplier(),
+        estimator);
+}
+
+size_t StandardDeconvolutionStrategy::computeMaxMemoryPerCube(
+    size_t availableMemory,
+    size_t ioThreads,
+    size_t workerThreads,
+    size_t algorithmMemoryMultiplier,
+    const FFTWorkspaceCopiesEstimator& estimateFFTWorkspaceCopies
+){
+    size_t workerAllocations = workerThreads * algorithmMemoryMultiplier;
+
     int ioCopies = 3; //image, psf, result, but psf only allocated once in total
     size_t ioAllocations = ioThreads * ioCopies;
-    size_t workerAllocations = workerThreads * algorithm->getMemoryMultiplier();
 
     size_t threadallocations = ioAllocations + workerAllocations;
     assert(threadallocations != 0 && "Error, no threadallocations");
 
     size_t memoryPerCube = availableMemory / threadallocations;
 
-    size_t fftWorkspace = 0;
-    for (int i = 0; i < 2; ++i) {
-        size_t cubeVolume = memoryPerCube / sizeof(real_t);
-        if (cubeVolume == 0) break;
-        int side = static_cast<int>(std::cbrt(static_cast<double>(cubeVolume)));
-        if (side < 1) side = 1;
-        CuboidShape estimatedShape(side, side, side);
-        fftWorkspace = backend.estimateFFTWorkspace(estimatedShape);
+    int side = static_cast<int>(std::cbrt(static_cast<double>(memoryPerCube) / sizeof(real_t)));
+    if (side < 1) side = 1;
+    side = nextSmooth(side);
+    CuboidShape estimatedShape(side, side, side);
 
-        size_t totalFFTWorkspace = workerThreads * fftWorkspace;
-        if (totalFFTWorkspace >= availableMemory) {
-            throw std::runtime_error("Not enough memory for FFT workspace on device");
-        }
-        memoryPerCube = (availableMemory - totalFFTWorkspace) / threadallocations;
-    }
+    float fftwWorkspaceCopies = estimateFFTWorkspaceCopies(estimatedShape);
+
+    memoryPerCube = availableMemory / (fftwWorkspaceCopies + threadallocations);
 
     return memoryPerCube;
 }

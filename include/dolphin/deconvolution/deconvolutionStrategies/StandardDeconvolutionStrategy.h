@@ -23,9 +23,13 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
 #include "dolphinbackend/IBackendManager.h"
+#include <functional>
 
 
 
+/// Type of the FFT-workspace estimator supplied by a backend.
+/// Takes a candidate cube shape and returns the estimated workspace in bytes.
+using FFTWorkspaceCopiesEstimator= std::function<float(const CuboidShape&)>;
 
 
 class StandardDeconvolutionStrategy : public IDeconvolutionStrategy {
@@ -46,9 +50,19 @@ protected:
     virtual size_t getMaxMemoryPerCube(
         size_t ioThreads,
         size_t workerThreads,
-        IBackendManager& manager,
+        const IBackendMemoryManager& backend,
         std::shared_ptr<DeconvolutionAlgorithm> algorithm);
 
+    /// Pure memory-budget calculation with no backend dependency.
+    /// Given the device's available memory (already minus any safety buffer the
+    /// caller wishes to apply) and a function to estimate the FFT workspace for
+    /// a candidate cube, returns the maximum bytes usable for a single cube.
+    static size_t computeMaxMemoryPerCube(
+        size_t availableMemory,
+        size_t ioThreads,
+        size_t workerThreads,
+        size_t algorithmMemoryMultiplier,
+        const FFTWorkspaceCopiesEstimator& estimateFFTWorkspace);
 
     std::shared_ptr<DeconvolutionAlgorithm> getAlgorithm(const DeconvolutionConfig& config);
     IBackendManager& getBackendManager(const SetupConfig& config);

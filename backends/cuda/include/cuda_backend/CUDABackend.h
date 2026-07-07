@@ -133,7 +133,7 @@ public:
     bool isOnDevice(const void* data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
-    size_t estimateFFTWorkspace(const CuboidShape& shape) const override;
+    float estimateFFTWorkspaceCopies(const CuboidShape& shape) const override;
 
     void* copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const override;
     void* moveDataFromDevice(void* src, size_t size, const CuboidShape& shape,
