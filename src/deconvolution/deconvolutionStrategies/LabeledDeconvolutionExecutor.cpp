@@ -117,13 +117,14 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
             RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
 
             std::future<void> resultDone = context->processor.deconvolveSingleCube(
-                workerbackend,
+                context,
+                iobackend,
                 task.sharedDescriptor->prototypeAlgorithm,
                 workShape,
                 psfs,
                 local_g_device,
                 f_device,
-                *context->psfpreprocessor.get(),
+                // *context->psfpreprocessor.get(),
                 tracker);
 
             resultDone.get(); //wait for result

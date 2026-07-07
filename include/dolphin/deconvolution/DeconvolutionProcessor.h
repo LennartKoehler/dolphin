@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/ComplexData.h"
 #include "dolphin/ThreadPool.h"
 
+class TaskContext;
 class CuboidShape;
 class IBackend;
 class IBackendMemoryManager;
@@ -34,13 +35,13 @@ public:
     }
 
     std::future<void> deconvolveSingleCube(
-        IBackend& backend,
+        std::shared_ptr<TaskContext>& context,
+        IBackend& iobackend,
         std::shared_ptr<DeconvolutionAlgorithm> prototypealgorithm,
         const CuboidShape& workShape,
-        const std::vector<std::shared_ptr<PSF>>& psfs_host,
+        const std::vector<std::shared_ptr<PSF>>& psfs_host, // dont pass psfs as ComplexData, because the workerbackend might be needed to preprocess psfs
         RealData& g_device,
         RealData& f_device,
-        PSFPreprocessor& psfpreprocessor,
         std::function<void(int)> progressFunction);
 
     // static ComplexData staticDeconvolveSingleCube(
