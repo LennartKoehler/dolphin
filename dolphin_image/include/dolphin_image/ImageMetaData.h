@@ -41,6 +41,11 @@ struct ImageMetaData {
     float minSampleValue = 0;
     int sampleFormat = 0;
 
+    bool isTiled = false;
+    uint32_t tileWidth = 0;
+    uint32_t tileLength = 0;
+    uint32_t rowsPerStrip = 0;
+
     CuboidShape getShape() const {
         return CuboidShape(imageWidth, imageLength, slices);
     }
@@ -67,8 +72,12 @@ struct ImageMetaData {
             << "  yResolution:              " << yResolution << '\n'
             << "  maxSampleValue:           " << maxSampleValue << '\n'
             << "  minSampleValue:           " << minSampleValue << '\n'
-            << "  sampleFormat:             " << sampleFormat << '\n'
-            << "  shape:                    " << getShape().print();
+        << "  sampleFormat:             " << sampleFormat << '\n'
+        << "  isTiled:                  " << (isTiled ? "true" : "false") << '\n'
+        << "  tileWidth:                " << tileWidth << '\n'
+        << "  tileLength:               " << tileLength << '\n'
+        << "  rowsPerStrip:             " << rowsPerStrip << '\n'
+        << "  shape:                    " << getShape().print();
         return oss.str();
     }
 

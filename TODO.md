@@ -1,10 +1,6 @@
-check the memory model with backend. On the server the strategy tries to use way too large cubes that dont fit. Who needs how many fft allocations and ioallocations. Perhaps completely rebuild the docker build to updated. Log the memory estimations more and see. Currently it actually runs out of memory. It needs like 3 io allocations + 2 extra worker allocations + 2 extra fft forward and fft backward so like 7 allocations in total, with 25GB each its over 175 gb, not good
 
-cuda create new backend with cudasetdevice
+can the data somehow be directly read to gpu and processed there? many copy operations
 
-i tihnk the devices are still not properly set up in the cudabackendmanager, see the error when running it on the server, perhaps an invalid stream?
-
-se if cuda always says create plan with 1 subcube, even if it doesnt fit, weird behavior
 
 restructure the build process to have a build image which stays the same and then compile the application using that build image. See chatgpt discussion
 then move to use github actions to get automatic builds

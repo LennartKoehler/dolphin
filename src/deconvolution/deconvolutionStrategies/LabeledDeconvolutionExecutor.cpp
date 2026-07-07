@@ -35,7 +35,13 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 
 void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn){
     int channel = 0;
-    this->labelReader = std::make_unique<TiffReader>(setupConfig.labeledImage, channel);
+    TiffReaderConfig readerConfig;
+    readerConfig.numReaderThreads = setupConfig.numReaderThreads > 0
+        ? static_cast<size_t>(setupConfig.numReaderThreads)
+        : static_cast<size_t>(std::max(1, setupConfig.nIOThreads));
+    readerConfig.prefetchEnabled = setupConfig.readerPrefetchEnabled;
+    readerConfig.prefetchCount = static_cast<size_t>(setupConfig.readerPrefetchCount);
+    this->labelReader = std::make_unique<TiffReader>(setupConfig.labeledImage, channel, readerConfig);
     this->loadingBar.setCallback(fn);
 
     // Load PSF label map if provided
@@ -46,6 +52,16 @@ void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig, con
     }
 
     this->featheringRadius = deconvConfig.featheringRadius;
+}
+
+void LabeledDeconvolutionExecutor::prefetchReaders(const DeconvolutionPlan& plan) {
+    StandardDeconvolutionExecutor::prefetchReaders(plan);
+    if (labelReader && !plan.tasks.empty()) {
+        std::vector<BoxCoordWithPadding> boxes;
+        for (auto& task : plan.tasks)
+            boxes.push_back(task->paddedBox);
+        labelReader->prefetch(boxes);
+    }
 }
 
 /*
@@ -70,19 +86,12 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
 
-    std::optional<PaddedImage> cubeImage_o = reader->getSubimage(task.paddedBox);
-    std::optional<PaddedImage> labelImage_o = labelReader->getSubimage(task.paddedBox);
-    if (!cubeImage_o.has_value()){
-        throw std::runtime_error("LabeledDeconvolutionExecutor: No input image recieved from reader");
-    }
-    if (!labelImage_o.has_value()){
-        throw std::runtime_error("LabeledDeconvolutionExecutor: No label image recieved from reader");
-    }
-    PaddedImage& inputCube = *cubeImage_o;
-    const PaddedImage& labelImage = *labelImage_o;
+    std::future<PaddedImage> cubeImageFuture = reader->getSubimage(task.paddedBox);
+    std::future<PaddedImage> labelImageFuture = labelReader->getSubimage(task.paddedBox);
+    PaddedImage cubeImage = cubeImageFuture.get();
+    PaddedImage labelImage = labelImageFuture.get();
 
-
-    RealData g_host = Preprocessor::convertImageToRealData(inputCube.image);
+    RealData g_host = Preprocessor::convertImageToRealData(cubeImage.image);
 
     RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
 

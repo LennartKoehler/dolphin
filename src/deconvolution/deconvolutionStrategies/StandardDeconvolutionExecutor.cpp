@@ -62,11 +62,8 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     {
         spdlog::get("deconvolution")->debug("[Task {}] Reading subimage from input", task.taskId);
-        std::optional<PaddedImage> cubeImage_o = reader->getSubimage(task.paddedBox);
-        if (!cubeImage_o.has_value()){
-            throw std::runtime_error("StandardDeconvolutionExecutor: No input image recieved from reader");
-        }
-        PaddedImage& cubeImage = *cubeImage_o;
+        std::future<PaddedImage> cubeImageFuture = reader->getSubimage(task.paddedBox);
+        PaddedImage cubeImage = cubeImageFuture.get();
         spdlog::get("deconvolution")->debug("[Task {}] Converting input image to real data", task.taskId);
         g_host = Preprocessor::convertImageToRealData(cubeImage.image);
     }
@@ -146,6 +143,16 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
 
 
 
+void StandardDeconvolutionExecutor::prefetchReaders(const DeconvolutionPlan& plan) {
+    if (plan.tasks.empty()) return;
+    auto& reader = plan.tasks[0]->sharedDescriptor->reader;
+    std::vector<BoxCoordWithPadding> boxes;
+    for (auto& task : plan.tasks)
+        boxes.push_back(task->paddedBox);
+    reader->prefetch(boxes);
+}
+
+
 void StandardDeconvolutionExecutor::parallelDeconvolution(
     DeconvolutionPlan channelPlan) {
 
@@ -153,6 +160,8 @@ void StandardDeconvolutionExecutor::parallelDeconvolution(
 
     std::vector<std::future<void>> runningTasks;
     loadingBar.setMax(channelPlan.totalTasks);
+
+    prefetchReaders(channelPlan);
 
     for (auto& task : channelPlan.tasks){
         std::shared_ptr<TaskContext> context = task->context;
