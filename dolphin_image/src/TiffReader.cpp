@@ -27,6 +27,22 @@ See the LICENSE file provided with the code for the full license.
 
 namespace fs = std::filesystem;
 
+namespace {
+
+template<typename SliceFn>
+void forEachZSlice(TIFF* tif, size_t z, size_t depth, const ImageMetaData& metaData, int ifdchannel, SliceFn&& sliceFn) {
+    for (uint32_t zIndex = static_cast<uint32_t>(z); zIndex < static_cast<uint32_t>(z + depth); zIndex++) {
+        int zIndexChannel = (zIndex * metaData.linChannels) + ifdchannel;
+        if (!TIFFSetDirectory(tif, zIndexChannel)) {
+            throw TiffReadException("Failed to set directory for z-slice " + std::to_string(zIndex) +
+                                    " (channel " + std::to_string(zIndexChannel) + ")");
+        }
+        sliceFn(zIndex);
+    }
+}
+
+}
+
 
 TiffReader::TiffReader(const std::string& filename, int channel, TiffReaderConfig config)
     : channel(channel), filename_(filename), config_(config) {
@@ -53,10 +69,9 @@ std::optional<Image3D> TiffReader::readTiffFile(const std::string& filename, int
         ImageMetaData metaData = TiffReader::readMetadata_(filename);
 
         Image3D image;
-        BoxCoord fullImage{CuboidShape{0,0,0}, CuboidShape{metaData.imageWidth, metaData.imageLength, metaData.slices}};
+        BoxCoord region{CuboidPosition{0, 0, 0}, CuboidShape{metaData.imageWidth, metaData.imageLength, metaData.slices}};
 
-        readSubimageFromTiffFileStatic(filename, metaData, static_cast<size_t>(fullImage.position.height), static_cast<size_t>(fullImage.position.depth),
-                         fullImage.dimensions.height, fullImage.dimensions.depth, fullImage.dimensions.width, image, channel);
+        readSubimageFromTiffFileStatic(filename, metaData, region, image, channel);
 
         return image;
 
@@ -104,7 +119,7 @@ ImageMetaData TiffReader::readMetadata_(const std::string& filename) {
 }
 
 
-void TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& image, int channel){
+void TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel){
 
     TIFFSetWarningHandler(TiffReader::customTifWarningHandler);
     TIFF* tif = TIFFOpen(filename.c_str(), "r");
@@ -113,7 +128,7 @@ void TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, con
     }
 
     try {
-        readSubimageFromTiffFile(tif, metaData, y, z, height, depth, width, image, channel);
+        readSubimageFromTiffFile(tif, metaData, region, image, channel);
         TIFFClose(tif);
     } catch (const TiffException& e) {
         TIFFClose(tif);
@@ -149,7 +164,7 @@ void TiffReader::resolveChannel(int channel, const ImageMetaData& metaData, int&
 }
 
 
-void TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& image, int channel) {
+void TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel) {
     try {
         if (!tiffile) {
             throw TiffException("TIFF File is not open");
@@ -160,21 +175,17 @@ void TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& me
             channel = 0;
         }
 
-        int ifdchannel, sppchannel;
-        resolveChannel(channel, metaData, ifdchannel, sppchannel);
-
-        CuboidShape imageShape(width, height, depth);
-        image = Image3D(imageShape, -1.0f);
+        image = Image3D(region.dimensions, -1.0f);
 
         if (metaData.isTiled) {
-            readTiledSubimage(tiffile, metaData, y, z, height, depth, width, image, channel);
+            readTiledSubimage(tiffile, metaData, region, image, channel);
         } else if (metaData.rowsPerStrip > 0) {
-            readStrippedSubimage(tiffile, metaData, y, z, height, depth, width, image, channel);
+            readStrippedSubimage(tiffile, metaData, region, image, channel);
         } else {
-            readScanlineSubimage(tiffile, metaData, y, z, height, depth, width, image, channel);
+            readScanlineSubimage(tiffile, metaData, region, image, channel);
         }
 
-        spdlog::info("Successfully read chunk ({}): (0,{},{}) {}x{}x{}", metaData.filename, y, z, width, height, depth);
+        spdlog::info("Successfully read chunk ({}): ({},{},{}) {}x{}x{}", metaData.filename, region.position.width, region.position.height, region.position.depth, region.dimensions.width, region.dimensions.height, region.dimensions.depth);
     } catch (const TiffException& e) {
         throw e;
     } catch (const std::exception& e){
@@ -185,42 +196,28 @@ void TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& me
 }
 
 
-void TiffReader::readScanlineSubimage(TIFF* tiffile, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& image, int channel) {
+void TiffReader::readScanlineSubimage(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel) {
     int ifdchannel, sppchannel;
     resolveChannel(channel, metaData, ifdchannel, sppchannel);
 
     tsize_t scanlineSize = TIFFScanlineSize(tiffile);
-    char* buf = (char*)_TIFFmalloc(scanlineSize);
-    if (!buf) {
-        throw TiffMemoryException("Failed to allocate scanline buffer");
-    }
+    std::vector<char> buf(scanlineSize);
+    std::vector<float> rowData(region.dimensions.width);
 
-    std::vector<float> rowData(width);
-
-    for (uint32_t zIndex = static_cast<uint32_t>(z); zIndex < static_cast<uint32_t>(z + depth); zIndex++) {
-        int zIndexChannel = (zIndex * metaData.linChannels) + ifdchannel;
-        if (!TIFFSetDirectory(tiffile, zIndexChannel)) {
-            _TIFFfree(buf);
-            throw TiffReadException("Failed to set directory for z-slice " + std::to_string(zIndex) +
-                                " (channel " + std::to_string(zIndexChannel) + ")");
-        }
-
-        for (uint32_t yIndex = static_cast<uint32_t>(y); yIndex < static_cast<uint32_t>(y + height); yIndex++) {
-            if (TIFFReadScanline(tiffile, buf, yIndex) == -1) {
-                _TIFFfree(buf);
+    forEachZSlice(tiffile, region.position.depth, region.dimensions.depth, metaData, ifdchannel, [&](uint32_t zIndex) {
+        for (uint32_t yIndex = static_cast<uint32_t>(region.position.height); yIndex < static_cast<uint32_t>(region.position.height + region.dimensions.height); yIndex++) {
+            if (TIFFReadScanline(tiffile, buf.data(), yIndex) == -1) {
                 throw TiffReadException("Failed to read scanline " + std::to_string(yIndex) +
-                                    " in z-slice " + std::to_string(zIndex));
+                                        " in z-slice " + std::to_string(zIndex));
             }
-            convertScanlineToFloat(buf, rowData, width, metaData, sppchannel);
-            image.setRow(yIndex - y, zIndex - z, rowData.data());
+            convertScanlineToFloat(buf.data(), rowData, region.dimensions.width, metaData, sppchannel);
+            image.setRow(yIndex - region.position.height, zIndex - region.position.depth, rowData.data());
         }
-    }
-
-    _TIFFfree(buf);
+    });
 }
 
 
-void TiffReader::readStrippedSubimage(TIFF* tif, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& image, int channel) {
+void TiffReader::readStrippedSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel) {
     int ifdchannel, sppchannel;
     resolveChannel(channel, metaData, ifdchannel, sppchannel);
 
@@ -229,17 +226,11 @@ void TiffReader::readStrippedSubimage(TIFF* tif, const ImageMetaData& metaData, 
     tsize_t scanlineSize = TIFFScanlineSize(tif);
 
     std::vector<char> stripBuf(stripSize);
-    std::vector<float> rowData(width);
+    std::vector<float> rowData(region.dimensions.width);
 
-    for (uint32_t zIndex = static_cast<uint32_t>(z); zIndex < static_cast<uint32_t>(z + depth); zIndex++) {
-        int zIndexChannel = (zIndex * metaData.linChannels) + ifdchannel;
-        if (!TIFFSetDirectory(tif, zIndexChannel)) {
-            throw TiffReadException("Failed to set directory for z-slice " + std::to_string(zIndex) +
-                                  " (channel " + std::to_string(zIndexChannel) + ")");
-        }
-
-        uint32_t startStrip = static_cast<uint32_t>(y) / rowsPerStrip;
-        uint32_t endStrip = (static_cast<uint32_t>(y) + static_cast<uint32_t>(height) - 1) / rowsPerStrip;
+    forEachZSlice(tif, region.position.depth, region.dimensions.depth, metaData, ifdchannel, [&](uint32_t zIndex) {
+        uint32_t startStrip = static_cast<uint32_t>(region.position.height) / rowsPerStrip;
+        uint32_t endStrip = (static_cast<uint32_t>(region.position.height) + static_cast<uint32_t>(region.dimensions.height) - 1) / rowsPerStrip;
 
         for (uint32_t s = startStrip; s <= endStrip; s++) {
             tmsize_t bytesRead = TIFFReadEncodedStrip(tif, s, stripBuf.data(), stripSize);
@@ -251,22 +242,22 @@ void TiffReader::readStrippedSubimage(TIFF* tif, const ImageMetaData& metaData, 
             uint32_t stripStartRow = s * rowsPerStrip;
             uint32_t stripEndRow = std::min((s + 1) * rowsPerStrip, static_cast<uint32_t>(metaData.imageLength));
 
-            uint32_t rowStart = std::max(static_cast<uint32_t>(y), stripStartRow);
-            uint32_t rowEnd = std::min(static_cast<uint32_t>(y) + static_cast<uint32_t>(height), stripEndRow);
+            uint32_t rowStart = std::max(static_cast<uint32_t>(region.position.height), stripStartRow);
+            uint32_t rowEnd = std::min(static_cast<uint32_t>(region.position.height + region.dimensions.height), stripEndRow);
 
             for (uint32_t row = rowStart; row < rowEnd; row++) {
                 uint32_t rowInStrip = row - stripStartRow;
                 const char* scanlineData = stripBuf.data() + rowInStrip * scanlineSize;
 
-                convertScanlineToFloat(scanlineData, rowData, width, metaData, sppchannel);
-                image.setRow(row - y, zIndex - z, rowData.data());
+                convertScanlineToFloat(scanlineData, rowData, region.dimensions.width, metaData, sppchannel);
+                image.setRow(row - region.position.height, zIndex - region.position.depth, rowData.data());
             }
         }
-    }
+    });
 }
 
 
-void TiffReader::readTiledSubimage(TIFF* tif, const ImageMetaData& metaData, size_t y, size_t z, size_t height, size_t depth, size_t width, Image3D& image, int channel) {
+void TiffReader::readTiledSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel) {
     int ifdchannel, sppchannel;
     resolveChannel(channel, metaData, ifdchannel, sppchannel);
 
@@ -276,31 +267,28 @@ void TiffReader::readTiledSubimage(TIFF* tif, const ImageMetaData& metaData, siz
     tsize_t tileRowSize = TIFFTileRowSize(tif);
 
     uint32_t tilesPerRow = (static_cast<uint32_t>(metaData.imageWidth) + tileWidth - 1) / tileWidth;
+    uint32_t startTileCol = static_cast<uint32_t>(region.position.width) / tileWidth;
+    uint32_t endTileCol = static_cast<uint32_t>(region.position.width + region.dimensions.width - 1) / tileWidth;
+    uint32_t numTilesToRead = endTileCol - startTileCol + 1;
 
-    std::vector<float> rowData(width);
+    std::vector<float> rowData(region.dimensions.width);
 
-    for (uint32_t zIndex = static_cast<uint32_t>(z); zIndex < static_cast<uint32_t>(z + depth); zIndex++) {
-        int zIndexChannel = (zIndex * metaData.linChannels) + ifdchannel;
-        if (!TIFFSetDirectory(tif, zIndexChannel)) {
-            throw TiffReadException("Failed to set directory for z-slice " + std::to_string(zIndex) +
-                                  " (channel " + std::to_string(zIndexChannel) + ")");
-        }
-
-        uint32_t startTileRow = static_cast<uint32_t>(y) / tileLength;
-        uint32_t endTileRow = (static_cast<uint32_t>(y) + static_cast<uint32_t>(height) - 1) / tileLength;
+    forEachZSlice(tif, region.position.depth, region.dimensions.depth, metaData, ifdchannel, [&](uint32_t zIndex) {
+        uint32_t startTileRow = static_cast<uint32_t>(region.position.height) / tileLength;
+        uint32_t endTileRow = (static_cast<uint32_t>(region.position.height + region.dimensions.height - 1)) / tileLength;
 
         for (uint32_t tr = startTileRow; tr <= endTileRow; tr++) {
             uint32_t tileRowStart = tr * tileLength;
             uint32_t tileRowEnd = std::min((tr + 1) * tileLength, static_cast<uint32_t>(metaData.imageLength));
 
-            uint32_t rowStart = std::max(static_cast<uint32_t>(y), tileRowStart);
-            uint32_t rowEnd = std::min(static_cast<uint32_t>(y) + static_cast<uint32_t>(height), tileRowEnd);
+            uint32_t rowStart = std::max(static_cast<uint32_t>(region.position.height), tileRowStart);
+            uint32_t rowEnd = std::min(static_cast<uint32_t>(region.position.height + region.dimensions.height), tileRowEnd);
 
-            std::vector<std::vector<char>> tileCache(tilesPerRow);
-            for (uint32_t tc = 0; tc < tilesPerRow; tc++) {
-                uint32_t tileIndex = tr * tilesPerRow + tc;
-                tileCache[tc].resize(tileSize);
-                if (TIFFReadEncodedTile(tif, tileIndex, tileCache[tc].data(), tileSize) == -1) {
+            std::vector<std::vector<char>> tileCache(numTilesToRead);
+            for (uint32_t i = 0; i < numTilesToRead; i++) {
+                uint32_t tileIndex = tr * tilesPerRow + (startTileCol + i);
+                tileCache[i].resize(tileSize);
+                if (TIFFReadEncodedTile(tif, tileIndex, tileCache[i].data(), tileSize) == -1) {
                     throw TiffReadException("Failed to read tile " + std::to_string(tileIndex) +
                                           " in z-slice " + std::to_string(zIndex));
                 }
@@ -310,19 +298,21 @@ void TiffReader::readTiledSubimage(TIFF* tif, const ImageMetaData& metaData, siz
                 std::fill(rowData.begin(), rowData.end(), -1.0f);
                 uint32_t rowInTile = row - tileRowStart;
 
-                for (uint32_t tc = 0; tc < tilesPerRow; tc++) {
+                for (uint32_t i = 0; i < numTilesToRead; i++) {
+                    uint32_t tc = startTileCol + i;
                     uint32_t tileColStart = tc * tileWidth;
                     uint32_t tileColEnd = std::min((tc + 1) * tileWidth, static_cast<uint32_t>(metaData.imageWidth));
                     uint32_t tilePixelWidth = tileColEnd - tileColStart;
 
-                    const char* tileRowData = tileCache[tc].data() + rowInTile * tileRowSize;
-                    convertTileRowToFloat(tileRowData, rowData, tileColStart, tilePixelWidth, metaData, sppchannel);
+                    size_t destOffset = tileColStart - static_cast<uint32_t>(region.position.width);
+                    const char* tileRowData = tileCache[i].data() + rowInTile * tileRowSize;
+                    convertTileRowToFloat(tileRowData, rowData, destOffset, tilePixelWidth, metaData, sppchannel);
                 }
 
-                image.setRow(row - y, zIndex - z, rowData.data());
+                image.setRow(row - region.position.height, zIndex - region.position.depth, rowData.data());
             }
         }
-    }
+    });
 }
 
 
@@ -386,14 +376,7 @@ void TiffReader::executeRead(std::list<PendingRead>::iterator pendingIt, const B
     Image3D readImage;
     try {
         auto guard = handlePool_->acquire();
-        BoxCoord srcBox = source.getBox();
-        readSubimageFromTiffFile(guard.get(), metaData,
-            static_cast<size_t>(srcBox.position.height),
-            static_cast<size_t>(srcBox.position.depth),
-            srcBox.dimensions.height,
-            srcBox.dimensions.depth,
-            srcBox.dimensions.width,
-            readImage, channel);
+        readSubimageFromTiffFile(guard.get(), metaData, source.box, readImage, channel);
     } catch (...) {
         std::lock_guard<std::mutex> lock(mutex_);
         for (auto& [box, promise] : pendingIt->waiters) {
@@ -440,6 +423,7 @@ std::future<PaddedImage> TiffReader::getSubimage(const BoxCoordWithPadding& box)
 
     std::lock_guard<std::mutex> lock(mutex_);
 
+    // check if region is already in some buffer
     for (auto& entry : bufferedRegions_) {
         if (box.isWithin(entry.source)) {
             std::promise<PaddedImage> p;
@@ -448,6 +432,7 @@ std::future<PaddedImage> TiffReader::getSubimage(const BoxCoordWithPadding& box)
         }
     }
 
+    // check if reading that region is already queued, wait for result
     for (auto it = pendingReads_.begin(); it != pendingReads_.end(); ++it) {
         if (box.isWithin(it->source)) {
             auto promise = std::make_shared<std::promise<PaddedImage>>();
@@ -457,6 +442,7 @@ std::future<PaddedImage> TiffReader::getSubimage(const BoxCoordWithPadding& box)
         }
     }
 
+    // queue region reading task
     BoxCoordWithPadding source = computeReadSource(box);
     auto promise = std::make_shared<std::promise<PaddedImage>>();
     auto future = promise->get_future();
@@ -667,38 +653,50 @@ void TiffReader::customTifWarningHandler(const char* module, const char* fmt, va
 
 
 void TiffReader::convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, size_t width, const ImageMetaData& metaData, int channel) {
-    for (size_t x = 0; x < width; x++) {
-        if (metaData.bitsPerSample == 8) {
-            const uint8_t* data8 = reinterpret_cast<const uint8_t*>(scanlineData);
-            rowData[x] = static_cast<float>(data8[x * metaData.samplesPerPixel + channel]);
-        } else if (metaData.bitsPerSample == 16) {
-            const uint16_t* data16 = reinterpret_cast<const uint16_t*>(scanlineData);
-            rowData[x] = static_cast<float>(data16[x * metaData.samplesPerPixel + channel]);
-        } else if (metaData.bitsPerSample == 32) {
-            const float* data32 = reinterpret_cast<const float*>(scanlineData);
-            rowData[x] = data32[x * metaData.samplesPerPixel + channel];
-        } else {
-            throw TiffReadException("Unsupported bit depth: " + std::to_string(metaData.bitsPerSample) +
-                                    " (supported: 8, 16, 32)");
+    const uint16_t spp = metaData.samplesPerPixel;
+
+    if (metaData.bitsPerSample == 8) {
+        const uint8_t* data8 = reinterpret_cast<const uint8_t*>(scanlineData);
+        for (size_t x = 0; x < width; x++) {
+            rowData[x] = static_cast<float>(data8[x * spp + channel]);
         }
+    } else if (metaData.bitsPerSample == 16) {
+        const uint16_t* data16 = reinterpret_cast<const uint16_t*>(scanlineData);
+        for (size_t x = 0; x < width; x++) {
+            rowData[x] = static_cast<float>(data16[x * spp + channel]);
+        }
+    } else if (metaData.bitsPerSample == 32) {
+        const float* data32 = reinterpret_cast<const float*>(scanlineData);
+        for (size_t x = 0; x < width; x++) {
+            rowData[x] = data32[x * spp + channel];
+        }
+    } else {
+        throw TiffReadException("Unsupported bit depth: " + std::to_string(metaData.bitsPerSample) +
+                                " (supported: 8, 16, 32)");
     }
 }
 
 
 void TiffReader::convertTileRowToFloat(const char* tileRowData, std::vector<float>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel) {
-    for (size_t x = 0; x < tilePixelWidth; x++) {
-        if (metaData.bitsPerSample == 8) {
-            const uint8_t* data8 = reinterpret_cast<const uint8_t*>(tileRowData);
-            rowData[xOffset + x] = static_cast<float>(data8[x * metaData.samplesPerPixel + channel]);
-        } else if (metaData.bitsPerSample == 16) {
-            const uint16_t* data16 = reinterpret_cast<const uint16_t*>(tileRowData);
-            rowData[xOffset + x] = static_cast<float>(data16[x * metaData.samplesPerPixel + channel]);
-        } else if (metaData.bitsPerSample == 32) {
-            const float* data32 = reinterpret_cast<const float*>(tileRowData);
-            rowData[xOffset + x] = data32[x * metaData.samplesPerPixel + channel];
-        } else {
-            throw TiffReadException("Unsupported bit depth: " + std::to_string(metaData.bitsPerSample) +
-                                    " (supported: 8, 16, 32)");
+    const uint16_t spp = metaData.samplesPerPixel;
+
+    if (metaData.bitsPerSample == 8) {
+        const uint8_t* data8 = reinterpret_cast<const uint8_t*>(tileRowData);
+        for (size_t x = 0; x < tilePixelWidth; x++) {
+            rowData[xOffset + x] = static_cast<float>(data8[x * spp + channel]);
         }
+    } else if (metaData.bitsPerSample == 16) {
+        const uint16_t* data16 = reinterpret_cast<const uint16_t*>(tileRowData);
+        for (size_t x = 0; x < tilePixelWidth; x++) {
+            rowData[xOffset + x] = static_cast<float>(data16[x * spp + channel]);
+        }
+    } else if (metaData.bitsPerSample == 32) {
+        const float* data32 = reinterpret_cast<const float*>(tileRowData);
+        for (size_t x = 0; x < tilePixelWidth; x++) {
+            rowData[xOffset + x] = data32[x * spp + channel];
+        }
+    } else {
+        throw TiffReadException("Unsupported bit depth: " + std::to_string(metaData.bitsPerSample) +
+                                " (supported: 8, 16, 32)");
     }
 }

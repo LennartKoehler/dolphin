@@ -1,3 +1,4 @@
+tiffreader no longer appropriately handles reading with padding (if the getsubimage requests padding then read that padding from the image if possible (not at edge of image)), prbably many more failirues
 
 can the data somehow be directly read to gpu and processed there? many copy operations
 
