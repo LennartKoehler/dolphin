@@ -165,32 +165,33 @@ public:
     // Constructor that accepts the same parameters but sets backend to nullptr
     // This ensures views don't own memory and the destructor won't try to free it
     DataView() :ManagedData<T>(){}
-    DataView(IBackendMemoryManager const* /*b*/, T* data, CuboidShape size, CuboidShape realSize, std::size_t bytes,
+    DataView(T* data, CuboidShape size, CuboidShape realSize, std::size_t bytes,
              std::size_t padding = 0) {
         this->data = data;
         this->size = size;
         this->realSize = realSize;
         this->bytes = bytes;
-        this->backend = nullptr;  // Always nullptr - views don't own memory
         this->padding = padding;
     }
 
-    DataView(const DataView& other) = default;
-    DataView& operator=(const DataView& other) = default;
+    // No copy — shallow copy would cause double free when both views have backend set
+    DataView(const DataView&) = delete;
+    DataView& operator=(const DataView&) = delete;
 
-    DataView(DataView&& other) = default;
-    DataView& operator=(DataView&& other) = default;
-    // Override backend to always return nullptr (views don't own memory)
-    IBackendMemoryManager const* getBackend() const override { return nullptr; }
-    void setBackend(IBackendMemoryManager const* /*backend*/) override {}
+    // Move delegates to ManagedData — properly nulls source
+    DataView(DataView&& other) noexcept : ManagedData<T>(std::move(other)) {}
+    DataView& operator=(DataView&& other) noexcept {
+        ManagedData<T>::operator=(std::move(other));
+        return *this;
+    }
 
-    // isValid - only check data pointer, not backend
+    void setBackend(IBackendMemoryManager const* backend) override {this->backend = backend;}
+
     bool isValid() const override { return this->data != nullptr; }
 
-    // Tag method to identify views
     bool isView() const { return true; }
 
-    // IMPORTANT: Default destructor - views don't own memory, so don't free it!
+    // Frees memory if backend is set (via ~ManagedData)
     ~DataView() = default;
 };
 

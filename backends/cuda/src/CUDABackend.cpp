@@ -173,8 +173,7 @@ DataView<real_t> CUDABackendMemoryManager::reinterpret(ComplexData& data) const{
     shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
     size_t padding = shapeForInplaceFFT.width - realShape.width;
 
-    DataView<real_t> result = DataView<real_t>{data.getBackend(), reinterpret_cast<real_t*>(data.getData()), realShape, realShape, data.getDataBytes(), padding};
-    data.setBackend(nullptr); // so it doesnt delete the data
+    DataView<real_t> result = DataView<real_t>{reinterpret_cast<real_t*>(data.getData()), realShape, realShape, data.getDataBytes(), padding};
     return result;
 }
 
@@ -188,8 +187,7 @@ DataView<complex_t> CUDABackendMemoryManager::reinterpret(RealData& data) const{
     // real width via: real_width = 2 * complex_width - padding = W.
     // The ComplexView's convertIndex() is never used in the FFT path (raw pointers are
     // used instead), so the incorrect padding units don't cause issues in practice.
-    DataView<complex_t> result = DataView<complex_t>{data.getBackend(), reinterpret_cast<complex_t*>(data.getData()), complexShape, data.getSize(), data.getDataBytes(), 0};
-    data.setBackend(nullptr); // so it doesnt delete the data
+    DataView<complex_t> result = DataView<complex_t>{reinterpret_cast<complex_t*>(data.getData()), complexShape, data.getSize(), data.getDataBytes(), 0};
     return result;
 }
 
