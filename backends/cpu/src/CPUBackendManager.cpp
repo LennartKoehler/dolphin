@@ -152,29 +152,29 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
     complex_t* out = nullptr;
 
     int rank = 3;
-    int Nx = static_cast<int>(description.shape.width);
-    int Ny = static_cast<int>(description.shape.height);
-    int Nz = static_cast<int>(description.shape.depth);
+    size_t Nx = description.shape.width;
+    size_t Ny = description.shape.height;
+    size_t Nz = description.shape.depth;
 
-    int n[3] = {Nz, Ny, Nx};
+    int n[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(Nx)};
 
     // For out-of-place: real input is unpadded, inembed matches logical dimensions.
     // For in-place: real input must be padded on the last dimension to 2*(Nx/2+1)
     //              to accommodate the complex output, so inembed reflects the padded size.
     // onembed is always {Nz, Ny, Nx/2+1} (complex output has halved last dimension).
     int inembed[3];
-    int onembed[3] = {Nz, Ny, Nx/2+1};
+    int onembed[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(Nx/2+1)};
 
     int istride = 1;
     int ostride = 1;
 
     int idist;
-    int odist = Nz * Ny * (Nx/2+1);
+    int odist = static_cast<int>(Nz * Ny * (Nx/2+1));
 
-    inembed[0] = Nz;
-    inembed[1] = Ny;
-    inembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
-    idist = Nz * Ny * 2*(Nx/2+1);
+    inembed[0] = static_cast<int>(Nz);
+    inembed[1] = static_cast<int>(Ny);
+    inembed[2] = static_cast<int>(2*(Nx/2+1));  // padded last dimension (in real_t units)
+    idist = static_cast<int>(Nz * Ny * 2*(Nx/2+1));
 
     try {
         out = (complex_t*)fftwf_malloc(sizeof(complex_t) * Nz * Ny * (Nx/2+1));
@@ -236,29 +236,29 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
     real_t* out = nullptr;
 
     int rank = 3;
-    int Nx = static_cast<int>(description.shape.width);
-    int Ny = static_cast<int>(description.shape.height);
-    int Nz = static_cast<int>(description.shape.depth);
+    size_t Nx = description.shape.width;
+    size_t Ny = description.shape.height;
+    size_t Nz = description.shape.depth;
 
-    int n[3] = {Nz, Ny, Nx};
+    int n[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(Nx)};
 
     // Complex input always has halved last dimension.
     // For out-of-place: real output is unpadded, onembed matches logical dimensions.
     // For in-place: real output must be padded on the last dimension to 2*(Nx/2+1)
     //              to match the complex input buffer, so onembed reflects the padded size.
-    int inembed[3] = {Nz, Ny, Nx/2+1};
+    int inembed[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(Nx/2+1)};
     int onembed[3];
 
     int istride = 1;
     int ostride = 1;
 
-    int idist = Nz * Ny * (Nx/2+1);
+    int idist = static_cast<int>(Nz * Ny * (Nx/2+1));
     int odist;
 
-    onembed[0] = Nz;
-    onembed[1] = Ny;
-    onembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
-    odist = Nz * Ny * 2*(Nx/2+1);
+    onembed[0] = static_cast<int>(Nz);
+    onembed[1] = static_cast<int>(Ny);
+    onembed[2] = static_cast<int>(2*(Nx/2+1));  // padded last dimension (in real_t units)
+    odist = static_cast<int>(Nz * Ny * 2*(Nx/2+1));
 
     try {
         in = (complex_t*)fftwf_malloc(sizeof(complex_t) * Nz * Ny * (Nx/2+1));

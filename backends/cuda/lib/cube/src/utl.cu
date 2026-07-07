@@ -6,7 +6,7 @@
 
 namespace CUBE_UTL_COPY {
     // Copying complex_t datatype to GPU
-    cudaError_t copyDataFromHostToDevice(int Nx, int Ny, int Nz,complex_t* dest, complex_t* src, cudaStream_t stream) {
+    cudaError_t copyDataFromHostToDevice(size_t Nx, size_t Ny, size_t Nz,complex_t* dest, complex_t* src, cudaStream_t stream) {
         cudaEvent_t event;
         cudaEventCreate(&event);
 
@@ -29,7 +29,7 @@ namespace CUBE_UTL_COPY {
         return cudaSuccess;
     }
     
-    cudaError_t copyDataFromDeviceToHost(int Nx, int Ny, int Nz,complex_t* dest, complex_t* src, cudaStream_t stream) {
+    cudaError_t copyDataFromDeviceToHost(size_t Nx, size_t Ny, size_t Nz,complex_t* dest, complex_t* src, cudaStream_t stream) {
         cudaEvent_t event;
         cudaEventCreate(&event);
 
@@ -52,7 +52,7 @@ namespace CUBE_UTL_COPY {
         return cudaSuccess;
     }
     
-    cudaError_t copyDataFromDeviceToDevice(int Nx, int Ny, int Nz,complex_t* dest, complex_t* src, cudaStream_t stream) {
+    cudaError_t copyDataFromDeviceToDevice(size_t Nx, size_t Ny, size_t Nz,complex_t* dest, complex_t* src, cudaStream_t stream) {
         cudaEvent_t event;
         cudaEventCreate(&event);
 

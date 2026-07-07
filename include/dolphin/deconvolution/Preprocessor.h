@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <spdlog/spdlog.h>
 
 #include "dolphinbackend/ComplexData.h"
 #include "dolphinbackend/IBackend.h"
@@ -68,8 +69,11 @@ public:
         Key key{shape, psf->ID, backend.getDeviceString()};
         auto it = preprocessedPSFs.find(key);
         if (it != preprocessedPSFs.end()) {
+            spdlog::get("deconvolution")->debug("PSF cache hit (shape: {}, psf: {}, device: {})", shape.print(), psf->ID, backend.getDeviceString());
             return it->second.get();
         }
+
+        spdlog::get("deconvolution")->debug("PSF cache miss (shape: {}, psf: {}, device: {})", shape.print(), psf->ID, backend.getDeviceString());
 
         // PSF not found - create it
         std::shared_ptr<PSF> psfCopy = std::make_shared<PSF>(*psf);

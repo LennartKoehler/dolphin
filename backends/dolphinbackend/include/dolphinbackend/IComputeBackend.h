@@ -118,10 +118,10 @@ public:
 
     virtual void division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const = 0;
 
-    virtual void complexAddition(complex_t** data, ComplexData& sum, int nImagse, size_t imageVolume) const = 0;
+    virtual void complexAddition(complex_t** data, ComplexData& sum, size_t nImages, size_t imageVolume) const = 0;
     virtual void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const = 0;
 
-    virtual void sumToOne(real_t** data, int nImages, size_t imageVolume) const = 0;
+    virtual void sumToOne(real_t** data, size_t nImages, size_t imageVolume) const = 0;
     virtual void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const = 0;
 
     virtual void scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const = 0;
