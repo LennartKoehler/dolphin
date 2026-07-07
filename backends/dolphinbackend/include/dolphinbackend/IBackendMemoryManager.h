@@ -241,7 +241,7 @@ public:
      * @param shape The shape of the data to be transformed
      * @return Estimated workspace in bytes (0 if the backend has no FFT workspace overhead)
      */
-    virtual size_t estimateFFTWorkspace(const CuboidShape& shape) const {
+    virtual float estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
         return 0;
     }
 

@@ -53,6 +53,7 @@ set(ALL_TEST_SOURCES
     deconvolution/padding_test.cpp
     deconvolution/deconvolutionStrategies/imageSplit_test.cpp
     deconvolution/deconvolutionStrategies/getLabelGroups_test.cpp
+    deconvolution/deconvolutionStrategies/memory_test.cpp
     IO/read_write_test.cpp
     IO/tiff_generation_test.cpp
     IO/mirror_padding_test.cpp

@@ -10,6 +10,12 @@ set(TEST_INCLUDES
     ${CMAKE_SOURCE_DIR}/tests/utils
 )
 
+dolphin_add_test(memory_test
+    SOURCES memory_test.cpp
+    LIBS dolphin
+    INCLUDES ${TEST_INCLUDES}
+)
+
 dolphin_add_test(imageSplit_test
     SOURCES imageSplit_test.cpp
     LIBS dolphin

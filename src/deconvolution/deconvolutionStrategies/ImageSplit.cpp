@@ -19,31 +19,6 @@ See the LICENSE file provided with the code for the full license.
 #include <vector>
 #include <stdexcept>
 
-// --- Optimize for FFTW (Smooth Numbers) ---
-// A "smooth" number has prime factors of only 2, 3, and 5.
-// This ensures FFTW can use its fastest algorithms.
-static bool isSmooth(size_t n){
-    while (n % 2 == 0) n /= 2;
-    while (n % 3 == 0) n /= 3;
-    while (n % 5 == 0) n /= 5;
-    return n == 1;
-};
-
-static size_t nextSmooth(size_t dim){
-    if (dim == 0) return dim;
-    while (!isSmooth(dim)) {
-        dim++;
-    }
-    return dim;
-};
-static size_t previousSmooth(size_t dim){
-    if (dim <= 1) return dim;
-    dim--;
-    while (!isSmooth(dim)) {
-        dim--;
-    }
-    return dim;
-};
 
 void adjustDimensionsEdgeConditions(
     BoxCoordWithPadding& currentCube,
@@ -161,6 +136,8 @@ void addCubeRecursion(
 }
 
 
+
+
 template <typename T>
 std::array<size_t, 3> sort_indexes(const std::array<T*, 3> &v) {
 
@@ -177,8 +154,17 @@ std::array<size_t, 3> sort_indexes(const std::array<T*, 3> &v) {
 
     return idx;
 }
+bool decreaseSize(std::array<size_t*, 3>& tempCubeAccessor, int dimension, const CuboidShape& minSize){
 
-bool decreaseSize(std::array<size_t*, 3>& tempCubeAccessor, const CuboidShape& minSize){
+    size_t newSize = previousSmooth(*tempCubeAccessor[dimension]);
+    if (newSize >= minSize.getArray()[dimension]){
+        *(tempCubeAccessor[dimension]) = newSize;
+        return true;
+    }
+    return false;
+}
+
+bool decreaseLargestDim(std::array<size_t*, 3>& tempCubeAccessor, const CuboidShape& minSize){
 
     std::array<size_t, 3> sortedIndices = sort_indexes<size_t>(tempCubeAccessor);
     for (const auto dimIndex : sortedIndices){
@@ -189,6 +175,49 @@ bool decreaseSize(std::array<size_t*, 3>& tempCubeAccessor, const CuboidShape& m
         }
     }
     return false;
+}
+
+std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
+        CuboidShape currentMaxSize,
+        const CuboidShape& imageOriginalShape,
+        const Padding& cubePadding,
+        PaddingStrategyType imagePadding,
+        int ncubes,
+        CuboidShape minSize
+    ){
+    std::array<size_t*, 3> tempCubeAccessor  = currentMaxSize.getReference();
+
+    std::vector<BoxCoordWithPadding> cubePositions;
+    std::vector<BoxCoordWithPadding> lastCubePositions;
+    int dimIterator = 0;
+    for (int dimIterator = 0; dimIterator < 3; dimIterator++){
+        while(lastCubePositions.empty() || lastCubePositions.size() >= cubePositions.size()){
+
+            lastCubePositions = cubePositions;
+            cubePositions.clear();
+
+            CuboidShape cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
+
+            BoxCoordWithPadding startCube{
+                BoxCoord{CuboidShape(0,0,0), cubeSizeToUse},
+                cubePadding
+            };
+
+            addCubeRecursion(
+                cubePositions,
+                startCube,
+                imageOriginalShape,
+                imagePadding);
+
+            ncubes = cubePositions.size();
+
+            bool success = decreaseSize(tempCubeAccessor, dimIterator, minSize);
+        }
+        cubePositions = lastCubePositions; // take the prevous before more cubes were needed, the while loop goes beyond by one
+
+    }
+
+    return cubePositions;
 }
 
 // since there are so many competing conditions for the cubes like maxSize (bc of memory), min number cubes(to e.g. use all devices)
@@ -220,15 +249,12 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     std::array<size_t*, 3> tempCubeAccessor  = currentMaxSize.getReference();
 
     std::vector<BoxCoordWithPadding> cubePositions;
-    std::vector<BoxCoordWithPadding> lastCubePositions;
-    bool firstTimeMinNCubesCondition = true;
 
     int ncubes = 0;
     CuboidShape cubeSizeToUse = currentMaxSize;
 
-    while (true)
-    {
-        lastCubePositions = cubePositions;
+    while (ncubes < minNumberCubes){
+
         cubePositions.clear();
 
         cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
@@ -238,8 +264,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
             cubePadding
         };
 
-        if (startCube.getBox().dimensions.getVolume() < maxVolumePerCube)
-        {
+        if (startCube.getBox().dimensions.getVolume() < maxVolumePerCube){
             addCubeRecursion(
                 cubePositions,
                 startCube,
@@ -249,27 +274,22 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
             ncubes = cubePositions.size();
         }
 
-
-        // We have enough cubes, and shrinking further increased the count.
-        if (ncubes >= minNumberCubes){
-            if (lastCubePositions.size() < cubePositions.size() && !firstTimeMinNCubesCondition) break;
-            // if both conditions are met at the same time, then lastCubePositions needs to be updated
-            if (!lastCubePositions.empty() && lastCubePositions.size() < cubePositions.size() && firstTimeMinNCubesCondition){
-                lastCubePositions = cubePositions;
-                break;
-            }
-            firstTimeMinNCubesCondition = false;
-        }
-
-        bool success = decreaseSize(tempCubeAccessor, minSize);
+        bool success = decreaseLargestDim(tempCubeAccessor, minSize);
         if (!success)
         {
             return Result<std::vector<BoxCoordWithPadding>>::fail(
                 "Not enough memory to fit the smallest possible cube");
         }
     }
+    cubePositions = reduceSizeWhileKeepingNCubes(
+        currentMaxSize,
+        imageOriginalShape,
+        cubePadding,
+        imagePadding,
+        ncubes,
+        minSize
+    );
 
-    return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(lastCubePositions));
+    return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(cubePositions));
     }
-
 

@@ -327,49 +327,61 @@ size_t CUDABackendMemoryManager::getAllocatedMemory() const {
     return access.data.totalUsedMemory;
 }
 
-size_t CUDABackendMemoryManager::estimateFFTWorkspace(const CuboidShape& shape) const {
-    int Nx = static_cast<int>(shape.width);
-    int Ny = static_cast<int>(shape.height);
-    int Nz = static_cast<int>(shape.depth);
+// estimation not provided for large sizes (>32bit range)
+float CUDABackendMemoryManager::estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
+    // size_t totalWorkspace = shape.getVolume() * sizeof(real_t) * 2; //*2 for forward and backward
 
-    int rank = 3;
-    int n[3] = {Nz, Ny, Nx};
+    // ensureDevice();
+    // long long int Nx = static_cast<long long int>(shape.width);
+    // long long int Ny = static_cast<long long int>(shape.height);
+    // long long int Nz = static_cast<long long int>(shape.depth);
+    //
+    // int rank = 3;
+    // long long int n[3] = {Nz, Ny, Nx};
+    //
+    // long long int istride = 1;
+    // long long int ostride = 1;
+    //
+    // long long int inembed_r2c[3] = {Nz, Ny, 2*(Nx/2+1)};
+    // long long int onembed_r2c[3] = {Nz, Ny, Nx/2+1};
+    // long long int idist_r2c = Nz * Ny * 2*(Nx/2+1);
+    // long long int odist_r2c = Nz * Ny * (Nx/2+1);
+    //
+    // size_t r2cWorkSize = 0;
+    // cufftHandle r2cPlan = 0;
+    // cufftResult r2cResult = cufftCreate(&r2cPlan);
+    // if (r2cResult == CUFFT_SUCCESS) {
+    //     r2cResult = cufftGetSizeMany64(r2cPlan, rank, n,
+    //         inembed_r2c, istride, idist_r2c,
+    //         onembed_r2c, ostride, odist_r2c,
+    //         CUFFT_R2C, 1, &r2cWorkSize);
+    //     cufftDestroy(r2cPlan);
+    // }
+    //
+    // long long int inembed_c2r[3] = {Nz, Ny, Nx/2+1};
+    // long long int onembed_c2r[3] = {Nz, Ny, 2*(Nx/2+1)};
+    // long long int idist_c2r = Nz * Ny * (Nx/2+1);
+    // long long int odist_c2r = Nz * Ny * 2*(Nx/2+1);
+    //
+    // size_t c2rWorkSize = 0;
+    // cufftHandle c2rPlan = 0;
+    // cufftResult c2rResult = cufftCreate(&c2rPlan);
+    // if (c2rResult == CUFFT_SUCCESS) {
+    //     c2rResult = cufftGetSizeMany64(c2rPlan, rank, n,
+    //         inembed_c2r, istride, idist_c2r,
+    //         onembed_c2r, ostride, odist_c2r,
+    //         CUFFT_C2R, 1, &c2rWorkSize);
+    //     cufftDestroy(c2rPlan);
+    // }
+    //
+    // size_t totalWorkspace = 0;
+    // if (r2cResult == CUFFT_SUCCESS) totalWorkspace += r2cWorkSize;
+    // if (c2rResult == CUFFT_SUCCESS) totalWorkspace += c2rWorkSize;
 
-    int istride = 1;
-    int ostride = 1;
+    // logWithContext(fmt::format("Estimated cuFFT workspace for shape {}: {:.2f} MB)",
+    //     shape.print(), totalWorkspace / 1e6), LogLevel::DEBUG);
 
-    int inembed_r2c[3] = {Nz, Ny, 2*(Nx/2+1)};
-    int onembed_r2c[3] = {Nz, Ny, Nx/2+1};
-    int idist_r2c = Nz * Ny * 2*(Nx/2+1);
-    int odist_r2c = Nz * Ny * (Nx/2+1);
-
-    size_t r2cWorkSize = 0;
-    cufftResult r2cResult = cufftEstimateMany(
-        rank, n,
-        inembed_r2c, istride, idist_r2c,
-        onembed_r2c, ostride, odist_r2c,
-        CUFFT_R2C, 1, &r2cWorkSize);
-
-    int inembed_c2r[3] = {Nz, Ny, Nx/2+1};
-    int onembed_c2r[3] = {Nz, Ny, 2*(Nx/2+1)};
-    int idist_c2r = Nz * Ny * (Nx/2+1);
-    int odist_c2r = Nz * Ny * 2*(Nx/2+1);
-
-    size_t c2rWorkSize = 0;
-    cufftResult c2rResult = cufftEstimateMany(
-        rank, n,
-        inembed_c2r, istride, idist_c2r,
-        onembed_c2r, ostride, odist_c2r,
-        CUFFT_C2R, 1, &c2rWorkSize);
-
-    size_t totalWorkspace = 0;
-    if (r2cResult == CUFFT_SUCCESS) totalWorkspace += r2cWorkSize;
-    if (c2rResult == CUFFT_SUCCESS) totalWorkspace += c2rWorkSize;
-
-    logWithContext(fmt::format("Estimated cuFFT workspace for shape {}: {:.2f} MB (R2C: {:.2f} MB, C2R: {:.2f} MB)",
-        shape.print(), totalWorkspace / 1e6, r2cWorkSize / 1e6, c2rWorkSize / 1e6), LogLevel::DEBUG);
-
-    return totalWorkspace;
+    return 2;
 }
 
 

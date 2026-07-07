@@ -385,23 +385,23 @@ size_t CPUBackendMemoryManager::getAllocatedMemory() const {
     return access.data.totalUsedMemory;
 }
 
-size_t CPUBackendMemoryManager::estimateFFTWorkspace(const CuboidShape& shape) const {
-    size_t Nx = shape.width;
-    size_t Ny = shape.height;
-    size_t Nz = shape.depth;
+float CPUBackendMemoryManager::estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
+    // size_t Nx = shape.width;
+    // size_t Ny = shape.height;
+    // size_t Nz = shape.depth;
+    //
+    // size_t complexElements = static_cast<size_t>(Nz) * Ny * (Nx / 2 + 1);
+    //
+    // size_t planCreationTemp = sizeof(complex_t) * complexElements;
+    // // size_t fftwMeasureScratch = sizeof(complex_t) * complexElements;
+    // // size_t persistentPlanOverhead = sizeof(complex_t) * complexElements;
+    //
+    // size_t totalWorkspace = planCreationTemp; //+ fftwMeasureScratch + persistentPlanOverhead;
+    //
+    // log(fmt::format("Estimated FFTW workspace for shape {}: {:.2f} MB",
+    //     shape.print(), totalWorkspace / 1e6), LogLevel::DEBUG);
 
-    size_t complexElements = static_cast<size_t>(Nz) * Ny * (Nx / 2 + 1);
-
-    size_t planCreationTemp = sizeof(complex_t) * complexElements;
-    // size_t fftwMeasureScratch = sizeof(complex_t) * complexElements;
-    // size_t persistentPlanOverhead = sizeof(complex_t) * complexElements;
-
-    size_t totalWorkspace = planCreationTemp; //+ fftwMeasureScratch + persistentPlanOverhead;
-
-    log(fmt::format("Estimated FFTW workspace for shape {}: {:.2f} MB",
-        shape.print(), totalWorkspace / 1e6), LogLevel::DEBUG);
-
-    return totalWorkspace;
+    return 2;
 }
 
 
