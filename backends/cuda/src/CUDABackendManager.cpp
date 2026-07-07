@@ -39,36 +39,34 @@ void CUDABackendManager::init(LogCallback fn) {
             buildCudaContext({CUDADevice{0, nullptr}, cudaStreamLegacy}));
     }
 
-    int device;
-    // int nDevices = 1;
-    for (device = 0; device < nDevices; ++device) {
+    for (int deviceNumber = 0; deviceNumber < nDevices; ++deviceNumber) {
         cudaDeviceProp deviceProp;
-        err = cudaGetDeviceProperties(&deviceProp, device);
-        CUDA_CHECK(err, "cudaGetDeviceProperties", buildCudaContext({CUDADevice{device, nullptr}, cudaStreamLegacy}));
+        err = cudaGetDeviceProperties(&deviceProp, deviceNumber);
+        CUDA_CHECK(err, "cudaGetDeviceProperties", buildCudaContext({CUDADevice{deviceNumber, nullptr}, cudaStreamLegacy}));
 
 
 
-        err = cudaSetDevice(device);
-        CUDA_CHECK(err, "cudaSetDevice", buildCudaContext({CUDADevice{device, nullptr}, cudaStreamLegacy}));
+        err = cudaSetDevice(deviceNumber);
+        CUDA_CHECK(err, "cudaSetDevice", buildCudaContext({CUDADevice{deviceNumber, nullptr}, cudaStreamLegacy}));
 
         size_t freeMem, totalMem;
         err = cudaMemGetInfo(&freeMem, &totalMem);
-        CUDA_CHECK(err, "cudaMemGetInfo", buildCudaContext({CUDADevice{device, nullptr}, cudaStreamLegacy}));
+        CUDA_CHECK(err, "cudaMemGetInfo", buildCudaContext({CUDADevice{deviceNumber, nullptr}, cudaStreamLegacy}));
 
         if (totalMem == 0) {
             throw dolphin::backend::BackendException(
-                "Device " + std::to_string(device) + " reports zero memory",
+                "Device " + std::to_string(deviceNumber) + " reports zero memory",
                 "CUDA", "CUDABackendManager constructor",
-                buildCudaContext({CUDADevice{device, nullptr}, cudaStreamLegacy}));
+                buildCudaContext({CUDADevice{deviceNumber, nullptr}, cudaStreamLegacy}));
         }
 
-        devices.push_back(CUDADevice{device, new MemoryTracking(totalMem)});
+        devices.push_back(CUDADevice{deviceNumber, new MemoryTracking(totalMem)});
 
         std::ostringstream ctx;
-        ctx << "cuda:cuda" << device << ":tid:" << std::this_thread::get_id() << ":stream:n/a";
+        ctx << "cuda:cuda" << deviceNumber << ":tid:" << std::this_thread::get_id() << ":stream:n/a";
         g_logger_cuda(
             ctx.str(),
-            fmt::format("Device {} has compute capability {}.{} and {:.2f} GB memory", device, deviceProp.major, deviceProp.minor, (totalMem/1e9)),
+            fmt::format("Device {} has compute capability {}.{} and {:.2f} GB memory", deviceNumber, deviceProp.major, deviceProp.minor, (totalMem/1e9)),
             LogLevel::INFO);
         // printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
         // device, deviceProp.major, deviceProp.minor, (totalMem/1e9));
@@ -129,8 +127,8 @@ IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig&
 
 CUDABackendConfig CUDABackendManager::configToConfig(const BackendConfig& config) {
 
-    CUDADevice device = devices[usedDeviceCounter];
-    usedDeviceCounter = ++usedDeviceCounter % nDevices; // keep looping
+    int idx = usedDeviceCounter.fetch_add(1) % nDevices;
+    CUDADevice device = devices[idx];
 
     CUDABackendConfig cudaconfig{device, createStream()};
     return cudaconfig;

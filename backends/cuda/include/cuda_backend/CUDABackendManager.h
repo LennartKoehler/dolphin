@@ -25,6 +25,7 @@ See the LICENSE file provided with the code for the full license.
 #include <thread>
 #include <unordered_map>
 #include <cuda_runtime.h>
+#include <atomic>
 
 // Forward declarations
 class CUDABackendMemoryManager;
@@ -71,7 +72,7 @@ protected:
     std::mutex mutex_;
     // Configuration
     int nDevices = 0;
-    int usedDeviceCounter = 0;
+    std::atomic<int> usedDeviceCounter{0};
 
     CUDABackendConfig configToConfig(const BackendConfig& config);
     CUDABackend& createNewBackend(CUDABackendConfig config);
