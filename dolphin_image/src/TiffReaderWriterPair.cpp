@@ -6,7 +6,7 @@ TiffReaderWriterPair::TiffReaderWriterPair(const std::string& filenameInput, int
     writer(filenameOutput, reader.getMetaData().getShape()){}
 
 
-std::optional<PaddedImage> TiffReaderWriterPair::getSubimage(const BoxCoordWithPadding& box) const {
+std::future<PaddedImage> TiffReaderWriterPair::getSubimage(const BoxCoordWithPadding& box) const {
     return reader.getSubimage(box);
 }
 const ImageMetaData& TiffReaderWriterPair::getMetaData() const{

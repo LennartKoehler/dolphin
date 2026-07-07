@@ -46,6 +46,8 @@ public:
     void setLabelReader(std::unique_ptr<ImageReader> labelReader) {this->labelReader = std::move(labelReader);}
     void setPsfLabelMap(RangeMap<std::string> psfLabelMap) {this->psfLabelMap = psfLabelMap;}
 
+    virtual void prefetchReaders(const DeconvolutionPlan& plan) override;
+
 
 protected:
     void runTask(const CubeTaskDescriptor& task) override;

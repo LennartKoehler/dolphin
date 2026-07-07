@@ -37,6 +37,10 @@ public:
     int nDevices = 1;
     float maxMem_GB = 1;
 
+    int numReaderThreads = 0;
+    bool readerPrefetchEnabled = false;
+    int readerPrefetchCount = 4;
+
 protected:
 
     virtual void registerAllParameters();

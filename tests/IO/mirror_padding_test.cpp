@@ -30,9 +30,8 @@ TEST_F(MirrorPaddingTest, ReadSubimageNoPadding) {
     box.padding.before = CuboidShape(0, 0, 0);
     box.padding.after = CuboidShape(0, 0, 0);
 
-    auto result = reader.getSubimage(box);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->image.getShape(), CuboidShape(8, 8, 4));
+    auto result = reader.getSubimage(box).get();
+    EXPECT_EQ(result.image.getShape(), CuboidShape(8, 8, 4));
 }
 
 TEST_F(MirrorPaddingTest, ReadSubimageWithPadding) {
@@ -43,9 +42,8 @@ TEST_F(MirrorPaddingTest, ReadSubimageWithPadding) {
     box.padding.before = CuboidShape(2, 2, 2);
     box.padding.after = CuboidShape(2, 2, 2);
 
-    auto result = reader.getSubimage(box);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->image.getShape(), CuboidShape(12, 12, 8));
+    auto result = reader.getSubimage(box).get();
+    EXPECT_EQ(result.image.getShape(), CuboidShape(12, 12, 8));
 }
 
 TEST_F(MirrorPaddingTest, ReadFullImage) {
@@ -56,9 +54,8 @@ TEST_F(MirrorPaddingTest, ReadFullImage) {
     box.padding.before = CuboidShape(0, 0, 0);
     box.padding.after = CuboidShape(0, 0, 0);
 
-    auto result = reader.getSubimage(box);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->image.getShape(), CuboidShape(16, 16, 8));
+    auto result = reader.getSubimage(box).get();
+    EXPECT_EQ(result.image.getShape(), CuboidShape(16, 16, 8));
 }
 
 TEST_F(MirrorPaddingTest, ReadSubimageAtOffset) {
@@ -69,9 +66,8 @@ TEST_F(MirrorPaddingTest, ReadSubimageAtOffset) {
     box.padding.before = CuboidShape(0, 0, 0);
     box.padding.after = CuboidShape(0, 0, 0);
 
-    auto result = reader.getSubimage(box);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->image.getShape(), CuboidShape(8, 8, 4));
+    auto result = reader.getSubimage(box).get();
+    EXPECT_EQ(result.image.getShape(), CuboidShape(8, 8, 4));
 }
 
 TEST_F(MirrorPaddingTest, ReadMetadata) {

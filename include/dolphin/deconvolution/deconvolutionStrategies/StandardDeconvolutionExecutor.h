@@ -46,6 +46,8 @@ protected:
     virtual void parallelDeconvolution(
         DeconvolutionPlan channelPlan);
 
+    virtual void prefetchReaders(const DeconvolutionPlan& plan);
+
 protected:
     ProgressTracking loadingBar;
  };

@@ -114,7 +114,14 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::filesystem::path output_path = std::filesystem::path(setupConfig->outputPath);
 
         int channel = 0; //TESTVLAUE unused
-        std::shared_ptr<TiffReader> reader = std::make_shared<TiffReader>(setupConfig->imagePath, channel);
+
+        TiffReaderConfig readerConfig;
+        readerConfig.numReaderThreads = setupConfig->numReaderThreads > 0
+            ? static_cast<size_t>(setupConfig->numReaderThreads)
+            : static_cast<size_t>(std::max(1, setupConfig->nIOThreads));
+        readerConfig.prefetchEnabled = setupConfig->readerPrefetchEnabled;
+        readerConfig.prefetchCount = static_cast<size_t>(setupConfig->readerPrefetchCount);
+        std::shared_ptr<TiffReader> reader = std::make_shared<TiffReader>(setupConfig->imagePath, channel, readerConfig);
 
         std::optional<ImageMetaData> metadata = reader->getMetaData();
         logger_->debug("Using image with the following metadata {}", metadata.value().print());

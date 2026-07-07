@@ -48,12 +48,13 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
     nDevices = other.nDevices;
     maxMem_GB = other.maxMem_GB;
     outputPath = other.outputPath;
+    numReaderThreads = other.numReaderThreads;
+    readerPrefetchEnabled = other.readerPrefetchEnabled;
+    readerPrefetchCount = other.readerPrefetchCount;
 
     registerAllParameters();
 }
 
-
-// Copy assignment operator
 SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
     if (this != &other) {
         // Copy values, then re-register parameters so they point to our own members
@@ -65,6 +66,9 @@ SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
         nDevices = other.nDevices;
         maxMem_GB = other.maxMem_GB;
         outputPath = other.outputPath;
+        numReaderThreads = other.numReaderThreads;
+        readerPrefetchEnabled = other.readerPrefetchEnabled;
+        readerPrefetchCount = other.readerPrefetchCount;
 
         parameters.clear();
         registerAllParameters();
@@ -162,6 +166,9 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Int, &nIOThreads, "Number of IO Threads", true, "n_io_threads", "--n_io_threads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nDevices, "Number of Devices", true, "n_devices", "--n_devices", "Number of devices", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Float, &maxMem_GB, "Max Memory (GB)", true, "max_mem_gb", "--max_mem_gb", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Int, &numReaderThreads, "Number of Reader Threads", true, "num_reader_threads", "--num_reader_threads", "Number of TIFF reader threads (0=auto)", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Bool, &readerPrefetchEnabled, "Reader Prefetch Enabled", true, "reader_prefetch_enabled", "--reader_prefetch_enabled", "Enable TIFF reader prefetching", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Int, &readerPrefetchCount, "Reader Prefetch Count", true, "reader_prefetch_count", "--reader_prefetch_count", "Number of subimages to prefetch", false, true, 0.0, 1000.0, nullptr});
     parameters.push_back({ParameterType::Bool, &savePsf, "Save PSF", true, "save_psf", "--save_psf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
 
 
