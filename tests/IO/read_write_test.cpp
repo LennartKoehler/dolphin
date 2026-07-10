@@ -20,7 +20,7 @@ protected:
 };
 
 struct TestableReaderHandler : public ReaderHandler{
-    TestableReaderHandler(): ReaderHandler(std::unique_ptr<TiffReader>()){}
+    TestableReaderHandler(): ReaderHandler(std::unique_ptr<TiffReader>(), PaddingFillType::MIRROR){}
     BoxCoordWithPadding translateRegionRunner(const BoxCoordWithPadding& requestedRegion, const CuboidShape& imageSize) const {
         return translateRegion(requestedRegion, imageSize);
     }
@@ -103,7 +103,7 @@ TEST_F(ReadWriteTest, ReadSubimage) {
     readerConfig.numReaderThreads = 2;
     readerConfig.prefetchEnabled = true;
     readerConfig.prefetchCount = 4;
-    ReaderHandler reader(std::make_unique<TiffReader>(path, 0, readerConfig));
+    ReaderHandler reader(std::make_unique<TiffReader>(path, 0, readerConfig), PaddingFillType::MIRROR);
 
     BoxCoordWithPadding box;
     box.box.position = CuboidPosition(0, 0, 0);

@@ -139,7 +139,7 @@ std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
             auto logger = spdlog::get("deconvolution");
             logger->debug("Preprocessing PSF...");
 
-            Preprocessor::padToShape(*inputPSF, targetShape, PaddingFillType::ZERO);
+            ImagePadding::padToShape(*inputPSF, targetShape, PaddingFillType::ZERO);
             RealData h = Preprocessor::convertImageToRealData(*inputPSF);
             RealData h_device = backend.getMemoryManager().copyDataToDevice(h);
 
