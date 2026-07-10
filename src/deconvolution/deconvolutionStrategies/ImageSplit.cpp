@@ -182,7 +182,6 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
         const CuboidShape& imageOriginalShape,
         const Padding& cubePadding,
         PaddingStrategyType imagePadding,
-        int ncubes,
         CuboidShape minSize
     ){
     std::array<size_t*, 3> tempCubeAccessor  = currentMaxSize.getReference();
@@ -209,9 +208,11 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
                 imageOriginalShape,
                 imagePadding);
 
-            ncubes = cubePositions.size();
-
             bool success = decreaseSize(tempCubeAccessor, dimIterator, minSize);
+            if (!success) {
+                lastCubePositions = cubePositions;
+                break;
+            }
         }
         cubePositions = lastCubePositions; // take the prevous before more cubes were needed, the while loop goes beyond by one
 
@@ -282,11 +283,10 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
         }
     }
     cubePositions = reduceSizeWhileKeepingNCubes(
-        currentMaxSize,
+        cubePositions[0].getPaddedShape(),
         imageOriginalShape,
         cubePadding,
         imagePadding,
-        ncubes,
         minSize
     );
 
