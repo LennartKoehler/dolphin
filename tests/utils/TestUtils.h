@@ -47,6 +47,7 @@ inline Image3D createRandomImage(size_t w, size_t h, size_t d, unsigned seed = 4
     return img;
 }
 
+
 inline Image3D createImpulseImage(size_t w, size_t h, size_t d) {
     Image3D img(CuboidShape(w, h, d), 0.0f);
     img.setPixel(w / 2, h / 2, d / 2, 1.0f);
@@ -58,7 +59,7 @@ inline Image3D createGradientImage(size_t w, size_t h, size_t d) {
     for (size_t z = 0; z < d; z++) {
         for (size_t y = 0; y < h; y++) {
             for (size_t x = 0; x < w; x++) {
-                img.setPixel(x, y, z, static_cast<float>(x + y * w + z * w * h));
+                img.setPixel(x, y, z, static_cast<float>(x + y + z));
             }
         }
     }
