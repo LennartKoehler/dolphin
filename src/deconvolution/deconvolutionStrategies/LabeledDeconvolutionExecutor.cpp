@@ -23,6 +23,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/generators/GaussianPSFGenerator.h"
+#include "dolphin_image/Types/PaddingFillType.h"
 #include "dolphinbackend/Exceptions.h"
 #include "dolphin_image/HelperClasses.h"
 #include "dolphin/SetupConfig.h"
@@ -41,7 +42,7 @@ void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig, con
         : static_cast<size_t>(std::max(1, setupConfig.nIOThreads));
     readerConfig.prefetchEnabled = setupConfig.readerPrefetchEnabled;
     readerConfig.prefetchCount = static_cast<size_t>(setupConfig.readerPrefetchCount);
-    this->labelReader = std::make_unique<ReaderHandler>(std::make_unique<TiffReader>(setupConfig.labeledImage, channel, readerConfig));
+    this->labelReader = std::make_unique<ReaderHandler>(std::make_unique<TiffReader>(setupConfig.labeledImage, channel, readerConfig), PaddingFillType::MIRROR);
     this->loadingBar.setCallback(fn);
 
     // Load PSF label map if provided
