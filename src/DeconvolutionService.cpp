@@ -123,7 +123,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         readerConfig.prefetchCount = static_cast<size_t>(setupConfig->readerPrefetchCount);
         auto tiffReader = std::make_unique<TiffReader>(setupConfig->imagePath, channel, readerConfig);
         ImageMetaData metadata = tiffReader->getMetaData();
-        std::shared_ptr<ReaderHandler> reader = std::make_shared<ReaderHandler>(std::move(tiffReader));
+        std::shared_ptr<ReaderHandler> reader = std::make_shared<ReaderHandler>(std::move(tiffReader), deconvConfig->paddingFillType);
         logger_->debug("Using image with the following metadata {}", metadata.print());
 
         TiffCompressionConfig writerConfig;

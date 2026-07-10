@@ -5,6 +5,7 @@
 #include "dolphin_image/Image3D.h"
 #include "dolphin_image/ImageMetaData.h"
 #include "dolphin_image/ImagePadding.h"
+#include "dolphin_image/Types/PaddingFillType.h"
 
 
 class ImageReader{
@@ -39,13 +40,13 @@ public:
 
 class ReaderHandler{
 public:
-    explicit ReaderHandler(std::unique_ptr<ImageReader> r) : reader(std::move(r)) {}
+    explicit ReaderHandler(std::unique_ptr<ImageReader> r, PaddingFillType paddingFillStrategy) : reader(std::move(r)), paddingFillStrategy(paddingFillStrategy){}
     const ImageMetaData& getMetaData() const { return reader->getMetaData(); }
 
     virtual PaddedImage getSubimage(const BoxCoordWithPadding& box) const{
         BoxCoordWithPadding translatedRegion = translateRegion(box, reader->getMetaData().getShape());
         Image3D image = reader->getSubimage(translatedRegion.box).get();
-        ImagePadding::padImage(image, translatedRegion.padding, PaddingFillType::MIRROR);
+        ImagePadding::padImage(image, translatedRegion.padding, paddingFillStrategy);
         PaddedImage result = PaddedImage{image, box.padding};
         return result;
     }
@@ -58,4 +59,5 @@ protected:
         return BoxCoordWithPadding{paddedBox, padding};
     }
     std::unique_ptr<ImageReader> reader;
+    PaddingFillType paddingFillStrategy;
 };
