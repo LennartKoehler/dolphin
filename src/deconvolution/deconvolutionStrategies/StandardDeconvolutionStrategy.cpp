@@ -29,7 +29,7 @@ See the LICENSE file provided with the code for the full license.
 
 
 Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
-    std::shared_ptr<ImageReader> reader,
+    std::shared_ptr<ReaderHandler> reader,
     std::shared_ptr<ImageWriter> writer,
     PSFHandler& psfHandler,
     const DeconvolutionConfig& deconvConfig,
@@ -107,7 +107,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         spdlog::get("deconvolution")->warn("Low memory, padding takes up most of the compute block. Padding is: ({}); the subimage is: ({})",
                                            padding.getTotalPadding().print(), workShape.box.dimensions.print());
 
-    size_t memoryPerTask = estimateMemoryUsage(workShape.getBox().dimensions, algorithm.get(), setupConfig);
+    size_t memoryPerTask = estimateMemoryUsage(workShape.getPaddedBox().dimensions, algorithm.get(), setupConfig);
 
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     tasks.reserve(cubeCoordinatesWithPadding.size());
@@ -139,7 +139,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     spdlog::get("deconvolution")
         ->info("Successfully created deconvolution plan with {} total cubes. Each cube has size (width x height x depth) ({}) which includes padding (padding before, padding after) ({}, {})",
-        totalTasks, (workShape.getBox().dimensions).print(), workShape.padding.before.print(), workShape.padding.after.print());
+        totalTasks, (workShape.getPaddedBox().dimensions).print(), workShape.padding.before.print(), workShape.padding.after.print());
 
     DeconvolutionPlan plan {
         std::move(tasks),

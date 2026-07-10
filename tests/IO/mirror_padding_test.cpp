@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "dolphin_image/Image3D.h"
 #include "dolphin_image/IO/TiffReader.h"
+#include "dolphin_image/IO/ReaderWriter.h"
 #include "dolphin_image/IO/TiffWriter.h"
 #include "dolphin_image/Types/BoxCoord.h"
 #include "TestUtils.h"
@@ -23,50 +24,50 @@ protected:
 };
 
 TEST_F(MirrorPaddingTest, ReadSubimageNoPadding) {
-    TiffReader reader(testTiffPath, 0);
+    ReaderHandler reader(std::make_unique<TiffReader>(testTiffPath, 0));
     BoxCoordWithPadding box;
     box.box.position = CuboidShape(0, 0, 0);
     box.box.dimensions = CuboidShape(8, 8, 4);
     box.padding.before = CuboidShape(0, 0, 0);
     box.padding.after = CuboidShape(0, 0, 0);
 
-    auto result = reader.getSubimage(box).get();
+    auto result = reader.getSubimage(box);
     EXPECT_EQ(result.image.getShape(), CuboidShape(8, 8, 4));
 }
 
 TEST_F(MirrorPaddingTest, ReadSubimageWithPadding) {
-    TiffReader reader(testTiffPath, 0);
+    ReaderHandler reader(std::make_unique<TiffReader>(testTiffPath, 0));
     BoxCoordWithPadding box;
     box.box.position = CuboidShape(0, 0, 0);
     box.box.dimensions = CuboidShape(8, 8, 4);
     box.padding.before = CuboidShape(2, 2, 2);
     box.padding.after = CuboidShape(2, 2, 2);
 
-    auto result = reader.getSubimage(box).get();
+    auto result = reader.getSubimage(box);
     EXPECT_EQ(result.image.getShape(), CuboidShape(12, 12, 8));
 }
 
 TEST_F(MirrorPaddingTest, ReadFullImage) {
-    TiffReader reader(testTiffPath, 0);
+    ReaderHandler reader(std::make_unique<TiffReader>(testTiffPath, 0));
     BoxCoordWithPadding box;
     box.box.position = CuboidShape(0, 0, 0);
     box.box.dimensions = CuboidShape(16, 16, 8);
     box.padding.before = CuboidShape(0, 0, 0);
     box.padding.after = CuboidShape(0, 0, 0);
 
-    auto result = reader.getSubimage(box).get();
+    auto result = reader.getSubimage(box);
     EXPECT_EQ(result.image.getShape(), CuboidShape(16, 16, 8));
 }
 
 TEST_F(MirrorPaddingTest, ReadSubimageAtOffset) {
-    TiffReader reader(testTiffPath, 0);
+    ReaderHandler reader(std::make_unique<TiffReader>(testTiffPath, 0));
     BoxCoordWithPadding box;
     box.box.position = CuboidShape(4, 4, 2);
     box.box.dimensions = CuboidShape(8, 8, 4);
     box.padding.before = CuboidShape(0, 0, 0);
     box.padding.after = CuboidShape(0, 0, 0);
 
-    auto result = reader.getSubimage(box).get();
+    auto result = reader.getSubimage(box);
     EXPECT_EQ(result.image.getShape(), CuboidShape(8, 8, 4));
 }
 

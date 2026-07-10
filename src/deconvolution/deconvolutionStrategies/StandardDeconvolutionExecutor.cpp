@@ -51,7 +51,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     // thread_local IBackend& iodevice = context->iodevice.cloneSharedMemory();
     thread_local IBackend& iobackend = context->manager.createBackendForCurrentThread(context->ioconfig);
 
-    std::shared_ptr<ImageReader> reader = task.sharedDescriptor->reader;
+    std::shared_ptr<ReaderHandler> reader = task.sharedDescriptor->reader;
     std::shared_ptr<ImageWriter> writer = task.sharedDescriptor->writer;
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
@@ -62,8 +62,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     {
         spdlog::get("deconvolution")->debug("[Task {}] Reading subimage from input", task.taskId);
-        std::future<PaddedImage> cubeImageFuture = reader->getSubimage(task.paddedBox);
-        PaddedImage cubeImage = cubeImageFuture.get();
+        PaddedImage cubeImage = reader->getSubimage(task.paddedBox);
         spdlog::get("deconvolution")->debug("[Task {}] Converting input image to real data", task.taskId);
         g_host = Preprocessor::convertImageToRealData(cubeImage.image);
     }
@@ -143,16 +142,6 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
 
 
 
-void StandardDeconvolutionExecutor::prefetchReaders(const DeconvolutionPlan& plan) {
-    if (plan.tasks.empty()) return;
-    auto& reader = plan.tasks[0]->sharedDescriptor->reader;
-    std::vector<BoxCoordWithPadding> boxes;
-    for (auto& task : plan.tasks)
-        boxes.push_back(task->paddedBox);
-    reader->prefetch(boxes);
-}
-
-
 void StandardDeconvolutionExecutor::parallelDeconvolution(
     DeconvolutionPlan channelPlan) {
 
@@ -160,8 +149,6 @@ void StandardDeconvolutionExecutor::parallelDeconvolution(
 
     std::vector<std::future<void>> runningTasks;
     loadingBar.setMax(channelPlan.totalTasks);
-
-    prefetchReaders(channelPlan);
 
     for (auto& task : channelPlan.tasks){
         std::shared_ptr<TaskContext> context = task->context;

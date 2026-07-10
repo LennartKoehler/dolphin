@@ -12,14 +12,25 @@
 
 namespace TestUtils {
 
-inline std::string testDataDir() {
-    return std::string(CMAKE_SOURCE_DIR) + "/tests/fixtures";
-}
 
 inline std::string outputPath() {
-    auto dir = std::string(CMAKE_BINARY_DIR) + "/test_output";
+    auto dir = "/tmp/dolphin";
     std::filesystem::create_directories(dir);
     return dir;
+}
+
+inline bool cleanupDirectory()
+{
+    std::error_code ec;
+    const std::uintmax_t removed =
+        std::filesystem::remove_all(outputPath(), ec);
+
+    if (ec) {
+        return false;
+    }
+
+    GTEST_LOG_(INFO) << "Successfully deleted test directory";
+    return true;
 }
 
 inline Image3D createConstantImage(size_t w, size_t h, size_t d, float value) {

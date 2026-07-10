@@ -22,6 +22,7 @@ See the LICENSE file provided with the code for the full license.
 struct Padding{
     CuboidShape before;
     CuboidShape after;
+    bool operator==(const Padding& other) const {return (before == other.before && after == other.after);}
 
     size_t getPaddingWidthTotal() const { return before.width + after.width;}
     size_t getPaddingHeightTotal() const { return before.height + after.height;}
@@ -34,6 +35,7 @@ struct Padding{
 struct BoxCoord {
     CuboidPosition position;
     CuboidShape dimensions;
+    bool operator==(const BoxCoord& other) const {return (position == other.position && dimensions == other.dimensions);}
     bool isWithin(const BoxCoord& other) const {
         return (position.width >= other.position.width &&
                 position.height >= other.position.height &&
@@ -83,12 +85,12 @@ struct BoxCoordWithPadding {
     BoxCoord box;
     Padding padding;
     bool isWithin(const BoxCoordWithPadding& other) const {
-        return (this->getBox().isWithin(other.getBox()));
+        return (this->getPaddedBox().isWithin(other.getPaddedBox()));
     }
     CuboidShape getPaddedShape() const {
         return box.dimensions + padding.getTotalPadding();
     }
-    BoxCoord getBox() const {
+    BoxCoord getPaddedBox() const {
         return BoxCoord{this->box.position - this->padding.before, this->box.dimensions + this->padding.before + this->padding.after};
     }
 };

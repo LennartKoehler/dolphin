@@ -43,10 +43,8 @@ public:
     // Configuration methods
     virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) override;
 
-    void setLabelReader(std::unique_ptr<ImageReader> labelReader) {this->labelReader = std::move(labelReader);}
+    void setLabelReader(std::unique_ptr<ReaderHandler> labelReader) {this->labelReader = std::move(labelReader);}
     void setPsfLabelMap(RangeMap<std::string> psfLabelMap) {this->psfLabelMap = psfLabelMap;}
-
-    virtual void prefetchReaders(const DeconvolutionPlan& plan) override;
 
 
 protected:
@@ -66,7 +64,7 @@ protected:
 		RangeMap<std::string> psfLabelMap);
 
     RangeMap<std::string> psfLabelMap;
-    std::unique_ptr<ImageReader> labelReader;
+    std::unique_ptr<ReaderHandler> labelReader;
 
 
     int featheringRadius = 0;

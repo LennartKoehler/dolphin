@@ -6,15 +6,14 @@
 #include "dolphin_image/IO/TiffWriter.h"
 
 
-
-class TiffReaderWriterPair : public ImageReaderWriterPair{
+class TiffReaderWriterPair {
 public:
     TiffReaderWriterPair(const std::string& filenameInput, int channel, const std::string& filenameOutput);
-    virtual std::future<PaddedImage> getSubimage(const BoxCoordWithPadding& box) const override;
-    virtual const ImageMetaData& getMetaData() const override;
-    virtual bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const override;
+    PaddedImage getSubimage(const BoxCoordWithPadding& box) const;
+    const ImageMetaData& getMetaData() const;
+    bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const;
 
-    TiffReader reader;
+    ReaderHandler reader;
     TiffWriter writer;
 };
 

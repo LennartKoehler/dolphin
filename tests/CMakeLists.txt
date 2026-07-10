@@ -57,6 +57,7 @@ set(ALL_TEST_SOURCES
     IO/read_write_test.cpp
     IO/tiff_generation_test.cpp
     IO/mirror_padding_test.cpp
+    IO/tiff_reader_test.cpp
     ${CMAKE_SOURCE_DIR}/backends/cpu/tests/test_cpu_backend.cpp
 )
 
