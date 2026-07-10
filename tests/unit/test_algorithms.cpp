@@ -41,7 +41,7 @@ protected:
     }
 
     std::unique_ptr<ComplexData> preprocessPSF(std::shared_ptr<PSF> psf, CuboidShape shape) {
-        Preprocessor::padToShape(*psf, shape, PaddingFillType::ZERO);
+        ImagePadding::padToShape(*psf, shape, PaddingFillType::ZERO);
         RealData h_host = Preprocessor::convertImageToRealData(*psf);
         RealData h_device = backend->getMemoryManager().copyDataToDevice(h_host);
         std::unique_ptr<ComplexView> h_result = std::make_unique<ComplexView>(std::move(backend->getMemoryManager().reinterpret(h_device)));

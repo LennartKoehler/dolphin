@@ -14,7 +14,6 @@ set(DOLPHIN_IMAGE_SOURCES
     src/ImageOperations.cpp
     src/TiffReader.cpp
     src/TiffWriter.cpp
-    src/TiffReaderWriterPair.cpp
 )
 
 add_library(dolphin_image STATIC ${DOLPHIN_IMAGE_SOURCES})

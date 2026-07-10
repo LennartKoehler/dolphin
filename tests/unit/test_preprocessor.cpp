@@ -6,6 +6,7 @@
 #include "dolphin/psf/PSF.h"
 #include "dolphin/Logging.h"
 #include "dolphin_image/Image3D.h"
+#include "dolphin_image/ImagePadding.h"
 #include "TestUtils.h"
 
 class PreprocessorTest : public ::testing::Test {
@@ -64,7 +65,7 @@ TEST_F(PreprocessorTest, PadImageMirrorWrapper) {
     Padding padding;
     padding.before = CuboidShape(2, 2, 2);
     padding.after = CuboidShape(2, 2, 2);
-    Preprocessor::padImageMirror(img, padding);
+    ImagePadding::padImageMirror(img, padding);
     EXPECT_EQ(img.getShape(), CuboidShape(8, 8, 8));
 }
 
@@ -73,7 +74,7 @@ TEST_F(PreprocessorTest, PadImageZeroWrapper) {
     Padding padding;
     padding.before = CuboidShape(1, 1, 1);
     padding.after = CuboidShape(1, 1, 1);
-    Preprocessor::padImageZero(img, padding);
+    ImagePadding::padImageZero(img, padding);
     EXPECT_EQ(img.getShape(), CuboidShape(6, 6, 6));
     EXPECT_FLOAT_EQ(img.getPixel(0, 0, 0), 0.0f);
     EXPECT_FLOAT_EQ(img.getPixel(1, 1, 1), 1.0f);
@@ -81,13 +82,13 @@ TEST_F(PreprocessorTest, PadImageZeroWrapper) {
 
 TEST_F(PreprocessorTest, ExpandToMinSizeWrapper) {
     Image3D img(CuboidShape(4, 4, 4), 2.0f);
-    Preprocessor::expandToMinSize(img, CuboidShape(8, 8, 8));
+    ImagePadding::expandToMinSize(img, CuboidShape(8, 8, 8));
     EXPECT_EQ(img.getShape(), CuboidShape(8, 8, 8));
 }
 
 TEST_F(PreprocessorTest, PadToShapeWrapper) {
     Image3D img(CuboidShape(4, 4, 4), 1.0f);
-    auto padding = Preprocessor::padToShape(img, CuboidShape(8, 8, 8), PaddingFillType::ZERO);
+    auto padding = ImagePadding::padToShape(img, CuboidShape(8, 8, 8), PaddingFillType::ZERO);
     EXPECT_EQ(img.getShape(), CuboidShape(8, 8, 8));
 }
 
