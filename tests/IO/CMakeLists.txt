@@ -27,3 +27,9 @@ dolphin_add_test(mirror_padding_test
     LIBS dolphin
     INCLUDES ${TEST_INCLUDES}
 )
+
+dolphin_add_test(tiff_reader_test
+    SOURCES tiff_reader_test.cpp
+    LIBS dolphin
+    INCLUDES ${TEST_INCLUDES}
+)

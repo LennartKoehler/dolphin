@@ -18,7 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/SetupConfig.h"
 #include <memory>
 
-class ImageReader;
+class ReaderHandler;
 class ImageWriter;
 /*
 This class runs the DeconvolutionPlan provided by the deconvolutionstrategy

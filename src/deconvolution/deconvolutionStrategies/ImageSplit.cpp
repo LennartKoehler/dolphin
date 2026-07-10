@@ -264,7 +264,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
             cubePadding
         };
 
-        if (startCube.getBox().dimensions.getVolume() < maxVolumePerCube){
+        if (startCube.getPaddedBox().dimensions.getVolume() < maxVolumePerCube){
             addCubeRecursion(
                 cubePositions,
                 startCube,

@@ -22,26 +22,18 @@ See the LICENSE file provided with the code for the full license.
 #include <itkImageRegionIterator.h>
 #include "dolphin_image/IO/ReaderWriter.h"
 #include "dolphin_image/IO/TiffExceptions.h"
-
-
-struct TiffWriterConfig {
-    uint16_t compressionScheme = COMPRESSION_NONE;
-    int compressionLevel = -1;
-
-    static uint16_t parseCompression(const std::string& s);
-    static const char* compressionToString(uint16_t scheme);
-};
+#include "dolphin_image/ImageMetaData.h"
 
 
 class TiffWriter : public ImageWriter {
 public:
-    explicit TiffWriter(const std::string& filename, const CuboidShape& imageShape, TiffWriterConfig config = {});
+    explicit TiffWriter(const std::string& filename, const CuboidShape& imageShape, TiffCompressionConfig config = {});
 
     ~TiffWriter();
 
     bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const override;
 
-    static bool writeToFile(const std::string& filename, const Image3D& image, TiffWriterConfig config = {});
+    static bool writeToFile(const std::string& filename, const Image3D& image, TiffCompressionConfig config = {});
 
 
 private:
@@ -50,7 +42,7 @@ private:
     std::string outputFilename;
     TIFF* tif;
     CuboidShape imageShape;
-    TiffWriterConfig config_;
+    TiffCompressionConfig compressionConfig;
     mutable size_t writtenToDepth = 0;
     mutable std::queue<int> readyToWriteQueue;
 
@@ -66,8 +58,8 @@ private:
 
     static ImageMetaData extractMetaData(const Image3D& image);
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
-    void writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceIndex, const ImageMetaData& metaData) const;
-    void setTiffFields(TIFF* tif, const ImageMetaData& metaData) const;
+    static void writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceIndex, const ImageMetaData& metaData, const TiffCompressionConfig& compression);
+    static void setTiffFields(TIFF* tif, const ImageMetaData& metaData, const TiffCompressionConfig& compression);
 
     static int getTargetItkType(const ImageMetaData& metadata);
     static void extractSliceData(const Image3D& image, size_t sliceIndex, std::vector<float>& sliceData);

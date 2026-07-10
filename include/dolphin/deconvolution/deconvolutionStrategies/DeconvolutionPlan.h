@@ -75,7 +75,7 @@ struct CubeTaskSharedDescriptor{
                     const std::shared_ptr<DeconvolutionAlgorithm>& algorithm,
                     size_t estimatedMemoryUsage,
                     const std::vector<std::shared_ptr<PSF>>& psfs,
-                    const std::shared_ptr<ImageReader> reader,
+                    const std::shared_ptr<ReaderHandler> reader,
                     const std::shared_ptr<ImageWriter> writer)
     : prototypeAlgorithm(algorithm),
       estimatedMemoryUsage(estimatedMemoryUsage),
@@ -86,7 +86,7 @@ struct CubeTaskSharedDescriptor{
     const std::shared_ptr<DeconvolutionAlgorithm> prototypeAlgorithm;
     const size_t estimatedMemoryUsage;
     const std::vector<std::shared_ptr<PSF>> psfs;
-    const std::shared_ptr<ImageReader> reader;
+    const std::shared_ptr<ReaderHandler> reader;
     const std::shared_ptr<ImageWriter> writer;
 };
 

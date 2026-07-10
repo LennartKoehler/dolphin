@@ -262,7 +262,7 @@ TEST(BoxCoordWithPaddingTest, GetBox) {
     bcp.box.dimensions = CuboidShape(10, 10, 10);
     bcp.padding.before = CuboidShape(2, 2, 2);
     bcp.padding.after = CuboidShape(3, 3, 3);
-    BoxCoord expanded = bcp.getBox();
+    BoxCoord expanded = bcp.getPaddedBox();
     EXPECT_EQ(expanded.position.width, 3);
     EXPECT_EQ(expanded.dimensions.width, 15);
 }

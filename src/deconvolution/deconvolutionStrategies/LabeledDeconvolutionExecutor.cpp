@@ -41,7 +41,7 @@ void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig, con
         : static_cast<size_t>(std::max(1, setupConfig.nIOThreads));
     readerConfig.prefetchEnabled = setupConfig.readerPrefetchEnabled;
     readerConfig.prefetchCount = static_cast<size_t>(setupConfig.readerPrefetchCount);
-    this->labelReader = std::make_unique<TiffReader>(setupConfig.labeledImage, channel, readerConfig);
+    this->labelReader = std::make_unique<ReaderHandler>(std::make_unique<TiffReader>(setupConfig.labeledImage, channel, readerConfig));
     this->loadingBar.setCallback(fn);
 
     // Load PSF label map if provided
@@ -54,17 +54,8 @@ void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig, con
     this->featheringRadius = deconvConfig.featheringRadius;
 }
 
-void LabeledDeconvolutionExecutor::prefetchReaders(const DeconvolutionPlan& plan) {
-    StandardDeconvolutionExecutor::prefetchReaders(plan);
-    if (labelReader && !plan.tasks.empty()) {
-        std::vector<BoxCoordWithPadding> boxes;
-        for (auto& task : plan.tasks)
-            boxes.push_back(task->paddedBox);
-        labelReader->prefetch(boxes);
-    }
-}
-
 /*
+
 Deconvolution using a labelimage which allows for different psfs for different parts of the image.
 For each unique label within a cube the deconvolution is performed, and at the end the deconvolved images are stitched together
 according to the specifications in the labelimage.
@@ -77,7 +68,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     thread_local IBackend& workerbackend = context->manager.createBackendSharedMemoryForCurrentThread(iobackend, context->workerconfig); // copied in deconvolutionprocessor
 
 
-    std::shared_ptr<ImageReader> reader = task.sharedDescriptor->reader;
+    std::shared_ptr<ReaderHandler> reader = task.sharedDescriptor->reader;
     std::shared_ptr<ImageWriter> writer = task.sharedDescriptor->writer;
     if (reader->getMetaData().getShape() != labelReader->getMetaData().getShape()){
         throw std::runtime_error("Size of input image is not the same as label image"); // this shouldnt really happend in the runTask function
@@ -86,10 +77,8 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
 
-    std::future<PaddedImage> cubeImageFuture = reader->getSubimage(task.paddedBox);
-    std::future<PaddedImage> labelImageFuture = labelReader->getSubimage(task.paddedBox);
-    PaddedImage cubeImage = cubeImageFuture.get();
-    PaddedImage labelImage = labelImageFuture.get();
+    PaddedImage cubeImage = reader->getSubimage(task.paddedBox);
+    PaddedImage labelImage = labelReader->getSubimage(task.paddedBox);
 
     RealData g_host = Preprocessor::convertImageToRealData(cubeImage.image);
 

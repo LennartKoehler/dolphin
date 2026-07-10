@@ -19,6 +19,16 @@ See the LICENSE file provided with the code for the full license.
 #include <cstdint>
 #include "dolphinbackend/CuboidShape.h"
 
+#include <tiffio.h>
+
+struct TiffCompressionConfig {
+    uint16_t compressionScheme = COMPRESSION_NONE;
+    int compressionLevel = -1;
+
+    static uint16_t parseCompression(const std::string& s);
+    static const char* compressionToString(uint16_t scheme);
+};
+
 struct ImageMetaData {
     // Image Attributes
     std::string filename;

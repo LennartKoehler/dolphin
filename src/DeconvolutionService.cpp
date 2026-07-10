@@ -121,15 +121,15 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
             : static_cast<size_t>(std::max(1, setupConfig->nIOThreads));
         readerConfig.prefetchEnabled = setupConfig->readerPrefetchEnabled;
         readerConfig.prefetchCount = static_cast<size_t>(setupConfig->readerPrefetchCount);
-        std::shared_ptr<TiffReader> reader = std::make_shared<TiffReader>(setupConfig->imagePath, channel, readerConfig);
+        auto tiffReader = std::make_unique<TiffReader>(setupConfig->imagePath, channel, readerConfig);
+        ImageMetaData metadata = tiffReader->getMetaData();
+        std::shared_ptr<ReaderHandler> reader = std::make_shared<ReaderHandler>(std::move(tiffReader));
+        logger_->debug("Using image with the following metadata {}", metadata.print());
 
-        std::optional<ImageMetaData> metadata = reader->getMetaData();
-        logger_->debug("Using image with the following metadata {}", metadata.value().print());
-
-        TiffWriterConfig writerConfig;
-        writerConfig.compressionScheme = TiffWriterConfig::parseCompression(setupConfig->outputCompression);
+        TiffCompressionConfig writerConfig;
+        writerConfig.compressionScheme = TiffCompressionConfig::parseCompression(setupConfig->outputCompression);
         writerConfig.compressionLevel = setupConfig->outputCompressionLevel;
-        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path, metadata.value().getShape(), writerConfig);
+        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path, metadata.getShape(), writerConfig);
 
 
         Result<DeconvolutionPlan> plan = strategyPair->getStrategy().createPlan(

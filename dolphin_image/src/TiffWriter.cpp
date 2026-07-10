@@ -31,7 +31,7 @@ See the LICENSE file provided with the code for the full license.
 
 namespace fs = std::filesystem;
 
-uint16_t TiffWriterConfig::parseCompression(const std::string& s) {
+uint16_t TiffCompressionConfig::parseCompression(const std::string& s) {
     if (s == "none" || s == "NONE" || s == "1") return COMPRESSION_NONE;
     if (s == "lzw" || s == "LZW" || s == "5") return COMPRESSION_LZW;
     if (s == "deflate" || s == "DEFLATE" || s == "zip" || s == "ZIP" || s == "8") return COMPRESSION_DEFLATE;
@@ -39,7 +39,7 @@ uint16_t TiffWriterConfig::parseCompression(const std::string& s) {
     return COMPRESSION_NONE;
 }
 
-const char* TiffWriterConfig::compressionToString(uint16_t scheme) {
+const char* TiffCompressionConfig::compressionToString(uint16_t scheme) {
     switch (scheme) {
         case COMPRESSION_NONE: return "none";
         case COMPRESSION_LZW: return "lzw";
@@ -49,15 +49,15 @@ const char* TiffWriterConfig::compressionToString(uint16_t scheme) {
 }
 
 // Constructor
-TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShape, TiffWriterConfig config)
+TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShape, TiffCompressionConfig config)
     : outputFilename(filename),
     imageShape(imageShape),
-    config_(config) {
+    compressionConfig(config) {
 
     TIFFSetWarningHandler(TiffWriter::customTifWarningHandler);
     this->tif = openTiff(filename.c_str(), imageShape);
     spdlog::debug("TiffWriter created: compression={}, level={}",
-        TiffWriterConfig::compressionToString(config_.compressionScheme), config_.compressionLevel);
+        TiffCompressionConfig::compressionToString(compressionConfig.compressionScheme), compressionConfig.compressionLevel);
 }
 
 
@@ -245,7 +245,7 @@ bool TiffWriter::writeToFile_(const std::string& filename, size_t z, size_t dept
     ImageMetaData metaData = extractMetaData(layers);
 
     for (size_t i = writtenToDepth - z; i < depth; ++i) {
-        writeSliceToTiff(tif, layers, i, metaData);
+        writeSliceToTiff(tif, layers, i, metaData, compressionConfig);
         if (!TIFFWriteDirectory(tif)) {
             throw TiffWriteException("Failed to set directory for slice " + std::to_string(i));
         }
@@ -257,7 +257,7 @@ bool TiffWriter::writeToFile_(const std::string& filename, size_t z, size_t dept
 }
 
 
-void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceIndex, const ImageMetaData& metaData) const {
+void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceIndex, const ImageMetaData& metaData, const TiffCompressionConfig& compression){
     CuboidShape imgShape = image.getShape();
     if (sliceIndex >= imgShape.depth) {
         throw TiffWriteException("Slice index out of bounds: " + std::to_string(sliceIndex));
@@ -270,7 +270,7 @@ void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceI
         throw TiffWriteException("Slice data is empty for slice index: " + std::to_string(sliceIndex));
     }
 
-    setTiffFields(tif, metaData);
+    setTiffFields(tif, metaData, compression);
 
     tmsize_t stripSize = TIFFStripSize(tif);
     tsize_t scanlineSize = TIFFScanlineSize(tif);
@@ -317,7 +317,7 @@ void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceI
     _TIFFfree(buf);
 }
 
-void TiffWriter::setTiffFields(TIFF* tif, const ImageMetaData& metaData) const {
+void TiffWriter::setTiffFields(TIFF* tif, const ImageMetaData& metaData, const TiffCompressionConfig& compression){
     try {
         TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint32_t>(metaData.imageWidth));
         TIFFSetField(tif, TIFFTAG_IMAGELENGTH, static_cast<uint32_t>(metaData.imageLength));
@@ -330,18 +330,18 @@ void TiffWriter::setTiffFields(TIFF* tif, const ImageMetaData& metaData) const {
         uint32_t rowsPerStrip = static_cast<uint32_t>(metaData.imageLength);
         TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
 
-        TIFFSetField(tif, TIFFTAG_COMPRESSION, config_.compressionScheme);
+        TIFFSetField(tif, TIFFTAG_COMPRESSION, compression.compressionScheme);
 
-        if (config_.compressionScheme == COMPRESSION_LZW || config_.compressionScheme == COMPRESSION_DEFLATE) {
+        if (compression.compressionScheme == COMPRESSION_LZW || compression.compressionScheme == COMPRESSION_DEFLATE) {
             if (metaData.sampleFormat == SAMPLEFORMAT_IEEEFP) {
-                TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_FLOATINGPOINT);
+                TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_NONE);
             } else {
                 TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_HORIZONTAL);
             }
         }
 
-        if (config_.compressionScheme == COMPRESSION_DEFLATE && config_.compressionLevel >= 0) {
-            TIFFSetField(tif, TIFFTAG_ZIPQUALITY, config_.compressionLevel);
+        if (compression.compressionScheme == COMPRESSION_DEFLATE && compression.compressionLevel >= 0) {
+            TIFFSetField(tif, TIFFTAG_ZIPQUALITY, compression.compressionLevel);
         }
     } catch (const std::exception& e) {
         throw TiffMetadataException("Failed to set TIFF fields: " + std::string(e.what()));
@@ -405,7 +405,7 @@ TIFF* TiffWriter::openTiff(const char* filename, const CuboidShape& size){
     return tif;
 }
 
-bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, TiffWriterConfig config) {
+bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, TiffCompressionConfig config) {
     try {
         ImageMetaData metadata = extractMetaData(image);
         CuboidShape imgShape = image.getShape();
@@ -418,62 +418,71 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, 
         TIFF* tif = openTiff(filename.c_str(), imgShape);
 
         spdlog::debug("Writing TIFF: compression={}, level={}",
-            TiffWriterConfig::compressionToString(config.compressionScheme), config.compressionLevel);
+            TiffCompressionConfig::compressionToString(config.compressionScheme), config.compressionLevel);
 
-        for (size_t zIndex = 0; zIndex < imgShape.depth; ++zIndex) {
-            std::vector<float> sliceData;
-            extractSliceData(image, zIndex, sliceData);
+        ImageMetaData metaData = extractMetaData(image);
 
-            TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint32_t>(metadata.imageWidth));
-            TIFFSetField(tif, TIFFTAG_IMAGELENGTH, static_cast<uint32_t>(metadata.imageLength));
-            TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, metadata.bitsPerSample);
-            TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, metadata.samplesPerPixel);
-            TIFFSetField(tif, TIFFTAG_PLANARCONFIG, metadata.planarConfig);
-            TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, metadata.photometricInterpretation);
-            TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, metadata.sampleFormat);
-
-            uint32_t rowsPerStrip = static_cast<uint32_t>(metadata.imageLength);
-            TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
-
-            TIFFSetField(tif, TIFFTAG_COMPRESSION, config.compressionScheme);
-
-            if (config.compressionScheme == COMPRESSION_LZW || config.compressionScheme == COMPRESSION_DEFLATE) {
-                if (metadata.sampleFormat == SAMPLEFORMAT_IEEEFP) {
-                    TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_FLOATINGPOINT);
-                } else {
-                    TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_HORIZONTAL);
-                }
-            }
-
-            if (config.compressionScheme == COMPRESSION_DEFLATE && config.compressionLevel >= 0) {
-                TIFFSetField(tif, TIFFTAG_ZIPQUALITY, config.compressionLevel);
-            }
-
-            tmsize_t stripSize = TIFFStripSize(tif);
-            tsize_t scanlineSize = TIFFScanlineSize(tif);
-
-            char* buf = static_cast<char*>(_TIFFmalloc(stripSize));
-            if (!buf) {
-                TIFFClose(tif);
-                throw TiffMemoryException("Memory allocation failed for strip buffer");
-            }
-
-            tmsize_t bytesToWrite = static_cast<tmsize_t>(scanlineSize) * static_cast<tmsize_t>(imgShape.height);
-            memcpy(buf, sliceData.data(), bytesToWrite);
-
-            if (TIFFWriteEncodedStrip(tif, 0, buf, bytesToWrite) == -1) {
-                _TIFFfree(buf);
-                TIFFClose(tif);
-                throw TiffWriteException("Failed to write encoded strip for slice " + std::to_string(zIndex));
-            }
-
-            _TIFFfree(buf);
-
+        for (size_t z_index = 0; z_index < imgShape.depth; ++z_index) {
+            writeSliceToTiff(tif, image, z_index, metaData, config);
             if (!TIFFWriteDirectory(tif)) {
-                TIFFClose(tif);
-                throw TiffWriteException("Failed to set directory for slice " + std::to_string(zIndex));
+                throw TiffWriteException("Failed to set directory for slice " + std::to_string(z_index));
             }
         }
+        //
+        // for (size_t zIndex = 0; zIndex < imgShape.depth; ++zIndex) {
+        //     std::vector<float> sliceData;
+        //     extractSliceData(image, zIndex, sliceData);
+        //
+        //     TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint32_t>(metadata.imageWidth));
+        //     TIFFSetField(tif, TIFFTAG_IMAGELENGTH, static_cast<uint32_t>(metadata.imageLength));
+        //     TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, metadata.bitsPerSample);
+        //     TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, metadata.samplesPerPixel);
+        //     TIFFSetField(tif, TIFFTAG_PLANARCONFIG, metadata.planarConfig);
+        //     TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, metadata.photometricInterpretation);
+        //     TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, metadata.sampleFormat);
+        //
+        //     uint32_t rowsPerStrip = static_cast<uint32_t>(metadata.imageLength);
+        //     TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
+        //
+        //     TIFFSetField(tif, TIFFTAG_COMPRESSION, config.compressionScheme);
+        //
+        //     if (config.compressionScheme == COMPRESSION_LZW || config.compressionScheme == COMPRESSION_DEFLATE) {
+        //         if (metadata.sampleFormat == SAMPLEFORMAT_IEEEFP) {
+        //             TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_FLOATINGPOINT);
+        //         } else {
+        //             TIFFSetField(tif, TIFFTAG_PREDICTOR, PREDICTOR_HORIZONTAL);
+        //         }
+        //     }
+        //
+        //     if (config.compressionScheme == COMPRESSION_DEFLATE && config.compressionLevel >= 0) {
+        //         TIFFSetField(tif, TIFFTAG_ZIPQUALITY, config.compressionLevel);
+        //     }
+        //
+        //     tmsize_t stripSize = TIFFStripSize(tif);
+        //     tsize_t scanlineSize = TIFFScanlineSize(tif);
+        //
+        //     char* buf = static_cast<char*>(_TIFFmalloc(stripSize));
+        //     if (!buf) {
+        //         TIFFClose(tif);
+        //         throw TiffMemoryException("Memory allocation failed for strip buffer");
+        //     }
+        //
+        //     tmsize_t bytesToWrite = static_cast<tmsize_t>(scanlineSize) * static_cast<tmsize_t>(imgShape.height);
+        //     memcpy(buf, sliceData.data(), bytesToWrite);
+        //
+        //     if (TIFFWriteEncodedStrip(tif, 0, buf, bytesToWrite) == -1) {
+        //         _TIFFfree(buf);
+        //         TIFFClose(tif);
+        //         throw TiffWriteException("Failed to write encoded strip for slice " + std::to_string(zIndex));
+        //     }
+        //
+        //     _TIFFfree(buf);
+        //
+        //     if (!TIFFWriteDirectory(tif)) {
+        //         TIFFClose(tif);
+        //         throw TiffWriteException("Failed to set directory for slice " + std::to_string(zIndex));
+        //     }
+        // }
 
         TIFFClose(tif);
 

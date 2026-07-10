@@ -27,6 +27,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/IO/TiffExceptions.h"
 #include "dolphin_image/IO/TiffHandlePool.h"
 #include "dolphin_image/IO/ReaderThreadPool.h"
+#include "dolphin_image/ImageMetaData.h"
+#include "dolphin_image/Types/BoxCoord.h"
 
 
 struct TiffReaderConfig {
@@ -37,13 +39,44 @@ struct TiffReaderConfig {
 
 struct BufferEntry {
     Image3D image;
-    BoxCoordWithPadding source;
+    BoxCoord source;
 };
 
 struct PendingRead {
-    BoxCoordWithPadding source;
-    std::vector<std::pair<BoxCoordWithPadding, std::shared_ptr<std::promise<PaddedImage>>>> waiters;
+    BoxCoord source;
+    std::vector<std::pair<BoxCoord, std::shared_ptr<std::promise<Image3D>>>> waiters;
 };
+
+
+
+class ITiffRegionReader{
+public:
+    virtual BoxCoord computeReadSource(const ImageMetaData& metadata, const BoxCoord& box) const = 0 ;
+    virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const = 0;
+};
+
+class TiffRegionReaderTiled : public ITiffRegionReader{
+public:
+    BoxCoord computeReadSource(const ImageMetaData& metadata, const BoxCoord& box) const override;
+    static void convertTileRowToFloat(const char* tileRowData, std::vector<float>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel);
+    virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const override;
+};
+
+class TiffRegionReaderStriped : public ITiffRegionReader{
+public:
+    BoxCoord computeReadSource(const ImageMetaData& metadata, const BoxCoord& box) const override;
+    static void convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, size_t width, const ImageMetaData& metaData, int channel);
+    virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const override;
+};
+
+class TiffRegionReaderScanline : public ITiffRegionReader{
+public:
+    BoxCoord computeReadSource(const ImageMetaData& metadata, const BoxCoord& box) const override;
+    static void convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, size_t width, const ImageMetaData& metaData, int channel);
+    void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const override;
+};
+
+
 
 class TiffReader : public ImageReader {
 public:
@@ -53,8 +86,8 @@ public:
     static std::optional<Image3D> readTiffFile(const std::string& filename, int channel);
     static std::optional<ImageMetaData> readMetadata(const std::string& filename);
 
-    std::future<PaddedImage> getSubimage(const BoxCoordWithPadding& box) const override;
-    void prefetch(const std::vector<BoxCoordWithPadding>& boxes) const override;
+    std::future<Image3D> getSubimage(const BoxCoord& box) const override;
+    void prefetch(const std::vector<BoxCoord>& boxes) const override;
     const ImageMetaData& getMetaData() const override;
 
 private:
@@ -62,6 +95,7 @@ private:
     int channel;
     std::string filename_;
     TiffReaderConfig config_;
+    std::unique_ptr<ITiffRegionReader> regionReader;
 
     std::unique_ptr<TiffHandlePool> handlePool_;
     std::unique_ptr<ReaderThreadPool> readerPool_;
@@ -72,14 +106,15 @@ private:
     mutable std::list<PendingRead> pendingReads_;
     mutable std::atomic<size_t> inFlightReads_{0};
 
-    BoxCoordWithPadding computeReadSource(const BoxCoordWithPadding& box) const;
-    PaddedImage extractFromBuffer(const BoxCoordWithPadding& coord, BufferEntry& entry) const;
-    void executeRead(std::list<PendingRead>::iterator pendingIt, const BoxCoordWithPadding& source) const;
 
-    static void readSubimageFromTiffFile(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& layers, int channel);
-    static void readTiledSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel);
-    static void readStrippedSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel);
-    static void readScanlineSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel);
+    static std::unique_ptr<ITiffRegionReader> getRegionReader(const ImageMetaData& metadata);
+    Image3D extractFromBuffer(const BoxCoord& coord, BufferEntry& entry) const;
+    void executeRead(std::list<PendingRead>::iterator pendingIt, const BoxCoord& source) const;
+
+    static void readSubimageFromTiffFile(TIFF* tiffile, const ITiffRegionReader* regionReader, const ImageMetaData& metaData, const BoxCoord& region, Image3D& layers, int channel);
+    // static void readTiledSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel);
+    // static void readStrippedSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel);
+    // static void readScanlineSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel);
     static void readSubimageFromTiffFileStatic(const std::string& filename, const ImageMetaData& metaData, const BoxCoord& region, Image3D& layers, int channel);
     static ImageMetaData readMetadata_(const std::string& filename);
 
@@ -87,8 +122,6 @@ private:
     static void convertImageTo32F(Image3D& image, const ImageMetaData& metaData);
     static ImageMetaData extractMetadataFromTiff(TIFF*& tifFile);
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
-    static void convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, size_t width, const ImageMetaData& metaData, int channel);
-    static void convertTileRowToFloat(const char* tileRowData, std::vector<float>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel);
 
     static int countTiffDirectories(TIFF* tif);
 };

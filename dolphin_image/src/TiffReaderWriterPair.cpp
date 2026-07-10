@@ -2,11 +2,11 @@
 
 
 TiffReaderWriterPair::TiffReaderWriterPair(const std::string& filenameInput, int channel, const std::string& filenameOutput)
-    : reader(filenameInput, channel),
+    : reader(std::make_unique<TiffReader>(filenameInput, channel)),
     writer(filenameOutput, reader.getMetaData().getShape()){}
 
 
-std::future<PaddedImage> TiffReaderWriterPair::getSubimage(const BoxCoordWithPadding& box) const {
+PaddedImage TiffReaderWriterPair::getSubimage(const BoxCoordWithPadding& box) const {
     return reader.getSubimage(box);
 }
 const ImageMetaData& TiffReaderWriterPair::getMetaData() const{

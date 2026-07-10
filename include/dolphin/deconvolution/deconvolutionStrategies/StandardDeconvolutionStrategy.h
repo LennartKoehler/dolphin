@@ -39,7 +39,7 @@ public:
 
 
     virtual Result<DeconvolutionPlan> createPlan(
-        std::shared_ptr<ImageReader> reader,
+        std::shared_ptr<ReaderHandler> reader,
         std::shared_ptr<ImageWriter> writer,
         PSFHandler& psfHandler,
         const DeconvolutionConfig& config,
