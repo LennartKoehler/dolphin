@@ -94,10 +94,10 @@ TEST_F(ReadWriteTest, WriteImpulseImage) {
 
 
 TEST_F(ReadWriteTest, ReadSubimage) {
-    Image3D constant = TestUtils::createConstantImage(8, 8, 8, 2.0);
+    Image3D gradient = TestUtils::createGradientImage(8, 8, 8);
 
-    std::string path = testDir + "/rw_subimage_constant.tif";
-    ASSERT_TRUE(TiffWriter::writeToFile(path, constant));
+    std::string path = testDir + "/rw_subimage_random.tif";
+    ASSERT_TRUE(TiffWriter::writeToFile(path, gradient));
 
     TiffReaderConfig readerConfig;
     readerConfig.numReaderThreads = 2;
@@ -111,7 +111,7 @@ TEST_F(ReadWriteTest, ReadSubimage) {
     box.padding.before = CuboidShape(0, 0, 0);
     box.padding.after = CuboidShape(0, 0, 0);
     PaddedImage readPadded = reader.getSubimage(box);
-    Image3D expectedResult = TestUtils::createConstantImage(2, 2, 2, 2.0);
+    Image3D expectedResult = TestUtils::createGradientImage(2, 2, 2);
 
     EXPECT_EQ(readPadded.image.getShape(), expectedResult.getShape());
     EXPECT_TRUE(readPadded.image.isEqual(expectedResult, 0.001f));
