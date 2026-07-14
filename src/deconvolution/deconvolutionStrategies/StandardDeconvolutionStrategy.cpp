@@ -42,7 +42,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     ReaderConfig readerConfig;
     readerConfig.numReaderThreads = setupConfig.numReaderThreads > 0
         ? static_cast<size_t>(setupConfig.numReaderThreads)
-        : 1;
+        : setupConfig.nIOThreads;
     readerConfig.readerMemory_byte = memory.hostMem_byte;
     int readerChannel = 0; //unused
     reader->configure(readerChannel, readerConfig);
