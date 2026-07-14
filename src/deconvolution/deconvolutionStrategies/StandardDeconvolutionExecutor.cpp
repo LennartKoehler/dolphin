@@ -69,7 +69,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     spdlog::get("deconvolution")->debug("[Task {}] Copying input data to device", task.taskId);
     RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
-    BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
+    BackendFactory::getInstance().getHostBackendMemoryManager().freeMemoryOnDevice(g_host);
     spdlog::get("deconvolution")->debug("[Task {}] Allocating output buffer on device", task.taskId);
     RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
 
@@ -96,7 +96,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     iobackend.sync();
 
     spdlog::get("deconvolution")->debug("[Task {}] Moving result data from device to host", task.taskId);
-    RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
+    RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getHostBackendMemoryManager());
 
     spdlog::get("deconvolution")->debug("[Task {}] Converting result to image", task.taskId);
     Image3D resultImage = Preprocessor::convertRealDataToImage(f_host);
@@ -163,7 +163,4 @@ void StandardDeconvolutionExecutor::parallelDeconvolution(
 
     spdlog::get("deconvolution")->info("Parallel deconvolution finished");
 }
-
-
-
 

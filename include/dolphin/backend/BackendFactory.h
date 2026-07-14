@@ -66,7 +66,7 @@ template <typename T>
     static_assert(always_false<T>, "Unsupported type for getBackend");
 }
 
-#define DEFAULT_BACKEND "cpu"
+#define HOST_BACKEND "cpu"
 
 
 struct BackendFactory {
@@ -77,19 +77,28 @@ struct BackendFactory {
     }
 
     // Access the default backend memory manager (single shared instance) // does this work
-    IBackendMemoryManager& getDefaultBackendMemoryManager(){
-        BackendConfig config{1, DEFAULT_BACKEND};
+    IBackendMemoryManager& getHostBackendMemoryManager(){
+        BackendConfig config{1, HOST_BACKEND};
         static IBackend& backend = getBackend<IBackend>(config);
         return backend.mutableMemoryManager();
     }
 
+    static IBackendMemoryManager& getHostBackendMemoryManagerStatic(){
+        BackendFactory& bf = BackendFactory::getInstance();
+        return bf.getHostBackendMemoryManager();
+    }
+
+    static IBackendManager& getBackendManagerStatic(const std::string& backendName){
+        BackendFactory& bf = BackendFactory::getInstance();
+        return bf.getBackendManager(backendName);
+    }
 
     IBackendManager& getBackendManager(const std::string& backendName){
         IBackendManager* manager = findBackendManager(backendName);
         if (!manager) manager = loadBackendManager(backendName);
         if (!manager){
             getBackendLogger()->warn("Failed to get backend '{}' out of selection {}, using default instead", backendName, printRegisteredBackends());
-            return getBackendManager(DEFAULT_BACKEND);
+            return getBackendManager(HOST_BACKEND);
         }
         assert(manager && "Couldnt even load default manager");
         return *manager;
@@ -114,7 +123,7 @@ private:
 
     void registerStaticBackends(){
 
-        addBackendManager(DEFAULT_BACKEND, std::move(std::make_unique<CPUBackendManager>()));
+        addBackendManager(HOST_BACKEND, std::move(std::make_unique<CPUBackendManager>()));
 
 #if ENABLE_CUDA
         addBackendManager("cuda", std::move(std::make_unique<CUDABackendManager>()));

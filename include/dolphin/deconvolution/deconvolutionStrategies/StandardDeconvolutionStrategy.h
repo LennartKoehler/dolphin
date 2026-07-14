@@ -24,6 +24,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
 #include "dolphinbackend/IBackendManager.h"
 #include <functional>
+#include <unistd.h>
 
 
 
@@ -31,6 +32,10 @@ See the LICENSE file provided with the code for the full license.
 /// Takes a candidate cube shape and returns the estimated workspace in bytes.
 using FFTWorkspaceCopiesEstimator= std::function<float(const CuboidShape&)>;
 
+struct Memory{
+    size_t hostMem_byte;
+    size_t deviceMem_byte;
+};
 
 class StandardDeconvolutionStrategy : public IDeconvolutionStrategy {
 public:
@@ -39,7 +44,7 @@ public:
 
 
     virtual Result<DeconvolutionPlan> createPlan(
-        std::shared_ptr<ReaderHandler> reader,
+        std::shared_ptr<ImageReader> reader,
         std::shared_ptr<ImageWriter> writer,
         PSFHandler& psfHandler,
         const DeconvolutionConfig& config,
@@ -47,11 +52,6 @@ public:
 
 
 protected:
-    virtual size_t getMaxMemoryPerCube(
-        size_t ioThreads,
-        size_t workerThreads,
-        const IBackendMemoryManager& backend,
-        std::shared_ptr<DeconvolutionAlgorithm> algorithm);
 
     /// Pure memory-budget calculation with no backend dependency.
     /// Given the device's available memory (already minus any safety buffer the
@@ -65,7 +65,35 @@ protected:
         const FFTWorkspaceCopiesEstimator& estimateFFTWorkspace);
 
     std::shared_ptr<DeconvolutionAlgorithm> getAlgorithm(const DeconvolutionConfig& config);
-    IBackendManager& getBackendManager(const SetupConfig& config);
+
+    size_t getMaxMemoryPerCube(
+        size_t ioThreads,
+        size_t workerThreads,
+        size_t maxMemory,
+        const IBackendMemoryManager& backend,
+        std::shared_ptr<DeconvolutionAlgorithm> algorithm) const;
+
+
+    std::vector<BoxCoordWithPadding> getCubes(
+        const size_t& ioThreads,
+        const size_t& workerThreads,
+        const size_t& maxMemDevice_byte,
+        std::shared_ptr<DeconvolutionAlgorithm> algorithm,
+        PSFHandler& psfHandler,
+        const DeconvolutionConfig& deconvConfig,
+        const SetupConfig& setupConfig,
+        const CuboidShape& imageSize
+    ) const;
+
+    void resolveThreadsAndDevices(
+        IBackendManager& manager,
+        int configNDevices,
+        size_t& nWorkerThreads,
+        size_t& nIOThreads,
+        size_t& totalThreads,
+        BackendConfig& ioConfig,
+        BackendConfig& workerConfig
+    ) const;
 
     virtual size_t estimateMemoryUsage(
         const CuboidShape& cubeSize,
@@ -73,14 +101,17 @@ protected:
         const SetupConfig& config
     );
 
+    Memory resolveMemory(const SetupConfig& config) const;
 
 
     virtual std::vector<std::shared_ptr<TaskContext>> createContexts(
         IBackendManager& manager,
         PSFHandler& psfHandler,
-        int nDevices,
-        size_t& nWorkerThreads,
-        size_t& nIOThreads,
-        size_t& totalThreads) const ;
+        int numberDevices,
+        const size_t& nWorkerThreads,
+        const size_t& nIOThreads,
+        BackendConfig ioconfig,
+        BackendConfig workerconfig
+    ) const;
 
 };

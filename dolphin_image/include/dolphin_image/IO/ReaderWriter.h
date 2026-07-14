@@ -7,13 +7,19 @@
 #include "dolphin_image/ImagePadding.h"
 #include "dolphin_image/Types/PaddingFillType.h"
 
+struct ReaderConfig {
+    size_t numReaderThreads = 1;
+    size_t readerMemory_byte = 0;
+};
 
 class ImageReader{
 public:
     virtual ~ImageReader() = default;
-    virtual std::future<Image3D> getSubimage(const BoxCoord& box) const = 0;
+    virtual void configure(int channel, ReaderConfig config = {}) = 0;
+    virtual Image3D getSubimage(const BoxCoord& box) const = 0;
     virtual void prefetch(const std::vector<BoxCoord>& boxes) const {}
     virtual const ImageMetaData& getMetaData() const = 0;
+    virtual size_t getRequiredMemory(const CuboidShape& subimageSize) const { return 0; }
     static std::string getFilename(const std::string& path) {
         size_t pos = path.find_last_of("/\\");
         if (pos == std::string::npos) {
@@ -27,6 +33,7 @@ class ImageWriter {
 public:
     virtual ~ImageWriter() = default;
     virtual bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const = 0;
+    virtual void configure(WriterCompressionConfig compressionConfig) = 0;
 };
 
 // struct ImageReaderWriterPair{
@@ -40,12 +47,12 @@ public:
 
 class ReaderHandler{
 public:
-    explicit ReaderHandler(std::unique_ptr<ImageReader> r, PaddingFillType paddingFillStrategy) : reader(std::move(r)), paddingFillStrategy(paddingFillStrategy){}
+    explicit ReaderHandler(std::shared_ptr<ImageReader> r, PaddingFillType paddingFillStrategy) : reader(r), paddingFillStrategy(paddingFillStrategy){}
     const ImageMetaData& getMetaData() const { return reader->getMetaData(); }
 
     virtual PaddedImage getSubimage(const BoxCoordWithPadding& box) const{
         BoxCoordWithPadding translatedRegion = translateRegion(box, reader->getMetaData().getShape());
-        Image3D image = reader->getSubimage(translatedRegion.box).get();
+        Image3D image = reader->getSubimage(translatedRegion.box);
         ImagePadding::padImage(image, translatedRegion.padding, paddingFillStrategy);
         PaddedImage result = PaddedImage{image, box.padding};
         return result;
@@ -58,6 +65,6 @@ protected:
         Padding padding = paddedBox.cropTo(image);
         return BoxCoordWithPadding{paddedBox, padding};
     }
-    std::unique_ptr<ImageReader> reader;
+    std::shared_ptr<ImageReader> reader;
     PaddingFillType paddingFillStrategy;
 };

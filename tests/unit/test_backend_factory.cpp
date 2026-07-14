@@ -42,7 +42,7 @@ TEST_F(BackendFactoryTest, GetMemoryManager) {
 
 TEST_F(BackendFactoryTest, GetDefaultBackendMemoryManager) {
     auto& factory = BackendFactory::getInstance();
-    auto& memMgr = factory.getDefaultBackendMemoryManager();
+    auto& memMgr = factory.getHostBackendMemoryManager();
     EXPECT_NO_THROW(memMgr.getAvailableMemory());
 }
 

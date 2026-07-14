@@ -30,6 +30,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/ThreadPool.h"
 #include "dolphin_image/IO/TiffReader.h"
 #include "dolphin_image/IO/TiffWriter.h"
+#include "dolphin/backend/BackendFactory.h"
 
 
 DeconvolutionService::DeconvolutionService()
@@ -113,23 +114,14 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
 
         std::filesystem::path output_path = std::filesystem::path(setupConfig->outputPath);
 
-        int channel = 0; //TESTVLAUE unused
+        int channel = 0; //TESTVALUE unused
 
-        TiffReaderConfig readerConfig;
-        readerConfig.numReaderThreads = setupConfig->numReaderThreads > 0
-            ? static_cast<size_t>(setupConfig->numReaderThreads)
-            : static_cast<size_t>(std::max(1, setupConfig->nIOThreads));
-        readerConfig.prefetchEnabled = setupConfig->readerPrefetchEnabled;
-        readerConfig.prefetchCount = static_cast<size_t>(setupConfig->readerPrefetchCount);
-        auto tiffReader = std::make_unique<TiffReader>(setupConfig->imagePath, channel, readerConfig);
-        ImageMetaData metadata = tiffReader->getMetaData();
-        std::shared_ptr<ReaderHandler> reader = std::make_shared<ReaderHandler>(std::move(tiffReader), deconvConfig->paddingFillType);
+
+        std::shared_ptr<TiffReader> reader = std::make_unique<TiffReader>(setupConfig->imagePath);
+
+        ImageMetaData metadata = reader->getMetaData();
         logger_->debug("Using image with the following metadata {}", metadata.print());
-
-        TiffCompressionConfig writerConfig;
-        writerConfig.compressionScheme = TiffCompressionConfig::parseCompression(setupConfig->outputCompression);
-        writerConfig.compressionLevel = setupConfig->outputCompressionLevel;
-        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path, metadata.getShape(), writerConfig);
+        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path, metadata.getShape());
 
 
         Result<DeconvolutionPlan> plan = strategyPair->getStrategy().createPlan(
@@ -203,4 +195,5 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::createResult(
     auto result = std::make_unique<DeconvolutionResult>(success, message, duration);
     return result;
 }
+
 

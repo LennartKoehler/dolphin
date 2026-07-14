@@ -29,15 +29,36 @@ See the LICENSE file provided with the code for the full license.
 
 
 Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
-    std::shared_ptr<ReaderHandler> reader,
+    std::shared_ptr<ImageReader> reader,
     std::shared_ptr<ImageWriter> writer,
     PSFHandler& psfHandler,
     const DeconvolutionConfig& deconvConfig,
     const SetupConfig& setupConfig
 ) {
 
+    // set up reader and writer
+    Memory memory = resolveMemory(setupConfig);
+
+    ReaderConfig readerConfig;
+    readerConfig.numReaderThreads = setupConfig.numReaderThreads > 0
+        ? static_cast<size_t>(setupConfig.numReaderThreads)
+        : 1;
+    readerConfig.readerMemory_byte = memory.hostMem_byte;
+    int readerChannel = 0; //unused
+    reader->configure(readerChannel, readerConfig);
+    std::shared_ptr<ReaderHandler> readerHandler = std::make_shared<ReaderHandler>(reader, deconvConfig.paddingFillType);
+
+    WriterCompressionConfig writerConfig;
+    writerConfig.compressionScheme = WriterCompressionConfig::parseCompression(setupConfig.outputCompression);
+    writerConfig.compressionLevel = setupConfig.outputCompressionLevel;
+    writer->configure(writerConfig);
+    // -----------------------
+
+
+
     ImageMetaData metadata = reader->getMetaData();
     CuboidShape imageSize = CuboidShape{metadata.imageWidth, metadata.imageLength, metadata.slices};
+
     std::shared_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(deconvConfig);
 
     spdlog::get("deconvolution")->debug("Using the following deconvolution config");
@@ -46,51 +67,47 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     spdlog::get("deconvolution")->debug("Using the following setup config");
     setupConfig.printValues();
 
-    IBackendManager& manager = getBackendManager(setupConfig);
 
     size_t totalThreads = setupConfig.nThreads;
     size_t ioThreads = setupConfig.nIOThreads;
     size_t workerThreads = setupConfig.nWorkerThreads;
+    // these are necessary as the cpu can have actual seperate threads for each task or use multiple threads for one task
+    BackendConfig workerConfig; // these are configured by the backend so that when its given a task it know what to do
+    BackendConfig ioConfig;
+
+
+    resolveThreadsAndDevices(
+        BackendFactory::getBackendManagerStatic(setupConfig.backend),
+		setupConfig.nDevices,
+		workerThreads,
+		ioThreads,
+		totalThreads,
+        workerConfig,
+        ioConfig);
+
+
+    std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = getCubes(
+        ioThreads,
+        workerThreads,
+        setupConfig.maxMemDevice_byte,
+        algorithm,
+        psfHandler,
+        deconvConfig,
+        setupConfig,
+        imageSize);
+
 
     std::vector<std::shared_ptr<TaskContext>> contexts = createContexts(
-        manager,
+        BackendFactory::getBackendManagerStatic(setupConfig.backend),
         psfHandler,
 		setupConfig.nDevices,
 		workerThreads,
 		ioThreads,
-		totalThreads);
-
-    size_t maxMemoryPerCube = getMaxMemoryPerCube(
-        ioThreads,
-        workerThreads,
-        manager.createBackendForCurrentThread(BackendConfig()).getMemoryManager(),
-        algorithm
-    );
-    size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(real_t);
-
-    Result<Padding> paddingResult = psfHandler.getPadding(setupConfig, deconvConfig, imageSize);
-    // this cubepadding might still change due to good shapes for DFT. But this is the minimum!
-    if (!paddingResult.success) {
-        return Result<DeconvolutionPlan>(paddingResult);
-    }
-    Padding padding = std::move(paddingResult.value);
-
-    if(padding.before + padding.after < deconvConfig.featheringRadius)
-        spdlog::get("deconvolution")->warn("Feathering radius ({}) is smaller than padding (which is probably the size of the psf) ({}), which can cause artifacts",
-            deconvConfig.featheringRadius, (padding.before + padding.after).print());
-
-    // Padding imagePadding = getImagePadding(imageSize, idealCubeSize.value, padding);
-
-    int maxSubCubes = 10;
-    CuboidShape minShape = imageSize / maxSubCubes + padding.getTotalPadding(); // TESTVALUE "max of 10 subcubes"
-
-    Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(padding, imageSize, maxMemCubeVolume, workerThreads, deconvConfig.paddingStrategyType, minShape);
-    if (!cubeCoordinatesWithPaddingResult.success) {
-        return Result<DeconvolutionPlan>(cubeCoordinatesWithPaddingResult);
-    }
-    std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = cubeCoordinatesWithPaddingResult.value;
+        ioConfig,
+        workerConfig);
 
     BoxCoordWithPadding workShape = cubeCoordinatesWithPadding[0]; // the final and actual shape with padding that will be used
+    Padding padding = workShape.padding;
 
     std::vector<std::shared_ptr<PSF>> psfs = psfHandler.createPSFs(workShape.getPaddedShape());
 
@@ -116,7 +133,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
             algorithm,
             memoryPerTask,
             psfs,
-            reader,
+            readerHandler,
             writer);
 
     for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
@@ -149,22 +166,63 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 }
 
 
-
-
-std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createContexts(
-    IBackendManager& manager,
+std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
+    const size_t& ioThreads,
+    const size_t& workerThreads,
+    const size_t& maxMemDevice_byte,
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm,
     PSFHandler& psfHandler,
+    const DeconvolutionConfig& deconvConfig,
+    const SetupConfig& setupConfig,
+    const CuboidShape& imageSize
+) const {
+    size_t maxMemoryPerCube = getMaxMemoryPerCube(
+        ioThreads,
+        workerThreads,
+        maxMemDevice_byte,
+        BackendFactory::getBackendManagerStatic(setupConfig.backend).createBackendForCurrentThread(BackendConfig()).getMemoryManager(),
+        algorithm
+    );
+    size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(real_t);
+
+    Result<Padding> paddingResult = psfHandler.getPadding(setupConfig, deconvConfig, imageSize);
+    // this cubepadding might still change due to good shapes for DFT. But this is the minimum!
+    if (!paddingResult.success) {
+        throw std::runtime_error("Error while getting Padding");
+    }
+    Padding padding = std::move(paddingResult.value);
+
+    if(padding.before + padding.after < deconvConfig.featheringRadius)
+        spdlog::get("deconvolution")->warn("Feathering radius ({}) is smaller than padding (which is probably the size of the psf) ({}), which can cause artifacts",
+            deconvConfig.featheringRadius, (padding.before + padding.after).print());
+
+    // Padding imagePadding = getImagePadding(imageSize, idealCubeSize.value, padding);
+
+    int maxSubCubes = 10;
+    CuboidShape minShape = imageSize / maxSubCubes + padding.getTotalPadding(); // TESTVALUE "max of 10 subcubes"
+
+    Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(padding, imageSize, maxMemCubeVolume, workerThreads, deconvConfig.paddingStrategyType, minShape);
+    if (!cubeCoordinatesWithPaddingResult.success) {
+        throw std::runtime_error("Error while splitting image");
+    }
+    std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = cubeCoordinatesWithPaddingResult.value;
+    return cubeCoordinatesWithPadding;
+}
+
+
+void StandardDeconvolutionStrategy::resolveThreadsAndDevices(
+    IBackendManager& manager,
     int configNDevices,
     size_t& nWorkerThreads,
     size_t& nIOThreads,
-    size_t& totalThreads) const
-{
+    size_t& totalThreads,
+    BackendConfig& ioconfig,
+    BackendConfig& workerconfig
+) const{
         int numberDevices = manager.getNumberDevices();
         numberDevices = std::min(numberDevices, configNDevices);
         numberDevices = numberDevices < 1 ? 1 : numberDevices;
 
-        BackendConfig ioconfig;
-        BackendConfig workerconfig;
         // TODO the backendmanager knows best the ratio between workers and io, however this is not really a responsibility of the backend
         // so this is like a question to backend: How would you use these number of io and worker threads
         // and then this implicitly can also impact the number of threadpools used in the execution as the total number of threads shouldnt be larger than what is in the context
@@ -173,6 +231,18 @@ std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createC
         // so nIOThreads and nWorkerThreads are the number of threads in the respective threadpool
         // while the backendconfigs might e.g. the number of ompbackends
         manager.setThreadDistribution(totalThreads, nIOThreads, nWorkerThreads, ioconfig, workerconfig);
+}
+
+std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createContexts(
+    IBackendManager& manager,
+    PSFHandler& psfHandler,
+    int numberDevices,
+    const size_t& nWorkerThreads,
+    const size_t& nIOThreads,
+    BackendConfig ioconfig,
+    BackendConfig workerconfig
+) const{
+
 
 
         std::vector<std::shared_ptr<TaskContext>> contexts;
@@ -194,32 +264,22 @@ std::shared_ptr<DeconvolutionAlgorithm> StandardDeconvolutionStrategy::getAlgori
     return algorithm;
 }
 
-IBackendManager& StandardDeconvolutionStrategy::getBackendManager(const SetupConfig& config){
-    BackendFactory& bf = BackendFactory::getInstance();
-    IBackendManager& mgr = bf.getBackendManager(config.backend);
-    // backend.mutableMemoryManager().setMemoryLimit(config.maxMem_GB * 1e9); // TESTVALUE
-    return mgr;
-}
 
 
 size_t StandardDeconvolutionStrategy::getMaxMemoryPerCube(
     size_t ioThreads,
     size_t workerThreads,
+    size_t maxMemory,
     const IBackendMemoryManager& backend,
     std::shared_ptr<DeconvolutionAlgorithm> algorithm
-){
-    size_t availableMemory = backend.getAvailableMemory();
-
-    size_t memoryBuffer = 1e9;
-    if (availableMemory < memoryBuffer) throw std::runtime_error("Available memory too low");
-    availableMemory -= memoryBuffer;
+) const {
 
     FFTWorkspaceCopiesEstimator estimator = [&backend](const CuboidShape& shape) {
         return backend.estimateFFTWorkspaceCopies(shape);
     };
 
     return computeMaxMemoryPerCube(
-        availableMemory,
+        maxMemory,
         ioThreads,
         workerThreads,
         algorithm->getMemoryMultiplier(),
@@ -233,6 +293,7 @@ size_t StandardDeconvolutionStrategy::computeMaxMemoryPerCube(
     size_t algorithmMemoryMultiplier,
     const FFTWorkspaceCopiesEstimator& estimateFFTWorkspaceCopies
 ){
+
     size_t workerAllocations = workerThreads * algorithmMemoryMultiplier;
 
     int ioCopies = 3; //image, psf, result, but psf only allocated once in total
@@ -240,7 +301,6 @@ size_t StandardDeconvolutionStrategy::computeMaxMemoryPerCube(
 
     size_t threadallocations = ioAllocations + workerAllocations;
     assert(threadallocations != 0 && "Error, no threadallocations");
-
     size_t memoryPerCube = availableMemory / threadallocations;
 
     int side = static_cast<int>(std::cbrt(static_cast<double>(memoryPerCube) / sizeof(real_t)));
@@ -254,6 +314,8 @@ size_t StandardDeconvolutionStrategy::computeMaxMemoryPerCube(
 
     return memoryPerCube;
 }
+
+
 
 size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
     const CuboidShape& cubeSize,
@@ -269,5 +331,41 @@ size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
 
 
 
+// void StandardDeconvolutionStrategy::configureReaderWriter(
+//     std::shared_ptr<ImageReader> reader,
+//     std::shared_ptr<ImageWriter> writer,
+//     size_t numReaderThreads,
+//     size_t readerMemory,
+//     size_t numWriterThreads,
+//     size_t writerMemory,
+// ){
+// }
 
 
+
+Memory StandardDeconvolutionStrategy::resolveMemory(const SetupConfig& config) const{
+
+    Memory memory;
+    //memDevice is also synonym for memory on backend, in the case where device == host the deconvstrategy will use maxMemDevice to set up the deconvolutionstrategy
+    if (config.backend == HOST_BACKEND){
+        size_t totalMemoryOnHost = std::max(config.maxMemDevice_byte, config.maxMemHost_byte);
+        totalMemoryOnHost = std::max(totalMemoryOnHost, config.maxMemDevice_byte + config.maxMemHost_byte);
+        totalMemoryOnHost = std::min(totalMemoryOnHost, BackendFactory::getHostBackendMemoryManagerStatic().getAvailableMemory());
+        totalMemoryOnHost = totalMemoryOnHost <= 0 ? BackendFactory::getHostBackendMemoryManagerStatic().getAvailableMemory() : totalMemoryOnHost;
+        memory.hostMem_byte = 1/3.5 * totalMemoryOnHost; // need a bit for the io copy operations, dont use everything
+        memory.deviceMem_byte = 2/3.5 * totalMemoryOnHost;
+
+
+    }
+    else{
+        // on device and host use everything under the limit for device and host
+        // assumption is that if a cube fits on the device (e.g. gpu) then it will also fit on RAM
+        const IBackendMemoryManager deviceManager = BackendFactory::getBackendManagerStatic(config.backend).createBackendForCurrentThread(BackendConfig()).getMemoryManager();
+        memory.deviceMem_byte = config.maxMemDevice_byte <= 0 ? deviceManager.getAvailableMemory() : config.maxMemDevice_byte;
+        memory.deviceMem_byte = std::min(memory.deviceMem_byte, deviceManager.getAvailableMemory());
+        memory.hostMem_byte = config.maxMemHost_byte <= 0 ? BackendFactory::getHostBackendMemoryManagerStatic().getAvailableMemory() : config.maxMemHost_byte;
+        memory.hostMem_byte = std::min(memory.hostMem_byte, BackendFactory::getHostBackendMemoryManagerStatic().getAvailableMemory());
+    }
+
+    return memory;
+}

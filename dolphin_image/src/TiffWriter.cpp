@@ -31,7 +31,7 @@ See the LICENSE file provided with the code for the full license.
 
 namespace fs = std::filesystem;
 
-uint16_t TiffCompressionConfig::parseCompression(const std::string& s) {
+uint16_t WriterCompressionConfig::parseCompression(const std::string& s) {
     if (s == "none" || s == "NONE" || s == "1") return COMPRESSION_NONE;
     if (s == "lzw" || s == "LZW" || s == "5") return COMPRESSION_LZW;
     if (s == "deflate" || s == "DEFLATE" || s == "zip" || s == "ZIP" || s == "8") return COMPRESSION_DEFLATE;
@@ -39,7 +39,7 @@ uint16_t TiffCompressionConfig::parseCompression(const std::string& s) {
     return COMPRESSION_NONE;
 }
 
-const char* TiffCompressionConfig::compressionToString(uint16_t scheme) {
+const char* WriterCompressionConfig::compressionToString(uint16_t scheme) {
     switch (scheme) {
         case COMPRESSION_NONE: return "none";
         case COMPRESSION_LZW: return "lzw";
@@ -49,18 +49,20 @@ const char* TiffCompressionConfig::compressionToString(uint16_t scheme) {
 }
 
 // Constructor
-TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShape, TiffCompressionConfig config)
+TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShape)
     : outputFilename(filename),
-    imageShape(imageShape),
-    compressionConfig(config) {
+    imageShape(imageShape)
+    {
 
     TIFFSetWarningHandler(TiffWriter::customTifWarningHandler);
     this->tif = openTiff(filename.c_str(), imageShape);
-    spdlog::debug("TiffWriter created: compression={}, level={}",
-        TiffCompressionConfig::compressionToString(compressionConfig.compressionScheme), compressionConfig.compressionLevel);
 }
 
 
+void TiffWriter::configure(WriterCompressionConfig compressionConfig){
+    spdlog::debug("TiffWriter created: compression={}, level={}",
+        WriterCompressionConfig::compressionToString(compressionConfig.compressionScheme), compressionConfig.compressionLevel);
+}
 
 // Destructor
 TiffWriter::~TiffWriter() {
@@ -257,7 +259,7 @@ bool TiffWriter::writeToFile_(const std::string& filename, size_t z, size_t dept
 }
 
 
-void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceIndex, const ImageMetaData& metaData, const TiffCompressionConfig& compression){
+void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceIndex, const ImageMetaData& metaData, const WriterCompressionConfig& compression){
     CuboidShape imgShape = image.getShape();
     if (sliceIndex >= imgShape.depth) {
         throw TiffWriteException("Slice index out of bounds: " + std::to_string(sliceIndex));
@@ -317,7 +319,7 @@ void TiffWriter::writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceI
     _TIFFfree(buf);
 }
 
-void TiffWriter::setTiffFields(TIFF* tif, const ImageMetaData& metaData, const TiffCompressionConfig& compression){
+void TiffWriter::setTiffFields(TIFF* tif, const ImageMetaData& metaData, const WriterCompressionConfig& compression){
     try {
         TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint32_t>(metaData.imageWidth));
         TIFFSetField(tif, TIFFTAG_IMAGELENGTH, static_cast<uint32_t>(metaData.imageLength));
@@ -405,7 +407,7 @@ TIFF* TiffWriter::openTiff(const char* filename, const CuboidShape& size){
     return tif;
 }
 
-bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, TiffCompressionConfig config) {
+bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, WriterCompressionConfig config) {
     try {
         ImageMetaData metadata = extractMetaData(image);
         CuboidShape imgShape = image.getShape();
@@ -418,7 +420,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image, 
         TIFF* tif = openTiff(filename.c_str(), imgShape);
 
         spdlog::debug("Writing TIFF: compression={}, level={}",
-            TiffCompressionConfig::compressionToString(config.compressionScheme), config.compressionLevel);
+            WriterCompressionConfig::compressionToString(config.compressionScheme), config.compressionLevel);
 
         ImageMetaData metaData = extractMetaData(image);
 

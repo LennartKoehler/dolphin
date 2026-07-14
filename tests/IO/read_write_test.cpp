@@ -99,11 +99,11 @@ TEST_F(ReadWriteTest, ReadSubimage) {
     std::string path = testDir + "/rw_subimage_random.tif";
     ASSERT_TRUE(TiffWriter::writeToFile(path, gradient));
 
-    TiffReaderConfig readerConfig;
+    ReaderConfig readerConfig;
     readerConfig.numReaderThreads = 2;
-    readerConfig.prefetchEnabled = true;
-    readerConfig.prefetchCount = 4;
-    ReaderHandler reader(std::make_unique<TiffReader>(path, 0, readerConfig), PaddingFillType::MIRROR);
+    auto tr = std::make_unique<TiffReader>(path);
+    tr->configure(0, readerConfig);
+    ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
 
     BoxCoordWithPadding box;
     box.box.position = CuboidPosition(0, 0, 0);
@@ -189,9 +189,10 @@ TEST_F(ReadWriteTest, SetSubimageWithLZWCompression) {
     size_t chunkDepth = 2;
 
     {
-        TiffCompressionConfig config;
+        WriterCompressionConfig config;
         config.compressionScheme = COMPRESSION_LZW;
-        TiffWriter writer(path, fullShape, config);
+        TiffWriter writer(path, fullShape);
+        writer.configure(config);
         for (size_t z = 0; z < fullShape.depth; z += chunkDepth) {
             BoxCoord subBox{CuboidPosition(0, 0, static_cast<int64_t>(z)),
                             CuboidShape(fullShape.width, fullShape.height, chunkDepth)};

@@ -59,7 +59,7 @@ protected:
     }
 
     Image3D deviceToImage(RealData& data) {
-        RealData host = backend->getMemoryManager().moveDataFromDevice(data, BackendFactory::getInstance().getDefaultBackendMemoryManager());
+        RealData host = backend->getMemoryManager().moveDataFromDevice(data, BackendFactory::getInstance().getHostBackendMemoryManager());
         return Preprocessor::convertRealDataToImage(host);
     }
 };

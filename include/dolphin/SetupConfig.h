@@ -35,11 +35,10 @@ public:
     int nIOThreads = 1;
     int nWorkerThreads = 1;
     int nDevices = 1;
-    float maxMem_GB = 1;
+    size_t maxMemHost_byte = 0;
+    size_t maxMemDevice_byte = 0;
 
     int numReaderThreads = 0;
-    bool readerPrefetchEnabled = false;
-    int readerPrefetchCount = 4;
 
     std::string outputCompression = "none";
     int outputCompressionLevel = -1;
