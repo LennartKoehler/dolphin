@@ -35,8 +35,8 @@ public:
     int nIOThreads = 1;
     int nWorkerThreads = 1;
     int nDevices = 1;
-    size_t maxMemHost_byte = 0;
-    size_t maxMemDevice_byte = 0;
+    size_t maxMemHost_gb = 0;
+    size_t maxMemDevice_gb = 0;
 
     int numReaderThreads = 0;
 

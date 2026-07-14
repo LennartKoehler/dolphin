@@ -55,6 +55,7 @@ struct CuboidShape{
         return std::to_string(width) + " x " + std::to_string(height) + " x " + std::to_string(depth);
     }
 
+
     inline void clamp(const CuboidShape& maxSize) {
         width  = width  < maxSize.width  ? width  : maxSize.width;
         height = height < maxSize.height ? height : maxSize.height;
@@ -120,6 +121,12 @@ struct CuboidShape{
             this->height/other.height,
             this->depth/other.depth
         );
+    }
+    inline CuboidShape& operator+=(const CuboidShape& other) {
+        width += static_cast<int64_t>(other.width);
+        height += static_cast<int64_t>(other.height);
+        depth += static_cast<int64_t>(other.depth);
+        return *this;
     }
 
     inline CuboidShape operator/(const size_t value) const {

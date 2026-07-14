@@ -45,6 +45,8 @@ public:
 // };
 
 
+
+// handles the padding offset and calls padding
 class ReaderHandler{
 public:
     explicit ReaderHandler(std::shared_ptr<ImageReader> r, PaddingFillType paddingFillStrategy) : reader(r), paddingFillStrategy(paddingFillStrategy){}

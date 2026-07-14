@@ -33,7 +33,7 @@ TEST_F(MainIntegrationTest, DolphinGeneratePSF) {
     setupConfig.nIOThreads = 1;
     setupConfig.nWorkerThreads = 1;
     setupConfig.nDevices = 1;
-    setupConfig.maxMemDevice_byte = 1;
+    setupConfig.maxMemDevice_gb = 1;
     setupConfig.psfConfigPath = TestUtils::outputPath() + "/gaussian_psf.json";
 
     std::ofstream file(setupConfig.psfConfigPath);
