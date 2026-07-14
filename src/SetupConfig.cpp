@@ -46,8 +46,8 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
     nWorkerThreads = other.nWorkerThreads;
     nIOThreads = other.nIOThreads;
     nDevices = other.nDevices;
-    maxMemHost_byte = other.maxMemHost_byte;
-    maxMemDevice_byte = other.maxMemDevice_byte;
+    maxMemHost_gb = other.maxMemHost_gb;
+    maxMemDevice_gb = other.maxMemDevice_gb;
     outputPath = other.outputPath;
     numReaderThreads = other.numReaderThreads;
     outputCompression = other.outputCompression;
@@ -64,8 +64,8 @@ SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
         nWorkerThreads = other.nWorkerThreads;
         nIOThreads = other.nIOThreads;
         nDevices = other.nDevices;
-        maxMemHost_byte = other.maxMemHost_byte;
-        maxMemDevice_byte = other.maxMemDevice_byte;
+        maxMemHost_gb = other.maxMemHost_gb;
+        maxMemDevice_gb = other.maxMemDevice_gb;
         outputPath = other.outputPath;
         numReaderThreads = other.numReaderThreads;
         outputCompression = other.outputCompression;
@@ -91,8 +91,8 @@ void SetupConfigPSF::registerAllParameters(){
     parameters.push_back({ParameterType::Int, &nWorkerThreads, "Number of Worker Threads", true, "n_worker_threads", "--n_worker_threads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nIOThreads, "Number of IO Threads", true, "n_io_threads", "--n_io_threads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nDevices, "Number of Devices", true, "n_devices", "--n_devices", "Number of devices", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Float, &maxMemHost_byte, "Max Memory Host (byte)", true, "max_mem__host_byte", "--max_mem_host_byte", "Maximum memory usage on the host", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Float, &maxMemDevice_byte, "Max Memory Device (byte)", true, "max_mem__device_byte", "--max_mem_device_byte", "Maximum memory usage on the device", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMemHost_gb, "Max Memory Host (GB)", true, "max_mem__host_gb", "--max_mem_host_gb", "Maximum memory usage on the host (GB)", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMemDevice_gb, "Max Memory Device (GB)", true, "max_mem__device_gb", "--max_mem_device_gb", "Maximum memory usage on the device (GB)", false, false, 0.0, 0.0, nullptr});
 }
 
 
@@ -157,6 +157,14 @@ void SetupConfig::registerAllParameters(){
     // Clear parameters registered by the base class constructor (SetupConfigPSF::registerAllParameters)
     // to avoid duplicates, since this override replaces them with deconvolution-specific variants.
     parameters.clear();
+
+    parameters.push_back({ParameterType::FilePath, &backend, "Backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Int, &nThreads, "Number of Threads", true, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Int, &nWorkerThreads, "Number of Worker Threads", true, "n_worker_threads", "--n_worker_threads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Int, &nIOThreads, "Number of IO Threads", true, "n_io_threads", "--n_io_threads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Int, &nDevices, "Number of Devices", true, "n_devices", "--n_devices", "Number of devices", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMemHost_gb, "Max Memory Host (GB)", true, "max_mem_host_gb", "--max_mem_host_gb", "Maximum memory usage on the host (GB)", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMemDevice_gb, "Max Memory Device (GB)", true, "max_mem_device_gb", "--max_mem_device_gb", "Maximum memory usage on the device (GB)", false, false, 0.0, 0.0, nullptr});
 
     parameters.push_back({ParameterType::FilePath, &imagePath, "Image Path", false, "image_path", "-i,--image_path", "Input image path", true, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});

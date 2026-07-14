@@ -77,7 +77,7 @@ protected:
     std::vector<BoxCoordWithPadding> getCubes(
         const size_t& ioThreads,
         const size_t& workerThreads,
-        const size_t& maxMemDevice_byte,
+        const size_t& maxMemDevice_gb,
         std::shared_ptr<DeconvolutionAlgorithm> algorithm,
         PSFHandler& psfHandler,
         const DeconvolutionConfig& deconvConfig,

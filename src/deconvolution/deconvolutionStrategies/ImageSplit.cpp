@@ -233,6 +233,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const PaddingStrategyType& imagePadding,
     const CuboidShape& minSize)
     {
+
     assert(minSize > cubePadding.getTotalPadding());
 
     CuboidShape currentMaxSize;
