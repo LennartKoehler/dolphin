@@ -1,3 +1,5 @@
+the host - device memory model and reader writer threads configuration is still not complete
+
 work on the reader writer io and multithreading, see the opencode session with the new bandwidtch
 iostat -dx 1 to get read and write bandwidth
 cuda runs out of memory with many io threads

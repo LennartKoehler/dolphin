@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <string>
 #include <future>
+#include <optional>
 #include <vector>
 #include <list>
 #include <memory>
@@ -51,7 +52,7 @@ struct PendingRead {
 class ITiffRegionReader{
 public:
     virtual BoxCoord computeReadSource(const ImageMetaData& metadata, const BoxCoord& box) const = 0 ;
-    virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const = 0;
+    virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset = 0) const = 0;
 };
 
 class TiffRegionReaderTiled : public ITiffRegionReader{
@@ -60,14 +61,14 @@ public:
     template<typename T>
     static void convertTileRow(const char* tileRowData, std::vector<T>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel);
     static void convertTileRowToFloat(const char* tileRowData, std::vector<float>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel);
-    virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const override;
+    virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset = 0) const override;
 };
 
 class TiffRegionReaderStriped : public ITiffRegionReader{
 public:
     BoxCoord computeReadSource(const ImageMetaData& metadata, const BoxCoord& box) const override;
     static void convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, size_t width, const ImageMetaData& metaData, int channel);
-    virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const override;
+    virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset = 0) const override;
 };
 
 class TiffRegionReaderScanline : public ITiffRegionReader{
@@ -76,7 +77,7 @@ public:
     template<typename T>
     static void convertScanline(const char* scanlineData, std::vector<T>& rowData, size_t width, const ImageMetaData& metaData, int channel);
     static void convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, size_t width, const ImageMetaData& metaData, int channel);
-    void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const override;
+    void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset = 0) const override;
 };
 
 
@@ -170,7 +171,10 @@ private:
     bool isMemoryAvailable(const CuboidShape& requestedSize) const;
     static std::unique_ptr<ITiffRegionReader> getRegionReader(const ImageMetaData& metadata);
     Image3D extractFromBuffer(const BoxCoord& coord, BufferEntry& entry) const;
-    void executeRead(std::list<PendingRead>::iterator pendingIt, const BoxCoord& source) const;
+
+    std::optional<BufferIter> tryGetFromBuffer(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const;
+    std::optional<BufferIter> tryWaitForInFlightRead(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const;
+    BufferIter readSubimage(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const;
 
     static void readSubimageFromTiffFile(TIFF* tiffile, const ITiffRegionReader* regionReader, const ImageMetaData& metaData, const BoxCoord& region, Image3D& layers, int channel);
     // static void readTiledSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel);

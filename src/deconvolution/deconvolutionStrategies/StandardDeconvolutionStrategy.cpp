@@ -36,9 +36,9 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     const SetupConfig& setupConfig
 ) {
 
-    // set up reader and writer
     Memory memory = resolveMemory(setupConfig);
 
+    // set up reader and writer
     ReaderConfig readerConfig;
     readerConfig.numReaderThreads = setupConfig.numReaderThreads > 0
         ? static_cast<size_t>(setupConfig.numReaderThreads)
@@ -198,8 +198,8 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
 
     // Padding imagePadding = getImagePadding(imageSize, idealCubeSize.value, padding);
 
-    int maxSubCubes = 10;
-    CuboidShape minShape = imageSize / maxSubCubes + padding.getTotalPadding(); // TESTVALUE "max of 10 subcubes"
+    int maxSubCubes = 20;
+    CuboidShape minShape = imageSize / maxSubCubes + padding.getTotalPadding() + CuboidShape{1,1,1}; // TESTVALUE "max of 10 subcubes"
 
     Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(padding, imageSize, maxMemCubeVolume, workerThreads, deconvConfig.paddingStrategyType, minShape);
     if (!cubeCoordinatesWithPaddingResult.success) {
@@ -244,17 +244,16 @@ std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createC
 ) const{
 
 
+    std::vector<std::shared_ptr<TaskContext>> contexts;
 
-        std::vector<std::shared_ptr<TaskContext>> contexts;
+    for (int i = 0; i < numberDevices; i++){
+        std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(manager, ioconfig, workerconfig, nWorkerThreads, nIOThreads);
 
-        for (int i = 0; i < numberDevices; i++){
-            std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(manager, ioconfig, workerconfig, nWorkerThreads, nIOThreads);
-
-            std::unique_ptr<PSFPreprocessor> preprocessor = psfHandler.createPSFPreprocessor(); // new psfpreprocessor for each context because the psfs live on devicecudabac
-            context->setPreprocessor(std::move(preprocessor));
-            contexts.emplace_back(context);
-        }
-        return contexts;
+        std::unique_ptr<PSFPreprocessor> preprocessor = psfHandler.createPSFPreprocessor(); // new psfpreprocessor for each context because the psfs live on devicecudabac
+        context->setPreprocessor(std::move(preprocessor));
+        contexts.emplace_back(context);
+    }
+    return contexts;
 }
 
 

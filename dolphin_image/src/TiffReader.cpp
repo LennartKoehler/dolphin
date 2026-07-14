@@ -67,16 +67,21 @@ TiffReader::TiffReader(const std::string& filename)
         throw TiffFileOpenException(filename);
     }
 
-    size_t numThreads = config_.numReaderThreads > 0 ? config_.numReaderThreads : 1;
-    handlePool_ = std::make_unique<TiffHandlePool>(filename, numThreads);
-    readerPool_ = std::make_unique<ReaderThreadPool>(numThreads);
+    handlePool_ = std::make_unique<TiffHandlePool>(filename_, 1);
+    readerPool_ = std::make_unique<ReaderThreadPool>(1);
 }
 
 TiffReader::~TiffReader() = default;
 
 void TiffReader::configure(int channel, ReaderConfig config){
     this->channel = channel;
-    this->memoryTracker = std::move(std::make_unique<MemoryTracking>(config.readerMemory_byte));
+    this->config_ = config;
+    size_t numThreads = config_.numReaderThreads > 0 ? config_.numReaderThreads : 1;
+    if (numThreads != handlePool_->size()) {
+        handlePool_ = std::make_unique<TiffHandlePool>(filename_, numThreads);
+        readerPool_ = std::make_unique<ReaderThreadPool>(numThreads);
+    }
+    this->memoryTracker = std::make_unique<MemoryTracking>(config.readerMemory_byte);
 }
 
 
@@ -218,97 +223,127 @@ Image3D TiffReader::extractFromBuffer(const BoxCoord& coord, BufferEntry& entry)
 }
 
 
-void TiffReader::executeRead(std::list<PendingRead>::iterator pendingIt, const BoxCoord& source) const {
-    Image3D readImage;
-    try {
-        auto guard = handlePool_->acquire();
-        readSubimageFromTiffFile(guard.get(), regionReader.get(), metaData, source, readImage, channel);
-    } catch (...) {
-        auto ep = std::current_exception();
-        decltype(pendingIt->waiters) waiters;
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            waiters = std::move(pendingIt->waiters);
-            pendingReads_.erase(pendingIt);
-            inFlightReads_.fetch_sub(1);
-            prefetchCv_.notify_all();
+std::optional<BufferIter> TiffReader::tryGetFromBuffer(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const {
+    for (auto it = bufferedRegions_.begin(); it != bufferedRegions_.end(); ++it) {
+        if (box.isWithin(it->source)) {
+            return it;
         }
-        for (auto& [box, promise] : waiters) {
-            promise->set_exception(ep);
-        }
-        return;
     }
-
-    std::list<BufferEntry>::iterator bufferIt;
-    decltype(pendingIt->waiters) waiters;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        waiters = std::move(pendingIt->waiters);
-        pendingReads_.erase(pendingIt);
-
-        bufferIt = bufferedRegions_.emplace(bufferedRegions_.end());
-        bufferIt->image = std::move(readImage);
-        bufferIt->source = source;
-
-        inFlightReads_.fetch_sub(1);
-        prefetchCv_.notify_all();
-    }
-
-    for (auto& [box, promise] : waiters) {
-        promise->set_value(bufferIt);
-    }
+    return std::nullopt;
 }
 
-Image3D TiffReader::getSubimage(const BoxCoord& box) const {
-
-    std::unique_lock<std::mutex> lock(mutex_);
-
-    // check if region is already in some buffer
-    for (auto& entry : bufferedRegions_) {
-        if (box.isWithin(entry.source)) {
-            return extractFromBuffer(box, entry);
-        }
-    }
-
-    // check if reading that region is already queued, wait for result
+std::optional<BufferIter> TiffReader::tryWaitForInFlightRead(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const {
     for (auto it = pendingReads_.begin(); it != pendingReads_.end(); ++it) {
         if (box.isWithin(it->source)) {
-            auto promise = std::make_shared<std::promise<std::list<BufferEntry>::iterator>>();
+            auto promise = std::make_shared<std::promise<BufferIter>>();
             auto future = promise->get_future();
             it->waiters.push_back({box, promise});
             lock.unlock();
-
-            // calling thread waits for reader to finish disk->RAM
-            auto bufferIt = future.get();
-
-            // calling thread does the extraction
-            return extractFromBuffer(box, *bufferIt);
+            return future.get();
         }
     }
+    return std::nullopt;
+}
 
-    prefetchCv_.wait(lock, [this, box] { return isMemoryAvailable(box.dimensions);});
+BufferIter TiffReader::readSubimage(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const {
+    prefetchCv_.wait(lock, [this, &box] { return isMemoryAvailable(box.dimensions); });
 
-    // queue region reading task
     BoxCoord source = regionReader->computeReadSource(metaData, box);
     memoryTracker->allocate(source.dimensions.getVolume() * sizeOf(dataType_));
-    auto promise = std::make_shared<std::promise<std::list<BufferEntry>::iterator>>();
-    auto future = promise->get_future();
 
     PendingRead& pending = pendingReads_.emplace_back();
     pending.source = source;
-    pending.waiters.push_back({box, promise});
-
     auto pendingIt = std::prev(pendingReads_.end());
     inFlightReads_.fetch_add(1);
 
-    readerPool_->enqueue([this, source, pendingIt]() {
-        executeRead(pendingIt, source);
-    });
+    Image3D readImage(source.dimensions, -1.0f);
+    int ifdchannel, sppchannel;
+    resolveChannel(channel, metaData, ifdchannel, sppchannel);
+
+    size_t totalSlices = source.dimensions.depth;
+    size_t numThreads = std::min(handlePool_->size(), totalSlices);
+    size_t slicesPerThread = (totalSlices + numThreads - 1) / numThreads;
+
+    std::vector<std::future<void>> futures;
+    std::exception_ptr eptr;
+    std::mutex eptrMutex;
+
+    for (size_t t = 0; t < numThreads; ++t) {
+        size_t zStart = t * slicesPerThread;
+        size_t zEnd = std::min(zStart + slicesPerThread, totalSlices);
+        if (zStart >= zEnd) break;
+
+        BoxCoord subRegion{
+            {source.position.width, source.position.height, source.position.depth + static_cast<int64_t>(zStart)},
+            {source.dimensions.width, source.dimensions.height, zEnd - zStart}
+        };
+
+        futures.push_back(readerPool_->enqueue([this, &readImage, subRegion, zStart, ifdchannel, sppchannel, &eptr, &eptrMutex]() {
+            try {
+                auto guard = handlePool_->acquire();
+                regionReader->readRegion(guard.get(), metaData, subRegion,
+                                         readImage, ifdchannel, sppchannel, zStart);
+            } catch (...) {
+                std::lock_guard<std::mutex> lk(eptrMutex);
+                if (!eptr) eptr = std::current_exception();
+            }
+        }));
+    }
 
     lock.unlock();
 
-    // calling thread waits for reader to finish disk->RAM
-    auto bufferIt = future.get();
+    for (auto& f : futures) {
+        f.get();
+    }
+
+    if (eptr) {
+        decltype(pendingIt->waiters) waiters;
+        lock.lock();
+        waiters = std::move(pendingIt->waiters);
+        pendingReads_.erase(pendingIt);
+        inFlightReads_.fetch_sub(1);
+        prefetchCv_.notify_all();
+        lock.unlock();
+
+        for (auto& [wBox, wPromise] : waiters) {
+            wPromise->set_exception(eptr);
+        }
+        std::rethrow_exception(eptr);
+    }
+
+    BufferIter bufferIt;
+    decltype(pendingIt->waiters) waiters;
+    lock.lock();
+    waiters = std::move(pendingIt->waiters);
+    pendingReads_.erase(pendingIt);
+
+    bufferIt = bufferedRegions_.emplace(bufferedRegions_.end());
+    bufferIt->image = std::move(readImage);
+    bufferIt->source = source;
+
+    inFlightReads_.fetch_sub(1);
+    prefetchCv_.notify_all();
+    lock.unlock();
+
+    for (auto& [wBox, wPromise] : waiters) {
+        wPromise->set_value(bufferIt);
+    }
+
+    return bufferIt;
+}
+
+Image3D TiffReader::getSubimage(const BoxCoord& box) const {
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    if (auto buffered = tryGetFromBuffer(box, lock)) {
+        return extractFromBuffer(box, **buffered);
+    }
+
+    if (auto inflight = tryWaitForInFlightRead(box, lock)) {
+        return extractFromBuffer(box, **inflight);
+    }
+
+    BufferIter bufferIt = readSubimage(box, lock);
     return extractFromBuffer(box, *bufferIt);
 }
 
@@ -319,6 +354,7 @@ std::unique_ptr<ITiffRegionReader> TiffReader::getRegionReader(const ImageMetaDa
 }
 
 bool TiffReader::isMemoryAvailable(const CuboidShape& requestedSize) const{
+    if (config_.readerMemory_byte == 0) return true;
     size_t requestedMemory = requestedSize.getVolume() * sizeOf(dataType_);
     return memoryTracker->isAvailable(requestedMemory);
 }
@@ -521,7 +557,7 @@ size_t TiffReader::getRequiredMemory(const CuboidShape& subimageSize) const{
 
 
 
-void TiffRegionReaderScanline::readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const {
+void TiffRegionReaderScanline::readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset) const {
     tsize_t scanlineSize = TIFFScanlineSize(tiffile);
     std::vector<char> buf(scanlineSize);
     std::vector<float> rowData(region.dimensions.width);
@@ -533,13 +569,13 @@ void TiffRegionReaderScanline::readRegion(TIFF* tiffile, const ImageMetaData& me
                                         " in z-slice " + std::to_string(zIndex));
             }
             convertScanlineToFloat(buf.data(), rowData, region.dimensions.width, metaData, sppchannel);
-            image.setRow(yIndex - region.position.height, zIndex - region.position.depth, rowData.data());
+            image.setRow(yIndex - region.position.height, zIndex - region.position.depth + zImageOffset, rowData.data());
         }
     });
 }
 
 
-void TiffRegionReaderStriped::readRegion(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const {
+void TiffRegionReaderStriped::readRegion(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset) const {
     uint32_t rowsPerStrip = metaData.rowsPerStrip;
     tsize_t stripSize = TIFFStripSize(tif);
     tsize_t scanlineSize = TIFFScanlineSize(tif);
@@ -569,14 +605,14 @@ void TiffRegionReaderStriped::readRegion(TIFF* tif, const ImageMetaData& metaDat
                 const char* scanlineData = stripBuf.data() + rowInStrip * scanlineSize;
 
                 convertScanlineToFloat(scanlineData, rowData, region.dimensions.width, metaData, sppchannel);
-                image.setRow(row - region.position.height, zIndex - region.position.depth, rowData.data());
+                image.setRow(row - region.position.height, zIndex - region.position.depth + zImageOffset, rowData.data());
             }
         }
     });
 }
 
 
-void TiffRegionReaderTiled::readRegion(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const {
+void TiffRegionReaderTiled::readRegion(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset) const {
     uint32_t tileWidth = metaData.tileWidth;
     uint32_t tileLength = metaData.tileLength;
     tsize_t tileSize = TIFFTileSize(tif);
@@ -625,7 +661,7 @@ void TiffRegionReaderTiled::readRegion(TIFF* tif, const ImageMetaData& metaData,
                     convertTileRowToFloat(tileRowData, rowData, destOffset, tilePixelWidth, metaData, sppchannel);
                 }
 
-                image.setRow(row - region.position.height, zIndex - region.position.depth, rowData.data());
+                image.setRow(row - region.position.height, zIndex - region.position.depth + zImageOffset, rowData.data());
             }
         }
     });
