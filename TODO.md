@@ -1,3 +1,8 @@
+something wrong in the deconvolutionstrategy. The minnumber of subimages is not large equal than number devices. Also the memory is somehow wrong, it tries to use a too large subimage size
+
+
+crashes if memory in config is not set propery? should not happen
+
 the host - device memory model and reader writer threads configuration is still not complete
 
 work on the reader writer io and multithreading, see the opencode session with the new bandwidtch
