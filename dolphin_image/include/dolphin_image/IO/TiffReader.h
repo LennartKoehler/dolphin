@@ -21,6 +21,8 @@ See the LICENSE file provided with the code for the full license.
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <cstdint>
+#include <typeindex>
 #include <tiffio.h>
 #include <itkImageRegionIterator.h>
 #include "dolphin_image/IO/ReaderWriter.h"
@@ -29,22 +31,19 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/IO/ReaderThreadPool.h"
 #include "dolphin_image/ImageMetaData.h"
 #include "dolphin_image/Types/BoxCoord.h"
+#include "dolphinbackend/IBackendMemoryManager.h"
 
-
-struct TiffReaderConfig {
-    size_t numReaderThreads = 1;
-    bool prefetchEnabled = false;
-    size_t prefetchCount = 4;
-};
 
 struct BufferEntry {
     Image3D image;
     BoxCoord source;
 };
 
+using BufferIter = std::list<BufferEntry>::iterator;
+
 struct PendingRead {
     BoxCoord source;
-    std::vector<std::pair<BoxCoord, std::shared_ptr<std::promise<Image3D>>>> waiters;
+    std::vector<std::pair<BoxCoord, std::shared_ptr<std::promise<BufferIter>>>> waiters;
 };
 
 
@@ -58,6 +57,8 @@ public:
 class TiffRegionReaderTiled : public ITiffRegionReader{
 public:
     BoxCoord computeReadSource(const ImageMetaData& metadata, const BoxCoord& box) const override;
+    template<typename T>
+    static void convertTileRow(const char* tileRowData, std::vector<T>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel);
     static void convertTileRowToFloat(const char* tileRowData, std::vector<float>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel);
     virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const override;
 };
@@ -72,33 +73,92 @@ public:
 class TiffRegionReaderScanline : public ITiffRegionReader{
 public:
     BoxCoord computeReadSource(const ImageMetaData& metadata, const BoxCoord& box) const override;
+    template<typename T>
+    static void convertScanline(const char* scanlineData, std::vector<T>& rowData, size_t width, const ImageMetaData& metaData, int channel);
     static void convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, size_t width, const ImageMetaData& metaData, int channel);
     void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel) const override;
 };
 
 
 
+template<typename T>
+void TiffRegionReaderScanline::convertScanline(const char* scanlineData, std::vector<T>& rowData, size_t width, const ImageMetaData& metaData, int channel) {
+    const uint16_t spp = metaData.samplesPerPixel;
+
+    if (metaData.bitsPerSample == 8) {
+        const uint8_t* data8 = reinterpret_cast<const uint8_t*>(scanlineData);
+        for (size_t x = 0; x < width; x++) {
+            rowData[x] = static_cast<T>(data8[x * spp + channel]);
+        }
+    } else if (metaData.bitsPerSample == 16) {
+        const uint16_t* data16 = reinterpret_cast<const uint16_t*>(scanlineData);
+        for (size_t x = 0; x < width; x++) {
+            rowData[x] = static_cast<T>(data16[x * spp + channel]);
+        }
+    } else if (metaData.bitsPerSample == 32) {
+        const float* data32 = reinterpret_cast<const float*>(scanlineData);
+        for (size_t x = 0; x < width; x++) {
+            rowData[x] = static_cast<T>(data32[x * spp + channel]);
+        }
+    } else {
+        throw TiffReadException("Unsupported bit depth: " + std::to_string(metaData.bitsPerSample) +
+                                " (supported: 8, 16, 32)");
+    }
+}
+
+template<typename T>
+void TiffRegionReaderTiled::convertTileRow(const char* tileRowData, std::vector<T>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel) {
+    const uint16_t spp = metaData.samplesPerPixel;
+
+    if (metaData.bitsPerSample == 8) {
+        const uint8_t* data8 = reinterpret_cast<const uint8_t*>(tileRowData);
+        for (size_t x = 0; x < tilePixelWidth; x++) {
+            rowData[xOffset + x] = static_cast<T>(data8[x * spp + channel]);
+        }
+    } else if (metaData.bitsPerSample == 16) {
+        const uint16_t* data16 = reinterpret_cast<const uint16_t*>(tileRowData);
+        for (size_t x = 0; x < tilePixelWidth; x++) {
+            rowData[xOffset + x] = static_cast<T>(data16[x * spp + channel]);
+        }
+    } else if (metaData.bitsPerSample == 32) {
+        const float* data32 = reinterpret_cast<const float*>(tileRowData);
+        for (size_t x = 0; x < tilePixelWidth; x++) {
+            rowData[xOffset + x] = static_cast<T>(data32[x * spp + channel]);
+        }
+    } else {
+        throw TiffReadException("Unsupported bit depth: " + std::to_string(metaData.bitsPerSample) +
+                                " (supported: 8, 16, 32)");
+    }
+}
+
 class TiffReader : public ImageReader {
 public:
-    explicit TiffReader(const std::string& filename, int channel, TiffReaderConfig config = {});
+    explicit TiffReader(const std::string& filename);
     ~TiffReader();
 
+    void configure(int channel, ReaderConfig config = {}) override;
     static std::optional<Image3D> readTiffFile(const std::string& filename, int channel);
     static std::optional<ImageMetaData> readMetadata(const std::string& filename);
 
-    std::future<Image3D> getSubimage(const BoxCoord& box) const override;
-    void prefetch(const std::vector<BoxCoord>& boxes) const override;
+    Image3D getSubimage(const BoxCoord& box) const override;
+    size_t getRequiredMemory(const CuboidShape& subimageSize) const override;
+    // void prefetch(const std::vector<BoxCoord>& boxes) const override;
     const ImageMetaData& getMetaData() const override;
 
 private:
+    static size_t sizeOf(std::type_index type);
+
     mutable ImageMetaData metaData;
     int channel;
     std::string filename_;
-    TiffReaderConfig config_;
+    ReaderConfig config_;
     std::unique_ptr<ITiffRegionReader> regionReader;
+    std::type_index dataType_{typeid(float)};
 
     std::unique_ptr<TiffHandlePool> handlePool_;
     std::unique_ptr<ReaderThreadPool> readerPool_;
+
+    mutable std::unique_ptr<MemoryTracking> memoryTracker;
 
     mutable std::mutex mutex_;
     mutable std::condition_variable prefetchCv_;
@@ -107,6 +167,7 @@ private:
     mutable std::atomic<size_t> inFlightReads_{0};
 
 
+    bool isMemoryAvailable(const CuboidShape& requestedSize) const;
     static std::unique_ptr<ITiffRegionReader> getRegionReader(const ImageMetaData& metadata);
     Image3D extractFromBuffer(const BoxCoord& coord, BufferEntry& entry) const;
     void executeRead(std::list<PendingRead>::iterator pendingIt, const BoxCoord& source) const;

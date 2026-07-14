@@ -24,7 +24,9 @@ protected:
 };
 
 TEST_F(MirrorPaddingTest, ReadSubimageNoPadding) {
-    ReaderHandler reader(std::make_unique<TiffReader>(testTiffPath, 0), PaddingFillType::MIRROR);
+    auto tr = std::make_unique<TiffReader>(testTiffPath);
+    tr->configure(0);
+    ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
     BoxCoordWithPadding box;
     box.box.position = CuboidShape(0, 0, 0);
     box.box.dimensions = CuboidShape(8, 8, 4);
@@ -36,7 +38,9 @@ TEST_F(MirrorPaddingTest, ReadSubimageNoPadding) {
 }
 
 TEST_F(MirrorPaddingTest, ReadSubimageWithPadding) {
-    ReaderHandler reader(std::make_unique<TiffReader>(testTiffPath, 0), PaddingFillType::MIRROR);
+    auto tr = std::make_unique<TiffReader>(testTiffPath);
+    tr->configure(0);
+    ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
     BoxCoordWithPadding box;
     box.box.position = CuboidShape(0, 0, 0);
     box.box.dimensions = CuboidShape(8, 8, 4);
@@ -48,7 +52,9 @@ TEST_F(MirrorPaddingTest, ReadSubimageWithPadding) {
 }
 
 TEST_F(MirrorPaddingTest, ReadFullImage) {
-    ReaderHandler reader(std::make_unique<TiffReader>(testTiffPath, 0), PaddingFillType::MIRROR);
+    auto tr = std::make_unique<TiffReader>(testTiffPath);
+    tr->configure(0);
+    ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
     BoxCoordWithPadding box;
     box.box.position = CuboidShape(0, 0, 0);
     box.box.dimensions = CuboidShape(16, 16, 8);
@@ -60,7 +66,9 @@ TEST_F(MirrorPaddingTest, ReadFullImage) {
 }
 
 TEST_F(MirrorPaddingTest, ReadSubimageAtOffset) {
-    ReaderHandler reader(std::make_unique<TiffReader>(testTiffPath, 0), PaddingFillType::MIRROR);
+    auto tr = std::make_unique<TiffReader>(testTiffPath);
+    tr->configure(0);
+    ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
     BoxCoordWithPadding box;
     box.box.position = CuboidShape(4, 4, 2);
     box.box.dimensions = CuboidShape(8, 8, 4);

@@ -34,6 +34,7 @@ struct MemoryData {
     MemoryData(size_t maxMemory = 0)
         : maxMemorySize(maxMemory), totalUsedMemory(0) {}
 };
+
 struct MemoryTracking {
 private:
     MemoryData data;
@@ -47,8 +48,6 @@ private:
             : lock(m), data(d) {}
     };
 
-
-
 public:
     MemoryTracking() : data(0) {}
 
@@ -56,6 +55,29 @@ public:
         : data(maxMemory) {}
     LockedAccess getAccess() {
         return LockedAccess(memoryMutex, data);
+    }
+    bool isAvailable(size_t amount){
+        LockedAccess memory = LockedAccess(memoryMutex, data);
+        if (memory.data.maxMemorySize > memory.data.totalUsedMemory + amount){
+            return true;
+        }
+        return false;
+    }
+    bool allocate(size_t amount){
+        LockedAccess memory = LockedAccess(memoryMutex, data);
+        if (memory.data.maxMemorySize > memory.data.totalUsedMemory + amount){
+            memory.data.totalUsedMemory += amount;
+            return true;
+        }
+        return false;
+    }
+    bool deallocate(size_t amount){
+        LockedAccess memory = LockedAccess(memoryMutex, data);
+        if (amount <= memory.data.totalUsedMemory){
+            memory.data.totalUsedMemory -= amount;
+            return true;
+        }
+        return false;
     }
 };
 

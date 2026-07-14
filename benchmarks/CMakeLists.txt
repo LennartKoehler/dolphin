@@ -39,6 +39,22 @@ add_cpu_benchmark(fftw_multithreading_benchmark  cpu/fftw_multithreading_test.cp
 add_cpu_benchmark(fftw_size_decomposition_benchmark cpu/fftw_size_decomposition_test.cpp)
 add_cpu_benchmark(real_complex_fftw_benchmark    cpu/real_complex_fftw.cpp)
 
+# TIFF parallel read benchmark
+add_executable(tiff_parallel_read_benchmark cpu/tiff_parallel_read_benchmark.cpp)
+set_property(TARGET tiff_parallel_read_benchmark PROPERTY CXX_STANDARD 20)
+target_compile_options(tiff_parallel_read_benchmark PRIVATE ${OpenMP_CXX_FLAGS})
+target_link_libraries(tiff_parallel_read_benchmark PRIVATE
+    dolphin_image
+    dolphinbackend
+    project_options
+    OpenMP::OpenMP_CXX
+    pthread
+)
+target_include_directories(tiff_parallel_read_benchmark PRIVATE
+    ${TIFF_INCLUDE_DIR}
+    ${ITK_INCLUDE_DIRS}
+)
+
 if(CUDAToolkit_FOUND)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/cuda)
 

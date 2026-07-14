@@ -36,13 +36,13 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 
 void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn){
     int channel = 0;
-    TiffReaderConfig readerConfig;
+    ReaderConfig readerConfig;
     readerConfig.numReaderThreads = setupConfig.numReaderThreads > 0
         ? static_cast<size_t>(setupConfig.numReaderThreads)
         : static_cast<size_t>(std::max(1, setupConfig.nIOThreads));
-    readerConfig.prefetchEnabled = setupConfig.readerPrefetchEnabled;
-    readerConfig.prefetchCount = static_cast<size_t>(setupConfig.readerPrefetchCount);
-    this->labelReader = std::make_unique<ReaderHandler>(std::make_unique<TiffReader>(setupConfig.labeledImage, channel, readerConfig), PaddingFillType::MIRROR);
+    auto labelImageReader = std::make_unique<TiffReader>(setupConfig.labeledImage);
+    labelImageReader->configure(channel, readerConfig);
+    this->labelReader = std::make_unique<ReaderHandler>(std::move(labelImageReader), PaddingFillType::MIRROR);
     this->loadingBar.setCallback(fn);
 
     // Load PSF label map if provided
@@ -85,7 +85,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
 
-    BackendFactory::getInstance().getDefaultBackendMemoryManager().freeMemoryOnDevice(g_host);
+    BackendFactory::getInstance().getHostBackendMemoryManager().freeMemoryOnDevice(g_host);
 
     std::vector<Label<Image3D>> tasklabels = getLabelGroups(
         task.sharedDescriptor->psfs,
@@ -132,7 +132,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
             // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
 
             iobackend.getComputeManager().multiplication(f_device, *labelgroup.getMask(), f_device); // multiply with weighted mask to get weighted values
-            RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
+            RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getHostBackendMemoryManager());
 
             Postprocessor::addCubeToImage(Preprocessor::convertRealDataToImage(f_host), result);
 

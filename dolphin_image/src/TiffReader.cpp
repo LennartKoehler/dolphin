@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/IO/TiffReader.h"
 #include "dolphin_image/IO/TiffExceptions.h"
 #include "dolphin_image/Types/BoxCoord.h"
+#include <mutex>
 #include <tiffio.h>
 #include <sstream>
 #include <iostream>
@@ -44,8 +45,18 @@ void forEachZSlice(TIFF* tif, size_t z, size_t depth, const ImageMetaData& metaD
 }
 
 
-TiffReader::TiffReader(const std::string& filename, int channel, TiffReaderConfig config)
-    : channel(channel), filename_(filename), config_(config) {
+size_t TiffReader::sizeOf(std::type_index type) {
+    if (type == typeid(float)) return sizeof(float);
+    if (type == typeid(double)) return sizeof(double);
+    if (type == typeid(uint8_t)) return sizeof(uint8_t);
+    if (type == typeid(uint16_t)) return sizeof(uint16_t);
+    if (type == typeid(int8_t)) return sizeof(int8_t);
+    if (type == typeid(int16_t)) return sizeof(int16_t);
+    throw std::runtime_error("Unsupported pixel data type in sizeOf()");
+}
+
+TiffReader::TiffReader(const std::string& filename)
+    : filename_(filename){
 
     TIFFSetWarningHandler(customTifWarningHandler);
 
@@ -62,6 +73,11 @@ TiffReader::TiffReader(const std::string& filename, int channel, TiffReaderConfi
 }
 
 TiffReader::~TiffReader() = default;
+
+void TiffReader::configure(int channel, ReaderConfig config){
+    this->channel = channel;
+    this->memoryTracker = std::move(std::make_unique<MemoryTracking>(config.readerMemory_byte));
+}
 
 
 std::optional<Image3D> TiffReader::readTiffFile(const std::string& filename, int channel) {
@@ -208,18 +224,23 @@ void TiffReader::executeRead(std::list<PendingRead>::iterator pendingIt, const B
         auto guard = handlePool_->acquire();
         readSubimageFromTiffFile(guard.get(), regionReader.get(), metaData, source, readImage, channel);
     } catch (...) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (auto& [box, promise] : pendingIt->waiters) {
-            promise->set_exception(std::current_exception());
+        auto ep = std::current_exception();
+        decltype(pendingIt->waiters) waiters;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            waiters = std::move(pendingIt->waiters);
+            pendingReads_.erase(pendingIt);
+            inFlightReads_.fetch_sub(1);
+            prefetchCv_.notify_all();
         }
-        pendingReads_.erase(pendingIt);
-        inFlightReads_.fetch_sub(1);
-        prefetchCv_.notify_all();
+        for (auto& [box, promise] : waiters) {
+            promise->set_exception(ep);
+        }
         return;
     }
 
-    std::vector<std::pair<BoxCoord, std::shared_ptr<std::promise<Image3D>>>> waiters;
     std::list<BufferEntry>::iterator bufferIt;
+    decltype(pendingIt->waiters) waiters;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         waiters = std::move(pendingIt->waiters);
@@ -234,49 +255,44 @@ void TiffReader::executeRead(std::list<PendingRead>::iterator pendingIt, const B
     }
 
     for (auto& [box, promise] : waiters) {
-        try {
-            promise->set_value(extractFromBuffer(box, *bufferIt));
-        } catch (...) {
-            promise->set_exception(std::current_exception());
-        }
+        promise->set_value(bufferIt);
     }
 }
 
+Image3D TiffReader::getSubimage(const BoxCoord& box) const {
 
-std::future<Image3D> TiffReader::getSubimage(const BoxCoord& box) const {
-    if (config_.prefetchCount > 0) {
-        std::unique_lock<std::mutex> lock(mutex_);
-        prefetchCv_.wait(lock, [this] { return inFlightReads_.load() < config_.prefetchCount; });
-    }
-
-    std::lock_guard<std::mutex> lock(mutex_);
-    // all of this is sync, but the actually reading is enqueued and not actually run, so should be fast
+    std::unique_lock<std::mutex> lock(mutex_);
 
     // check if region is already in some buffer
     for (auto& entry : bufferedRegions_) {
         if (box.isWithin(entry.source)) {
-            std::promise<Image3D> p;
-            p.set_value(extractFromBuffer(box, entry));
-            return p.get_future();
+            return extractFromBuffer(box, entry);
         }
     }
 
     // check if reading that region is already queued, wait for result
     for (auto it = pendingReads_.begin(); it != pendingReads_.end(); ++it) {
         if (box.isWithin(it->source)) {
-            auto promise = std::make_shared<std::promise<Image3D>>();
+            auto promise = std::make_shared<std::promise<std::list<BufferEntry>::iterator>>();
             auto future = promise->get_future();
-            // TODO where should extractfrombuffer be handled?
             it->waiters.push_back({box, promise});
-            return future;
+            lock.unlock();
+
+            // calling thread waits for reader to finish disk->RAM
+            auto bufferIt = future.get();
+
+            // calling thread does the extraction
+            return extractFromBuffer(box, *bufferIt);
         }
     }
 
+    prefetchCv_.wait(lock, [this, box] { return isMemoryAvailable(box.dimensions);});
+
     // queue region reading task
     BoxCoord source = regionReader->computeReadSource(metaData, box);
-    auto promise = std::make_shared<std::promise<Image3D>>();
+    memoryTracker->allocate(source.dimensions.getVolume() * sizeOf(dataType_));
+    auto promise = std::make_shared<std::promise<std::list<BufferEntry>::iterator>>();
     auto future = promise->get_future();
-
 
     PendingRead& pending = pendingReads_.emplace_back();
     pending.source = source;
@@ -289,7 +305,11 @@ std::future<Image3D> TiffReader::getSubimage(const BoxCoord& box) const {
         executeRead(pendingIt, source);
     });
 
-    return future;
+    lock.unlock();
+
+    // calling thread waits for reader to finish disk->RAM
+    auto bufferIt = future.get();
+    return extractFromBuffer(box, *bufferIt);
 }
 
 std::unique_ptr<ITiffRegionReader> TiffReader::getRegionReader(const ImageMetaData& metadata) {
@@ -298,48 +318,52 @@ std::unique_ptr<ITiffRegionReader> TiffReader::getRegionReader(const ImageMetaDa
 
 }
 
-
-void TiffReader::prefetch(const std::vector<BoxCoord>& boxes) const {
-    if (!config_.prefetchEnabled) return;
-
-    for (const auto& box : boxes) {
-        if (config_.prefetchCount > 0) {
-            std::unique_lock<std::mutex> waitLock(mutex_);
-            prefetchCv_.wait(waitLock, [this] { return inFlightReads_.load() < config_.prefetchCount; });
-        }
-
-        std::lock_guard<std::mutex> lock(mutex_);
-
-        bool found = false;
-        for (const auto& entry : bufferedRegions_) {
-            if (box.isWithin(entry.source)) {
-                found = true;
-                break;
-            }
-        }
-        if (found) continue;
-
-        for (const auto& pending : pendingReads_) {
-            if (box.isWithin(pending.source)) {
-                found = true;
-                break;
-            }
-        }
-        if (found) continue;
-
-        BoxCoord source = regionReader->computeReadSource(metaData, box);
-        inFlightReads_.fetch_add(1);
-
-        auto& pending = pendingReads_.emplace_back();
-        pending.source = source;
-
-        auto pendingIt = std::prev(pendingReads_.end());
-
-        readerPool_->enqueue([this, source, pendingIt]() {
-            executeRead(pendingIt, source);
-        });
-    }
+bool TiffReader::isMemoryAvailable(const CuboidShape& requestedSize) const{
+    size_t requestedMemory = requestedSize.getVolume() * sizeOf(dataType_);
+    return memoryTracker->isAvailable(requestedMemory);
 }
+
+
+//     if (!config_.prefetchEnabled) return;
+//
+//     for (const auto& box : boxes) {
+//         if (config_.prefetchCount > 0) {
+//             std::unique_lock<std::mutex> waitLock(mutex_);
+//             prefetchCv_.wait(waitLock, [this] { return inFlightReads_.load() < config_.prefetchCount; });
+//         }
+//
+//         std::lock_guard<std::mutex> lock(mutex_);
+//
+//         bool found = false;
+//         for (const auto& entry : bufferedRegions_) {
+//             if (box.isWithin(entry.source)) {
+//                 found = true;
+//                 break;
+//             }
+//         }
+//         if (found) continue;
+//
+//         for (const auto& pending : pendingReads_) {
+//             if (box.isWithin(pending.source)) {
+//                 found = true;
+//                 break;
+//             }
+//         }
+//         if (found) continue;
+//
+//         BoxCoord source = regionReader->computeReadSource(metaData, box);
+//         inFlightReads_.fetch_add(1);
+//
+//         auto& pending = pendingReads_.emplace_back();
+//         pending.source = source;
+//
+//         auto pendingIt = std::prev(pendingReads_.end());
+//
+//         readerPool_->enqueue([this, source, pendingIt]() {
+//             executeRead(pendingIt, source);
+//         });
+//     }
+// }
 
 
 const ImageMetaData& TiffReader::getMetaData() const {
@@ -489,6 +513,11 @@ void TiffReader::customTifWarningHandler(const char* module, const char* fmt, va
 }
 
 
+size_t TiffReader::getRequiredMemory(const CuboidShape& subimageSize) const{
+    assert(regionReader);
+    BoxCoord region = regionReader->computeReadSource(metaData, BoxCoord{CuboidShape{0,0,0},subimageSize});
+    return region.dimensions.getVolume() * sizeOf(dataType_);
+}
 
 
 
@@ -650,54 +679,14 @@ BoxCoord TiffRegionReaderStriped::computeReadSource(const ImageMetaData& metaDat
 
 
 void TiffRegionReaderStriped::convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, size_t width, const ImageMetaData& metaData, int channel) {
-    TiffRegionReaderScanline::convertScanlineToFloat(scanlineData, rowData, width, metaData, channel);
+    TiffRegionReaderScanline::convertScanline<float>(scanlineData, rowData, width, metaData, channel);
 }
 
 void TiffRegionReaderScanline::convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, size_t width, const ImageMetaData& metaData, int channel) {
-    const uint16_t spp = metaData.samplesPerPixel;
-
-    if (metaData.bitsPerSample == 8) {
-        const uint8_t* data8 = reinterpret_cast<const uint8_t*>(scanlineData);
-        for (size_t x = 0; x < width; x++) {
-            rowData[x] = static_cast<float>(data8[x * spp + channel]);
-        }
-    } else if (metaData.bitsPerSample == 16) {
-        const uint16_t* data16 = reinterpret_cast<const uint16_t*>(scanlineData);
-        for (size_t x = 0; x < width; x++) {
-            rowData[x] = static_cast<float>(data16[x * spp + channel]);
-        }
-    } else if (metaData.bitsPerSample == 32) {
-        const float* data32 = reinterpret_cast<const float*>(scanlineData);
-        for (size_t x = 0; x < width; x++) {
-            rowData[x] = data32[x * spp + channel];
-        }
-    } else {
-        throw TiffReadException("Unsupported bit depth: " + std::to_string(metaData.bitsPerSample) +
-                                " (supported: 8, 16, 32)");
-    }
+    convertScanline<float>(scanlineData, rowData, width, metaData, channel);
 }
 
 
 void TiffRegionReaderTiled::convertTileRowToFloat(const char* tileRowData, std::vector<float>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel) {
-    const uint16_t spp = metaData.samplesPerPixel;
-
-    if (metaData.bitsPerSample == 8) {
-        const uint8_t* data8 = reinterpret_cast<const uint8_t*>(tileRowData);
-        for (size_t x = 0; x < tilePixelWidth; x++) {
-            rowData[xOffset + x] = static_cast<float>(data8[x * spp + channel]);
-        }
-    } else if (metaData.bitsPerSample == 16) {
-        const uint16_t* data16 = reinterpret_cast<const uint16_t*>(tileRowData);
-        for (size_t x = 0; x < tilePixelWidth; x++) {
-            rowData[xOffset + x] = static_cast<float>(data16[x * spp + channel]);
-        }
-    } else if (metaData.bitsPerSample == 32) {
-        const float* data32 = reinterpret_cast<const float*>(tileRowData);
-        for (size_t x = 0; x < tilePixelWidth; x++) {
-            rowData[xOffset + x] = data32[x * spp + channel];
-        }
-    } else {
-        throw TiffReadException("Unsupported bit depth: " + std::to_string(metaData.bitsPerSample) +
-                                " (supported: 8, 16, 32)");
-    }
+    convertTileRow<float>(tileRowData, rowData, xOffset, tilePixelWidth, metaData, channel);
 }

@@ -21,7 +21,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <tiffio.h>
 
-struct TiffCompressionConfig {
+struct WriterCompressionConfig {
     uint16_t compressionScheme = COMPRESSION_NONE;
     int compressionLevel = -1;
 

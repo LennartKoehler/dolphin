@@ -312,8 +312,7 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
     MEMORY_ALLOC_CHECK(data, requested_size, "CPU", "allocateMemoryOnDevice", buildCpuContext());
 
     // Update memory tracking using getAccess()
-    auto access = memory.getAccess();
-    access.data.totalUsedMemory += requested_size;
+    memory.allocate(requested_size);
     log(fmt::format("Allocated {:.2f} MB", requested_size / 1e6), LogLevel::DEBUG);
     return data;
 

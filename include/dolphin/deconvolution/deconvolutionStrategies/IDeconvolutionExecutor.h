@@ -18,12 +18,12 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/SetupConfig.h"
 #include <memory>
 
+
 class ReaderHandler;
 class ImageWriter;
 /*
 This class runs the DeconvolutionPlan provided by the deconvolutionstrategy
 */
-
 class IDeconvolutionExecutor {
 public:
     using progressCallbackFn = std::function<void(std::atomic<float>&, int)>;
@@ -34,4 +34,5 @@ public:
 
     // Configure the executor with both setup and deconvolution configuration
     virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) = 0;
+
 };

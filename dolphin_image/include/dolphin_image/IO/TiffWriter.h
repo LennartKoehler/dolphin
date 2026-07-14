@@ -27,13 +27,14 @@ See the LICENSE file provided with the code for the full license.
 
 class TiffWriter : public ImageWriter {
 public:
-    explicit TiffWriter(const std::string& filename, const CuboidShape& imageShape, TiffCompressionConfig config = {});
+    explicit TiffWriter(const std::string& filename, const CuboidShape& imageShape);
 
+    void configure(WriterCompressionConfig compressionConfig) override;
     ~TiffWriter();
 
     bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const override;
 
-    static bool writeToFile(const std::string& filename, const Image3D& image, TiffCompressionConfig config = {});
+    static bool writeToFile(const std::string& filename, const Image3D& image, WriterCompressionConfig config = {});
 
 
 private:
@@ -42,7 +43,7 @@ private:
     std::string outputFilename;
     TIFF* tif;
     CuboidShape imageShape;
-    TiffCompressionConfig compressionConfig;
+    WriterCompressionConfig compressionConfig;
     mutable size_t writtenToDepth = 0;
     mutable std::queue<int> readyToWriteQueue;
 
@@ -58,8 +59,8 @@ private:
 
     static ImageMetaData extractMetaData(const Image3D& image);
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
-    static void writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceIndex, const ImageMetaData& metaData, const TiffCompressionConfig& compression);
-    static void setTiffFields(TIFF* tif, const ImageMetaData& metaData, const TiffCompressionConfig& compression);
+    static void writeSliceToTiff(TIFF* tif, const Image3D& image, size_t sliceIndex, const ImageMetaData& metaData, const WriterCompressionConfig& compression);
+    static void setTiffFields(TIFF* tif, const ImageMetaData& metaData, const WriterCompressionConfig& compression);
 
     static int getTargetItkType(const ImageMetaData& metadata);
     static void extractSliceData(const Image3D& image, size_t sliceIndex, std::vector<float>& sliceData);

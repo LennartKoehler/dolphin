@@ -64,7 +64,7 @@ CPUBackendConfig CPUBackendManager::configToConfig(const BackendConfig& config) 
 //     return backend;
 // }
 
-// multiple cpu devices e.g. ccNUMA not supported
+// multiple seperate cpu devices e.g. NUMA not supported
 IBackend& CPUBackendManager::createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config){
     return createBackendForCurrentThread(config);
 }

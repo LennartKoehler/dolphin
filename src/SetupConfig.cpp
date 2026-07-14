@@ -46,11 +46,10 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
     nWorkerThreads = other.nWorkerThreads;
     nIOThreads = other.nIOThreads;
     nDevices = other.nDevices;
-    maxMem_GB = other.maxMem_GB;
+    maxMemHost_byte = other.maxMemHost_byte;
+    maxMemDevice_byte = other.maxMemDevice_byte;
     outputPath = other.outputPath;
     numReaderThreads = other.numReaderThreads;
-    readerPrefetchEnabled = other.readerPrefetchEnabled;
-    readerPrefetchCount = other.readerPrefetchCount;
     outputCompression = other.outputCompression;
     outputCompressionLevel = other.outputCompressionLevel;
 
@@ -65,11 +64,10 @@ SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
         nWorkerThreads = other.nWorkerThreads;
         nIOThreads = other.nIOThreads;
         nDevices = other.nDevices;
-        maxMem_GB = other.maxMem_GB;
+        maxMemHost_byte = other.maxMemHost_byte;
+        maxMemDevice_byte = other.maxMemDevice_byte;
         outputPath = other.outputPath;
         numReaderThreads = other.numReaderThreads;
-        readerPrefetchEnabled = other.readerPrefetchEnabled;
-        readerPrefetchCount = other.readerPrefetchCount;
         outputCompression = other.outputCompression;
         outputCompressionLevel = other.outputCompressionLevel;
 
@@ -93,7 +91,8 @@ void SetupConfigPSF::registerAllParameters(){
     parameters.push_back({ParameterType::Int, &nWorkerThreads, "Number of Worker Threads", true, "n_worker_threads", "--n_worker_threads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nIOThreads, "Number of IO Threads", true, "n_io_threads", "--n_io_threads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Int, &nDevices, "Number of Devices", true, "n_devices", "--n_devices", "Number of devices", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Float, &maxMem_GB, "Max Memory (GB)", true, "max_mem_gb", "--max_mem_gb", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMemHost_byte, "Max Memory Host (byte)", true, "max_mem__host_byte", "--max_mem_host_byte", "Maximum memory usage on the host", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMemDevice_byte, "Max Memory Device (byte)", true, "max_mem__device_byte", "--max_mem_device_byte", "Maximum memory usage on the device", false, false, 0.0, 0.0, nullptr});
 }
 
 
@@ -163,15 +162,7 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
-    parameters.push_back({ParameterType::FilePath, &backend, "Backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nThreads, "Number of Threads", true, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nWorkerThreads, "Number of Worker Threads", true, "n_worker_threads", "--n_worker_threads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nIOThreads, "Number of IO Threads", true, "n_io_threads", "--n_io_threads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nDevices, "Number of Devices", true, "n_devices", "--n_devices", "Number of devices", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Float, &maxMem_GB, "Max Memory (GB)", true, "max_mem_gb", "--max_mem_gb", "Maximum memory usage", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Int, &numReaderThreads, "Number of Reader Threads", true, "num_reader_threads", "--num_reader_threads", "Number of TIFF reader threads (0=auto)", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Bool, &readerPrefetchEnabled, "Reader Prefetch Enabled", true, "reader_prefetch_enabled", "--reader_prefetch_enabled", "Enable TIFF reader prefetching", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Int, &readerPrefetchCount, "Reader Prefetch Count", true, "reader_prefetch_count", "--reader_prefetch_count", "Number of subimages to prefetch", false, true, 0.0, 1000.0, nullptr});
     parameters.push_back({ParameterType::String, &outputCompression, "Output Compression", true, "output_compression", "--output_compression", "TIFF compression scheme (none, lzw, deflate)", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Int, &outputCompressionLevel, "Output Compression Level", true, "output_compression_level", "--output_compression_level", "Compression level (-1=default, 1-9 for deflate)", false, true, -1.0, 9.0, nullptr});
     parameters.push_back({ParameterType::Bool, &savePsf, "Save PSF", true, "save_psf", "--save_psf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
