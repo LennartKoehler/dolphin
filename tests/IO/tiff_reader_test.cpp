@@ -314,7 +314,7 @@ TEST_F(TiffWriterSubimageTest, FullWrite_ReadBackCorrect) {
     CuboidShape shape = original.getShape();
     {
         TiffWriter writer(path, shape);
-        ASSERT_TRUE(writer.setSubimage(original, makeBox(0, 0, 0, shape.width, shape.height, shape.depth)));
+        ASSERT_TRUE(writer.setSubimage(original, makeBox(0, 0, 0, shape.width, shape.height, shape.depth).box));
     }
 
     auto readOpt = TiffReader::readTiffFile(path, 0);
@@ -338,7 +338,7 @@ TEST_F(TiffWriterSubimageTest, MultiChunk_WriteReadBackCorrect) {
             subBox.dimensions = CuboidShape(w, h, thisDepth);
             Image3D chunk = original.getSubimageCopy(subBox);
 
-            ASSERT_TRUE(writer.setSubimage(chunk, makeBox(0, 0, z, w, h, thisDepth)));
+            ASSERT_TRUE(writer.setSubimage(chunk, makeBox(0, 0, z, w, h, thisDepth).box));
         }
     }
 
@@ -354,7 +354,7 @@ TEST_F(TiffWriterSubimageTest, FullWrite_ResultNotAllZeros) {
     CuboidShape shape = original.getShape();
     {
         TiffWriter writer(path, shape);
-        ASSERT_TRUE(writer.setSubimage(original, makeBox(0, 0, 0, shape.width, shape.height, shape.depth)));
+        ASSERT_TRUE(writer.setSubimage(original, makeBox(0, 0, 0, shape.width, shape.height, shape.depth).box));
     }
 
     auto readOpt = TiffReader::readTiffFile(path, 0);

@@ -55,7 +55,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     thread_local IBackend& workerbackend = context->manager.createBackendSharedMemoryForCurrentThread(iobackend, context->workerconfig);
 
     std::shared_ptr<ReaderHandler> reader = task.sharedDescriptor->reader;
-    std::shared_ptr<ImageWriter> writer = task.sharedDescriptor->writer;
+    std::shared_ptr<WriterHandler> writer = task.sharedDescriptor->writer;
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
     spdlog::get("deconvolution")->debug("[Task {}] Work shape (with padding): {}", task.taskId, workShape.print());

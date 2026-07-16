@@ -32,8 +32,9 @@ public:
 class ImageWriter {
 public:
     virtual ~ImageWriter() = default;
-    virtual bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const = 0;
-    virtual void configure(WriterCompressionConfig compressionConfig) = 0;
+    virtual bool setSubimage(const Image3D& image, const BoxCoord& coord,
+                             const CuboidPosition& sourceOffset = CuboidPosition{0, 0, 0}) const = 0;
+    virtual void configure(WriterCompressionConfig compressionConfig, WriterConfig writerConfig = {}) = 0;
 };
 
 // struct ImageReaderWriterPair{
@@ -56,7 +57,7 @@ public:
         BoxCoordWithPadding translatedRegion = translateRegion(box, reader->getMetaData().getShape());
         Image3D image = reader->getSubimage(translatedRegion.box);
         ImagePadding::padImage(image, translatedRegion.padding, paddingFillStrategy);
-        PaddedImage result = PaddedImage{image, box.padding};
+        PaddedImage result = PaddedImage{std::move(image), box.padding};
         return result;
     }
 
@@ -69,4 +70,22 @@ protected:
     }
     std::shared_ptr<ImageReader> reader;
     PaddingFillType paddingFillStrategy;
+};
+
+
+// strips padding from the image and forwards the real data to the underlying writer
+class WriterHandler{
+public:
+    explicit WriterHandler(std::shared_ptr<ImageWriter> w) : writer(std::move(w)){}
+
+    bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const {
+        return writer->setSubimage(image, coord.box, coord.padding.before);
+    }
+
+    void configure(WriterCompressionConfig compressionConfig, WriterConfig writerConfig = {}) {
+        writer->configure(compressionConfig, writerConfig);
+    }
+
+private:
+    std::shared_ptr<ImageWriter> writer;
 };

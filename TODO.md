@@ -1,11 +1,13 @@
-something wrong in the deconvolutionstrategy. The minnumber of subimages is not large equal than number devices. Also the memory is somehow wrong, it tries to use a too large subimage size
+tiffreader needs to delete unused memory buffers
 
+currently with the changes ot the backendconfig, as this already includes the device, the createbackendiwthsharedmemory is not really needed, as that just used the backends config to configure, now i can just manually take that backends config. Feels like two systems doing the same job
 
 crashes if memory in config is not set propery? should not happen
 
 the host - device memory model and reader writer threads configuration is still not complete
 
 work on the reader writer io and multithreading, see the opencode session with the new bandwidtch
+
 iostat -dx 1 to get read and write bandwidth
 cuda runs out of memory with many io threads
 

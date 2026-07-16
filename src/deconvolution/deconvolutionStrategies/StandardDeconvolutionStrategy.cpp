@@ -48,10 +48,16 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     reader->configure(readerChannel, readerConfig);
     std::shared_ptr<ReaderHandler> readerHandler = std::make_shared<ReaderHandler>(reader, deconvConfig.paddingFillType);
 
-    WriterCompressionConfig writerConfig;
-    writerConfig.compressionScheme = WriterCompressionConfig::parseCompression(setupConfig.outputCompression);
-    writerConfig.compressionLevel = setupConfig.outputCompressionLevel;
-    writer->configure(writerConfig);
+    WriterCompressionConfig writerCompressionConfig;
+    writerCompressionConfig.compressionScheme = WriterCompressionConfig::parseCompression(setupConfig.outputCompression);
+    writerCompressionConfig.compressionLevel = setupConfig.outputCompressionLevel;
+
+    WriterConfig writerConfig;
+    writerConfig.tileWidth = static_cast<uint32_t>(setupConfig.tileWidth);
+    writerConfig.tileLength = static_cast<uint32_t>(setupConfig.tileLength);
+
+    writer->configure(writerCompressionConfig, writerConfig);
+    std::shared_ptr<WriterHandler> writerHandler = std::make_shared<WriterHandler>(writer);
     // -----------------------
 
 
@@ -136,7 +142,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
             memoryPerTask,
             psfs,
             readerHandler,
-            writer);
+            writerHandler);
 
     for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
 

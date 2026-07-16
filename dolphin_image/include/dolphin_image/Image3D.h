@@ -84,7 +84,7 @@ public:
 
     Image3D getInRange(float min, float max) const;
 
-    Image3D getSubimageCopy(const BoxCoord& coords);
+    Image3D getSubimageCopy(const BoxCoord& coords) const;
 
     // Accessor methods
     ImageType::Pointer getItkImage() const { return image; }
@@ -250,8 +250,8 @@ struct PaddedImage{
 
 struct ImageBuffer{
     Image3D image;
-    BoxCoordWithPadding source;
-    size_t interactedValue = 0; // TODO make this betterwidth of the imagebuffer which has been readFrom/writtenTo
+    BoxCoord source;
+    size_t interactedValue = 0;
 };
 
 struct ImageMaskPair{

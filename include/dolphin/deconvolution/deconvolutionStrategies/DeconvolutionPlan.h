@@ -76,7 +76,7 @@ struct CubeTaskSharedDescriptor{
                     size_t estimatedMemoryUsage,
                     const std::vector<std::shared_ptr<PSF>>& psfs,
                     const std::shared_ptr<ReaderHandler> reader,
-                    const std::shared_ptr<ImageWriter> writer)
+                    const std::shared_ptr<WriterHandler> writer)
     : prototypeAlgorithm(algorithm),
       estimatedMemoryUsage(estimatedMemoryUsage),
       psfs(psfs),
@@ -87,7 +87,7 @@ struct CubeTaskSharedDescriptor{
     const size_t estimatedMemoryUsage;
     const std::vector<std::shared_ptr<PSF>> psfs;
     const std::shared_ptr<ReaderHandler> reader;
-    const std::shared_ptr<ImageWriter> writer;
+    const std::shared_ptr<WriterHandler> writer;
 };
 
 struct CubeTaskDescriptor {

@@ -29,6 +29,13 @@ struct WriterCompressionConfig {
     static const char* compressionToString(uint16_t scheme);
 };
 
+struct WriterConfig {
+    uint32_t tileWidth = 0;
+    uint32_t tileLength = 0;
+
+    bool useTiles() const { return tileWidth > 0 && tileLength > 0; }
+};
+
 struct ImageMetaData {
     // Image Attributes
     std::string filename;
