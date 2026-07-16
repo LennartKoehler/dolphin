@@ -19,6 +19,7 @@ struct BackendConfig{
 
     size_t nThreads = 1; // whatever this means for the backendmanager. But manager has the opportunity to configure this
     std::string backendName = "default"; //TODO
+    int deviceId = -1; // -1 = round-robin, >=0 = explicit device
 };
 
 class Owner{
@@ -112,7 +113,5 @@ public:
     virtual IBackendMemoryManager& mutableMemoryManager() noexcept = 0;
 
     virtual void sync() = 0;
-
-
 
 };

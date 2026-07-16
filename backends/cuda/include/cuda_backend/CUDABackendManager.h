@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include "cuda_backend/CUDABackend.h"
 #include <memory>
 #include <vector>
+#include <deque>
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -59,12 +60,11 @@ public:
     int getNumberDevices() const override;
 protected:
 
-    CUDABackendConfig config;
     std::vector<CUDADevice> devices;
 
-    std::vector<std::unique_ptr<CUDABackend>> backends;
-    std::vector<std::unique_ptr<CUDAComputeBackend>> computeBackends;
-    std::vector<std::unique_ptr<CUDABackendMemoryManager>> memoryManagers;
+    std::deque<std::unique_ptr<CUDABackend>> backends;
+    std::deque<std::unique_ptr<CUDAComputeBackend>> computeBackends;
+    std::deque<std::unique_ptr<CUDABackendMemoryManager>> memoryManagers;
 
     // Threading synchronization
 
