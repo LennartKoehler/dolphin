@@ -37,7 +37,10 @@ public:
     struct KeyHash {
         std::size_t operator()(const Key& key) const {
             std::hash<std::string> hashFn;
-            return hashFn(key.psf) ^ hashFn(key.device) ^ (std::hash<int>()(key.shape.width) << 1) ^ std::hash<int>()(key.shape.height);
+            return hashFn(key.psf) ^ hashFn(key.device)
+                ^ (std::hash<int>()(key.shape.width) << 1)
+                ^ std::hash<int>()(key.shape.height)
+                ^ (std::hash<int>()(key.shape.depth) << 2);
         }
     };
 
@@ -45,6 +48,7 @@ public:
         bool operator()(const Key& lhs, const Key& rhs) const {
             return lhs.shape.width == rhs.shape.width &&
                    lhs.shape.height == rhs.shape.height &&
+                   lhs.shape.depth == rhs.shape.depth &&
                    lhs.device == rhs.device &&
                    lhs.psf == rhs.psf;
         }

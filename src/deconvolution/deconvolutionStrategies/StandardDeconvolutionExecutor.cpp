@@ -41,15 +41,18 @@ void StandardDeconvolutionExecutor::configure(const SetupConfig& setupConfig, co
     loadingBar.setCallback(fn);
 }
 
-
 void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     spdlog::get("deconvolution")->debug("[Task {}] Starting deconvolution of cube ({}). Padding before: {}; padding after: {}",
         task.taskId, task.paddedBox.box.print(), task.paddedBox.padding.before.print(), task.paddedBox.padding.after.print());
 
     std::shared_ptr<TaskContext> context = task.context;
-    // thread_local IBackend& iodevice = context->iodevice.cloneSharedMemory();
+
+    // create both backends here so that they both use the same backenddevice
+    // then pass the workerbackend to the workerthread to use. If it were created threadlocal on the workerthread
+    // a mismatch could happen where the workerthreads backend is on a different device than the iobackend
     thread_local IBackend& iobackend = context->manager.createBackendForCurrentThread(context->ioconfig);
+    thread_local IBackend& workerbackend = context->manager.createBackendSharedMemoryForCurrentThread(iobackend, context->workerconfig);
 
     std::shared_ptr<ReaderHandler> reader = task.sharedDescriptor->reader;
     std::shared_ptr<ImageWriter> writer = task.sharedDescriptor->writer;

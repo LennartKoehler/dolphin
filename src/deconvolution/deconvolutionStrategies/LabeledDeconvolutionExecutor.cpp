@@ -66,7 +66,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     std::shared_ptr<TaskContext> context = task.context;
     thread_local IBackend& iobackend = context->manager.createBackendForCurrentThread(context->ioconfig);
-    thread_local IBackend& workerbackend = context->manager.createBackendSharedMemoryForCurrentThread(iobackend, context->workerconfig); // copied in deconvolutionprocessor
+    thread_local IBackend& workerbackend = context->manager.createBackendSharedMemoryForCurrentThread(iobackend, context->workerconfig);
 
 
     std::shared_ptr<ReaderHandler> reader = task.sharedDescriptor->reader;
@@ -116,14 +116,13 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
             RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
 
             std::future<void> resultDone = context->processor.deconvolveSingleCube(
-                context,
-                iobackend,
+                workerbackend,
                 task.sharedDescriptor->prototypeAlgorithm,
                 workShape,
                 psfs,
                 local_g_device,
                 f_device,
-                // *context->psfpreprocessor.get(),
+                *context->psfpreprocessor.get(),
                 tracker);
 
             resultDone.get(); //wait for result
