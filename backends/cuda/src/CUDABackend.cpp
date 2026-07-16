@@ -26,6 +26,7 @@ LogCallback g_logger_cuda =[](const std::string& context, const std::string& mes
     std::cout << context << ": " << message << std::endl;
 };
 
+
 void CUDABackendMemoryManager::logWithContext(const std::string& msg, LogLevel level) const {
     g_logger_cuda(buildCudaContext(config), msg, level);
 }

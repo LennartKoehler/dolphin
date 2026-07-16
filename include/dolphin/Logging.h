@@ -5,6 +5,8 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/base_sink.h>
+#include <spdlog/pattern_formatter.h>
+#include <spdlog/details/fmt_helper.h>
 
 #include <filesystem>
 #include <functional>
@@ -13,6 +15,7 @@
 #include <iostream>
 
 namespace Logging{
+
 
     // Callback type for frontend log integration.
     // Receives (log level, message string) for every log message.
@@ -63,6 +66,32 @@ namespace Logging{
         getFrontendSink()->setCallback(LogCallback{});
     }
 
+    // Custom spdlog flag '%@': emits "[tid:<id>] " for the "deconvolution"
+    // logger only; all other loggers emit nothing, keeping their output unchanged.
+    // The thread id is captured by spdlog on the calling thread (before the async
+    // worker picks the message up), so it always reflects the thread that issued
+    // the log call.
+    class deconv_tid_formatter : public spdlog::custom_flag_formatter {
+    public:
+        void format(const spdlog::details::log_msg &msg,
+                    const std::tm &,
+                    spdlog::memory_buf_t &dest) override {
+            constexpr spdlog::string_view_t deconvName{"deconvolution", 13};
+            constexpr spdlog::string_view_t backendName{"backend", 7};
+            if (msg.logger_name == deconvName | msg.logger_name == backendName) {
+                static constexpr char prefix[] = "[tid:";
+                static constexpr char suffix[] = "] ";
+                dest.append(prefix, prefix + sizeof(prefix) - 1);
+                spdlog::details::fmt_helper::append_int(msg.thread_id, dest);
+                dest.append(suffix, suffix + sizeof(suffix) - 1);
+            }
+        }
+
+        std::unique_ptr<custom_flag_formatter> clone() const override {
+            return std::make_unique<deconv_tid_formatter>();
+        }
+    };
+
     // Initialize the logging system.
     //   logDir — directory where debug.log will be written.
     //            Defaults to the current working directory.
@@ -92,14 +121,11 @@ namespace Logging{
             std::vector<spdlog::sink_ptr> sinks {consoleSink, debugLogSink, frontendSink};
 
 
-            std::unique_ptr<spdlog::pattern_formatter> formatterConsole = std::make_unique<spdlog::pattern_formatter>(
-                "[%^%l%$] [%n] [%d-%m-%Y %H:%M:%S] %v"
-            );
+            auto formatterConsole = std::make_unique<spdlog::pattern_formatter>();
+            formatterConsole->add_flag<deconv_tid_formatter>('@').set_pattern("[%^%l%$] [%n] [%d-%m-%Y %H:%M:%S] %@%v");
 
-
-            std::unique_ptr<spdlog::pattern_formatter> formatterLog = std::make_unique<spdlog::pattern_formatter>(
-                "[%^%l%$] [%n] [%d-%m-%Y %H:%M:%S] %v"
-            );
+            auto formatterLog = std::make_unique<spdlog::pattern_formatter>();
+            formatterLog->add_flag<deconv_tid_formatter>('@').set_pattern("[%^%l%$] [%n] [%d-%m-%Y %H:%M:%S] %@%v");
 
             consoleSink->set_formatter(std::move(formatterConsole));
             debugLogSink->set_formatter(std::move(formatterLog));

@@ -125,7 +125,7 @@ IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig&
 
 CUDABackendConfig CUDABackendManager::configToConfig(const BackendConfig& config) {
 
-    int idx = usedDeviceCounter.fetch_add(1) % nDevices;
+    int idx = config.deviceId >= 0 ? config.deviceId : usedDeviceCounter.fetch_add(1) % nDevices;
     CUDADevice device = devices[idx];
 
     CUDABackendConfig cudaconfig{device, createStream()};
@@ -158,7 +158,6 @@ std::unique_ptr<CUDABackendMemoryManager> CUDABackendManager::createMemoryManage
 }
 
 CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
-    // initializeGlobalCUDA();
 
     if (nDevices == 0) {
         throw dolphin::backend::BackendException(
@@ -169,6 +168,8 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
         throw dolphin::backend::BackendException(
             "No CUDA devices configured", "CUDA", "createNewBackend", buildCudaContext(config));
     }
+
+    std::lock_guard<std::mutex> lock(mutex_);
 
     cudaError_t err = cudaSetDevice(config.device.id);
     CUDA_CHECK(err, "createNewBackend - cudaSetDevice", buildCudaContext(config));
@@ -185,15 +186,9 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
                 "Failed to create CUDABackend", "CUDA", "createNewBackend", buildCudaContext(config));
         }
 
-
-
-        // cudaDeviceSynchronize();
-        CUDA_CHECK(err, "createNewBackend - cudaSetDevice reset", buildCudaContext(config));
-
         backends.push_back(std::move(backend));
         return *backends.back();
     } catch (...) {
-        // Clean up stream if backend creation fails
         cudaStreamDestroy(config.stream);
         throw;
     }
