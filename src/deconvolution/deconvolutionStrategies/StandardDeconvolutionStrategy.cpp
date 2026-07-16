@@ -71,6 +71,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     size_t totalThreads = setupConfig.nThreads;
     size_t ioThreads = setupConfig.nIOThreads;
     size_t workerThreads = setupConfig.nWorkerThreads;
+    int nDevices = setupConfig.nDevices;
     // these are necessary as the cpu can have actual seperate threads for each task or use multiple threads for one task
     BackendConfig workerConfig; // these are configured by the backend so that when its given a task it know what to do
     BackendConfig ioConfig;
@@ -78,7 +79,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     resolveThreadsAndDevices(
         BackendFactory::getBackendManagerStatic(setupConfig.backend),
-		setupConfig.nDevices,
+		nDevices,
 		workerThreads,
 		ioThreads,
 		totalThreads,
@@ -89,7 +90,8 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = getCubes(
         ioThreads,
         workerThreads,
-        static_cast<size_t>(setupConfig.maxMemDevice_gb * 1024 * 1024 * 1024),
+        memory.deviceMem_byte,
+        nDevices,
         algorithm,
         psfHandler,
         deconvConfig,
@@ -170,6 +172,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
     const size_t& ioThreads,
     const size_t& workerThreads,
     const size_t& maxMemDevice_byte,
+    const int& nDevices,
     std::shared_ptr<DeconvolutionAlgorithm> algorithm,
     PSFHandler& psfHandler,
     const DeconvolutionConfig& deconvConfig,
@@ -201,7 +204,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
     int maxSubCubes = 20;
     CuboidShape minShape = imageSize / maxSubCubes + padding.getTotalPadding() + CuboidShape{1,1,1}; // TESTVALUE "max of 10 subcubes"
 
-    Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(padding, imageSize, maxMemCubeVolume, workerThreads, deconvConfig.paddingStrategyType, minShape);
+    Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(padding, imageSize, maxMemCubeVolume, workerThreads * nDevices, deconvConfig.paddingStrategyType, minShape);
     if (!cubeCoordinatesWithPaddingResult.success) {
         throw std::runtime_error("Error while splitting image");
     }
@@ -212,7 +215,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
 
 void StandardDeconvolutionStrategy::resolveThreadsAndDevices(
     IBackendManager& manager,
-    int configNDevices,
+    int& configNDevices,
     size_t& nWorkerThreads,
     size_t& nIOThreads,
     size_t& totalThreads,
