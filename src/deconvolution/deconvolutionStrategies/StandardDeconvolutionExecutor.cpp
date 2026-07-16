@@ -79,16 +79,15 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         this->loadingBar.add(iteration);
     };
 
-    spdlog::get("deconvolution")->info("[Task {}] Starting deconvolution with {} PSF(s)", task.taskId, task.sharedDescriptor->psfs.size());
+    spdlog::get("deconvolution")->debug("[Task {}] Starting deconvolution with {} PSF(s)", task.taskId, task.sharedDescriptor->psfs.size());
     std::future<void> resultDone = context->processor.deconvolveSingleCube(
-        context,
-        iobackend,
+        workerbackend,
         task.sharedDescriptor->prototypeAlgorithm,
         workShape,
         task.sharedDescriptor->psfs,
         g_device,
         f_device,
-        // *context->psfpreprocessor.get(),
+        *context->psfpreprocessor.get(),
         tracker);
 
     resultDone.get(); //wait for result
@@ -124,7 +123,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
             // // log the exception,  then enqueue the task in another thread, while this thread simply waits for the result
             // // This effectively removes this thread from the pool until the other thread is done. Then just reduce NumberThreads(1)
             // // will remove the first thread that finishes a task (probably this one as its basically )
-            // spdlog::get("deconvolution")->warn("{} reducing number of threads and copies of subimages", e.getDetailedMessage());
+            // spdlog::get("deconvolution")->warn("[Task {}] reducing number of threads and copies of subimages", e.getDetailedMessage());
             // //TODO reduce number of workerthreads aswell
             // bool noMoreWorkers = context->ioPool.reduceActiveWorkers(1); // marks self as waiting
             //

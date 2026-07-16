@@ -177,9 +177,7 @@ LogCallback& getGlobalLogger() {
 void log(const std::string& message, LogLevel level) {
     auto& cb = getGlobalLogger();
     if (!cb) return;
-    std::ostringstream ctx;
-    ctx << "cpu:cpu:tid:" << std::this_thread::get_id();
-    cb(ctx.str(), message, level);
+    cb("cpu:cpu", message, level);
 }
 
 

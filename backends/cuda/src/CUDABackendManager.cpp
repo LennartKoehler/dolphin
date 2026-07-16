@@ -62,10 +62,8 @@ void CUDABackendManager::init(LogCallback fn) {
 
         devices.push_back(CUDADevice{deviceNumber, new MemoryTracking(totalMem)});
 
-        std::ostringstream ctx;
-        ctx << "cuda:cuda" << deviceNumber << ":tid:" << std::this_thread::get_id() << ":stream:n/a";
         g_logger_cuda(
-            ctx.str(),
+            "cuda:cuda",
             fmt::format("Device {} has compute capability {}.{} and {:.2f} GB memory", deviceNumber, deviceProp.major, deviceProp.minor, (totalMem/1e9)),
             LogLevel::INFO);
         // printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
