@@ -15,48 +15,45 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphin/ThreadPool.h"
 #include "dolphin/deconvolution/Preprocessor.h"
-#include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
-#include "dolphinbackend/IBackendManager.h"
 
 
 
 std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
-    std::shared_ptr<TaskContext>& context,
-    IBackend& iobackend,
+    IBackend& threadbackend,
     std::shared_ptr<DeconvolutionAlgorithm> prototypealgorithm,
     const CuboidShape& workShape,
     const std::vector<std::shared_ptr<PSF>>& psfs_host, // dont pass psfs as ComplexData, because the workerbackend might be needed to preprocess psfs
     RealData& g_device,
     RealData& f_device,
+    PSFPreprocessor& psfPreprocessor,
     std::function<void(int)> progressFunction){
 
     // on workerThread
     std::future<void> resultDone = workerPool->enqueue([
         this,
-        context,
-        &iobackend,
+        &threadbackend,
         prototypealgorithm,
         &psfs_host,
         &workShape,
         &g_device,
         &f_device,
+        &psfPreprocessor,
         progressFunction
     ]() mutable {
 
         //dont allocate and deallocate the helpers of the algorithm every time, just overwrite buffer every time its used
         // the worker owns the algorithm, and doesnt always need to re initialize
         thread_local std::unique_ptr<DeconvolutionAlgorithm> workeralgorithm = prototypealgorithm->clone();
-        thread_local IBackend& threadbackend = context->manager.createBackendSharedMemoryForCurrentThread(iobackend, context->workerconfig); // copied in deconvolutionprocessor
-        thread_local bool initialized = [progressFunction, workShape](IBackend& threadbackend){
+        thread_local bool initialized = [&threadbackend, progressFunction, workShape](){
             workeralgorithm->setBackend(threadbackend);
             workeralgorithm->init(workShape);
             workeralgorithm->setProgressTracker(progressFunction);
-            return true;}(threadbackend);
+            return true;}();
 
         std::vector<const ComplexData*> preprocessedPSFs;
 
         for (auto& psf : psfs_host){
-            preprocessedPSFs.push_back(context->psfpreprocessor.get()->getPreprocessedPSF(workShape, psf, threadbackend));
+            preprocessedPSFs.push_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, threadbackend));
             threadbackend.sync();
         }
 
@@ -69,42 +66,3 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
     });
     return resultDone;
 }
-
-
-
-
-
-// ComplexData DeconvolutionProcessor::staticDeconvolveSingleCube(
-//     IBackend& prototypebackend,
-//     std::unique_ptr<DeconvolutionAlgorithm> algorithm,
-//     const CuboidShape& workShape,
-//     const std::vector<std::shared_ptr<PSF>>& psfs_host, // dont pass psfs as ComplexData, because the workerbackend might be needed to preprocess psfs
-//     ComplexData& g_device,
-//     ComplexData& f_device,
-//     PSFPreprocessor& psfPreprocessor){
-//
-//
-//
-//
-//         // IBackend& prototypebackend = prototypebackend.cloneSharedMemory(prototypebackend);
-//
-//         algorithm->setBackend(prototypebackend);
-//         algorithm->init(workShape);
-//         std::vector<const ComplexData*> preprocessedPSFs;
-//
-//         for (auto& psf : psfs_host){
-//
-//             preprocessedPSFs.push_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, prototypebackend));
-//             prototypebackend.sync();
-//
-//         }
-//         for (const auto* psf_device : preprocessedPSFs){
-//             algorithm->deconvolve(*psf_device, g_device, f_device);
-//             // prototypebackend.getComputeManager().scalarMultiplication(f_device, 1.0 / f_device.size.getVolume(), f_device); // Add normalization
-//             prototypebackend.sync();
-//         }
-//
-//         // prototypebackend.releaseBackend();
-//
-//         return std::move(f_device);
-// }

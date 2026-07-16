@@ -250,9 +250,14 @@ std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createC
     std::vector<std::shared_ptr<TaskContext>> contexts;
 
     for (int i = 0; i < numberDevices; i++){
-        std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(manager, ioconfig, workerconfig, nWorkerThreads, nIOThreads);
+        BackendConfig ctxIoConfig = ioconfig;
+        BackendConfig ctxWorkerConfig = workerconfig;
+        ctxIoConfig.deviceId = i;
+        ctxWorkerConfig.deviceId = i;
 
-        std::unique_ptr<PSFPreprocessor> preprocessor = psfHandler.createPSFPreprocessor(); // new psfpreprocessor for each context because the psfs live on devicecudabac
+        std::shared_ptr<TaskContext> context = std::make_shared<TaskContext>(manager, ctxIoConfig, ctxWorkerConfig, nWorkerThreads, nIOThreads);
+
+        std::unique_ptr<PSFPreprocessor> preprocessor = psfHandler.createPSFPreprocessor();
         context->setPreprocessor(std::move(preprocessor));
         contexts.emplace_back(context);
     }
