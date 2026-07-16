@@ -78,6 +78,7 @@ protected:
         const size_t& ioThreads,
         const size_t& workerThreads,
         const size_t& maxMemDevice_gb,
+        const int& nDevices,
         std::shared_ptr<DeconvolutionAlgorithm> algorithm,
         PSFHandler& psfHandler,
         const DeconvolutionConfig& deconvConfig,
@@ -87,7 +88,7 @@ protected:
 
     void resolveThreadsAndDevices(
         IBackendManager& manager,
-        int configNDevices,
+        int& configNDevices,
         size_t& nWorkerThreads,
         size_t& nIOThreads,
         size_t& totalThreads,
