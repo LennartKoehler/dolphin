@@ -204,7 +204,6 @@ void TiffReader::readSubimageFromTiffFile(TIFF* tiffile, const ITiffRegionReader
         resolveChannel(channel, metaData, ifdchannel, sppchannel);
         regionReader->readRegion(tiffile, metaData, region, image, ifdchannel, sppchannel);
 
-        spdlog::info("Successfully read chunk ({}): ({},{},{}) {}x{}x{}", metaData.filename, region.position.width, region.position.height, region.position.depth, region.dimensions.width, region.dimensions.height, region.dimensions.depth);
     } catch (const TiffException& e) {
         throw e;
     } catch (const std::exception& e){
@@ -296,6 +295,7 @@ BufferIter TiffReader::readSubimage(const BoxCoord& box, std::unique_lock<std::m
         f.get();
     }
 
+    spdlog::info("Successfully read chunk ({}): ({},{},{}) {}x{}x{}", metaData.filename, box.position.width, box.position.height, box.position.depth, box.dimensions.width, box.dimensions.height, box.dimensions.depth);
     if (eptr) {
         decltype(pendingIt->waiters) waiters;
         lock.lock();
