@@ -70,7 +70,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
 
     std::shared_ptr<ReaderHandler> reader = task.sharedDescriptor->reader;
-    std::shared_ptr<ImageWriter> writer = task.sharedDescriptor->writer;
+    std::shared_ptr<WriterHandler> writer = task.sharedDescriptor->writer;
     if (reader->getMetaData().getShape() != labelReader->getMetaData().getShape()){
         throw std::runtime_error("Size of input image is not the same as label image"); // this shouldnt really happend in the runTask function
     }

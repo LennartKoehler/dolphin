@@ -52,6 +52,8 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
     numReaderThreads = other.numReaderThreads;
     outputCompression = other.outputCompression;
     outputCompressionLevel = other.outputCompressionLevel;
+    tileWidth = other.tileWidth;
+    tileLength = other.tileLength;
 
     registerAllParameters();
 }
@@ -70,6 +72,8 @@ SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
         numReaderThreads = other.numReaderThreads;
         outputCompression = other.outputCompression;
         outputCompressionLevel = other.outputCompressionLevel;
+        tileWidth = other.tileWidth;
+        tileLength = other.tileLength;
 
         parameters.clear();
         registerAllParameters();
@@ -173,6 +177,8 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Int, &numReaderThreads, "Number of Reader Threads", true, "n_reader_threads", "--n_reader_threads", "Number of TIFF reader threads (0=auto)", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::String, &outputCompression, "Output Compression", true, "output_compression", "--output_compression", "TIFF compression scheme (none, lzw, deflate)", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Int, &outputCompressionLevel, "Output Compression Level", true, "output_compression_level", "--output_compression_level", "Compression level (-1=default, 1-9 for deflate)", false, true, -1.0, 9.0, nullptr});
+    parameters.push_back({ParameterType::Int, &tileWidth, "Tile Width", true, "tile_width", "--tile_width", "TIFF tile width (0=strips)", false, true, 0.0, 4096.0, nullptr});
+    parameters.push_back({ParameterType::Int, &tileLength, "Tile Length", true, "tile_length", "--tile_length", "TIFF tile length (0=strips)", false, true, 0.0, 4096.0, nullptr});
     parameters.push_back({ParameterType::Bool, &savePsf, "Save PSF", true, "save_psf", "--save_psf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
 
 

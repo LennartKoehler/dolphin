@@ -164,13 +164,7 @@ TEST_F(ReadWriteTest, SetSubimageDepthSplit) {
                             CuboidShape(fullShape.width, fullShape.height, chunkDepth)};
             Image3D chunk = original.getSubimageCopy(subBox);
 
-            BoxCoordWithPadding coord;
-            coord.box.position = CuboidPosition(0, 0, static_cast<int64_t>(z));
-            coord.box.dimensions = CuboidShape(fullShape.width, fullShape.height, chunkDepth);
-            coord.padding.before = CuboidShape(0, 0, 0);
-            coord.padding.after = CuboidShape(0, 0, 0);
-
-            ASSERT_TRUE(writer.setSubimage(chunk, coord));
+            ASSERT_TRUE(writer.setSubimage(chunk, subBox));
         }
     }
 
@@ -192,19 +186,13 @@ TEST_F(ReadWriteTest, SetSubimageWithLZWCompression) {
         WriterCompressionConfig config;
         config.compressionScheme = COMPRESSION_LZW;
         TiffWriter writer(path, fullShape);
-        writer.configure(config);
+        writer.configure(config);  // WriterConfig defaults to strips
         for (size_t z = 0; z < fullShape.depth; z += chunkDepth) {
             BoxCoord subBox{CuboidPosition(0, 0, static_cast<int64_t>(z)),
                             CuboidShape(fullShape.width, fullShape.height, chunkDepth)};
             Image3D chunk = original.getSubimageCopy(subBox);
 
-            BoxCoordWithPadding coord;
-            coord.box.position = CuboidPosition(0, 0, static_cast<int64_t>(z));
-            coord.box.dimensions = CuboidShape(fullShape.width, fullShape.height, chunkDepth);
-            coord.padding.before = CuboidShape(0, 0, 0);
-            coord.padding.after = CuboidShape(0, 0, 0);
-
-            ASSERT_TRUE(writer.setSubimage(chunk, coord));
+            ASSERT_TRUE(writer.setSubimage(chunk, subBox));
         }
     }
 
@@ -231,13 +219,7 @@ TEST_F(ReadWriteTest, SetSubimageSpatialSplit) {
                                     CuboidShape(blockW, blockH, blockD)};
                     Image3D block = original.getSubimageCopy(subBox);
 
-                    BoxCoordWithPadding coord;
-                    coord.box.position = CuboidPosition(static_cast<int64_t>(xOff), static_cast<int64_t>(yOff), static_cast<int64_t>(zOff));
-                    coord.box.dimensions = CuboidShape(blockW, blockH, blockD);
-                    coord.padding.before = CuboidShape(0, 0, 0);
-                    coord.padding.after = CuboidShape(0, 0, 0);
-
-                    ASSERT_TRUE(writer.setSubimage(block, coord));
+                    ASSERT_TRUE(writer.setSubimage(block, subBox));
                 }
             }
         }
@@ -259,7 +241,8 @@ TEST_F(ReadWriteTest, SetSubimageWithPadding) {
     Padding pad{CuboidShape(2, 2, 2), CuboidShape(2, 2, 2)};
 
     {
-        TiffWriter writer(path, fullShape);
+        auto tiffWriter = std::make_shared<TiffWriter>(path, fullShape);
+        WriterHandler writerHandler(tiffWriter);
         for (size_t z = 0; z < fullShape.depth; z += chunkDepth) {
             BoxCoord subBox{CuboidPosition(0, 0, static_cast<int64_t>(z)),
                             CuboidShape(fullShape.width, fullShape.height, chunkDepth)};
@@ -273,7 +256,7 @@ TEST_F(ReadWriteTest, SetSubimageWithPadding) {
             coord.padding.before = pad.before;
             coord.padding.after = pad.after;
 
-            ASSERT_TRUE(writer.setSubimage(chunk, coord));
+            ASSERT_TRUE(writerHandler.setSubimage(chunk, coord));
         }
     }
 

@@ -43,6 +43,9 @@ public:
     std::string outputCompression = "none";
     int outputCompressionLevel = -1;
 
+    int tileWidth = 0;
+    int tileLength = 0;
+
 protected:
 
     virtual void registerAllParameters();
