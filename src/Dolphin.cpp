@@ -17,11 +17,12 @@ See the LICENSE file provided with the code for the full license.
 #include <chrono>
 #include <fstream>
 #include <sys/stat.h>
-
+#include <itkMultiThreaderBase.h>
 
 #include <thread>
 void Dolphin::init(const std::filesystem::path& logDir){
 
+    itk::MultiThreaderBase::SetGlobalDefaultNumberOfThreads(1);
     // Initialize service layer
     Logging::init(logDir);
     if (!service_layer_initialized_) {
