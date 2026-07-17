@@ -123,8 +123,8 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         // this is for the psfs provided as files, the other ones are created using the cube size (see 2 lines above)
         // the read psfs that are SMALLER are later padded to that shape
         if (workShape.getPaddedShape() < psf->getShape()){
-             // spdlog::get("deconvolution")->critical("PSF (ID: {} size: ({})) is larger than the maximum subimage shape ({}) for the given memory limits", psf->getShape().print(), workShape.box.dimensions.print());
-            throw std::runtime_error("PSF (ID: {} size: ({})) is larger than the maximum subimage shape ({}) for the given memory limits");
+            spdlog::get("deconvolution")->critical("PSF (ID: {} with size: ({})) is larger than the maximum subimage shape ({}) for the given memory limits", psf->ID, psf->getShape().print(), workShape.box.dimensions.print());
+            return Result<DeconvolutionPlan>::fail("PSF too large for memory constraints");
         }
     }
 
