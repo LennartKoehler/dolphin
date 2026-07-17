@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include <algorithm>
 #include <cassert>
 #include <string>
+#include <vector>
 
 #include "dolphinbackend/CuboidShape.h"
 
@@ -103,3 +104,50 @@ struct BoxEntryPair {
     BoxEntryPair(BoxCoord b, entryType p)
         : box(b), entry(std::move(p)) {}
 };
+
+inline std::vector<BoxCoord> subtractBox(const BoxCoord& outer, const BoxCoord& inner) {
+    int64_t xStart = std::max<int64_t>(outer.position.width, inner.position.width);
+    int64_t xEnd = std::min<int64_t>(outer.position.width + static_cast<int64_t>(outer.dimensions.width),
+                                     inner.position.width + static_cast<int64_t>(inner.dimensions.width));
+    int64_t yStart = std::max<int64_t>(outer.position.height, inner.position.height);
+    int64_t yEnd = std::min<int64_t>(outer.position.height + static_cast<int64_t>(outer.dimensions.height),
+                                     inner.position.height + static_cast<int64_t>(inner.dimensions.height));
+    int64_t zStart = std::max<int64_t>(outer.position.depth, inner.position.depth);
+    int64_t zEnd = std::min<int64_t>(outer.position.depth + static_cast<int64_t>(outer.dimensions.depth),
+                                     inner.position.depth + static_cast<int64_t>(inner.dimensions.depth));
+
+    if (xStart >= xEnd || yStart >= yEnd || zStart >= zEnd)
+        return {outer};
+
+    std::vector<BoxCoord> result;
+
+    int64_t outerXEnd = outer.position.width + static_cast<int64_t>(outer.dimensions.width);
+    int64_t outerYEnd = outer.position.height + static_cast<int64_t>(outer.dimensions.height);
+    int64_t outerZEnd = outer.position.depth + static_cast<int64_t>(outer.dimensions.depth);
+
+    if (xStart > outer.position.width)
+        result.push_back({{outer.position.width, outer.position.height, outer.position.depth},
+                          {static_cast<size_t>(xStart - outer.position.width), outer.dimensions.height, outer.dimensions.depth}});
+
+    if (xEnd < outerXEnd)
+        result.push_back({{xEnd, outer.position.height, outer.position.depth},
+                          {static_cast<size_t>(outerXEnd - xEnd), outer.dimensions.height, outer.dimensions.depth}});
+
+    if (yStart > outer.position.height)
+        result.push_back({{xStart, outer.position.height, outer.position.depth},
+                          {static_cast<size_t>(xEnd - xStart), static_cast<size_t>(yStart - outer.position.height), outer.dimensions.depth}});
+
+    if (yEnd < outerYEnd)
+        result.push_back({{xStart, yEnd, outer.position.depth},
+                          {static_cast<size_t>(xEnd - xStart), static_cast<size_t>(outerYEnd - yEnd), outer.dimensions.depth}});
+
+    if (zStart > outer.position.depth)
+        result.push_back({{xStart, yStart, outer.position.depth},
+                          {static_cast<size_t>(xEnd - xStart), static_cast<size_t>(yEnd - yStart), static_cast<size_t>(zStart - outer.position.depth)}});
+
+    if (zEnd < outerZEnd)
+        result.push_back({{xStart, yStart, zEnd},
+                          {static_cast<size_t>(xEnd - xStart), static_cast<size_t>(yEnd - yStart), static_cast<size_t>(outerZEnd - zEnd)}});
+
+    return result;
+}
