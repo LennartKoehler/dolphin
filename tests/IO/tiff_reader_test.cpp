@@ -8,6 +8,12 @@
 #include <future>
 #include <vector>
 
+class LoggingEnvironment : public ::testing::Environment {
+public:
+    void SetUp() override { TestUtils::initLogging(); }
+};
+inline ::testing::Environment* logEnv = ::testing::AddGlobalTestEnvironment(new LoggingEnvironment());
+
 namespace {
 
 void expectImageEquals(const Image3D& actual, const Image3D& expected, float tolerance = 0.001f) {
