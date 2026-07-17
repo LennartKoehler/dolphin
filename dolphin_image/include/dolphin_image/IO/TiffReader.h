@@ -38,13 +38,12 @@ See the LICENSE file provided with the code for the full license.
 struct BufferEntry {
     Image3D image;
     BoxCoord source;
+    std::vector<BoxCoord> remainingRegions;
 };
-
-using BufferIter = std::list<BufferEntry>::iterator;
 
 struct PendingRead {
     BoxCoord source;
-    std::vector<std::pair<BoxCoord, std::shared_ptr<std::promise<BufferIter>>>> waiters;
+    std::vector<std::pair<BoxCoord, std::shared_ptr<std::promise<std::shared_ptr<BufferEntry>>>>> waiters;
 };
 
 
@@ -163,7 +162,7 @@ private:
 
     mutable std::mutex mutex_;
     mutable std::condition_variable prefetchCv_;
-    mutable std::list<BufferEntry> bufferedRegions_;
+    mutable std::list<std::shared_ptr<BufferEntry>> bufferedRegions_;
     mutable std::list<PendingRead> pendingReads_;
     mutable std::atomic<size_t> inFlightReads_{0};
 
@@ -171,10 +170,11 @@ private:
     bool isMemoryAvailable(const CuboidShape& requestedSize) const;
     static std::unique_ptr<ITiffRegionReader> getRegionReader(const ImageMetaData& metadata);
     Image3D extractFromBuffer(const BoxCoord& coord, BufferEntry& entry) const;
+    void consumeRegion(const std::shared_ptr<BufferEntry>& entry, const BoxCoord& consumedBox) const;
 
-    std::optional<BufferIter> tryGetFromBuffer(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const;
-    std::optional<BufferIter> tryWaitForInFlightRead(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const;
-    BufferIter readSubimage(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const;
+    std::optional<std::shared_ptr<BufferEntry>> tryGetFromBuffer(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const;
+    std::optional<std::shared_ptr<BufferEntry>> tryWaitForInFlightRead(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const;
+    std::shared_ptr<BufferEntry> readSubimage(const BoxCoord& box, std::unique_lock<std::mutex>& lock) const;
 
     static void readSubimageFromTiffFile(TIFF* tiffile, const ITiffRegionReader* regionReader, const ImageMetaData& metaData, const BoxCoord& region, Image3D& layers, int channel);
     // static void readTiledSubimage(TIFF* tif, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int channel);
