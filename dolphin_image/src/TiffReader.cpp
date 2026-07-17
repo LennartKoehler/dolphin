@@ -88,14 +88,14 @@ void TiffReader::configure(int channel, ReaderConfig config){
 std::optional<Image3D> TiffReader::readTiffFile(const std::string& filename, int channel) {
     try {
         TIFFSetWarningHandler(customTifWarningHandler);
-        ImageMetaData metaData = TiffReader::readMetadata_(filename);
 
-        Image3D image;
-        BoxCoord region{CuboidPosition{0, 0, 0}, CuboidShape{metaData.imageWidth, metaData.imageLength, metaData.slices}};
+        TiffReader reader{filename};
+        ReaderConfig config{1, SIZE_MAX};
+        ImageMetaData metaData = reader.getMetaData();
+        reader.configure(channel, config);
+        BoxCoord region{CuboidShape{0,0,0}, CuboidShape{metaData.imageWidth, metaData.imageLength, metaData.slices}};
 
-        readSubimageFromTiffFileStatic(filename, metaData, region, image, channel);
-
-        return image;
+        return reader.getSubimage(region);
 
     } catch (const TiffMemoryException& e) {
         spdlog::get("reader")->warn("Insufficient memory to read TIFF file {}: {}", filename, e.what());
