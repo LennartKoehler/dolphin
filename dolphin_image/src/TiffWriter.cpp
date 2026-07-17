@@ -215,7 +215,7 @@ void TiffWriter::createNewTile(const BoxCoord& coord) const {
         CuboidPosition{0, 0, coord.position.depth},
         CuboidShape{imageShape.width, imageShape.height, coord.dimensions.depth}
     };
-    tile.interactedValue = 0;
+    tile.remainingRegions = {tile.source};
 
     Image3D image(tile.source.dimensions, -1.0f);
     tile.image = std::move(image);
@@ -241,7 +241,17 @@ void TiffWriter::copyToTile(const Image3D& image, const BoxCoord& coord, const C
 
     BoxCoord sourceRegion{sourceOffset, coord.dimensions};
     ImageOperations::insertCubeInImage(image, sourceRegion, tile.image, srcBox);
-    tile.interactedValue += coord.dimensions.getVolume();
+
+    std::vector<BoxCoord> newRemaining;
+    newRemaining.reserve(tile.remainingRegions.size() * 6);
+    for (const auto& region : tile.remainingRegions) {
+        auto fragments = subtractBox(region, coord);
+        for (auto& frag : fragments) {
+            if (frag.dimensions.getVolume() > 0)
+                newRemaining.push_back(std::move(frag));
+        }
+    }
+    tile.remainingRegions = std::move(newRemaining);
 
     if (isTileFull(tile)) {
         int64_t zPos = tile.source.position.depth;
@@ -254,7 +264,7 @@ void TiffWriter::copyToTile(const Image3D& image, const BoxCoord& coord, const C
 
 
 bool TiffWriter::isTileFull(const ImageBuffer& strip) const {
-    return strip.interactedValue >= strip.source.dimensions.getVolume();
+    return strip.remainingRegions.empty();
 }
 
 
@@ -405,7 +415,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image,
         CuboidShape imgShape = image.getShape();
 
         if (imgShape.depth == 0 || imgShape.width == 0 || imgShape.height == 0) {
-            throw TiffWriteException("Cannot write Image3D: Invalid image dimensions");
+            // throw TiffWriteException("Cannot write Image3D: Invalid image dimensions");
         }
 
         TIFFSetWarningHandler(TiffWriter::customTifWarningHandler);

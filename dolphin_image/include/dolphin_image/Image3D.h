@@ -251,7 +251,7 @@ struct PaddedImage{
 struct ImageBuffer{
     Image3D image;
     BoxCoord source;
-    size_t interactedValue = 0;
+    std::vector<BoxCoord> remainingRegions;
 };
 
 struct ImageMaskPair{
