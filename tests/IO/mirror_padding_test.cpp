@@ -6,6 +6,12 @@
 #include "dolphin_image/Types/BoxCoord.h"
 #include "TestUtils.h"
 
+class LoggingEnvironment : public ::testing::Environment {
+public:
+    void SetUp() override { TestUtils::initLogging(); }
+};
+inline ::testing::Environment* logEnv = ::testing::AddGlobalTestEnvironment(new LoggingEnvironment());
+
 class MirrorPaddingTest : public ::testing::Test {
 protected:
     std::string testDir;

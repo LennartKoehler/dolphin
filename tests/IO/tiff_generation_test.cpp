@@ -4,6 +4,12 @@
 #include "dolphin_image/IO/TiffReader.h"
 #include "TestUtils.h"
 
+class LoggingEnvironment : public ::testing::Environment {
+public:
+    void SetUp() override { TestUtils::initLogging(); }
+};
+inline ::testing::Environment* logEnv = ::testing::AddGlobalTestEnvironment(new LoggingEnvironment());
+
 class TiffGenerationTest : public ::testing::Test {
 protected:
     std::string testDir;

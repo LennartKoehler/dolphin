@@ -9,9 +9,14 @@
 #include "dolphin_image/Image3D.h"
 #include "dolphinbackend/CuboidShape.h"
 #include "dolphin_image/Types/BoxCoord.h"
+#include "dolphin/Logging.h"
 
 namespace TestUtils {
 
+
+inline void initLogging() {
+    Logging::init("/tmp/dolphin");
+}
 
 inline std::string outputPath() {
     auto dir = "/tmp/dolphin";

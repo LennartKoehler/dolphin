@@ -29,12 +29,12 @@ struct TestableReaderHandler : public ReaderHandler{
 class FileTestEnvironment : public ::testing::Environment {
 public:
     ~FileTestEnvironment() override = default;
-    void SetUp() override {}
+    void SetUp() override { TestUtils::initLogging(); }
     void TearDown() override { TestUtils::cleanupDirectory(); }
 };
 
 
-::testing::Environment* env = ::testing::AddGlobalTestEnvironment(new FileTestEnvironment());
+inline ::testing::Environment* env = ::testing::AddGlobalTestEnvironment(new FileTestEnvironment());
 
 TEST_F(ReadWriteTest, WriteAndReadRoundTrip) {
     Image3D original = TestUtils::createRandomImage(16, 16, 8);
