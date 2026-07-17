@@ -17,8 +17,11 @@ public:
 
     Result<Padding> getPadding(
         const SetupConfig& setupConfig,
-        const DeconvolutionConfig& deconvConfig,
-        const CuboidShape& imageSize);
+        const DeconvolutionConfig& deconvConfig);
+
+    Result<CuboidShape> getMaxShape(
+        const SetupConfig& setupConfig,
+        const DeconvolutionConfig& deconvConfig);
 
     std::vector<std::shared_ptr<PSF>> createPSFs(
         const CuboidShape& psfShape);

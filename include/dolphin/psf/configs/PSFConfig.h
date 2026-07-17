@@ -19,10 +19,12 @@ See the LICENSE file provided with the code for the full license.
 #include <iostream>
 
 #include "dolphin/Config.h"
+#include "dolphinbackend/CuboidShape.h"
 
 class PSFConfig : public Config{
 public:
     PSFConfig();
+
     PSFConfig(
         size_t sizeX,
         size_t sizeY,
@@ -38,7 +40,9 @@ public:
     resLateral_nm(resLateral_nm){};
 
     virtual ~PSFConfig(){};
+
     PSFConfig(const PSFConfig& other);
+
     virtual std::string getName() const override{
         return std::string("PSFConfig " + getModelName());
     }
@@ -46,6 +50,11 @@ public:
     std::string getModelName() const {
         return psfModelName;
     }
+
+    CuboidShape getShape() const {
+        return CuboidShape{sizeX, sizeY, sizeZ};
+    }
+
     static std::shared_ptr<PSFConfig> createFromJSON(const json& jsonData);
 
     bool compareDim(const PSFConfig &other);

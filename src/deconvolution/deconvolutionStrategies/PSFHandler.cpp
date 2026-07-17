@@ -33,8 +33,7 @@ CuboidShape PSFHandler::getPaddingFromConfig(std::shared_ptr<PSFConfig> config, 
 
 Result<Padding> PSFHandler::getPadding(
     const SetupConfig& setupConfig,
-    const DeconvolutionConfig& deconvConfig,
-    const CuboidShape& imageSize)
+    const DeconvolutionConfig& deconvConfig)
 {
     Padding padding;
 
@@ -88,11 +87,49 @@ Result<Padding> PSFHandler::getPadding(
             "Padding for cubes is smaller than zero");
     }
 
-    // assert(padding.getTotalPadding() + imageSize >= largestPSF);
 
     return Result<Padding>::ok(std::move(padding));
 }
 
+
+
+
+Result<CuboidShape> PSFHandler::getMaxShape(
+    const SetupConfig& setupConfig,
+    const DeconvolutionConfig& deconvConfig)
+{
+    std::vector<CuboidShape> psfShapes;
+
+    // if a config is given and the psf is generated here then use the psfgenerator to determine how much should
+    // be padded before actually creating the psf, then when creating the psf create it with the size of the image plus padding
+    if (!setupConfig.multiplePsfConfigPaths.empty()){
+        psfConfigs = PSFCreator::generatePSFConfigsFromConfigPath(setupConfig.multiplePsfConfigPaths);
+        for (const auto& config : psfConfigs){
+            CuboidShape paddingSize = getPaddingFromConfig(config, deconvConfig.paddingStrategyType);
+            psfShapes.push_back(config->getShape());
+        }
+    }
+
+    // if psfs are given as files, then the padding is determined by a a function e.g.
+    // just a fixed size or up until the values are below a threshold
+    if (!setupConfig.psfFilePaths.empty()){
+        filePSFs = PSFCreator::readPSFsFromFilePath(setupConfig.psfFilePaths);
+        for (auto& psf : filePSFs){
+            psfShapes.push_back(psf.getShape());
+        }
+    }
+
+    CuboidShape largestPSF = getLargestShape(psfShapes);
+
+    if (largestPSF < CuboidShape{0,0,0})
+    {
+        return Result<Padding>::fail(
+            "Padding for cubes is smaller than zero");
+    }
+
+
+    return Result<CuboidShape>::ok(std::move(largestPSF));
+}
 
 std::vector<std::shared_ptr<PSF>> PSFHandler::createPSFs(
     const CuboidShape& psfShape)
