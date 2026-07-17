@@ -194,7 +194,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
     );
     size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(real_t);
 
-    Result<Padding> paddingResult = psfHandler.getPadding(setupConfig, deconvConfig, imageSize);
+    Result<Padding> paddingResult = psfHandler.getPadding(setupConfig, deconvConfig);
     // this cubepadding might still change due to good shapes for DFT. But this is the minimum!
     if (!paddingResult.success) {
         throw std::runtime_error("Error while getting Padding");
@@ -205,14 +205,22 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
         spdlog::get("deconvolution")->warn("Feathering radius ({}) is smaller than padding (which is probably the size of the psf) ({}), which can cause artifacts",
             deconvConfig.featheringRadius, (padding.before + padding.after).print());
 
-    // Padding imagePadding = getImagePadding(imageSize, idealCubeSize.value, padding);
+    Result<CuboidShape> maxPSFresult = psfHandler.getMaxShape(setupConfig, deconvConfig);
+    // this cubepadding might still change due to good shapes for DFT. But this is the minimum!
+    if (!maxPSFresult.success) {
+        throw std::runtime_error("Error while getting Padding");
+    }
+    CuboidShape maxPSF = std::move(maxPSFresult.value);
 
-    int maxSubCubes = 20;
-    CuboidShape minShape = imageSize / maxSubCubes + padding.getTotalPadding() + CuboidShape{1,1,1}; // TESTVALUE "max of 10 subcubes"
+    CuboidShape minShape = maxPSF + padding.getTotalPadding();
+
+    if (minShape.getVolume() * 4 > maxMemDevice_byte){
+        throw std::runtime_error("Deconvolution with the largest PSF and padding requires too much memory. The minimum size for one cube would be: " + minShape.print());
+    }
 
     Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(padding, imageSize, maxMemCubeVolume, workerThreads * nDevices, deconvConfig.paddingStrategyType, minShape);
     if (!cubeCoordinatesWithPaddingResult.success) {
-        throw std::runtime_error("Error while splitting image");
+        throw std::runtime_error("Error while splitting image" + cubeCoordinatesWithPaddingResult.getErrorString());
     }
     std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = cubeCoordinatesWithPaddingResult.value;
     return cubeCoordinatesWithPadding;
