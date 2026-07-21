@@ -14,7 +14,8 @@ public:
     void reset() {counter.store(0);}
 
     void add(float value){
-        counter.fetch_add(value);
+        float old = counter.load(std::memory_order_relaxed);
+        while (!counter.compare_exchange_weak(old, old + value, std::memory_order_relaxed)) {}
         if(mutex.try_lock()) {
             if (progressCallback) progressCallback(counter, max);
             mutex.unlock();
