@@ -50,10 +50,11 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
-# Static libtiff may reference zstd/lzma/deflate — link them transitively
+# Static libtiff may reference zstd/lzma/deflate/zlib — link them transitively
 find_library(ZSTD_LIBRARY NAMES zstd)
 find_library(LZMA_LIBRARY NAMES lzma)
 find_library(DEFLATE_LIBRARY NAMES deflate)
+find_library(ZLIB_LIBRARY NAMES z zlib)
 set(TIFF_DEPS "")
 if(ZSTD_LIBRARY)
     list(APPEND TIFF_DEPS ${ZSTD_LIBRARY})
@@ -63,6 +64,9 @@ if(LZMA_LIBRARY)
 endif()
 if(DEFLATE_LIBRARY)
     list(APPEND TIFF_DEPS ${DEFLATE_LIBRARY})
+endif()
+if(ZLIB_LIBRARY)
+    list(APPEND TIFF_DEPS ${ZLIB_LIBRARY})
 endif()
 
 

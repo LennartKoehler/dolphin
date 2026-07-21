@@ -14,7 +14,7 @@ public:
     void reset() {counter.store(0);}
 
     void add(float value){
-        counter += value;
+        counter.fetch_add(value);
         if(mutex.try_lock()) {
             if (progressCallback) progressCallback(counter, max);
             mutex.unlock();
