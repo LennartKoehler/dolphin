@@ -39,7 +39,7 @@ protected:
         return manager;
     }
 
-    BackendConfig config{nThreads: 1, backendName: "test"};
+    BackendConfig config{1, "test"};
     IBackend* backend = nullptr;
 
     void SetUp() override {
