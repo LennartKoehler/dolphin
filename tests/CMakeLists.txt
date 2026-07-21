@@ -11,7 +11,9 @@ function(dolphin_add_test name)
     if(ARG_INCLUDES)
         target_include_directories(${name} PRIVATE ${ARG_INCLUDES})
     endif()
-    target_compile_options(${name} PRIVATE -fno-fast-math)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${name} PRIVATE -fno-fast-math)
+    endif()
     target_compile_definitions(${name} PRIVATE
         CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
         CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
@@ -91,7 +93,9 @@ endif()
 add_executable(dolphin_all_tests ${ALL_TEST_SOURCES})
 target_link_libraries(dolphin_all_tests PRIVATE ${ALL_TEST_LIBS})
 target_include_directories(dolphin_all_tests PRIVATE ${ALL_TEST_INCLUDES})
-target_compile_options(dolphin_all_tests PRIVATE -fno-fast-math)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(dolphin_all_tests PRIVATE -fno-fast-math)
+endif()
 target_compile_definitions(dolphin_all_tests PRIVATE
     CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
     CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"

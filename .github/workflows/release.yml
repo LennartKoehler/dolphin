@@ -1,0 +1,168 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # -----------------------------------------------------------------
+  # Ubuntu — Docker-based, extract CLI binary
+  # -----------------------------------------------------------------
+  ubuntu:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.cpu
+          push: false
+          load: true
+          tags: dolphin-release:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract CLI binary
+        run: |
+          docker create --name temp dolphin-release:latest
+          docker cp temp:/workspace/cli-build/dolphin_cli ./dolphin_cli
+          docker rm temp
+          chmod +x ./dolphin_cli
+          tar czf dolphin-linux-x86_64.tar.gz dolphin_cli
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dolphin-linux-x86_64.tar.gz
+
+  # -----------------------------------------------------------------
+  # macOS — Native (Intel + Apple Silicon)
+  # -----------------------------------------------------------------
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: macos-13
+            arch: x86_64
+          - runs-on: macos-14
+            arch: arm64
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies via Homebrew
+        run: brew install libtiff fftw libomp
+
+      - name: Cache ITK
+        id: cache-itk
+        uses: actions/cache@v4
+        with:
+          path: ~/itk-install
+          key: itk-5.4.5-notiff-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Build ITK from source
+        if: steps.cache-itk.outputs.cache-hit != 'true'
+        run: |
+          wget https://github.com/InsightSoftwareConsortium/ITK/releases/download/v5.4.5/InsightToolkit-5.4.5.tar.gz
+          tar -xzf InsightToolkit-5.4.5.tar.gz
+          cd InsightToolkit-5.4.5
+          mkdir ITK-build && cd ITK-build
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=$HOME/itk-install \
+                -DBUILD_TESTING=OFF \
+                -DBUILD_EXAMPLES=OFF \
+                -DModule_ITKIOTIFF=OFF \
+                ..
+          make -j$(sysctl -n hw.ncpu)
+          make install
+
+      - name: Configure & Build library
+        run: |
+          cmake -B build -S . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_CUDA=OFF \
+            -DENABLE_TESTS=OFF \
+            -DENABLE_BENCHMARKS=OFF \
+            -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
+            -DOpenMP_ROOT=$(brew --prefix libomp)
+          cmake --build build -- -j$(sysctl -n hw.ncpu)
+          sudo cmake --install build
+
+      - name: Build CLI frontend
+        run: |
+          cmake -B cli-build -S frontends/cli \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4
+          cmake --build cli-build -- -j$(sysctl -n hw.ncpu)
+
+      - name: Package
+        run: |
+          cp cli-build/dolphin_cli ./dolphin_cli
+          chmod +x ./dolphin_cli
+          tar czf dolphin-macos-${{ matrix.arch }}.tar.gz dolphin_cli
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dolphin-macos-${{ matrix.arch }}.tar.gz
+
+  # -----------------------------------------------------------------
+  # Windows — Native (MSVC + vcpkg)
+  # -----------------------------------------------------------------
+  windows:
+    runs-on: windows-2022
+    env:
+      VCPKG_ROOT: C:\vcpkg
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: C:\vcpkg\installed
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Configure & Build library
+        run: |
+          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DBUILD_CUDA=OFF `
+            -DENABLE_TESTS=OFF `
+            -DENABLE_BENCHMARKS=OFF `
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}\installed
+          cmake --build build --config Release -j
+          cmake --install build --config Release
+
+      - name: Build CLI frontend
+        run: |
+          cmake -B cli-build -S frontends/cli -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH=${{ github.workspace }}\installed
+          cmake --build cli-build --config Release -j
+
+      - name: Package
+        run: |
+          mkdir -p dolphin-windows
+          cp cli-build/Release/dolphin_cli.exe dolphin-windows/
+          cp C:\vcpkg\installed\x64-windows\bin\*.dll dolphin-windows/ 2>$null || true
+          7z a dolphin-windows-x64.zip dolphin-windows/
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dolphin-windows-x64.zip

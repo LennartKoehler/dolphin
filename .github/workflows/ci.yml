@@ -1,0 +1,168 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  # -----------------------------------------------------------------
+  # Ubuntu CPU — Docker-based (Dockerfile.cpu)
+  # -----------------------------------------------------------------
+  ubuntu-cpu:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.cpu
+          push: false
+          load: true
+          tags: dolphin-cpu:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run tests
+        run: docker run --rm dolphin-cpu:latest bash -c 'cd /workspace/build && ctest --output-on-failure'
+
+  # -----------------------------------------------------------------
+  # Ubuntu CUDA — Docker-based (existing Dockerfile, compile-test only)
+  # -----------------------------------------------------------------
+  ubuntu-cuda:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: dolphin-cuda:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run tests (skip CUDA runtime tests — no GPU on CI)
+        run: docker run --rm dolphin-cuda:latest bash -c 'cd /workspace/build && ctest --output-on-failure -E "cuda" || true'
+
+  # -----------------------------------------------------------------
+  # macOS — Native (Intel + Apple Silicon)
+  # -----------------------------------------------------------------
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [macos-13, macos-14]
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies via Homebrew
+        run: |
+          brew install libtiff fftw libomp
+
+      - name: Cache ITK
+        id: cache-itk
+        uses: actions/cache@v4
+        with:
+          path: ~/itk-install
+          key: itk-5.4.5-notiff-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Build ITK from source
+        if: steps.cache-itk.outputs.cache-hit != 'true'
+        run: |
+          wget https://github.com/InsightSoftwareConsortium/ITK/releases/download/v5.4.5/InsightToolkit-5.4.5.tar.gz
+          tar -xzf InsightToolkit-5.4.5.tar.gz
+          cd InsightToolkit-5.4.5
+          mkdir ITK-build && cd ITK-build
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=$HOME/itk-install \
+                -DBUILD_TESTING=OFF \
+                -DBUILD_EXAMPLES=OFF \
+                -DModule_ITKIOTIFF=OFF \
+                ..
+          make -j$(sysctl -n hw.ncpu)
+          make install
+
+      - name: Configure
+        run: |
+          cmake -B build -S . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_CUDA=OFF \
+            -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
+            -DOpenMP_ROOT=$(brew --prefix libomp)
+
+      - name: Build
+        run: cmake --build build -- -j$(sysctl -n hw.ncpu)
+
+      - name: Install
+        run: sudo cmake --install build
+
+      - name: Build CLI frontend
+        run: |
+          cmake -B cli-build -S frontends/cli \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4
+          cmake --build cli-build -- -j$(sysctl -n hw.ncpu)
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
+
+  # -----------------------------------------------------------------
+  # Windows — Native (MSVC + vcpkg)
+  # -----------------------------------------------------------------
+  windows:
+    runs-on: windows-2022
+    env:
+      VCPKG_ROOT: C:\vcpkg
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: C:\vcpkg\installed
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Configure
+        run: |
+          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DBUILD_CUDA=OFF `
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}\installed
+
+      - name: Build
+        run: cmake --build build --config Release -j
+
+      - name: Install
+        run: cmake --install build --config Release
+
+      - name: Build CLI frontend
+        run: |
+          cmake -B cli-build -S frontends/cli -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH=${{ github.workspace }}\installed
+          cmake --build cli-build --config Release -j
+
+      - name: Run tests
+        run: ctest --test-dir build --build-config Release --output-on-failure

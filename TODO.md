@@ -1,27 +1,8 @@
-tiffreader needs to delete unused memory buffers
-
 currently with the changes ot the backendconfig, as this already includes the device, the createbackendiwthsharedmemory is not really needed, as that just used the backends config to configure, now i can just manually take that backends config. Feels like two systems doing the same job
 
 crashes if memory in config is not set propery? should not happen
 
-the host - device memory model and reader writer threads configuration is still not complete
-
-work on the reader writer io and multithreading, see the opencode session with the new bandwidtch
-
-iostat -dx 1 to get read and write bandwidth
-cuda runs out of memory with many io threads
-
-extract with padding? as one operation? both are just copy operations
-
-work on the tiffreade prefetch
-
 there might still be wrong with how the subimages are stitched back together, there is an artifact when using "parent" padding strategy althugh this should be sufficient padding
-
-reader prefetch is weird. It basically allows the deconvexecutor to queue tasks into prefetch. So that if the deconvexecutor is busy (the io threads) the reader can still run. But this only makes sense when the iothread is busy before the reader reads data which prob doesnt happen. Otherwise the prefetch is just used to limit the number of subimage allocated in ram. So if i have 10iothreads and limit prefetch to 2 then the other 8 iothreads will prob have to wait
-
-then move to use github actions to get automatic builds
-
-include reader and writer in memory model, so if cpu then this has to be accounted for
 
 error when psf config or other path not found
 

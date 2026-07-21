@@ -6,6 +6,10 @@ project(DolphinGUI)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
 
 
 
@@ -50,7 +54,7 @@ target_link_libraries(implot3d_lib PUBLIC
 
 # Find the dolphin package
 find_package(dolphin REQUIRED)
-find_package(CUDAToolkit REQUIRED)
+find_package(CUDAToolkit QUIET)
 
 # Add OpenGL and GLFW dependencies
 find_package(OpenGL REQUIRED)

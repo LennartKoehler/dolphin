@@ -22,23 +22,27 @@ endif()
 add_library(project_options INTERFACE)
 
 
-target_compile_options(project_options INTERFACE
-  # Release
-  $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops;-mavx2;-mfma> #TESTVALUE -g
-  # Debug
-  $<$<CONFIG:Debug>:-g;-O0;-fno-omit-frame-pointer>
-  # DebugVectorization
-  $<$<CONFIG:DebugVectorization>:-g;-O0;-fno-omit-frame-pointer>
-  #NoVectorization
-  $<$<CONFIG:NoVectorization>:-O3;-ffast-math;-DNDEBUG;-fno-tree-vectorize;-fno-tree-slp-vectorize>
-  # RelWithDebInfo
-  $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-DNDEBUG;-funroll-loops>
-)
-
-# architecture flags only for Release (avoid -march=native for Debug)
-target_compile_options(project_options INTERFACE
-  $<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:GNU>>:-mavx2;-mfma>
-)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(project_options INTERFACE
+      $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops>
+      $<$<CONFIG:Debug>:-g;-O0;-fno-omit-frame-pointer>
+      $<$<CONFIG:DebugVectorization>:-g;-O0;-fno-omit-frame-pointer>
+      $<$<CONFIG:NoVectorization>:-O3;-ffast-math;-DNDEBUG;-fno-tree-vectorize;-fno-tree-slp-vectorize>
+      $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-DNDEBUG;-funroll-loops>
+    )
+    # x86-only AVX flags (skip on ARM/Apple Silicon)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|AMD64|i386|i686)")
+      target_compile_options(project_options INTERFACE
+        $<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:GNU>>:-mavx2;-mfma>
+      )
+    endif()
+elseif(MSVC)
+    target_compile_options(project_options INTERFACE
+      $<$<CONFIG:Release>:/O2;/fp:fast;/DNDEBUG>
+      $<$<CONFIG:Debug>:/Od;/Zi;/RTC1>
+      $<$<CONFIG:RelWithDebInfo>:/O2;/fp:fast;/DNDEBUG;/Zi>
+    )
+endif()
 
 # link_directories(/usr/local/lib)
 set(BUILD_SHARED_LIBS OFF)
@@ -47,8 +51,12 @@ find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
 
-set(FFTW_PATH "/usr/local/fftw-release/lib" CACHE PATH "Path to FFTW installation") # set default path
-message(STATUS "Using the following FFTW lib: ${FFTW_PATH}")
+set(FFTW_PATH "" CACHE PATH "Path to FFTW installation (empty = use system default)")
+if(FFTW_PATH)
+    message(STATUS "Using FFTW lib from: ${FFTW_PATH}")
+else()
+    message(STATUS "Using system default FFTW")
+endif()
 
 message(STATUS "ITK version: ${ITK_VERSION}")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
