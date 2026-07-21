@@ -16,6 +16,13 @@ See the LICENSE file provided with the code for the full license.
 #include <cmath>
 #include <algorithm>
 
+#if defined(__APPLE__)
+#include <math.h>
+inline double dolphin_cyl_bessel_j0(double x) { return ::j0(x); }
+#else
+inline double dolphin_cyl_bessel_j0(double x) { return std::cyl_bessel_j(0, x); }
+#endif
+
 // precomputed the bessel function to be reused later -> speedup, but more memory usage (~1MB)
 class BesselHelper {
 public:
@@ -31,7 +38,7 @@ public:
         besselValues.resize(static_cast<size_t>((max - min) / dx) + 1);
         for (size_t i = 0; i < besselValues.size(); i++) {
             double x = min + i * dx;
-            besselValues[i] = std::cyl_bessel_j(0, x);
+            besselValues[i] = dolphin_cyl_bessel_j0(x);
         }
     }
 
@@ -44,7 +51,7 @@ public:
 
     inline double calcBessel(const double& x) const{
         
-        double BesselValue = std::cyl_bessel_j(0, x);
+        double BesselValue = dolphin_cyl_bessel_j0(x);
         return BesselValue;
     }
 private:
