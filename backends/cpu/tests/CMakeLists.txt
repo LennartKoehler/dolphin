@@ -11,6 +11,7 @@ add_executable(cpu_backend_test
 target_link_libraries(cpu_backend_test
     PRIVATE
         cpu_backend
+        dolphinbackend
         GTest::gtest_main
 )
 

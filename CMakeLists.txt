@@ -50,6 +50,21 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
+# Static libtiff may reference zstd/lzma/deflate — link them transitively
+find_library(ZSTD_LIBRARY NAMES zstd)
+find_library(LZMA_LIBRARY NAMES lzma)
+find_library(DEFLATE_LIBRARY NAMES deflate)
+set(TIFF_DEPS "")
+if(ZSTD_LIBRARY)
+    list(APPEND TIFF_DEPS ${ZSTD_LIBRARY})
+endif()
+if(LZMA_LIBRARY)
+    list(APPEND TIFF_DEPS ${LZMA_LIBRARY})
+endif()
+if(DEFLATE_LIBRARY)
+    list(APPEND TIFF_DEPS ${DEFLATE_LIBRARY})
+endif()
+
 
 set(FFTW_PATH "" CACHE PATH "Path to FFTW installation (empty = use system default)")
 if(FFTW_PATH)
@@ -198,6 +213,7 @@ target_link_libraries(dolphin
         dolphinbackend
         cpu_backend
         ${TIFF_LIBRARIES}
+        ${TIFF_DEPS}
         ${ITK_LIBRARIES}
 )
 

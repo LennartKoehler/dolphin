@@ -21,6 +21,7 @@ add_library(dolphin_image STATIC ${DOLPHIN_IMAGE_SOURCES})
 target_link_libraries(dolphin_image PUBLIC
     dolphinbackend
     ${TIFF_LIBRARIES}
+    ${TIFF_DEPS}
     ${ITK_LIBRARIES}
 )
 target_link_libraries(dolphin_image PRIVATE project_options)
