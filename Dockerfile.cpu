@@ -1,5 +1,5 @@
-# Base image
-FROM nvidia/cuda:13.0.0-devel-ubuntu22.04
+# Base image — lightweight, no CUDA
+FROM ubuntu:22.04
 
 # Install build tools
 RUN apt-get update && apt-get install -y \
@@ -97,16 +97,14 @@ WORKDIR /workspace
 COPY . /workspace
 
 # -----------------------
-# Build your project
+# Build project (CPU only)
 # -----------------------
-ARG BUILD_CUDA=ON
 WORKDIR /workspace
 RUN rm -rf build && mkdir build
 WORKDIR /workspace/build
 RUN cmake -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_CUDA=${BUILD_CUDA} \
+          -DBUILD_CUDA=OFF \
           -DFFTW_PATH="/usr/local/fftw3/lib" \
-          -DCMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST \
           .. && \
     cmake --build . -- -j$(nproc) && \
     cmake --install .

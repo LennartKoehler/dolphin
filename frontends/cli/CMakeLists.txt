@@ -8,10 +8,13 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS On)
-set(CMAKE_BUILD_TYPE Debug)
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
 
 find_package(dolphin REQUIRED)
-find_package(CUDAToolkit REQUIRED)
+find_package(CUDAToolkit QUIET)
 # Create CLI executable
 add_executable(dolphin_cli
     src/main.cpp

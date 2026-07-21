@@ -17,11 +17,13 @@ if (NOT DEFINED FFTW_WISDOM_PATH)
     endif()
 endif()
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
-find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
+find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} REQUIRED)
+find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads fftw3f_omp PATHS ${FFTW_PATH} REQUIRED)
 
-find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads fftw3f_omp PATHS ${FFTW_PATH} NO_DEFAULT_PATH REQUIRED)
-
-get_filename_component(FFTW_INCLUDE_DIR "${FFTW_PATH}/../include" ABSOLUTE)
+# Find FFTW header — check FFTW_PATH/../include, then standard system paths
+find_path(FFTW_INCLUDE_DIR NAMES fftw3.h
+    PATHS ${FFTW_PATH}/../include /usr/include /usr/local/include /opt/homebrew/include
+    REQUIRED)
 
 
 

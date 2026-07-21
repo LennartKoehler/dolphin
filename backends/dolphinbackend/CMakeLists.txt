@@ -16,8 +16,10 @@ endif()
 add_library(dolphinbackend STATIC ${SOURCES})
 
 target_link_libraries(dolphinbackend PRIVATE project_options)
-# Statically link libstdc++ and libgcc so binaries run on older systems
-target_link_options(dolphinbackend PUBLIC -static-libstdc++ -static-libgcc)
+# Statically link libstdc++ and libgcc so binaries run on older systems (GCC/Linux only)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT APPLE)
+    target_link_options(dolphinbackend PUBLIC -static-libstdc++ -static-libgcc)
+endif()
 # target_compile_options(dolphinbackend PRIVATE
 #     -g
 #     -O0

@@ -3,7 +3,7 @@
 include(CMakeFindDependencyMacro)
 
 # Find the dependencies that dolphin needs
-find_dependency(OpenMP REQUIRED)
+find_dependency(OpenMP QUIET)
 find_dependency(TIFF REQUIRED)
 find_dependency(ITK REQUIRED)
 
