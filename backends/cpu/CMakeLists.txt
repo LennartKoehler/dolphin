@@ -16,16 +16,23 @@ if (NOT DEFINED FFTW_WISDOM_PATH)
         set(FFTW_WISDOM_PATH "~/.cache/dolphin/fftw/wisdom" CACHE PATH "Path to FFTW wisdom file")
     endif()
 endif()
-set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
-find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} REQUIRED)
-find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads fftw3f_omp PATHS ${FFTW_PATH} REQUIRED)
+# Try vcpkg/CMake config first (threads compiled into main lib on Windows)
+find_package(FFTW3f CONFIG QUIET)
 
-# Find FFTW header — check FFTW_PATH/../include, then standard system paths
-find_path(FFTW_INCLUDE_DIR NAMES fftw3.h
-    PATHS ${FFTW_PATH}/../include /usr/include /usr/local/include /opt/homebrew/include
-    REQUIRED)
+if(FFTW3f_FOUND)
+    message(STATUS "Found FFTW3f via CMake config")
+    set(FFTW3_LIB FFTW3::fftw3f)
+    set(FFTW3_THREADS_LIB "")
+else()
+    # Manual find for Unix/homebrew/local installs
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
+    find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} REQUIRED)
+    find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads fftw3f_omp PATHS ${FFTW_PATH} REQUIRED)
 
-
+    find_path(FFTW_INCLUDE_DIR NAMES fftw3.h
+        PATHS ${FFTW_PATH}/../include /usr/include /usr/local/include /opt/homebrew/include
+        REQUIRED)
+endif()
 
 # If using OpenMP version of FFTW, find OpenMP
 if(FFTW3_THREADS_LIB MATCHES "omp")
