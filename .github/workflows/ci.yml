@@ -159,6 +159,15 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Restore vcpkg binary cache
+        id: vcpkg-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ runner.arch }}-
+
       - name: Create vcpkg binary cache directory
         shell: pwsh
         run: |
@@ -168,20 +177,22 @@ jobs:
             -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
             Out-Null
 
-      - name: Cache vcpkg binaries
-        uses: actions/cache@v4
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -B build -S . `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+            -DBUILD_CUDA=OFF `
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
+
+      - name: Save vcpkg binary cache
+        if: steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-binary-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
-          restore-keys: |
-            vcpkg-binary-${{ runner.os }}-
-
-      - name: Configure
-        run: |
-          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 `
-            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
-            -DBUILD_CUDA=OFF `
-            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}\installed
+          key: ${{ steps.vcpkg-cache-restore.outputs.cache-primary-key }}
 
       - name: Build
         run: cmake --build build --config Release -j
@@ -190,10 +201,13 @@ jobs:
         run: cmake --install build --config Release
 
       - name: Build CLI frontend
+        shell: pwsh
         run: |
-          cmake -B cli-build -S frontends/cli -G "Visual Studio 17 2022" -A x64 `
-            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
-            -DCMAKE_PREFIX_PATH=${{ github.workspace }}\installed
+          cmake -B cli-build -S frontends/cli `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+            -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
 
           cmake --build cli-build --config Release -j
 
