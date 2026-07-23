@@ -13,6 +13,12 @@
 
 #ifdef __linux__
 #include <unistd.h>
+#elif _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#undef ERROR
+#undef DEBUG
 #endif
 
 #include "CPUBackendManager.h"
@@ -207,7 +213,6 @@ size_t CPUBackendMemoryManager::staticGetAvailableMemory() {
         memory = static_cast<size_t>(pagesize) * static_cast<size_t>(pages);
     }
 #elif _WIN32
-#include <windows.h>
     MEMORYSTATUSEX status;
     status.dwLength = sizeof(status);
     GlobalMemoryStatusEx(&status);
