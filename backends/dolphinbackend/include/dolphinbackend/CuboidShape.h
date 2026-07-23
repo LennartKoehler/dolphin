@@ -71,9 +71,9 @@ struct CuboidShape{
 
     inline void toNextPowerOfTwo(){
         assert(*this > CuboidShape(0,0,0));
-        width = std::bit_ceil(static_cast<uint>(width));
-        height = std::bit_ceil(static_cast<uint>(height));
-        depth = std::bit_ceil(static_cast<uint>(depth));
+        width = std::bit_ceil(static_cast<uint32_t>(width));
+        height = std::bit_ceil(static_cast<uint32_t>(height));
+        depth = std::bit_ceil(static_cast<uint32_t>(depth));
     }
 
 
