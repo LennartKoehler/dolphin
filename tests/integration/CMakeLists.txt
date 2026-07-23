@@ -22,6 +22,12 @@ dolphin_add_test(main_integration_test
     INCLUDES ${TEST_INCLUDES}
 )
 
+dolphin_add_test(e2e_deconvolution_test
+    SOURCES e2e_deconvolution_test.cpp
+    LIBS dolphin
+    INCLUDES ${TEST_INCLUDES}
+)
+
 add_executable(main_test
     main_test.cpp)
 
