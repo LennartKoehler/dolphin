@@ -38,10 +38,13 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 elseif(MSVC)
     target_compile_options(project_options INTERFACE
+      /utf-8
+      /Zc:preprocessor
       $<$<CONFIG:Release>:/O2;/fp:fast;/DNDEBUG>
       $<$<CONFIG:Debug>:/Od;/Zi;/RTC1>
       $<$<CONFIG:RelWithDebInfo>:/O2;/fp:fast;/DNDEBUG;/Zi>
     )
+    target_compile_definitions(project_options INTERFACE _USE_MATH_DEFINES)
 endif()
 
 # link_directories(/usr/local/lib)
@@ -92,6 +95,8 @@ message(STATUS "ITKCommon RELEASE: ${itk_release}")
 message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
 
 # GoogleTest — fetched early so backend test subdirectories can use it
+# Ensure GoogleTest uses the same CRT (dynamic /MD) as the project
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 include(FetchContent)
 FetchContent_Declare(
     googletest
