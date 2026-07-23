@@ -1,0 +1,154 @@
+[trace] [deconvolution] [21-07-2026 14:58:37] [tid:33702] Deconvolution Service initialized successfully
+[info] [deconvolution] [21-07-2026 14:58:37] [tid:33702] Starting deconvolution with request: /tmp/dolphin/e2e_test/gradient_input.tif
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33702] Configuring StandardDeconvolutionExecutor
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33702] Using image with the following metadata ImageMetaData:
+  filename:                 /tmp/dolphin/e2e_test/gradient_input.tif
+  imageType:                
+  description:              
+  imageWidth:               32
+  imageLength:              32
+  slices:                   16
+  frameCount:               0
+  resolutionUnit:           1
+  samplesPerPixel:          1
+  bitsPerSample:            32
+  photometricInterpretation: 1
+  linChannels:              1
+  planarConfig:             1
+  totalImages:              18446744073709551615
+  dataType:                 0
+  xResolution:              0
+  yResolution:              0
+  maxSampleValue:           1
+  minSampleValue:           0
+  sampleFormat:             3
+  isTiled:                  false
+  tileWidth:                0
+  tileLength:               0
+  rowsPerStrip:             32
+  shape:                    32 x 32 x 16
+[info] [backend] [21-07-2026 14:58:37] [tid:33702] cuda:cuda: Device 0 has compute capability 7.5 and 8.13 GB memory
+[debug] [default] [21-07-2026 14:58:37] TiffWriter configured: compression=none, level=-1, tiles=0x0
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33702] Using the following deconvolution config
+[debug] [config] [21-07-2026 14:58:37] (DeconvolutionConfig) Algorithm Name: RichardsonLucy
+[debug] [config] [21-07-2026 14:58:37] (DeconvolutionConfig) Iterations: 5
+[debug] [config] [21-07-2026 14:58:37] (DeconvolutionConfig) Epsilon: 1e-06
+[debug] [config] [21-07-2026 14:58:37] (DeconvolutionConfig) Lambda: 0.001
+[debug] [config] [21-07-2026 14:58:37] (DeconvolutionConfig) Padding Fill: mirror
+[debug] [config] [21-07-2026 14:58:37] (DeconvolutionConfig) Padding Strategy: parent
+[debug] [config] [21-07-2026 14:58:37] (DeconvolutionConfig) Padding Relative Max: 0.001
+[debug] [config] [21-07-2026 14:58:37] (DeconvolutionConfig) Feathering Radius: 0
+[debug] [config] [21-07-2026 14:58:37] (DeconvolutionConfig) Cube Size: [0, 0, 0]
+[debug] [config] [21-07-2026 14:58:37] (DeconvolutionConfig) Cube Padding: [-1, -1, -1]
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33702] Using the following setup config
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Backend: cpu
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Number of Threads: 1
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Number of Worker Threads: 1
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Number of IO Threads: 1
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Number of Devices: 1
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Max Memory Host (GB): 8
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Max Memory Device (GB): 8
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Image Path: /tmp/dolphin/e2e_test/gradient_input.tif
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Output Path: /tmp/dolphin/e2e_test/deconv_result.tif
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Number of Reader Threads: 0
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Output Compression: none
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Output Compression Level: -1
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Tile Width: 0
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Tile Length: 0
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Save PSF: true
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) PSF File Paths: []
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Multiple PSF Config Paths: [/tmp/dolphin/e2e_test/psf_config.json]
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) PSF Config Path: 
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Labeled Image: 
+[debug] [config] [21-07-2026 14:58:37] (SetupConfig) Label PSF Map: 
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Size X: 32
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Size Y: 32
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Size Z: 16
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Numerical Aperture: 1
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Lateral Resolution (nm): 5000
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Axial Resolution (nm): 5000
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) ID: e2e_gaussian
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Model Name: Gaussian
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Quality Factor: 1
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Sigma X: 5
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Sigma Y: 5
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Sigma Z: 5
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Nanometer Scale: 1e-09
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Pixel Scaling: 1e-06
+[info] [default] [21-07-2026 14:58:37] Generating PSF of type Gaussian with ID: e2e_gaussian
+[info] [default] [21-07-2026 14:58:37] Successfully created PSF of type Gaussian with ID: e2e_gaussian
+[debug] [config] [21-07-2026 14:58:37] Using the following PSF from config
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Size X: 54
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Size Y: 54
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Size Z: 36
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Numerical Aperture: 1
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Lateral Resolution (nm): 5000
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Axial Resolution (nm): 5000
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) ID: e2e_gaussian
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Model Name: Gaussian
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Quality Factor: 1
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Sigma X: 5
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Sigma Y: 5
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Sigma Z: 5
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Nanometer Scale: 1e-09
+[debug] [config] [21-07-2026 14:58:37] (PSFConfig Gaussian) Pixel Scaling: 1e-06
+[info] [deconvolution] [21-07-2026 14:58:37] [tid:33702] Successfully created deconvolution plan with 1 total cubes. Each cube has size (width x height x depth) (54 x 54 x 36) which includes padding (padding before, padding after) (10 x 10 x 10, 12 x 12 x 10)
+[debug] [default] [21-07-2026 14:58:37] Writing TIFF: compression=none, level=-1, tiles=0x0
+[info] [deconvolution] [21-07-2026 14:58:37] [tid:33702] Starting parallel deconvolution with 1 task(s)
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33702] [Task 0] Creating task for cube (Position: 0 x 0 x 0; Dimensions: 32 x 32 x 16)
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33702] All 1 task(s) enqueued, waiting for completion
+[trace] [default] [21-07-2026 14:58:37] tid:137035025215488 starting task
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Task dispatched to worker thread
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Starting deconvolution of cube (Position: 0 x 0 x 0; Dimensions: 32 x 32 x 16). Padding before: 10 x 10 x 10; padding after: 12 x 12 x 10
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Work shape (with padding): 54 x 54 x 36
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Reading subimage from input
+[info] [default] [21-07-2026 14:58:37] Successfully read chunk (/tmp/dolphin/e2e_test/gradient_input.tif): (0,0,0) 32x32x16
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Converting input image to real data
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: allocateMemoryOnDeviceRealFFTInPlace for shape: 54 x 54 x 36
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: Allocated 0.44 MB
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Copying input data to device
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: copyDataToDevice: 0.44 MB, shape: 54 x 54 x 36
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: Allocated 0.44 MB
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: Deallocated 0.44 MB
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Allocating output buffer on device
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: allocateMemoryOnDeviceRealFFTInPlace for shape: 54 x 54 x 36
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: Allocated 0.44 MB
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Starting deconvolution with 1 PSF(s)
+[trace] [default] [21-07-2026 14:58:37] tid:137035016822784 starting task
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: allocateMemoryOnDeviceComplex for shape: 54 x 54 x 36
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: Allocated 0.44 MB
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: allocateMemoryOnDeviceComplex for shape: 54 x 54 x 36
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: Allocated 0.44 MB
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33716] PSF cache miss (shape: 54 x 54 x 36, psf: e2e_gaussian, device: cpu)
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33716] Preprocessing PSF...
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: allocateMemoryOnDeviceRealFFTInPlace for shape: 54 x 54 x 36
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: Allocated 0.44 MB
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: copyDataToDevice: 0.44 MB, shape: 54 x 54 x 36
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: Allocated 0.44 MB
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: Successfully imported FFTW wisdom from: /home/lennart-k-hler/.cache/dolphin/fftw/wisdom
+[info] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: Successfully created FFTW r2c plan (in-place) which uses 1 threads for shape: 54x54x36
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: Deallocated 0.44 MB
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: memCopy: 0.44 MB, shape: 54 x 54 x 36
+[info] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: Successfully created FFTW r2c plan (out-of-place) which uses 1 threads for shape: 54x54x36
+[info] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: Successfully created FFTW c2r plan (in-place) which uses 1 threads for shape: 54x54x36
+[trace] [default] [21-07-2026 14:58:37] tid:137035016822784 finished task
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Deconvolution finished, syncing backend
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Moving result data from device to host
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: moveDataFromDevice: 0.44 MB, shape: 54 x 54 x 36
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: moveDataFromDevice: cross-backend transfer to cpu
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: copyDataToDevice: 0.44 MB, shape: 54 x 54 x 36
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: Allocated 0.44 MB
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Converting result to image
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Writing result subimage
+[info] [default] [21-07-2026 14:58:37] Successfully saved ImageFileDirectory (/tmp/dolphin/e2e_test/deconv_result.tif): 0 - 16
+[debug] [deconvolution] [21-07-2026 14:58:37] [tid:33715] [Task 0] Done
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: Deallocated 0.44 MB
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: Deallocated 0.44 MB
+[debug] [backend] [21-07-2026 14:58:37] [tid:33715] cpu:cpu: Deallocated 0.44 MB
+[trace] [default] [21-07-2026 14:58:37] tid:137035025215488 finished task
+[info] [deconvolution] [21-07-2026 14:58:37] [tid:33702] Parallel deconvolution finished
+[debug] [backend] [21-07-2026 14:58:37] [tid:33702] cpu:cpu: Deallocated 0.44 MB
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: Deallocated 0.44 MB
+[debug] [backend] [21-07-2026 14:58:37] [tid:33716] cpu:cpu: Deallocated 0.44 MB
+[info] [deconvolution] [21-07-2026 14:58:37] [tid:33702] Deconvolution finished successfully
+[debug] [backend] [21-07-2026 14:58:37] [tid:33702] cpu:cpu: Successfully exported FFTW wisdom to: /home/lennart-k-hler/.cache/dolphin/fftw/wisdom

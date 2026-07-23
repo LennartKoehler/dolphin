@@ -33,6 +33,6 @@ target_include_directories(dolphin_image
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../lib/spdlog/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../backends/dolphinbackend/include/>
         $<INSTALL_INTERFACE:include>
-        ${TIFF_INCLUDE_DIR}
-        ${ITK_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${TIFF_INCLUDE_DIR}>
+        $<BUILD_INTERFACE:${ITK_INCLUDE_DIRS}>
 )
