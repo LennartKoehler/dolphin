@@ -54,9 +54,13 @@ find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
 # Static libtiff may reference zstd/lzma/deflate/zlib/jpeg — link them transitively
-find_library(ZSTD_LIBRARY NAMES zstd)
-find_library(LZMA_LIBRARY NAMES lzma)
-find_library(DEFLATE_LIBRARY NAMES deflate)
+# On Windows (vcpkg), TIFF::TIFF already provides transitive deps; find_library
+# would pick up incompatible MinGW DLLs from Git's PATH.
+if(NOT WIN32)
+    find_library(ZSTD_LIBRARY NAMES zstd)
+    find_library(LZMA_LIBRARY NAMES lzma)
+    find_library(DEFLATE_LIBRARY NAMES deflate)
+endif()
 find_package(ZLIB QUIET)
 find_package(JPEG QUIET)
 set(TIFF_DEPS "")
