@@ -145,7 +145,12 @@ TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShap
     imageShape(imageShape)
     {
     TIFFSetWarningHandler(TiffWriter::customTifWarningHandler);
-    this->tif = openTiff(filename.c_str(), imageShape);
+    try {
+        this->tif = openTiff(filename.c_str(), imageShape);
+    } catch (const std::exception& e) {
+        spdlog::error("{}", e.what());
+        throw;
+    }
     regionWriter_ = std::make_unique<TiffRegionWriterStripped>();
 }
 

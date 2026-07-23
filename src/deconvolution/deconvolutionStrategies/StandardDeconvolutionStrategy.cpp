@@ -220,7 +220,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
 
     Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(padding, imageSize, maxMemCubeVolume, workerThreads * nDevices, deconvConfig.paddingStrategyType, minShape);
     if (!cubeCoordinatesWithPaddingResult.success) {
-        throw std::runtime_error("Error while splitting image" + cubeCoordinatesWithPaddingResult.getErrorString());
+        throw std::runtime_error("Error while splitting image: " + cubeCoordinatesWithPaddingResult.getErrorString());
     }
     std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = cubeCoordinatesWithPaddingResult.value;
     return cubeCoordinatesWithPadding;
