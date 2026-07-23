@@ -59,8 +59,11 @@ target_include_directories(cpu_backend
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib/spdlog/include>
-        ${FFTW_INCLUDE_DIR}
 )
+
+if(FFTW_INCLUDE_DIR)
+    target_include_directories(cpu_backend PUBLIC $<BUILD_INTERFACE:${FFTW_INCLUDE_DIR}>)
+endif()
 
 
 

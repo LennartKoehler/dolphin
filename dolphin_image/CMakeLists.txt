@@ -20,7 +20,7 @@ add_library(dolphin_image STATIC ${DOLPHIN_IMAGE_SOURCES})
 
 target_link_libraries(dolphin_image PUBLIC
     dolphinbackend
-    ${TIFF_LIBRARIES}
+    TIFF::TIFF
     ${TIFF_DEPS}
     ${ITK_LIBRARIES}
 )
@@ -33,6 +33,4 @@ target_include_directories(dolphin_image
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../lib/spdlog/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../backends/dolphinbackend/include/>
         $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${TIFF_INCLUDE_DIR}>
-        $<BUILD_INTERFACE:${ITK_INCLUDE_DIRS}>
 )

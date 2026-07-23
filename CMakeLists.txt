@@ -211,8 +211,6 @@ target_include_directories(dolphin
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/spdlog/include/>
         $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${TIFF_INCLUDE_DIR}>
-        $<BUILD_INTERFACE:${ITK_INCLUDE_DIRS}>
 )
 
 target_link_libraries(dolphin
@@ -220,7 +218,7 @@ target_link_libraries(dolphin
         dolphin_image
         dolphinbackend
         cpu_backend
-        ${TIFF_LIBRARIES}
+        TIFF::TIFF
         ${TIFF_DEPS}
         ${ITK_LIBRARIES}
 )
