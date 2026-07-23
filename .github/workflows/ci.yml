@@ -149,20 +149,23 @@ jobs:
   # -----------------------------------------------------------------
   windows:
     runs-on: windows-2022
+
     env:
       VCPKG_ROOT: C:\vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-binary-cache
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Cache vcpkg
+      - name: Cache vcpkg binaries
         uses: actions/cache@v4
         with:
-          path: |
-            ${{ github.workspace }}\build\vcpkg_installed
-            $LOCALAPPDATA\vcpkg\archives
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-binary-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'triplets/**', 'ports/**') }}
+          restore-keys: |
+            vcpkg-binary-${{ runner.os }}-
 
       - name: Configure
         run: |
