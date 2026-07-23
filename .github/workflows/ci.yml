@@ -159,11 +159,20 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Create vcpkg binary cache directory
+        shell: pwsh
+        run: |
+          New-Item `
+            -ItemType Directory `
+            -Force `
+            -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
+            Out-Null
+
       - name: Cache vcpkg binaries
         uses: actions/cache@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-binary-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'triplets/**', 'ports/**') }}
+          key: vcpkg-binary-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
             vcpkg-binary-${{ runner.os }}-
 
@@ -171,7 +180,6 @@ jobs:
         run: |
           cmake -B build -S . -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
-            -DCMAKE_BUILD_TYPE=Release `
             -DBUILD_CUDA=OFF `
             -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}\installed
 
@@ -185,8 +193,8 @@ jobs:
         run: |
           cmake -B cli-build -S frontends/cli -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
-            -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}\installed
+
           cmake --build cli-build --config Release -j
 
       - name: Run tests
