@@ -423,7 +423,11 @@ std::string FFTWWisdomManager::getFullPath() const {
     // Expand ~ to user home directory
     std::string path = wisdomFilename_;
     if (path.starts_with("~")) {
+#ifdef _WIN32
+        const char* home = std::getenv("USERPROFILE");
+#else
         const char* home = std::getenv("HOME");
+#endif
         if (home) {
             path = std::string(home) + path.substr(1);
         }

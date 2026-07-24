@@ -44,7 +44,7 @@ elseif(MSVC)
       $<$<CONFIG:Debug>:/Od;/Zi;/RTC1>
       $<$<CONFIG:RelWithDebInfo>:/O2;/fp:fast;/DNDEBUG;/Zi>
     )
-    target_compile_definitions(project_options INTERFACE _USE_MATH_DEFINES)
+    target_compile_definitions(project_options INTERFACE _USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
 endif()
 
 # link_directories(/usr/local/lib)
