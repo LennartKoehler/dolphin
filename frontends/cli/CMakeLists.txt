@@ -31,5 +31,6 @@ target_include_directories(dolphin_cli
 target_link_libraries(dolphin_cli
     PRIVATE
         dolphin::dolphin
+        dolphin::project_options
 )
 

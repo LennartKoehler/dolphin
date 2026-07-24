@@ -315,6 +315,10 @@ install(DIRECTORY lib/spdlog/include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
+install(DIRECTORY backends/dolphinbackend/include/
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
 install(DIRECTORY backends/cpu/include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
