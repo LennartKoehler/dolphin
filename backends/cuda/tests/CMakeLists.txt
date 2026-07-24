@@ -14,7 +14,9 @@ target_link_libraries(cuda_backend_test
         GTest::gtest_main
 )
 
-target_compile_options(cuda_backend_test PRIVATE -fno-fast-math)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(cuda_backend_test PRIVATE -fno-fast-math)
+endif()
 
 gtest_discover_tests(cuda_backend_test)
 
