@@ -122,38 +122,75 @@ jobs:
   # -----------------------------------------------------------------
   windows:
     runs-on: windows-2022
+
     env:
       VCPKG_ROOT: C:\vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-binary-cache
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Cache vcpkg
-        uses: actions/cache@v4
+      - name: Restore vcpkg binary cache
+        id: vcpkg-cache-restore
+        uses: actions/cache/restore@v4
         with:
-          path: C:\vcpkg\installed
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Configure & Build library
+      - name: Create vcpkg binary cache directory
+        shell: pwsh
         run: |
-          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 `
-            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
+          New-Item `
+            -ItemType Directory `
+            -Force `
+            -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
+          Out-Null
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -B build -S . `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DCMAKE_BUILD_TYPE=Release `
             -DBUILD_CUDA=OFF `
             -DENABLE_TESTS=OFF `
             -DENABLE_BENCHMARKS=OFF `
-            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}\installed
-          cmake --build build --config Release -j
-          cmake --install build --config Release
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
+
+      - name: Save vcpkg binary cache
+        if: steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: ${{ steps.vcpkg-cache-restore.outputs.cache-primary-key }}
+
+      - name: Build
+        run: cmake --build build --config Release -j
+
+      - name: Install
+        run: cmake --install build --config Release
 
       - name: Build CLI frontend
+        shell: pwsh
         run: |
-          cmake -B cli-build -S frontends/cli -G "Visual Studio 17 2022" -A x64 `
-            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
+          cmake -B cli-build -S frontends/cli `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_MANIFEST_DIR="${{ github.workspace }}" `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_PREFIX_PATH=${{ github.workspace }}\installed
+            -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
+
           cmake --build cli-build --config Release -j
+
+      - name: Run tests
+        run: ctest --test-dir build --build-config Release --output-on-failure
 
       - name: Package
         run: |
