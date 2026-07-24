@@ -17,7 +17,7 @@ See the LICENSE file provided with the code for the full license.
 
 ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc)
     : stop(false),
-    activeWorkers(std::atomic<int>(numThreads)) {
+    activeWorkers(std::atomic<int>(static_cast<int>(numThreads))) {
     newTaskCondition = [](){return true;};
     for(size_t i = 0; i < numThreads; ++i) {
         workers.emplace_back([this, threadInitFunc] {

@@ -146,7 +146,7 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
 
     BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanRealToComplex - logger", buildCpuContext());
 
-    fftwf_plan_with_nthreads(description.ompThreads);
+    fftwf_plan_with_nthreads(static_cast<int>(description.ompThreads));
 
     real_t* in = nullptr;
     complex_t* out = nullptr;
@@ -230,7 +230,7 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
 
     BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanComplexToReal - logger", buildCpuContext());
 
-    fftwf_plan_with_nthreads(description.ompThreads);
+    fftwf_plan_with_nthreads(static_cast<int>(description.ompThreads));
 
     complex_t* in = nullptr;
     real_t* out = nullptr;
@@ -320,7 +320,7 @@ fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& descrip
 
     BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanComplex - logger", buildCpuContext());
 
-    fftwf_plan_with_nthreads(description.ompThreads);
+    fftwf_plan_with_nthreads(static_cast<int>(description.ompThreads));
 
     complex_t* temp = nullptr;
     complex_t* tempout = nullptr;
