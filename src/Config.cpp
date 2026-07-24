@@ -20,7 +20,7 @@ bool Config::loadFromJSON(const json& jsonData){
             }
         });
     }
-    catch (const std::exception& e){
+    catch (const std::exception&){
         success = false;
     }
 

@@ -47,7 +47,7 @@ void PSFGenerationService::initialize() {
         initialized_ = true;
         logger_->info("PSF Generation Service initialized successfully");
 
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         initialized_ = false;
         throw;
     }
@@ -240,7 +240,7 @@ std::string PSFGenerationService::getExecutableDirectory() {
         // Get the path of the current executable
         std::filesystem::path execPath = std::filesystem::canonical("/proc/self/exe");
         return execPath.parent_path().parent_path().string();
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         // Fallback to current working directory
         return std::filesystem::current_path().string();
     }

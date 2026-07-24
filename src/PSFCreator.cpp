@@ -171,7 +171,7 @@ json PSFCreator::loadJSONFile(const std::string& filePath){
     try{
         file >> jsonFile;
     }
-    catch (const std::exception& e){
+    catch (const std::exception&){
         throw std::runtime_error("PSFCreator failed to read json");
     }
     return jsonFile;
