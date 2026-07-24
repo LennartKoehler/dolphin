@@ -43,6 +43,8 @@ target_link_libraries(tiff_parallel_read_benchmark PRIVATE
     dolphinbackend
     project_options
     Threads::Threads
+    TIFF::TIFF
+    ${TIFF_DEPS}
 )
 if(OpenMP_CXX_FOUND)
     target_compile_options(tiff_parallel_read_benchmark PRIVATE ${OpenMP_CXX_FLAGS})
