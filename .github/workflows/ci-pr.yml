@@ -25,6 +25,7 @@ jobs:
           key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache
 
       - name: Install dependencies via Homebrew
+        if: steps.brew-cache.outputs.cache-hit != 'true'
         run: |
           brew install libtiff fftw libomp ccache
 
@@ -98,6 +99,7 @@ jobs:
           cmake -B cli-build -S frontends/cli \
             -DCMAKE_BUILD_TYPE=Release \
             -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
+            -DOpenMP_ROOT=$(brew --prefix libomp) \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build cli-build -- -j$(sysctl -n hw.ncpu)
