@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(dolphin VERSION 1.0.0)
+cmake_policy(SET CMP0074 NEW)
 
 
 # Set C++ standard
