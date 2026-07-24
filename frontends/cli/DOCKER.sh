@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 set -e
 
-IMAGE=dolphin-builder:cuda13
+IMAGE=dolphin-cuda-builder:latest
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-    docker build \
-        -f frontends/cli/Dockerfile.builder \
-        -t "$IMAGE" \
-        .
+    echo "Building builder image..."
+    docker build -f Dockerfile.builder -t "$IMAGE" .
 fi
 
+echo "Building project + CLI in container..."
 docker run --rm \
     -v "$PWD:/workspace" \
     "$IMAGE" \
@@ -23,7 +22,6 @@ docker run --rm \
             -DFFTW_PATH=/usr/local/fftw3/lib
 
         cmake --build /workspace/dockerbuild/dolphin_build --parallel
-
         cmake --install /workspace/dockerbuild/dolphin_build
 
         cmake \
