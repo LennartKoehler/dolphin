@@ -15,7 +15,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(cuda_backend_test PRIVATE -fno-fast-math)
 endif()
 
-gtest_discover_tests(cuda_backend_test)
+gtest_discover_tests(cuda_backend_test DISCOVERY_TIMEOUT 30)
 
 set_target_properties(cuda_backend_test PROPERTIES
     BUILD_RPATH "\$ORIGIN/../lib"

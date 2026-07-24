@@ -14,7 +14,7 @@ function(dolphin_add_test name)
         CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
         CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
     )
-    gtest_discover_tests(${name})
+    gtest_discover_tests(${name} DISCOVERY_TIMEOUT 30)
 endfunction()
 
 add_subdirectory(backends)
