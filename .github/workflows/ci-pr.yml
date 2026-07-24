@@ -6,102 +6,26 @@ on:
     branches: [main]
 
 jobs:
-  macos:
-    strategy:
-      fail-fast: false
-      matrix:
-        runs-on: [macos-14]
-    runs-on: ${{ matrix.runs-on }}
+  ubuntu-cpu:
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Restore Homebrew cache
-        id: brew-cache
-        uses: actions/cache/restore@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
         with:
-          path: ~/Library/Caches/Homebrew
-          key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache
-
-      - name: Install dependencies via Homebrew
-        run: |
-          brew install libtiff fftw libomp ccache
-
-      - name: Save Homebrew cache
-        if: steps.brew-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ~/Library/Caches/Homebrew
-          key: ${{ steps.brew-cache.outputs.cache-primary-key }}
-
-      - name: Restore ITK cache
-        id: cache-itk
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/itk-install
-          key: itk-5.4.5-notiff-${{ runner.os }}-${{ runner.arch }}
-
-      - name: Build ITK from source
-        if: steps.cache-itk.outputs.cache-hit != 'true'
-        run: |
-          wget https://github.com/InsightSoftwareConsortium/ITK/releases/download/v5.4.5/InsightToolkit-5.4.5.tar.gz
-          tar -xzf InsightToolkit-5.4.5.tar.gz
-          cd InsightToolkit-5.4.5
-          mkdir ITK-build && cd ITK-build
-          cmake -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_INSTALL_PREFIX=$HOME/itk-install \
-                -DBUILD_TESTING=OFF \
-                -DBUILD_EXAMPLES=OFF \
-                -DModule_ITKIOTIFF=OFF \
-                ..
-          make -j$(sysctl -n hw.ncpu)
-          make install
-
-      - name: Save ITK cache
-        if: steps.cache-itk.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ~/itk-install
-          key: ${{ steps.cache-itk.outputs.cache-primary-key }}
-
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
-          restore-keys: |
-            ccache-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Configure
-        run: |
-          export CCACHE_DIR="$HOME/.ccache"
-          cmake -B build -S . \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_CUDA=OFF \
-            -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
-            -DOpenMP_ROOT=$(brew --prefix libomp) \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-
-      - name: Build
-        run: |
-          export CCACHE_DIR="$HOME/.ccache"
-          cmake --build build -- -j$(sysctl -n hw.ncpu)
-
-      - name: Install
-        run: sudo cmake --install build
-
-      - name: Build CLI frontend
-        run: |
-          export CCACHE_DIR="$HOME/.ccache"
-          cmake -B cli-build -S frontends/cli \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
-            -DOpenMP_ROOT=$(brew --prefix libomp) \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          cmake --build cli-build -- -j$(sysctl -n hw.ncpu)
+          context: .
+          file: ./Dockerfile.cpu
+          push: false
+          load: true
+          tags: dolphin-cpu:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Run tests
-        run: ctest --test-dir build --output-on-failure
+        run: docker run --rm dolphin-cpu:latest bash -c 'cd /workspace/build && ctest --output-on-failure'
