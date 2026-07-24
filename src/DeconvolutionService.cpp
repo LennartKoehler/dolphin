@@ -151,7 +151,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::chrono::duration<double> duration = end_time - start_time;
 
         auto result_obj = createResult(true, "Deconvolution completed successfully", duration);
-        result_obj->output_path = output_path;
+        result_obj->output_path = output_path.string();
 
         logger_->info("Deconvolution finished successfully");
         logger_->flush();
