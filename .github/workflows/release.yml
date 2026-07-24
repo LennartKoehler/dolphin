@@ -61,12 +61,27 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install dependencies via Homebrew
-        run: brew install libtiff fftw libomp
+      - name: Restore Homebrew cache
+        id: brew-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache
 
-      - name: Cache ITK
+      - name: Install dependencies via Homebrew
+        run: |
+          brew install libtiff fftw libomp ccache
+
+      - name: Save Homebrew cache
+        if: steps.brew-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: ${{ steps.brew-cache.outputs.cache-primary-key }}
+
+      - name: Restore ITK cache
         id: cache-itk
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ~/itk-install
           key: itk-5.4.5-notiff-${{ runner.os }}-${{ runner.arch }}
@@ -87,23 +102,37 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install
 
+      - name: Save ITK cache
+        if: steps.cache-itk.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/itk-install
+          key: ${{ steps.cache-itk.outputs.cache-primary-key }}
+
       - name: Configure & Build library
         run: |
+          export CCACHE_DIR="$HOME/.ccache"
           cmake -B build -S . \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_CUDA=OFF \
             -DENABLE_TESTS=OFF \
             -DENABLE_BENCHMARKS=OFF \
             -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
-            -DOpenMP_ROOT=$(brew --prefix libomp)
+            -DOpenMP_ROOT=$(brew --prefix libomp) \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build -- -j$(sysctl -n hw.ncpu)
           sudo cmake --install build
 
       - name: Build CLI frontend
         run: |
+          export CCACHE_DIR="$HOME/.ccache"
           cmake -B cli-build -S frontends/cli \
             -DCMAKE_BUILD_TYPE=Release \
-            -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4
+            -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
+            -DOpenMP_ROOT=$(brew --prefix libomp) \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build cli-build -- -j$(sysctl -n hw.ncpu)
 
       - name: Package
