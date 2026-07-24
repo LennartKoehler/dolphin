@@ -13,6 +13,9 @@
 
 #ifdef __linux__
 #include <unistd.h>
+#elif __APPLE__
+#include <mach/mach.h>
+#include <mach/vm_statistics.h>
 #elif _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -211,6 +214,14 @@ size_t CPUBackendMemoryManager::staticGetAvailableMemory() {
     long pages = sysconf(_SC_AVPHYS_PAGES);
     if (pagesize > 0 && pages > 0) {
         memory = static_cast<size_t>(pagesize) * static_cast<size_t>(pages);
+    }
+#elif __APPLE__
+    vm_statistics64_data_t vm_stats;
+    mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+    if (host_statistics64(mach_host_self(), HOST_VM_INFO64,
+            (host_info64_t)&vm_stats, &count) == KERN_SUCCESS) {
+        memory = (vm_stats.free_count + vm_stats.inactive_count)
+            * static_cast<size_t>(vm_kernel_page_size);
     }
 #elif _WIN32
     MEMORYSTATUSEX status;
