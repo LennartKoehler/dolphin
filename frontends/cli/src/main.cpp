@@ -33,8 +33,8 @@ static std::filesystem::path resolveLogDir() {
 #endif
         return std::filesystem::path(home) / ".local" / "share" / "dolphin";
     }
-    // 3. Last resort: /tmp/dolphin
-    return "/tmp/dolphin";
+    // 3. Last resort: system temp directory
+    return std::filesystem::temp_directory_path() / "dolphin";
 }
 
 int main(int argc, char** argv) {

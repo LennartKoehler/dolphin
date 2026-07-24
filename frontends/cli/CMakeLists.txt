@@ -13,6 +13,9 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# Match dolphin's dynamic CRT (/MD) to avoid LNK2038 mismatch
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+
 find_package(dolphin REQUIRED)
 find_package(CUDAToolkit QUIET)
 # Create CLI executable
