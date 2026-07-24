@@ -25,11 +25,11 @@ add_library(project_options INTERFACE)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(project_options INTERFACE
-      $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops>
+      $<$<CONFIG:Release>:-O3;-ffast-math;-fno-finite-math-only;-DNDEBUG;-funroll-loops>
       $<$<CONFIG:Debug>:-g;-O0;-fno-omit-frame-pointer>
       $<$<CONFIG:DebugVectorization>:-g;-O0;-fno-omit-frame-pointer>
-      $<$<CONFIG:NoVectorization>:-O3;-ffast-math;-DNDEBUG;-fno-tree-vectorize;-fno-tree-slp-vectorize>
-      $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-DNDEBUG;-funroll-loops>
+      $<$<CONFIG:NoVectorization>:-O3;-ffast-math;-fno-finite-math-only;-DNDEBUG;-fno-tree-vectorize;-fno-tree-slp-vectorize>
+      $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-fno-finite-math-only;-DNDEBUG;-funroll-loops>
     )
     # x86-only AVX flags (skip on ARM/Apple Silicon)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|AMD64|i386|i686)")
