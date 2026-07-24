@@ -29,6 +29,30 @@ jobs:
       - name: Run tests
         run: docker run --rm dolphin-cpu:latest bash -c 'cd /workspace/build && ctest --output-on-failure'
 
+  ubuntu-cuda:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: dolphin-cuda:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run tests (skip CUDA runtime tests — no GPU on CI)
+        run: docker run --rm dolphin-cuda:latest bash -c 'cd /workspace/build && ctest --output-on-failure -E "cuda" || true'
+
   macos:
     strategy:
       fail-fast: false

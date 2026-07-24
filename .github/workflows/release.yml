@@ -44,8 +44,41 @@ jobs:
           files: dolphin-linux-x86_64.tar.gz
 
   # -----------------------------------------------------------------
-  # macOS — Native (Intel + Apple Silicon)
+  # Ubuntu CUDA — Docker-based, extract CLI binary
   # -----------------------------------------------------------------
+  ubuntu-cuda:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: dolphin-release-cuda:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract CLI binary
+        run: |
+          docker create --name temp dolphin-release-cuda:latest
+          docker cp temp:/workspace/cli-build/dolphin_cli ./dolphin_cli
+          docker rm temp
+          chmod +x ./dolphin_cli
+          tar czf dolphin-linux-x86_64-cuda.tar.gz dolphin_cli
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dolphin-linux-x86_64-cuda.tar.gz
   macos:
     strategy:
       fail-fast: false
