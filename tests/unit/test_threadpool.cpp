@@ -3,6 +3,7 @@
 #include "dolphin/Logging.h"
 #include <atomic>
 #include <chrono>
+#include <latch>
 #include <vector>
 
 class ThreadPoolTest : public ::testing::Test {
@@ -60,7 +61,10 @@ TEST_F(ThreadPoolTest, ConcurrentEnqueue) {
 
 TEST_F(ThreadPoolTest, ThreadInitFunction) {
     std::atomic<int> initCount{0};
-    ThreadPool pool(4, [&initCount] { initCount++; });
+    std::latch initLatch(4);
+    ThreadPool pool(4, [&initCount, &initLatch] { initCount++; initLatch.count_down(); });
+    initLatch.wait();
+
     auto future = pool.enqueue([] { return 1; });
     future.get();
     EXPECT_EQ(initCount.load(), 4);

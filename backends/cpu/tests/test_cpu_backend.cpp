@@ -30,7 +30,7 @@ protected:
         static bool initialized = false;
         if (!initialized) {
             manager.init([](const std::string& context, const std::string& msg, LogLevel level) {
-                if (level > LogLevel::INFO){
+                if (level > LogLevel::LOG_INFO){
                     std::cerr << "[" << context << "] " << msg << std::endl;
                 }
             });
@@ -39,7 +39,7 @@ protected:
         return manager;
     }
 
-    BackendConfig config{nThreads: 1, backendName: "test"};
+    BackendConfig config{1, "test"};
     IBackend* backend = nullptr;
 
     void SetUp() override {

@@ -1,13 +1,9 @@
-cmake_minimum_required(VERSION 3.14)
-
-enable_testing()
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 
 function(dolphin_add_test name)
     cmake_parse_arguments(ARG "" "" "SOURCES;LIBS;INCLUDES" ${ARGN})
     add_executable(${name} ${ARG_SOURCES})
-    target_link_libraries(${name} PRIVATE GTest::gtest_main ${ARG_LIBS})
+    target_link_libraries(${name} PRIVATE GTest::gtest_main project_options ${ARG_LIBS})
     if(ARG_INCLUDES)
         target_include_directories(${name} PRIVATE ${ARG_INCLUDES})
     endif()
@@ -18,7 +14,7 @@ function(dolphin_add_test name)
         CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
         CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
     )
-    gtest_discover_tests(${name})
+    gtest_discover_tests(${name} DISCOVERY_TIMEOUT 30)
 endfunction()
 
 add_subdirectory(backends)

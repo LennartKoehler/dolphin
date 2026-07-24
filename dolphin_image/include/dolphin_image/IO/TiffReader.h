@@ -50,6 +50,7 @@ struct PendingRead {
 
 class ITiffRegionReader{
 public:
+    virtual ~ITiffRegionReader() = default;
     virtual BoxCoord computeReadSource(const ImageMetaData& metadata, const BoxCoord& box) const = 0 ;
     virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset = 0) const = 0;
 };

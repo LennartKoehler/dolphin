@@ -90,7 +90,7 @@ void addCubeRecursion(
     assert(currentCube.box.dimensions.getVolume() > 0);
 
     // next row
-    if (currentCube.box.position.width >= imageOriginalShape.width){
+    if (currentCube.box.position.width >= static_cast<int64_t>(imageOriginalShape.width)){
         currentCube.box.position.width = 0;
         currentCube.box.position.height += currentCube.box.dimensions.height;
         addCubeRecursion(
@@ -101,7 +101,7 @@ void addCubeRecursion(
         return;
     }
     // next slice
-    if (currentCube.box.position.height >= imageOriginalShape.height){
+    if (currentCube.box.position.height >= static_cast<int64_t>(imageOriginalShape.height)){
         currentCube.box.position.height = 0;
         currentCube.box.position.depth += currentCube.box.dimensions.depth;
         addCubeRecursion(
@@ -112,7 +112,7 @@ void addCubeRecursion(
         return;
     }
     // were done
-    if (currentCube.box.position.depth >= imageOriginalShape.depth)
+    if (currentCube.box.position.depth >= static_cast<int64_t>(imageOriginalShape.depth))
         return;
 
     CuboidShape remainingSize = imageOriginalShape - currentCube.box.position;

@@ -21,7 +21,7 @@ See the LICENSE file provided with the code for the full license.
 #include "ComplexData.h"
 
 
-class BackendConfig;
+struct BackendConfig;
 
 // Helper macro for cleaner not-implemented exceptions
 #define NOT_IMPLEMENTED(func_name) \

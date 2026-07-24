@@ -25,11 +25,16 @@ static std::filesystem::path resolveLogDir() {
         return std::filesystem::path(xdg) / "dolphin";
     }
     // 2. Fallback to ~/.local/share/dolphin
+    //    On Windows, USERPROFILE replaces HOME.
+#ifdef _WIN32
+    if (const char* home = std::getenv("USERPROFILE")) {
+#else
     if (const char* home = std::getenv("HOME")) {
+#endif
         return std::filesystem::path(home) / ".local" / "share" / "dolphin";
     }
-    // 3. Last resort: /tmp/dolphin
-    return "/tmp/dolphin";
+    // 3. Last resort: system temp directory
+    return std::filesystem::temp_directory_path() / "dolphin";
 }
 
 int main(int argc, char** argv) {

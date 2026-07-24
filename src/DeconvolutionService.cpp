@@ -121,7 +121,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
 
         ImageMetaData metadata = reader->getMetaData();
         logger_->debug("Using image with the following metadata {}", metadata.print());
-        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path, metadata.getShape());
+        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path.string(), metadata.getShape());
 
 
         Result<DeconvolutionPlan> plan = strategyPair->getStrategy().createPlan(
@@ -151,7 +151,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::chrono::duration<double> duration = end_time - start_time;
 
         auto result_obj = createResult(true, "Deconvolution completed successfully", duration);
-        result_obj->output_path = output_path;
+        result_obj->output_path = output_path.string();
 
         logger_->info("Deconvolution finished successfully");
         logger_->flush();

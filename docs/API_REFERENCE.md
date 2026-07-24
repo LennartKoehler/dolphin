@@ -173,7 +173,7 @@ BaseDeconvolutionAlgorithmDerived::BaseDeconvolutionAlgorithmDerived()
     
     initialization_mutex_.unlock();
     
-    log_service_->log(LogLevel::INFO, 
+    log_service_->log(LogLevel::LOG_INFO, 
                       "BaseDeconvolutionAlgorithmDerived initialized with backend: " + 
                       getBackendName(detected_backend_));
 }
@@ -197,7 +197,7 @@ BaseDeconvolutionAlgorithmDerived::~BaseDeconvolutionAlgorithmDerived()
     // Deallocate memory
     cleanupBackendSpecific();
     
-    log_service_->log(LogLevel::INFO, "BaseDeconvolutionAlgorithmDerived destructed");
+    log_service_->log(LogLevel::LOG_INFO, "BaseDeconvolutionAlgorithmDerived destructed");
 }
 ```
 
@@ -226,13 +226,13 @@ bool BaseDeconvolutionAlgorithmDerived::preprocess(int channel_num, int psf_inde
     
     // Check backend-specific preprocessing
     if (!preprocessBackendSpecific(channel_num, psf_index)) {
-        log_service_->log(LogLevel::ERROR, "Backend-specific preprocessing failed");
+        log_service_->log(LogLevel::LOG_ERROR, "Backend-specific preprocessing failed");
         setError(ERROR_BACKEND_PREPROCESS, "Backend preprocessing failed");
         return false;
     }
     
     // Log completion
-    log_service_->log(LogLevel::INFO, 
+    log_service_->log(LogLevel::LOG_INFO, 
                      "Preprocessing completed for channel " + std::to_string(channel_num));
     
     timer.stop();
@@ -271,7 +271,7 @@ void BaseDeconvolutionAlgorithmDerived::algorithm(Hyperstack& data,
     }
     
     // Log algorithm start
-    log_service_->log(LogLevel::INFO, 
+    log_service_->log(LogLevel::LOG_INFO, 
                      "Starting algorithm processing for channel " + std::to_string(channel_num));
     
     // Forward pass: algorithm-specific implementation
@@ -285,7 +285,7 @@ void BaseDeconvolutionAlgorithmDerived::algorithm(Hyperstack& data,
     } else if (detected_backend_ == BackendType::GPU) {
         // Handle GPU-specific processing with fallback
         if (!executeGPUForwardPass(data, channel_num, H, g, f)) {
-            log_service_->log(LogLevel::WARNING, "GPU processing failed, falling back to CPU");
+            log_service_->log(LogLevel::LOG_WARN, "GPU processing failed, falling back to CPU");
             detected_backend_ = BackendType::CPU;
             forward Processing();
         }
@@ -298,7 +298,7 @@ void BaseDeconvolutionAlgorithmDerived::algorithm(Hyperstack& data,
     updateProgress(0.8);
     
     // Log algorithm completion
-    log_service_->log(LogLevel::INFO, 
+    log_service_->log(LogLevel::LOG_INFO, 
                      "Algorithm processing completed for channel " + std::to_string(channel_num));
 }
 
@@ -324,13 +324,13 @@ bool BaseDeconvolutionAlgorithmDerived::postprocess(int channel_num, int psf_ind
     
     // Check backend-specific postprocessing
     if (!postprocessBackendSpecific(channel_num, psf_index)) {
-        log_service_->log(LogLevel::ERROR, "Backend-specific postprocessing failed");
+        log_service_->log(LogLevel::LOG_ERROR, "Backend-specific postprocessing failed");
         setError(ERROR_BACKEND_POSTPROCESS, "Backend postprocessing failed");
         return false;
     }
     
     // Log completion
-    log_service_->log(LogLevel::INFO, 
+    log_service_->log(LogLevel::LOG_INFO, 
                      "Postprocessing completed for channel " + std::to_string(channel_num));
     
     timer.stop();
@@ -358,7 +358,7 @@ bool BaseDeconvolutionAlgorithmDerived::allocateBackendMemory(int channel_num)
     
     // Check if already allocated
     if (channel_mem.allocated) {
-        log_service_->log(LogLevel::WARNING, 
+        log_service_->log(LogLevel::LOG_WARN, 
                          "Memory already allocated for channel " + std::to_string(channel_num));
         return true;
     }
@@ -390,7 +390,7 @@ bool BaseDeconvolutionAlgorithmDerived::allocateBackendMemory(int channel_num)
     channel_mem.allocated = true;
     channel_mem.dimensions = dimensions;
     
-    log_service_->log(LogLevel::INFO, 
+    log_service_->log(LogLevel::LOG_INFO, 
                      "Allocated backend memory for channel " + std::to_string(channel_num));
     
     return true;
@@ -407,7 +407,7 @@ void BaseDeconvolutionAlgorithmDerived::deallocateBackendMemory(int channel_num)
     
     // Check if allocated
     if (!channel_mem.allocated) {
-        log_service_->log(LogLevel::WARNING, 
+        log_service_->log(LogLevel::LOG_WARN, 
                          "Memory not allocated for channel " + std::to_string(channel_num));
         return;
     }
@@ -431,7 +431,7 @@ void BaseDeconvolutionAlgorithmDerived::deallocateBackendMemory(int channel_num)
     channel_mem.allocated = false;
     channel_mem.dimensions = {0, 0, 0};
     
-    log_service_->log(LogLevel::INFO, 
+    log_service_->log(LogLevel::LOG_INFO, 
                      "Deallocated backend memory for channel " + std::to_string(channel_num));
 }
 
@@ -450,7 +450,7 @@ void BaseDeconvolutionAlgorithmDerived::cleanupBackendSpecific()
     // Clear performance metrics
     current_metrics_ = PerformanceMetrics();
     
-    log_service_->log(LogLevel::INFO, "Backend-specific cleanup completed");
+    log_service_->log(LogLevel::LOG_INFO, "Backend-specific cleanup completed");
 }
 ```
 
@@ -468,7 +468,7 @@ void BaseDeconvolutionAlgorithmDerived::configureAlgorithmSpecific(const Deconvo
     
     // Validate configuration
     if (!validateConfig(config)) {
-        log_service_->log(LogLevel::ERROR, "Invalid configuration for algorithm");
+        log_service_->log(LogLevel::LOG_ERROR, "Invalid configuration for algorithm");
         setError(ERROR_INVALID_CONFIG, "Invalid configuration parameters");
         return;
     }
@@ -490,7 +490,7 @@ void BaseDeconvolutionAlgorithmDerived::configureAlgorithmSpecific(const Deconvo
     
     timer.stop();
     
-    log_service_->log(LogLevel::INFO, "Algorithm configuration updated");
+    log_service_->log(LogLevel::LOG_INFO, "Algorithm configuration updated");
 }
 
 /**
@@ -531,7 +531,7 @@ bool BaseDeconvolutionAlgorithmDerived::updateBackendConfig(const DeconvolutionC
         
     } catch (const std::exception& e) {
         // Catch any exceptions and rollback
-        log_service_->log(LogLevel::ERROR, "Error updating backend config: " + std::string(e.what()));
+        log_service_->log(LogLevel::LOG_ERROR, "Error updating backend config: " + std::string(e.what()));
         current_config_ = old_config;
         updateBackendSpecificConfig(old_config);
         
@@ -655,7 +655,7 @@ void BaseDeconvolutionAlgorithmDerived::setError(ErrorCode code, const std::stri
     error_state.backend_type = detected_backend_;
     
     // Log error
-    log_service_->log(LogLevel::ERROR, 
+    log_service_->log(LogLevel::LOG_ERROR, 
                      "Error " + std::to_string(static_cast<int>(code)) + ": " + message);
     
     // Update metrics
@@ -668,7 +668,7 @@ void BaseDeconvolutionAlgorithmDerived::setError(ErrorCode code, const std::stri
 void BaseDeconvolutionAlgorithmDerived::clearErrors()
 {
     error_state_.clear();
-    log_service_->log(LogLevel::INFO, "Error state cleared");
+    log_service_->log(LogLevel::LOG_INFO, "Error state cleared");
 }
 
 /**
@@ -702,7 +702,7 @@ void BaseDeconvolutionAlgorithmDerived::setBackendErrorState(const ErrorState& s
     error_state_ = state;
     
     if (error_state_.code != ErrorCode::NO_ERROR) {
-        log_service_->log(LogLevel::ERROR, 
+        log_service_->log(LogLevel::LOG_ERROR, 
                          "Backend error: " + error_state_.message);
     }
 }
@@ -834,7 +834,7 @@ bool BaseDeconvolutionAlgorithmCPU::initializeFFTWPlans()
         // Check if plans already exist for these dimensions
         if (fftw_plans_[0].initialized && 
             fftw_plans_[0].dimensions == dimensions) {
-            log_service_->log(LogLevel::INFO, "FFTW plans already initialized for current dimensions");
+            log_service_->log(LogLevel::LOG_INFO, "FFTW plans already initialized for current dimensions");
             return true;
         }
         
@@ -844,7 +844,7 @@ bool BaseDeconvolutionAlgorithmCPU::initializeFFTWPlans()
             return false;
         }
         
-        log_service_->log(LogLevel::INFO, "FFTW plans initialized successfully");
+        log_service_->log(LogLevel::LOG_INFO, "FFTW plans initialized successfully");
         return true;
         
     } catch (const std::exception& e) {

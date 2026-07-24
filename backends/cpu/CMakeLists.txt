@@ -1,12 +1,4 @@
 # backends/cpu/CMakeLists.txt
-cmake_minimum_required(VERSION 3.10)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-
-project(CPUBackend VERSION 1.0.0)
-
-
-
 # FFTW wisdom file path - can be customized for different operating systems
 # Default: "~/.fftw/wisdom" on Unix, ".fftw/wisdom" in user directory on Windows
 if (NOT DEFINED FFTW_WISDOM_PATH)
@@ -16,16 +8,22 @@ if (NOT DEFINED FFTW_WISDOM_PATH)
         set(FFTW_WISDOM_PATH "~/.cache/dolphin/fftw/wisdom" CACHE PATH "Path to FFTW wisdom file")
     endif()
 endif()
-set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
-find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} REQUIRED)
-find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads fftw3f_omp PATHS ${FFTW_PATH} REQUIRED)
+# Try vcpkg/CMake config first (threads compiled into main lib on Windows)
+find_package(FFTW3f CONFIG QUIET)
 
-# Find FFTW header — check FFTW_PATH/../include, then standard system paths
-find_path(FFTW_INCLUDE_DIR NAMES fftw3.h
-    PATHS ${FFTW_PATH}/../include /usr/include /usr/local/include /opt/homebrew/include
-    REQUIRED)
+if(FFTW3f_FOUND)
+    message(STATUS "Found FFTW3f via CMake config")
+    set(FFTW3_LIB FFTW3::fftw3f)
+    set(FFTW3_THREADS_LIB "")
+else()
+    # Manual find for Unix/homebrew/local installs
+    find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} REQUIRED)
+    find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads fftw3f_omp PATHS ${FFTW_PATH} REQUIRED)
 
-
+    find_path(FFTW_INCLUDE_DIR NAMES fftw3.h
+        PATHS ${FFTW_PATH}/../include /usr/include /usr/local/include /opt/homebrew/include
+        REQUIRED)
+endif()
 
 # If using OpenMP version of FFTW, find OpenMP
 if(FFTW3_THREADS_LIB MATCHES "omp")
@@ -52,8 +50,11 @@ target_include_directories(cpu_backend
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib/spdlog/include>
-        ${FFTW_INCLUDE_DIR}
 )
+
+if(FFTW_INCLUDE_DIR)
+    target_include_directories(cpu_backend PUBLIC $<BUILD_INTERFACE:${FFTW_INCLUDE_DIR}>)
+endif()
 
 
 
@@ -135,15 +136,8 @@ target_link_libraries(cpu_backend PUBLIC
 #     DESTINATION lib/cmake/cpu_backend
 # )
 
-option(ENABLE_TESTS "Enable tests" ON)
-if (${ENABLE_TESTS})
-
-    set(CMAKE_CTEST_ARGUMENTS "--verbose")
-
-
-    enable_testing()
+if(ENABLE_TESTS)
     add_subdirectory(tests)
-
 endif()
 
 
