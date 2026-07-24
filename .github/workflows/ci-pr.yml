@@ -25,7 +25,6 @@ jobs:
           key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache
 
       - name: Install dependencies via Homebrew
-        if: steps.brew-cache.outputs.cache-hit != 'true'
         run: |
           brew install libtiff fftw libomp ccache
 
