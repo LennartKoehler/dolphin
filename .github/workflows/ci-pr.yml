@@ -1,0 +1,74 @@
+name: CI (PR)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+jobs:
+  windows:
+    runs-on: windows-2022
+
+    env:
+      VCPKG_ROOT: C:\vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-binary-cache
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Restore vcpkg binary cache
+        id: vcpkg-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Create vcpkg binary cache directory
+        shell: pwsh
+        run: |
+          New-Item `
+            -ItemType Directory `
+            -Force `
+            -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
+          Out-Null
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -B build -S . `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+            -DBUILD_CUDA=OFF `
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
+
+      - name: Save vcpkg binary cache
+        if: steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: ${{ steps.vcpkg-cache-restore.outputs.cache-primary-key }}
+
+      - name: Build
+        run: cmake --build build --config Release -j
+
+      - name: Install
+        run: cmake --install build --config Release
+
+      - name: Build CLI frontend
+        shell: pwsh
+        run: |
+          cmake -B cli-build -S frontends/cli `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+            -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
+
+          cmake --build cli-build --config Release -j
+
+      - name: Run tests
+        run: ctest --test-dir build --build-config Release --output-on-failure
