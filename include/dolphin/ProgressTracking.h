@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <functional>
+#include <mutex>
 
 using progressCallbackFn = std::function<void(std::atomic<float>& counter, float max)>;
 

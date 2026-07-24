@@ -8,6 +8,12 @@
 #include "IComputeBackend.h"
 #include "IBackendMemoryManager.h"
 
+#ifdef ERROR
+#undef ERROR
+#endif
+#ifdef DEBUG
+#undef DEBUG
+#endif
 
 class IBackendManager;
 

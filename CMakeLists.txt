@@ -53,6 +53,12 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
 
+# On Windows (vcpkg), ITK_LIBRARIES may include minc2 which has no .lib file.
+# Remove it to avoid linker error LNK1181.
+if(WIN32)
+    list(REMOVE_ITEM ITK_LIBRARIES "minc2")
+endif()
+
 # Static libtiff may reference zstd/lzma/deflate/zlib/jpeg — link them transitively
 # On Windows (vcpkg), TIFF::TIFF already provides transitive deps; find_library
 # would pick up incompatible MinGW DLLs from Git's PATH.

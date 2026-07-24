@@ -18,7 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/ComplexData.h"
 #include "dolphin/ThreadPool.h"
 
-class CuboidShape;
+struct CuboidShape;
 class IBackend;
 class IBackendMemoryManager;
 class DeconvolutionAlgorithm;
