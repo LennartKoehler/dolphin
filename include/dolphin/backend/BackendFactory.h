@@ -41,16 +41,16 @@ inline void logCallback_fn(const std::string& backendContext, const std::string&
 
     std::string msg = backendContext + ": " + backendMessage;
     switch(level){
-    case LogLevel::INFO:
+    case LogLevel::LOG_INFO:
         getBackendLogger()->info(msg);
         break;
-    case LogLevel::DEBUG:
+    case LogLevel::LOG_DEBUG:
         getBackendLogger()->debug(msg);
         break;
-    case LogLevel::WARN:
+    case LogLevel::LOG_WARN:
         getBackendLogger()->warn(msg);
         break;
-    case LogLevel::ERROR:
+    case LogLevel::LOG_ERROR:
         getBackendLogger()->error(msg);
         break;
     default:

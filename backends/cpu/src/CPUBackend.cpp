@@ -234,7 +234,7 @@ void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
     if ((access.data.totalUsedMemory + requiredSize) > access.data.maxMemorySize) {
 
         throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CPU", requiredSize, "Memory Allocation", buildCpuContext());
-        // log(fmt::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::ERROR);
+        // log(fmt::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::LOG_ERROR);
     }
     // backend.memory.memoryCondition.wait(lock, [this, requiredSize]() {
     //     return backend.memory.maxMemorySize == 0 || (backend.memory.totalUsedMemory + requiredSize) <= backend.memory.maxMemorySize;
@@ -249,7 +249,7 @@ bool CPUBackendMemoryManager::isOnDevice(const void* ptr) const {
 
 
 RealData CPUBackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
-    log(fmt::format("allocateMemoryOnDeviceRealFFTInPlace for shape: {}", shape.print()), LogLevel::DEBUG);
+    log(fmt::format("allocateMemoryOnDeviceRealFFTInPlace for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     CuboidShape shapeForInplaceFFT = shape;
     shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
     size_t padding = shapeForInplaceFFT.width - shape.width;
@@ -263,7 +263,7 @@ RealData CPUBackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const Cub
     return result;
 }
 RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const {
-    log(fmt::format("allocateMemoryOnDeviceReal for shape: {}", shape.print()), LogLevel::DEBUG);
+    log(fmt::format("allocateMemoryOnDeviceReal for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     std::size_t bytes = shape.getVolume() * sizeof(real_t);
 
     RealData result{ this, nullptr, shape, shape, bytes, 0};
@@ -273,7 +273,7 @@ RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& 
 
 
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
-    log(fmt::format("allocateMemoryOnDeviceComplex for shape: {}", shape.print()), LogLevel::DEBUG);
+    log(fmt::format("allocateMemoryOnDeviceComplex for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     CuboidShape complexShape = shape;
     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
     CuboidShape originalShape = shape;
@@ -284,7 +284,7 @@ ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidS
     return result;
 }
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
-    log(fmt::format("allocateMemoryOnDeviceComplexFull for shape: {}", shape.print()), LogLevel::DEBUG);
+    log(fmt::format("allocateMemoryOnDeviceComplexFull for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
@@ -316,7 +316,7 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 
     // Update memory tracking using getAccess()
     memory.allocate(requested_size);
-    log(fmt::format("Allocated {:.2f} MB", requested_size / 1e6), LogLevel::DEBUG);
+    log(fmt::format("Allocated {:.2f} MB", requested_size / 1e6), LogLevel::LOG_DEBUG);
     return data;
 
 }
@@ -324,7 +324,7 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 
 
  void* CPUBackendMemoryManager::copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
-    log(fmt::format("copyDataToDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
+    log(fmt::format("copyDataToDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
     BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data", buildCpuContext());
     void* result = allocateMemoryOnDevice(size);
     std::memcpy(result, src, size);
@@ -332,16 +332,16 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 }
 
  void* CPUBackendMemoryManager::moveDataFromDevice(void* src, size_t size, const CuboidShape& shape, const IBackendMemoryManager& destBackend) const {
-    log(fmt::format("moveDataFromDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
+    log(fmt::format("moveDataFromDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
     BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "moveDataFromDevice - source data", buildCpuContext());
     if (&destBackend == this) {
-        log(fmt::format("moveDataFromDevice: same backend, returning source pointer directly"), LogLevel::DEBUG);
+        log(fmt::format("moveDataFromDevice: same backend, returning source pointer directly"), LogLevel::LOG_DEBUG);
         return src;
     }
     else {
         // For cross-backend transfer, use the destination backend's copy method
         // since cpubackend is the "default" it is simple, be careful how this works for other backends though
-        log(fmt::format("moveDataFromDevice: cross-backend transfer to {}", destBackend.getDeviceString()), LogLevel::DEBUG);
+        log(fmt::format("moveDataFromDevice: cross-backend transfer to {}", destBackend.getDeviceString()), LogLevel::LOG_DEBUG);
         return destBackend.copyDataToDevice(src, size, shape);
     }
 }
@@ -350,7 +350,7 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 
 
 void CPUBackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
-    log(fmt::format("memCopy: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
+    log(fmt::format("memCopy: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
     BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "memCopy - source data", buildCpuContext());
     BACKEND_CHECK(dest != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data", buildCpuContext());
     std::memcpy(dest, src, size);
@@ -370,7 +370,7 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
     }
 
     ptr = nullptr;
-    log(fmt::format("Deallocated {:.2f} MB", size / 1e6), LogLevel::DEBUG);
+    log(fmt::format("Deallocated {:.2f} MB", size / 1e6), LogLevel::LOG_DEBUG);
 }
 
 
@@ -380,14 +380,14 @@ size_t CPUBackendMemoryManager::getAvailableMemory() const {
         return staticGetAvailableMemory();
     }
     catch (const std::exception& e) {
-        log(fmt::format("Exception in getAvailableMemory: {}", e.what()), LogLevel::ERROR);
+        log(fmt::format("Exception in getAvailableMemory: {}", e.what()), LogLevel::LOG_ERROR);
         throw; // Re-throw to propagate the exception
     }
 }
 
 size_t CPUBackendMemoryManager::getAllocatedMemory() const {
     auto access = memory.getAccess();
-    log(fmt::format("getAllocatedMemory: {:.2f} MB currently allocated", access.data.totalUsedMemory / 1e6), LogLevel::DEBUG);
+    log(fmt::format("getAllocatedMemory: {:.2f} MB currently allocated", access.data.totalUsedMemory / 1e6), LogLevel::LOG_DEBUG);
     return access.data.totalUsedMemory;
 }
 
@@ -405,7 +405,7 @@ float CPUBackendMemoryManager::estimateFFTWorkspaceCopies(const CuboidShape& sha
     // size_t totalWorkspace = planCreationTemp; //+ fftwMeasureScratch + persistentPlanOverhead;
     //
     // log(fmt::format("Estimated FFTW workspace for shape {}: {:.2f} MB",
-    //     shape.print(), totalWorkspace / 1e6), LogLevel::DEBUG);
+    //     shape.print(), totalWorkspace / 1e6), LogLevel::LOG_DEBUG);
 
     return 2;
 }
@@ -889,12 +889,12 @@ void CPUComputeBackend::hasNAN(const ComplexData& data) const {
                 if (std::isnan(rv) || std::isnan(iv)) {
                     nanCount++;
                     if (nanCount <= 10)
-                        log(fmt::format("NaN at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::DEBUG);
+                        log(fmt::format("NaN at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::LOG_DEBUG);
                 }
                 if (std::isinf(rv) || std::isinf(iv)) {
                     infCount++;
                     if (infCount <= 10)
-                        log(fmt::format("Inf at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::DEBUG);
+                        log(fmt::format("Inf at ({},{},{}): ({}, {})", x, y, z, rv, iv), LogLevel::LOG_DEBUG);
                 }
                 if (std::isfinite(rv)) {
                     minReal = std::min(minReal, rv);
@@ -908,9 +908,9 @@ void CPUComputeBackend::hasNAN(const ComplexData& data) const {
         }
     }
 
-    log(fmt::format("Data stats - NaN: {}, Inf: {}", nanCount, infCount), LogLevel::DEBUG);
-    log(fmt::format("Real range: [{}, {}]", minReal, maxReal), LogLevel::DEBUG);
-    log(fmt::format("Imag range: [{}, {}]", minImag, maxImag), LogLevel::DEBUG);
+    log(fmt::format("Data stats - NaN: {}, Inf: {}", nanCount, infCount), LogLevel::LOG_DEBUG);
+    log(fmt::format("Real range: [{}, {}]", minReal, maxReal), LogLevel::LOG_DEBUG);
+    log(fmt::format("Imag range: [{}, {}]", minImag, maxImag), LogLevel::LOG_DEBUG);
 }
 
 

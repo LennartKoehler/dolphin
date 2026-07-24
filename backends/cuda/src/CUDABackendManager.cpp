@@ -65,7 +65,7 @@ void CUDABackendManager::init(LogCallback fn) {
         g_logger_cuda(
             "cuda:cuda",
             fmt::format("Device {} has compute capability {}.{} and {:.2f} GB memory", deviceNumber, deviceProp.major, deviceProp.minor, (totalMem/1e9)),
-            LogLevel::INFO);
+            LogLevel::LOG_INFO);
         // printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
         // device, deviceProp.major, deviceProp.minor, (totalMem/1e9));
 
@@ -210,7 +210,7 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
 
 
 
-//     g_logger_cuda(fmt::format("Cleaned up CUDA backend manager"), LogLevel::INFO);
+//     g_logger_cuda(fmt::format("Cleaned up CUDA backend manager"), LogLevel::LOG_INFO);
 // }
 
 cudaStream_t CUDABackendManager::createStream() const {

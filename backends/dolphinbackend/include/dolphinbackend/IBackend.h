@@ -8,16 +8,9 @@
 #include "IComputeBackend.h"
 #include "IBackendMemoryManager.h"
 
-#ifdef ERROR
-#undef ERROR
-#endif
-#ifdef DEBUG
-#undef DEBUG
-#endif
-
 class IBackendManager;
 
-enum LogLevel { DEBUG = 0, INFO, WARN, ERROR };
+enum LogLevel { LOG_DEBUG = 0, LOG_INFO, LOG_WARN, LOG_ERROR };
 
 using LogCallback = std::function<void(const std::string& context, const std::string& message, LogLevel level)>;
 

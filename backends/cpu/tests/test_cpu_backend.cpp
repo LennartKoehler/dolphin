@@ -30,7 +30,7 @@ protected:
         static bool initialized = false;
         if (!initialized) {
             manager.init([](const std::string& context, const std::string& msg, LogLevel level) {
-                if (level > LogLevel::INFO){
+                if (level > LogLevel::LOG_INFO){
                     std::cerr << "[" << context << "] " << msg << std::endl;
                 }
             });
