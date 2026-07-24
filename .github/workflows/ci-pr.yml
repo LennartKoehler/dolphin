@@ -21,11 +21,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Library/Caches/Homebrew
-          key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp
+          key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache
 
       - name: Install dependencies via Homebrew
         run: |
-          brew install libtiff fftw libomp
+          brew install libtiff fftw libomp ccache
 
       - name: Cache ITK
         id: cache-itk
@@ -70,7 +70,9 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
-        run: cmake --build build -- -j$(sysctl -n hw.ncpu)
+        run: |
+          export CCACHE_DIR="$HOME/.ccache"
+          cmake --build build -- -j$(sysctl -n hw.ncpu)
 
       - name: Install
         run: sudo cmake --install build
