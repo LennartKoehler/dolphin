@@ -1,12 +1,4 @@
 # backends/cpu/CMakeLists.txt
-cmake_minimum_required(VERSION 3.10)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-
-project(CPUBackend VERSION 1.0.0)
-
-
-
 # FFTW wisdom file path - can be customized for different operating systems
 # Default: "~/.fftw/wisdom" on Unix, ".fftw/wisdom" in user directory on Windows
 if (NOT DEFINED FFTW_WISDOM_PATH)
@@ -25,7 +17,6 @@ if(FFTW3f_FOUND)
     set(FFTW3_THREADS_LIB "")
 else()
     # Manual find for Unix/homebrew/local installs
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
     find_library(FFTW3_LIB NAMES fftw3f PATHS ${FFTW_PATH} REQUIRED)
     find_library(FFTW3_THREADS_LIB NAMES fftw3f_threads fftw3f_omp PATHS ${FFTW_PATH} REQUIRED)
 
@@ -145,15 +136,8 @@ target_link_libraries(cpu_backend PUBLIC
 #     DESTINATION lib/cmake/cpu_backend
 # )
 
-option(ENABLE_TESTS "Enable tests" ON)
-if (${ENABLE_TESTS})
-
-    set(CMAKE_CTEST_ARGUMENTS "--verbose")
-
-
-    enable_testing()
+if(ENABLE_TESTS)
     add_subdirectory(tests)
-
 endif()
 
 

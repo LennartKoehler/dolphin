@@ -117,6 +117,9 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
 
+option(ENABLE_TESTS "Enable tests" ON)
+option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
+
 add_subdirectory(backends/dolphinbackend)
 add_subdirectory(backends/cpu)
 add_subdirectory(dolphin_image)
@@ -369,18 +372,13 @@ install(FILES
 
 
 
-option(ENABLE_TESTS "Enable tests" ON)
-if (${ENABLE_TESTS})
-
+if(ENABLE_TESTS)
     set(CMAKE_CTEST_ARGUMENTS "--verbose")
-
-
     enable_testing()
     add_subdirectory(tests)
 endif()
 
-option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
-if (ENABLE_BENCHMARKS)
+if(ENABLE_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif()
 

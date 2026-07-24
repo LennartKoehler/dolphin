@@ -1,10 +1,3 @@
-cmake_minimum_required(VERSION 3.14)
-
-option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
-if(NOT ENABLE_BENCHMARKS)
-    return()
-endif()
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/cpu)
 
 find_package(OpenMP QUIET)

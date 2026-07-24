@@ -1,8 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/backends/cpu/tests)
-
-enable_testing()
 
 add_executable(cpu_backend_test
     test_cpu_backend.cpp

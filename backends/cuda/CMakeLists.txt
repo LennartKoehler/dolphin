@@ -1,10 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
-
 set(CMAKE_CUDA_RUNTIME_LIBRARY Static)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-project(cudaBackend)
-
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/cube ${CMAKE_BINARY_DIR}/cube/build)
 set(DOUBLE_PRECISION OFF) # explicit
@@ -55,15 +49,8 @@ target_link_libraries(cuda_backend PRIVATE project_options)
 
 
 
-option(ENABLE_TESTS "Enable tests" ON)
-if (${ENABLE_TESTS})
-
-    set(CMAKE_CTEST_ARGUMENTS "--verbose")
-
-
-    enable_testing()
+if(ENABLE_TESTS)
     add_subdirectory(tests)
-
 endif()
 
 
