@@ -25,5 +25,5 @@ dolphin_add_test(main_integration_test
 add_executable(main_test
     main_test.cpp)
 
-target_link_libraries(main_test PRIVATE dolphin)
+target_link_libraries(main_test PRIVATE dolphin project_options)
 target_include_directories(main_test PRIVATE ${TEST_INCLUDES})

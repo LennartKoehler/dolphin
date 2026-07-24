@@ -13,6 +13,7 @@ target_link_libraries(cpu_backend_test
         cpu_backend
         dolphinbackend
         GTest::gtest_main
+        project_options
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

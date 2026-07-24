@@ -12,6 +12,7 @@ target_link_libraries(cuda_backend_test
     PRIVATE
         cuda_backend
         GTest::gtest_main
+        project_options
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
