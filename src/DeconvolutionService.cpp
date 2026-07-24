@@ -121,7 +121,7 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
 
         ImageMetaData metadata = reader->getMetaData();
         logger_->debug("Using image with the following metadata {}", metadata.print());
-        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path, metadata.getShape());
+        std::shared_ptr<TiffWriter> writer = std::make_shared<TiffWriter>(output_path.string(), metadata.getShape());
 
 
         Result<DeconvolutionPlan> plan = strategyPair->getStrategy().createPlan(
