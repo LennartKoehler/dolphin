@@ -7,9 +7,9 @@ include(CMakeFindDependencyMacro)
 find_dependency(OpenMP QUIET)
 find_dependency(TIFF REQUIRED)
 find_dependency(ITK REQUIRED)
-find_dependency(JPEG QUIET)
-find_dependency(ZLIB QUIET)
-find_dependency(FFTW3f CONFIG QUIET)
+find_package(JPEG QUIET)
+find_package(ZLIB QUIET)
+find_package(FFTW3f CONFIG QUIET)
 
 # Include the targets file
 include("${CMAKE_CURRENT_LIST_DIR}/dolphinTargets.cmake")
