@@ -17,8 +17,9 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache Homebrew downloads
-        uses: actions/cache@v4
+      - name: Restore Homebrew cache
+        id: brew-cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/Library/Caches/Homebrew
           key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache
@@ -27,9 +28,16 @@ jobs:
         run: |
           brew install libtiff fftw libomp ccache
 
-      - name: Cache ITK
+      - name: Save Homebrew cache
+        if: steps.brew-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: ${{ steps.brew-cache.outputs.cache-primary-key }}
+
+      - name: Restore ITK cache
         id: cache-itk
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ~/itk-install
           key: itk-5.4.5-notiff-${{ runner.os }}-${{ runner.arch }}
@@ -49,6 +57,13 @@ jobs:
                 ..
           make -j$(sysctl -n hw.ncpu)
           make install
+
+      - name: Save ITK cache
+        if: steps.cache-itk.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/itk-install
+          key: ${{ steps.cache-itk.outputs.cache-primary-key }}
 
       - name: Cache ccache
         uses: actions/cache@v4
