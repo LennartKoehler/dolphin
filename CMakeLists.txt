@@ -68,6 +68,12 @@ if(NOT WIN32)
     find_library(LZMA_LIBRARY NAMES lzma)
     find_library(DEFLATE_LIBRARY NAMES deflate)
     find_library(Z_LIBRARY NAMES z)
+    # macOS system libraries use .tbd stubs which find_library may miss
+    # when CMAKE_FIND_LIBRARY_SUFFIXES doesn't include .tbd.
+    # Fall back to -lz so the linker finds /usr/lib/libz.tbd directly.
+    if(NOT Z_LIBRARY AND APPLE)
+        set(Z_LIBRARY z)
+    endif()
 endif()
 find_package(ZLIB QUIET)
 find_package(JPEG QUIET)
