@@ -108,7 +108,6 @@ public:
 
     T& access(std::size_t linearIndex);
     const T& access(std::size_t linearIndex) const;
-    T& getValue(size_t x, size_t y, size_t z) ;//TODO
 
     inline T* getData() const { return data; }
     void setData(T* data) {this->data = data;}
