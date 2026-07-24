@@ -71,7 +71,7 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         deconvolution.backwardFFT(c_complex, c);
 
         // b) Calculation of the Correction Factor: c = g / fn'
-        deconvolution.division(g, c, c, complexDivisionEpsilon);
+        deconvolution.division(g, c, c, static_cast<real_t>(complexDivisionEpsilon));
 
         // c) Second transformation: C = FFT(c)
         deconvolution.forwardFFT(c, c_complex);
@@ -119,5 +119,5 @@ void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
 
     deconvolution.divergence(gx, gy, gz, tv);
 
-    deconvolution.computeTV(lambda, tv, tv); // in-place: tv is both div input and tv output
+    deconvolution.computeTV(static_cast<real_t>(lambda), tv, tv); // in-place: tv is both div input and tv output
 }

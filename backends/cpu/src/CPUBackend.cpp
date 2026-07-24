@@ -1001,7 +1001,7 @@ void CPUComputeBackend::computeTV(real_t lambda, const ComplexData& div, Complex
     stridedIteration(div, tv, [lambda](auto* rowDiv, auto* rowTv, size_t w) {
         for (size_t x = 0; x < w; ++x) {
             real_t d = rowDiv[x][0];
-            real_t denom = 1.0 + lambda * d;
+            real_t denom = static_cast<real_t>(1.0) + lambda * d;
             // Safety: ensure denominator stays positive (should always be true for well-behaved data)
             denom = std::max(denom, static_cast<real_t>(1e-8));
             rowTv[x][0] = static_cast<real_t>(1.0 / denom);
@@ -1204,7 +1204,7 @@ void CPUComputeBackend::computeTV(real_t lambda, const RealData& div, RealData& 
     stridedIteration(div, tv, [lambda](auto* rowDiv, auto* rowTv, size_t w) {
         for (size_t x = 0; x < w; ++x) {
             real_t d = rowDiv[x];
-            real_t denom = 1.0 - lambda * d;
+            real_t denom = static_cast<real_t>(1.0) - lambda * d;
             // Safety: ensure denominator stays positive
             denom = std::max(denom, static_cast<real_t>(1e-8));
             rowTv[x] = static_cast<real_t>(1.0 / denom);

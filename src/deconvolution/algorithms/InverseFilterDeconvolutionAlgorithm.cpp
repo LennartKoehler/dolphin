@@ -48,7 +48,7 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealD
     backend->getComputeManager().forwardFFT(g, g_complex);
 
     // Complex division in frequency domain
-    backend->getComputeManager().complexDivision(g_complex, H, f_complex, epsilon);
+    backend->getComputeManager().complexDivision(g_complex, H, f_complex, static_cast<real_t>(epsilon));
 
     // Backward FFT: ComplexData -> RealData
     backend->getComputeManager().backwardFFT(f_complex, f);
