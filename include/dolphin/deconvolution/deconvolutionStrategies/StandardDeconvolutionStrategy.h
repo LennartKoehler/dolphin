@@ -24,7 +24,6 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
 #include "dolphinbackend/IBackendManager.h"
 #include <functional>
-#include <unistd.h>
 
 
 

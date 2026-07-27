@@ -127,7 +127,7 @@ bool CUDABackendMemoryManager::isOnDevice(const void* ptr) const {
 
 RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
     ensureDevice();
-    logWithContext(fmt::format("allocateMemoryOnDeviceRealFFTInPlace for shape: {}", shape.print()), LogLevel::DEBUG);
+    logWithContext(fmt::format("allocateMemoryOnDeviceRealFFTInPlace for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     CuboidShape shapeForInplaceFFT = shape;
     shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
     size_t padding = shapeForInplaceFFT.width - shape.width;
@@ -142,7 +142,7 @@ RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const Cu
 }
 RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const {
     ensureDevice();
-    logWithContext(fmt::format("allocateMemoryOnDeviceReal for shape: {}", shape.print()), LogLevel::DEBUG);
+    logWithContext(fmt::format("allocateMemoryOnDeviceReal for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     std::size_t bytes = shape.getVolume() * sizeof(real_t);
 
     RealData result{ this, nullptr, shape, shape, bytes, 0};
@@ -153,7 +153,7 @@ RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape&
 
 ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
     ensureDevice();
-    logWithContext(fmt::format("allocateMemoryOnDeviceComplex for shape: {}", shape.print()), LogLevel::DEBUG);
+    logWithContext(fmt::format("allocateMemoryOnDeviceComplex for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     CuboidShape complexShape = shape;
     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
     CuboidShape originalShape = shape;
@@ -165,7 +165,7 @@ ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplex(const Cuboid
 }
 ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
     ensureDevice();
-    logWithContext(fmt::format("allocateMemoryOnDeviceComplexFull for shape: {}", shape.print()), LogLevel::DEBUG);
+    logWithContext(fmt::format("allocateMemoryOnDeviceComplexFull for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
@@ -245,7 +245,7 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
     // Update memory tracking using getAccess()
     auto access = getMemoryTracking()->getAccess();
 
-    logWithContext(fmt::format("Allocated {:.2f} MB", requested_size / 1e6), LogLevel::DEBUG);
+    logWithContext(fmt::format("Allocated {:.2f} MB", requested_size / 1e6), LogLevel::LOG_DEBUG);
     access.data.totalUsedMemory += requested_size;
 
     return devicePtr;
@@ -255,7 +255,7 @@ void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) co
 
 void* CUDABackendMemoryManager::copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
     ensureDevice();
-    logWithContext(fmt::format("copyDataToDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
+    logWithContext(fmt::format("copyDataToDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
     void* dest = allocateMemoryOnDevice(size);
 
     cudaError_t err = cudaMemcpyAsync(dest, src, size, cudaMemcpyHostToDevice, config.stream);
@@ -268,12 +268,12 @@ void* CUDABackendMemoryManager::copyDataToDevice(void* src, size_t size, const C
 
 void* CUDABackendMemoryManager::moveDataFromDevice(void* src, size_t size, const CuboidShape& shape, const IBackendMemoryManager& destBackend) const {
     ensureDevice();
-    logWithContext(fmt::format("moveDataFromDevice: {:.2f} MB, shape: {}, to {}", size / 1e6, shape.print(), destBackend.getDeviceString()), LogLevel::DEBUG);
+    logWithContext(fmt::format("moveDataFromDevice: {:.2f} MB, shape: {}, to {}", size / 1e6, shape.print(), destBackend.getDeviceString()), LogLevel::LOG_DEBUG);
     if (&destBackend == this){
-        logWithContext(fmt::format("moveDataFromDevice: same backend, returning source pointer directly"), LogLevel::DEBUG);
+        logWithContext(fmt::format("moveDataFromDevice: same backend, returning source pointer directly"), LogLevel::LOG_DEBUG);
         return src;
     }
-    logWithContext(fmt::format("moveDataFromDevice: cross-backend transfer to {}", destBackend.getDeviceString()), LogLevel::DEBUG);
+    logWithContext(fmt::format("moveDataFromDevice: cross-backend transfer to {}", destBackend.getDeviceString()), LogLevel::LOG_DEBUG);
     void* dest = destBackend.allocateMemoryOnDevice(size);
 
     cudaMemcpyAsync(dest, src, size, cudaMemcpyDeviceToHost, config.stream);
@@ -284,7 +284,7 @@ void* CUDABackendMemoryManager::moveDataFromDevice(void* src, size_t size, const
 
 void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
     ensureDevice();
-    logWithContext(fmt::format("memCopy: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::DEBUG);
+    logWithContext(fmt::format("memCopy: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
     cudaError_t err = cudaMemcpyAsync(dest, src, size, cudaMemcpyDefault, config.stream);
     CUDA_CHECK(err, "memCopy - cudaMemcpyAsync", buildCudaContext(config));
     err = cudaStreamSynchronize(config.stream);
@@ -306,11 +306,11 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const 
     auto access = getMemoryTracking()->getAccess();
     if (access.data.totalUsedMemory < size) {
         access.data.totalUsedMemory = static_cast<size_t>(0); // this should never happen
-        logWithContext(fmt::format("Memory tracking inconsistency detected in freeMemoryOnDevice"), LogLevel::WARN);
+        logWithContext(fmt::format("Memory tracking inconsistency detected in freeMemoryOnDevice"), LogLevel::LOG_WARN);
     } else {
         access.data.totalUsedMemory -= size;
     }
-    logWithContext(fmt::format("Deallocated {:.2f} MB", size / 1e6), LogLevel::DEBUG);
+    logWithContext(fmt::format("Deallocated {:.2f} MB", size / 1e6), LogLevel::LOG_DEBUG);
 
     ptr = nullptr;
 }
@@ -326,7 +326,7 @@ size_t CUDABackendMemoryManager::getAvailableMemory() const {
     CUDA_CHECK(err, "getAvailableMemory - cudaMemGetInfo", buildCudaContext(config));
 
     if (freeMem > totalMem) {
-        logWithContext(fmt::format("Available memory ({}) exceeds total memory ({})", freeMem, totalMem), LogLevel::WARN);
+        logWithContext(fmt::format("Available memory ({}) exceeds total memory ({})", freeMem, totalMem), LogLevel::LOG_WARN);
         return 0; // Return 0 to indicate error condition
     }
 
@@ -335,7 +335,7 @@ size_t CUDABackendMemoryManager::getAvailableMemory() const {
 
 size_t CUDABackendMemoryManager::getAllocatedMemory() const {
     auto access = getMemoryTracking()->getAccess();
-    logWithContext(fmt::format("getAllocatedMemory: {:.2f} MB currently allocated", access.data.totalUsedMemory / 1e6), LogLevel::DEBUG);
+    logWithContext(fmt::format("getAllocatedMemory: {:.2f} MB currently allocated", access.data.totalUsedMemory / 1e6), LogLevel::LOG_DEBUG);
     return access.data.totalUsedMemory;
 }
 
@@ -391,7 +391,7 @@ float CUDABackendMemoryManager::estimateFFTWorkspaceCopies(const CuboidShape& sh
     // if (c2rResult == CUFFT_SUCCESS) totalWorkspace += c2rWorkSize;
 
     // logWithContext(fmt::format("Estimated cuFFT workspace for shape {}: {:.2f} MB)",
-    //     shape.print(), totalWorkspace / 1e6), LogLevel::DEBUG);
+    //     shape.print(), totalWorkspace / 1e6), LogLevel::LOG_DEBUG);
 
     return 2;
 }
@@ -493,8 +493,8 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
             description.shape.width, description.shape.height, description.shape.depth
         );
 
-        logWithContext(msg, LogLevel::DEBUG);
-        logWithContext(fmt::format("cuFFT r2c workspace: {:.2f} MB", worksize / 1e6), LogLevel::DEBUG);
+        logWithContext(msg, LogLevel::LOG_DEBUG);
+        logWithContext(fmt::format("cuFFT r2c workspace: {:.2f} MB", worksize / 1e6), LogLevel::LOG_DEBUG);
 
     }
     catch (...) {
@@ -563,8 +563,8 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPla
             description.shape.width, description.shape.height, description.shape.depth
         );
 
-        logWithContext(msg, LogLevel::DEBUG);
-        logWithContext(fmt::format("cuFFT c2r workspace: {:.2f} MB", worksize / 1e6), LogLevel::DEBUG);
+        logWithContext(msg, LogLevel::LOG_DEBUG);
+        logWithContext(fmt::format("cuFFT c2r workspace: {:.2f} MB", worksize / 1e6), LogLevel::LOG_DEBUG);
 
     }
     catch (...) {
@@ -895,7 +895,7 @@ void CUDAComputeBackend::complexDivisionStabilized(const ComplexData& a, const C
 void CUDAComputeBackend::hasNAN(const ComplexData& data) const {
     ensureDevice();
     // Implementation would go here
-    logWithContext(fmt::format("hasNAN called on CUDA backend"), LogLevel::DEBUG);
+    logWithContext(fmt::format("hasNAN called on CUDA backend"), LogLevel::LOG_DEBUG);
 }
 
 // void CUDAComputeBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {

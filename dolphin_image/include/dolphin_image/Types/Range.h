@@ -122,7 +122,7 @@ public:
             // If JSON parsing fails, try custom range format: "start:end[value1,value2]" or "start:[value]"
             try {
                 parseCustomRangeFormat(config);
-            } catch (const std::exception& e2) {
+            } catch (const std::exception&) {
                 // spdlog::error("Failed to parse string as JSON or custom format: {}", e.what());
                 throw std::invalid_argument("Invalid string format: " + config);
             }

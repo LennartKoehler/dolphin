@@ -4,12 +4,10 @@ crashes if memory in config is not set propery? should not happen
 
 there might still be wrong with how the subimages are stitched back together, there is an artifact when using "parent" padding strategy althugh this should be sufficient padding
 
-make fusable compute kernels for the backend, so that not every function iterates over the data, but rather the backend stores a vector of operations (similar to the operations in image3d) and then only iterates data once. This makes data access much fasted. Then in the code that uses the backend each function can either be fused or run instantly. This allows the user to either build pipelines (if its the same data) or just run function as is (e.g. for fourier transform the data acess is irregular anyway) but if multiple functions that access data and are elementwise are run after oneanother then this can be used. E.g. for the aberration i can then have a fused kernel that adds the phase and then in the same kernel computed the error.
+error when psf config or other path not found
+
 
 in the backend properly write the move to device and copy to device aswell as move from and copy from, use move semantics and then make the input nullptr
-
-the image reading is to somehow be seperate from iothreads, iothreads should only preprocess on host and move data to device, the reader and writer (perhaps new threads) should handle the reading and writing:
-on cuda the deconvolution might be fast, lets say not enough memory so the image has to be split. But now they might need to wait on the reader for the image to be available. In this time the gpu is idle. If i just increase the iothread, then reading will be fast, because more data will be available, but this data is not only read but also moved to the device, so i have less memory on the device. So iothreads have to be seperate from readers and writer, or somehow manage this differently. Also the reader and writer memory still has to be incorporated into the memory model, also that there is different memory pools on cpu and gpu when using gpu, the memory the reader and writer use is not on the gpu
 
 make some of the padding variations user interactive, like if the psf that is read from file is larger than the cube that would be processed (due to memory) then prompt the user to specify if either the psf is cut off or the cube is enlarged.
 
@@ -50,11 +48,6 @@ cna i somehow make the memory used for the workerdevice in a fixed position and 
 could make a low memory version for richardsonlucydeconvolution where the f is recomputed in backwardfft so that it doesnt have to be stored
 
 
-Reader/Writer:
-    should the reader actually have a lot of padding logic? i think no but its much easier because it has all the dimensionality information and its easir to pass as padding something that goes out of bounds of image instead of passing e.g. as negative values. Also it can load data however it sees fit. i dont think the executor should know about imagemetadata and determine itself what part of the image can be read and what has to padded after having read the image. I still believe that the reader should not do padding, but think about this before implementing
-
-
-
 
 
 
@@ -72,3 +65,7 @@ questions to ask:
 
 
 
+plans for future:
+
+
+make fusable compute kernels for the backend, so that not every function iterates over the data, but rather the backend stores a vector of operations (similar to the operations in image3d) and then only iterates data once. This makes data access much fasted. Then in the code that uses the backend each function can either be fused or run instantly. This allows the user to either build pipelines (if its the same data) or just run function as is (e.g. for fourier transform the data acess is irregular anyway) but if multiple functions that access data and are elementwise are run after oneanother then this can be used. E.g. for the aberration i can then have a fused kernel that adds the phase and then in the same kernel computed the error.

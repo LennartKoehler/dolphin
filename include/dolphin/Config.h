@@ -171,11 +171,11 @@ protected:
                 case ParameterType::VectorString:
                     visitor.template operator()<std::vector<std::string>>(*reinterpret_cast<std::vector<std::string>*>(param.value), param);
                     break;
-                // case ParameterType::VectorInt:
-                //     auto* data = static_cast<int*>(param.value);
-                //     std::vector<int> vec(data, data + param.size);
-                //     visitor.template operator()<std::vector<int>>(vec, param);
-                //     break;
+                case ParameterType::VectorInt:
+                    visitor.template operator()<std::vector<int>>(*reinterpret_cast<std::vector<int>*>(param.value), param);
+                    break;
+                case ParameterType::RangeMap:
+                    break;
 
                 case ParameterType::IntArray3:
                     // int* intdata = static_cast<int*>(param.value);

@@ -70,7 +70,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     deconvolution.scalarMultiplication(L2, lambdacomplex, L2);
 
     deconvolution.complexAddition(H2, L2, FA);
-    deconvolution.complexDivisionStabilized(H, FA, FP, complexDivisionEpsilon);
+    deconvolution.complexDivisionStabilized(H, FA, FP, static_cast<real_t>(complexDivisionEpsilon));
     deconvolution.complexMultiplication(f_complex, FP, f_complex);
 
     // Inverse FFT: ComplexData -> RealData

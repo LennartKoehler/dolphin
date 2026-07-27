@@ -14,8 +14,6 @@ See the LICENSE file provided with the code for the full license.
 #include "CLIFrontend.h"
 #include <spdlog/spdlog.h>
 #include <string>
-#include <sys/stat.h>
-#include <cstring>
 #include <dolphin/Dolphin.h>
 
 CLIFrontend::CLIFrontend(Dolphin* dolphin, int argc, char** argv)
@@ -32,7 +30,7 @@ bool CLIFrontend::parseCLI(){
         app.parse(argc, argv);
         return true;
     }
-    catch (const CLI::CallForHelp& e) {
+    catch (const CLI::CallForHelp&) {
         std::cout << app.help() << std::endl;
         return false;
     }
@@ -279,7 +277,7 @@ std::vector<std::string> CLIFrontend::checkRequired(Config& config) const {
 void progressVisualization(std::atomic<float>& current, float max){
     // Calculate progress
 
-    float barWidth = 50;
+    float barWidth = 50.0f;
     int pos = static_cast<int>((current * barWidth) / max);
     int progress = static_cast<int>((current * 100) / max);
     // Print progress bar

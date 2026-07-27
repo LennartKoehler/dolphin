@@ -41,11 +41,11 @@ public:
     // Use the struct for parameters
     std::string algorithmName = "RichardsonLucy";
     int iterations = 10;
-    float epsilon = 1e-6;
-    float lambda = 0.001;
+    float epsilon = 1e-6f;
+    float lambda = 0.001f;
     PaddingFillType paddingFillType = PaddingFillType::ZERO;
     PaddingStrategyType paddingStrategyType = PaddingStrategyType::PARENT;
-    float paddingRelativeMax = 0.001;
+    float paddingRelativeMax = 0.001f;
     int featheringRadius = 0;
     std::array<int, 3> cubeSize{}; // currently unused
     std::array<int, 3> cubePadding{-1, -1, -1}; // this padding is later doubled

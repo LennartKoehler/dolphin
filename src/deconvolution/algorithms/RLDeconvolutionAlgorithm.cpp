@@ -81,7 +81,7 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, Rea
         // deconvolution.scalarMultiplication(c, 1.0 / g.size.getVolume(), c); // Add normalization
 
         // b) Calculation of the Correction Factor: c = g / fn\'
-        deconvolution.division(g, c_real, c_real, complexDivisionEpsilon);
+        deconvolution.division(g, c_real, c_real, static_cast<real_t>(complexDivisionEpsilon));
 
         // // c) Second transformation: C = FFT(c)
         deconvolution.forwardFFT(c_real, c_complex);

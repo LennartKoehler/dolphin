@@ -72,7 +72,7 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         deconvolution.backwardFFT(c_complex, c);
 
         // b) Calculation of the Correction Factor: c = g / fn'
-        deconvolution.division(g, c, c, complexDivisionEpsilon);
+        deconvolution.division(g, c, c, static_cast<real_t>(complexDivisionEpsilon));
 
         // c) Second transformation: C = FFT(c)
         deconvolution.forwardFFT(c, c_complex);

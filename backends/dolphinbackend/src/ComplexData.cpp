@@ -14,11 +14,6 @@ See the LICENSE file provided with the code for the full license.
 #include "ComplexData.h"
 #include "IBackendMemoryManager.h"
 
-template class ManagedData<real_t>;      // for RealData
-template class ManagedData<complex_t>;   // for ComplexData
-template class DataView<real_t>;      // for RealData
-template class DataView<complex_t>;   // for ComplexData
-
 template<typename T>
 ManagedData<T>::ManagedData(IBackendMemoryManager const* b, T* d, CuboidShape s, CuboidShape rs, std::size_t bytes, std::size_t padding)
     : backend(b), data(d), size(s), realSize(rs), bytes(bytes), padding(padding) {}
@@ -131,3 +126,10 @@ size_t ManagedData<T>::convertIndex(size_t linearIndex) const {
     // return linearIndex;
     return linearIndex + (linearIndex / size.width) * padding;
 }
+
+// Explicit instantiations MUST come after all member definitions,
+// otherwise the members defined above won't be instantiated.
+template class ManagedData<real_t>;      // for RealData
+template class ManagedData<complex_t>;   // for ComplexData
+template class DataView<real_t>;      // for RealData
+template class DataView<complex_t>;   // for ComplexData

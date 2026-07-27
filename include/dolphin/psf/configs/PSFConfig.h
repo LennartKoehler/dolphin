@@ -66,9 +66,9 @@ public:
     size_t sizeX = 20;
     size_t sizeY = 20;
     size_t sizeZ = 10;
-    float NA = 1.0;
-    float resLateral_nm = 200;
-    float resAxial_nm = 200;
+    float NA = 1.0f;
+    float resLateral_nm = 200.0f;
+    float resAxial_nm = 200.0f;
 
 protected:
     void registerAllParameters();

@@ -22,7 +22,7 @@ public:
     GaussianPSFConfig(float qualityFactor, float sigmaX, float sigmaY, float sigmaZ,
                       float nanometerScale, float pixelScaling,
                       size_t sizeX = 20, size_t sizeY = 20, size_t sizeZ = 10,
-                      float NA = 1.0, float resLateral_nm = 200, float resAxial_nm = 200);
+                      float NA = 1.0f, float resLateral_nm = 200.0f, float resAxial_nm = 200.0f);
     GaussianPSFConfig(const GaussianPSFConfig& other);
 
 
@@ -30,12 +30,12 @@ public:
     float convertResolution(float resolution);
 
 
-    float sigmaX = 10;
-    float sigmaY = 10;
-    float sigmaZ = 10;
-    float qualityFactor = 1.0; // 1.0 for perfect a perfect image, larger if the image is blurry and therefore the psd should be too
-    float pixelScaling = 1e-6; //TODO should this be here? or in main config?
-    float nanometerScale = 1e-9;
+    float sigmaX = 10.0f;
+    float sigmaY = 10.0f;
+    float sigmaZ = 10.0f;
+    float qualityFactor = 1.0f; // 1.0 for perfect a perfect image, larger if the image is blurry and therefore the psd should be too
+    float pixelScaling = 1e-6f; //TODO should this be here? or in main config?
+    float nanometerScale = 1e-9f;
 
 
 

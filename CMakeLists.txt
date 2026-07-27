@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(dolphin VERSION 1.0.0)
+cmake_policy(SET CMP0074 NEW)
 
 
 # Set C++ standard
@@ -24,11 +25,11 @@ add_library(project_options INTERFACE)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(project_options INTERFACE
-      $<$<CONFIG:Release>:-O3;-ffast-math;-DNDEBUG;-funroll-loops>
+      $<$<CONFIG:Release>:-O3;-ffast-math;-fno-finite-math-only;-DNDEBUG;-funroll-loops>
       $<$<CONFIG:Debug>:-g;-O0;-fno-omit-frame-pointer>
       $<$<CONFIG:DebugVectorization>:-g;-O0;-fno-omit-frame-pointer>
-      $<$<CONFIG:NoVectorization>:-O3;-ffast-math;-DNDEBUG;-fno-tree-vectorize;-fno-tree-slp-vectorize>
-      $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-DNDEBUG;-funroll-loops>
+      $<$<CONFIG:NoVectorization>:-O3;-ffast-math;-fno-finite-math-only;-DNDEBUG;-fno-tree-vectorize;-fno-tree-slp-vectorize>
+      $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-fno-finite-math-only;-DNDEBUG;-funroll-loops>
     )
     # x86-only AVX flags (skip on ARM/Apple Silicon)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|AMD64|i386|i686)")
@@ -38,10 +39,13 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 elseif(MSVC)
     target_compile_options(project_options INTERFACE
+      /utf-8
+      /Zc:preprocessor
       $<$<CONFIG:Release>:/O2;/fp:fast;/DNDEBUG>
       $<$<CONFIG:Debug>:/Od;/Zi;/RTC1>
       $<$<CONFIG:RelWithDebInfo>:/O2;/fp:fast;/DNDEBUG;/Zi>
     )
+    target_compile_definitions(project_options INTERFACE _USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
 endif()
 
 # link_directories(/usr/local/lib)
@@ -49,6 +53,48 @@ set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_package(TIFF REQUIRED)
 find_package(ITK REQUIRED)
+
+# On Windows (vcpkg), ITK_LIBRARIES may include minc2 which has no .lib file.
+# Remove it to avoid linker error LNK1181.
+if(WIN32)
+    list(REMOVE_ITEM ITK_LIBRARIES "minc2")
+endif()
+
+# Static libtiff may reference zstd/lzma/deflate/zlib/jpeg — link them transitively
+# On Windows (vcpkg), TIFF::TIFF already provides transitive deps; find_library
+# would pick up incompatible MinGW DLLs from Git's PATH.
+if(NOT WIN32)
+    find_library(ZSTD_LIBRARY NAMES zstd)
+    find_library(LZMA_LIBRARY NAMES lzma)
+    find_library(DEFLATE_LIBRARY NAMES deflate)
+    find_library(Z_LIBRARY NAMES z)
+    # macOS system libraries use .tbd stubs which find_library may miss
+    # when CMAKE_FIND_LIBRARY_SUFFIXES doesn't include .tbd.
+    # Fall back to -lz so the linker finds /usr/lib/libz.tbd directly.
+    if(NOT Z_LIBRARY AND APPLE)
+        set(Z_LIBRARY z)
+    endif()
+endif()
+find_package(ZLIB QUIET)
+find_package(JPEG QUIET)
+set(TIFF_DEPS "")
+if(ZSTD_LIBRARY)
+    list(APPEND TIFF_DEPS ${ZSTD_LIBRARY})
+endif()
+if(LZMA_LIBRARY)
+    list(APPEND TIFF_DEPS ${LZMA_LIBRARY})
+endif()
+if(DEFLATE_LIBRARY)
+    list(APPEND TIFF_DEPS ${DEFLATE_LIBRARY})
+endif()
+if(Z_LIBRARY)
+    list(APPEND TIFF_DEPS ${Z_LIBRARY})
+elseif(TARGET ZLIB::ZLIB)
+    list(APPEND TIFF_DEPS ZLIB::ZLIB)
+endif()
+if(TARGET JPEG::JPEG)
+    list(APPEND TIFF_DEPS JPEG::JPEG)
+endif()
 
 
 set(FFTW_PATH "" CACHE PATH "Path to FFTW installation (empty = use system default)")
@@ -69,15 +115,20 @@ message(STATUS "ITKCommon RELEASE: ${itk_release}")
 message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
 
 # GoogleTest — fetched early so backend test subdirectories can use it
+# Ensure GoogleTest uses the same CRT (dynamic /MD) as the project
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 include(FetchContent)
 FetchContent_Declare(
     googletest
     GIT_REPOSITORY https://github.com/google/googletest.git
     GIT_TAG v1.14.0
 )
-set(gtest_force_shared_rcs ON CACHE BOOL "" FORCE)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
+
+option(ENABLE_TESTS "Enable tests" ON)
+option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
 
 add_subdirectory(backends/dolphinbackend)
 add_subdirectory(backends/cpu)
@@ -188,8 +239,6 @@ target_include_directories(dolphin
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/nlohmann/json/single_include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/spdlog/include/>
         $<INSTALL_INTERFACE:include>
-        ${TIFF_INCLUDE_DIR}
-        ${ITK_INCLUDE_DIRS}
 )
 
 target_link_libraries(dolphin
@@ -197,7 +246,8 @@ target_link_libraries(dolphin
         dolphin_image
         dolphinbackend
         cpu_backend
-        ${TIFF_LIBRARIES}
+        TIFF::TIFF
+        ${TIFF_DEPS}
         ${ITK_LIBRARIES}
 )
 
@@ -275,6 +325,10 @@ install(DIRECTORY lib/spdlog/include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
+install(DIRECTORY backends/dolphinbackend/include/
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
 install(DIRECTORY backends/cpu/include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
@@ -332,18 +386,13 @@ install(FILES
 
 
 
-option(ENABLE_TESTS "Enable tests" ON)
-if (${ENABLE_TESTS})
-
+if(ENABLE_TESTS)
     set(CMAKE_CTEST_ARGUMENTS "--verbose")
-
-
     enable_testing()
     add_subdirectory(tests)
 endif()
 
-option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
-if (ENABLE_BENCHMARKS)
+if(ENABLE_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif()
 

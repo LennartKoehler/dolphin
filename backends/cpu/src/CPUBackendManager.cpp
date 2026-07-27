@@ -106,7 +106,7 @@ void FFTWManager::init(){
         try {
             wisdomManager_.importWisdom();
         } catch (...) {
-            log("FFTW wisdom import failed, continuing without wisdom", LogLevel::WARN);
+            log("FFTW wisdom import failed, continuing without wisdom", LogLevel::LOG_WARN);
         }
         didInit_.store(true, std::memory_order_release);
     });
@@ -146,7 +146,7 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
 
     BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanRealToComplex - logger", buildCpuContext());
 
-    fftwf_plan_with_nthreads(description.ompThreads);
+    fftwf_plan_with_nthreads(static_cast<int>(description.ompThreads));
 
     real_t* in = nullptr;
     complex_t* out = nullptr;
@@ -205,7 +205,7 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
             description.ompThreads, description.shape.width, description.shape.height, description.shape.depth
         );
 
-        log(msg, LogLevel::INFO);
+        log(msg, LogLevel::LOG_INFO);
 
         fftwf_free(out);
         if (!description.inPlace) fftwf_free(in);
@@ -230,7 +230,7 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
 
     BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanComplexToReal - logger", buildCpuContext());
 
-    fftwf_plan_with_nthreads(description.ompThreads);
+    fftwf_plan_with_nthreads(static_cast<int>(description.ompThreads));
 
     complex_t* in = nullptr;
     real_t* out = nullptr;
@@ -289,7 +289,7 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
             description.ompThreads, description.shape.width, description.shape.height, description.shape.depth
         );
 
-        log(msg, LogLevel::INFO);
+        log(msg, LogLevel::LOG_INFO);
 
         fftwf_free(in);
         if (!description.inPlace) fftwf_free(out);
@@ -320,7 +320,7 @@ fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& descrip
 
     BACKEND_CHECK(getGlobalLogger(), "Logger not set", "CPU", "initializePlanComplex - logger", buildCpuContext());
 
-    fftwf_plan_with_nthreads(description.ompThreads);
+    fftwf_plan_with_nthreads(static_cast<int>(description.ompThreads));
 
     complex_t* temp = nullptr;
     complex_t* tempout = nullptr;
@@ -342,7 +342,7 @@ fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& descrip
             description.ompThreads, description.shape.width, description.shape.height, description.shape.depth
         );
 
-        log(msg, LogLevel::INFO);
+        log(msg, LogLevel::LOG_INFO);
 
         fftwf_free(temp);
         if (!description.inPlace)fftwf_free(tempout);
@@ -423,7 +423,11 @@ std::string FFTWWisdomManager::getFullPath() const {
     // Expand ~ to user home directory
     std::string path = wisdomFilename_;
     if (path.starts_with("~")) {
+#ifdef _WIN32
+        const char* home = std::getenv("USERPROFILE");
+#else
         const char* home = std::getenv("HOME");
+#endif
         if (home) {
             path = std::string(home) + path.substr(1);
         }
@@ -451,7 +455,7 @@ std::string FFTWWisdomManager::resolveWritablePath() const {
             }
         }
     } catch (const std::exception& e) {
-        log(std::string("FFTW wisdom path not accessible: ") + primaryPath + " (" + e.what() + ")", LogLevel::WARN);
+        log(std::string("FFTW wisdom path not accessible: ") + primaryPath + " (" + e.what() + ")", LogLevel::LOG_WARN);
     }
 
     // 2. Fall back to a directory next to the running application
@@ -466,15 +470,15 @@ std::string FFTWWisdomManager::resolveWritablePath() const {
             test.close();
             fs::remove(testFile);
             std::string fallbackPath = (fallbackDir / "wisdom").string();
-            log(std::string("FFTW wisdom using fallback path: ") + fallbackPath, LogLevel::WARN);
+            log(std::string("FFTW wisdom using fallback path: ") + fallbackPath, LogLevel::LOG_WARN);
             return fallbackPath;
         }
     } catch (const std::exception& e) {
-        log(std::string("FFTW wisdom fallback path not writable: ") + std::string(e.what()), LogLevel::WARN);
+        log(std::string("FFTW wisdom fallback path not writable: ") + std::string(e.what()), LogLevel::LOG_WARN);
     }
 
     // 3. No writable location found
-    log("FFTW wisdom will not be used (no writable path available)", LogLevel::WARN);
+    log("FFTW wisdom will not be used (no writable path available)", LogLevel::LOG_WARN);
     return "";
 }
 
@@ -494,20 +498,20 @@ bool FFTWWisdomManager::importWisdom() {
         }
 
         if (!fs::exists(fullPath)) {
-            log(std::string("FFTW wisdom file not found at: ") + fullPath + ", skipping import", LogLevel::INFO);
+            log(std::string("FFTW wisdom file not found at: ") + fullPath + ", skipping import", LogLevel::LOG_INFO);
             return false;
         }
 
         int success = fftwf_import_wisdom_from_filename(fullPath.c_str());
         if (success) {
-            log(std::string("Successfully imported FFTW wisdom from: ") + fullPath, LogLevel::DEBUG);
+            log(std::string("Successfully imported FFTW wisdom from: ") + fullPath, LogLevel::LOG_DEBUG);
             return true;
         } else {
-            log(std::string("Failed to import FFTW wisdom from: ") + fullPath, LogLevel::WARN);
+            log(std::string("Failed to import FFTW wisdom from: ") + fullPath, LogLevel::LOG_WARN);
             return false;
         }
     } catch (const std::exception& e) {
-        log(std::string("Error importing FFTW wisdom: ") + e.what(), LogLevel::WARN);
+        log(std::string("Error importing FFTW wisdom: ") + e.what(), LogLevel::LOG_WARN);
         return false;
     }
 }
@@ -526,14 +530,14 @@ bool FFTWWisdomManager::exportWisdom() {
 
         int success = fftwf_export_wisdom_to_filename(fullPath.c_str());
         if (success) {
-            log(std::string("Successfully exported FFTW wisdom to: ") + fullPath, LogLevel::DEBUG);
+            log(std::string("Successfully exported FFTW wisdom to: ") + fullPath, LogLevel::LOG_DEBUG);
             return true;
         } else {
-            log(std::string("Failed to export FFTW wisdom to: ") + fullPath, LogLevel::ERROR);
+            log(std::string("Failed to export FFTW wisdom to: ") + fullPath, LogLevel::LOG_ERROR);
             return false;
         }
     } catch (const std::exception& e) {
-        log(std::string("Error exporting FFTW wisdom: ") + e.what(), LogLevel::WARN);
+        log(std::string("Error exporting FFTW wisdom: ") + e.what(), LogLevel::LOG_WARN);
         return false;
     }
 }

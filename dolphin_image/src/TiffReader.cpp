@@ -63,7 +63,7 @@ TiffReader::TiffReader(const std::string& filename)
     try {
         metaData = readMetadata_(filename);
         regionReader = getRegionReader(metaData);
-    } catch (const TiffException& e) {
+    } catch (const TiffException&) {
         throw TiffFileOpenException(filename);
     }
 
@@ -153,7 +153,7 @@ void TiffReader::readSubimageFromTiffFileStatic(const std::string& filename, con
     try {
         readSubimageFromTiffFile(tif, regionReader.get(), metaData, region, image, channel);
         TIFFClose(tif);
-    } catch (const TiffException& e) {
+    } catch (const TiffException&) {
         TIFFClose(tif);
         throw;
     } catch (const std::exception& e){
