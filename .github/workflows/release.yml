@@ -302,9 +302,9 @@ jobs:
       - name: Install CUDA Toolkit
         uses: Jimver/cuda-toolkit@v0.2.35
         with:
-          method: network
+          method: local
           cuda: '12.8.1'
-          sub-packages: '["cudart", "cudart_dev", "cufft", "cufft_dev", "nvcc"]'
+          sub-packages: '["cudart", "cufft", "nvcc"]'
 
       - name: Configure
         shell: pwsh
