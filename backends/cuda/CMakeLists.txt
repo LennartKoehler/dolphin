@@ -31,7 +31,7 @@ target_include_directories(cuda_backend
 
 
 target_link_libraries(cuda_backend PUBLIC
-    CUDA::cufft
+    CUDA::cufft_static
     CUBE
     dolphinbackend
 )
