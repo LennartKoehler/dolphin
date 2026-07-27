@@ -213,6 +213,11 @@ jobs:
             -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
           Out-Null
 
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Configure
         shell: pwsh
         run: |
@@ -305,6 +310,11 @@ jobs:
         with:
           method: local
           cuda: '12.8.1'
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
       - name: Configure
         shell: pwsh
