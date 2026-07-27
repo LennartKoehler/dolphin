@@ -241,8 +241,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
           restore-keys: |
+            vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
             vcpkg-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Create vcpkg binary cache directory
@@ -273,11 +274,11 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache
-        if: always() && steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
+        if: always()
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: ${{ steps.vcpkg-cache-restore.outputs.cache-primary-key }}
+          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
 
       - name: Build
         run: cmake --build build --config Release -j
