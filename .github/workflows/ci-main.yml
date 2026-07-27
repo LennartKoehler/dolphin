@@ -265,8 +265,8 @@ jobs:
         shell: pwsh
         run: |
           cmake -B build -S . `
-            -G "Visual Studio 17 2022" `
-            -A x64 `
+            -G "Ninja" `
+            -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
             -DBUILD_CUDA=ON `
@@ -280,22 +280,22 @@ jobs:
           key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
 
       - name: Build
-        run: cmake --build build --config Release -j
+        run: cmake --build build -j
 
       - name: Install
-        run: cmake --install build --config Release
+        run: cmake --install build
 
       - name: Build CLI frontend
         shell: pwsh
         run: |
           cmake -B cli-build -S frontends/cli `
-            -G "Visual Studio 17 2022" `
-            -A x64 `
+            -G "Ninja" `
+            -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_MANIFEST_DIR="${{ github.workspace }}" `
             -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
 
-          cmake --build cli-build --config Release -j
+          cmake --build cli-build -j
 
       - name: Run tests (skip CUDA runtime tests — no GPU on CI)
-        run: ctest --test-dir build --build-config Release --output-on-failure -E "cuda" || true
+        run: ctest --test-dir build --output-on-failure -E "cuda" || true
