@@ -641,6 +641,151 @@ TEST_F(CUDAComputeBackendTest, OctantFourierShiftDoubleIsIdentity) {
     }
 }
 
+// ============================================================================
+// octantFourierShift — regression tests
+//
+// Semantics: swaps (z,y,x) with ((z+halfD)%D, (y+halfH)%H, (x+halfW)%W) for
+// z in [0, halfD).  Involution for all dims; peak at floor(N/2) -> origin.
+//
+// NOTE: The CUDA complex kernel (global.cu:802) lacks x<width/y<height bounds
+// guards and is therefore unsafe for ODD dimensions.  Odd-dim tests here use
+// the RealData overload only (its kernel has full bounds checks).  Odd-dim
+// ComplexData coverage lives in the CPU test suite.
+// ============================================================================
+
+template <typename T>
+static void referenceShift(std::vector<T>& buf, size_t W, size_t H, size_t D) {
+    size_t halfW = W / 2, halfH = H / 2, halfD = D / 2;
+    for (size_t z = 0; z < halfD; ++z)
+        for (size_t y = 0; y < H; ++y)
+            for (size_t x = 0; x < W; ++x) {
+                size_t i1 = z * H * W + y * W + x;
+                size_t i2 = ((z + halfD) % D) * H * W +
+                            ((y + halfH) % H) * W +
+                            ((x + halfW) % W);
+                if (i1 != i2) std::swap(buf[i1], buf[i2]);
+            }
+}
+
+TEST_F(CUDAComputeBackendTest, OctantShiftMovesCenterToOrigin) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape{8, 8, 8};
+
+    ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+    std::vector<complex_t> hostIn(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        hostIn[i][0] = 0.0f;
+        hostIn[i][1] = 0.0f;
+    }
+    size_t cx = shape.width / 2, cy = shape.height / 2, cz = shape.depth / 2;
+    size_t centerIdx = cz * shape.height * shape.width + cy * shape.width + cx;
+    hostIn[centerIdx][0] = 42.0f;
+    hostIn[centerIdx][1] = 7.0f;
+    hostIn[0][0] = 1.0f;
+    hostIn[0][1] = 2.0f;
+    writeComplexToDevice(data, hostIn);
+
+    deconv.octantFourierShift(data);
+    backend->sync();
+
+    std::vector<complex_t> hostRt(shape.getVolume());
+    memMgr.memCopy(data.getData(), hostRt.data(),
+                   shape.getVolume() * sizeof(complex_t), shape);
+
+    EXPECT_TRUE(approxEqualComplex(hostRt[0], 42.0f, 7.0f, 1e-2f))
+        << "Center spike should move to origin";
+    EXPECT_TRUE(approxEqualComplex(hostRt[centerIdx], 1.0f, 2.0f, 1e-2f))
+        << "Origin value should move to center";
+}
+
+TEST_F(CUDAComputeBackendTest, OctantShiftRealMovesCenterToOrigin) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape{8, 8, 8};
+
+    RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostIn(shape.getVolume(), 0.0f);
+    size_t cx = shape.width / 2, cy = shape.height / 2, cz = shape.depth / 2;
+    size_t centerIdx = cz * shape.height * shape.width + cy * shape.width + cx;
+    hostIn[centerIdx] = 42.0f;
+    hostIn[0] = 1.0f;
+    writeRealToDevice(data, hostIn);
+
+    deconv.octantFourierShift(data);
+    backend->sync();
+
+    auto hostRt = readbackReal(data);
+
+    EXPECT_TRUE(approxEqual(hostRt[0], 42.0f, 1e-2f)) << "Center spike should move to origin";
+    EXPECT_TRUE(approxEqual(hostRt[centerIdx], 1.0f, 1e-2f)) << "Origin value should move to center";
+}
+
+TEST_F(CUDAComputeBackendTest, OctantShiftRealMovesCenterToOriginOddDims) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape{5, 7, 9};
+
+    RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostIn(shape.getVolume(), 0.0f);
+    size_t cx = shape.width / 2, cy = shape.height / 2, cz = shape.depth / 2;
+    size_t centerIdx = cz * shape.height * shape.width + cy * shape.width + cx;
+    hostIn[centerIdx] = 42.0f;
+    writeRealToDevice(data, hostIn);
+
+    deconv.octantFourierShift(data);
+    backend->sync();
+
+    auto hostRt = readbackReal(data);
+
+    EXPECT_TRUE(approxEqual(hostRt[0], 42.0f, 1e-2f))
+        << "Center spike should move to origin even for odd dimensions";
+}
+
+TEST_F(CUDAComputeBackendTest, OctantShiftRealInvolutionOddDims) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape{5, 7, 9};
+
+    RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostIn(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) hostIn[i] = static_cast<real_t>(i);
+    writeRealToDevice(data, hostIn);
+
+    deconv.octantFourierShift(data);
+    deconv.octantFourierShift(data);
+    backend->sync();
+
+    auto hostRt = readbackReal(data);
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        EXPECT_NEAR(hostRt[i], hostIn[i], 1e-2f)
+            << "Double shift must be identity for odd dimensions";
+    }
+}
+
+TEST_F(CUDAComputeBackendTest, OctantShiftRealMatchesReferenceOddDims) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape{5, 7, 9};
+
+    RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> ref(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        ref[i] = static_cast<real_t>(i) * 0.5f + 1.0f;
+    }
+    writeRealToDevice(data, ref);
+
+    deconv.octantFourierShift(data);
+    backend->sync();
+
+    referenceShift(ref, shape.width, shape.height, shape.depth);
+    auto hostRt = readbackReal(data);
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        EXPECT_NEAR(hostRt[i], ref[i], 1e-2f)
+            << "Shift must match reference at index " << i;
+    }
+}
+
 TEST_F(CUDAComputeBackendTest, TVNormalization) {
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
