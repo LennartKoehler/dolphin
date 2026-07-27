@@ -4,11 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
 
 jobs:
   ubuntu-cpu:
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +34,7 @@ jobs:
         run: docker run --rm dolphin-cpu:latest bash -c 'cd /workspace/build && ctest --output-on-failure'
 
   ubuntu-cuda:
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -57,6 +59,7 @@ jobs:
         run: docker run --rm dolphin-cuda:latest bash -c 'cd /workspace/build && ctest --output-on-failure -E "cuda" || true'
 
   macos:
+    if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
@@ -157,6 +160,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   windows:
+    if: github.event.pull_request.draft == false
     runs-on: windows-2022
 
     env:
