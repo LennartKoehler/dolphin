@@ -272,6 +272,8 @@ jobs:
           cmake -B build -S . `
             -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER=cl `
+            -DCMAKE_CXX_COMPILER=cl `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
             -DBUILD_CUDA=ON `
