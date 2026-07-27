@@ -30,8 +30,13 @@ target_include_directories(cuda_backend
 
 
 
+if(TARGET CUDA::cufft_static)
+    target_link_libraries(cuda_backend PUBLIC CUDA::cufft_static)
+else()
+    target_link_libraries(cuda_backend PUBLIC CUDA::cufft)
+endif()
+
 target_link_libraries(cuda_backend PUBLIC
-    CUDA::cufft_static
     CUBE
     dolphinbackend
 )
