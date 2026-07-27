@@ -255,7 +255,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     int ncubes = 0;
     CuboidShape cubeSizeToUse = currentMaxSize;
 
-    while (ncubes < minNumberCubes){
+    while (true){
 
         cubePositions.clear();
 
@@ -276,11 +276,14 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
             ncubes = cubePositions.size();
         }
 
+        if (ncubes >= minNumberCubes)
+            break;
+
         bool success = decreaseLargestDim(tempCubeAccessor, minSize);
         if (!success)
         {
             return Result<std::vector<BoxCoordWithPadding>>::fail(
-                "Not enough memory to fit the smallest possible cube");
+                "Not enough memory to fit the smallest possible cube: " + minSize.print());
         }
     }
     cubePositions = reduceSizeWhileKeepingNCubes(

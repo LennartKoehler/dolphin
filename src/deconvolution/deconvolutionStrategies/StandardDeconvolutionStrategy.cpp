@@ -214,7 +214,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
 
     CuboidShape minShape = maxPSF + padding.getTotalPadding();
 
-    if (minShape.getVolume() * 4 > maxMemDevice_byte){
+    if (minShape.getVolume() * sizeof(real_t) > maxMemDevice_byte){
         throw std::runtime_error("Deconvolution with the largest PSF and padding requires too much memory. The minimum size for one cube would be: " + minShape.print());
     }
 

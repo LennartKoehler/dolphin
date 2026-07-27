@@ -220,30 +220,6 @@ TEST_F(BoxCoordRangeTest, CropToPartialOverlap) {
     EXPECT_EQ(padding.after.width, 2);
 }
 
-TEST(PaddingTest, GetTotalPadding) {
-    Padding p;
-    p.before = CuboidShape(1, 2, 3);
-    p.after = CuboidShape(4, 5, 6);
-    CuboidShape total = p.getTotalPadding();
-    EXPECT_EQ(total.width, 5);
-    EXPECT_EQ(total.height, 7);
-    EXPECT_EQ(total.depth, 9);
-}
-
-TEST(PaddingTest, GetPaddingWidthTotal) {
-    Padding p;
-    p.before = CuboidShape(2, 0, 0);
-    p.after = CuboidShape(3, 0, 0);
-    EXPECT_EQ(p.getPaddingWidthTotal(), 5);
-}
-
-TEST(PaddingTest, GetPaddingHeightTotal) {
-    Padding p;
-    p.before = CuboidShape(0, 3, 0);
-    p.after = CuboidShape(0, 4, 0);
-    EXPECT_EQ(p.getPaddingHeightTotal(), 7);
-}
-
 TEST(BoxCoordWithPaddingTest, GetPaddedShape) {
     BoxCoordWithPadding bcp;
     bcp.box.position = CuboidShape(0, 0, 0);

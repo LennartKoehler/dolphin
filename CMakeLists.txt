@@ -130,6 +130,10 @@ include(GoogleTest)
 option(ENABLE_TESTS "Enable tests" ON)
 option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
 
+if(ENABLE_TESTS)
+    enable_testing()
+endif()
+
 add_subdirectory(backends/dolphinbackend)
 add_subdirectory(backends/cpu)
 add_subdirectory(dolphin_image)
@@ -388,7 +392,6 @@ install(FILES
 
 if(ENABLE_TESTS)
     set(CMAKE_CTEST_ARGUMENTS "--verbose")
-    enable_testing()
     add_subdirectory(tests)
 endif()
 
