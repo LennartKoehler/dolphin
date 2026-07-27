@@ -259,7 +259,7 @@ jobs:
         with:
           method: network
           cuda: '12.8.1'
-          sub-packages: '["cudart", "cudart_dev", "cufft", "cufft_dev", "nvcc", "visual_studio_integration"]'
+          sub-packages: '["cudart", "cudart_dev", "cufft", "cufft_dev", "nvcc"]'
 
       - name: Configure
         shell: pwsh
