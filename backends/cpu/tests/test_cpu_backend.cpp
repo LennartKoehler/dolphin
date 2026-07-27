@@ -775,21 +775,37 @@ TEST_F(CPUComputeBackendTest, OctantShiftInvolutionOddDims) {
     CuboidShape shape{5, 7, 9};
 
     ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
-    std::vector<complex_t> original(shape.getVolume());
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         data[i][0] = static_cast<real_t>(i);
         data[i][1] = static_cast<real_t>(i * 2);
-        original[i][0] = static_cast<real_t>(i);
-        original[i][1] = static_cast<real_t>(i * 2);
     }
 
     deconv.octantFourierShift(data);
     deconv.octantFourierShift(data);
 
     for (size_t i = 0; i < shape.getVolume(); ++i) {
-        EXPECT_TRUE(approxEqualComplex(data[i], original[i][0], original[i][1], 1e-3f))
+        EXPECT_TRUE(approxEqualComplex(data[i], static_cast<real_t>(i), static_cast<real_t>(i * 2), 1e-3f))
             << "Double shift must be identity for odd dimensions";
     }
+}
+
+// Reference implementation for complex data stored as interleaved real_t
+// (2 per element).  complex_t is float[2] which cannot be stored in a
+// std::vector on libc++ (macOS), so we use std::vector<real_t> instead.
+static void referenceShiftComplex(std::vector<real_t>& buf, size_t W, size_t H, size_t D) {
+    size_t halfW = W / 2, halfH = H / 2, halfD = D / 2;
+    for (size_t z = 0; z < halfD; ++z)
+        for (size_t y = 0; y < H; ++y)
+            for (size_t x = 0; x < W; ++x) {
+                size_t i1 = z * H * W + y * W + x;
+                size_t i2 = ((z + halfD) % D) * H * W +
+                            ((y + halfH) % H) * W +
+                            ((x + halfW) % W);
+                if (i1 != i2) {
+                    std::swap(buf[i1 * 2],     buf[i2 * 2]);
+                    std::swap(buf[i1 * 2 + 1], buf[i2 * 2 + 1]);
+                }
+            }
 }
 
 TEST_F(CPUComputeBackendTest, OctantShiftMatchesReferenceOddDims) {
@@ -798,19 +814,19 @@ TEST_F(CPUComputeBackendTest, OctantShiftMatchesReferenceOddDims) {
     CuboidShape shape{5, 7, 9};
 
     ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
-    std::vector<complex_t> ref(shape.getVolume());
+    std::vector<real_t> ref(shape.getVolume() * 2);
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         data[i][0] = static_cast<real_t>(i) * 0.3f;
         data[i][1] = static_cast<real_t>(i) * 0.7f;
-        ref[i][0] = static_cast<real_t>(i) * 0.3f;
-        ref[i][1] = static_cast<real_t>(i) * 0.7f;
+        ref[i * 2]     = static_cast<real_t>(i) * 0.3f;
+        ref[i * 2 + 1] = static_cast<real_t>(i) * 0.7f;
     }
 
     deconv.octantFourierShift(data);
-    referenceShift(ref, shape.width, shape.height, shape.depth);
+    referenceShiftComplex(ref, shape.width, shape.height, shape.depth);
 
     for (size_t i = 0; i < shape.getVolume(); ++i) {
-        EXPECT_TRUE(approxEqualComplex(data[i], ref[i][0], ref[i][1], 1e-3f))
+        EXPECT_TRUE(approxEqualComplex(data[i], ref[i * 2], ref[i * 2 + 1], 1e-3f))
             << "Shift must match reference at index " << i;
     }
 }
