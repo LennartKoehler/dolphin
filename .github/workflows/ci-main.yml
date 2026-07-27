@@ -197,7 +197,7 @@ jobs:
   #           -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
   #
   #     - name: Save vcpkg binary cache
-  #       if: steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
+  #       if: always() && steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
   #       uses: actions/cache/save@v4
   #       with:
   #         path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
@@ -273,7 +273,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache
-        if: steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
+        if: always() && steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
