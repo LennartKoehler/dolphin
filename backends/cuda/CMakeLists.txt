@@ -52,13 +52,6 @@ set_target_properties(CUBE PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(cuda_backend PRIVATE project_options)
 
-if(WIN32)
-    set_target_properties(cuda_backend PROPERTIES
-        CUDA_RESOLVE_DEVICE_SYMBOLS ON
-        CUDA_ARCHITECTURES "86;75;90"
-    )
-endif()
-
 
 
 if(ENABLE_TESTS)
