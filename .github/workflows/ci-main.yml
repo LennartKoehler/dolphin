@@ -3,9 +3,13 @@ name: CI (Full)
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
+    paths-ignore:
+      - '**.md'
 
 jobs:
   ubuntu-cpu:
