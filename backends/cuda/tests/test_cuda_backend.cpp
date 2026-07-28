@@ -39,7 +39,7 @@ protected:
         return manager;
     }
 
-    BackendConfig config{nThreads: 1, backendName: "cuda_test"};
+    BackendConfig config{1, "cuda_test"};
     IBackend* backend = nullptr;
 
     void SetUp() override {
