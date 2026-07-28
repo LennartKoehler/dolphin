@@ -16,8 +16,8 @@ endif()
 # Match dolphin's dynamic CRT (/MD) to avoid LNK2038 mismatch
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
-find_package(dolphin REQUIRED)
 find_package(CUDAToolkit QUIET)
+find_package(dolphin REQUIRED)
 # Create CLI executable
 add_executable(dolphin_cli
     src/main.cpp

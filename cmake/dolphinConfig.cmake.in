@@ -10,6 +10,7 @@ find_dependency(ITK REQUIRED)
 find_package(JPEG QUIET)
 find_package(ZLIB QUIET)
 find_package(FFTW3f CONFIG QUIET)
+find_package(CUDAToolkit QUIET)
 
 # Include the targets file
 include("${CMAKE_CURRENT_LIST_DIR}/dolphinTargets.cmake")

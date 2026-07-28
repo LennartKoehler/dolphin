@@ -181,7 +181,7 @@ cudaError_t elementwiseMatMul(size_t Nx, size_t Ny, size_t Nz, size_t strideA, s
 
         // Use global kernel configuration
 
-        size_t blocksPerGrid = (imageVolume + GLOBAL_THREADS_PER_BLOCK_1D - 1) / GLOBAL_THREADS_PER_BLOCK_1D;
+        dim3 blocksPerGrid = (imageVolume + GLOBAL_THREADS_PER_BLOCK_1D - 1) / GLOBAL_THREADS_PER_BLOCK_1D;
         sumToOneGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK_1D, 0, stream>>>(A, nImages, imageVolume);
 
         cudaError_t err = cudaGetLastError();
@@ -210,7 +210,7 @@ cudaError_t elementwiseMatMul(size_t Nx, size_t Ny, size_t Nz, size_t strideA, s
         cudaEventCreate(&event);
 
         // Use global kernel configuration
-        size_t blocksPerGrid = (imageVolume + GLOBAL_THREADS_PER_BLOCK_1D - 1) / GLOBAL_THREADS_PER_BLOCK_1D;
+        dim3 blocksPerGrid = (imageVolume + GLOBAL_THREADS_PER_BLOCK_1D - 1) / GLOBAL_THREADS_PER_BLOCK_1D;
 
         complexAdditionGlobal<<<blocksPerGrid, GLOBAL_THREADS_PER_BLOCK_1D, 0, stream>>>(A, sums, nImages, imageVolume);
 

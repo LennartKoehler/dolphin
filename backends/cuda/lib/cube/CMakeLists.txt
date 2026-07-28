@@ -57,13 +57,3 @@ install(TARGETS CUBE
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
 )
-
-
-install(CODE "
-  file(INSTALL
-    DESTINATION \"\${CMAKE_INSTALL_PREFIX}/lib\"
-    TYPE FILE
-    FOLLOW_SYMLINK_CHAIN
-    FILES \"$<TARGET_FILE:CUDA::cufft>\"
-  )
-")
