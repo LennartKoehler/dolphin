@@ -279,7 +279,6 @@ jobs:
             -DCMAKE_C_COMPILER=cl `
             -DCMAKE_CXX_COMPILER=cl `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
             -DBUILD_CUDA=ON `
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
@@ -304,7 +303,6 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_MANIFEST_DIR="${{ github.workspace }}" `
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
             -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
 
           cmake --build cli-build -j

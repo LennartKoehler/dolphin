@@ -15,6 +15,8 @@ if(NOT CUDAToolkit_FOUND)
     return()
 endif()
 
+enable_language(CUDA)
+
 add_library(cuda_backend STATIC
     src/CUDABackend.cpp
     src/CUDABackendManager.cpp
@@ -51,6 +53,11 @@ set_target_properties(CUBE PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 
 target_link_libraries(cuda_backend PRIVATE project_options)
+
+set_target_properties(cuda_backend PROPERTIES
+    CUDA_RESOLVE_DEVICE_SYMBOLS ON
+    CUDA_ARCHITECTURES "86;75;90"
+)
 
 
 
