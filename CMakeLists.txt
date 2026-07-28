@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.18)
 project(dolphin VERSION 1.0.0)
 cmake_policy(SET CMP0074 NEW)
 
@@ -39,11 +39,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 elseif(MSVC)
     target_compile_options(project_options INTERFACE
-      /utf-8
-      /Zc:preprocessor
-      $<$<CONFIG:Release>:/O2;/fp:fast;/DNDEBUG>
-      $<$<CONFIG:Debug>:/Od;/Zi;/RTC1>
-      $<$<CONFIG:RelWithDebInfo>:/O2;/fp:fast;/DNDEBUG;/Zi>
+      $<$<COMPILE_LANGUAGE:CXX>:/utf-8>
+      $<$<COMPILE_LANGUAGE:CXX>:/Zc:preprocessor>
+      $<$<AND:$<CONFIG:Release>,$<COMPILE_LANGUAGE:CXX>>:/O2;/fp:fast;/DNDEBUG>
+      $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CXX>>:/Od;/Zi;/RTC1>
+      $<$<AND:$<CONFIG:RelWithDebInfo>,$<COMPILE_LANGUAGE:CXX>>:/O2;/fp:fast;/DNDEBUG;/Zi>
     )
     target_compile_definitions(project_options INTERFACE _USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
 endif()
