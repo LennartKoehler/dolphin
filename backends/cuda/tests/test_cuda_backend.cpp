@@ -26,7 +26,7 @@ static bool approxEqual(real_t a, real_t b, real_t eps = 1e-4f) {
     return std::fabs(a - b) < eps;
 }
 
-static bool approxEqualComplex(const complex_t& a, real_t real, real_t imag, real_t eps = 1e-4f) {
+static bool approxEqualComplex(const ComplexHost& a, real_t real, real_t imag, real_t eps = 1e-4f) {
     return approxEqual(a[0], real, eps) && approxEqual(a[1], imag, eps);
 }
 
@@ -680,7 +680,7 @@ TEST_F(CUDAComputeBackendTest, OctantShiftMovesCenterToOrigin) {
     CuboidShape shape{8, 8, 8};
 
     ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
-    std::vector<complex_t> hostIn(shape.getVolume());
+    std::vector<ComplexHost> hostIn(shape.getVolume());
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostIn[i][0] = 0.0f;
         hostIn[i][1] = 0.0f;
@@ -696,7 +696,7 @@ TEST_F(CUDAComputeBackendTest, OctantShiftMovesCenterToOrigin) {
     deconv.octantFourierShift(data);
     backend->sync();
 
-    std::vector<complex_t> hostRt(shape.getVolume());
+    std::vector<ComplexHost> hostRt(shape.getVolume());
     memMgr.memCopy(data.getData(), hostRt.data(),
                    shape.getVolume() * sizeof(complex_t), shape);
 
