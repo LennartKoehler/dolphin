@@ -30,7 +30,7 @@ target_include_directories(cuda_backend
 
 
 
-if(TARGET CUDA::cufft_static)
+if(WIN32 AND TARGET CUDA::cufft_static)
     target_link_libraries(cuda_backend PUBLIC CUDA::cufft_static)
 else()
     target_link_libraries(cuda_backend PUBLIC CUDA::cufft)
