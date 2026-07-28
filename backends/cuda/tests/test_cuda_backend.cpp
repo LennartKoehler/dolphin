@@ -15,11 +15,18 @@
 #include "cuda_backend/CUDABackend.h"
 #include "cuda_backend/CUDABackendManager.h"
 
-static bool approxEqual(float a, float b, float eps = 1e-4f) {
+struct ComplexHost {
+    real_t data[2];
+    real_t& operator[](size_t i) { return data[i]; }
+    const real_t& operator[](size_t i) const { return data[i]; }
+};
+static_assert(sizeof(ComplexHost) == sizeof(complex_t), "layout mismatch");
+
+static bool approxEqual(real_t a, real_t b, real_t eps = 1e-4f) {
     return std::fabs(a - b) < eps;
 }
 
-static bool approxEqualComplex(const complex_t& a, float real, float imag, float eps = 1e-4f) {
+static bool approxEqualComplex(const complex_t& a, real_t real, real_t imag, real_t eps = 1e-4f) {
     return approxEqual(a[0], real, eps) && approxEqual(a[1], imag, eps);
 }
 
@@ -68,12 +75,12 @@ protected:
         return host;
     }
 
-    std::vector<float> readbackComplexMag(const ComplexData& deviceData) {
+    std::vector<real_t> readbackComplexMag(const ComplexData& deviceData) {
         IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
         size_t bytes = deviceData.getDataBytes();
-        std::vector<complex_t> host(deviceData.getSize().getVolume());
+        std::vector<ComplexHost> host(deviceData.getSize().getVolume());
         cudaMemcpyAsync(host.data(), deviceData.getData(), bytes, cudaMemcpyDeviceToHost);
-        std::vector<float> mags(host.size());
+        std::vector<real_t> mags(host.size());
         for (size_t i = 0; i < host.size(); ++i) {
             mags[i] = std::sqrt(host[i][0] * host[i][0] + host[i][1] * host[i][1]);
         }
@@ -99,7 +106,7 @@ protected:
         cudaDeviceSynchronize();
     }
 
-    void writeComplexToDevice(ComplexData& deviceData, std::vector<complex_t>& hostData) {
+    void writeComplexToDevice(ComplexData& deviceData, std::vector<ComplexHost>& hostData) {
         IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
         memMgr.memCopy(hostData.data(), deviceData.getData(),
                        deviceData.getSize().getVolume() * sizeof(complex_t), deviceData.getSize());
@@ -389,7 +396,7 @@ TEST_F(CUDAComputeBackendTest, ComplexFFTRoundTrip) {
     ComplexData output = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData roundtrip = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    std::vector<complex_t> hostIn(shape.getVolume());
+    std::vector<ComplexHost> hostIn(shape.getVolume());
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostIn[i][0] = 0.0f;
         hostIn[i][1] = 0.0f;
@@ -401,7 +408,7 @@ TEST_F(CUDAComputeBackendTest, ComplexFFTRoundTrip) {
     deconv.backwardFFT(output, roundtrip);
     backend->sync();
 
-    std::vector<complex_t> hostRt(roundtrip.getSize().getVolume());
+    std::vector<ComplexHost> hostRt(roundtrip.getSize().getVolume());
     memMgr.memCopy(roundtrip.getData(), hostRt.data(),
                    roundtrip.getSize().getVolume() * sizeof(complex_t), roundtrip.getSize());
 
@@ -445,7 +452,7 @@ TEST_F(CUDAComputeBackendTest, ComplexMultiplication) {
     ComplexData b = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    std::vector<complex_t> hostA(shape.getVolume()), hostB(shape.getVolume());
+    std::vector<ComplexHost> hostA(shape.getVolume()), hostB(shape.getVolume());
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostA[i][0] = static_cast<real_t>(i + 1);
         hostA[i][1] = static_cast<real_t>(i + 2);
@@ -458,7 +465,7 @@ TEST_F(CUDAComputeBackendTest, ComplexMultiplication) {
     deconv.complexMultiplication(a, b, result);
     backend->sync();
 
-    std::vector<complex_t> hostRt(result.getSize().getVolume());
+    std::vector<ComplexHost> hostRt(result.getSize().getVolume());
     memMgr.memCopy(result.getData(), hostRt.data(),
                    result.getSize().getVolume() * sizeof(complex_t), result.getSize());
 
@@ -479,7 +486,7 @@ TEST_F(CUDAComputeBackendTest, ComplexAddition) {
     ComplexData b = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    std::vector<complex_t> hostA(shape.getVolume()), hostB(shape.getVolume());
+    std::vector<ComplexHost> hostA(shape.getVolume()), hostB(shape.getVolume());
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostA[i][0] = static_cast<real_t>(i + 1);
         hostA[i][1] = static_cast<real_t>(i + 2);
@@ -492,7 +499,7 @@ TEST_F(CUDAComputeBackendTest, ComplexAddition) {
     deconv.complexAddition(a, b, result);
     backend->sync();
 
-    std::vector<complex_t> hostRt(result.getSize().getVolume());
+    std::vector<ComplexHost> hostRt(result.getSize().getVolume());
     memMgr.memCopy(result.getData(), hostRt.data(),
                    result.getSize().getVolume() * sizeof(complex_t), result.getSize());
 
@@ -557,7 +564,7 @@ TEST_F(CUDAComputeBackendTest, ComplexScalarMultiplication) {
     ComplexData a = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    std::vector<complex_t> hostA(shape.getVolume());
+    std::vector<ComplexHost> hostA(shape.getVolume());
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostA[i][0] = static_cast<real_t>(i + 1);
         hostA[i][1] = static_cast<real_t>(i + 2);
@@ -568,7 +575,7 @@ TEST_F(CUDAComputeBackendTest, ComplexScalarMultiplication) {
     deconv.scalarMultiplication(a, scalar, result);
     backend->sync();
 
-    std::vector<complex_t> hostRt(result.getSize().getVolume());
+    std::vector<ComplexHost> hostRt(result.getSize().getVolume());
     memMgr.memCopy(result.getData(), hostRt.data(),
                    result.getSize().getVolume() * sizeof(complex_t), result.getSize());
 
@@ -588,7 +595,7 @@ TEST_F(CUDAComputeBackendTest, ComplexMultiplicationWithConjugate) {
     ComplexData b = memMgr.allocateMemoryOnDeviceComplexFull(shape);
     ComplexData result = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    std::vector<complex_t> hostA(shape.getVolume()), hostB(shape.getVolume());
+    std::vector<ComplexHost> hostA(shape.getVolume()), hostB(shape.getVolume());
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostA[i][0] = static_cast<real_t>(i + 1);
         hostA[i][1] = static_cast<real_t>(i + 2);
@@ -601,7 +608,7 @@ TEST_F(CUDAComputeBackendTest, ComplexMultiplicationWithConjugate) {
     deconv.complexMultiplicationWithConjugate(a, b, result);
     backend->sync();
 
-    std::vector<complex_t> hostRt(result.getSize().getVolume());
+    std::vector<ComplexHost> hostRt(result.getSize().getVolume());
     memMgr.memCopy(result.getData(), hostRt.data(),
                    result.getSize().getVolume() * sizeof(complex_t), result.getSize());
 
@@ -620,7 +627,7 @@ TEST_F(CUDAComputeBackendTest, OctantFourierShiftDoubleIsIdentity) {
 
     ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    std::vector<complex_t> hostIn(shape.getVolume());
+    std::vector<ComplexHost> hostIn(shape.getVolume());
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostIn[i][0] = static_cast<real_t>(i);
         hostIn[i][1] = static_cast<real_t>(i * 2);
@@ -631,7 +638,7 @@ TEST_F(CUDAComputeBackendTest, OctantFourierShiftDoubleIsIdentity) {
     deconv.octantFourierShift(data);
     backend->sync();
 
-    std::vector<complex_t> hostRt(data.getSize().getVolume());
+    std::vector<ComplexHost> hostRt(data.getSize().getVolume());
     memMgr.memCopy(data.getData(), hostRt.data(),
                    data.getSize().getVolume() * sizeof(complex_t), data.getSize());
 
@@ -675,7 +682,7 @@ TEST_F(CUDAComputeBackendTest, HasNANDoesNotThrow) {
     CuboidShape shape(4, 4, 4);
     ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
 
-    std::vector<complex_t> hostIn(shape.getVolume());
+    std::vector<ComplexHost> hostIn(shape.getVolume());
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostIn[i][0] = static_cast<real_t>(i);
         hostIn[i][1] = 0.0f;
