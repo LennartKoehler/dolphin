@@ -14,7 +14,7 @@ cmake-build-debug/*
 input/*
 lib/cube/build/*
 configs/
-debug.log
+**/debug.log
 
 
 
