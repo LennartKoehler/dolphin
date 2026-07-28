@@ -29,9 +29,6 @@ check everything including padding etc for uneven sizes
 
 check all the core math operations like addtoone if they correctly use stride
 
-octant fourier shift for uneven dimensions (not divisible by 2)
-also apparently doesnt correctly use strided input
-
 the sumToOne uses raw pointer, this has no chance of using strides, if all are same stride then ok, but could be nicer
 
 recheck the blocking behavior of using openmp
