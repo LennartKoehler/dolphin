@@ -31,3 +31,6 @@ add_executable(main_test
 
 target_link_libraries(main_test PRIVATE dolphin project_options)
 target_include_directories(main_test PRIVATE ${TEST_INCLUDES})
+if(TARGET cuda_backend)
+    set_target_properties(main_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+endif()

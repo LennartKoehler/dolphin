@@ -14,6 +14,9 @@ function(dolphin_add_test name)
         CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
         CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
     )
+    if(TARGET cuda_backend)
+        set_target_properties(${name} PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+    endif()
     gtest_discover_tests(${name} DISCOVERY_TIMEOUT 30)
 endfunction()
 
@@ -96,3 +99,6 @@ target_compile_definitions(dolphin_all_tests PRIVATE
     CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
     CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
 )
+if(TARGET cuda_backend)
+    set_target_properties(dolphin_all_tests PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+endif()

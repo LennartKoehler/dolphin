@@ -4,6 +4,8 @@ add_executable(cuda_backend_test
     test_cuda_backend.cpp
 )
 
+set_target_properties(cuda_backend_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+
 target_link_libraries(cuda_backend_test
     PRIVATE
         cuda_backend
