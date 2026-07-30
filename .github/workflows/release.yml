@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   # -----------------------------------------------------------------
   # Ubuntu — Docker-based, extract CLI binary
@@ -254,6 +257,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_MANIFEST_DIR="${{ github.workspace }}" `
+            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
             -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
 
           cmake --build cli-build -j
@@ -262,10 +266,14 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
       - name: Package
+        shell: pwsh
         run: |
-          mkdir -p dolphin-windows
-          cp cli-build/dolphin_cli.exe dolphin-windows/
-          cp C:\vcpkg\installed\x64-windows\bin\*.dll dolphin-windows/ 2>$null || true
+          New-Item -ItemType Directory -Force -Path dolphin-windows | Out-Null
+          Copy-Item cli-build/dolphin_cli.exe dolphin-windows/
+          $vcpkgBin = "cli-build\vcpkg_installed\x64-windows\bin"
+          if (Test-Path $vcpkgBin) {
+            Copy-Item "$vcpkgBin\*.dll" dolphin-windows/
+          }
           7z a dolphin-windows-x64.zip dolphin-windows/
 
       - name: Upload to Release
@@ -354,16 +362,24 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_MANIFEST_DIR="${{ github.workspace }}" `
+            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
             -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
 
           cmake --build cli-build -j
 
       - name: Package
+        shell: pwsh
         run: |
-          mkdir -p dolphin-windows-cuda
-          cp cli-build/dolphin_cli.exe dolphin-windows-cuda/
-          cp C:\vcpkg\installed\x64-windows\bin\*.dll dolphin-windows-cuda/ 2>$null || true
-          cp "$env:CUDA_PATH\bin\cufft64_*.dll" dolphin-windows-cuda/ 2>$null || true
+          New-Item -ItemType Directory -Force -Path dolphin-windows-cuda | Out-Null
+          Copy-Item cli-build/dolphin_cli.exe dolphin-windows-cuda/
+          $vcpkgBin = "cli-build\vcpkg_installed\x64-windows\bin"
+          if (Test-Path $vcpkgBin) {
+            Copy-Item "$vcpkgBin\*.dll" dolphin-windows-cuda/
+          }
+          $cudaBin = "$env:CUDA_PATH\bin"
+          if (Test-Path $cudaBin) {
+            Copy-Item "$cudaBin\cufft64_*.dll" dolphin-windows-cuda/
+          }
           7z a dolphin-windows-x64-cuda.zip dolphin-windows-cuda/
 
       - name: Upload to Release
