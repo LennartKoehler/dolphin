@@ -1,6 +1,6 @@
 {
   "deconvolution_config": {
-    "algorithm_name": "TestAlgorithm",
+    "algorithm_name": "RichardsonLucy",
     "iterations": 10,
     "epsilon": 1e-6,
     "lambda": 0.015,

@@ -47,11 +47,6 @@ TEST_F(AlgorithmFactoryTest, HasRLAD) {
     EXPECT_TRUE(factory.isAlgorithmAvailable("RichardsonLucywithAdaptiveDamping"));
 }
 
-TEST_F(AlgorithmFactoryTest, HasTestAlgorithm) {
-    auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    EXPECT_TRUE(factory.isAlgorithmAvailable("TestAlgorithm"));
-}
-
 TEST_F(AlgorithmFactoryTest, IsAlgorithmAvailableFalse) {
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
     EXPECT_FALSE(factory.isAlgorithmAvailable("NonExistentAlgorithm"));
