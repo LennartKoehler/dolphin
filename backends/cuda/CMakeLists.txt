@@ -1,5 +1,3 @@
-set(CMAKE_CUDA_RUNTIME_LIBRARY Static)
-
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/cube ${CMAKE_BINARY_DIR}/cube/build)
 set(DOUBLE_PRECISION OFF) # explicit
 
@@ -19,6 +17,8 @@ add_library(cuda_backend STATIC
     src/CUDABackend.cpp
     src/CUDABackendManager.cpp
 )
+
+set_target_properties(cuda_backend PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 target_include_directories(cuda_backend
     PUBLIC

@@ -37,3 +37,8 @@ target_link_libraries(dolphin_cli
         dolphin::project_options
 )
 
+if(TARGET CUDA::cufft_static)
+    enable_language(CUDA)
+    set_target_properties(dolphin_cli PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+endif()
+
