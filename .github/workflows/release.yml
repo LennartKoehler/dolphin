@@ -42,6 +42,7 @@ jobs:
           tar czf dolphin-linux-x86_64.tar.gz dolphin_cli
 
       - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dolphin-linux-x86_64.tar.gz
@@ -79,6 +80,7 @@ jobs:
           tar czf dolphin-linux-x86_64-cuda.tar.gz dolphin_cli
 
       - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dolphin-linux-x86_64-cuda.tar.gz
@@ -178,6 +180,7 @@ jobs:
           tar czf dolphin-macos-${{ matrix.arch }}.tar.gz dolphin_cli
 
       - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dolphin-macos-${{ matrix.arch }}.tar.gz
@@ -277,6 +280,7 @@ jobs:
           7z a dolphin-windows-x64.zip dolphin-windows/
 
       - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dolphin-windows-x64.zip
@@ -383,6 +387,7 @@ jobs:
           7z a dolphin-windows-x64-cuda.zip dolphin-windows-cuda/
 
       - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dolphin-windows-x64-cuda.zip
