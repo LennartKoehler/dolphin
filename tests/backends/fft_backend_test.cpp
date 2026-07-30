@@ -73,7 +73,7 @@ TEST_F(FFTBackendTest, FFTConstantInput) {
     auto& memMgr = backend.getMemoryManager();
 
     RealData realData = Preprocessor::convertImageToRealData(constant);
-    ComplexData complexData = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+    ComplexData complexData = memMgr.allocateMemoryOnDeviceComplex(shape);
 
     compute.forwardFFT(realData, complexData);
 
@@ -83,7 +83,7 @@ TEST_F(FFTBackendTest, FFTConstantInput) {
     );
     EXPECT_GT(dcMag, 0.0f);
 
-    for (size_t i = 1; i < static_cast<size_t>(shape.getVolume()); i++) {
+    for (size_t i = 1; i < static_cast<size_t>(complexData.getSize().getVolume()); i++) {
         float mag = std::sqrt(
             complexData.access(i)[0] * complexData.access(i)[0] +
             complexData.access(i)[1] * complexData.access(i)[1]

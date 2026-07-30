@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths-ignore:
       - '**.md'
+  workflow_dispatch:
 
 jobs:
   ubuntu-cpu:
@@ -133,6 +134,7 @@ jobs:
           cmake -B build -S . \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_CUDA=OFF \
+            -DBUILD_CLI=ON \
             -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
             -DOpenMP_ROOT=$(brew --prefix libomp) \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
@@ -142,20 +144,6 @@ jobs:
         run: |
           export CCACHE_DIR="$HOME/.ccache"
           cmake --build build -- -j$(sysctl -n hw.ncpu)
-
-      - name: Install
-        run: sudo cmake --install build
-
-      - name: Build CLI frontend
-        run: |
-          export CCACHE_DIR="$HOME/.ccache"
-          cmake -B cli-build -S frontends/cli \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
-            -DOpenMP_ROOT=$(brew --prefix libomp) \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          cmake --build cli-build -- -j$(sysctl -n hw.ncpu)
 
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
@@ -198,6 +186,7 @@ jobs:
             -A x64 `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DBUILD_CUDA=OFF `
+            -DBUILD_CLI=ON `
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache
@@ -209,21 +198,6 @@ jobs:
 
       - name: Build
         run: cmake --build build --config Release -j
-
-      - name: Install
-        run: cmake --install build --config Release
-
-      - name: Build CLI frontend
-        shell: pwsh
-        run: |
-          cmake -B cli-build -S frontends/cli `
-            -G "Visual Studio 17 2022" `
-            -A x64 `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_MANIFEST_DIR="${{ github.workspace }}" `
-            -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
-
-          cmake --build cli-build --config Release -j
 
       - name: Run tests
         run: ctest --test-dir build --build-config Release --output-on-failure
@@ -280,6 +254,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=cl `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DBUILD_CUDA=ON `
+            -DBUILD_CLI=ON `
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache
@@ -291,21 +266,6 @@ jobs:
 
       - name: Build
         run: cmake --build build -j
-
-      - name: Install
-        run: cmake --install build
-
-      - name: Build CLI frontend
-        shell: pwsh
-        run: |
-          cmake -B cli-build -S frontends/cli `
-            -G "Ninja" `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_MANIFEST_DIR="${{ github.workspace }}" `
-            -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
-
-          cmake --build cli-build -j
 
       - name: Run tests (skip CUDA runtime tests — no GPU on CI)
         run: ctest --test-dir build --output-on-failure -E "cuda" || true

@@ -98,3 +98,8 @@ target_link_libraries(dolphin_gui
         ${GLEW_LIBRARIES}
 )
 
+if(TARGET CUDA::cufft_static)
+    enable_language(CUDA)
+    set_target_properties(dolphin_gui PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+endif()
+
