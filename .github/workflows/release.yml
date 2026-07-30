@@ -285,11 +285,7 @@ jobs:
   # Windows CUDA — Native (MSVC + vcpkg + CUDA Toolkit)
   # -----------------------------------------------------------------
   windows-cuda:
-    runs-on:
-      - self-hosted
-      - Windows
-      - X64
-      - cuda
+    runs-on: windows-2022
 
     env:
       VCPKG_ROOT: C:\vcpkg
