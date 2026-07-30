@@ -402,4 +402,9 @@ if(ENABLE_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif()
 
+option(BUILD_CLI "Build the CLI frontend" OFF)
+if(BUILD_CLI)
+    add_subdirectory(frontends/cli)
+endif()
+
 
