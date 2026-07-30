@@ -224,6 +224,9 @@ jobs:
         with:
           arch: x64
 
+      - name: Get CMake
+        uses: lukka/get-cmake@latest
+
       - name: Configure
         shell: pwsh
         run: |
@@ -329,6 +332,9 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+
+      - name: Get CMake
+        uses: lukka/get-cmake@latest
 
       - name: Configure
         shell: pwsh

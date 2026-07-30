@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.18)
 
 set(CMAKE_CUDA_RUNTIME_LIBRARY Static)
 project(CUBE LANGUAGES CXX CUDA)
