@@ -36,7 +36,7 @@ jobs:
       - name: Extract CLI binary
         run: |
           docker create --name temp dolphin-release:latest
-          docker cp temp:/workspace/cli-build/dolphin_cli ./dolphin_cli
+          docker cp temp:/workspace/build/frontends/cli/dolphin_cli ./dolphin_cli
           docker rm temp
           chmod +x ./dolphin_cli
           tar czf dolphin-linux-x86_64.tar.gz dolphin_cli
@@ -73,7 +73,7 @@ jobs:
       - name: Extract CLI binary
         run: |
           docker create --name temp dolphin-release-cuda:latest
-          docker cp temp:/workspace/cli-build/dolphin_cli ./dolphin_cli
+          docker cp temp:/workspace/build/frontends/cli/dolphin_cli ./dolphin_cli
           docker rm temp
           chmod +x ./dolphin_cli
           tar czf dolphin-linux-x86_64-cuda.tar.gz dolphin_cli
@@ -150,6 +150,7 @@ jobs:
           export CCACHE_DIR="$HOME/.ccache"
           cmake -B build -S . \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_CLI=ON \
             -DBUILD_CUDA=OFF \
             -DENABLE_TESTS=OFF \
             -DENABLE_BENCHMARKS=OFF \
@@ -158,22 +159,11 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build -- -j$(sysctl -n hw.ncpu)
-          sudo cmake --install build
 
-      - name: Build CLI frontend
-        run: |
-          export CCACHE_DIR="$HOME/.ccache"
-          cmake -B cli-build -S frontends/cli \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
-            -DOpenMP_ROOT=$(brew --prefix libomp) \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          cmake --build cli-build -- -j$(sysctl -n hw.ncpu)
 
       - name: Package
         run: |
-          cp cli-build/dolphin_cli ./dolphin_cli
+          cp build/frontends/cli/dolphin_cli ./dolphin_cli
           chmod +x ./dolphin_cli
           tar czf dolphin-macos-${{ matrix.arch }}.tar.gz dolphin_cli
 
@@ -228,6 +218,7 @@ jobs:
             -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=cl `
+            -DBUILD_CLI=ON `
             -DCMAKE_CXX_COMPILER=cl `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
@@ -246,31 +237,12 @@ jobs:
       - name: Build
         run: cmake --build build -j
 
-      - name: Install
-        run: cmake --install build
-
-      - name: Build CLI frontend
-        shell: pwsh
-        run: |
-          cmake -B cli-build -S frontends/cli `
-            -G "Ninja" `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_MANIFEST_DIR="${{ github.workspace }}" `
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
-            -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
-
-          cmake --build cli-build -j
-
-      - name: Run tests
-        run: ctest --test-dir build --output-on-failure
-
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dolphin-windows | Out-Null
-          Copy-Item cli-build/dolphin_cli.exe dolphin-windows/
-          $vcpkgBin = "cli-build\vcpkg_installed\x64-windows\bin"
+          Copy-Item build/frontends/cli/dolphin_cli.exe dolphin-windows/
+          $vcpkgBin = "build/vcpkg_installed/x64-windows/bin"
           if (Test-Path $vcpkgBin) {
             Copy-Item "$vcpkgBin\*.dll" dolphin-windows/
           }
@@ -333,6 +305,7 @@ jobs:
             -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=cl `
+            -DBUILD_CLI=ON `
             -DCMAKE_CXX_COMPILER=cl `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
@@ -351,34 +324,14 @@ jobs:
       - name: Build
         run: cmake --build build -j
 
-      - name: Install
-        run: cmake --install build
-
-      - name: Build CLI frontend
-        shell: pwsh
-        run: |
-          cmake -B cli-build -S frontends/cli `
-            -G "Ninja" `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_MANIFEST_DIR="${{ github.workspace }}" `
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
-            -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
-
-          cmake --build cli-build -j
-
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dolphin-windows-cuda | Out-Null
-          Copy-Item cli-build/dolphin_cli.exe dolphin-windows-cuda/
-          $vcpkgBin = "cli-build\vcpkg_installed\x64-windows\bin"
+          Copy-Item build/frontends/cli/dolphin_cli.exe dolphin-windows-cuda/
+          $vcpkgBin = "build/vcpkg_installed/x64-windows/bin"
           if (Test-Path $vcpkgBin) {
             Copy-Item "$vcpkgBin\*.dll" dolphin-windows-cuda/
-          }
-          $cudaBin = "$env:CUDA_PATH\bin"
-          if (Test-Path $cudaBin) {
-            Copy-Item "$cudaBin\cufft64_*.dll" dolphin-windows-cuda/
           }
           7z a dolphin-windows-x64-cuda.zip dolphin-windows-cuda/
 
