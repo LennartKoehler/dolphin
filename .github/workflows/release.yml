@@ -378,7 +378,7 @@ jobs:
           arch: x64
 
       - name: Get CMake
-        uses: lukka/get-cmake@v3.31.0
+        uses: lukka/get-cmake@v4.3.3
 
       - name: Configure
         shell: pwsh
@@ -524,7 +524,7 @@ jobs:
           arch: x64
 
       - name: Get CMake
-        uses: lukka/get-cmake@v3.31.0
+        uses: lukka/get-cmake@v4.3.3
 
       - name: Configure
         shell: pwsh
