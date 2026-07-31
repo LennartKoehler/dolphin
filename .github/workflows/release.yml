@@ -190,11 +190,7 @@ jobs:
   macos:
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runs-on: macos-14
-            arch: arm64
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: macos-14-arm64
     steps:
       - uses: actions/checkout@v4
         with:
@@ -267,13 +263,13 @@ jobs:
         run: |
           cp build/frontends/cli/dolphin_cli ./dolphin_cli
           chmod +x ./dolphin_cli
-          tar czf dolphin-macos-${{ matrix.arch }}.tar.gz dolphin_cli
+          tar czf dolphin-macos-arm64.tar.gz dolphin_cli
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dolphin-macos-${{ matrix.arch }}
-          path: dolphin-macos-${{ matrix.arch }}.tar.gz
+          name: dolphin-macos-arm64
+          path: dolphin-macos-arm64.tar.gz
 
   # -----------------------------------------------------------------
   # macOS — Test (clean VM, runtime deps only)
@@ -281,11 +277,7 @@ jobs:
   macos-test:
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runs-on: macos-14
-            arch: arm64
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: macos-14-arm64
     needs: macos
 
     steps:
@@ -295,11 +287,11 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-macos-${{ matrix.arch }}
+          name: dolphin-macos-arm64
 
       - name: Smoke test
         run: |
-          tar xzf dolphin-macos-${{ matrix.arch }}.tar.gz
+          tar xzf dolphin-macos-arm64.tar.gz
           chmod +x ./dolphin_cli
           output=$(./dolphin_cli --help 2>&1) || {
             echo "::error::dolphin_cli exited with code $?"
@@ -319,11 +311,7 @@ jobs:
   macos-publish:
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runs-on: macos-14
-            arch: arm64
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: macos-14-arm64
     needs: macos-test
     if: startsWith(github.ref, 'refs/tags/')
 
@@ -331,13 +319,13 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-macos-${{ matrix.arch }}
+          name: dolphin-macos-arm64
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dolphin-macos-${{ matrix.arch }}.tar.gz
+          files: dolphin-macos-arm64.tar.gz
 
   # -----------------------------------------------------------------
   # Windows — Build (MSVC + vcpkg)
