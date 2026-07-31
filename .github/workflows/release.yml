@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   # -----------------------------------------------------------------
-  # Ubuntu — Docker-based, extract CLI binary
+  # Ubuntu — Build (Docker-based, extract CLI binary)
   # -----------------------------------------------------------------
   ubuntu:
     runs-on: ubuntu-22.04
@@ -42,6 +42,55 @@ jobs:
           chmod +x ./dolphin_cli
           tar czf dolphin-linux-x86_64.tar.gz dolphin_cli
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dolphin-linux-x86_64
+          path: dolphin-linux-x86_64.tar.gz
+
+  # -----------------------------------------------------------------
+  # Ubuntu — Test (clean VM)
+  # -----------------------------------------------------------------
+  ubuntu-test:
+    runs-on: ubuntu-22.04
+    needs: ubuntu
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-linux-x86_64
+
+      - name: Smoke test
+        run: |
+          tar xzf dolphin-linux-x86_64.tar.gz
+          chmod +x ./dolphin_cli
+          output=$(./dolphin_cli --help 2>&1) || {
+            echo "::error::dolphin_cli exited with code $?"
+            echo "$output"
+            exit 1
+          }
+          echo "$output" | grep -qE "psfgenerator|deconvolution" || {
+            echo "::error::Unexpected help output — CLI did not start correctly"
+            echo "$output"
+            exit 1
+          }
+          echo "Smoke test passed."
+
+  # -----------------------------------------------------------------
+  # Ubuntu — Publish to GitHub Release
+  # -----------------------------------------------------------------
+  ubuntu-publish:
+    runs-on: ubuntu-22.04
+    needs: ubuntu-test
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-linux-x86_64
+
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -49,7 +98,7 @@ jobs:
           files: dolphin-linux-x86_64.tar.gz
 
   # -----------------------------------------------------------------
-  # Ubuntu CUDA — Docker-based, extract CLI binary
+  # Ubuntu CUDA — Build (Docker-based, extract CLI binary)
   # -----------------------------------------------------------------
   ubuntu-cuda:
     runs-on: ubuntu-22.04
@@ -80,18 +129,69 @@ jobs:
           chmod +x ./dolphin_cli
           tar czf dolphin-linux-x86_64-cuda.tar.gz dolphin_cli
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dolphin-linux-x86_64-cuda
+          path: dolphin-linux-x86_64-cuda.tar.gz
+
+  # -----------------------------------------------------------------
+  # Ubuntu CUDA — Test (clean VM)
+  # -----------------------------------------------------------------
+  ubuntu-cuda-test:
+    runs-on: ubuntu-22.04
+    needs: ubuntu-cuda
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-linux-x86_64-cuda
+
+      - name: Smoke test
+        run: |
+          tar xzf dolphin-linux-x86_64-cuda.tar.gz
+          chmod +x ./dolphin_cli
+          output=$(./dolphin_cli --help 2>&1) || {
+            echo "::error::dolphin_cli exited with code $?"
+            echo "$output"
+            exit 1
+          }
+          echo "$output" | grep -qE "psfgenerator|deconvolution" || {
+            echo "::error::Unexpected help output — CLI did not start correctly"
+            echo "$output"
+            exit 1
+          }
+          echo "Smoke test passed."
+
+  # -----------------------------------------------------------------
+  # Ubuntu CUDA — Publish to GitHub Release
+  # -----------------------------------------------------------------
+  ubuntu-cuda-publish:
+    runs-on: ubuntu-22.04
+    needs: ubuntu-cuda-test
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-linux-x86_64-cuda
+
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dolphin-linux-x86_64-cuda.tar.gz
+
+  # -----------------------------------------------------------------
+  # macOS — Build
+  # -----------------------------------------------------------------
   macos:
     strategy:
       fail-fast: false
       matrix:
         include:
-          # - runs-on: macos-13
-          #   arch: x86_64
           - runs-on: macos-14
             arch: arm64
     runs-on: ${{ matrix.runs-on }}
@@ -163,12 +263,75 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build -- -j$(sysctl -n hw.ncpu)
 
-
       - name: Package
         run: |
           cp build/frontends/cli/dolphin_cli ./dolphin_cli
           chmod +x ./dolphin_cli
           tar czf dolphin-macos-${{ matrix.arch }}.tar.gz dolphin_cli
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dolphin-macos-${{ matrix.arch }}
+          path: dolphin-macos-${{ matrix.arch }}.tar.gz
+
+  # -----------------------------------------------------------------
+  # macOS — Test (clean VM, runtime deps only)
+  # -----------------------------------------------------------------
+  macos-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: macos-14
+            arch: arm64
+    runs-on: ${{ matrix.runs-on }}
+    needs: macos
+
+    steps:
+      - name: Install runtime dependencies
+        run: brew install libtiff fftw libomp
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-macos-${{ matrix.arch }}
+
+      - name: Smoke test
+        run: |
+          tar xzf dolphin-macos-${{ matrix.arch }}.tar.gz
+          chmod +x ./dolphin_cli
+          output=$(./dolphin_cli --help 2>&1) || {
+            echo "::error::dolphin_cli exited with code $?"
+            echo "$output"
+            exit 1
+          }
+          echo "$output" | grep -qE "psfgenerator|deconvolution" || {
+            echo "::error::Unexpected help output — CLI did not start correctly"
+            echo "$output"
+            exit 1
+          }
+          echo "Smoke test passed."
+
+  # -----------------------------------------------------------------
+  # macOS — Publish to GitHub Release
+  # -----------------------------------------------------------------
+  macos-publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: macos-14
+            arch: arm64
+    runs-on: ${{ matrix.runs-on }}
+    needs: macos-test
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-macos-${{ matrix.arch }}
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -177,7 +340,7 @@ jobs:
           files: dolphin-macos-${{ matrix.arch }}.tar.gz
 
   # -----------------------------------------------------------------
-  # Windows — Native (MSVC + vcpkg)
+  # Windows — Build (MSVC + vcpkg)
   # -----------------------------------------------------------------
   windows:
     runs-on: windows-2022
@@ -260,6 +423,57 @@ jobs:
           Copy-Item "$vcRedist\*.dll" dolphin-windows/
           7z a dolphin-windows-x64.zip dolphin-windows/
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dolphin-windows-x64
+          path: dolphin-windows-x64.zip
+
+  # -----------------------------------------------------------------
+  # Windows — Test (clean VM, no build tools)
+  # -----------------------------------------------------------------
+  windows-test:
+    runs-on: windows-2022
+    needs: windows
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-windows-x64
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          7z x dolphin-windows-x64.zip -o./test
+          $exe = "./test/dolphin-windows/dolphin_cli.exe"
+          $output = & $exe --help 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "dolphin_cli.exe exited with code $LASTEXITCODE"
+            Write-Error $output
+            exit 1
+          }
+          if ($output -notmatch "psfgenerator|deconvolution") {
+            Write-Error "Unexpected help output — CLI did not start correctly"
+            Write-Error $output
+            exit 1
+          }
+          Write-Host "Smoke test passed."
+
+  # -----------------------------------------------------------------
+  # Windows — Publish to GitHub Release
+  # -----------------------------------------------------------------
+  windows-publish:
+    runs-on: ubuntu-22.04
+    needs: windows-test
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-windows-x64
+
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -267,7 +481,7 @@ jobs:
           files: dolphin-windows-x64.zip
 
   # -----------------------------------------------------------------
-  # Windows CUDA — Native (MSVC + vcpkg + CUDA Toolkit)
+  # Windows CUDA — Build (MSVC + vcpkg + CUDA Toolkit)
   # -----------------------------------------------------------------
   windows-cuda:
     runs-on: windows-2022
@@ -355,6 +569,57 @@ jobs:
           }
           Copy-Item "$vcRedist\*.dll" dolphin-windows-cuda/
           7z a dolphin-windows-x64-cuda.zip dolphin-windows-cuda/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dolphin-windows-x64-cuda
+          path: dolphin-windows-x64-cuda.zip
+
+  # -----------------------------------------------------------------
+  # Windows CUDA — Test (clean VM, no build tools)
+  # -----------------------------------------------------------------
+  windows-cuda-test:
+    runs-on: windows-2022
+    needs: windows-cuda
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-windows-x64-cuda
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          7z x dolphin-windows-x64-cuda.zip -o./test
+          $exe = "./test/dolphin-windows-cuda/dolphin_cli.exe"
+          $output = & $exe --help 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "dolphin_cli.exe exited with code $LASTEXITCODE"
+            Write-Error $output
+            exit 1
+          }
+          if ($output -notmatch "psfgenerator|deconvolution") {
+            Write-Error "Unexpected help output — CLI did not start correctly"
+            Write-Error $output
+            exit 1
+          }
+          Write-Host "Smoke test passed."
+
+  # -----------------------------------------------------------------
+  # Windows CUDA — Publish to GitHub Release
+  # -----------------------------------------------------------------
+  windows-cuda-publish:
+    runs-on: ubuntu-22.04
+    needs: windows-cuda-test
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-windows-x64-cuda
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
