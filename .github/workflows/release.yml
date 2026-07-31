@@ -359,9 +359,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
             vcpkg-windows-cpu-
 
       - name: Create vcpkg binary cache directory
@@ -398,11 +397,11 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache
-        if: always()
+        if: always() && steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
       - name: Build
         run: cmake --build build -j
@@ -500,9 +499,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
             vcpkg-windows-cuda-
 
       - name: Create vcpkg binary cache directory
@@ -545,11 +543,11 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache
-        if: always()
+        if: always() && steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
       - name: Build
         run: cmake --build build -j
