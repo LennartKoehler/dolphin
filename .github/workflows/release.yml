@@ -494,6 +494,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install CUDA Toolkit
+        uses: Jimver/cuda-toolkit@v0.2.35
+        with:
+          method: local
+          cuda: '12.8.1'
+
       - name: Restore vcpkg binary cache
         id: vcpkg-cache-restore
         uses: actions/cache/restore@v4
@@ -511,12 +517,6 @@ jobs:
             -Force `
             -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
           Out-Null
-
-      - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.35
-        with:
-          method: local
-          cuda: '12.8.1'
 
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1
