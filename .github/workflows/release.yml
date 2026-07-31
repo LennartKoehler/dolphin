@@ -196,10 +196,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
           restore-keys: |
-            vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
-            vcpkg-${{ runner.os }}-${{ runner.arch }}-
+            vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
+            vcpkg-windows-cpu-
 
       - name: Create vcpkg binary cache directory
         shell: pwsh
@@ -216,7 +216,7 @@ jobs:
           arch: x64
 
       - name: Get CMake
-        uses: lukka/get-cmake@latest
+        uses: lukka/get-cmake@v3.31.0
 
       - name: Configure
         shell: pwsh
@@ -239,7 +239,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
 
       - name: Build
         run: cmake --build build -j
@@ -253,6 +253,11 @@ jobs:
           if (Test-Path $vcpkgBin) {
             Copy-Item "$vcpkgBin\*.dll" dolphin-windows/
           }
+          $vcRedist = "${env:VCToolsRedistDir}\x64\Microsoft.VC143.CRT"
+          if (-not (Test-Path $vcRedist)) {
+            throw "VCToolsRedistDir not found: $vcRedist"
+          }
+          Copy-Item "$vcRedist\*.dll" dolphin-windows/
           7z a dolphin-windows-x64.zip dolphin-windows/
 
       - name: Upload to Release
@@ -281,10 +286,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
           restore-keys: |
-            vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
-            vcpkg-${{ runner.os }}-${{ runner.arch }}-
+            vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
+            vcpkg-windows-cuda-
 
       - name: Create vcpkg binary cache directory
         shell: pwsh
@@ -307,7 +312,7 @@ jobs:
           arch: x64
 
       - name: Get CMake
-        uses: lukka/get-cmake@latest
+        uses: lukka/get-cmake@v3.31.0
 
       - name: Configure
         shell: pwsh
@@ -330,7 +335,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
 
       - name: Build
         run: cmake --build build -j
@@ -344,6 +349,11 @@ jobs:
           if (Test-Path $vcpkgBin) {
             Copy-Item "$vcpkgBin\*.dll" dolphin-windows-cuda/
           }
+          $vcRedist = "${env:VCToolsRedistDir}\x64\Microsoft.VC143.CRT"
+          if (-not (Test-Path $vcRedist)) {
+            throw "VCToolsRedistDir not found: $vcRedist"
+          }
+          Copy-Item "$vcRedist\*.dll" dolphin-windows-cuda/
           7z a dolphin-windows-x64-cuda.zip dolphin-windows-cuda/
 
       - name: Upload to Release

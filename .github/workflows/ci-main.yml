@@ -165,9 +165,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            vcpkg-${{ runner.os }}-${{ runner.arch }}-
+            vcpkg-windows-cpu-
 
       - name: Create vcpkg binary cache directory
         shell: pwsh
@@ -179,7 +179,7 @@ jobs:
           Out-Null
 
       - name: Get CMake
-        uses: lukka/get-cmake@latest
+        uses: lukka/get-cmake@v3.31.0
 
       - name: Configure
         shell: pwsh
@@ -197,7 +197,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: ${{ steps.vcpkg-cache-restore.outputs.cache-primary-key }}
+          key: vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
       - name: Build
         run: cmake --build build --config Release -j
@@ -222,10 +222,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
           restore-keys: |
-            vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
-            vcpkg-${{ runner.os }}-${{ runner.arch }}-
+            vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
+            vcpkg-windows-cuda-
 
       - name: Create vcpkg binary cache directory
         shell: pwsh
@@ -248,7 +248,7 @@ jobs:
           arch: x64
 
       - name: Get CMake
-        uses: lukka/get-cmake@latest
+        uses: lukka/get-cmake@v3.31.0
 
       - name: Configure
         shell: pwsh
@@ -268,7 +268,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
 
       - name: Build
         run: cmake --build build -j
