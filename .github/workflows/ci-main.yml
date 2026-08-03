@@ -93,7 +93,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/itk-install
-          key: itk-5.4.5-notiff-${{ runner.os }}-${{ runner.arch }}
+          key: itk-5.4.5-notiff-static-${{ runner.os }}-${{ runner.arch }}
 
       - name: Build ITK from source
         if: steps.cache-itk.outputs.cache-hit != 'true'
@@ -106,6 +106,7 @@ jobs:
                 -DCMAKE_INSTALL_PREFIX=$HOME/itk-install \
                 -DBUILD_TESTING=OFF \
                 -DBUILD_EXAMPLES=OFF \
+                -DBUILD_SHARED_LIBS=OFF \
                 -DModule_ITKIOTIFF=OFF \
                 ..
           make -j$(sysctl -n hw.ncpu)

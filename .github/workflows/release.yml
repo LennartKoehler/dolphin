@@ -201,11 +201,11 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/Library/Caches/Homebrew
-          key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache
+          key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache-dylibbundler
 
       - name: Install dependencies via Homebrew
         run: |
-          brew install libtiff fftw libomp ccache
+          brew install libtiff fftw libomp ccache dylibbundler
 
       - name: Save Homebrew cache
         if: steps.brew-cache.outputs.cache-hit != 'true'
@@ -219,7 +219,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/itk-install
-          key: itk-5.4.5-notiff-${{ runner.os }}-${{ runner.arch }}
+          key: itk-5.4.5-notiff-static-${{ runner.os }}-${{ runner.arch }}
 
       - name: Build ITK from source
         if: steps.cache-itk.outputs.cache-hit != 'true'
@@ -232,6 +232,7 @@ jobs:
                 -DCMAKE_INSTALL_PREFIX=$HOME/itk-install \
                 -DBUILD_TESTING=OFF \
                 -DBUILD_EXAMPLES=OFF \
+                -DBUILD_SHARED_LIBS=OFF \
                 -DModule_ITKIOTIFF=OFF \
                 ..
           make -j$(sysctl -n hw.ncpu)
@@ -261,9 +262,16 @@ jobs:
 
       - name: Package
         run: |
-          cp build/frontends/cli/dolphin_cli ./dolphin_cli
-          chmod +x ./dolphin_cli
-          tar czf dolphin-macos-arm64.tar.gz dolphin_cli
+          mkdir -p dolphin-macos
+          cp build/frontends/cli/dolphin_cli dolphin-macos/
+          chmod +x dolphin-macos/dolphin_cli
+          # Bundle all dynamic dependencies and rewrite install names
+          dylibbundler -b \
+            -x dolphin-macos/dolphin_cli \
+            -d dolphin-macos/libs \
+            -cd \
+            -p @executable_path/libs
+          tar czf dolphin-macos-arm64.tar.gz dolphin-macos/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -281,9 +289,6 @@ jobs:
     needs: macos
 
     steps:
-      - name: Install runtime dependencies
-        run: brew install libtiff fftw libomp
-
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
@@ -292,8 +297,8 @@ jobs:
       - name: Smoke test
         run: |
           tar xzf dolphin-macos-arm64.tar.gz
-          chmod +x ./dolphin_cli
-          output=$(./dolphin_cli --help 2>&1) || {
+          chmod +x ./dolphin-macos/dolphin_cli
+          output=$(./dolphin-macos/dolphin_cli --help 2>&1) || {
             echo "::error::dolphin_cli exited with code $?"
             echo "$output"
             exit 1
