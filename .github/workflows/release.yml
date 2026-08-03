@@ -440,10 +440,9 @@ jobs:
             exit 1
           }
           $LASTEXITCODE = $null
-          $output = & $exe --help 2>&1
+          $output = (& $exe --help 2>&1) | Out-String
           $code = $LASTEXITCODE
           Write-Host "Exit code: $code"
-          Write-Host "Output length: $($output.Length)"
           Write-Host "--- Output ---"
           Write-Host $output
           Write-Host "--- End output ---"
@@ -596,10 +595,9 @@ jobs:
             exit 1
           }
           $LASTEXITCODE = $null
-          $output = & $exe --help 2>&1
+          $output = (& $exe --help 2>&1) | Out-String
           $code = $LASTEXITCODE
           Write-Host "Exit code: $code"
-          Write-Host "Output length: $($output.Length)"
           Write-Host "--- Output ---"
           Write-Host $output
           Write-Host "--- End output ---"
