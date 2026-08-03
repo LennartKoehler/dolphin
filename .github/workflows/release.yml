@@ -434,15 +434,25 @@ jobs:
         run: |
           7z --% x dolphin-windows-x64.zip -o./test
           $exe = "./test/dolphin-windows/dolphin_cli.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Host "dolphin_cli.exe not found. Contents of ./test/dolphin-windows/:"
+            Get-ChildItem ./test/dolphin-windows/ -ErrorAction SilentlyContinue | Format-Table Name, Length
+            exit 1
+          }
+          $LASTEXITCODE = $null
           $output = & $exe --help 2>&1
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "dolphin_cli.exe exited with code $LASTEXITCODE"
-            Write-Error $output
+          $code = $LASTEXITCODE
+          Write-Host "Exit code: $code"
+          Write-Host "Output length: $($output.Length)"
+          Write-Host "--- Output ---"
+          Write-Host $output
+          Write-Host "--- End output ---"
+          if ($null -eq $code -or $code -ne 0) {
+            Write-Error "dolphin_cli.exe exited with code $code"
             exit 1
           }
           if ($output -notmatch "psfgenerator|deconvolution") {
             Write-Error "Unexpected help output — CLI did not start correctly"
-            Write-Error $output
             exit 1
           }
           Write-Host "Smoke test passed."
@@ -580,15 +590,25 @@ jobs:
         run: |
           7z --% x dolphin-windows-x64-cuda.zip -o./test
           $exe = "./test/dolphin-windows-cuda/dolphin_cli.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Host "dolphin_cli.exe not found. Contents of ./test/dolphin-windows-cuda/:"
+            Get-ChildItem ./test/dolphin-windows-cuda/ -ErrorAction SilentlyContinue | Format-Table Name, Length
+            exit 1
+          }
+          $LASTEXITCODE = $null
           $output = & $exe --help 2>&1
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "dolphin_cli.exe exited with code $LASTEXITCODE"
-            Write-Error $output
+          $code = $LASTEXITCODE
+          Write-Host "Exit code: $code"
+          Write-Host "Output length: $($output.Length)"
+          Write-Host "--- Output ---"
+          Write-Host $output
+          Write-Host "--- End output ---"
+          if ($null -eq $code -or $code -ne 0) {
+            Write-Error "dolphin_cli.exe exited with code $code"
             exit 1
           }
           if ($output -notmatch "psfgenerator|deconvolution") {
             Write-Error "Unexpected help output — CLI did not start correctly"
-            Write-Error $output
             exit 1
           }
           Write-Host "Smoke test passed."
