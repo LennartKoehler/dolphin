@@ -11,10 +11,31 @@ permissions:
 
 jobs:
   # -----------------------------------------------------------------
+  # Prepare — extract version from git tag (strip leading 'v')
+  # -----------------------------------------------------------------
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Set version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.1" >> "$GITHUB_OUTPUT"
+          fi
+
+  # -----------------------------------------------------------------
   # Ubuntu — Build (Docker-based, extract CLI binary)
   # -----------------------------------------------------------------
   ubuntu:
     runs-on: ubuntu-22.04
+    needs: prepare
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-linux-x86_64
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,30 +61,32 @@ jobs:
           docker cp temp:/workspace/build/frontends/cli/dolphin_cli ./dolphin_cli
           docker rm temp
           chmod +x ./dolphin_cli
-          tar czf dolphin-linux-x86_64.tar.gz dolphin_cli
+          tar czf ${{ env.ARTIFACT_NAME }}.tar.gz dolphin_cli
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dolphin-linux-x86_64
-          path: dolphin-linux-x86_64.tar.gz
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_NAME }}.tar.gz
 
   # -----------------------------------------------------------------
   # Ubuntu — Test (clean VM)
   # -----------------------------------------------------------------
   ubuntu-test:
     runs-on: ubuntu-22.04
-    needs: ubuntu
+    needs: [prepare, ubuntu]
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-linux-x86_64
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-linux-x86_64
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Smoke test
         run: |
-          tar xzf dolphin-linux-x86_64.tar.gz
+          tar xzf ${{ env.ARTIFACT_NAME }}.tar.gz
           chmod +x ./dolphin_cli
           output=$(./dolphin_cli --help 2>&1) || {
             echo "::error::dolphin_cli exited with code $?"
@@ -82,26 +105,31 @@ jobs:
   # -----------------------------------------------------------------
   ubuntu-publish:
     runs-on: ubuntu-22.04
-    needs: ubuntu-test
+    needs: [prepare, ubuntu-test]
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-linux-x86_64
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-linux-x86_64
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dolphin-linux-x86_64.tar.gz
+          files: ${{ env.ARTIFACT_NAME }}.tar.gz
 
   # -----------------------------------------------------------------
   # Ubuntu CUDA — Build (Docker-based, extract CLI binary)
   # -----------------------------------------------------------------
   ubuntu-cuda:
     runs-on: ubuntu-22.04
+    needs: prepare
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-linux-x86_64-cu130
     steps:
       - uses: actions/checkout@v4
         with:
@@ -127,30 +155,32 @@ jobs:
           docker cp temp:/workspace/build/frontends/cli/dolphin_cli ./dolphin_cli
           docker rm temp
           chmod +x ./dolphin_cli
-          tar czf dolphin-linux-x86_64-cuda.tar.gz dolphin_cli
+          tar czf ${{ env.ARTIFACT_NAME }}.tar.gz dolphin_cli
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dolphin-linux-x86_64-cuda
-          path: dolphin-linux-x86_64-cuda.tar.gz
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_NAME }}.tar.gz
 
   # -----------------------------------------------------------------
   # Ubuntu CUDA — Test (clean VM)
   # -----------------------------------------------------------------
   ubuntu-cuda-test:
     runs-on: ubuntu-22.04
-    needs: ubuntu-cuda
+    needs: [prepare, ubuntu-cuda]
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-linux-x86_64-cu130
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-linux-x86_64-cuda
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Smoke test
         run: |
-          tar xzf dolphin-linux-x86_64-cuda.tar.gz
+          tar xzf ${{ env.ARTIFACT_NAME }}.tar.gz
           chmod +x ./dolphin_cli
           output=$(./dolphin_cli --help 2>&1) || {
             echo "::error::dolphin_cli exited with code $?"
@@ -169,20 +199,22 @@ jobs:
   # -----------------------------------------------------------------
   ubuntu-cuda-publish:
     runs-on: ubuntu-22.04
-    needs: ubuntu-cuda-test
+    needs: [prepare, ubuntu-cuda-test]
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-linux-x86_64-cu130
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-linux-x86_64-cuda
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dolphin-linux-x86_64-cuda.tar.gz
+          files: ${{ env.ARTIFACT_NAME }}.tar.gz
 
   # -----------------------------------------------------------------
   # macOS — Build
@@ -191,6 +223,9 @@ jobs:
     strategy:
       fail-fast: false
     runs-on: macos-14
+    needs: prepare
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-macos-arm64
     steps:
       - uses: actions/checkout@v4
         with:
@@ -271,13 +306,13 @@ jobs:
             -d dolphin-macos/libs \
             -cd \
             -p @executable_path/libs
-          tar czf dolphin-macos-arm64.tar.gz dolphin-macos/
+          tar czf ${{ env.ARTIFACT_NAME }}.tar.gz dolphin-macos/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dolphin-macos-arm64
-          path: dolphin-macos-arm64.tar.gz
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_NAME }}.tar.gz
 
   # -----------------------------------------------------------------
   # macOS — Test (clean VM, runtime deps only)
@@ -286,17 +321,19 @@ jobs:
     strategy:
       fail-fast: false
     runs-on: macos-14
-    needs: macos
+    needs: [prepare, macos]
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-macos-arm64
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-macos-arm64
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Smoke test
         run: |
-          tar xzf dolphin-macos-arm64.tar.gz
+          tar xzf ${{ env.ARTIFACT_NAME }}.tar.gz
           chmod +x ./dolphin-macos/dolphin_cli
           output=$(./dolphin-macos/dolphin_cli --help 2>&1) || {
             echo "::error::dolphin_cli exited with code $?"
@@ -317,28 +354,31 @@ jobs:
     strategy:
       fail-fast: false
     runs-on: macos-14
-    needs: macos-test
+    needs: [prepare, macos-test]
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-macos-arm64
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-macos-arm64
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dolphin-macos-arm64.tar.gz
+          files: ${{ env.ARTIFACT_NAME }}.tar.gz
 
   # -----------------------------------------------------------------
   # Windows — Build (MSVC + vcpkg)
   # -----------------------------------------------------------------
   windows:
     runs-on: windows-2022
-
+    needs: prepare
     env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-windows-x64
       VCPKG_ROOT: C:\vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-binary-cache
 
@@ -413,31 +453,33 @@ jobs:
             throw "VCToolsRedistDir not found: $vcRedist"
           }
           Copy-Item "$vcRedist\*.dll" dolphin-windows/
-          7z a dolphin-windows-x64.zip dolphin-windows/
+          7z a $env:ARTIFACT_NAME.zip dolphin-windows/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dolphin-windows-x64
-          path: dolphin-windows-x64.zip
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_NAME }}.zip
 
   # -----------------------------------------------------------------
   # Windows — Test (clean VM, no build tools)
   # -----------------------------------------------------------------
   windows-test:
     runs-on: windows-2022
-    needs: windows
+    needs: [prepare, windows]
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-windows-x64
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-windows-x64
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Smoke test
         shell: pwsh
         run: |
-          7z --% x dolphin-windows-x64.zip -o./test
+          7z --% x $env:ARTIFACT_NAME.zip -o./test
           $exe = "./test/dolphin-windows/dolphin_cli.exe"
           if (-not (Test-Path $exe)) {
             Write-Host "dolphin_cli.exe not found. Contents of ./test/dolphin-windows/:"
@@ -466,28 +508,31 @@ jobs:
   # -----------------------------------------------------------------
   windows-publish:
     runs-on: ubuntu-22.04
-    needs: windows-test
+    needs: [prepare, windows-test]
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-windows-x64
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-windows-x64
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dolphin-windows-x64.zip
+          files: ${{ env.ARTIFACT_NAME }}.zip
 
   # -----------------------------------------------------------------
   # Windows CUDA — Build (MSVC + vcpkg + CUDA Toolkit)
   # -----------------------------------------------------------------
   windows-cuda:
     runs-on: windows-2022
-
+    needs: prepare
     env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-windows-x64-cu128
       VCPKG_ROOT: C:\vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-binary-cache
 
@@ -577,31 +622,33 @@ jobs:
           Copy-Item "$cudaBin\cufft64_*.dll" dolphin-windows-cuda/
           Copy-Item "$cudaBin\cublas64_*.dll" dolphin-windows-cuda/
           Copy-Item "$cudaBin\cublasLt64_*.dll" dolphin-windows-cuda/
-          7z a dolphin-windows-x64-cuda.zip dolphin-windows-cuda/
+          7z a $env:ARTIFACT_NAME.zip dolphin-windows-cuda/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dolphin-windows-x64-cuda
-          path: dolphin-windows-x64-cuda.zip
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_NAME }}.zip
 
   # -----------------------------------------------------------------
   # Windows CUDA — Test (clean VM, no build tools)
   # -----------------------------------------------------------------
   windows-cuda-test:
     runs-on: windows-2022
-    needs: windows-cuda
+    needs: [prepare, windows-cuda]
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-windows-x64-cu128
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-windows-x64-cuda
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Smoke test
         shell: pwsh
         run: |
-          7z --% x dolphin-windows-x64-cuda.zip -o./test
+          7z --% x $env:ARTIFACT_NAME.zip -o./test
           $exe = "./test/dolphin-windows-cuda/dolphin_cli.exe"
           if (-not (Test-Path $exe)) {
             Write-Host "dolphin_cli.exe not found. Contents of ./test/dolphin-windows-cuda/:"
@@ -630,17 +677,19 @@ jobs:
   # -----------------------------------------------------------------
   windows-cuda-publish:
     runs-on: ubuntu-22.04
-    needs: windows-cuda-test
+    needs: [prepare, windows-cuda-test]
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-windows-x64-cu128
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dolphin-windows-x64-cuda
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dolphin-windows-x64-cuda.zip
+          files: ${{ env.ARTIFACT_NAME }}.zip
