@@ -432,7 +432,7 @@ jobs:
       - name: Smoke test
         shell: pwsh
         run: |
-          7z x dolphin-windows-x64.zip -o./test
+          7z --% x dolphin-windows-x64.zip -o./test
           $exe = "./test/dolphin-windows/dolphin_cli.exe"
           $output = & $exe --help 2>&1
           if ($LASTEXITCODE -ne 0) {
@@ -578,7 +578,7 @@ jobs:
       - name: Smoke test
         shell: pwsh
         run: |
-          7z x dolphin-windows-x64-cuda.zip -o./test
+          7z --% x dolphin-windows-x64-cuda.zip -o./test
           $exe = "./test/dolphin-windows-cuda/dolphin_cli.exe"
           $output = & $exe --help 2>&1
           if ($LASTEXITCODE -ne 0) {
