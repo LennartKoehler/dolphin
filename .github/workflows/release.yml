@@ -563,6 +563,15 @@ jobs:
             throw "VCToolsRedistDir not found: $vcRedist"
           }
           Copy-Item "$vcRedist\*.dll" dolphin-windows-cuda/
+          # Copy CUDA runtime DLLs from the toolkit installation
+          $cudaBin = "${env:CUDA_PATH}\bin"
+          if (-not (Test-Path $cudaBin)) {
+            throw "CUDA bin directory not found: $cudaBin"
+          }
+          Copy-Item "$cudaBin\cudart64_*.dll" dolphin-windows-cuda/
+          Copy-Item "$cudaBin\cufft64_*.dll" dolphin-windows-cuda/
+          Copy-Item "$cudaBin\cublas64_*.dll" dolphin-windows-cuda/
+          Copy-Item "$cudaBin\cublasLt64_*.dll" dolphin-windows-cuda/
           7z a dolphin-windows-x64-cuda.zip dolphin-windows-cuda/
 
       - name: Upload artifact
