@@ -64,9 +64,7 @@ jobs:
   macos:
     strategy:
       fail-fast: false
-      matrix:
-        runs-on: [macos-14]
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
         with:
@@ -95,7 +93,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/itk-install
-          key: itk-5.4.5-notiff-${{ runner.os }}-${{ runner.arch }}
+          key: itk-5.4.5-notiff-static-${{ runner.os }}-${{ runner.arch }}
 
       - name: Build ITK from source
         if: steps.cache-itk.outputs.cache-hit != 'true'
@@ -108,6 +106,7 @@ jobs:
                 -DCMAKE_INSTALL_PREFIX=$HOME/itk-install \
                 -DBUILD_TESTING=OFF \
                 -DBUILD_EXAMPLES=OFF \
+                -DBUILD_SHARED_LIBS=OFF \
                 -DModule_ITKIOTIFF=OFF \
                 ..
           make -j$(sysctl -n hw.ncpu)
@@ -165,9 +164,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            vcpkg-windows-cpu-
+            vcpkg-windows-
 
       - name: Create vcpkg binary cache directory
         shell: pwsh
@@ -178,8 +177,13 @@ jobs:
             -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
           Out-Null
 
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Get CMake
-        uses: lukka/get-cmake@v3.31.0
+        uses: lukka/get-cmake@v4.3.3
 
       - name: Configure
         shell: pwsh
@@ -193,11 +197,11 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache
-        if: always() && steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
+        if: steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-cpu-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
       - name: Build
         run: cmake --build build --config Release -j
@@ -217,15 +221,20 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install CUDA Toolkit
+        uses: Jimver/cuda-toolkit@v0.2.35
+        with:
+          method: local
+          cuda: '12.8.1'
+
       - name: Restore vcpkg binary cache
         id: vcpkg-cache-restore
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
-            vcpkg-windows-cuda-
+            vcpkg-windows-
 
       - name: Create vcpkg binary cache directory
         shell: pwsh
@@ -236,19 +245,13 @@ jobs:
             -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
           Out-Null
 
-      - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.35
-        with:
-          method: local
-          cuda: '12.8.1'
-
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
       - name: Get CMake
-        uses: lukka/get-cmake@v3.31.0
+        uses: lukka/get-cmake@v4.3.3
 
       - name: Configure
         shell: pwsh
@@ -264,11 +267,11 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache
-        if: always()
+        if: steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-cuda-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
       - name: Build
         run: cmake --build build -j
