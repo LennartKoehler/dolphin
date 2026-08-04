@@ -55,6 +55,8 @@ target_link_libraries(dolphin_cli
         ${DOLPHIN_OPTIONS_TARGET}
 )
 
+set_target_properties(dolphin_cli PROPERTIES OUTPUT_NAME dolphin)
+
 if(TARGET cuda_backend)
     set_target_properties(dolphin_cli PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
