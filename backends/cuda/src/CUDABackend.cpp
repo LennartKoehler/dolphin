@@ -66,64 +66,8 @@ bool CUDABackendMemoryManager::isOnDevice(const void* ptr) const {
         CUDA_CHECK(result, "isOnDevice", buildCudaContext(config));
         return false; // Never reached
     }
-}
+    }
 
-
-// TODO do i want this memCopy or the normal other one
-// void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const{
-//
-//
-//     // Setup cudaMemcpy3D parameters
-//     cudaMemcpy3DParms copyParams = {0};
-//
-//     // Source parameters
-//     copyParams.srcPtr = make_cudaPitchedPtr(
-//         srcData.getData(),                           // Source pointer
-//         srcData.getSize().width * sizeof(complex_t),  // Pitch (row width in bytes)
-//         srcData.getSize().width,                     // Width in elements
-//         srcData.getSize().height                     // Height in elements
-//     );
-//     copyParams.srcPos = make_cudaPos(0, 0, 0); // Start from origin
-//
-//     // Destination parameters
-//     copyParams.dstPtr = make_cudaPitchedPtr(
-//         destData.getData(),                          // Destination pointer
-//         destData.getSize().width * sizeof(complex_t), // Pitch (row width in bytes)
-//         destData.getSize().width,                    // Width in elements
-//         destData.getSize().height                    // Height in elements
-//     );
-//     copyParams.dstPos = make_cudaPos(0, 0, 0); // Start from origin
-//
-//     // Copy extent (how much to copy)
-//     copyParams.extent = make_cudaExtent(
-//         srcData.getSize().width * sizeof(complex_t),  // Width in bytes
-//         srcData.getSize().height,                    // Height in elements
-//         srcData.getSize().depth                      // Depth in elements
-//     );
-//
-//     // Determine copy direction
-//     bool srcIsDevice = isOnDevice(srcData.getData());
-//     bool dstIsDevice = isOnDevice(destData.getData());
-//
-//     if (srcIsDevice && dstIsDevice) {
-//         copyParams.kind = cudaMemcpyDeviceToDevice;
-//     } else if (!srcIsDevice && dstIsDevice) {
-//         copyParams.kind = cudaMemcpyHostToDevice;
-//     } else if (srcIsDevice && !dstIsDevice) {
-//         copyParams.kind = cudaMemcpyDeviceToHost;
-//     } else {
-//         copyParams.kind = cudaMemcpyHostToHost;
-//     }
-//
-//     // Execute the copy
-//     cudaError_t err = cudaMemcpy3DAsync(&copyParams, config.stream);
-//     CUDA_CHECK(err, "memCopy - cudaMemcpy3DAsync", buildCudaContext(config));
-//
-//     err = cudaStreamSynchronize(config.stream);
-//     CUDA_CHECK(err, "memCopy - cudaStreamSynchronize", buildCudaContext(config));
-//
-//     destData.backend = this;
-// }
 
 RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
     ensureDevice();
@@ -197,34 +141,6 @@ DataView<complex_t> CUDABackendMemoryManager::reinterpret(RealData& data) const{
     return result;
 }
 
-
-
-// RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
-//     RealData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(real_t), 0};
-//     IBackendMemoryManager::allocateMemoryOnDevice(result);
-//     return result;
-// }
-//
-// RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
-//     RealData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(real_t), 0};
-//     IBackendMemoryManager::allocateMemoryOnDevice(result);
-//     return result;
-// }
-//
-// ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
-//     CuboidShape complexShape = shape;
-//     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
-//     ComplexData result{ this, nullptr, complexShape, shape, complexShape.getVolume() * sizeof(complex_t), 0};
-//     IBackendMemoryManager::allocateMemoryOnDevice(result);
-//     return result;
-// }
-//
-// ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
-//     ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
-//     IBackendMemoryManager::allocateMemoryOnDevice(result);
-//     return result;
-// }
-//
 
 void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) const {
     ensureDevice();

@@ -113,9 +113,6 @@ bool CLIFrontend::handlePSFGeneration() {
 
     std::vector<std::string> missingParams = checkRequired(psfConfig);
     if (!missingParams.empty()) {
-        // for (const auto& p : missingParams) {
-        //     spdlog::error("  - {}", p);
-        // }
         std::cout << psfCLI->help() << std::endl;
         return false;
     }

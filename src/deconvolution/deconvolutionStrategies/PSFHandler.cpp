@@ -149,18 +149,6 @@ std::vector<std::shared_ptr<PSF>> PSFHandler::createPSFs(
 
     }
 
-    //dont need to reread, already read when getting padding
-    for (auto& psf : filePSFs){
-        psfs.emplace_back(std::make_shared<PSF>(std::move(psf)));
-    }
-
-    // TODO
-    // if (!setupConfig.psfDirPath.empty()){
-    //     std::vector<std::shared_ptr<PSFConfig>> psfconfigs = PSFCreator::generatePSFsFromDir(setupConfig.psfDirPath);
-    //     for (auto psfconfig : psfconfigs){
-    //         psfs.push_back(PSFCreator::generatePSFFromPSFConfig(psfconfig, thread_pool_.get()));
-    //     }
-    // }
     return psfs;
 }
 

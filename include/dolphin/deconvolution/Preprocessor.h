@@ -100,7 +100,6 @@ private:
     std::mutex mutex;
     std::function<std::unique_ptr<ComplexData>(const CuboidShape, std::shared_ptr<PSF>, IBackend& backend)> preprocessingFunction;
     std::unordered_map<Key, std::unique_ptr<ComplexData>, KeyHash, KeyEqual> preprocessedPSFs;
-    // std::vector<IBackend&> psfBackends;
 
 };
 namespace Preprocessor{
@@ -122,20 +121,11 @@ namespace PaddingStrategy {
         CuboidShape paddingRegion = psf.getRegionLargerThreshold(threshold);
 
         return paddingRegion;
-        // CuboidShape paddingbefore = paddingRegion / 2;
-        // return Padding{paddingbefore, paddingRegion - paddingbefore};
     }
     inline CuboidShape fullPSFPadding(const PSF& psf) {
         CuboidShape paddingRegion = psf.getShape();
 
         return paddingRegion;
-        // CuboidShape paddingbefore = paddingRegion / 2;
-        // return Padding{paddingbefore, paddingRegion - paddingbefore};
     }
-
-    // inline Padding manualPadding(const std::vector<PSF>& psfs, const CuboidShape& imageShape, const DeconvolutionConfig& config) {
-    //     CuboidShape paddingHalf = imageShape / 2;
-    //     return Padding(paddingHalf, imageShape - paddingHalf);
-    // }
 
 }

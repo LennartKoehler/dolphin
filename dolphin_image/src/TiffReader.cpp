@@ -406,48 +406,6 @@ bool TiffReader::isMemoryAvailable(const CuboidShape& requestedSize) const{
 }
 
 
-//     if (!config_.prefetchEnabled) return;
-//
-//     for (const auto& box : boxes) {
-//         if (config_.prefetchCount > 0) {
-//             std::unique_lock<std::mutex> waitLock(mutex_);
-//             prefetchCv_.wait(waitLock, [this] { return inFlightReads_.load() < config_.prefetchCount; });
-//         }
-//
-//         std::lock_guard<std::mutex> lock(mutex_);
-//
-//         bool found = false;
-//         for (const auto& entry : bufferedRegions_) {
-//             if (box.isWithin(entry.source)) {
-//                 found = true;
-//                 break;
-//             }
-//         }
-//         if (found) continue;
-//
-//         for (const auto& pending : pendingReads_) {
-//             if (box.isWithin(pending.source)) {
-//                 found = true;
-//                 break;
-//             }
-//         }
-//         if (found) continue;
-//
-//         BoxCoord source = regionReader->computeReadSource(metaData, box);
-//         inFlightReads_.fetch_add(1);
-//
-//         auto& pending = pendingReads_.emplace_back();
-//         pending.source = source;
-//
-//         auto pendingIt = std::prev(pendingReads_.end());
-//
-//         readerPool_->enqueue([this, source, pendingIt]() {
-//             executeRead(pendingIt, source);
-//         });
-//     }
-// }
-
-
 const ImageMetaData& TiffReader::getMetaData() const {
     return metaData;
 }

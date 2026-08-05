@@ -216,12 +216,6 @@ public:
 
     void setFrontendLoggin(Logging::LogCallback fl) {this->frontendLogging = fl;}
     Logging::LogCallback getFrontendLogging() const {return frontendLogging;}
-    // bool save_separate = false;
-    // bool save_subimages = false;
-    // bool show_example = false;
-    // bool print_info = false;
-    // // int num_threads = 1;
-    // std::string output_path = "../results/deconv.tif";
 
 
 private:
@@ -251,28 +245,6 @@ public:
     AlgorithmStats stats;
 };
 
-// class IDeconvolutionService : public IService {
-// public:
-//     virtual ~IDeconvolutionService() = default;
-
-//     virtual std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request) = 0;
-//     // Asynchronous
-//     virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request) = 0;
-
-//     // Batch processing
-//     virtual std::future<std::vector<std::unique_ptr<DeconvolutionResult>>> deconvolveBatchAsync(
-//         const std::vector<DeconvolutionRequest>& requests) = 0;
-
-//     virtual void setProgressCallback(std::function<void(int)> callback) = 0;
-
-//     // virtual std::unique_ptr<DeconvolutionResult> deconvolveFromConfig(const json& config) = 0;
-//     virtual std::vector<std::string> getSupportedAlgorithms() const = 0;
-//     virtual bool validateAlgorithmConfig(const std::string& algorithm, const json& config) const = 0;
-
-//     virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
-//     virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
-// };
-
 // --- Service Factory ---
 class ServiceFactory {
 public:
@@ -280,9 +252,6 @@ public:
 
     virtual std::unique_ptr<PSFGenerationService> createPSFGenerationService() = 0;
     virtual std::unique_ptr<DeconvolutionService> createDeconvolutionService() = 0;
-
-    // virtual void setLogger(std::function<void(const std::string&)> logger) = 0;
-    // virtual void setConfigLoader(std::function<json(const std::string&)> loader) = 0;
 
     static ServiceFactory* create();
 };

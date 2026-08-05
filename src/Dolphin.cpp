@@ -47,21 +47,6 @@ std::unique_ptr<DeconvolutionResult> Dolphin::deconvolve(DeconvolutionRequest re
 }
 
 
-//     psf_service_->initialize();
-//     return psf_service_->generatePSFAsync(request);
-// }
-//
-// std::future<std::unique_ptr<DeconvolutionResult>> Dolphin::deconvolveAsync(DeconvolutionRequest request){
-//     deconv_service_->initialize();
-//     return deconv_service_->deconvolveAsync(request);
-// }
-
-
-
-
-
-
-
 // Hyperstack Dolphin::initHyperstack() const{
 //     Hyperstack hyperstack;
 //     if (config->imagePath.substr(config->imagePath.find_last_of(".") + 1) == "tif" || config->imagePath.substr(config->imagePath.find_last_of(".") + 1) == "tiff" || config->imagePath.substr(config->imagePath.find_last_of(".") + 1) == "ometif") {

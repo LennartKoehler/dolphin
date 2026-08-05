@@ -192,26 +192,9 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
         cudaStreamDestroy(config.stream);
         throw;
     }
+    }
 }
 
-
-
-
-// void CUDABackendManager::cleanup() {
-//     std::unique_lock<std::mutex> lock(mutex_);
-
-//     // Clean up all active thread backends
-//     for (auto& pair : threadBackends_) {
-//         if (pair.second.backend) {
-//             pair.second.backend->mutableComputeManager().cleanup();
-//         }
-//     }
-//     threadBackends_.clear();
-
-
-
-//     g_logger_cuda(fmt::format("Cleaned up CUDA backend manager"), LogLevel::LOG_INFO);
-// }
 
 cudaStream_t CUDABackendManager::createStream() const {
     cudaStream_t stream;

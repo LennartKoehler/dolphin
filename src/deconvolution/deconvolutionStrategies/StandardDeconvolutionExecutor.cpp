@@ -123,17 +123,6 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
         }
         catch (const dolphin::backend::MemoryException& e){
             throw std::runtime_error("Not enough free memory on the backend" + e.getDetailedMessage());
-            // // log the exception,  then enqueue the task in another thread, while this thread simply waits for the result
-            // // This effectively removes this thread from the pool until the other thread is done. Then just reduce NumberThreads(1)
-            // // will remove the first thread that finishes a task (probably this one as its basically )
-            // spdlog::get("deconvolution")->warn("[Task {}] reducing number of threads and copies of subimages", e.getDetailedMessage());
-            // //TODO reduce number of workerthreads aswell
-            // bool noMoreWorkers = context->ioPool.reduceActiveWorkers(1); // marks self as waiting
-            //
-            // if (noMoreWorkers) throw std::runtime_error("Can't fit a single cube for deconvolution onto the device");
-            // context->ioPool.enqueue(createTask(taskDesc));
-            // bool maxReached = context->ioPool.reduceNumberThreads(1);
-            // if (maxReached) throw std::runtime_error("Can't fit a single cube for deconvolution onto the device");
         }
         catch (const dolphin::backend::BackendException& e) {
             spdlog::get("deconvolution")->error(e.getDetailedMessage());

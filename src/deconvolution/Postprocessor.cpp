@@ -17,7 +17,6 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/HelperClasses.h"
 #include <itkImage.h>
 #include <itkDanielssonDistanceMapImageFilter.h>
-// #include <itkSignedMaurerDistanceMapImageFilter.h>
 #include <itkCastImageFilter.h>
 #include <itkImageRegionIterator.h>
 #include <itkImageRegionConstIterator.h>
@@ -80,7 +79,6 @@ Image3D Postprocessor::addFeathering(
 
     // Process distance maps for all masks
     for (size_t i = 0; i < itkImageMasks.size() - 1; ++i) {// the last one is the "background"
-    // for (auto& imagemask : itkImageMasks) {
         ImageHelper& imagemask = itkImageMasks[i];
         // Create the distance filter
         DistanceFilterType::Pointer distanceFilter = DistanceFilterType::New();
@@ -132,7 +130,6 @@ Image3D Postprocessor::addFeathering(
         output
     );
 
-    // background.mask->DisconnectPipeline();
     return Image3D(std::move(output));
 
 }
