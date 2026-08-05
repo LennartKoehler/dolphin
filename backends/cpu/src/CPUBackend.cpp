@@ -4,10 +4,10 @@
 #include "dolphinbackend/IComputeBackend.h"
 #include <algorithm>
 #include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
 #include <cmath>
 #include <cstring>
 #include <cassert>
-#include <iostream>
 #include <sstream>
 #include <thread>
 
@@ -178,7 +178,7 @@ void stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& func) {
 
 LogCallback& getGlobalLogger() {
     static LogCallback* cb = new LogCallback([](const std::string& context, const std::string& message, LogLevel level){
-        std::cout << context << ": " << message << std::endl;
+        spdlog::info("[{}] {}", context, message);
     });
     return *cb;
 }

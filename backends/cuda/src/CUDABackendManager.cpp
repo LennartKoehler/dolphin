@@ -66,8 +66,6 @@ void CUDABackendManager::init(LogCallback fn) {
             "cuda:cuda",
             fmt::format("Device {} has compute capability {}.{} and {:.2f} GB memory", deviceNumber, deviceProp.major, deviceProp.minor, (totalMem/1e9)),
             LogLevel::LOG_INFO);
-        // printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
-        // device, deviceProp.major, deviceProp.minor, (totalMem/1e9));
 
     }
 

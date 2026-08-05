@@ -13,17 +13,14 @@ See the LICENSE file provided with the code for the full license.
 
 #include "cuda_backend/CUDABackend.h"
 #include "cuda_backend/CUDABackendManager.h"
-// #include <ioconfig.stream>
-// #include <sconfig.stream>
 #include <cassert>
-#include <iostream>
 #include <spdlog/fmt/fmt.h>
-
+#include <spdlog/spdlog.h>
 
 
 
 LogCallback g_logger_cuda =[](const std::string& context, const std::string& message, LogLevel level){
-    std::cout << context << ": " << message << std::endl;
+    spdlog::info("[{}] {}", context, message);
 };
 
 

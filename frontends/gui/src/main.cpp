@@ -20,21 +20,18 @@ static std::filesystem::path resolveLogDir() {
 }
 
 int main(int argc, char** argv) {
-    std::cout << "[Start Dolphin GUI]" << std::endl;
-    
     // Initialize Dolphin with a proper log directory
     Dolphin* dolphin = new Dolphin();
     dolphin->init(resolveLogDir());
-    
+
     // Create GUI frontend and run
     GUIFrontend* frontend = new GUIFrontend(dolphin);
     frontend->run();
-    
+
     // Cleanup
     delete frontend;
     delete dolphin;
-    
-    std::cout << "[End Dolphin GUI]" << std::endl;
+
     return 0;
 }
 
