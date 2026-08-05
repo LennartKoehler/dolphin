@@ -15,7 +15,6 @@ See the LICENSE file provided with the code for the full license.
 
 #include "nlohmann/json.hpp"
 #include <fstream>
-#include <iostream>
 #include <unordered_set>
 #include <vector>
 #include <array>
@@ -107,8 +106,7 @@ class Config{
     using ParamVisitor = std::function<void(ConfigParameter)>;
 
 public:
-    Config(){
-    }
+    Config() = default;
 
 
     // Copy/move of Config is deleted because the `parameters` vector holds void* pointers

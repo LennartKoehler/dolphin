@@ -37,8 +37,8 @@ protected:
 class Window : public Content{
 public:
     Window(int width, int height, std::string name);
-    virtual ~Window(){}
-    virtual void show() override;
+    virtual ~Window() = default;
+    void show() override;
 
 protected:
     int width;

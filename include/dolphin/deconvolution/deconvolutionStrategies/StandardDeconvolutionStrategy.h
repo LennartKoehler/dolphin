@@ -39,10 +39,10 @@ struct Memory{
 class StandardDeconvolutionStrategy : public IDeconvolutionStrategy {
 public:
     StandardDeconvolutionStrategy() = default;
-    virtual ~StandardDeconvolutionStrategy() = default;
+    ~StandardDeconvolutionStrategy() = default;
 
 
-    virtual Result<DeconvolutionPlan> createPlan(
+    Result<DeconvolutionPlan> createPlan(
         std::shared_ptr<ImageReader> reader,
         std::shared_ptr<ImageWriter> writer,
         PSFHandler& psfHandler,

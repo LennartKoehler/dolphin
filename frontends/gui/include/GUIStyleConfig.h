@@ -19,7 +19,7 @@ struct SelectionHelper{
 class GUIStyleConfig{
 public:
     GUIStyleConfig() = default;
-    virtual ~GUIStyleConfig(){}
+    virtual ~GUIStyleConfig() = default;
 
     virtual void drawParameter(const ConfigParameter& param) = 0;
 

@@ -26,7 +26,7 @@ using json = nlohmann::json;
 class Dolphin{
 public:
     Dolphin() = default;
-    ~Dolphin(){}
+    ~Dolphin() = default;
 
     void init(const std::filesystem::path& logDir = std::filesystem::current_path());
 

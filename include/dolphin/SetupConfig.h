@@ -76,6 +76,6 @@ public:
     std::vector<std::string> multiplePsfConfigPaths;
     bool savePsf = false;
 private:
-    virtual void registerAllParameters() override;
+    void registerAllParameters() override;
 };
 

@@ -17,7 +17,7 @@ class Dolphin;
 class IFrontend{
 public:
     IFrontend(Dolphin* dolphin) : dolphin(dolphin){}
-    virtual ~IFrontend(){}
+    virtual ~IFrontend() = default;
     virtual void run() = 0;
 
 protected:

@@ -9,7 +9,7 @@
 class imguiWidget{
 public:
     imguiWidget() = default;
-    virtual ~imguiWidget(){}
+    virtual ~imguiWidget() = default;
     virtual void display(const ConfigParameter& p) = 0;
     void operator() (const ConfigParameter& p);
 

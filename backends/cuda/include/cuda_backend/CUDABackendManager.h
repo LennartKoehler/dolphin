@@ -48,7 +48,7 @@ public:
 
     // virtual IComputeBackend& getComputeBackend(const BackendConfig& config) override;
     // virtual IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;
-    virtual IBackend& createBackendForCurrentThread(const BackendConfig& config) override;
+    IBackend& createBackendForCurrentThread(const BackendConfig& config) override;
 
 
     // IBackend& clone(IBackend& backend, const BackendConfig& config) override ;

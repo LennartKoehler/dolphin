@@ -38,7 +38,6 @@ public:
 protected:
     mutable ProgressTracking progressTracker;
     std::shared_ptr<ThreadPool> threadPool;
-    bool isConfigured;
 };
 
 

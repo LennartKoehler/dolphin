@@ -151,7 +151,7 @@ public:
     void setProgressCallback(progressCallbackFn fn) {this->progressCallback = fn;}
     progressCallbackFn getProgressCallback() const {return progressCallback;}
 
-    void setFrontendLoggin(Logging::LogCallback fl) {this->frontendLogging = fl;}
+    void setFrontendLogging(Logging::LogCallback fl) {this->frontendLogging = fl;}
     Logging::LogCallback getFrontendLogging() const {return frontendLogging;}
 
 private:
@@ -214,7 +214,7 @@ public:
     void setProgressCallback(progressCallbackFn fn) {this->progressCallback = fn;}
     progressCallbackFn getProgressCallback() const {return progressCallback;}
 
-    void setFrontendLoggin(Logging::LogCallback fl) {this->frontendLogging = fl;}
+    void setFrontendLogging(Logging::LogCallback fl) {this->frontendLogging = fl;}
     Logging::LogCallback getFrontendLogging() const {return frontendLogging;}
 
 

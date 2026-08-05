@@ -292,7 +292,7 @@ struct CustomList{
 
 class LazyImage3D : public Image3D{
 
-    virtual ~LazyImage3D() override;
+    ~LazyImage3D() override;
     void update();
 
     std::vector<std::reference_wrapper<IImageOperation>> deferredOperations;
