@@ -49,7 +49,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     std::shared_ptr<ReaderHandler> readerHandler = std::make_shared<ReaderHandler>(reader, deconvConfig.paddingFillType);
 
     WriterCompressionConfig writerCompressionConfig;
-    writerCompressionConfig.compressionScheme = WriterCompressionConfig::parseCompression(setupConfig.outputCompression);
+    writerCompressionConfig.compressionScheme = static_cast<uint16_t>(setupConfig.outputCompression);
     writerCompressionConfig.compressionLevel = setupConfig.outputCompressionLevel;
 
     WriterConfig writerConfig;

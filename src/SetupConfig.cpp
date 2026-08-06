@@ -19,6 +19,12 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/PSFGeneratorFactory.h"
 #include "dolphin/backend/BackendFactory.h"
 
+ConfigMap outputCompressionTypeMap{{
+    {"none", OUTPUT_COMPRESSION_NONE},
+    {"lzw", OUTPUT_COMPRESSION_LZW},
+    {"deflate", OUTPUT_COMPRESSION_DEFLATE},
+}};
+
 SetupConfigPSF::SetupConfigPSF() {
     registerAllParameters();
 }
@@ -174,11 +180,12 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
-    parameters.push_back({ParameterType::Int, &numReaderThreads, "Number of Reader Threads", true, "n_reader_threads", "--n_reader_threads", "Number of TIFF reader threads (0=auto)", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::String, &outputCompression, "Output Compression", true, "output_compression", "--output_compression", "TIFF compression scheme (none, lzw, deflate)", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Int, &outputCompressionLevel, "Output Compression Level", true, "output_compression_level", "--output_compression_level", "Compression level (-1=default, 1-9 for deflate)", false, true, -1.0, 9.0, nullptr});
-    parameters.push_back({ParameterType::Int, &tileWidth, "Tile Width", true, "tile_width", "--tile_width", "TIFF tile width (0=strips)", false, true, 0.0, 4096.0, nullptr});
-    parameters.push_back({ParameterType::Int, &tileLength, "Tile Length", true, "tile_length", "--tile_length", "TIFF tile length (0=strips)", false, true, 0.0, 4096.0, nullptr});
+    parameters.push_back({ParameterType::Int, &numReaderThreads, "Number of Reader Threads", true, "n_reader_threads", "--n_reader_threads", "Number of TIFF reader threads", false, true, 0.0, 100.0, nullptr});
+    const void* outputCompressionMap_p = static_cast<const void*>(&outputCompressionTypeMap);
+    parameters.push_back({ParameterType::Map, &outputCompression, "Output Compression", true, "output_compression", "--output_compression", "TIFF compression scheme", false, false, 0.0, 0.0, outputCompressionMap_p});
+    parameters.push_back({ParameterType::Int, &outputCompressionLevel, "Output Compression Level", true, "output_compression_level", "--output_compression_level", "Compression level", false, true, -1.0, 9.0, nullptr});
+    parameters.push_back({ParameterType::Int, &tileWidth, "Tile Width", true, "tile_width", "--tile_width", "TIFF tile width", false, true, 0.0, 4096.0, nullptr});
+    parameters.push_back({ParameterType::Int, &tileLength, "Tile Length", true, "tile_length", "--tile_length", "TIFF tile length", false, true, 0.0, 4096.0, nullptr});
     parameters.push_back({ParameterType::Bool, &savePsf, "Save PSF", true, "save_psf", "--save_psf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
 
 

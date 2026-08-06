@@ -17,6 +17,12 @@ See the LICENSE file provided with the code for the full license.
 #include <array>
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 
+enum OutputCompressionType {
+    OUTPUT_COMPRESSION_NONE = 1,
+    OUTPUT_COMPRESSION_LZW = 5,
+    OUTPUT_COMPRESSION_DEFLATE = 8,
+};
+
 class SetupConfigPSF : public Config{
 public:
     SetupConfigPSF();
@@ -40,7 +46,7 @@ public:
 
     int numReaderThreads = 0;
 
-    std::string outputCompression = "none";
+    OutputCompressionType outputCompression = OUTPUT_COMPRESSION_NONE;
     int outputCompressionLevel = -1;
 
     int tileWidth = 0;
