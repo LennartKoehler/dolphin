@@ -4,13 +4,14 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   # -----------------------------------------------------------------
-  # Ubuntu — Docker-based, extract CLI binary
+  # Ubuntu — Build (Docker-based, extract CLI binary)
   # -----------------------------------------------------------------
   ubuntu:
     runs-on: ubuntu-22.04
@@ -36,18 +37,68 @@ jobs:
       - name: Extract CLI binary
         run: |
           docker create --name temp dolphin-release:latest
-          docker cp temp:/workspace/cli-build/dolphin_cli ./dolphin_cli
+          docker cp temp:/workspace/build/frontends/cli/dolphin_cli ./dolphin_cli
           docker rm temp
           chmod +x ./dolphin_cli
           tar czf dolphin-linux-x86_64.tar.gz dolphin_cli
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dolphin-linux-x86_64
+          path: dolphin-linux-x86_64.tar.gz
+
+  # -----------------------------------------------------------------
+  # Ubuntu — Test (clean VM)
+  # -----------------------------------------------------------------
+  ubuntu-test:
+    runs-on: ubuntu-22.04
+    needs: ubuntu
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-linux-x86_64
+
+      - name: Smoke test
+        run: |
+          tar xzf dolphin-linux-x86_64.tar.gz
+          chmod +x ./dolphin_cli
+          output=$(./dolphin_cli --help 2>&1) || {
+            echo "::error::dolphin_cli exited with code $?"
+            echo "$output"
+            exit 1
+          }
+          echo "$output" | grep -qE "psfgenerator|deconvolution" || {
+            echo "::error::Unexpected help output — CLI did not start correctly"
+            echo "$output"
+            exit 1
+          }
+          echo "Smoke test passed."
+
+  # -----------------------------------------------------------------
+  # Ubuntu — Publish to GitHub Release
+  # -----------------------------------------------------------------
+  ubuntu-publish:
+    runs-on: ubuntu-22.04
+    needs: ubuntu-test
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-linux-x86_64
+
       - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dolphin-linux-x86_64.tar.gz
 
   # -----------------------------------------------------------------
-  # Ubuntu CUDA — Docker-based, extract CLI binary
+  # Ubuntu CUDA — Build (Docker-based, extract CLI binary)
   # -----------------------------------------------------------------
   ubuntu-cuda:
     runs-on: ubuntu-22.04
@@ -73,23 +124,73 @@ jobs:
       - name: Extract CLI binary
         run: |
           docker create --name temp dolphin-release-cuda:latest
-          docker cp temp:/workspace/cli-build/dolphin_cli ./dolphin_cli
+          docker cp temp:/workspace/build/frontends/cli/dolphin_cli ./dolphin_cli
           docker rm temp
           chmod +x ./dolphin_cli
           tar czf dolphin-linux-x86_64-cuda.tar.gz dolphin_cli
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dolphin-linux-x86_64-cuda
+          path: dolphin-linux-x86_64-cuda.tar.gz
+
+  # -----------------------------------------------------------------
+  # Ubuntu CUDA — Test (clean VM)
+  # -----------------------------------------------------------------
+  ubuntu-cuda-test:
+    runs-on: ubuntu-22.04
+    needs: ubuntu-cuda
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-linux-x86_64-cuda
+
+      - name: Smoke test
+        run: |
+          tar xzf dolphin-linux-x86_64-cuda.tar.gz
+          chmod +x ./dolphin_cli
+          output=$(./dolphin_cli --help 2>&1) || {
+            echo "::error::dolphin_cli exited with code $?"
+            echo "$output"
+            exit 1
+          }
+          echo "$output" | grep -qE "psfgenerator|deconvolution" || {
+            echo "::error::Unexpected help output — CLI did not start correctly"
+            echo "$output"
+            exit 1
+          }
+          echo "Smoke test passed."
+
+  # -----------------------------------------------------------------
+  # Ubuntu CUDA — Publish to GitHub Release
+  # -----------------------------------------------------------------
+  ubuntu-cuda-publish:
+    runs-on: ubuntu-22.04
+    needs: ubuntu-cuda-test
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-linux-x86_64-cuda
+
       - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dolphin-linux-x86_64-cuda.tar.gz
+
+  # -----------------------------------------------------------------
+  # macOS — Build
+  # -----------------------------------------------------------------
   macos:
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runs-on: macos-14
-            arch: arm64
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
         with:
@@ -100,11 +201,11 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/Library/Caches/Homebrew
-          key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache
+          key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache-dylibbundler
 
       - name: Install dependencies via Homebrew
         run: |
-          brew install libtiff fftw libomp ccache
+          brew install libtiff fftw libomp ccache dylibbundler
 
       - name: Save Homebrew cache
         if: steps.brew-cache.outputs.cache-hit != 'true'
@@ -118,7 +219,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/itk-install
-          key: itk-5.4.5-notiff-${{ runner.os }}-${{ runner.arch }}
+          key: itk-5.4.5-notiff-static-${{ runner.os }}-${{ runner.arch }}
 
       - name: Build ITK from source
         if: steps.cache-itk.outputs.cache-hit != 'true'
@@ -131,6 +232,7 @@ jobs:
                 -DCMAKE_INSTALL_PREFIX=$HOME/itk-install \
                 -DBUILD_TESTING=OFF \
                 -DBUILD_EXAMPLES=OFF \
+                -DBUILD_SHARED_LIBS=OFF \
                 -DModule_ITKIOTIFF=OFF \
                 ..
           make -j$(sysctl -n hw.ncpu)
@@ -148,6 +250,7 @@ jobs:
           export CCACHE_DIR="$HOME/.ccache"
           cmake -B build -S . \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_CLI=ON \
             -DBUILD_CUDA=OFF \
             -DENABLE_TESTS=OFF \
             -DENABLE_BENCHMARKS=OFF \
@@ -156,32 +259,81 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build -- -j$(sysctl -n hw.ncpu)
-          sudo cmake --install build
-
-      - name: Build CLI frontend
-        run: |
-          export CCACHE_DIR="$HOME/.ccache"
-          cmake -B cli-build -S frontends/cli \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
-            -DOpenMP_ROOT=$(brew --prefix libomp) \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          cmake --build cli-build -- -j$(sysctl -n hw.ncpu)
 
       - name: Package
         run: |
-          cp cli-build/dolphin_cli ./dolphin_cli
-          chmod +x ./dolphin_cli
-          tar czf dolphin-macos-${{ matrix.arch }}.tar.gz dolphin_cli
+          mkdir -p dolphin-macos
+          cp build/frontends/cli/dolphin_cli dolphin-macos/
+          chmod +x dolphin-macos/dolphin_cli
+          # Bundle all dynamic dependencies and rewrite install names
+          dylibbundler -b \
+            -x dolphin-macos/dolphin_cli \
+            -d dolphin-macos/libs \
+            -cd \
+            -p @executable_path/libs
+          tar czf dolphin-macos-arm64.tar.gz dolphin-macos/
 
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: dolphin-macos-${{ matrix.arch }}.tar.gz
+          name: dolphin-macos-arm64
+          path: dolphin-macos-arm64.tar.gz
 
   # -----------------------------------------------------------------
-  # Windows — Native (MSVC + vcpkg)
+  # macOS — Test (clean VM, runtime deps only)
+  # -----------------------------------------------------------------
+  macos-test:
+    strategy:
+      fail-fast: false
+    runs-on: macos-14
+    needs: macos
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-macos-arm64
+
+      - name: Smoke test
+        run: |
+          tar xzf dolphin-macos-arm64.tar.gz
+          chmod +x ./dolphin-macos/dolphin_cli
+          output=$(./dolphin-macos/dolphin_cli --help 2>&1) || {
+            echo "::error::dolphin_cli exited with code $?"
+            echo "$output"
+            exit 1
+          }
+          echo "$output" | grep -qE "psfgenerator|deconvolution" || {
+            echo "::error::Unexpected help output — CLI did not start correctly"
+            echo "$output"
+            exit 1
+          }
+          echo "Smoke test passed."
+
+  # -----------------------------------------------------------------
+  # macOS — Publish to GitHub Release
+  # -----------------------------------------------------------------
+  macos-publish:
+    strategy:
+      fail-fast: false
+    runs-on: macos-14
+    needs: macos-test
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-macos-arm64
+
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dolphin-macos-arm64.tar.gz
+
+  # -----------------------------------------------------------------
+  # Windows — Build (MSVC + vcpkg)
   # -----------------------------------------------------------------
   windows:
     runs-on: windows-2022
@@ -200,10 +352,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
-            vcpkg-${{ runner.os }}-${{ runner.arch }}-
+            vcpkg-windows-
 
       - name: Create vcpkg binary cache directory
         shell: pwsh
@@ -219,6 +370,9 @@ jobs:
         with:
           arch: x64
 
+      - name: Get CMake
+        uses: lukka/get-cmake@v4.3.3
+
       - name: Configure
         shell: pwsh
         run: |
@@ -226,6 +380,7 @@ jobs:
             -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=cl `
+            -DBUILD_CLI=ON `
             -DCMAKE_CXX_COMPILER=cl `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
@@ -235,49 +390,99 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache
-        if: always()
+        if: steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
       - name: Build
         run: cmake --build build -j
-
-      - name: Install
-        run: cmake --install build
-
-      - name: Build CLI frontend
-        shell: pwsh
-        run: |
-          cmake -B cli-build -S frontends/cli `
-            -G "Ninja" `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_MANIFEST_DIR="${{ github.workspace }}" `
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
-            -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
-
-          cmake --build cli-build -j
 
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dolphin-windows | Out-Null
-          Copy-Item cli-build/dolphin_cli.exe dolphin-windows/
-          $vcpkgBin = "cli-build\vcpkg_installed\x64-windows\bin"
+          Copy-Item build/frontends/cli/dolphin_cli.exe dolphin-windows/
+          $vcpkgBin = "build/vcpkg_installed/x64-windows/bin"
           if (Test-Path $vcpkgBin) {
             Copy-Item "$vcpkgBin\*.dll" dolphin-windows/
           }
+          $vcRedist = "${env:VCToolsRedistDir}\x64\Microsoft.VC143.CRT"
+          if (-not (Test-Path $vcRedist)) {
+            throw "VCToolsRedistDir not found: $vcRedist"
+          }
+          Copy-Item "$vcRedist\*.dll" dolphin-windows/
           7z a dolphin-windows-x64.zip dolphin-windows/
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dolphin-windows-x64
+          path: dolphin-windows-x64.zip
+
+  # -----------------------------------------------------------------
+  # Windows — Test (clean VM, no build tools)
+  # -----------------------------------------------------------------
+  windows-test:
+    runs-on: windows-2022
+    needs: windows
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-windows-x64
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          7z --% x dolphin-windows-x64.zip -o./test
+          $exe = "./test/dolphin-windows/dolphin_cli.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Host "dolphin_cli.exe not found. Contents of ./test/dolphin-windows/:"
+            Get-ChildItem ./test/dolphin-windows/ -ErrorAction SilentlyContinue | Format-Table Name, Length
+            exit 1
+          }
+          $LASTEXITCODE = $null
+          $output = (& $exe --help 2>&1) | Out-String
+          $code = $LASTEXITCODE
+          Write-Host "Exit code: $code"
+          Write-Host "--- Output ---"
+          Write-Host $output
+          Write-Host "--- End output ---"
+          if ($null -eq $code -or $code -ne 0) {
+            Write-Error "dolphin_cli.exe exited with code $code"
+            exit 1
+          }
+          if ($output -notmatch "psfgenerator|deconvolution") {
+            Write-Error "Unexpected help output — CLI did not start correctly"
+            exit 1
+          }
+          Write-Host "Smoke test passed."
+
+  # -----------------------------------------------------------------
+  # Windows — Publish to GitHub Release
+  # -----------------------------------------------------------------
+  windows-publish:
+    runs-on: ubuntu-22.04
+    needs: windows-test
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-windows-x64
+
       - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dolphin-windows-x64.zip
 
   # -----------------------------------------------------------------
-  # Windows CUDA — Native (MSVC + vcpkg + CUDA Toolkit)
+  # Windows CUDA — Build (MSVC + vcpkg + CUDA Toolkit)
   # -----------------------------------------------------------------
   windows-cuda:
     runs-on: windows-2022
@@ -291,15 +496,20 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install CUDA Toolkit
+        uses: Jimver/cuda-toolkit@v0.2.35
+        with:
+          method: local
+          cuda: '12.8.1'
+
       - name: Restore vcpkg binary cache
         id: vcpkg-cache-restore
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-
-            vcpkg-${{ runner.os }}-${{ runner.arch }}-
+            vcpkg-windows-
 
       - name: Create vcpkg binary cache directory
         shell: pwsh
@@ -310,16 +520,13 @@ jobs:
             -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
           Out-Null
 
-      - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.35
-        with:
-          method: local
-          cuda: '12.8.1'
-
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+
+      - name: Get CMake
+        uses: lukka/get-cmake@v4.3.3
 
       - name: Configure
         shell: pwsh
@@ -328,6 +535,7 @@ jobs:
             -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=cl `
+            -DBUILD_CLI=ON `
             -DCMAKE_CXX_COMPILER=cl `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
@@ -337,47 +545,102 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache
-        if: always()
+        if: steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}-${{ github.run_id }}
+          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
       - name: Build
         run: cmake --build build -j
-
-      - name: Install
-        run: cmake --install build
-
-      - name: Build CLI frontend
-        shell: pwsh
-        run: |
-          cmake -B cli-build -S frontends/cli `
-            -G "Ninja" `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_MANIFEST_DIR="${{ github.workspace }}" `
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
-            -DCMAKE_PREFIX_PATH="${{ github.workspace }}\installed"
-
-          cmake --build cli-build -j
 
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dolphin-windows-cuda | Out-Null
-          Copy-Item cli-build/dolphin_cli.exe dolphin-windows-cuda/
-          $vcpkgBin = "cli-build\vcpkg_installed\x64-windows\bin"
+          Copy-Item build/frontends/cli/dolphin_cli.exe dolphin-windows-cuda/
+          $vcpkgBin = "build/vcpkg_installed/x64-windows/bin"
           if (Test-Path $vcpkgBin) {
             Copy-Item "$vcpkgBin\*.dll" dolphin-windows-cuda/
           }
-          $cudaBin = "$env:CUDA_PATH\bin"
-          if (Test-Path $cudaBin) {
-            Copy-Item "$cudaBin\cufft64_*.dll" dolphin-windows-cuda/
+          $vcRedist = "${env:VCToolsRedistDir}\x64\Microsoft.VC143.CRT"
+          if (-not (Test-Path $vcRedist)) {
+            throw "VCToolsRedistDir not found: $vcRedist"
           }
+          Copy-Item "$vcRedist\*.dll" dolphin-windows-cuda/
+          # Copy CUDA runtime DLLs from the toolkit installation
+          $cudaBin = "${env:CUDA_PATH}\bin"
+          if (-not (Test-Path $cudaBin)) {
+            throw "CUDA bin directory not found: $cudaBin"
+          }
+          Copy-Item "$cudaBin\cudart64_*.dll" dolphin-windows-cuda/
+          Copy-Item "$cudaBin\cufft64_*.dll" dolphin-windows-cuda/
+          Copy-Item "$cudaBin\cublas64_*.dll" dolphin-windows-cuda/
+          Copy-Item "$cudaBin\cublasLt64_*.dll" dolphin-windows-cuda/
           7z a dolphin-windows-x64-cuda.zip dolphin-windows-cuda/
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dolphin-windows-x64-cuda
+          path: dolphin-windows-x64-cuda.zip
+
+  # -----------------------------------------------------------------
+  # Windows CUDA — Test (clean VM, no build tools)
+  # -----------------------------------------------------------------
+  windows-cuda-test:
+    runs-on: windows-2022
+    needs: windows-cuda
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-windows-x64-cuda
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          7z --% x dolphin-windows-x64-cuda.zip -o./test
+          $exe = "./test/dolphin-windows-cuda/dolphin_cli.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Host "dolphin_cli.exe not found. Contents of ./test/dolphin-windows-cuda/:"
+            Get-ChildItem ./test/dolphin-windows-cuda/ -ErrorAction SilentlyContinue | Format-Table Name, Length
+            exit 1
+          }
+          $LASTEXITCODE = $null
+          $output = (& $exe --help 2>&1) | Out-String
+          $code = $LASTEXITCODE
+          Write-Host "Exit code: $code"
+          Write-Host "--- Output ---"
+          Write-Host $output
+          Write-Host "--- End output ---"
+          if ($null -eq $code -or $code -ne 0) {
+            Write-Error "dolphin_cli.exe exited with code $code"
+            exit 1
+          }
+          if ($output -notmatch "psfgenerator|deconvolution") {
+            Write-Error "Unexpected help output — CLI did not start correctly"
+            exit 1
+          }
+          Write-Host "Smoke test passed."
+
+  # -----------------------------------------------------------------
+  # Windows CUDA — Publish to GitHub Release
+  # -----------------------------------------------------------------
+  windows-cuda-publish:
+    runs-on: ubuntu-22.04
+    needs: windows-cuda-test
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dolphin-windows-x64-cuda
+
       - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dolphin-windows-x64-cuda.zip

@@ -127,6 +127,9 @@ if(NOT BUILD_CUDA)
     message(STATUS "Not building CUDA features")
 else()
     message(STATUS "Trying to build CUDA features")
+    enable_language(CUDA)
+    set(CMAKE_CUDA_ARCHITECTURES "75;80;90")
+    set(CMAKE_CUDA_RUNTIME_LIBRARY Static)
     add_subdirectory(backends/cuda)
 endif()
 
@@ -362,6 +365,11 @@ endif()
 
 if(ENABLE_BENCHMARKS)
     add_subdirectory(benchmarks)
+endif()
+
+option(BUILD_CLI "Build the CLI frontend" OFF)
+if(BUILD_CLI)
+    add_subdirectory(frontends/cli)
 endif()
 
 
