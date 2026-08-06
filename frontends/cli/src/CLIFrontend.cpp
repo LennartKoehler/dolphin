@@ -234,6 +234,13 @@ void CLIFrontend::addParameters(Config& config, CLI::Option_group* group){
                 psfPathGroup->require_option(1);
                 return;
             }
+            if (param.type == ParameterType::StringSelection && param.selection) {
+                const auto* options = static_cast<const std::vector<std::string>*>(param.selection);
+                auto opt = group->add_option(param.cliFlag, value, param.cliDesc);
+                opt->check(CLI::IsMember(*options));
+                opt->configurable(false);
+                return;
+            }
             auto opt = group->add_option(param.cliFlag, value, param.cliDesc);
             opt->configurable(false);  // Avoid cross-subcommand name collision checks in CLI11
             // NOTE: Don't use opt->required() here — CLI11 throws on the FIRST missing
