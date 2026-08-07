@@ -47,6 +47,19 @@ bool PSFConfig::compareDim(const PSFConfig &other) {
     return true;
 }
 
+std::shared_ptr<PSFConfig> PSFConfig::createFromJSONFile(const std::string& filePath){
+    json jsonData = loadJSONFile(filePath);
+
+    std::shared_ptr<PSFConfig> config ;
+    if (jsonData.contains("psf_configs")){
+        config = PSFConfig::createFromJSON(jsonData["psf_configs"][0]);
+    }
+    if (!config) {
+        throw std::runtime_error("Failed to parse config file: " + filePath);
+    }
+    return config;
+}
+
 
 std::shared_ptr<PSFConfig> PSFConfig::createFromJSON(const json& jsonData){
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
