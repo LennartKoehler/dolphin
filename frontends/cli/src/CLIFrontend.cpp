@@ -59,9 +59,9 @@ void CLIFrontend::run() {
     }
 
     if (*psfCLI) {
-        if (!setupConfigPath.empty()) {
+        if (!configPath.empty()) {
             try {
-                loadPSFJSONBundle(setupConfigPath);
+                loadPSFJSONBundle(configPath);
             } catch (const std::exception& e) {
                 spdlog::error("{}", e.what());
                 return;
@@ -88,9 +88,9 @@ void CLIFrontend::run() {
         dolphin->generatePSF(request);
     }
     else if (*deconvolutionCLI) {
-        if (!setupConfigPath.empty()) {
+        if (!configPath.empty()) {
             try {
-                loadJSONBundle(setupConfigPath);
+                loadJSONBundle(configPath);
             } catch (const std::exception& e) {
                 spdlog::error("{}", e.what());
                 return;
@@ -125,7 +125,7 @@ void CLIFrontend::run() {
 
 void CLIFrontend::psfgenerator() {
     CLI::Option_group* psf_group = psfCLI->add_option_group("PSF Options", "PSF generation options");
-    psf_group->add_option("-c,--config", setupConfigPath, "Path to configuration file");
+    psf_group->add_option("-c,--config", configPath, "Path to configuration file");
     psf_group->add_option("-i,--psf_config_path", cliPsfConfigPath, "Path to PSF config JSON file");
 
     psfconfigGroup = psf_group;
@@ -331,7 +331,7 @@ void CLIFrontend::readCLIParametersDeconvolution() {
 
 void CLIFrontend::readCLISetupConfigPath() {
     CLI::Option_group *config_group = deconvolutionCLI->add_option_group("Config", "Configuration file");
-    config_group->add_option("-c,--config", setupConfigPath, "Path to configuration file");
+    config_group->add_option("-c,--config", configPath, "Path to configuration file");
 }
 
 

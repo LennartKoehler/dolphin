@@ -54,7 +54,7 @@ protected:
 
     int argc;
     char** argv;
-    std::string setupConfigPath;
+    std::string configPath;
 
     std::string cliPsfConfigPath;
     std::vector<std::string> cliPsfConfigPaths;
