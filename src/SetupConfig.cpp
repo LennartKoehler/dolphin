@@ -15,7 +15,6 @@ See the LICENSE file provided with the code for the full license.
 #include <sys/stat.h>
 #include <iostream>
 #include <fstream>
-#include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/PSFGeneratorFactory.h"
 #include "dolphin/backend/BackendFactory.h"
 
@@ -39,8 +38,6 @@ SetupConfigPSF SetupConfigPSF::createFromJSONFile(const std::string& filePath) {
 
     setupData.erase("deconvolution_config");
     setupData.erase("psf_configs");
-    setupData.erase("psf_config_path");
-    setupData.erase("psf_config_paths");
 
     SetupConfigPSF config;
     if (!config.loadFromJSON(setupData)) {
@@ -126,8 +123,6 @@ SetupConfig SetupConfig::createFromJSONFile(const std::string& filePath) {
 
     setupData.erase("deconvolution_config");
     setupData.erase("psf_configs");
-    setupData.erase("psf_config_path");
-    setupData.erase("psf_config_paths");
 
     SetupConfig config;
     if (!config.loadFromJSON(setupData)) {
