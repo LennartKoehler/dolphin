@@ -32,16 +32,15 @@ SetupConfigPSF::SetupConfigPSF() {
 SetupConfigPSF SetupConfigPSF::createFromJSONFile(const std::string& filePath) {
     json jsonData = loadJSONFile(filePath);
 
-    json& setupData = jsonData.contains("setup_config")
-        ? jsonData["setup_config"]
-        : jsonData;
-
-    setupData.erase("deconvolution_config");
-    setupData.erase("psf_configs");
-
     SetupConfigPSF config;
-    if (!config.loadFromJSON(setupData)) {
-        throw std::runtime_error("Failed to parse config file: " + filePath);
+    if (jsonData.contains("setup_config")) {
+        if (!config.loadFromJSON(jsonData["setup_config"])) {
+            throw std::runtime_error("Failed to parse config file: " + filePath);
+        }
+    } else {
+        if (!config.loadFromJSON(jsonData)) {
+            throw std::runtime_error("Failed to parse config file: " + filePath);
+        }
     }
 
     return config;
@@ -117,16 +116,15 @@ SetupConfig::SetupConfig() {
 SetupConfig SetupConfig::createFromJSONFile(const std::string& filePath) {
     json jsonData = loadJSONFile(filePath);
 
-    json& setupData = jsonData.contains("setup_config")
-        ? jsonData["setup_config"]
-        : jsonData;
-
-    setupData.erase("deconvolution_config");
-    setupData.erase("psf_configs");
-
     SetupConfig config;
-    if (!config.loadFromJSON(setupData)) {
-        throw std::runtime_error("Failed to parse config file: " + filePath);
+    if (jsonData.contains("setup_config")) {
+        if (!config.loadFromJSON(jsonData["setup_config"])) {
+            throw std::runtime_error("Failed to parse config file: " + filePath);
+        }
+    } else {
+        if (!config.loadFromJSON(jsonData)) {
+            throw std::runtime_error("Failed to parse config file: " + filePath);
+        }
     }
 
     return config;

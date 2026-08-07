@@ -58,7 +58,7 @@ TEST_F(ConfigMergeTest, SetupConfigRootLevelFallback) {
     EXPECT_EQ(config.outputPath, "root_output.tif");
 }
 
-TEST_F(ConfigMergeTest, SetupConfigErasesPsfConfigsKey) {
+TEST_F(ConfigMergeTest, SetupConfigIgnoresPsfConfigsKey) {
     auto jsonStr = R"({
         "setup_config": {
             "image_path": "test.tif",
@@ -74,7 +74,7 @@ TEST_F(ConfigMergeTest, SetupConfigErasesPsfConfigsKey) {
     EXPECT_EQ(config.backend, "cpu");
 }
 
-TEST_F(ConfigMergeTest, SetupConfigErasesDeconvConfigKey) {
+TEST_F(ConfigMergeTest, SetupConfigIgnoresDeconvConfigKey) {
     auto path = writeTempJSON(TestUtils::combinedSubObjectJSON(), "setup_deconv_erase.json");
     auto config = SetupConfig::createFromJSONFile(path);
     EXPECT_EQ(config.imagePath, "combined_input.tif");
@@ -306,14 +306,6 @@ static void loadJSONBundle(const json& jsonData, ConfigBundle& bundle) {
     if (jsonData.contains("setup_config")) {
         bundle.setupConfig.loadFromJSON(jsonData["setup_config"]);
         bundle.hasSetup = true;
-    } else {
-        json rootData = jsonData;
-        rootData.erase("deconvolution_config");
-        rootData.erase("psf_configs");
-        if (!rootData.empty()) {
-            bundle.setupConfig.loadFromJSON(rootData);
-            bundle.hasSetup = true;
-        }
     }
 
     if (jsonData.contains("deconvolution_config")) {
@@ -478,9 +470,11 @@ TEST_F(ConfigMergeTest, CLISim_RootLevelTreatedAsSetup) {
 
     ConfigBundle json;
     loadJSONBundle(R"({
-        "image_path": "root_image.tif",
-        "backend": "cpu",
-        "n_io_threads": 8
+        "setup_config": {
+            "image_path": "root_image.tif",
+            "backend": "cpu",
+            "n_io_threads": 8
+        }
     })"_json, json);
 
     ConfigBundle merged = mergeBundles(json, cli);
@@ -556,9 +550,11 @@ TEST_F(ConfigMergeTest, CLISim_OldFormat_RootSetupPlusDeconvSubObject) {
 
     ConfigBundle json;
     loadJSONBundle(R"({
-        "image_path": "old_image.tif",
-        "backend": "cpu",
-        "n_io_threads": 6,
+        "setup_config": {
+            "image_path": "old_image.tif",
+            "backend": "cpu",
+            "n_io_threads": 6
+        },
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 25
@@ -578,8 +574,10 @@ TEST_F(ConfigMergeTest, CLISim_OldFormat_RootSetupPlusDeconvPlusPSF) {
 
     ConfigBundle json;
     loadJSONBundle(R"({
-        "image_path": "old_image.tif",
-        "backend": "cpu",
+        "setup_config": {
+            "image_path": "old_image.tif",
+            "backend": "cpu"
+        },
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 12
@@ -650,14 +648,6 @@ static void loadPSFJSONBundle(const json& jsonData, PSFConfigBundle& bundle) {
     if (jsonData.contains("setup_config")) {
         bundle.setupConfig.loadFromJSON(jsonData["setup_config"]);
         bundle.hasSetup = true;
-    } else {
-        json rootData = jsonData;
-        rootData.erase("deconvolution_config");
-        rootData.erase("psf_configs");
-        if (!rootData.empty()) {
-            bundle.setupConfig.loadFromJSON(rootData);
-            bundle.hasSetup = true;
-        }
     }
 
     if (jsonData.contains("psf_configs")) {
@@ -792,9 +782,11 @@ TEST_F(ConfigMergeTest, PSFSim_RootLevelTreatedAsSetup) {
 
     PSFConfigBundle jsonBundle;
     loadPSFJSONBundle(R"({
-        "output": "root_output.tif",
-        "backend": "cpu",
-        "n_threads": 6
+        "setup_config": {
+            "output": "root_output.tif",
+            "backend": "cpu",
+            "n_threads": 6
+        }
     })"_json, jsonBundle);
 
     PSFConfigBundle merged = mergePSFBundles(jsonBundle, cli);
@@ -819,8 +811,10 @@ TEST_F(ConfigMergeTest, PSFSim_RootLevelWithPSFConfigs) {
 
     PSFConfigBundle jsonBundle;
     loadPSFJSONBundle(R"({
-        "output": "root_output.tif",
-        "backend": "cpu",
+        "setup_config": {
+            "output": "root_output.tif",
+            "backend": "cpu"
+        },
         "psf_configs": [
             {"model_name": "Gaussian", "id": "root_psf", "size_x": 16, "size_y": 16, "size_z": 8}
         ]

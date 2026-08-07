@@ -251,11 +251,6 @@ ConfigBundle CLIFrontend::mergeBundles(const ConfigBundle& jsonBundle, const Con
         }
         merged.hasPSF = true;
     }
-    else{
-        if (merged.setupConfig.psfFilePaths.empty()){
-            throw std::runtime_error("PSF has to be provided either as json config or as a tiff file");
-        }
-    }
 
     return merged;
 }
@@ -317,6 +312,13 @@ bool CLIFrontend::handleDeconvolution(const ConfigBundle& bundle) {
         spdlog::info("{}", deconvolutionCLI->help());
         return false;
     }
+
+    if (!bundle.hasPSF && bundle.setupConfig.psfFilePaths.empty()) {
+        spdlog::error("PSF has to be provided either as json config or as a tiff file");
+        spdlog::info("{}", deconvolutionCLI->help());
+        return false;
+    }
+
     return true;
 }
 
@@ -460,37 +462,20 @@ std::shared_ptr<PSFConfig> CLIFrontend::loadPSFConfigFromPath(const std::string&
 }
 
 bool CLIFrontend::loadSetupConfigFromJSON(const json& jsonData, SetupConfigPSF& config) {
-    json setupData;
     if (jsonData.contains("setup_config")) {
-        setupData = jsonData["setup_config"];
-        if (setupData.empty()) {
-            return false;
+        if (!config.loadFromJSON(jsonData["setup_config"])) {
+            throw std::runtime_error("Failed to parse setup config");
         }
-    } else {
-        setupData = jsonData;
-        setupData.erase("deconvolution_config");
-        setupData.erase("psf_configs");
-        if (setupData.empty()) {
-            return false;
-        }
+        return true;
     }
-
-    if (!config.loadFromJSON(setupData)) {
-        throw std::runtime_error("Failed to parse setup config");
-    }
-    return true;
+    return false;
 }
 
 void CLIFrontend::loadDeconvConfigFromJSON(const json& jsonData, DeconvolutionConfig& config) {
-    json deconvData;
     if (jsonData.contains("deconvolution_config")) {
-        deconvData = jsonData["deconvolution_config"];
-    } else {
-        deconvData = jsonData;
-    }
-
-    if (!config.loadFromJSON(deconvData)) {
-        throw std::runtime_error("Failed to parse deconvolution config");
+        if (!config.loadFromJSON(jsonData["deconvolution_config"])) {
+            throw std::runtime_error("Failed to parse deconvolution config");
+        }
     }
 }
 
@@ -512,14 +497,18 @@ std::vector<std::shared_ptr<PSFConfig>> CLIFrontend::loadPSFConfigsFromJSON(cons
 
 void CLIFrontend::loadSetupConfigFromFile(const std::string& path, SetupConfigPSF& config) {
     json jsonData = Config::loadJSONFile(path);
-    if (!loadSetupConfigFromJSON(jsonData, config)) {
-        throw std::runtime_error("No setup config found in file: " + path);
+    const json& setupData = jsonData.contains("setup_config") ? jsonData["setup_config"] : jsonData;
+    if (!config.loadFromJSON(setupData)) {
+        throw std::runtime_error("Failed to parse setup config file: " + path);
     }
 }
 
 void CLIFrontend::loadDeconvConfigFromFile(const std::string& path, DeconvolutionConfig& config) {
     json jsonData = Config::loadJSONFile(path);
-    loadDeconvConfigFromJSON(jsonData, config);
+    const json& deconvData = jsonData.contains("deconvolution_config") ? jsonData["deconvolution_config"] : jsonData;
+    if (!config.loadFromJSON(deconvData)) {
+        throw std::runtime_error("Failed to parse deconvolution config file: " + path);
+    }
 }
 
 std::vector<std::shared_ptr<PSFConfig>> CLIFrontend::loadPSFConfigsFromFile(const std::string& path) {
