@@ -9,6 +9,17 @@
 #include <dolphin/psf/PSFGeneratorFactory.h>
 
 
+struct ConfigBundle {
+    SetupConfig setupConfig;
+    DeconvolutionConfig deconvConfig;
+    std::vector<std::shared_ptr<PSFConfig>> psfConfigs;
+
+    bool hasSetup = false;
+    bool hasDeconv = false;
+    bool hasPSF = false;
+};
+
+
 class CLIFrontend : public IFrontend{
 public:
     CLIFrontend(Dolphin* dolphin, int argc, char** argv);
@@ -22,16 +33,15 @@ private:
 
     CLI::Option_group* setupCliGroup = nullptr;
     CLI::Option_group* deconvCliGroup = nullptr;
-    CLI::Option_group* configGroup = nullptr;
 
     CLI::Option_group* psfcli_group = nullptr;
     CLI::Option_group* psfconfigGroup = nullptr;
     CLI::Option_group* psfPathGroup = nullptr;
 
+    ConfigBundle jsonBundle;
+    ConfigBundle cliBundle;
+
     SetupConfigPSF psfConfig;
-    SetupConfig setupConfig;
-    DeconvolutionConfig deconvolutionConfig;
-    std::vector<std::shared_ptr<PSFConfig>> inlinePsfConfigs;
 
     int argc;
     char** argv;
@@ -45,19 +55,19 @@ private:
     void readCLISetupConfigPath();
     void readSetupConfigParameters();
     void readCLIParametersDeconvolution();
-    bool readDeconvolutionFromConfigFile();
+
+    void loadJSONBundle(const std::string& path);
+    static ConfigBundle mergeBundles(const ConfigBundle& jsonBundle, const ConfigBundle& cliBundle);
 
     bool readPSFFromConfigFile();
 
     bool handlePSFGeneration();
-    bool handleDeconvolution();
+    bool handleDeconvolution(const ConfigBundle& bundle);
 
 
     std::vector<std::string> checkRequired(Config& config) const ;
     void addParameters(Config& config, CLI::Option_group* group);
 
-    bool groupHasOptions(CLI::Option_group* group) const;
-
     PSFGenerationRequest generatePSFRequest(std::shared_ptr<SetupConfigPSF> setupConfig);
-    DeconvolutionRequest generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig);
+    DeconvolutionRequest generateDeconvRequest(const ConfigBundle& bundle);
 };
