@@ -28,6 +28,12 @@ public:
     using CLIFrontend::handlePSFGeneration;
     using CLIFrontend::loadJSONBundle;
     using CLIFrontend::loadPSFJSONBundle;
+    using CLIFrontend::loadSetupConfigFromFile;
+    using CLIFrontend::loadDeconvConfigFromFile;
+    using CLIFrontend::loadPSFConfigsFromFile;
+    using CLIFrontend::loadSetupConfigFromJSON;
+    using CLIFrontend::loadDeconvConfigFromJSON;
+    using CLIFrontend::loadPSFConfigsFromJSON;
 
     ConfigBundle& jsonBundleRef() { return jsonBundle; }
     ConfigBundle& cliBundleRef() { return cliBundle; }
@@ -808,4 +814,223 @@ TEST_F(CLIFrontendTest, LoadAndGeneratePSF_InlinePSFFromJSON) {
     ASSERT_EQ(request.getInlinePSFConfigs().size(), 1);
     EXPECT_EQ(request.getInlinePSFConfigs()[0]->getModelName(), "GibsonLanni");
     EXPECT_EQ(request.getInlinePSFConfigs()[0]->ID, "test_gl");
+}
+
+// =============================================================
+// Separate config file loading: loadSetupConfigFromFile
+// =============================================================
+
+TEST_F(CLIFrontendTest, LoadSetupConfigFile_RootLevelFormat) {
+    auto fe = makeFrontend();
+
+    auto path = writeTempJSON(TestUtils::standaloneSetupConfigJSON(), "setup_root.json");
+    SetupConfigPSF config;
+    fe.loadSetupConfigFromFile(path, config);
+
+    EXPECT_EQ(config.outputPath, "standalone_output.tif");
+    EXPECT_EQ(config.backend, "cuda");
+    EXPECT_EQ(config.nIOThreads, 2);
+    EXPECT_EQ(config.nWorkerThreads, 4);
+}
+
+TEST_F(CLIFrontendTest, LoadSetupConfigFile_SubObjectFormat) {
+    auto fe = makeFrontend();
+
+    auto path = writeTempJSON(TestUtils::setupConfigSubObjectJSON(), "setup_wrapped.json");
+    SetupConfigPSF config;
+    fe.loadSetupConfigFromFile(path, config);
+
+    EXPECT_EQ(config.outputPath, "wrapped_output.tif");
+    EXPECT_EQ(config.backend, "cpu");
+    EXPECT_EQ(config.nIOThreads, 1);
+}
+
+// =============================================================
+// Separate config file loading: loadDeconvConfigFromFile
+// =============================================================
+
+TEST_F(CLIFrontendTest, LoadDeconvConfigFile_RootLevelFormat) {
+    auto fe = makeFrontend();
+
+    auto path = writeTempJSON(TestUtils::standaloneDeconvConfigJSON(), "deconv_root.json");
+    DeconvolutionConfig config;
+    fe.loadDeconvConfigFromFile(path, config);
+
+    EXPECT_EQ(config.algorithmName, "RegularizedInverseFilter");
+    EXPECT_EQ(config.iterations, 30);
+    EXPECT_FLOAT_EQ(config.epsilon, 1e-8f);
+}
+
+TEST_F(CLIFrontendTest, LoadDeconvConfigFile_SubObjectFormat) {
+    auto fe = makeFrontend();
+
+    auto path = writeTempJSON(TestUtils::deconvConfigSubObjectJSON(), "deconv_wrapped.json");
+    DeconvolutionConfig config;
+    fe.loadDeconvConfigFromFile(path, config);
+
+    EXPECT_EQ(config.algorithmName, "Convolution");
+    EXPECT_EQ(config.iterations, 1);
+}
+
+// =============================================================
+// Separate config file loading: loadPSFConfigsFromFile
+// =============================================================
+
+TEST_F(CLIFrontendTest, LoadPSFConfigFile_SingleConfig) {
+    auto fe = makeFrontend();
+
+    auto path = writeTempJSON(TestUtils::standaloneSinglePSFConfigJSON(), "psf_single.json");
+    auto configs = fe.loadPSFConfigsFromFile(path);
+
+    ASSERT_EQ(configs.size(), 1);
+    EXPECT_EQ(configs[0]->getModelName(), "Gaussian");
+    EXPECT_EQ(configs[0]->ID, "standalone_gauss");
+}
+
+TEST_F(CLIFrontendTest, LoadPSFConfigFile_ArrayFormat) {
+    auto fe = makeFrontend();
+
+    auto path = writeTempJSON(TestUtils::standaloneArrayPSFConfigJSON(), "psf_array.json");
+    auto configs = fe.loadPSFConfigsFromFile(path);
+
+    ASSERT_EQ(configs.size(), 1);
+    EXPECT_EQ(configs[0]->getModelName(), "Gaussian");
+    EXPECT_EQ(configs[0]->ID, "standalone_gauss");
+}
+
+TEST_F(CLIFrontendTest, LoadPSFConfigFile_MultiFile) {
+    auto fe = makeFrontend();
+
+    auto path1 = writeTempJSON(TestUtils::standaloneSinglePSFConfigJSON(), "psf_multi1.json");
+    auto path2 = writeTempJSON(TestUtils::gaussianPSFConfigJSON(), "psf_multi2.json");
+
+    auto configs1 = fe.loadPSFConfigsFromFile(path1);
+    auto configs2 = fe.loadPSFConfigsFromFile(path2);
+
+    EXPECT_EQ(configs1.size(), 1);
+    EXPECT_EQ(configs2.size(), 1);
+    EXPECT_EQ(configs1[0]->ID, "standalone_gauss");
+    EXPECT_EQ(configs2[0]->ID, "test_gaussian");
+}
+
+// =============================================================
+// Separate configs override combined config (-c)
+// =============================================================
+
+TEST_F(CLIFrontendTest, SeparateConfigs_SetupOverridesCombined) {
+    auto fe = makeFrontend();
+
+    auto combinedPath = writeTempJSON(TestUtils::combinedWithInlinePSFJSON(), "combined_override.json");
+    fe.loadJSONBundle(combinedPath);
+
+    auto setupPath = writeTempJSON(TestUtils::standaloneSetupConfigJSON(), "setup_override.json");
+    fe.loadSetupConfigFromFile(setupPath, fe.jsonBundleRef().setupConfig);
+
+    auto& jsonBundle = fe.jsonBundleRef();
+    EXPECT_EQ(jsonBundle.setupConfig.imagePath, "standalone_input.tif");
+    EXPECT_EQ(jsonBundle.setupConfig.backend, "cuda");
+    EXPECT_EQ(jsonBundle.setupConfig.outputPath, "standalone_output.tif");
+    EXPECT_EQ(jsonBundle.deconvConfig.algorithmName, "RichardsonLucy");
+    EXPECT_TRUE(jsonBundle.hasPSF);
+}
+
+TEST_F(CLIFrontendTest, SeparateConfigs_DeconvOverridesCombined) {
+    auto fe = makeFrontend();
+
+    auto combinedPath = writeTempJSON(TestUtils::combinedWithInlinePSFJSON(), "combined_deconv.json");
+    fe.loadJSONBundle(combinedPath);
+
+    auto deconvPath = writeTempJSON(TestUtils::standaloneDeconvConfigJSON(), "deconv_override.json");
+    fe.loadDeconvConfigFromFile(deconvPath, fe.jsonBundleRef().deconvConfig);
+
+    auto& jsonBundle = fe.jsonBundleRef();
+    EXPECT_EQ(jsonBundle.setupConfig.imagePath, "inline_input.tif");
+    EXPECT_EQ(jsonBundle.deconvConfig.algorithmName, "RegularizedInverseFilter");
+    EXPECT_EQ(jsonBundle.deconvConfig.iterations, 30);
+}
+
+TEST_F(CLIFrontendTest, SeparateConfigs_PSFAdditiveWithCombined) {
+    auto fe = makeFrontend();
+
+    auto combinedPath = writeTempJSON(TestUtils::combinedWithInlinePSFJSON(), "combined_psf_add.json");
+    fe.loadJSONBundle(combinedPath);
+
+    EXPECT_EQ(fe.jsonBundleRef().psfConfigs.size(), 1);
+
+    auto psfPath = writeTempJSON(TestUtils::standaloneSinglePSFConfigJSON(), "psf_add.json");
+    auto newConfigs = fe.loadPSFConfigsFromFile(psfPath);
+    fe.jsonBundleRef().psfConfigs.insert(
+        fe.jsonBundleRef().psfConfigs.end(),
+        newConfigs.begin(), newConfigs.end());
+
+    auto& jsonBundle = fe.jsonBundleRef();
+    ASSERT_EQ(jsonBundle.psfConfigs.size(), 2);
+    EXPECT_EQ(jsonBundle.psfConfigs[0]->ID, "inline_gauss");
+    EXPECT_EQ(jsonBundle.psfConfigs[1]->ID, "standalone_gauss");
+}
+
+TEST_F(CLIFrontendTest, SeparateConfigs_AllSeparate_Deconvolution) {
+    auto fe = makeFrontend();
+
+    auto setupPath = writeTempJSON(TestUtils::standaloneSetupConfigJSON(), "allsep_setup.json");
+    fe.loadSetupConfigFromFile(setupPath, fe.jsonBundleRef().setupConfig);
+    fe.jsonBundleRef().hasSetup = true;
+
+    auto deconvPath = writeTempJSON(TestUtils::standaloneDeconvConfigJSON(), "allsep_deconv.json");
+    fe.loadDeconvConfigFromFile(deconvPath, fe.jsonBundleRef().deconvConfig);
+    fe.jsonBundleRef().hasDeconv = true;
+
+    auto psfPath = writeTempJSON(TestUtils::standaloneSinglePSFConfigJSON(), "allsep_psf.json");
+    auto configs = fe.loadPSFConfigsFromFile(psfPath);
+    fe.jsonBundleRef().psfConfigs = configs;
+    fe.jsonBundleRef().hasPSF = true;
+
+    auto& jsonBundle = fe.jsonBundleRef();
+    EXPECT_EQ(jsonBundle.setupConfig.imagePath, "standalone_input.tif");
+    EXPECT_EQ(jsonBundle.deconvConfig.algorithmName, "RegularizedInverseFilter");
+    ASSERT_EQ(jsonBundle.psfConfigs.size(), 1);
+    EXPECT_EQ(jsonBundle.psfConfigs[0]->ID, "standalone_gauss");
+
+    fe.cliBundleRef().hasSetup = true;
+    fe.cliBundleRef().hasDeconv = true;
+
+    ConfigBundle merged = fe.mergeBundles(fe.jsonBundleRef(), fe.cliBundleRef());
+    EXPECT_EQ(merged.setupConfig.imagePath, "standalone_input.tif");
+    EXPECT_EQ(merged.deconvConfig.algorithmName, "RegularizedInverseFilter");
+    ASSERT_EQ(merged.psfConfigs.size(), 1);
+
+    DeconvolutionRequest request = fe.generateDeconvRequest(merged);
+    EXPECT_EQ(request.getConfig()->imagePath, "standalone_input.tif");
+    EXPECT_EQ(request.getDeconvolutionConfig()->algorithmName, "RegularizedInverseFilter");
+    EXPECT_TRUE(request.hasInlinePSFConfigs());
+}
+
+TEST_F(CLIFrontendTest, SeparateConfigs_PSFGenerator_SetupAndPSF) {
+    auto fe = makeFrontend();
+
+    auto setupPath = writeTempJSON(TestUtils::standaloneSetupConfigJSON(), "psfgen_setup.json");
+    fe.loadSetupConfigFromFile(setupPath, fe.jsonPsfBundleRef().setupConfig);
+    fe.jsonPsfBundleRef().hasSetup = true;
+
+    auto psfPath = writeTempJSON(TestUtils::standaloneSinglePSFConfigJSON(), "psfgen_psf.json");
+    auto configs = fe.loadPSFConfigsFromFile(psfPath);
+    fe.jsonPsfBundleRef().psfConfigs = configs;
+    fe.jsonPsfBundleRef().hasPSF = true;
+
+    auto& bundle = fe.jsonPsfBundleRef();
+    EXPECT_EQ(bundle.setupConfig.outputPath, "standalone_output.tif");
+    EXPECT_EQ(bundle.setupConfig.backend, "cuda");
+    ASSERT_EQ(bundle.psfConfigs.size(), 1);
+    EXPECT_EQ(bundle.psfConfigs[0]->ID, "standalone_gauss");
+
+    fe.cliPsfBundleRef().hasSetup = true;
+
+    PSFConfigBundle merged = fe.mergePSFBundles(fe.jsonPsfBundleRef(), fe.cliPsfBundleRef());
+    EXPECT_EQ(merged.setupConfig.outputPath, "standalone_output.tif");
+    ASSERT_EQ(merged.psfConfigs.size(), 1);
+
+    PSFGenerationRequest request = fe.generatePSFRequest(merged);
+    EXPECT_EQ(request.getConfig()->outputPath, "standalone_output.tif");
+    EXPECT_TRUE(request.hasInlinePSFConfigs());
+    EXPECT_EQ(request.getInlinePSFConfigs()[0]->ID, "standalone_gauss");
 }
