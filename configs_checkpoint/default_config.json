@@ -4,11 +4,26 @@
     "iterations": 30,
     "epsilon": 1e-6,
     "lambda": 0.015,
-    "border_type": "mirror"
+    "padding_fill": "mirror",
+    "padding_strategy": "parent"
   },
 
+  "psf_configs": [
+    {
+      "model_name": "Gaussian",
+      "id": "ID1234",
+      "res_lateral_nm": 5000,
+      "res_axial_nm": 5000,
+      "size_x": 64,
+      "size_y": 64,
+      "size_z": 64,
+      "sigma_x": 5,
+      "sigma_y": 5,
+      "sigma_z": 5
+    }
+  ],
+
   "setup_config": {
-    "psf_config_path": ["../configs/default_psf_config_gaussian.json"],
     "psf_file_paths": [],
     "save_psf": true,
     "output": "/home/lennart-k-hler/data/dolphin_results/deconv_bacteria.tif",
@@ -17,10 +32,10 @@
     "n_io_threads": 2,
     "n_worker_threads" : 11,
     "n_devices" : 1,
-    "max_mem_gb": 64,
+    "max_mem_host_gb": 64,
+    "max_mem_device_gb": 8,
 
     "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
-    "deconvolution_type": "standard",
 
     "output_compression": "none",
     "output_compression_level": -1

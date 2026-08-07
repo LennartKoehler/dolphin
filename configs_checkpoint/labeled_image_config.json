@@ -1,28 +1,42 @@
 {
   "deconvolution_config": {
-    "algorithm_name": "TestAlgorithm",
+    "algorithm_name": "RichardsonLucy",
     "iterations": 10,
     "epsilon": 1e-6,
     "lambda": 0.015,
-    "border_type": "mirror"
+    "padding_fill": "mirror",
+    "padding_strategy": "parent"
   },
+
+  "psf_configs": [
+    {
+      "model_name": "Gaussian",
+      "id": "ID1234",
+      "res_lateral_nm": 5000,
+      "res_axial_nm": 5000,
+      "size_x": 64,
+      "size_y": 64,
+      "size_z": 64,
+      "sigma_x": 5,
+      "sigma_y": 5,
+      "sigma_z": 5
+    }
+  ],
 
   "setup_config": {
     "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
 
-    "psf_config_path": ["../configs/default_psf_config_gaussian.json"],
-    "psf_file_path": [],
-    "psf_dir_path": "",
+    "psf_file_paths": [],
     "save_psf": true,
-    "output_dir": "/home/lennart-k-hler/data/dolphin_results",
+    "output": "/home/lennart-k-hler/data/dolphin_results/deconv_bacteria.tif",
 
     "backend": "cpu",
     "n_io_threads": 10,
     "n_worker_threads" : 8,
     "n_devices" : 1,
-    "max_mem_gb": 64,
+    "max_mem_host_gb": 64,
+    "max_mem_device_gb": 8,
 
-    "deconvolution_type": "standard",
     "labeled_image": "/home/lennart-k-hler/data/labeledImage/EnvelopLabelOutline16bit.tif",
     "label_psf_map": "0[ID1234], 1[constant_hyperstack_1]"
   }
