@@ -148,6 +148,10 @@ public:
     void setConfig(std::shared_ptr<SetupConfigPSF> config) { setup_config_ = config; }
     std::shared_ptr<SetupConfigPSF> getConfig() const { return setup_config_; }
 
+    void setInlinePSFConfigs(std::vector<std::shared_ptr<PSFConfig>> configs) { inline_psf_configs_ = std::move(configs); }
+    const std::vector<std::shared_ptr<PSFConfig>>& getInlinePSFConfigs() const { return inline_psf_configs_; }
+    bool hasInlinePSFConfigs() const { return !inline_psf_configs_.empty(); }
+
     void setProgressCallback(progressCallbackFn fn) {this->progressCallback = fn;}
     progressCallbackFn getProgressCallback() const {return progressCallback;}
 
@@ -157,6 +161,7 @@ public:
 private:
 
     std::shared_ptr<SetupConfigPSF> setup_config_;
+    std::vector<std::shared_ptr<PSFConfig>> inline_psf_configs_;
     Logging::LogCallback frontendLogging;
     progressCallbackFn progressCallback;
 };

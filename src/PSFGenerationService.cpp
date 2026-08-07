@@ -82,8 +82,10 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
 
         std::shared_ptr<ThreadPool> localThreadPool = std::make_shared<ThreadPool>(setupConfig->nThreads);
 
-        // Check PSF config path
-        if (!request.getConfig()->psfConfigPath.empty()) {
+        if (request.hasInlinePSFConfigs()) {
+            logger_->info("Generating PSF from inline PSF config");
+            psf = createPSFFromConfigInternal(request.getInlinePSFConfigs()[0], request.getProgressCallback(), localThreadPool);
+        } else if (!request.getConfig()->psfConfigPath.empty()) {
             logger_->info("Generating PSF from config file path: " + request.getConfig()->psfConfigPath);
             psf = createPSFFromFilePathInternal(request.getConfig()->psfConfigPath, request.getProgressCallback(), localThreadPool);
         }

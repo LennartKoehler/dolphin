@@ -99,7 +99,7 @@ SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
 void SetupConfigPSF::registerAllParameters(){
 
     parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::FilePath, &psfConfigPath, "PSF Config Path", false, "psf_config_path", "-i,--psf_config_path", "PSF config path", true, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::FilePath, &psfConfigPath, "PSF Config Path", false, "psf_config_path", "-i,--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
     parameters.push_back({ParameterType::FilePath, &backend, "Backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
