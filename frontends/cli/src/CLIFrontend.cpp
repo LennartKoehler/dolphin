@@ -58,12 +58,23 @@ void CLIFrontend::run() {
     }
 
     if (*psfCLI) {
-        bool success = readPSFFromConfigFile();
-        success = success && handlePSFGeneration();
-        if (success) {
-            PSFGenerationRequest request = generatePSFRequest(std::make_shared<SetupConfigPSF>(psfConfig));
-            dolphin->generatePSF(request);
+        if (!setupConfigPath.empty()) {
+            try {
+                loadPSFJSONBundle(setupConfigPath);
+            } catch (const std::exception& e) {
+                spdlog::error("{}", e.what());
+                return;
+            }
         }
+
+        PSFConfigBundle merged = mergePSFBundles(jsonPsfBundle, cliPsfBundle);
+
+        if (!handlePSFGeneration(merged)) {
+            return;
+        }
+
+        PSFGenerationRequest request = generatePSFRequest(merged);
+        dolphin->generatePSF(request);
     }
     else if (*deconvolutionCLI) {
         if (!setupConfigPath.empty()) {
@@ -96,7 +107,8 @@ void CLIFrontend::psfgenerator() {
     psfconfigGroup = psf_group;
     psfcli_group = psfCLI->add_option_group("CLI", "PSF Commandline options");
 
-    addParameters(psfConfig, psfcli_group);
+    addParameters(cliPsfBundle.setupConfig, psfcli_group);
+    cliPsfBundle.hasSetup = true;
 }
 
 void CLIFrontend::deconvolution() {
@@ -105,9 +117,15 @@ void CLIFrontend::deconvolution() {
     readCLIParametersDeconvolution();
 }
 
-bool CLIFrontend::handlePSFGeneration() {
-    std::vector<std::string> missingParams = checkRequired(psfConfig);
+bool CLIFrontend::handlePSFGeneration(const PSFConfigBundle& bundle) {
+    std::vector<std::string> missingParams = checkRequired(const_cast<SetupConfigPSF&>(bundle.setupConfig));
     if (!missingParams.empty()) {
+        std::cout << psfCLI->help() << std::endl;
+        return false;
+    }
+
+    if (bundle.setupConfig.psfConfigPath.empty() && !bundle.hasPSF) {
+        spdlog::error("Either --psf_config_path or inline psf_configs in JSON must be provided");
         std::cout << psfCLI->help() << std::endl;
         return false;
     }
@@ -179,29 +197,53 @@ ConfigBundle CLIFrontend::mergeBundles(const ConfigBundle& jsonBundle, const Con
     return merged;
 }
 
-bool CLIFrontend::readPSFFromConfigFile() {
-    if (setupConfigPath.empty()) return true;
+void CLIFrontend::loadPSFJSONBundle(const std::string& path) {
+    json jsonData = Config::loadJSONFile(path);
 
-    try {
-        json jsonData = Config::loadJSONFile(setupConfigPath);
-
-        if (jsonData.contains("setup_config")) {
-            psfConfig.loadFromJSON(jsonData["setup_config"]);
-        } else {
-            json rootData = jsonData;
-            rootData.erase("deconvolution_config");
-            rootData.erase("psf_configs");
-            if (!rootData.empty()) {
-                psfConfig.loadFromJSON(rootData);
-            }
+    if (jsonData.contains("setup_config")) {
+        jsonPsfBundle.setupConfig.loadFromJSON(jsonData["setup_config"]);
+        jsonPsfBundle.hasSetup = true;
+    } else {
+        json rootData = jsonData;
+        rootData.erase("deconvolution_config");
+        rootData.erase("psf_configs");
+        if (!rootData.empty()) {
+            jsonPsfBundle.setupConfig.loadFromJSON(rootData);
+            jsonPsfBundle.hasSetup = true;
         }
-
-        spdlog::info("Configuration loaded from: {}", setupConfigPath);
-    } catch (const std::exception& e) {
-        spdlog::error("{}", e.what());
-        return false;
     }
-    return true;
+
+    if (jsonData.contains("psf_configs")) {
+        PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
+        for (const auto& psfJson : jsonData["psf_configs"]) {
+            jsonPsfBundle.psfConfigs.push_back(factory.createConfig(psfJson));
+        }
+        jsonPsfBundle.hasPSF = true;
+        spdlog::info("Loaded {} inline PSF config(s) from JSON", jsonPsfBundle.psfConfigs.size());
+    }
+
+    spdlog::info("Configuration loaded from: {}", path);
+}
+
+PSFConfigBundle CLIFrontend::mergePSFBundles(const PSFConfigBundle& jsonBundle, const PSFConfigBundle& cliBundle) {
+    PSFConfigBundle merged;
+
+    if (jsonBundle.hasSetup) {
+        if (cliBundle.hasSetup) {
+            spdlog::warn("Setup config loaded from JSON — CLI setup args ignored");
+        }
+        merged.setupConfig = jsonBundle.setupConfig;
+    } else {
+        merged.setupConfig = cliBundle.setupConfig;
+    }
+    merged.hasSetup = true;
+
+    if (jsonBundle.hasPSF) {
+        merged.psfConfigs = jsonBundle.psfConfigs;
+        merged.hasPSF = true;
+    }
+
+    return merged;
 }
 
 
@@ -334,8 +376,12 @@ void loggingCallback(spdlog::level::level_enum level, const std::string& message
 }
 
 
-PSFGenerationRequest CLIFrontend::generatePSFRequest(std::shared_ptr<SetupConfigPSF> setupConfig){
+PSFGenerationRequest CLIFrontend::generatePSFRequest(const PSFConfigBundle& bundle) {
+    auto setupConfig = std::make_shared<SetupConfigPSF>(bundle.setupConfig);
     PSFGenerationRequest request(setupConfig, loggingCallback, progressVisualization);
+    if (bundle.hasPSF) {
+        request.setInlinePSFConfigs(bundle.psfConfigs);
+    }
     return request;
 }
 

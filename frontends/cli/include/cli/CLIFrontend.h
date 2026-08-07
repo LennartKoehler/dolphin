@@ -19,6 +19,14 @@ struct ConfigBundle {
     bool hasPSF = false;
 };
 
+struct PSFConfigBundle {
+    SetupConfigPSF setupConfig;
+    std::vector<std::shared_ptr<PSFConfig>> psfConfigs;
+
+    bool hasSetup = false;
+    bool hasPSF = false;
+};
+
 
 class CLIFrontend : public IFrontend{
 public:
@@ -26,7 +34,7 @@ public:
     void run() override;
 
 
-private:
+protected:
     CLI::App app{"Dolphin"};
     CLI::App* deconvolutionCLI = nullptr;
     CLI::App* psfCLI = nullptr;
@@ -41,7 +49,8 @@ private:
     ConfigBundle jsonBundle;
     ConfigBundle cliBundle;
 
-    SetupConfigPSF psfConfig;
+    PSFConfigBundle jsonPsfBundle;
+    PSFConfigBundle cliPsfBundle;
 
     int argc;
     char** argv;
@@ -59,15 +68,16 @@ private:
     void loadJSONBundle(const std::string& path);
     static ConfigBundle mergeBundles(const ConfigBundle& jsonBundle, const ConfigBundle& cliBundle);
 
-    bool readPSFFromConfigFile();
+    void loadPSFJSONBundle(const std::string& path);
+    static PSFConfigBundle mergePSFBundles(const PSFConfigBundle& jsonBundle, const PSFConfigBundle& cliBundle);
 
-    bool handlePSFGeneration();
+    bool handlePSFGeneration(const PSFConfigBundle& bundle);
     bool handleDeconvolution(const ConfigBundle& bundle);
 
 
     std::vector<std::string> checkRequired(Config& config) const ;
     void addParameters(Config& config, CLI::Option_group* group);
 
-    PSFGenerationRequest generatePSFRequest(std::shared_ptr<SetupConfigPSF> setupConfig);
+    PSFGenerationRequest generatePSFRequest(const PSFConfigBundle& bundle);
     DeconvolutionRequest generateDeconvRequest(const ConfigBundle& bundle);
 };
