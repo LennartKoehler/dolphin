@@ -56,8 +56,9 @@ protected:
     char** argv;
     std::string configPath;
 
-    std::string cliPsfConfigPath;
-    std::vector<std::string> cliPsfConfigPaths;
+    std::string setupConfigPath;
+    std::string deconvConfigPath;
+    std::vector<std::string> psfConfigPaths;
 
 
     void deconvolution();
@@ -82,6 +83,14 @@ protected:
     void addParameters(Config& config, CLI::Option_group* group);
 
     static std::shared_ptr<PSFConfig> loadPSFConfigFromPath(const std::string& path);
+
+    static bool loadSetupConfigFromJSON(const json& jsonData, SetupConfigPSF& config);
+    static void loadDeconvConfigFromJSON(const json& jsonData, DeconvolutionConfig& config);
+    static std::vector<std::shared_ptr<PSFConfig>> loadPSFConfigsFromJSON(const json& jsonData);
+
+    static void loadSetupConfigFromFile(const std::string& path, SetupConfigPSF& config);
+    static void loadDeconvConfigFromFile(const std::string& path, DeconvolutionConfig& config);
+    static std::vector<std::shared_ptr<PSFConfig>> loadPSFConfigsFromFile(const std::string& path);
 
     PSFGenerationRequest generatePSFRequest(const PSFConfigBundle& bundle);
     DeconvolutionRequest generateDeconvRequest(const ConfigBundle& bundle);
