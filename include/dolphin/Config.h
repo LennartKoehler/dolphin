@@ -136,6 +136,8 @@ public:
 
     bool logUnvalidParameters(const json& jsonData) const ;
 
+    static json loadJSONFile(const std::string& filePath);
+
 
     template<typename Visitor>
     void visitParams(Visitor&& visitor){
@@ -151,9 +153,6 @@ public:
 
 protected:
 
-
-
-    static json loadJSONFile(const std::string& filePath);
 
 
     template<typename Visitor>

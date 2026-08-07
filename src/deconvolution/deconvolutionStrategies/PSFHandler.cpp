@@ -1,6 +1,7 @@
 #include "dolphin/deconvolution/deconvolutionStrategies/PSFHandler.h"
 #include "dolphin/PSFCreator.h"
 #include "dolphin/psf/PSFGeneratorFactory.h"
+#include <spdlog/spdlog.h>
 
 
 CuboidShape PSFHandler::getPSFPadding(const PSF& psf, PaddingStrategyType paddingType, float paddingRelativeMax) const {
@@ -25,9 +26,26 @@ CuboidShape PSFHandler::getPSFPadding(const PSF& psf, PaddingStrategyType paddin
 CuboidShape PSFHandler::getPaddingFromConfig(std::shared_ptr<PSFConfig> config, PaddingStrategyType paddingStrategy) const {
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(config);
-    // the specific generator should know best how much should be padded without actually computing the psf
-    // e.g. the gaussian generator can say for a given strategy you should pad up to sigma * 2
     return psfGenerator->getPadding(paddingStrategy);
+}
+
+
+void PSFHandler::loadConfigsFromSetup(const SetupConfig& setupConfig) {
+    if (configsLoaded) return;
+    configsLoaded = true;
+
+    if (hasInlineConfigs()) {
+        if (!setupConfig.multiplePsfConfigPaths.empty()) {
+            spdlog::get("config")->warn("Both inline psf_configs and multiple_psf_config_paths provided — using inline");
+        }
+        psfConfigs = inlinePsfConfigs;
+    } else if (!setupConfig.multiplePsfConfigPaths.empty()) {
+        psfConfigs = PSFCreator::generatePSFConfigsFromConfigPath(setupConfig.multiplePsfConfigPaths);
+    }
+
+    if (!setupConfig.psfFilePaths.empty()) {
+        filePSFs = PSFCreator::readPSFsFromFilePath(setupConfig.psfFilePaths);
+    }
 }
 
 
@@ -53,26 +71,18 @@ Result<Padding> PSFHandler::getPadding(
         }
 
         default:{
+            loadConfigsFromSetup(setupConfig);
+
             std::vector<CuboidShape> psfPaddings;
 
-            // if a config is given and the psf is generated here then use the psfgenerator to determine how much should
-            // be padded before actually creating the psf, then when creating the psf create it with the size of the image plus padding
-            if (!setupConfig.multiplePsfConfigPaths.empty()){
-                psfConfigs = PSFCreator::generatePSFConfigsFromConfigPath(setupConfig.multiplePsfConfigPaths);
-                for (const auto& config : psfConfigs){
-                    CuboidShape paddingSize = getPaddingFromConfig(config, deconvConfig.paddingStrategyType);
-                    psfPaddings.push_back(paddingSize);
-                }
+            for (const auto& config : psfConfigs){
+                CuboidShape paddingSize = getPaddingFromConfig(config, deconvConfig.paddingStrategyType);
+                psfPaddings.push_back(paddingSize);
             }
 
-            // if psfs are given as files, then the padding is determined by a a function e.g.
-            // just a fixed size or up until the values are below a threshold
-            if (!setupConfig.psfFilePaths.empty()){
-                filePSFs = PSFCreator::readPSFsFromFilePath(setupConfig.psfFilePaths);
-                for (auto& psf : filePSFs){
-                    CuboidShape paddingSize = getPSFPadding(psf, deconvConfig.paddingStrategyType, deconvConfig.paddingRelativeMax);
-                    psfPaddings.push_back(paddingSize);
-                }
+            for (auto& psf : filePSFs){
+                CuboidShape paddingSize = getPSFPadding(psf, deconvConfig.paddingStrategyType, deconvConfig.paddingRelativeMax);
+                psfPaddings.push_back(paddingSize);
             }
 
             CuboidShape result = getLargestShape(psfPaddings);
@@ -98,25 +108,16 @@ Result<CuboidShape> PSFHandler::getMaxShape(
     const SetupConfig& setupConfig,
     const DeconvolutionConfig& deconvConfig)
 {
+    loadConfigsFromSetup(setupConfig);
+
     std::vector<CuboidShape> psfShapes;
 
-    // if a config is given and the psf is generated here then use the psfgenerator to determine how much should
-    // be padded before actually creating the psf, then when creating the psf create it with the size of the image plus padding
-    if (!setupConfig.multiplePsfConfigPaths.empty()){
-        psfConfigs = PSFCreator::generatePSFConfigsFromConfigPath(setupConfig.multiplePsfConfigPaths);
-        for (const auto& config : psfConfigs){
-            CuboidShape paddingSize = getPaddingFromConfig(config, deconvConfig.paddingStrategyType);
-            psfShapes.push_back(config->getShape());
-        }
+    for (const auto& config : psfConfigs){
+        psfShapes.push_back(config->getShape());
     }
 
-    // if psfs are given as files, then the padding is determined by a a function e.g.
-    // just a fixed size or up until the values are below a threshold
-    if (!setupConfig.psfFilePaths.empty()){
-        filePSFs = PSFCreator::readPSFsFromFilePath(setupConfig.psfFilePaths);
-        for (auto& psf : filePSFs){
-            psfShapes.push_back(psf.getShape());
-        }
+    for (auto& psf : filePSFs){
+        psfShapes.push_back(psf.getShape());
     }
 
     CuboidShape largestPSF = getLargestShape(psfShapes);
@@ -149,18 +150,13 @@ std::vector<std::shared_ptr<PSF>> PSFHandler::createPSFs(
 
     }
 
-    //dont need to reread, already read when getting padding
     for (auto& psf : filePSFs){
         psfs.emplace_back(std::make_shared<PSF>(std::move(psf)));
     }
 
-    // TODO
-    // if (!setupConfig.psfDirPath.empty()){
-    //     std::vector<std::shared_ptr<PSFConfig>> psfconfigs = PSFCreator::generatePSFsFromDir(setupConfig.psfDirPath);
-    //     for (auto psfconfig : psfconfigs){
-    //         psfs.push_back(PSFCreator::generatePSFFromPSFConfig(psfconfig, thread_pool_.get()));
-    //     }
-    // }
+    if (psfs.size() <= 0){
+        throw std::runtime_error("No PSFs supplied as either a PSF Config or as a file");
+    }
     return psfs;
 }
 
@@ -184,18 +180,8 @@ std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
 
             backend.getComputeManager().forwardFFT(h_device, *h_result_device);
 
-            //transfer ownership of data
             h_result_device->setBackend(h_device.getBackend());
-            h_device.setBackend(nullptr); // so basically now h_result_data owns the data and h_device no longer does because it doesnt have a backend to delete it
-
-            // backend.getComputeManager().backwardFFT(*h_result_device, h_device);
-
-            // move back to host for cuda
-
-            // RealData result = backend.getMemoryManager().moveDataFromDevice(h_device, BackendFactory::getInstance().getDefaultBackendMemoryManager());
-            // Image3D test = Preprocessor::convertComplexDataToImage(*h_result_device);
-            // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/psf_fft.tif", test);
-
+            h_device.setBackend(nullptr);
 
             backend.sync();
             return std::move(h_result_device);

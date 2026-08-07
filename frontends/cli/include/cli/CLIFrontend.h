@@ -6,6 +6,7 @@
 
 #include <dolphin/deconvolution/DeconvolutionConfig.h>
 #include <dolphin/ServiceAbstractions.h>
+#include <dolphin/psf/PSFGeneratorFactory.h>
 
 
 class CLIFrontend : public IFrontend{
@@ -19,7 +20,8 @@ private:
     CLI::App* deconvolutionCLI = nullptr;
     CLI::App* psfCLI = nullptr;
 
-    CLI::Option_group* cli_group = nullptr;
+    CLI::Option_group* setupCliGroup = nullptr;
+    CLI::Option_group* deconvCliGroup = nullptr;
     CLI::Option_group* configGroup = nullptr;
 
     CLI::Option_group* psfcli_group = nullptr;
@@ -29,6 +31,7 @@ private:
     SetupConfigPSF psfConfig;
     SetupConfig setupConfig;
     DeconvolutionConfig deconvolutionConfig;
+    std::vector<std::shared_ptr<PSFConfig>> inlinePsfConfigs;
 
     int argc;
     char** argv;
@@ -52,6 +55,8 @@ private:
 
     std::vector<std::string> checkRequired(Config& config) const ;
     void addParameters(Config& config, CLI::Option_group* group);
+
+    bool groupHasOptions(CLI::Option_group* group) const;
 
     PSFGenerationRequest generatePSFRequest(std::shared_ptr<SetupConfigPSF> setupConfig);
     DeconvolutionRequest generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfig, std::shared_ptr<DeconvolutionConfig> deconvConfig);

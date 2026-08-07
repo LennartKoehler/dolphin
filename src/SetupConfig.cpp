@@ -33,9 +33,15 @@ SetupConfigPSF::SetupConfigPSF() {
 SetupConfigPSF SetupConfigPSF::createFromJSONFile(const std::string& filePath) {
     json jsonData = loadJSONFile(filePath);
 
-    jsonData.erase("deconvolution_config"); // it can be part of one json file but should not be read as such
+    json& setupData = jsonData.contains("setup_config")
+        ? jsonData["setup_config"]
+        : jsonData;
+
+    setupData.erase("deconvolution_config");
+    setupData.erase("psf_configs");
+
     SetupConfigPSF config;
-    if (!config.loadFromJSON(jsonData)) {
+    if (!config.loadFromJSON(setupData)) {
         throw std::runtime_error("Failed to parse config file: " + filePath);
     }
 
@@ -116,9 +122,15 @@ SetupConfig::SetupConfig() {
 SetupConfig SetupConfig::createFromJSONFile(const std::string& filePath) {
     json jsonData = loadJSONFile(filePath);
 
-    jsonData.erase("deconvolution_config"); // it can be part of one json file but should not be read as such
+    json& setupData = jsonData.contains("setup_config")
+        ? jsonData["setup_config"]
+        : jsonData;
+
+    setupData.erase("deconvolution_config");
+    setupData.erase("psf_configs");
+
     SetupConfig config;
-    if (!config.loadFromJSON(jsonData)) {
+    if (!config.loadFromJSON(setupData)) {
         throw std::runtime_error("Failed to parse config file: " + filePath);
     }
 
