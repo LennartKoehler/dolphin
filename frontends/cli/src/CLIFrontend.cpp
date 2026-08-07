@@ -166,7 +166,7 @@ void CLIFrontend::psfgenerator() {
     CLI::Option_group* psf_group = psfCLI->add_option_group("PSF Options", "PSF generation options");
     psf_group->add_option("-c,--config", configPath, "Path to combined configuration file");
     psf_group->add_option("-s,--setup_config", setupConfigPath, "Path to setup config JSON file");
-    psf_group->add_option("-p,--psf_config", psfConfigPaths, "Path(s) to PSF config JSON file(s)")->multi_option_policy(CLI::MultiOptionPolicy::TakeAll);
+    psf_group->add_option("-p,--psf_configs", psfConfigPaths, "Path(s) to PSF config JSON file(s)")->multi_option_policy(CLI::MultiOptionPolicy::TakeAll);
 
     psfconfigGroup = psf_group;
     psfcli_group = psfCLI->add_option_group("CLI", "PSF Commandline options");
@@ -189,7 +189,7 @@ bool CLIFrontend::handlePSFGeneration(const PSFConfigBundle& bundle) {
     }
 
     if (!bundle.hasPSF) {
-        spdlog::error("No PSF config provided — use -p/--psf_config or inline psf_configs in JSON");
+        spdlog::error("No PSF config provided — use -p/--psf_configs or inline psf_configs in JSON");
         std::cout << psfCLI->help() << std::endl;
         return false;
     }
@@ -342,7 +342,7 @@ void CLIFrontend::readCLISetupConfigPath() {
     config_group->add_option("-c,--config", configPath, "Path to combined configuration file");
     config_group->add_option("-s,--setup_config", setupConfigPath, "Path to setup config JSON file");
     config_group->add_option("-d,--deconv_config", deconvConfigPath, "Path to deconvolution config JSON file");
-    config_group->add_option("-p,--psf_config", psfConfigPaths, "Path(s) to PSF config JSON file(s)")->multi_option_policy(CLI::MultiOptionPolicy::TakeAll);
+    config_group->add_option("-p,--psf_configs", psfConfigPaths, "Path(s) to PSF config JSON file(s)")->multi_option_policy(CLI::MultiOptionPolicy::TakeAll);
 }
 
 
@@ -411,51 +411,6 @@ std::vector<std::string> CLIFrontend::checkRequired(Config& config) const {
 }
 
 
-void progressVisualization(std::atomic<float>& current, float max){
-    float barWidth = 50.0f;
-    int pos = static_cast<int>((current * barWidth) / max);
-    int progress = static_cast<int>((current * 100) / max);
-    std::cout << "\r[";
-    for (int i = 0; i < barWidth; ++i) {
-        if (i < pos) std::cout << "=";
-        else if (i == pos) std::cout << ">";
-        else std::cout << " ";
-    }
-    std::cout << "] "
-      << std::setw(3)
-      << progress << "%";
-    std::cout.flush();
-
-    if(current >= max){
-        std::cout <<std::endl;
-    }
-}
-
-void loggingCallback(spdlog::level::level_enum level, const std::string& message){
-    if (level >= spdlog::level::info){
-        std::cout << "[" << spdlog::level::to_string_view(level).data() << "] " <<  message << "\n";
-    }
-}
-
-
-PSFGenerationRequest CLIFrontend::generatePSFRequest(const PSFConfigBundle& bundle) {
-    auto setupConfig = std::make_shared<SetupConfigPSF>(bundle.setupConfig);
-    PSFGenerationRequest request(setupConfig, loggingCallback, progressVisualization);
-    if (bundle.hasPSF) {
-        request.setInlinePSFConfigs(bundle.psfConfigs);
-    }
-    return request;
-}
-
-DeconvolutionRequest CLIFrontend::generateDeconvRequest(const ConfigBundle& bundle) {
-    auto setupConfig = std::make_shared<SetupConfig>(bundle.setupConfig);
-    auto deconvConfig = std::make_shared<DeconvolutionConfig>(bundle.deconvConfig);
-    DeconvolutionRequest request(setupConfig, deconvConfig, loggingCallback, progressVisualization);
-    if (bundle.hasPSF) {
-        request.setInlinePSFConfigs(bundle.psfConfigs);
-    }
-    return request;
-}
 
 std::shared_ptr<PSFConfig> CLIFrontend::loadPSFConfigFromPath(const std::string& path) {
     return PSFCreator::generatePSFConfigFromConfigPath(path);
@@ -518,4 +473,50 @@ std::vector<std::shared_ptr<PSFConfig>> CLIFrontend::loadPSFConfigsFromFile(cons
         throw std::runtime_error("PSF config file must contain 'psf_configs' array or a single PSF config with 'model_name': " + path);
     }
     return configs;
+}
+
+
+void progressVisualization(std::atomic<float>& current, float max){
+    float barWidth = 50.0f;
+    int pos = static_cast<int>((current * barWidth) / max);
+    int progress = static_cast<int>((current * 100) / max);
+    std::cout << "\r[";
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos) std::cout << "=";
+        else if (i == pos) std::cout << ">";
+        else std::cout << " ";
+    }
+    std::cout << "] "
+      << std::setw(3)
+      << progress << "%";
+    std::cout.flush();
+
+    if(current >= max){
+        std::cout <<std::endl;
+    }
+}
+
+void loggingCallback(spdlog::level::level_enum level, const std::string& message){
+    if (level >= spdlog::level::info){
+        std::cout << "[" << spdlog::level::to_string_view(level).data() << "] " <<  message << "\n";
+    }
+}
+
+PSFGenerationRequest CLIFrontend::generatePSFRequest(const PSFConfigBundle& bundle) {
+    auto setupConfig = std::make_shared<SetupConfigPSF>(bundle.setupConfig);
+    PSFGenerationRequest request(setupConfig, loggingCallback, progressVisualization);
+    if (bundle.hasPSF) {
+        request.setInlinePSFConfigs(bundle.psfConfigs);
+    }
+    return request;
+}
+
+DeconvolutionRequest CLIFrontend::generateDeconvRequest(const ConfigBundle& bundle) {
+    auto setupConfig = std::make_shared<SetupConfig>(bundle.setupConfig);
+    auto deconvConfig = std::make_shared<DeconvolutionConfig>(bundle.deconvConfig);
+    DeconvolutionRequest request(setupConfig, deconvConfig, loggingCallback, progressVisualization);
+    if (bundle.hasPSF) {
+        request.setInlinePSFConfigs(bundle.psfConfigs);
+    }
+    return request;
 }
