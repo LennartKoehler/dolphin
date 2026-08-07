@@ -89,20 +89,39 @@ inline bool hasInf(const Image3D& img) {
     return false;
 }
 
-inline std::string gaussianPSFConfigJSON() {
-    return R"({
-        "model_name": "Gaussian",
-        "id": "test_gaussian",
-        "res_lateral_nm": 5000,
-        "res_axial_nm": 5000,
-        "size_x": 32,
-        "size_y": 32,
-        "size_z": 16,
-        "sigma_x": 5,
-        "sigma_y": 5,
-        "sigma_z": 5
-    })";
-}
+    inline std::string gaussianPSFConfigJSON() {
+        return R"({
+            "model_name": "Gaussian",
+            "id": "test_gaussian",
+            "res_lateral_nm": 5000,
+            "res_axial_nm": 5000,
+            "size_x": 32,
+            "size_y": 32,
+            "size_z": 16,
+            "sigma_x": 5,
+            "sigma_y": 5,
+            "sigma_z": 5
+        })";
+    }
+
+    inline std::string gaussianPSFConfigJSONWrapper() {
+        return R"({
+            "psf_configs": [
+                {
+                    "model_name": "Gaussian",
+                    "id": "inline_gauss",
+                    "res_lateral_nm": 5000,
+                    "res_axial_nm": 5000,
+                    "size_x": 32,
+                    "size_y": 32,
+                    "size_z": 16,
+                    "sigma_x": 5,
+                    "sigma_y": 5,
+                    "sigma_z": 5
+                }
+            ]
+        })";
+    }
 
 inline std::string gibsonLanniPSFConfigJSON() {
     return R"({

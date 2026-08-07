@@ -60,3 +60,37 @@ set_target_properties(dolphin_cli PROPERTIES OUTPUT_NAME dolphin)
 if(TARGET cuda_backend)
     set_target_properties(dolphin_cli PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
+
+# ---------------------------------------------------------------------------
+# CLI Frontend tests
+# ---------------------------------------------------------------------------
+if(NOT DOLPHIN_CLI_STANDALONE AND ENABLE_TESTS)
+    add_executable(test_cli_frontend
+        tests/test_cli_frontend.cpp
+        src/CLIFrontend.cpp
+    )
+
+    target_include_directories(test_cli_frontend
+        PRIVATE
+            ${CLI11_INCLUDE_DIR}
+            ${CLI_INCLUDE_DIR}
+            ${CMAKE_SOURCE_DIR}/tests/utils
+    )
+
+    target_link_libraries(test_cli_frontend
+        PRIVATE
+            ${DOLPHIN_LINK_TARGET}
+            ${DOLPHIN_OPTIONS_TARGET}
+            GTest::gtest_main
+    )
+
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(test_cli_frontend PRIVATE -fno-fast-math)
+    endif()
+
+    if(TARGET cuda_backend)
+        set_target_properties(test_cli_frontend PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+    endif()
+
+    gtest_discover_tests(test_cli_frontend DISCOVERY_TIMEOUT 30)
+endif()

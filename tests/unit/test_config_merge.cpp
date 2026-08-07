@@ -14,6 +14,7 @@
 #include "nlohmann/json.hpp"
 #include <fstream>
 #include <filesystem>
+#include <algorithm>
 
 using json = nlohmann::json;
 
@@ -611,4 +612,246 @@ TEST_F(ConfigMergeTest, CLISim_NoJSON_AllFromCLI) {
     EXPECT_EQ(merged.deconvConfig.iterations, 42);
     EXPECT_EQ(merged.deconvConfig.algorithmName, "Convolution");
     EXPECT_FALSE(merged.hasPSF);
+}
+
+// --- PSFGenerationRequest inline config tests ---
+
+TEST_F(ConfigMergeTest, PSFGenerationRequestInlinePSFEmpty) {
+    auto setupConfig = std::make_shared<SetupConfigPSF>();
+    PSFGenerationRequest request(setupConfig);
+
+    EXPECT_FALSE(request.hasInlinePSFConfigs());
+    EXPECT_TRUE(request.getInlinePSFConfigs().empty());
+}
+
+TEST_F(ConfigMergeTest, PSFGenerationRequestInlinePSFSetGet) {
+    auto setupConfig = std::make_shared<SetupConfigPSF>();
+
+    PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
+    json gaussJson = json::parse(TestUtils::gaussianPSFConfigJSON());
+    auto psfConfig = factory.createConfig(gaussJson);
+
+    PSFGenerationRequest request(setupConfig);
+    request.setInlinePSFConfigs({psfConfig});
+
+    EXPECT_TRUE(request.hasInlinePSFConfigs());
+    ASSERT_EQ(request.getInlinePSFConfigs().size(), 1);
+    EXPECT_EQ(request.getInlinePSFConfigs()[0]->getModelName(), "Gaussian");
+    EXPECT_EQ(request.getInlinePSFConfigs()[0]->ID, "test_gaussian");
+}
+
+// --- PSFConfigBundle merge simulation tests ---
+
+struct PSFConfigBundle {
+    SetupConfigPSF setupConfig;
+    std::vector<std::shared_ptr<PSFConfig>> psfConfigs;
+
+    bool hasSetup = false;
+    bool hasPSF = false;
+};
+
+static void loadPSFJSONBundle(const json& jsonData, PSFConfigBundle& bundle) {
+    if (jsonData.contains("setup_config")) {
+        bundle.setupConfig.loadFromJSON(jsonData["setup_config"]);
+        bundle.hasSetup = true;
+    } else {
+        json rootData = jsonData;
+        rootData.erase("deconvolution_config");
+        rootData.erase("psf_configs");
+        if (!rootData.empty()) {
+            bundle.setupConfig.loadFromJSON(rootData);
+            bundle.hasSetup = true;
+        }
+    }
+
+    if (jsonData.contains("psf_configs")) {
+        PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
+        for (const auto& psfJson : jsonData["psf_configs"]) {
+            bundle.psfConfigs.push_back(factory.createConfig(psfJson));
+        }
+        bundle.hasPSF = true;
+    }
+}
+
+static PSFConfigBundle mergePSFBundles(const PSFConfigBundle& jsonBundle, const PSFConfigBundle& cliBundle) {
+    PSFConfigBundle merged;
+
+    if (jsonBundle.hasSetup) {
+        merged.setupConfig = jsonBundle.setupConfig;
+    } else {
+        merged.setupConfig = cliBundle.setupConfig;
+    }
+    merged.hasSetup = true;
+
+    if (jsonBundle.hasPSF) {
+        merged.psfConfigs = jsonBundle.psfConfigs;
+        merged.hasPSF = true;
+    }
+
+    return merged;
+}
+
+static PSFConfigBundle makePSFCLIBundle(const std::string& outputPath, const std::string& backend,
+                                         int nThreads, const std::string& psfConfigPath) {
+    PSFConfigBundle cli;
+    cli.setupConfig.outputPath = outputPath;
+    cli.setupConfig.backend = backend;
+    cli.setupConfig.nThreads = nThreads;
+    cli.setupConfig.psfConfigPath = psfConfigPath;
+    cli.hasSetup = true;
+    return cli;
+}
+
+TEST_F(ConfigMergeTest, PSFSim_BothFromJSON_CLIOverwritten) {
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "cli_psf_config.json");
+
+    PSFConfigBundle jsonBundle;
+    loadPSFJSONBundle(R"({
+        "setup_config": {
+            "output": "json_output.tif",
+            "backend": "cpu",
+            "n_threads": 4,
+            "n_io_threads": 1,
+            "n_worker_threads": 1,
+            "n_devices": 1
+        }
+    })"_json, jsonBundle);
+
+    PSFConfigBundle merged = mergePSFBundles(jsonBundle, cli);
+
+    EXPECT_EQ(merged.setupConfig.outputPath, "json_output.tif");
+    EXPECT_EQ(merged.setupConfig.backend, "cpu");
+    EXPECT_EQ(merged.setupConfig.nThreads, 4);
+    EXPECT_FALSE(merged.hasPSF);
+}
+
+TEST_F(ConfigMergeTest, PSFSim_OnlyPSFInJSON_SetupKeepsCLI) {
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "cli_psf_config.json");
+
+    PSFConfigBundle jsonBundle;
+    loadPSFJSONBundle(json::parse(TestUtils::gaussianPSFConfigJSONWrapper()), jsonBundle);
+
+    PSFConfigBundle merged = mergePSFBundles(jsonBundle, cli);
+
+    EXPECT_EQ(merged.setupConfig.outputPath, "cli_output.tif");
+    EXPECT_EQ(merged.setupConfig.backend, "cuda");
+    EXPECT_EQ(merged.setupConfig.nThreads, 8);
+    ASSERT_EQ(merged.psfConfigs.size(), 1);
+    EXPECT_EQ(merged.psfConfigs[0]->getModelName(), "Gaussian");
+    EXPECT_EQ(merged.psfConfigs[0]->ID, "inline_gauss");
+}
+
+TEST_F(ConfigMergeTest, PSFSim_SetupAndPSFInJSON_CLIOverwritten) {
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "cli_psf_config.json");
+
+    PSFConfigBundle jsonBundle;
+    loadPSFJSONBundle(R"({
+        "setup_config": {
+            "output": "json_output.tif",
+            "backend": "cpu",
+            "n_threads": 2,
+            "n_io_threads": 3,
+            "n_worker_threads": 5,
+            "n_devices": 1
+        },
+        "psf_configs": [
+            {
+                "model_name": "Gaussian",
+                "id": "inline_gauss",
+                "res_lateral_nm": 5000,
+                "res_axial_nm": 5000,
+                "size_x": 32,
+                "size_y": 32,
+                "size_z": 16,
+                "sigma_x": 5,
+                "sigma_y": 5,
+                "sigma_z": 5
+            }
+        ]
+    })"_json, jsonBundle);
+
+    PSFConfigBundle merged = mergePSFBundles(jsonBundle, cli);
+
+    EXPECT_EQ(merged.setupConfig.outputPath, "json_output.tif");
+    EXPECT_EQ(merged.setupConfig.backend, "cpu");
+    EXPECT_EQ(merged.setupConfig.nThreads, 2);
+    EXPECT_EQ(merged.setupConfig.nIOThreads, 3);
+    ASSERT_EQ(merged.psfConfigs.size(), 1);
+    EXPECT_EQ(merged.psfConfigs[0]->getModelName(), "Gaussian");
+    EXPECT_EQ(merged.psfConfigs[0]->ID, "inline_gauss");
+}
+
+TEST_F(ConfigMergeTest, PSFSim_NoJSON_AllFromCLI) {
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "cli_psf_config.json");
+
+    PSFConfigBundle merged = mergePSFBundles(PSFConfigBundle{}, cli);
+
+    EXPECT_EQ(merged.setupConfig.outputPath, "cli_output.tif");
+    EXPECT_EQ(merged.setupConfig.backend, "cuda");
+    EXPECT_EQ(merged.setupConfig.nThreads, 8);
+    EXPECT_EQ(merged.setupConfig.psfConfigPath, "cli_psf_config.json");
+    EXPECT_FALSE(merged.hasPSF);
+}
+
+TEST_F(ConfigMergeTest, PSFSim_RootLevelTreatedAsSetup) {
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "");
+
+    PSFConfigBundle jsonBundle;
+    loadPSFJSONBundle(R"({
+        "output": "root_output.tif",
+        "backend": "cpu",
+        "n_threads": 6
+    })"_json, jsonBundle);
+
+    PSFConfigBundle merged = mergePSFBundles(jsonBundle, cli);
+
+    EXPECT_EQ(merged.setupConfig.outputPath, "root_output.tif");
+    EXPECT_EQ(merged.setupConfig.backend, "cpu");
+    EXPECT_EQ(merged.setupConfig.nThreads, 6);
+    EXPECT_FALSE(merged.hasPSF);
+}
+
+TEST_F(ConfigMergeTest, PSFSim_NoJSON_NoPSF_NoPsfConfigPath) {
+    PSFConfigBundle cli;
+    cli.hasSetup = true;
+
+    PSFConfigBundle merged = mergePSFBundles(PSFConfigBundle{}, cli);
+
+    EXPECT_TRUE(merged.setupConfig.psfConfigPath.empty());
+    EXPECT_FALSE(merged.hasPSF);
+}
+
+TEST_F(ConfigMergeTest, PSFSim_RootLevelWithPSFConfigs) {
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "");
+
+    PSFConfigBundle jsonBundle;
+    loadPSFJSONBundle(R"({
+        "output": "root_output.tif",
+        "backend": "cpu",
+        "psf_configs": [
+            {"model_name": "Gaussian", "id": "root_psf", "size_x": 16, "size_y": 16, "size_z": 8}
+        ]
+    })"_json, jsonBundle);
+
+    PSFConfigBundle merged = mergePSFBundles(jsonBundle, cli);
+
+    EXPECT_EQ(merged.setupConfig.outputPath, "root_output.tif");
+    EXPECT_EQ(merged.setupConfig.backend, "cpu");
+    ASSERT_EQ(merged.psfConfigs.size(), 1);
+    EXPECT_EQ(merged.psfConfigs[0]->ID, "root_psf");
+}
+
+TEST_F(ConfigMergeTest, PSFSim_psfConfigPathNotRequired) {
+    SetupConfigPSF config;
+    std::vector<std::string> missingParams;
+    config.visitParams([&missingParams]<typename T>(T& value, ConfigParameter& param) {
+        if (!param.cliRequired) return;
+        if constexpr (std::is_same_v<T, std::string>) {
+            if (value.empty()) {
+                missingParams.push_back(std::string(param.name));
+            }
+        }
+    });
+
+    EXPECT_EQ(std::find(missingParams.begin(), missingParams.end(), "PSF Config Path"), missingParams.end());
 }

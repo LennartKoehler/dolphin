@@ -90,6 +90,17 @@ if(TARGET cuda_backend)
     list(APPEND ALL_TEST_INCLUDES ${CMAKE_SOURCE_DIR}/backends/cuda/include)
 endif()
 
+if(BUILD_CLI)
+    list(APPEND ALL_TEST_SOURCES
+        ${CMAKE_SOURCE_DIR}/frontends/cli/tests/test_cli_frontend.cpp
+        ${CMAKE_SOURCE_DIR}/frontends/cli/src/CLIFrontend.cpp
+    )
+    list(APPEND ALL_TEST_INCLUDES
+        ${CMAKE_SOURCE_DIR}/frontends/cli/include/cli
+        ${CMAKE_SOURCE_DIR}/frontends/cli/lib/CLI11/include
+    )
+endif()
+
 add_executable(dolphin_all_tests ${ALL_TEST_SOURCES})
 target_link_libraries(dolphin_all_tests PRIVATE ${ALL_TEST_LIBS})
 target_include_directories(dolphin_all_tests PRIVATE ${ALL_TEST_INCLUDES})
