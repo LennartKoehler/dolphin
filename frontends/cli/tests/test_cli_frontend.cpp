@@ -417,7 +417,6 @@ TEST_F(CLIFrontendTest, MergePSFBundles_NoJSON_CLIUsed) {
     cliBundle.setupConfig.outputPath = "cli_output.tif";
     cliBundle.setupConfig.backend = "cuda";
     cliBundle.setupConfig.nThreads = 8;
-    cliBundle.setupConfig.psfConfigPath = "cli_psf_config.json";
     cliBundle.hasSetup = true;
 
     PSFConfigBundle merged = fe.mergePSFBundles(PSFConfigBundle{}, cliBundle);
@@ -425,7 +424,6 @@ TEST_F(CLIFrontendTest, MergePSFBundles_NoJSON_CLIUsed) {
     EXPECT_EQ(merged.setupConfig.outputPath, "cli_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cuda");
     EXPECT_EQ(merged.setupConfig.nThreads, 8);
-    EXPECT_EQ(merged.setupConfig.psfConfigPath, "cli_psf_config.json");
 }
 
 TEST_F(CLIFrontendTest, MergePSFBundles_PSFOnlyFromJSON) {
@@ -499,14 +497,12 @@ TEST_F(CLIFrontendTest, GeneratePSFRequest_NoPSFConfigs) {
 
     PSFConfigBundle bundle;
     bundle.setupConfig.outputPath = "psf_output.tif";
-    bundle.setupConfig.psfConfigPath = "external_config.json";
     bundle.hasSetup = true;
 
     PSFGenerationRequest request = fe.generatePSFRequest(bundle);
 
     EXPECT_FALSE(request.hasInlinePSFConfigs());
     EXPECT_TRUE(request.getInlinePSFConfigs().empty());
-    EXPECT_EQ(request.getConfig()->psfConfigPath, "external_config.json");
 }
 
 TEST_F(CLIFrontendTest, GeneratePSFRequest_ThreadCountFromSetup) {
@@ -549,19 +545,6 @@ TEST_F(CLIFrontendTest, GeneratePSFRequest_MultipleInlinePSFs) {
 // PSF Generation: handlePSFGeneration
 // =============================================================
 
-TEST_F(CLIFrontendTest, HandlePSFGeneration_WithPsfConfigPath) {
-    auto fe = makeFrontend();
-
-    PSFConfigBundle bundle;
-    bundle.setupConfig.outputPath = "psf_output.tif";
-    bundle.setupConfig.psfConfigPath = "external_config.json";
-    bundle.hasSetup = true;
-
-    bool result = fe.handlePSFGeneration(bundle);
-
-    EXPECT_TRUE(result);
-}
-
 TEST_F(CLIFrontendTest, HandlePSFGeneration_WithInlinePSF) {
     auto fe = makeFrontend();
 
@@ -595,7 +578,6 @@ TEST_F(CLIFrontendTest, HandlePSFGeneration_MissingOutputFails) {
     auto fe = makeFrontend();
 
     PSFConfigBundle bundle;
-    bundle.setupConfig.psfConfigPath = "external_config.json";
     bundle.hasSetup = true;
 
     bool result = fe.handlePSFGeneration(bundle);
@@ -756,7 +738,6 @@ TEST_F(CLIFrontendTest, LoadAndMergePSF_NoJSON_CLIUsed) {
     fe.cliPsfBundleRef().setupConfig.outputPath = "cli_output.tif";
     fe.cliPsfBundleRef().setupConfig.backend = "cuda";
     fe.cliPsfBundleRef().setupConfig.nThreads = 8;
-    fe.cliPsfBundleRef().setupConfig.psfConfigPath = "cli_psf_config.json";
     fe.cliPsfBundleRef().hasSetup = true;
 
     PSFConfigBundle merged = fe.mergePSFBundles(fe.jsonPsfBundleRef(), fe.cliPsfBundleRef());
@@ -764,7 +745,6 @@ TEST_F(CLIFrontendTest, LoadAndMergePSF_NoJSON_CLIUsed) {
     EXPECT_EQ(merged.setupConfig.outputPath, "cli_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cuda");
     EXPECT_EQ(merged.setupConfig.nThreads, 8);
-    EXPECT_EQ(merged.setupConfig.psfConfigPath, "cli_psf_config.json");
     EXPECT_FALSE(merged.hasPSF);
 }
 

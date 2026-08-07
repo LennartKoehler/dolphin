@@ -56,6 +56,9 @@ protected:
     char** argv;
     std::string setupConfigPath;
 
+    std::string cliPsfConfigPath;
+    std::vector<std::string> cliPsfConfigPaths;
+
 
     void deconvolution();
     void psfgenerator();
@@ -77,6 +80,8 @@ protected:
 
     std::vector<std::string> checkRequired(Config& config) const ;
     void addParameters(Config& config, CLI::Option_group* group);
+
+    static std::shared_ptr<PSFConfig> loadPSFConfigFromPath(const std::string& path);
 
     PSFGenerationRequest generatePSFRequest(const PSFConfigBundle& bundle);
     DeconvolutionRequest generateDeconvRequest(const ConfigBundle& bundle);

@@ -39,6 +39,8 @@ SetupConfigPSF SetupConfigPSF::createFromJSONFile(const std::string& filePath) {
 
     setupData.erase("deconvolution_config");
     setupData.erase("psf_configs");
+    setupData.erase("psf_config_path");
+    setupData.erase("psf_config_paths");
 
     SetupConfigPSF config;
     if (!config.loadFromJSON(setupData)) {
@@ -52,7 +54,6 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
     : Config()  // Base class must be default-constructed (parameters must not be copied)
 {
     // Copy all values first, then register parameters (which point to our own members)
-    psfConfigPath = other.psfConfigPath;
     backend = other.backend;
     nThreads = other.nThreads;
     nWorkerThreads = other.nWorkerThreads;
@@ -72,7 +73,6 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
 
 SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
     if (this != &other) {
-        psfConfigPath = other.psfConfigPath;
         backend = other.backend;
         nThreads = other.nThreads;
         nWorkerThreads = other.nWorkerThreads;
@@ -99,8 +99,6 @@ SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
 void SetupConfigPSF::registerAllParameters(){
 
     parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::FilePath, &psfConfigPath, "PSF Config Path", false, "psf_config_path", "-i,--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
-    // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
     parameters.push_back({ParameterType::FilePath, &backend, "Backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Int, &nThreads, "Number of Threads", true, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
@@ -128,6 +126,8 @@ SetupConfig SetupConfig::createFromJSONFile(const std::string& filePath) {
 
     setupData.erase("deconvolution_config");
     setupData.erase("psf_configs");
+    setupData.erase("psf_config_path");
+    setupData.erase("psf_config_paths");
 
     SetupConfig config;
     if (!config.loadFromJSON(setupData)) {
@@ -145,7 +145,6 @@ SetupConfig::SetupConfig(const SetupConfig& other)
     psfFilePaths = other.psfFilePaths;
     labeledImage = other.labeledImage;
     labelPSFMap = other.labelPSFMap;
-    multiplePsfConfigPaths = other.multiplePsfConfigPaths;
     savePsf = other.savePsf;
 
     registerAllParameters();  // clears and re-registers with pointers to our own members
@@ -162,7 +161,6 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         psfFilePaths = other.psfFilePaths;
         labeledImage = other.labeledImage;
         labelPSFMap = other.labelPSFMap;
-        multiplePsfConfigPaths = other.multiplePsfConfigPaths;
         savePsf = other.savePsf;
 
         parameters.clear();
@@ -202,9 +200,6 @@ void SetupConfig::registerAllParameters(){
 
 
     parameters.push_back({ParameterType::VectorString, &psfFilePaths, "PSF File Paths", true, "psf_file_paths", "--psf_file_paths", "PSF file paths", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::VectorString, &multiplePsfConfigPaths, "Multiple PSF Config Paths", true, "multiple_psf_config_paths", "--multiple_psf_config_paths", "PSF config paths", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::FilePath, &psfConfigPath, "PSF Config Path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
-    // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
 
     parameters.push_back({ParameterType::FilePath, &labeledImage, "Labeled Image", true, "labeled_image", "--labeled_image", "Labeled image path", false, false, 0.0, 0.0, nullptr});

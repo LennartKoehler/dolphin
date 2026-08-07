@@ -35,12 +35,7 @@ void PSFHandler::loadConfigsFromSetup(const SetupConfig& setupConfig) {
     configsLoaded = true;
 
     if (hasInlineConfigs()) {
-        if (!setupConfig.multiplePsfConfigPaths.empty()) {
-            spdlog::get("config")->warn("Both inline psf_configs and multiple_psf_config_paths provided — using inline");
-        }
         psfConfigs = inlinePsfConfigs;
-    } else if (!setupConfig.multiplePsfConfigPaths.empty()) {
-        psfConfigs = PSFCreator::generatePSFConfigsFromConfigPath(setupConfig.multiplePsfConfigPaths);
     }
 
     if (!setupConfig.psfFilePaths.empty()) {

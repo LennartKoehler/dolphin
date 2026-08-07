@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/spdlog.h>
 #include <string>
 #include <dolphin/Dolphin.h>
+#include <dolphin/PSFCreator.h>
 
 CLIFrontend::CLIFrontend(Dolphin* dolphin, int argc, char** argv)
     : IFrontend(dolphin){
@@ -67,6 +68,16 @@ void CLIFrontend::run() {
             }
         }
 
+        if (!cliPsfConfigPath.empty()) {
+            try {
+                cliPsfBundle.psfConfigs.push_back(loadPSFConfigFromPath(cliPsfConfigPath));
+                cliPsfBundle.hasPSF = true;
+            } catch (const std::exception& e) {
+                spdlog::error("{}", e.what());
+                return;
+            }
+        }
+
         PSFConfigBundle merged = mergePSFBundles(jsonPsfBundle, cliPsfBundle);
 
         if (!handlePSFGeneration(merged)) {
@@ -80,6 +91,18 @@ void CLIFrontend::run() {
         if (!setupConfigPath.empty()) {
             try {
                 loadJSONBundle(setupConfigPath);
+            } catch (const std::exception& e) {
+                spdlog::error("{}", e.what());
+                return;
+            }
+        }
+
+        if (!cliPsfConfigPaths.empty()) {
+            try {
+                for (const auto& path : cliPsfConfigPaths) {
+                    cliBundle.psfConfigs.push_back(loadPSFConfigFromPath(path));
+                }
+                cliBundle.hasPSF = true;
             } catch (const std::exception& e) {
                 spdlog::error("{}", e.what());
                 return;
@@ -103,6 +126,7 @@ void CLIFrontend::run() {
 void CLIFrontend::psfgenerator() {
     CLI::Option_group* psf_group = psfCLI->add_option_group("PSF Options", "PSF generation options");
     psf_group->add_option("-c,--config", setupConfigPath, "Path to configuration file");
+    psf_group->add_option("-i,--psf_config_path", cliPsfConfigPath, "Path to PSF config JSON file");
 
     psfconfigGroup = psf_group;
     psfcli_group = psfCLI->add_option_group("CLI", "PSF Commandline options");
@@ -124,8 +148,8 @@ bool CLIFrontend::handlePSFGeneration(const PSFConfigBundle& bundle) {
         return false;
     }
 
-    if (bundle.setupConfig.psfConfigPath.empty() && !bundle.hasPSF) {
-        spdlog::error("Either --psf_config_path or inline psf_configs in JSON must be provided");
+    if (!bundle.hasPSF) {
+        spdlog::error("No PSF config provided — use --psf_config_path or inline psf_configs in JSON");
         std::cout << psfCLI->help() << std::endl;
         return false;
     }
@@ -163,6 +187,14 @@ void CLIFrontend::loadJSONBundle(const std::string& path) {
         spdlog::info("Loaded {} inline PSF config(s) from JSON", jsonBundle.psfConfigs.size());
     }
 
+    if (jsonData.contains("psf_config_paths")) {
+        for (const auto& path : jsonData["psf_config_paths"]) {
+            jsonBundle.psfConfigs.push_back(loadPSFConfigFromPath(path));
+        }
+        jsonBundle.hasPSF = true;
+        spdlog::info("Loaded {} PSF config(s) from file paths in JSON", jsonData["psf_config_paths"].size());
+    }
+
     spdlog::info("Configuration loaded from: {}", path);
 }
 
@@ -189,8 +221,13 @@ ConfigBundle CLIFrontend::mergeBundles(const ConfigBundle& jsonBundle, const Con
     }
     merged.hasDeconv = true;
 
-    if (jsonBundle.hasPSF) {
-        merged.psfConfigs = jsonBundle.psfConfigs;
+    if (jsonBundle.hasPSF || cliBundle.hasPSF) {
+        if (jsonBundle.hasPSF) {
+            merged.psfConfigs.insert(merged.psfConfigs.end(), jsonBundle.psfConfigs.begin(), jsonBundle.psfConfigs.end());
+        }
+        if (cliBundle.hasPSF) {
+            merged.psfConfigs.insert(merged.psfConfigs.end(), cliBundle.psfConfigs.begin(), cliBundle.psfConfigs.end());
+        }
         merged.hasPSF = true;
     }
 
@@ -222,6 +259,13 @@ void CLIFrontend::loadPSFJSONBundle(const std::string& path) {
         spdlog::info("Loaded {} inline PSF config(s) from JSON", jsonPsfBundle.psfConfigs.size());
     }
 
+    if (jsonData.contains("psf_config_path")) {
+        std::string path = jsonData["psf_config_path"];
+        jsonPsfBundle.psfConfigs.push_back(loadPSFConfigFromPath(path));
+        jsonPsfBundle.hasPSF = true;
+        spdlog::info("Loaded PSF config from file path: {}", path);
+    }
+
     spdlog::info("Configuration loaded from: {}", path);
 }
 
@@ -238,8 +282,13 @@ PSFConfigBundle CLIFrontend::mergePSFBundles(const PSFConfigBundle& jsonBundle, 
     }
     merged.hasSetup = true;
 
-    if (jsonBundle.hasPSF) {
-        merged.psfConfigs = jsonBundle.psfConfigs;
+    if (jsonBundle.hasPSF || cliBundle.hasPSF) {
+        if (jsonBundle.hasPSF) {
+            merged.psfConfigs.insert(merged.psfConfigs.end(), jsonBundle.psfConfigs.begin(), jsonBundle.psfConfigs.end());
+        }
+        if (cliBundle.hasPSF) {
+            merged.psfConfigs.insert(merged.psfConfigs.end(), cliBundle.psfConfigs.begin(), cliBundle.psfConfigs.end());
+        }
         merged.hasPSF = true;
     }
 
@@ -269,6 +318,8 @@ bool CLIFrontend::handleDeconvolution(const ConfigBundle& bundle) {
 void CLIFrontend::readSetupConfigParameters() {
     setupCliGroup = deconvolutionCLI->add_option_group("Setup CLI", "Setup commandline options");
     addParameters(cliBundle.setupConfig, setupCliGroup);
+    setupCliGroup->add_option("--multiple_psf_config_paths", cliPsfConfigPaths, "PSF config JSON file paths")
+        ->configurable(false)->ignore_case();
     cliBundle.hasSetup = true;
 }
 
@@ -297,7 +348,7 @@ void CLIFrontend::addParameters(Config& config, CLI::Option_group* group){
                 opt->configurable(false);
                 return;
             }
-            if (std::string(param.cliFlag) == "--psf_file_paths" || std::string(param.cliFlag) == "--multiple_psf_config_paths" || std::string(param.cliFlag) == "--psf_config_path"){
+            if (std::string(param.cliFlag) == "--psf_file_paths"){
                 if (!psfPathGroup) {
                     psfPathGroup = group->add_option_group("PSF Path", "PSF file path options");
                 }
@@ -393,4 +444,8 @@ DeconvolutionRequest CLIFrontend::generateDeconvRequest(const ConfigBundle& bund
         request.setInlinePSFConfigs(bundle.psfConfigs);
     }
     return request;
+}
+
+std::shared_ptr<PSFConfig> CLIFrontend::loadPSFConfigFromPath(const std::string& path) {
+    return PSFCreator::generatePSFConfigFromConfigPath(path);
 }

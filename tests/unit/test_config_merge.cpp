@@ -14,7 +14,6 @@
 #include "nlohmann/json.hpp"
 #include <fstream>
 #include <filesystem>
-#include <algorithm>
 
 using json = nlohmann::json;
 
@@ -240,7 +239,6 @@ TEST_F(ConfigMergeTest, PSFHandlerInlineConfigsPreferredOverFilePaths) {
     EXPECT_TRUE(psfHandler.hasInlineConfigs());
 
     SetupConfig setupConfig;
-    setupConfig.multiplePsfConfigPaths = {"/nonexistent/path.json"};
     setupConfig.psfFilePaths = {};
 
     DeconvolutionConfig deconvConfig;
@@ -261,7 +259,6 @@ TEST_F(ConfigMergeTest, PSFHandlerDoubleLoadFix) {
     psfHandler.setInlinePSFConfigs({psfConfig});
 
     SetupConfig setupConfig;
-    setupConfig.multiplePsfConfigPaths = {};
     setupConfig.psfFilePaths = {};
 
     DeconvolutionConfig deconvConfig;
@@ -283,7 +280,6 @@ TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
     PSFHandler psfHandler(threadPool, [](std::atomic<float>&, float){});
 
     SetupConfig setupConfig;
-    setupConfig.multiplePsfConfigPaths = {};
     setupConfig.psfFilePaths = {};
 
     DeconvolutionConfig deconvConfig;
@@ -692,18 +688,17 @@ static PSFConfigBundle mergePSFBundles(const PSFConfigBundle& jsonBundle, const 
 }
 
 static PSFConfigBundle makePSFCLIBundle(const std::string& outputPath, const std::string& backend,
-                                         int nThreads, const std::string& psfConfigPath) {
+                                         int nThreads) {
     PSFConfigBundle cli;
     cli.setupConfig.outputPath = outputPath;
     cli.setupConfig.backend = backend;
     cli.setupConfig.nThreads = nThreads;
-    cli.setupConfig.psfConfigPath = psfConfigPath;
     cli.hasSetup = true;
     return cli;
 }
 
 TEST_F(ConfigMergeTest, PSFSim_BothFromJSON_CLIOverwritten) {
-    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "cli_psf_config.json");
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8);
 
     PSFConfigBundle jsonBundle;
     loadPSFJSONBundle(R"({
@@ -726,7 +721,7 @@ TEST_F(ConfigMergeTest, PSFSim_BothFromJSON_CLIOverwritten) {
 }
 
 TEST_F(ConfigMergeTest, PSFSim_OnlyPSFInJSON_SetupKeepsCLI) {
-    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "cli_psf_config.json");
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8);
 
     PSFConfigBundle jsonBundle;
     loadPSFJSONBundle(json::parse(TestUtils::gaussianPSFConfigJSONWrapper()), jsonBundle);
@@ -742,7 +737,7 @@ TEST_F(ConfigMergeTest, PSFSim_OnlyPSFInJSON_SetupKeepsCLI) {
 }
 
 TEST_F(ConfigMergeTest, PSFSim_SetupAndPSFInJSON_CLIOverwritten) {
-    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "cli_psf_config.json");
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8);
 
     PSFConfigBundle jsonBundle;
     loadPSFJSONBundle(R"({
@@ -782,19 +777,18 @@ TEST_F(ConfigMergeTest, PSFSim_SetupAndPSFInJSON_CLIOverwritten) {
 }
 
 TEST_F(ConfigMergeTest, PSFSim_NoJSON_AllFromCLI) {
-    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "cli_psf_config.json");
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8);
 
     PSFConfigBundle merged = mergePSFBundles(PSFConfigBundle{}, cli);
 
     EXPECT_EQ(merged.setupConfig.outputPath, "cli_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cuda");
     EXPECT_EQ(merged.setupConfig.nThreads, 8);
-    EXPECT_EQ(merged.setupConfig.psfConfigPath, "cli_psf_config.json");
     EXPECT_FALSE(merged.hasPSF);
 }
 
 TEST_F(ConfigMergeTest, PSFSim_RootLevelTreatedAsSetup) {
-    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "");
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8);
 
     PSFConfigBundle jsonBundle;
     loadPSFJSONBundle(R"({
@@ -811,18 +805,17 @@ TEST_F(ConfigMergeTest, PSFSim_RootLevelTreatedAsSetup) {
     EXPECT_FALSE(merged.hasPSF);
 }
 
-TEST_F(ConfigMergeTest, PSFSim_NoJSON_NoPSF_NoPsfConfigPath) {
+TEST_F(ConfigMergeTest, PSFSim_NoJSON_NoPSF) {
     PSFConfigBundle cli;
     cli.hasSetup = true;
 
     PSFConfigBundle merged = mergePSFBundles(PSFConfigBundle{}, cli);
 
-    EXPECT_TRUE(merged.setupConfig.psfConfigPath.empty());
     EXPECT_FALSE(merged.hasPSF);
 }
 
 TEST_F(ConfigMergeTest, PSFSim_RootLevelWithPSFConfigs) {
-    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8, "");
+    PSFConfigBundle cli = makePSFCLIBundle("cli_output.tif", "cuda", 8);
 
     PSFConfigBundle jsonBundle;
     loadPSFJSONBundle(R"({
@@ -839,19 +832,4 @@ TEST_F(ConfigMergeTest, PSFSim_RootLevelWithPSFConfigs) {
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
     ASSERT_EQ(merged.psfConfigs.size(), 1);
     EXPECT_EQ(merged.psfConfigs[0]->ID, "root_psf");
-}
-
-TEST_F(ConfigMergeTest, PSFSim_psfConfigPathNotRequired) {
-    SetupConfigPSF config;
-    std::vector<std::string> missingParams;
-    config.visitParams([&missingParams]<typename T>(T& value, ConfigParameter& param) {
-        if (!param.cliRequired) return;
-        if constexpr (std::is_same_v<T, std::string>) {
-            if (value.empty()) {
-                missingParams.push_back(std::string(param.name));
-            }
-        }
-    });
-
-    EXPECT_EQ(std::find(missingParams.begin(), missingParams.end(), "PSF Config Path"), missingParams.end());
 }

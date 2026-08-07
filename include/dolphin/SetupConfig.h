@@ -33,7 +33,6 @@ public:
 
     static SetupConfigPSF createFromJSONFile(const std::string& path);
 
-    std::string psfConfigPath;
     std::string outputPath;
     std::string backend = "cpu";
 
@@ -79,7 +78,6 @@ public:
     std::string labelPSFMap;
     std::string imagePath;
     std::vector<std::string> psfFilePaths;
-    std::vector<std::string> multiplePsfConfigPaths;
     bool savePsf = false;
 private:
     virtual void registerAllParameters() override;

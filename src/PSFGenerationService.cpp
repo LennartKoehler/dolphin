@@ -85,13 +85,10 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         if (request.hasInlinePSFConfigs()) {
             logger_->info("Generating PSF from inline PSF config");
             psf = createPSFFromConfigInternal(request.getInlinePSFConfigs()[0], request.getProgressCallback(), localThreadPool);
-        } else if (!request.getConfig()->psfConfigPath.empty()) {
-            logger_->info("Generating PSF from config file path: " + request.getConfig()->psfConfigPath);
-            psf = createPSFFromFilePathInternal(request.getConfig()->psfConfigPath, request.getProgressCallback(), localThreadPool);
         }
 
         if (!psf) {
-            return createResult(false, "Failed to create PSF",
+            return createResult(false, "Failed to create PSF — no inline PSF configs provided",
                               std::chrono::duration<double>::zero());
         }
         std::string output_file;
