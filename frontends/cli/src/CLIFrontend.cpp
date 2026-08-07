@@ -251,6 +251,10 @@ ConfigBundle CLIFrontend::mergeBundles(const ConfigBundle& jsonBundle, const Con
         }
         merged.hasPSF = true;
     }
+    else{
+        if (merged.setupConfig.psfFilePaths.empty()){
+            throw std::runtime_error("PSF has to be provided either as json config or as a tiff file");
+        }
 
     return merged;
 }
