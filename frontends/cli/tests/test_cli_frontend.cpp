@@ -272,6 +272,7 @@ TEST_F(CLIFrontendTest, HandleDeconvolution_WithRequiredPasses) {
     ConfigBundle bundle;
     bundle.setupConfig.imagePath = "test_image.tif";
     bundle.setupConfig.outputPath = "test_output.tif";
+    bundle.setupConfig.psfFilePaths = {"test_psf.tif"};
     bundle.hasSetup = true;
     bundle.hasDeconv = true;
 
@@ -304,14 +305,16 @@ TEST_F(CLIFrontendTest, LoadJSONBundle_SubObjectFormat) {
     EXPECT_EQ(jsonBundle.psfConfigs[0]->ID, "inline_gauss");
 }
 
-TEST_F(CLIFrontendTest, LoadJSONBundle_RootLevelFallback) {
+TEST_F(CLIFrontendTest, LoadJSONBundle_SetupInDeconvSubObject) {
     auto fe = makeFrontend();
 
     auto jsonStr = R"({
-        "image_path": "root_image.tif",
-        "backend": "cpu",
-        "n_io_threads": 8,
-        "output": "root_output.tif",
+        "setup_config": {
+            "image_path": "root_image.tif",
+            "backend": "cpu",
+            "n_io_threads": 8,
+            "output": "root_output.tif"
+        },
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 25
@@ -637,13 +640,15 @@ TEST_F(CLIFrontendTest, LoadPSFJSONBundle_SubObjectFormat) {
     EXPECT_EQ(bundle.psfConfigs[0]->ID, "inline_gauss");
 }
 
-TEST_F(CLIFrontendTest, LoadPSFJSONBundle_RootLevelFallback) {
+TEST_F(CLIFrontendTest, LoadPSFJSONBundle_RootLevelSetup) {
     auto fe = makeFrontend();
 
     auto jsonStr = R"({
-        "output": "root_output.tif",
-        "backend": "cpu",
-        "n_threads": 6,
+        "setup_config": {
+            "output": "root_output.tif",
+            "backend": "cpu",
+            "n_threads": 6
+        },
         "psf_configs": [
             {"model_name": "Gaussian", "id": "root_psf", "size_x": 16, "size_y": 16, "size_z": 8}
         ]
