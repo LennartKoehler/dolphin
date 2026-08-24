@@ -21,7 +21,7 @@ cmake ..
 make
 ```
 
-This will create the `dolphin_cli` executable.
+This will create the `dolphin` executable.
 
 ## Building the GUI Frontend
 
@@ -36,7 +36,7 @@ This will create the `dolphin_gui` executable.
 
 ## Running
 
-- **CLI**: `./dolphin_cli --help`
+- **CLI**: `./dolphin --help`
 - **GUI**: `./dolphin_gui`
 
 ## Architecture
