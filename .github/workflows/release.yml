@@ -58,10 +58,10 @@ jobs:
       - name: Extract CLI binary
         run: |
           docker create --name temp dolphin-release:latest
-          docker cp temp:/workspace/build/frontends/cli/dolphin_cli ./dolphin_cli
+          docker cp temp:/workspace/build/frontends/cli/dolphin ./dolphin
           docker rm temp
-          chmod +x ./dolphin_cli
-          tar czf ${{ env.ARTIFACT_NAME }}.tar.gz dolphin_cli
+          chmod +x ./dolphin
+          tar czf ${{ env.ARTIFACT_NAME }}.tar.gz dolphin
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -87,9 +87,9 @@ jobs:
       - name: Smoke test
         run: |
           tar xzf ${{ env.ARTIFACT_NAME }}.tar.gz
-          chmod +x ./dolphin_cli
-          output=$(./dolphin_cli --help 2>&1) || {
-            echo "::error::dolphin_cli exited with code $?"
+          chmod +x ./dolphin
+          output=$(./dolphin --help 2>&1) || {
+            echo "::error::dolphin exited with code $?"
             echo "$output"
             exit 1
           }
@@ -152,10 +152,10 @@ jobs:
       - name: Extract CLI binary
         run: |
           docker create --name temp dolphin-release-cuda:latest
-          docker cp temp:/workspace/build/frontends/cli/dolphin_cli ./dolphin_cli
+          docker cp temp:/workspace/build/frontends/cli/dolphin ./dolphin
           docker rm temp
-          chmod +x ./dolphin_cli
-          tar czf ${{ env.ARTIFACT_NAME }}.tar.gz dolphin_cli
+          chmod +x ./dolphin
+          tar czf ${{ env.ARTIFACT_NAME }}.tar.gz dolphin
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -181,9 +181,9 @@ jobs:
       - name: Smoke test
         run: |
           tar xzf ${{ env.ARTIFACT_NAME }}.tar.gz
-          chmod +x ./dolphin_cli
-          output=$(./dolphin_cli --help 2>&1) || {
-            echo "::error::dolphin_cli exited with code $?"
+          chmod +x ./dolphin
+          output=$(./dolphin --help 2>&1) || {
+            echo "::error::dolphin exited with code $?"
             echo "$output"
             exit 1
           }
@@ -298,11 +298,11 @@ jobs:
       - name: Package
         run: |
           mkdir -p dolphin-macos
-          cp build/frontends/cli/dolphin_cli dolphin-macos/
-          chmod +x dolphin-macos/dolphin_cli
+          cp build/frontends/cli/dolphin dolphin-macos/
+          chmod +x dolphin-macos/dolphin
           # Bundle all dynamic dependencies and rewrite install names
           dylibbundler -b \
-            -x dolphin-macos/dolphin_cli \
+            -x dolphin-macos/dolphin \
             -d dolphin-macos/libs \
             -cd \
             -p @executable_path/libs
@@ -334,9 +334,9 @@ jobs:
       - name: Smoke test
         run: |
           tar xzf ${{ env.ARTIFACT_NAME }}.tar.gz
-          chmod +x ./dolphin-macos/dolphin_cli
-          output=$(./dolphin-macos/dolphin_cli --help 2>&1) || {
-            echo "::error::dolphin_cli exited with code $?"
+          chmod +x ./dolphin-macos/dolphin
+          output=$(./dolphin-macos/dolphin --help 2>&1) || {
+            echo "::error::dolphin exited with code $?"
             echo "$output"
             exit 1
           }
@@ -443,7 +443,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dolphin-windows | Out-Null
-          Copy-Item build/frontends/cli/dolphin_cli.exe dolphin-windows/
+          Copy-Item build/frontends/cli/dolphin.exe dolphin-windows/
           $vcpkgBin = "build/vcpkg_installed/x64-windows/bin"
           if (Test-Path $vcpkgBin) {
             Copy-Item "$vcpkgBin\*.dll" dolphin-windows/
@@ -480,9 +480,9 @@ jobs:
         shell: pwsh
         run: |
           7z --% x $env:ARTIFACT_NAME.zip -o./test
-          $exe = "./test/dolphin-windows/dolphin_cli.exe"
+          $exe = "./test/dolphin-windows/dolphin.exe"
           if (-not (Test-Path $exe)) {
-            Write-Host "dolphin_cli.exe not found. Contents of ./test/dolphin-windows/:"
+            Write-Host "dolphin.exe not found. Contents of ./test/dolphin-windows/:"
             Get-ChildItem ./test/dolphin-windows/ -ErrorAction SilentlyContinue | Format-Table Name, Length
             exit 1
           }
@@ -494,7 +494,7 @@ jobs:
           Write-Host $output
           Write-Host "--- End output ---"
           if ($null -eq $code -or $code -ne 0) {
-            Write-Error "dolphin_cli.exe exited with code $code"
+            Write-Error "dolphin.exe exited with code $code"
             exit 1
           }
           if ($output -notmatch "psfgenerator|deconvolution") {
@@ -603,7 +603,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dolphin-windows-cuda | Out-Null
-          Copy-Item build/frontends/cli/dolphin_cli.exe dolphin-windows-cuda/
+          Copy-Item build/frontends/cli/dolphin.exe dolphin-windows-cuda/
           $vcpkgBin = "build/vcpkg_installed/x64-windows/bin"
           if (Test-Path $vcpkgBin) {
             Copy-Item "$vcpkgBin\*.dll" dolphin-windows-cuda/
@@ -649,9 +649,9 @@ jobs:
         shell: pwsh
         run: |
           7z --% x $env:ARTIFACT_NAME.zip -o./test
-          $exe = "./test/dolphin-windows-cuda/dolphin_cli.exe"
+          $exe = "./test/dolphin-windows-cuda/dolphin.exe"
           if (-not (Test-Path $exe)) {
-            Write-Host "dolphin_cli.exe not found. Contents of ./test/dolphin-windows-cuda/:"
+            Write-Host "dolphin.exe not found. Contents of ./test/dolphin-windows-cuda/:"
             Get-ChildItem ./test/dolphin-windows-cuda/ -ErrorAction SilentlyContinue | Format-Table Name, Length
             exit 1
           }
@@ -663,7 +663,7 @@ jobs:
           Write-Host $output
           Write-Host "--- End output ---"
           if ($null -eq $code -or $code -ne 0) {
-            Write-Error "dolphin_cli.exe exited with code $code"
+            Write-Error "dolphin.exe exited with code $code"
             exit 1
           }
           if ($output -notmatch "psfgenerator|deconvolution") {
