@@ -47,6 +47,14 @@ struct ConfigMap {
         return print().second;
     }
 
+    std::vector<std::string> getStrings() const {
+        std::vector<std::string> stringsVector;
+        for (auto const &[strings, ints] : map) {
+            stringsVector.push_back(std::string(strings));
+        }
+        return stringsVector;
+    }
+
     std::string printInts() const {
         return print().first;
     }
@@ -128,6 +136,8 @@ public:
 
     bool logUnvalidParameters(const json& jsonData) const ;
 
+    static json loadJSONFile(const std::string& filePath);
+
 
     template<typename Visitor>
     void visitParams(Visitor&& visitor){
@@ -143,9 +153,6 @@ public:
 
 protected:
 
-
-
-    static json loadJSONFile(const std::string& filePath);
 
 
     template<typename Visitor>

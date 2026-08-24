@@ -67,14 +67,14 @@ TEST(BoxCoordTest, CropToNoOverlap) {
     EXPECT_EQ(box.dimensions.width, 0);
 }
 
-TEST(PaddingTest, TotalPadding) {
+TEST(BoxCoordPaddingTest, TotalPadding) {
     Padding p;
     p.before = CuboidShape(1, 2, 3);
     p.after = CuboidShape(4, 5, 6);
     EXPECT_EQ(p.getTotalPadding(), CuboidShape(5, 7, 9));
 }
 
-TEST(PaddingTest, WidthTotal) {
+TEST(BoxCoordPaddingTest, WidthTotal) {
     Padding p;
     p.before = CuboidShape(2, 0, 0);
     p.after = CuboidShape(3, 0, 0);

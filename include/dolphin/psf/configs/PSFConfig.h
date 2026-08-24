@@ -55,6 +55,7 @@ public:
         return CuboidShape{sizeX, sizeY, sizeZ};
     }
 
+    static std::shared_ptr<PSFConfig> createFromJSONFile(const std::string& filePath);
     static std::shared_ptr<PSFConfig> createFromJSON(const json& jsonData);
 
     bool compareDim(const PSFConfig &other);

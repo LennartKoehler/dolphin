@@ -89,20 +89,39 @@ inline bool hasInf(const Image3D& img) {
     return false;
 }
 
-inline std::string gaussianPSFConfigJSON() {
-    return R"({
-        "model_name": "Gaussian",
-        "id": "test_gaussian",
-        "res_lateral_nm": 5000,
-        "res_axial_nm": 5000,
-        "size_x": 32,
-        "size_y": 32,
-        "size_z": 16,
-        "sigma_x": 5,
-        "sigma_y": 5,
-        "sigma_z": 5
-    })";
-}
+    inline std::string gaussianPSFConfigJSON() {
+        return R"({
+            "model_name": "Gaussian",
+            "id": "test_gaussian",
+            "res_lateral_nm": 5000,
+            "res_axial_nm": 5000,
+            "size_x": 32,
+            "size_y": 32,
+            "size_z": 16,
+            "sigma_x": 5,
+            "sigma_y": 5,
+            "sigma_z": 5
+        })";
+    }
+
+    inline std::string gaussianPSFConfigJSONWrapper() {
+        return R"({
+            "psf_configs": [
+                {
+                    "model_name": "Gaussian",
+                    "id": "inline_gauss",
+                    "res_lateral_nm": 5000,
+                    "res_axial_nm": 5000,
+                    "size_x": 32,
+                    "size_y": 32,
+                    "size_z": 16,
+                    "sigma_x": 5,
+                    "sigma_y": 5,
+                    "sigma_z": 5
+                }
+            ]
+        })";
+    }
 
 inline std::string gibsonLanniPSFConfigJSON() {
     return R"({
@@ -142,8 +161,8 @@ inline std::string defaultDeconvConfigJSON() {
     })";
 }
 
-inline std::string defaultSetupConfigJSON() {
-    return R"({
+    inline std::string defaultSetupConfigJSON() {
+        return R"({
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 5,
@@ -151,7 +170,6 @@ inline std::string defaultSetupConfigJSON() {
             "lambda": 0.001,
             "padding_fill": "mirror"
         },
-        "multiple_psf_config_paths": [],
         "psf_file_paths": [],
         "save_psf": false,
         "output": "test_output.tif",
@@ -162,6 +180,212 @@ inline std::string defaultSetupConfigJSON() {
         "max_mem_gb": 1,
         "image_path": "test_input.tif"
     })";
+    }
+
+    inline std::string subObjectSetupConfigJSON() {
+        return R"({
+        "setup_config": {
+            "psf_file_paths": [],
+            "save_psf": false,
+            "output": "sub_output.tif",
+            "backend": "cuda",
+            "n_io_threads": 3,
+            "n_worker_threads": 7,
+            "n_devices": 2,
+            "max_mem_gb": 16,
+            "image_path": "sub_input.tif"
+        }
+    })";
+    }
+
+    inline std::string combinedSubObjectJSON() {
+        return R"({
+        "setup_config": {
+            "psf_file_paths": [],
+            "save_psf": true,
+            "output": "combined_output.tif",
+            "backend": "cpu",
+            "n_io_threads": 2,
+            "n_worker_threads": 4,
+            "n_devices": 1,
+            "max_mem_gb": 8,
+            "image_path": "combined_input.tif"
+        },
+        "deconvolution_config": {
+            "algorithm_name": "RichardsonLucy",
+            "iterations": 20,
+            "epsilon": 1e-5,
+            "lambda": 0.02,
+            "padding_fill": "mirror",
+            "padding_strategy": "parent"
+        }
+    })";
+    }
+
+inline std::string combinedWithInlinePSFJSON() {
+    return R"({
+        "setup_config": {
+            "psf_file_paths": [],
+            "save_psf": false,
+            "output": "inline_output.tif",
+            "backend": "cpu",
+            "n_io_threads": 1,
+            "n_worker_threads": 1,
+            "n_devices": 1,
+            "max_mem_gb": 1,
+            "image_path": "inline_input.tif"
+        },
+        "deconvolution_config": {
+            "algorithm_name": "RichardsonLucy",
+            "iterations": 10,
+            "epsilon": 1e-6,
+            "lambda": 0.001,
+            "padding_fill": "mirror",
+            "padding_strategy": "parent"
+        },
+        "psf_configs": [
+            {
+                "model_name": "Gaussian",
+                "id": "inline_gauss",
+                "res_lateral_nm": 5000,
+                "res_axial_nm": 5000,
+                "size_x": 32,
+                "size_y": 32,
+                "size_z": 16,
+                "sigma_x": 5,
+                "sigma_y": 5,
+                "sigma_z": 5
+            }
+        ]
+    })";
 }
+
+    inline std::string multiInlinePSFJSON() {
+        return R"({
+        "psf_configs": [
+            {
+                "model_name": "Gaussian",
+                "id": "psf1",
+                "res_lateral_nm": 5000,
+                "res_axial_nm": 5000,
+                "size_x": 32,
+                "size_y": 32,
+                "size_z": 16,
+                "sigma_x": 5,
+                "sigma_y": 5,
+                "sigma_z": 5
+            },
+            {
+                "model_name": "GibsonLanni",
+                "id": "psf2",
+                "res_lateral_nm": 2500,
+                "res_axial_nm": 2500,
+                "size_x": 64,
+                "size_y": 64,
+                "size_z": 32,
+                "NA": 1.4,
+                "lambda_nm": 450.0,
+                "accuracy": 32,
+                "working_distance_design_nm": 150000.0,
+                "working_distance_experimental_nm": 150000.0,
+                "immersion_ri_design": 1.515,
+                "immersion_ri_experimental": 1.515,
+                "coverslip_thickness_design_nm": 170.0,
+                "coverslip_thickness_experimental_nm": 170.0,
+                "coverslip_ri_design": 1.5,
+                "coverslip_ri_experimental": 1.5,
+                "sample_ri": 1.33,
+                "particle_axial_position_nm": 0.0,
+                "pixel_size_axial_nm": 100.0,
+                "pixel_size_lateral_nm": 100.0
+            }
+        ]
+    })";
+    }
+
+    inline std::string standaloneSetupConfigJSON() {
+        return R"({
+            "psf_file_paths": [],
+            "save_psf": false,
+            "output": "standalone_output.tif",
+            "backend": "cuda",
+            "n_io_threads": 2,
+            "n_worker_threads": 4,
+            "n_devices": 1,
+            "max_mem_gb": 4,
+            "image_path": "standalone_input.tif"
+        })";
+    }
+
+    inline std::string standaloneDeconvConfigJSON() {
+        return R"({
+            "algorithm_name": "RegularizedInverseFilter",
+            "iterations": 30,
+            "epsilon": 1e-8,
+            "lambda": 0.01,
+            "padding_fill": "mirror",
+            "padding_strategy": "parent"
+        })";
+    }
+
+    inline std::string standaloneSinglePSFConfigJSON() {
+        return R"({
+            "model_name": "Gaussian",
+            "id": "standalone_gauss",
+            "res_lateral_nm": 5000,
+            "res_axial_nm": 5000,
+            "size_x": 16,
+            "size_y": 16,
+            "size_z": 8,
+            "sigma_x": 3,
+            "sigma_y": 3,
+            "sigma_z": 3
+        })";
+    }
+
+    inline std::string standaloneArrayPSFConfigJSON() {
+        return R"({
+            "psf_configs": [
+                {
+                    "model_name": "Gaussian",
+                    "id": "standalone_gauss",
+                    "res_lateral_nm": 5000,
+                    "res_axial_nm": 5000,
+                    "size_x": 16,
+                    "size_y": 16,
+                    "size_z": 8,
+                    "sigma_x": 3,
+                    "sigma_y": 3,
+                    "sigma_z": 3
+                }
+            ]
+        })";
+    }
+
+    inline std::string setupConfigSubObjectJSON() {
+        return R"({
+            "setup_config": {
+                "output": "wrapped_output.tif",
+                "backend": "cpu",
+                "n_io_threads": 1,
+                "n_worker_threads": 1,
+                "n_devices": 1,
+                "image_path": "wrapped_input.tif"
+            }
+        })";
+    }
+
+    inline std::string deconvConfigSubObjectJSON() {
+        return R"({
+            "deconvolution_config": {
+                "algorithm_name": "Convolution",
+                "iterations": 1,
+                "epsilon": 1e-6,
+                "lambda": 0.001,
+                "padding_fill": "mirror",
+                "padding_strategy": "parent"
+            }
+        })";
+    }
 
 }

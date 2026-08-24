@@ -17,6 +17,12 @@ See the LICENSE file provided with the code for the full license.
 #include <array>
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 
+enum OutputCompressionType {
+    OUTPUT_COMPRESSION_NONE = 1,
+    OUTPUT_COMPRESSION_LZW = 5,
+    OUTPUT_COMPRESSION_DEFLATE = 8,
+};
+
 class SetupConfigPSF : public Config{
 public:
     SetupConfigPSF();
@@ -27,7 +33,6 @@ public:
 
     static SetupConfigPSF createFromJSONFile(const std::string& path);
 
-    std::string psfConfigPath;
     std::string outputPath;
     std::string backend = "cpu";
 
@@ -40,7 +45,7 @@ public:
 
     int numReaderThreads = 0;
 
-    std::string outputCompression = "none";
+    OutputCompressionType outputCompression = OUTPUT_COMPRESSION_NONE;
     int outputCompressionLevel = -1;
 
     int tileWidth = 0;
@@ -73,7 +78,6 @@ public:
     std::string labelPSFMap;
     std::string imagePath;
     std::vector<std::string> psfFilePaths;
-    std::vector<std::string> multiplePsfConfigPaths;
     bool savePsf = false;
 private:
     virtual void registerAllParameters() override;

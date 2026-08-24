@@ -15,9 +15,14 @@ See the LICENSE file provided with the code for the full license.
 #include <sys/stat.h>
 #include <iostream>
 #include <fstream>
-#include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/PSFGeneratorFactory.h"
 #include "dolphin/backend/BackendFactory.h"
+
+ConfigMap outputCompressionTypeMap{{
+    {"none", OUTPUT_COMPRESSION_NONE},
+    {"lzw", OUTPUT_COMPRESSION_LZW},
+    {"deflate", OUTPUT_COMPRESSION_DEFLATE},
+}};
 
 SetupConfigPSF::SetupConfigPSF() {
     registerAllParameters();
@@ -27,10 +32,15 @@ SetupConfigPSF::SetupConfigPSF() {
 SetupConfigPSF SetupConfigPSF::createFromJSONFile(const std::string& filePath) {
     json jsonData = loadJSONFile(filePath);
 
-    jsonData.erase("deconvolution_config"); // it can be part of one json file but should not be read as such
     SetupConfigPSF config;
-    if (!config.loadFromJSON(jsonData)) {
-        throw std::runtime_error("Failed to parse config file: " + filePath);
+    if (jsonData.contains("setup_config")) {
+        if (!config.loadFromJSON(jsonData["setup_config"])) {
+            throw std::runtime_error("Failed to parse config file: " + filePath);
+        }
+    } else {
+        if (!config.loadFromJSON(jsonData)) {
+            throw std::runtime_error("Failed to parse config file: " + filePath);
+        }
     }
 
     return config;
@@ -40,7 +50,6 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
     : Config()  // Base class must be default-constructed (parameters must not be copied)
 {
     // Copy all values first, then register parameters (which point to our own members)
-    psfConfigPath = other.psfConfigPath;
     backend = other.backend;
     nThreads = other.nThreads;
     nWorkerThreads = other.nWorkerThreads;
@@ -60,7 +69,6 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
 
 SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
     if (this != &other) {
-        psfConfigPath = other.psfConfigPath;
         backend = other.backend;
         nThreads = other.nThreads;
         nWorkerThreads = other.nWorkerThreads;
@@ -87,8 +95,6 @@ SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
 void SetupConfigPSF::registerAllParameters(){
 
     parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::FilePath, &psfConfigPath, "PSF Config Path", false, "psf_config_path", "-i,--psf_config_path", "PSF config path", true, false, 0.0, 0.0, nullptr});
-    // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
     parameters.push_back({ParameterType::FilePath, &backend, "Backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Int, &nThreads, "Number of Threads", true, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
@@ -110,10 +116,15 @@ SetupConfig::SetupConfig() {
 SetupConfig SetupConfig::createFromJSONFile(const std::string& filePath) {
     json jsonData = loadJSONFile(filePath);
 
-    jsonData.erase("deconvolution_config"); // it can be part of one json file but should not be read as such
     SetupConfig config;
-    if (!config.loadFromJSON(jsonData)) {
-        throw std::runtime_error("Failed to parse config file: " + filePath);
+    if (jsonData.contains("setup_config")) {
+        if (!config.loadFromJSON(jsonData["setup_config"])) {
+            throw std::runtime_error("Failed to parse config file: " + filePath);
+        }
+    } else {
+        if (!config.loadFromJSON(jsonData)) {
+            throw std::runtime_error("Failed to parse config file: " + filePath);
+        }
     }
 
     return config;
@@ -127,7 +138,6 @@ SetupConfig::SetupConfig(const SetupConfig& other)
     psfFilePaths = other.psfFilePaths;
     labeledImage = other.labeledImage;
     labelPSFMap = other.labelPSFMap;
-    multiplePsfConfigPaths = other.multiplePsfConfigPaths;
     savePsf = other.savePsf;
 
     registerAllParameters();  // clears and re-registers with pointers to our own members
@@ -144,7 +154,6 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         psfFilePaths = other.psfFilePaths;
         labeledImage = other.labeledImage;
         labelPSFMap = other.labelPSFMap;
-        multiplePsfConfigPaths = other.multiplePsfConfigPaths;
         savePsf = other.savePsf;
 
         parameters.clear();
@@ -174,18 +183,16 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
-    parameters.push_back({ParameterType::Int, &numReaderThreads, "Number of Reader Threads", true, "n_reader_threads", "--n_reader_threads", "Number of TIFF reader threads (0=auto)", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::String, &outputCompression, "Output Compression", true, "output_compression", "--output_compression", "TIFF compression scheme (none, lzw, deflate)", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Int, &outputCompressionLevel, "Output Compression Level", true, "output_compression_level", "--output_compression_level", "Compression level (-1=default, 1-9 for deflate)", false, true, -1.0, 9.0, nullptr});
-    parameters.push_back({ParameterType::Int, &tileWidth, "Tile Width", true, "tile_width", "--tile_width", "TIFF tile width (0=strips)", false, true, 0.0, 4096.0, nullptr});
-    parameters.push_back({ParameterType::Int, &tileLength, "Tile Length", true, "tile_length", "--tile_length", "TIFF tile length (0=strips)", false, true, 0.0, 4096.0, nullptr});
+    parameters.push_back({ParameterType::Int, &numReaderThreads, "Number of Reader Threads", true, "n_reader_threads", "--n_reader_threads", "Number of TIFF reader threads", false, true, 0.0, 100.0, nullptr});
+    const void* outputCompressionMap_p = static_cast<const void*>(&outputCompressionTypeMap);
+    parameters.push_back({ParameterType::Map, &outputCompression, "Output Compression", true, "output_compression", "--output_compression", "TIFF compression scheme", false, false, 0.0, 0.0, outputCompressionMap_p});
+    parameters.push_back({ParameterType::Int, &outputCompressionLevel, "Output Compression Level", true, "output_compression_level", "--output_compression_level", "Compression level", false, true, -1.0, 9.0, nullptr});
+    parameters.push_back({ParameterType::Int, &tileWidth, "Tile Width", true, "tile_width", "--tile_width", "TIFF tile width", false, true, 0.0, 4096.0, nullptr});
+    parameters.push_back({ParameterType::Int, &tileLength, "Tile Length", true, "tile_length", "--tile_length", "TIFF tile length", false, true, 0.0, 4096.0, nullptr});
     parameters.push_back({ParameterType::Bool, &savePsf, "Save PSF", true, "save_psf", "--save_psf", "Save used PSF", false, false, 0.0, 0.0, nullptr});
 
 
     parameters.push_back({ParameterType::VectorString, &psfFilePaths, "PSF File Paths", true, "psf_file_paths", "--psf_file_paths", "PSF file paths", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::VectorString, &multiplePsfConfigPaths, "Multiple PSF Config Paths", true, "multiple_psf_config_paths", "--multiple_psf_config_paths", "PSF config paths", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::FilePath, &psfConfigPath, "PSF Config Path", true, "psf_config_path", "--psf_config_path", "PSF config path", false, false, 0.0, 0.0, nullptr});
-    // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
 
     parameters.push_back({ParameterType::FilePath, &labeledImage, "Labeled Image", true, "labeled_image", "--labeled_image", "Labeled image path", false, false, 0.0, 0.0, nullptr});

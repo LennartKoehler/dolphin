@@ -3,6 +3,7 @@
 #include "dolphin/SetupConfig.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/Logging.h"
+#include "dolphin/psf/PSFGeneratorFactory.h"
 #include "dolphin_image/Image3D.h"
 #include "dolphin_image/IO/TiffWriter.h"
 #include "TestUtils.h"
@@ -34,16 +35,14 @@ TEST_F(MainIntegrationTest, DolphinGeneratePSF) {
     setupConfig.nWorkerThreads = 1;
     setupConfig.nDevices = 1;
     setupConfig.maxMemDevice_gb = 1;
-    setupConfig.psfConfigPath = TestUtils::outputPath() + "/gaussian_psf.json";
-
-    std::ofstream file(setupConfig.psfConfigPath);
-    file << TestUtils::gaussianPSFConfigJSON();
-    file.close();
-
     setupConfig.outputPath = testDir + "/generated_psf.tif";
+
+    PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
+    auto psfConfig = factory.createConfig(json::parse(TestUtils::gaussianPSFConfigJSON()));
 
     PSFGenerationRequest request;
     request.setConfig(std::make_shared<SetupConfigPSF>(setupConfig));
+    request.setInlinePSFConfigs({psfConfig});
 
     auto result = dolphin.generatePSF(request);
     ASSERT_NE(result, nullptr);
