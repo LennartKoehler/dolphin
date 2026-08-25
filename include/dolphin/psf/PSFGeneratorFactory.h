@@ -88,10 +88,22 @@ public:
 
     std::shared_ptr<PSFConfig> createConfig(const json& configJson) {
         std::string psfModel;
-        try{
-            psfModel = configJson.at("model_name").get<std::string>(); // TODO make nicer
+        if (!configJson.is_object()) {
+            throw std::runtime_error(
+                "PSF config must be a JSON object with 'model_name'. "
+                "Found type: " + std::string(configJson.type_name()) + " (value: " + configJson.dump() + ")"
+            );
         }
-        catch (...) {throw std::runtime_error("model_name tag missing");}
+        try{
+            psfModel = configJson.at("model_name").get<std::string>();
+        }
+        catch (...) {
+            throw std::runtime_error(
+                "'model_name' field missing from PSF config. "
+                "Expected a JSON object containing 'model_name' (e.g. \"Gaussian\" or \"GibsonLanni\"). "
+                "Config was: " + configJson.dump()
+            );
+        }
 
 
         auto it = configs_.find(psfModel);

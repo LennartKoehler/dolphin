@@ -436,14 +436,38 @@ void CLIFrontend::loadDeconvConfigFromJSON(const json& jsonData, DeconvolutionCo
 
 std::vector<std::shared_ptr<PSFConfig>> CLIFrontend::loadPSFConfigsFromJSON(const json& jsonData) {
     std::vector<std::shared_ptr<PSFConfig>> configs;
+    PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
 
     if (jsonData.contains("psf_configs")) {
-        PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
-        for (const auto& psfJson : jsonData["psf_configs"]) {
-            configs.push_back(factory.createConfig(psfJson));
+        const auto& psfField = jsonData["psf_configs"];
+        if (psfField.is_array()) {
+            for (const auto& psfJson : psfField) {
+                if (!psfJson.is_object()) {
+                    throw std::runtime_error(
+                        "Each entry in 'psf_configs' array must be a JSON object with 'model_name'. "
+                        "Found: " + psfJson.dump() + " (type: " + std::string(psfField.type_name()) + ")"
+                    );
+                }
+                configs.push_back(factory.createConfig(psfJson));
+            }
+        } else if (psfField.is_object()) {
+            configs.push_back(factory.createConfig(psfField));
+        } else {
+            throw std::runtime_error(
+                "'psf_configs' must be a JSON array of PSF config objects or a single PSF config object. "
+                "Found type: " + std::string(psfField.type_name()) + " (value: " + psfField.dump() + ")"
+            );
         }
+    } else if (jsonData.contains("psf_config")) {
+        const auto& psfField = jsonData["psf_config"];
+        if (!psfField.is_object()) {
+            throw std::runtime_error(
+                "'psf_config' must be a JSON object with 'model_name'. "
+                "Found type: " + std::string(psfField.type_name()) + " (value: " + psfField.dump() + ")"
+            );
+        }
+        configs.push_back(factory.createConfig(psfField));
     } else if (jsonData.contains("model_name")) {
-        PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
         configs.push_back(factory.createConfig(jsonData));
     }
 
@@ -470,7 +494,14 @@ std::vector<std::shared_ptr<PSFConfig>> CLIFrontend::loadPSFConfigsFromFile(cons
     json jsonData = Config::loadJSONFile(path);
     auto configs = loadPSFConfigsFromJSON(jsonData);
     if (configs.empty()) {
-        throw std::runtime_error("PSF config file must contain 'psf_configs' array or a single PSF config with 'model_name': " + path);
+        throw std::runtime_error(
+            "No PSF config found in file: " + path + "\n"
+            "Expected one of:\n"
+            "  - 'psf_configs' as a JSON array of PSF config objects (each with 'model_name')\n"
+            "  - 'psf_configs' as a single PSF config object (with 'model_name')\n"
+            "  - 'psf_config' as a single PSF config object (with 'model_name')\n"
+            "  - A root-level 'model_name' field"
+        );
     }
     return configs;
 }
