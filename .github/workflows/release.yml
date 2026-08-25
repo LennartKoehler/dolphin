@@ -479,7 +479,7 @@ jobs:
       - name: Smoke test
         shell: pwsh
         run: |
-          7z --% x $env:ARTIFACT_NAME.zip -o./test
+          7z x "$env:ARTIFACT_NAME.zip" "-o./test"
           $exe = "./test/dolphin-windows/dolphin.exe"
           if (-not (Test-Path $exe)) {
             Write-Host "dolphin.exe not found. Contents of ./test/dolphin-windows/:"
@@ -648,7 +648,7 @@ jobs:
       - name: Smoke test
         shell: pwsh
         run: |
-          7z --% x $env:ARTIFACT_NAME.zip -o./test
+          7z x "$env:ARTIFACT_NAME.zip" "-o./test"
           $exe = "./test/dolphin-windows-cuda/dolphin.exe"
           if (-not (Test-Path $exe)) {
             Write-Host "dolphin.exe not found. Contents of ./test/dolphin-windows-cuda/:"
