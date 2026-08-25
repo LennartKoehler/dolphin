@@ -453,7 +453,7 @@ jobs:
             throw "VCToolsRedistDir not found: $vcRedist"
           }
           Copy-Item "$vcRedist\*.dll" dolphin-windows/
-          7z a $env:ARTIFACT_NAME.zip dolphin-windows/
+          7z a "$env:ARTIFACT_NAME.zip" dolphin-windows/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -622,7 +622,7 @@ jobs:
           Copy-Item "$cudaBin\cufft64_*.dll" dolphin-windows-cuda/
           Copy-Item "$cudaBin\cublas64_*.dll" dolphin-windows-cuda/
           Copy-Item "$cudaBin\cublasLt64_*.dll" dolphin-windows-cuda/
-          7z a $env:ARTIFACT_NAME.zip dolphin-windows-cuda/
+          7z a "$env:ARTIFACT_NAME.zip" dolphin-windows-cuda/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
