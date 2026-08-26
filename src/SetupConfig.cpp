@@ -13,8 +13,6 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/SetupConfig.h"
 #include <sys/stat.h>
-#include <iostream>
-#include <fstream>
 #include "dolphin/psf/PSFGeneratorFactory.h"
 #include "dolphin/backend/BackendFactory.h"
 

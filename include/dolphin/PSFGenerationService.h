@@ -20,7 +20,6 @@ See the LICENSE file provided with the code for the full license.
 
 class ThreadPool;
 class PSFGeneratorFactory;
-class BasePSFGenerator;
 
 class PSFGenerationService : public IService{
 public:

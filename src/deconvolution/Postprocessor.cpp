@@ -12,8 +12,6 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/deconvolution/Postprocessor.h"
-#include <stdexcept>
-#include <functional>
 #include "dolphin_image/HelperClasses.h"
 #include <itkImage.h>
 #include <itkDanielssonDistanceMapImageFilter.h>

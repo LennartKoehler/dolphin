@@ -12,8 +12,6 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
-#include <fstream>
-#include <iostream>
 
 #include "nlohmann/json.hpp"
 

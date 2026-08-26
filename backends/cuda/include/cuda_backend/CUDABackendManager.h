@@ -23,7 +23,6 @@ See the LICENSE file provided with the code for the full license.
 #include <mutex>
 #include <condition_variable>
 #include <array>
-#include <thread>
 #include <unordered_map>
 #include <cuda_runtime.h>
 #include <atomic>

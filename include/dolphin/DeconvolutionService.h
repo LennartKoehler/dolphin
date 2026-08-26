@@ -15,16 +15,10 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/ProgressTracking.h"
 #include "dolphin/ServiceAbstractions.h"
-#include <algorithm>
 #include <memory>
 
 // Forward declarations
-class ThreadPool;
-class Hyperstack;
-class DeconvolutionConfig;
-class DeconvolutionStrategy;
 class DeconvolutionStrategyPair;
-class DeconvolutionAlgorithmFactory;
 
 
 

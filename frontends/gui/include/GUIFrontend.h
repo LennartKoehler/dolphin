@@ -5,7 +5,6 @@
 
 
 class GLFWwindow;
-class Window;
 class MainWindow;
 
 class GUIFrontend : public IFrontend{

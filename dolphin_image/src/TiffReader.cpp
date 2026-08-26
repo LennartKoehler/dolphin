@@ -16,13 +16,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/Types/BoxCoord.h"
 #include <mutex>
 #include <tiffio.h>
-#include <sstream>
-#include <iostream>
 #include <filesystem>
-#include <fstream>
 #include <cstdarg>
-#include <chrono>
-#include <thread>
 #include <itkImageRegionIterator.h>
 #include <spdlog/spdlog.h>
 

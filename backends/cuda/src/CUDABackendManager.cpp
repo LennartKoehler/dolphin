@@ -12,9 +12,6 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "cuda_backend/CUDABackendManager.h"
-#include <iostream>
-#include <sstream>
-#include <thread>
 #include <stdexcept>
 #include "cuda_backend/CUDABackend.h"
 #include "dolphinbackend/Exceptions.h"

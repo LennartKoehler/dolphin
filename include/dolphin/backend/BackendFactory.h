@@ -15,7 +15,6 @@ See the LICENSE file provided with the code for the full license.
 #include <memory>
 #include <string>
 #include <map>
-#include <functional>
 #include "cpu_backend/CPUBackendManager.h"
 
 #if ENABLE_CUDA

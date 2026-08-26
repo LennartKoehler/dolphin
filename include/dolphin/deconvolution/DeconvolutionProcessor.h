@@ -20,7 +20,6 @@ See the LICENSE file provided with the code for the full license.
 
 struct CuboidShape;
 class IBackend;
-class IBackendMemoryManager;
 class DeconvolutionAlgorithm;
 class PSF;
 class PSFPreprocessor;

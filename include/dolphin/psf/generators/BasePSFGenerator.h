@@ -16,7 +16,6 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/psf/PSF.h"
 #include "dolphin/ProgressTracking.h"
-#include <thread>
 
 class PSFConfig;
 class ThreadPool;

@@ -14,7 +14,6 @@ See the LICENSE file provided with the code for the full license.
 #include "windows/MainWindow.h"
 #include "imgui.h"
 #include <string>
-#include <stdexcept>
 #include "GUIFrontend.h"
 #include "windows/SpecificWindows.h"
 

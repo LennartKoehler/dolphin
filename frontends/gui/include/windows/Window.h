@@ -3,7 +3,6 @@
 #include <string>
 #include <functional>
 #include "DefaultGUIStyleConfig.h"
-class GLFWwindow;
 class GUIFrontend;
 
 class Content{

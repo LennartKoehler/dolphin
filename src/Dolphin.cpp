@@ -13,13 +13,9 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/Dolphin.h"
 #include "dolphin/Logging.h"
-#include <iostream>
-#include <chrono>
-#include <fstream>
 #include <sys/stat.h>
 #include <itkMultiThreaderBase.h>
 
-#include <thread>
 void Dolphin::init(const std::filesystem::path& logDir){
 
     itk::MultiThreaderBase::SetGlobalDefaultNumberOfThreads(1);

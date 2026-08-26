@@ -14,7 +14,6 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include "nlohmann/json.hpp"
-#include <fstream>
 #include <unordered_set>
 #include <vector>
 #include <array>
