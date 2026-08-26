@@ -399,8 +399,6 @@ void FFTWManager::addPlan(fftwf_plan& handle, const FFTWPlanDescription& descrip
 
 FFTWWisdomManager::FFTWWisdomManager(const std::string& wisdomFilename) : wisdomFilename_(wisdomFilename) {}
 
-FFTWWisdomManager::~FFTWWisdomManager() {}
-
 std::string FFTWWisdomManager::getFullPath() const {
     // Expand ~ to user home directory
     std::string path = wisdomFilename_;

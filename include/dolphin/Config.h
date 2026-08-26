@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include <unordered_set>
 #include <vector>
 #include <array>
+#include <stdexcept>
 #include <spdlog/spdlog.h>
 
 using json = nlohmann::json;
@@ -211,8 +212,7 @@ protected:
         for (auto const& [k, v] : map.getMap()) {
             if (v == value) return std::string(k);
         }
-        assert (false && "cant find value");
-        return "";
+        throw std::runtime_error("cant find value");
     }
 
 

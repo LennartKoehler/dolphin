@@ -26,7 +26,7 @@ public:
     // Default wisdom file location: ~/.fftw/wisdom in user home directory
     FFTWWisdomManager() = default;
     FFTWWisdomManager(const std::string& wisdomFilename);
-    ~FFTWWisdomManager();
+    ~FFTWWisdomManager() = default;
 
     bool importWisdom();
     bool exportWisdom();
