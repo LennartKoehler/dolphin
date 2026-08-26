@@ -16,11 +16,8 @@ public:
 
     virtual void init(LogCallback fn) = 0;
 
-    // virtual IComputeBackend& getComputeBackend(const BackendConfig& config) = 0;
-    // virtual IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) = 0;
     virtual IBackend& createBackendForCurrentThread(const BackendConfig& config) = 0;
 
-    // virtual IBackend& clone(IBackend& backend, const BackendConfig& config) = 0;
     virtual IBackend& createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config) = 0;
 
     virtual int getNumberDevices() const = 0;

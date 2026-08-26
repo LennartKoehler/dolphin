@@ -143,7 +143,6 @@ public:
 
     Image3D getSubimage(const BoxCoord& box) const override;
     size_t getRequiredMemory(const CuboidShape& subimageSize) const override;
-    // void prefetch(const std::vector<BoxCoord>& boxes) const override;
     const ImageMetaData& getMetaData() const override;
 
 private:

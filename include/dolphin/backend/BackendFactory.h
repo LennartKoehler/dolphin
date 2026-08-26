@@ -16,7 +16,6 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include <map>
 #include <functional>
-// #include <dlfcn.h>
 #include "cpu_backend/CPUBackendManager.h"
 
 #if ENABLE_CUDA
@@ -135,10 +134,6 @@ private:
     T& getBackend(IBackendManager& manager, const BackendConfig& config) {
         if constexpr (std::is_same_v<T, IBackend>) {
             return manager.createBackendForCurrentThread(config);
-        // } else if constexpr (std::is_same_v<T, IBackendMemoryManager>) {
-        //     return manager.getBackendMemoryManager(config);
-        // } else if constexpr (std::is_same_v<T, IComputeBackend>) {
-        //     return manager.getComputeBackend(config);
         } else {
             static_assert(always_false<T>, "Unsupported interface type");
         }

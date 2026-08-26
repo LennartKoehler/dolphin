@@ -22,20 +22,6 @@ void CPUBackendManager::init(LogCallback fn) {
     fftwManager = std::make_unique<FFTWManager>(std::move(wisdomManager));
 }
 
-// IComputeBackend& CPUBackendManager::getComputeBackend(const BackendConfig& config) {
-//     auto compute = createComputeBackend(configToConfig(config));
-//     std::unique_lock<std::mutex> lock(mutex_);
-//     computeBackends.push_back(std::move(compute));
-//     return *computeBackends.back();
-// }
-
-// IBackendMemoryManager& CPUBackendManager::getBackendMemoryManager(const BackendConfig& config) {
-//     auto manager = createMemoryManager(configToConfig(config));
-//     std::unique_lock<std::mutex> lock(mutex_);
-//     memoryManagers.push_back(std::move(manager));
-//     return *memoryManagers.back();
-// }
-
 std::unique_ptr<CPUComputeBackend> CPUBackendManager::createComputeBackend(CPUBackendConfig config) {
     return std::make_unique<CPUComputeBackend>(config, *fftwManager);
 }
@@ -59,10 +45,6 @@ CPUBackendConfig CPUBackendManager::configToConfig(const BackendConfig& config) 
     CPUBackendConfig cpuconfig{true, config.nThreads};
     return cpuconfig;
 }
-
-// IBackend& CPUBackendManager::clone(IBackend& backend, const BackendConfig& config){
-//     return backend;
-// }
 
 // multiple seperate cpu devices e.g. NUMA not supported
 IBackend& CPUBackendManager::createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config){

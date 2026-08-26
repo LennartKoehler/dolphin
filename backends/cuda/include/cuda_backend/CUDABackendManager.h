@@ -46,8 +46,6 @@ public:
     ~CUDABackendManager() override = default;
     void init(LogCallback fn) override;
 
-    // virtual IComputeBackend& getComputeBackend(const BackendConfig& config) override;
-    // virtual IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;
     IBackend& createBackendForCurrentThread(const BackendConfig& config) override;
 
 

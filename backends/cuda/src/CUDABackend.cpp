@@ -254,58 +254,6 @@ size_t CUDABackendMemoryManager::getAllocatedMemory() const {
 
 // estimation not provided for large sizes (>32bit range)
 float CUDABackendMemoryManager::estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
-    // size_t totalWorkspace = shape.getVolume() * sizeof(real_t) * 2; //*2 for forward and backward
-
-    // ensureDevice();
-    // long long int Nx = static_cast<long long int>(shape.width);
-    // long long int Ny = static_cast<long long int>(shape.height);
-    // long long int Nz = static_cast<long long int>(shape.depth);
-    //
-    // int rank = 3;
-    // long long int n[3] = {Nz, Ny, Nx};
-    //
-    // long long int istride = 1;
-    // long long int ostride = 1;
-    //
-    // long long int inembed_r2c[3] = {Nz, Ny, 2*(Nx/2+1)};
-    // long long int onembed_r2c[3] = {Nz, Ny, Nx/2+1};
-    // long long int idist_r2c = Nz * Ny * 2*(Nx/2+1);
-    // long long int odist_r2c = Nz * Ny * (Nx/2+1);
-    //
-    // size_t r2cWorkSize = 0;
-    // cufftHandle r2cPlan = 0;
-    // cufftResult r2cResult = cufftCreate(&r2cPlan);
-    // if (r2cResult == CUFFT_SUCCESS) {
-    //     r2cResult = cufftGetSizeMany64(r2cPlan, rank, n,
-    //         inembed_r2c, istride, idist_r2c,
-    //         onembed_r2c, ostride, odist_r2c,
-    //         CUFFT_R2C, 1, &r2cWorkSize);
-    //     cufftDestroy(r2cPlan);
-    // }
-    //
-    // long long int inembed_c2r[3] = {Nz, Ny, Nx/2+1};
-    // long long int onembed_c2r[3] = {Nz, Ny, 2*(Nx/2+1)};
-    // long long int idist_c2r = Nz * Ny * (Nx/2+1);
-    // long long int odist_c2r = Nz * Ny * 2*(Nx/2+1);
-    //
-    // size_t c2rWorkSize = 0;
-    // cufftHandle c2rPlan = 0;
-    // cufftResult c2rResult = cufftCreate(&c2rPlan);
-    // if (c2rResult == CUFFT_SUCCESS) {
-    //     c2rResult = cufftGetSizeMany64(c2rPlan, rank, n,
-    //         inembed_c2r, istride, idist_c2r,
-    //         onembed_c2r, ostride, odist_c2r,
-    //         CUFFT_C2R, 1, &c2rWorkSize);
-    //     cufftDestroy(c2rPlan);
-    // }
-    //
-    // size_t totalWorkspace = 0;
-    // if (r2cResult == CUFFT_SUCCESS) totalWorkspace += r2cWorkSize;
-    // if (c2rResult == CUFFT_SUCCESS) totalWorkspace += c2rWorkSize;
-
-    // logWithContext(fmt::format("Estimated cuFFT workspace for shape {}: {:.2f} MB)",
-    //     shape.print(), totalWorkspace / 1e6), LogLevel::LOG_DEBUG);
-
     return 2;
 }
 
@@ -345,11 +293,6 @@ void CUDAComputeBackend::addPlan(const FFTPlanDescription& description, cufftHan
     cuFFTPlans.push_back(std::move(plan));
 }
 
-// void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const PlanDescription& description) const {
-//     size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
-//     CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2R, &tempSize), "getPlan - C2R plan setup", buildCudaContext(config));
-// }
-
 void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPlanDescription& description) const {
     int rank = 3;
     long long int Nx = static_cast<long long int>(description.shape.width);
@@ -371,18 +314,11 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
     long long int idist;
     long long int odist = Nz * Ny * (Nx/2+1);
 
-    // if (description.inPlace) {
     inembed[0] = Nz;
     inembed[1] = Ny;
     inembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
     idist = Nz * Ny * 2*(Nx/2+1);
     size_t worksize = idist * sizeof(real_t);
-    // } else {
-    //     inembed[0] = Nz;
-    //     inembed[1] = Ny;
-    //     inembed[2] = Nx;           // unpadded last dimension
-    //     idist = Nz * Ny * Nx;
-    // }
 
     try {
 
@@ -415,11 +351,6 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
     }
 }
 
-// void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const PlanDescription& description) const {
-//     size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
-//     CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_R2C, &tempSize), "getPlan - R2C plan setup", buildCudaContext(config));
-// }
-
 void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPlanDescription& description) const {
     int rank = 3;
     long long int Nx = static_cast<long long int>(description.shape.width);
@@ -441,18 +372,11 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPla
     long long int odist;
     long long int idist = Nz * Ny * (Nx/2+1);
 
-    // if (description.inPlace) {
     onembed[0] = Nz;
     onembed[1] = Ny;
     onembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
     odist = Nz * Ny * 2*(Nx/2+1);
     size_t worksize = odist * sizeof(real_t);
-    // } else {
-    //     inembed[0] = Nz;
-    //     inembed[1] = Ny;
-    //     inembed[2] = Nx;           // unpadded last dimension
-    //     idist = Nz * Ny * Nx;
-    // }
 
     try {
 
@@ -810,23 +734,6 @@ void CUDAComputeBackend::hasNAN(const ComplexData& data) const {
     // Implementation would go here
     logWithContext(fmt::format("hasNAN called on CUDA backend"), LogLevel::LOG_DEBUG);
 }
-
-// void CUDAComputeBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
-//     cudaError_t err = CUBE_REG::calculateLaplacian(psf.getSize().width, psf.getSize().height, psf.getSize().depth, psf.getData(), laplacian.getData(), config.stream);
-//     CUDA_CHECK(err, "calculateLaplacianOfPSF", buildCudaContext(config));
-// }
-
-// void CUDAComputeBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
-//     cudaError_t err = CUBE_FTT::normalizeData(1, 1, 1, resultImage.getData(), config.stream);
-//     CUDA_CHECK(err, "normalizeImage", buildCudaContext(config));
-// }
-
-// void CUDAComputeBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
-//     for (int i = 0; i < data.getSize().getVolume(); ++i) {
-//         data.getData()[i][0] /= cubeVolume;
-//         data.getData()[i][1] /= cubeVolume;
-//     }
-// }
 
 // Gradient and TV Functions
 void CUDAComputeBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {

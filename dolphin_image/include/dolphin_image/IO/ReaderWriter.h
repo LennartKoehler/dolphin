@@ -37,14 +37,6 @@ public:
     virtual void configure(WriterCompressionConfig compressionConfig, WriterConfig writerConfig = {}) = 0;
 };
 
-// struct ImageReaderWriterPair{
-//
-//     virtual ~ImageReaderWriterPair() = default;
-//     virtual std::future<PaddedImage> getSubimage(const BoxCoordWithPadding& box) const = 0;
-//     virtual const ImageMetaData& getMetaData() const = 0;
-//     virtual bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const = 0;
-// };
-
 
 
 // handles the padding offset and calls padding

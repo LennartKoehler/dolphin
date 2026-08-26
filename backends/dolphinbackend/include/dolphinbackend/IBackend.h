@@ -75,9 +75,6 @@ private:
 class IBackend {
 
     friend class IBackendManager;
-    // friend class BackendFactory;
-    // friend class IComputeBackend;
-    // friend class IBackendMemoryManager;
 
 
 public:
@@ -102,8 +99,6 @@ public:
     virtual IBackendMemoryManager* getMemoryManagerPtr() const noexcept = 0;
 
     // Access to the Owner object for advanced ownership management
-    // virtual Owner<IComputeBackend, IBackendMemoryManager>& getOwner() noexcept = 0;
-    // virtual const Owner<IComputeBackend, IBackendMemoryManager>& getOwner() const noexcept = 0;
 
     // Backend component access
     virtual const IComputeBackend& getComputeManager() const noexcept = 0;

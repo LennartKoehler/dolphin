@@ -46,39 +46,3 @@ std::unique_ptr<DeconvolutionResult> Dolphin::deconvolve(DeconvolutionRequest re
     return deconv_service_->deconvolve(request);
 }
 
-
-// Hyperstack Dolphin::initHyperstack() const{
-//     Hyperstack hyperstack;
-//     if (config->imagePath.substr(config->imagePath.find_last_of(".") + 1) == "tif" || config->imagePath.substr(config->imagePath.find_last_of(".") + 1) == "tiff" || config->imagePath.substr(config->imagePath.find_last_of(".") + 1) == "ometif") {
-//         hyperstack.readFromTifFile(config->imagePath.c_str());
-//     } else {
-//         spdlog::info("No file ending .tif, pretending image is DIR");
-//         hyperstack.readFromTifDir(config->imagePath.c_str());
-//     }
-
-//     if (config->printInfo) {
-//         hyperstack.printMetadata();
-//     }
-//     if (config->showExampleLayers) {
-//         hyperstack.showChannel(0);
-//     }
-//     hyperstack.saveAsTifFile("../result/input_hyperstack.tif");
-//     hyperstack.saveAsTifDir("../result/input_hyperstack");
-//     return hyperstack;
-// }
-
-
-
-
-// void Dolphin::setCuda(){
-//     if (config->gpu == "" || config->gpu == "none"){
-//         return;
-//     }
-//     if (config->gpu != "cuda"){
-//         throw std::runtime_error("Only cuda is supported, not: " + config->gpu);
-//     }
-// #ifdef CUDA_AVAILABLE
-// #else
-//     config->gpu = "";
-// #endif
-// }
