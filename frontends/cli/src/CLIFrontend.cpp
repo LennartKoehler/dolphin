@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/spdlog.h>
 #include <string>
 #include <dolphin/Dolphin.h>
+#include <dolphin/PSFCreator.h>
 
 CLIFrontend::CLIFrontend(Dolphin* dolphin, int argc, char** argv)
     : IFrontend(dolphin){
@@ -35,8 +36,6 @@ bool CLIFrontend::parseCLI(){
         return false;
     }
     catch (const CLI::ParseError& e) {
-        // CLI11 throws ParseError (and subclasses like RequiredError) for missing required options,
-        // validation failures, etc. Print the error and return false so the caller knows parsing failed.
         spdlog::error("{}", e.what());
         std::cout << app.help() << std::endl;
         return false;
@@ -51,32 +50,112 @@ bool CLIFrontend::parseCLI(){
 
 
 void CLIFrontend::run() {
-    // 1. Define ALL subcommands and their options FIRST
-    psfgenerator();      // Define PSF options
-    deconvolution();     // Define deconvolution options (but don't parse yet)
+    psfgenerator();
+    deconvolution();
 
-    // 2. Parse once to determine which subcommand was used
     bool success = parseCLI();
     if (!success) {
         return;
     }
 
-    // 3. Handle based on which subcommand was selected
     if (*psfCLI) {
-        bool success = readPSFFromConfigFile();
-        success = success && handlePSFGeneration();
-        if (success) {
-            PSFGenerationRequest request = generatePSFRequest(std::make_shared<SetupConfigPSF>(psfConfig));
-            dolphin->generatePSF(request);
+        if (!configPath.empty()) {
+            try {
+                loadPSFJSONBundle(configPath);
+            } catch (const std::exception& e) {
+                spdlog::error("{}", e.what());
+                return;
+            }
         }
+
+        if (!setupConfigPath.empty()) {
+            try {
+                loadSetupConfigFromFile(setupConfigPath, jsonPsfBundle.setupConfig);
+                jsonPsfBundle.hasSetup = true;
+                spdlog::info("Setup config loaded from: {}", setupConfigPath);
+            } catch (const std::exception& e) {
+                spdlog::error("{}", e.what());
+                return;
+            }
+        }
+
+        if (!psfConfigPaths.empty()) {
+            try {
+                for (const auto& path : psfConfigPaths) {
+                    auto configs = loadPSFConfigsFromFile(path);
+                    jsonPsfBundle.psfConfigs.insert(jsonPsfBundle.psfConfigs.end(), configs.begin(), configs.end());
+                }
+                jsonPsfBundle.hasPSF = true;
+                spdlog::info("Loaded {} PSF config(s) from {} file(s)", jsonPsfBundle.psfConfigs.size(), psfConfigPaths.size());
+            } catch (const std::exception& e) {
+                spdlog::error("{}", e.what());
+                return;
+            }
+        }
+
+        PSFConfigBundle merged = mergePSFBundles(jsonPsfBundle, cliPsfBundle);
+
+        if (!handlePSFGeneration(merged)) {
+            return;
+        }
+
+        PSFGenerationRequest request = generatePSFRequest(merged);
+        dolphin->generatePSF(request);
     }
     else if (*deconvolutionCLI) {
-        bool success = readDeconvolutionFromConfigFile();
-        success = success && handleDeconvolution();
-        if (success) {
-            DeconvolutionRequest request = generateDeconvRequest(std::make_shared<SetupConfig>(setupConfig), std::make_shared<DeconvolutionConfig>(deconvolutionConfig));
-            dolphin->deconvolve(request);
+        if (!configPath.empty()) {
+            try {
+                loadJSONBundle(configPath);
+            } catch (const std::exception& e) {
+                spdlog::error("{}", e.what());
+                return;
+            }
         }
+
+        if (!setupConfigPath.empty()) {
+            try {
+                loadSetupConfigFromFile(setupConfigPath, jsonBundle.setupConfig);
+                jsonBundle.hasSetup = true;
+                spdlog::info("Setup config loaded from: {}", setupConfigPath);
+            } catch (const std::exception& e) {
+                spdlog::error("{}", e.what());
+                return;
+            }
+        }
+
+        if (!deconvConfigPath.empty()) {
+            try {
+                loadDeconvConfigFromFile(deconvConfigPath, jsonBundle.deconvConfig);
+                jsonBundle.hasDeconv = true;
+                spdlog::info("Deconvolution config loaded from: {}", deconvConfigPath);
+            } catch (const std::exception& e) {
+                spdlog::error("{}", e.what());
+                return;
+            }
+        }
+
+        if (!psfConfigPaths.empty()) {
+            try {
+                for (const auto& path : psfConfigPaths) {
+                    auto configs = loadPSFConfigsFromFile(path);
+                    jsonBundle.psfConfigs.insert(jsonBundle.psfConfigs.end(), configs.begin(), configs.end());
+                }
+                jsonBundle.hasPSF = true;
+                spdlog::info("Loaded {} PSF config(s) from {} file(s)", jsonBundle.psfConfigs.size(), psfConfigPaths.size());
+            } catch (const std::exception& e) {
+                spdlog::error("{}", e.what());
+                return;
+            }
+        }
+
+        ConfigBundle merged = mergeBundles(jsonBundle, cliBundle);
+
+        if (!handleDeconvolution(merged)) {
+            return;
+        }
+
+        DeconvolutionRequest request = generateDeconvRequest(merged);
+        dolphin->deconvolve(request);
     }
     else {
         std::cout << app.help() << std::endl;
@@ -85,34 +164,32 @@ void CLIFrontend::run() {
 
 void CLIFrontend::psfgenerator() {
     CLI::Option_group* psf_group = psfCLI->add_option_group("PSF Options", "PSF generation options");
-    psf_group->add_option("-c,--config", setupConfigPath, "Path to configuration file");
+    psf_group->add_option("-c,--config", configPath, "Path to combined configuration file");
+    psf_group->add_option("-s,--setup_config", setupConfigPath, "Path to setup config JSON file");
+    psf_group->add_option("-p,--psf_configs", psfConfigPaths, "Path(s) to PSF config JSON file(s)")->multi_option_policy(CLI::MultiOptionPolicy::TakeAll);
 
-    psfconfigGroup = psf_group;  // Add configGroup as member variable
+    psfconfigGroup = psf_group;
     psfcli_group = psfCLI->add_option_group("CLI", "PSF Commandline options");
 
-    addParameters(psfConfig, psfcli_group);
-    // Set up exclusions
-    if (psfconfigGroup) {
-        psfcli_group->excludes(psfconfigGroup);
-        psfconfigGroup->excludes(psfcli_group);
-    }
-
+    addParameters(cliPsfBundle.setupConfig, psfcli_group);
+    cliPsfBundle.hasSetup = true;
 }
 
 void CLIFrontend::deconvolution() {
-    // Define deconvolution options (but don't parse here)
     readCLISetupConfigPath();
     readSetupConfigParameters();
     readCLIParametersDeconvolution();
 }
 
-// New helper methods
-bool CLIFrontend::handlePSFGeneration() {
-    // overwrite the default of which params are required in cli.
-    // the default is for deconvolutionconfig
-
-    std::vector<std::string> missingParams = checkRequired(psfConfig);
+bool CLIFrontend::handlePSFGeneration(const PSFConfigBundle& bundle) {
+    std::vector<std::string> missingParams = checkRequired(const_cast<SetupConfigPSF&>(bundle.setupConfig));
     if (!missingParams.empty()) {
+        std::cout << psfCLI->help() << std::endl;
+        return false;
+    }
+
+    if (!bundle.hasPSF) {
+        spdlog::error("No PSF config provided — use -p/--psf_configs or inline psf_configs in JSON");
         std::cout << psfCLI->help() << std::endl;
         return false;
     }
@@ -120,46 +197,111 @@ bool CLIFrontend::handlePSFGeneration() {
     return true;
 }
 
-bool CLIFrontend::readDeconvolutionFromConfigFile() {
+void CLIFrontend::loadJSONBundle(const std::string& path) {
+    json jsonData = Config::loadJSONFile(path);
 
-    // Handle configuration loading from file
-    // Either a config file is provided (--config) or individual CLI parameters are used (mutual exclusion)
-    if (!setupConfigPath.empty()) {
-        try {
-            setupConfig = SetupConfig::createFromJSONFile(setupConfigPath);
-
-            deconvolutionConfig = DeconvolutionConfig::createFromJSONFile(setupConfigPath);
-
-            spdlog::info("Configuration loaded from: {}", setupConfigPath);
-        } catch (const std::exception& e) {
-            spdlog::error("{}", e.what());
-            return false;
-        }
+    if (loadSetupConfigFromJSON(jsonData, jsonBundle.setupConfig)) {
+        jsonBundle.hasSetup = true;
     }
-    return true;
+
+    if (jsonData.contains("deconvolution_config")) {
+        loadDeconvConfigFromJSON(jsonData, jsonBundle.deconvConfig);
+        jsonBundle.hasDeconv = true;
+    }
+
+    auto psfConfigs = loadPSFConfigsFromJSON(jsonData);
+    if (!psfConfigs.empty()) {
+        jsonBundle.psfConfigs.insert(jsonBundle.psfConfigs.end(), psfConfigs.begin(), psfConfigs.end());
+        jsonBundle.hasPSF = true;
+        spdlog::info("Loaded {} inline PSF config(s) from JSON", psfConfigs.size());
+    }
+
+    spdlog::info("Configuration loaded from: {}", path);
 }
 
-bool CLIFrontend::readPSFFromConfigFile() {
+ConfigBundle CLIFrontend::mergeBundles(const ConfigBundle& jsonBundle, const ConfigBundle& cliBundle) {
+    ConfigBundle merged;
 
-    // Handle configuration loading from file
-    // Either a config file is provided (--config) or individual CLI parameters are used (mutual exclusion)
-    if (!setupConfigPath.empty()) {
-        try {
-            psfConfig = SetupConfigPSF::createFromJSONFile(setupConfigPath);
-
-            spdlog::info("Configuration loaded from: {}", setupConfigPath);
-        } catch (const std::exception& e) {
-            spdlog::error("{}", e.what());
-            return false;
+    if (jsonBundle.hasSetup) {
+        if (cliBundle.hasSetup) {
+            spdlog::warn("Setup config loaded from JSON — CLI setup args ignored");
         }
+        merged.setupConfig = jsonBundle.setupConfig;
+    } else {
+        merged.setupConfig = cliBundle.setupConfig;
     }
-    return true;
+    merged.hasSetup = true;
+
+    if (jsonBundle.hasDeconv) {
+        if (cliBundle.hasDeconv) {
+            spdlog::warn("Deconvolution config loaded from JSON — CLI deconvolution args ignored");
+        }
+        merged.deconvConfig = jsonBundle.deconvConfig;
+    } else {
+        merged.deconvConfig = cliBundle.deconvConfig;
+    }
+    merged.hasDeconv = true;
+
+    if (jsonBundle.hasPSF || cliBundle.hasPSF) {
+        if (jsonBundle.hasPSF) {
+            merged.psfConfigs.insert(merged.psfConfigs.end(), jsonBundle.psfConfigs.begin(), jsonBundle.psfConfigs.end());
+        }
+        if (cliBundle.hasPSF) {
+            merged.psfConfigs.insert(merged.psfConfigs.end(), cliBundle.psfConfigs.begin(), cliBundle.psfConfigs.end());
+        }
+        merged.hasPSF = true;
+    }
+
+    return merged;
+}
+
+void CLIFrontend::loadPSFJSONBundle(const std::string& path) {
+    json jsonData = Config::loadJSONFile(path);
+
+    if (loadSetupConfigFromJSON(jsonData, jsonPsfBundle.setupConfig)) {
+        jsonPsfBundle.hasSetup = true;
+    }
+
+    auto psfConfigs = loadPSFConfigsFromJSON(jsonData);
+    if (!psfConfigs.empty()) {
+        jsonPsfBundle.psfConfigs.insert(jsonPsfBundle.psfConfigs.end(), psfConfigs.begin(), psfConfigs.end());
+        jsonPsfBundle.hasPSF = true;
+        spdlog::info("Loaded {} inline PSF config(s) from JSON", psfConfigs.size());
+    }
+
+    spdlog::info("Configuration loaded from: {}", path);
+}
+
+PSFConfigBundle CLIFrontend::mergePSFBundles(const PSFConfigBundle& jsonBundle, const PSFConfigBundle& cliBundle) {
+    PSFConfigBundle merged;
+
+    if (jsonBundle.hasSetup) {
+        if (cliBundle.hasSetup) {
+            spdlog::warn("Setup config loaded from JSON — CLI setup args ignored");
+        }
+        merged.setupConfig = jsonBundle.setupConfig;
+    } else {
+        merged.setupConfig = cliBundle.setupConfig;
+    }
+    merged.hasSetup = true;
+
+    if (jsonBundle.hasPSF || cliBundle.hasPSF) {
+        if (jsonBundle.hasPSF) {
+            merged.psfConfigs.insert(merged.psfConfigs.end(), jsonBundle.psfConfigs.begin(), jsonBundle.psfConfigs.end());
+        }
+        if (cliBundle.hasPSF) {
+            merged.psfConfigs.insert(merged.psfConfigs.end(), cliBundle.psfConfigs.begin(), cliBundle.psfConfigs.end());
+        }
+        merged.hasPSF = true;
+    }
+
+    return merged;
 }
 
 
-bool CLIFrontend::handleDeconvolution() {
-    std::vector<std::string> missingParams = checkRequired(deconvolutionConfig);
-    std::vector<std::string> missingParamsSetup = checkRequired(setupConfig);
+bool CLIFrontend::handleDeconvolution(const ConfigBundle& bundle) {
+    std::vector<std::string> missingParams = checkRequired(const_cast<DeconvolutionConfig&>(bundle.deconvConfig));
+    std::vector<std::string> missingParamsSetup = checkRequired(const_cast<SetupConfig&>(bundle.setupConfig));
     missingParams.insert(missingParams.end(), missingParamsSetup.begin(), missingParamsSetup.end());
 
     if (!missingParams.empty()) {
@@ -170,37 +312,38 @@ bool CLIFrontend::handleDeconvolution() {
         spdlog::info("{}", deconvolutionCLI->help());
         return false;
     }
+
+    if (!bundle.hasPSF && bundle.setupConfig.psfFilePaths.empty()) {
+        spdlog::error("PSF has to be provided either as json config or as a tiff file");
+        spdlog::info("{}", deconvolutionCLI->help());
+        return false;
+    }
+
     return true;
 }
 
 
 
 
-
-
 void CLIFrontend::readSetupConfigParameters() {
-    cli_group = deconvolutionCLI->add_option_group("CLI", "Deconvolution Commandline options");
-
-    addParameters(setupConfig, cli_group);
-    // Set up exclusions
-    if (configGroup) {
-        cli_group->excludes(configGroup);
-        configGroup->excludes(cli_group);
-    }
+    setupCliGroup = deconvolutionCLI->add_option_group("Setup CLI", "Setup commandline options");
+    addParameters(cliBundle.setupConfig, setupCliGroup);
+    cliBundle.hasSetup = true;
 }
 
 void CLIFrontend::readCLIParametersDeconvolution() {
-    // Use visitParams to iterate through all deconvolution parameters and create CLI options
-    addParameters(deconvolutionConfig, cli_group);
+    deconvCliGroup = deconvolutionCLI->add_option_group("Deconvolution CLI", "Deconvolution commandline options");
+    addParameters(cliBundle.deconvConfig, deconvCliGroup);
+    cliBundle.hasDeconv = true;
 }
 
 void CLIFrontend::readCLISetupConfigPath() {
     CLI::Option_group *config_group = deconvolutionCLI->add_option_group("Config", "Configuration file");
-    config_group->add_option("-c,--config", setupConfigPath, "Path to configuration file");
-    configGroup = config_group;  // Add configGroup as member variable
+    config_group->add_option("-c,--config", configPath, "Path to combined configuration file");
+    config_group->add_option("-s,--setup_config", setupConfigPath, "Path to setup config JSON file");
+    config_group->add_option("-d,--deconv_config", deconvConfigPath, "Path to deconvolution config JSON file");
+    config_group->add_option("-p,--psf_configs", psfConfigPaths, "Path(s) to PSF config JSON file(s)")->multi_option_policy(CLI::MultiOptionPolicy::TakeAll);
 }
-
-
 
 
 void CLIFrontend::addParameters(Config& config, CLI::Option_group* group){
@@ -208,46 +351,46 @@ void CLIFrontend::addParameters(Config& config, CLI::Option_group* group){
     config.visitParams([this, group]<typename T>(T& value, ConfigParameter& param){
 
         if constexpr (std::is_same_v<T, std::array<int, 3>>){
-            // Skip: std::array<int,3> not directly supported as a CLI option
             return;
         }
         else {
             if constexpr (std::is_same_v<T, bool>){
                 auto opt = group->add_flag(param.cliFlag, value, param.cliDesc);
-                opt->configurable(false);  // Avoid cross-subcommand name collision checks in CLI11
+                opt->configurable(false);
                 return;
             }
-            if (std::string(param.cliFlag) == "--psf_file_paths" || std::string(param.cliFlag) == "--multiple_psf_config_paths" || std::string(param.cliFlag) == "--psf_config_path"){
+            if (std::string(param.cliFlag) == "--psf_file_paths"){
                 if (!psfPathGroup) {
-                    psfPathGroup = group->add_option_group("PSF Path", "PSF file path options (mutually exclusive)");
-                    if (configGroup) {
-                        psfPathGroup->excludes(configGroup);
-                        configGroup->excludes(psfPathGroup);
-                    }
+                    psfPathGroup = group->add_option_group("PSF Path", "PSF file path options");
                 }
                 auto opt = psfPathGroup->add_option(param.cliFlag, value, param.cliDesc);
                 opt->configurable(false);
                 opt->ignore_case();
-                psfPathGroup->require_option(1);
+                return;
+            }
+            if (param.type == ParameterType::StringSelection && param.selection) {
+                const auto* options = static_cast<const std::vector<std::string>*>(param.selection);
+                auto opt = group->add_option(param.cliFlag, value, param.cliDesc);
+                opt->check(CLI::IsMember(*options));
+                opt->configurable(false);
+                return;
+            }
+            if (param.type == ParameterType::Map && param.selection) {
+                const ConfigMap& map = *reinterpret_cast<const ConfigMap*>(param.selection);
+                std::vector<std::string> options = map.getStrings();
+                auto opt = group->add_option(param.cliFlag, value, param.cliDesc);
+                opt->check(CLI::IsMember(options));
+                opt->configurable(false);
                 return;
             }
             auto opt = group->add_option(param.cliFlag, value, param.cliDesc);
-            opt->configurable(false);  // Avoid cross-subcommand name collision checks in CLI11
-            // NOTE: Don't use opt->required() here — CLI11 throws on the FIRST missing
-            // required option, preventing us from reporting ALL missing parameters at once.
-            // Instead, required parameters are validated manually in handleDeconvolution().
+            opt->configurable(false);
         }
     });
 }
 
 
 std::vector<std::string> CLIFrontend::checkRequired(Config& config) const {
-    // Validate that ALL required parameters are present.
-    // This is necessary because:
-    //   1. We don't use CLI11's ->required() (it throws on the first missing option,
-    //      preventing us from reporting all missing parameters at once).
-    //   2. When --config is used, the CLI group is excluded, bypassing CLI11's
-    //      required() enforcement entirely.
     std::vector<std::string> missingParams;
 
     auto checkRequired = [&missingParams]<typename T>(T& value, ConfigParameter& param) {
@@ -261,9 +404,6 @@ std::vector<std::string> CLIFrontend::checkRequired(Config& config) const {
                 missingParams.push_back(std::string(param.name) + " (" + param.cliFlag + ")");
             }
         }
-        // Numeric types (int, float) have default values and can't be "empty",
-        // so they are not marked cliRequired in practice. If that changes,
-        // add checks here.
     };
 
     config.visitParams(checkRequired);
@@ -271,13 +411,106 @@ std::vector<std::string> CLIFrontend::checkRequired(Config& config) const {
 }
 
 
-void progressVisualization(std::atomic<float>& current, float max){
-    // Calculate progress
 
+std::shared_ptr<PSFConfig> CLIFrontend::loadPSFConfigFromPath(const std::string& path) {
+    return PSFCreator::generatePSFConfigFromConfigPath(path);
+}
+
+bool CLIFrontend::loadSetupConfigFromJSON(const json& jsonData, SetupConfigPSF& config) {
+    if (jsonData.contains("setup_config")) {
+        if (!config.loadFromJSON(jsonData["setup_config"])) {
+            throw std::runtime_error("Failed to parse setup config");
+        }
+        return true;
+    }
+    return false;
+}
+
+void CLIFrontend::loadDeconvConfigFromJSON(const json& jsonData, DeconvolutionConfig& config) {
+    if (jsonData.contains("deconvolution_config")) {
+        if (!config.loadFromJSON(jsonData["deconvolution_config"])) {
+            throw std::runtime_error("Failed to parse deconvolution config");
+        }
+    }
+}
+
+std::vector<std::shared_ptr<PSFConfig>> CLIFrontend::loadPSFConfigsFromJSON(const json& jsonData) {
+    std::vector<std::shared_ptr<PSFConfig>> configs;
+    PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
+
+    if (jsonData.contains("psf_configs")) {
+        const auto& psfField = jsonData["psf_configs"];
+        if (psfField.is_array()) {
+            for (const auto& psfJson : psfField) {
+                if (!psfJson.is_object()) {
+                    throw std::runtime_error(
+                        "Each entry in 'psf_configs' array must be a JSON object with 'model_name'. "
+                        "Found: " + psfJson.dump() + " (type: " + std::string(psfField.type_name()) + ")"
+                    );
+                }
+                configs.push_back(factory.createConfig(psfJson));
+            }
+        } else if (psfField.is_object()) {
+            configs.push_back(factory.createConfig(psfField));
+        } else {
+            throw std::runtime_error(
+                "'psf_configs' must be a JSON array of PSF config objects or a single PSF config object. "
+                "Found type: " + std::string(psfField.type_name()) + " (value: " + psfField.dump() + ")"
+            );
+        }
+    } else if (jsonData.contains("psf_config")) {
+        const auto& psfField = jsonData["psf_config"];
+        if (!psfField.is_object()) {
+            throw std::runtime_error(
+                "'psf_config' must be a JSON object with 'model_name'. "
+                "Found type: " + std::string(psfField.type_name()) + " (value: " + psfField.dump() + ")"
+            );
+        }
+        configs.push_back(factory.createConfig(psfField));
+    } else if (jsonData.contains("model_name")) {
+        configs.push_back(factory.createConfig(jsonData));
+    }
+
+    return configs;
+}
+
+void CLIFrontend::loadSetupConfigFromFile(const std::string& path, SetupConfigPSF& config) {
+    json jsonData = Config::loadJSONFile(path);
+    const json& setupData = jsonData.contains("setup_config") ? jsonData["setup_config"] : jsonData;
+    if (!config.loadFromJSON(setupData)) {
+        throw std::runtime_error("Failed to parse setup config file: " + path);
+    }
+}
+
+void CLIFrontend::loadDeconvConfigFromFile(const std::string& path, DeconvolutionConfig& config) {
+    json jsonData = Config::loadJSONFile(path);
+    const json& deconvData = jsonData.contains("deconvolution_config") ? jsonData["deconvolution_config"] : jsonData;
+    if (!config.loadFromJSON(deconvData)) {
+        throw std::runtime_error("Failed to parse deconvolution config file: " + path);
+    }
+}
+
+std::vector<std::shared_ptr<PSFConfig>> CLIFrontend::loadPSFConfigsFromFile(const std::string& path) {
+    json jsonData = Config::loadJSONFile(path);
+    auto configs = loadPSFConfigsFromJSON(jsonData);
+    if (configs.empty()) {
+        throw std::runtime_error(
+            "No PSF config found in file: " + path + "\n"
+            "Expected one of:\n"
+            "  - 'psf_configs' as a JSON array of PSF config objects (each with 'model_name')\n"
+            "  - 'psf_configs' as a single PSF config object (with 'model_name')\n"
+            "  - 'psf_config' as a single PSF config object (with 'model_name')\n"
+            "  - A root-level 'model_name' field"
+        );
+    }
+    return configs;
+}
+
+
+void progressVisualization(std::atomic<float>& current, float max){
     float barWidth = 50.0f;
     int pos = static_cast<int>((current * barWidth) / max);
     int progress = static_cast<int>((current * 100) / max);
-    // Print progress bar
     std::cout << "\r[";
     for (int i = 0; i < barWidth; ++i) {
         if (i < pos) std::cout << "=";
@@ -300,13 +533,21 @@ void loggingCallback(spdlog::level::level_enum level, const std::string& message
     }
 }
 
-
-PSFGenerationRequest CLIFrontend::generatePSFRequest(std::shared_ptr<SetupConfigPSF> setupConfig){
+PSFGenerationRequest CLIFrontend::generatePSFRequest(const PSFConfigBundle& bundle) {
+    auto setupConfig = std::make_shared<SetupConfigPSF>(bundle.setupConfig);
     PSFGenerationRequest request(setupConfig, loggingCallback, progressVisualization);
+    if (bundle.hasPSF) {
+        request.setInlinePSFConfigs(bundle.psfConfigs);
+    }
     return request;
 }
 
-DeconvolutionRequest CLIFrontend::generateDeconvRequest(std::shared_ptr<SetupConfig> setupConfigCopy, std::shared_ptr<DeconvolutionConfig> deconvConfigCopy) {
-    DeconvolutionRequest request(setupConfigCopy, deconvConfigCopy, loggingCallback, progressVisualization);
+DeconvolutionRequest CLIFrontend::generateDeconvRequest(const ConfigBundle& bundle) {
+    auto setupConfig = std::make_shared<SetupConfig>(bundle.setupConfig);
+    auto deconvConfig = std::make_shared<DeconvolutionConfig>(bundle.deconvConfig);
+    DeconvolutionRequest request(setupConfig, deconvConfig, loggingCallback, progressVisualization);
+    if (bundle.hasPSF) {
+        request.setInlinePSFConfigs(bundle.psfConfigs);
+    }
     return request;
 }

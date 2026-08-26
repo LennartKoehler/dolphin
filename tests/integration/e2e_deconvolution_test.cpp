@@ -107,7 +107,6 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
     setupConfig.nDevices = 1;
     setupConfig.maxMemHost_gb = 8;
     setupConfig.maxMemDevice_gb = 8;
-    setupConfig.multiplePsfConfigPaths = {psfConfigPath};
     setupConfig.savePsf = true;
 
     DeconvolutionConfig deconvConfig;
@@ -138,8 +137,6 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
         EXPECT_EQ(readSetupConfig.imagePath, imagePath);
         EXPECT_EQ(readSetupConfig.outputPath, outputPath);
         EXPECT_EQ(readSetupConfig.backend, "cpu");
-        ASSERT_EQ(readSetupConfig.multiplePsfConfigPaths.size(), 1u);
-        EXPECT_EQ(readSetupConfig.multiplePsfConfigPaths[0], psfConfigPath);
         EXPECT_TRUE(readSetupConfig.savePsf);
         EXPECT_FLOAT_EQ(readSetupConfig.maxMemHost_gb, 8.0f);
         EXPECT_FLOAT_EQ(readSetupConfig.maxMemDevice_gb, 8.0f);
@@ -157,6 +154,7 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
         std::make_shared<SetupConfig>(readSetupConfig),
         std::make_shared<DeconvolutionConfig>(readDeconvConfig),
         progressCallback);
+    request.setInlinePSFConfigs({readPsfConfig});
 
     auto result = dolphin->deconvolve(request);
 

@@ -15,7 +15,12 @@ function(dolphin_add_test name)
         CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
     )
     if(TARGET cuda_backend)
-        set_target_properties(${name} PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+        foreach(lib ${ARG_LIBS})
+            if(lib STREQUAL "cuda_backend" OR lib STREQUAL "dolphin")
+                set_target_properties(${name} PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+                break()
+            endif()
+        endforeach()
     endif()
     gtest_discover_tests(${name} DISCOVERY_TIMEOUT 30)
 endfunction()
@@ -36,6 +41,7 @@ set(ALL_TEST_SOURCES
     unit/test_range_map.cpp
     unit/test_boxcoord.cpp
     unit/test_config.cpp
+    unit/test_config_merge.cpp
     unit/test_algorithm_factory.cpp
     unit/test_algorithms.cpp
     unit/test_backend_factory.cpp
@@ -87,6 +93,17 @@ if(TARGET cuda_backend)
     )
     list(APPEND ALL_TEST_LIBS cuda_backend)
     list(APPEND ALL_TEST_INCLUDES ${CMAKE_SOURCE_DIR}/backends/cuda/include)
+endif()
+
+if(BUILD_CLI)
+    list(APPEND ALL_TEST_SOURCES
+        ${CMAKE_SOURCE_DIR}/frontends/cli/tests/test_cli_frontend.cpp
+        ${CMAKE_SOURCE_DIR}/frontends/cli/src/CLIFrontend.cpp
+    )
+    list(APPEND ALL_TEST_INCLUDES
+        ${CMAKE_SOURCE_DIR}/frontends/cli/include/cli
+        ${CMAKE_SOURCE_DIR}/frontends/cli/lib/CLI11/include
+    )
 endif()
 
 add_executable(dolphin_all_tests ${ALL_TEST_SOURCES})
