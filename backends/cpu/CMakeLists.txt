@@ -12,7 +12,6 @@ endif()
 find_package(FFTW3f CONFIG QUIET)
 
 if(FFTW3f_FOUND)
-    message(STATUS "Found FFTW3f via CMake config")
     set(FFTW3_LIB FFTW3::fftw3f)
     set(FFTW3_THREADS_LIB "")
 else()
@@ -27,7 +26,6 @@ endif()
 
 # If using OpenMP version of FFTW, find OpenMP
 if(FFTW3_THREADS_LIB MATCHES "omp")
-    message(STATUS "Linking OpenMP")
     find_package(OpenMP REQUIRED)
     set(USE_OPENMP TRUE)
 endif()

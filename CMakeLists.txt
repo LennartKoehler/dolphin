@@ -94,27 +94,23 @@ else()
     message(STATUS "Using system default FFTW")
 endif()
 
-message(STATUS "ITK version: ${ITK_VERSION}")
-message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
-message(STATUS "ITK_DIR: ${ITK_DIR}")
-
-# GoogleTest — fetched early so backend test subdirectories can use it
-# Ensure GoogleTest uses the same CRT (dynamic /MD) as the project
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-include(FetchContent)
-FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG v1.14.0
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-include(GoogleTest)
-
+# GoogleTest — fetched only when tests are enabled
 option(ENABLE_TESTS "Enable tests" ON)
 option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
 
 if(ENABLE_TESTS)
+    # Ensure GoogleTest uses the same CRT (dynamic /MD) as the project
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.14.0
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+    include(GoogleTest)
+
     enable_testing()
 endif()
 
@@ -142,7 +138,7 @@ endif()
 # Set BUILD_DOLPHIN_LIBRARY=OFF if you only need the backends and
 # dolphin_image.  For example, in a parent project:
 #   set(BUILD_DOLPHIN_LIBRARY OFF CACHE BOOL "" FORCE)
-#   add_subdirectory(lib/dolphin)
+#   add_subdirectory(dolphin)
 # ------------------------------------------------------------
 option(BUILD_DOLPHIN_LIBRARY "Build the main dolphin library" ON)
 

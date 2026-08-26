@@ -1,16 +1,14 @@
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/cube ${CMAKE_BINARY_DIR}/cube/build)
-
 find_package(CUDAToolkit 12.8 QUIET)
-
-
 
 if(NOT CUDAToolkit_FOUND)
     message(STATUS "CUDAToolkit not found. Disabling CUDA features.")
 
-    set(BUILD_CUDA OFF)
+    set(BUILD_CUDA OFF PARENT_SCOPE)
 
     return()
 endif()
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/cube ${CMAKE_BINARY_DIR}/cube/build)
 
 add_library(cuda_backend STATIC
     src/CUDABackend.cpp
