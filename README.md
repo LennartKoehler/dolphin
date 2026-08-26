@@ -1,6 +1,6 @@
 <div style="display: flex; align-items: center;">
     <img src="icon.png" alt="Whale Icon" width="60" height="60" style="margin-right: 10px;">
-    <h1>DOLPHIN v1.6.2</h1>
+    <h1>DOLPHIN</h1>
 </div>
 
 
@@ -15,8 +15,10 @@ Deconvolution with Optimized Local PSFs for High-speed Image recoNstruction (DOL
 - **Multiple Deconvolution Algorithms**:
     - Richardson-Lucy (RL)
     - Richardson-Lucy with Total Variation (RLTV)
+    - Richardson-Lucy with Adaptive Damping (RLAD)
     - Regularized Inverse Filter (RIF)
     - Inverse Filter
+    - Convolution
 - **Support for multiple PSFs**: Users can provide or generate multiple PSFs for specific layers or subimages.
 - **Flexible Parameters**: Adjustable parameters such as sigma values for synthetic PSF generation, iteration counts, lambda for regularization, and more.
 - **Image Subdivision**: Processes images as grids of smaller subimages for memory efficiency and better performance.
@@ -26,30 +28,23 @@ Deconvolution with Optimized Local PSFs for High-speed Image recoNstruction (DOL
 ## Requirements
 
 Standard usage
-- C++17 or later
-- [OpenCV](https://opencv.org/) 4.6.0 (for image processing)
+- C++20 or later
 - [FFTW](http://www.fftw.org/) 3.3.10 (for fast Fourier transforms) 
 - [LibTIFF](https://libtiff.gitlab.io/libtiff/) 4.7.0 (for Tag Image File Format)
+- [ITK](https://itk.org/) (for image processing)
 
 GPU acceleration
-- [NVCC](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/) 12.1.105 (NVIDIA CUDA Compiler Driver)
-- [cuFFTW](https://docs.nvidia.com/cuda/cufft/) 11.0.2 (for fast Fourier transforms on GPU)
+- [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit) 12.8+ (NVIDIA CUDA Compiler Driver)
+- [cuFFT](https://docs.nvidia.com/cuda/cufft/) (for fast Fourier transforms on GPU)
   
 included Header files
-- [CLI11](https://github.com/CLIUtils/CLI11) 2.4.1 (for command-line parsing)
-- [nlohmann/json](https://github.com/nlohmann/json) 3.11.3 (for JSON handling)
-- [CUBE](https://git.uni-jena.de/qi36soq/cube) 0.3.1 (for operations on GPU)
+- [CLI11](https://github.com/CLIUtils/CLI11) (for command-line parsing)
+- [nlohmann/json](https://github.com/nlohmann/json) (for JSON handling)
+- [spdlog](https://github.com/gabime/spdlog) (for logging)
+- [CUBE](https://git.uni-jena.de/qi36soq/cube) (for operations on GPU)
 
 ## Build
-First build the CUBE library in /lib/cube/, if CUDA is installed on your system.
-```bash
-mkdir ./lib/cube/build
-cd ./lib/cube/build
 
-cmake ..
-make
-```
-Then the DOLPHIN:
 ```bash
 mkdir ./build
 cd ./build
@@ -58,124 +53,53 @@ cmake ..
 make
 ```
 
+The CUBE library (for GPU support) is built automatically via `add_subdirectory`. Use `-DBUILD_CUDA=ON` (default) or `-DBUILD_CUDA=OFF` to control GPU support.
+
 ## Usage
 
-### Command-Line Options
+### Command-Line Interface
 
-DOLPHIN provides a variety of command-line options:
+DOLPHIN uses a subcommand-based CLI with two modes:
 
 ```
--i, --image <path>               Input Image Path (required)
--p, --psf <path>                 Input PSF Path (required)
--a, --algorithm <algorithm>      Algorithm Selection ('rl'/'rltv'/'rif'/'inverse') (required)
---iterations <value>             Number of iterations [10] (for RL)
---lambda <value>                 Lambda for Regularized Inverse Filter [1e-2]
---epsilon <value>                Epsilon for complex division [1e-6]
---borderType <type>              Border type for image extension (0=constant, 1=replicate, 2=reflect) [2] 
---psfSafetyBorder <value>        Padding around the PSF [10] (pixel)
---subimageSize <value>           Edge length of grid subimages [0] (pixel, 0 = auto adjust to PSF)
---gpu <type>                     Type of GPU API ('cuda'/'none') [none]
--c, --config <path>              Path to JSON configuration file (required if no CLI arguments are provided)
-Flags:
---savepsf                        Save the PSF used in the process [false]
---time                           Show the processing time [false]
---grid                           Process image in subimages [false]
---seperate                       Save image layers separately [false]
---info                           Print information about the input image [false]
---showExampleLayers              Display example layers of the image and PSF [false]
---saveSubimages                  Saves subimages seperate as file in /result/tiles/ [false]
+dolphin psfgenerator    Generate PSF file
+dolphin deconvolution   Run deconvolution
 ```
 
-The PSF can be provided as a TIF file, a TIF directory (where each layer is a separate TIF file), or a JSON configuration file. The JSON configuration file can be used to generate a synthetic PSF or specify the path to a file or directory. With a configuration-based PSF file, it is possible to target specific sub-images for processing. This requires an array of PSFs as input. Only the first PSF in the array will be processed globally, while all subsequent PSFs will be processed based on their corresponding sub-image and layer IDs. If no position is specified, the PSF will not be applied. If a position is provided multiple times, only the PSF with the smaller index in the array will be applied; subsequent PSFs at the same position will be ignored. The following JSON configuration show a example configuration of a synthetic PSF and a configuration file with a file path.
+Both subcommands accept configuration via JSON files or individual CLI flags:
+
 ```
-{
-  "sigmax": 2.5,
-  "sigmay": 2.5,
-  "sigmaz": 2.5,
-  "psfx": 20,
-  "psfy": 20,
-  "psfz": 46,
-  "psfmodel": "gauss",
-  "layers": [2,3],
-  "subimages": [136]
-}
+-c, --config <path>          Path to combined configuration file
+-s, --setup_config <path>    Path to setup config JSON file
+-d, --deconv_config <path>   Path to deconvolution config JSON file (deconvolution only)
+-p, --psf_configs <paths>    Path(s) to PSF config JSON file(s)
 ```
-```
-{
-  "path": "../input/psf.tif",
-  "layers": [3,4],
-  "subimages": [10,11,12,16]
-}
-```
-DOLPHIN provides this parameters for a PSF configuration:
-```
-path                             Path to PSF TIF file or dir (string "" or json array of strings["",""])
-psfx                             X dimension of PSF (pixel) (integer)
-psfy                             Y dimension of PSF (pixel) (integer)
-psfz                             Z dimension of PSF (pixel) (integer)
-psfmodel                         PSF model for generation ('gauss')
-sigmax                           Spread of data in x dim, the larger σ, the wider and flatter the bell curve (double)
-sigmay                           Spread of data in y dim, the larger σ, the wider and flatter the bell curve (double)
-sigmaz                           Spread of data in z dim, the larger σ, the wider and flatter the bell curve (double)
-layers                           Specific layers, where PSF will be applied (json array of integers [])
-subimages                        Specific subimages, where PSF will be applied (json array of integers [])
-```
+
+Algorithm names must match exactly: `RichardsonLucy`, `RichardsonLucyTotalVariation`,
+`RichardsonLucywithAdaptiveDamping`, `RegularizedInverseFilter`, `InverseFilter`, `Convolution`.
+
 ### Example
 
 ```bash
-./dolphin -i input_image.tif -p psf.tif -a rl --iterations 100 --time
+./dolphin deconvolution -c config.json
 ```
 
-This command will run the Richardson-Lucy algorithm with a PSF file using the input image file and displaying the time taken.
+This command will run deconvolution using a combined JSON configuration file.
 
 ```bash
-./dolphin -i input_image.tif -p psf_syn.json psf_path.json -a rltv --iterations 50 --info
+./dolphin psfgenerator -s setup_config.json -p psf_config.json
 ```
 
-This command will run the Richardson-Lucy with Total Variation algorithm with a synthetic PSF using a config file globally and a PSF file locally through another config file. The metadata of the input image will displayed. 
+This command will generate a PSF using the specified setup and PSF configuration files.
+
 ### Using a Configuration File
 
-You can specify your input, PSF, and other parameters using a JSON file. An example of the JSON configuration file is shown below:
-
-```json
-{
-  "image_path": "../input/your_image.tif",
-  "info": false,
-  "showExampleLayers": false,
-  "time": false,
-  "seperate": false,
-
-  "algorithm": "rltv",
-  "epsilon": 1e-6,
-  "lambda": 0.015,
-  "iterations": 10,
-
-  "psf_path": ["../configs/default_psf.json"],
-  "savePsf": false,
-
-  "grid": true,
-  "borderType": 2,
-  "cubeSize": 0,
-  "psfSafetyBorder": 10,
-  
-  "saveSubimages": false,
-
-  "gpu": "none"
-}
-```
-DOLPHIN creates two executable if CUDA is availabe on your system: dolphin and dolphincuda. Make sure your specify the "gpu" parameter with "cuda" if your are using the GPU accelerated version dolphincuda.
-You can run the tool using the configuration file like this:
+You can specify your input, PSF, and other parameters using JSON files. See the
+example configurations in `configs_checkpoint/` for reference.
 
 ```bash
-./dolphin -c config.json
+./dolphin deconvolution -c config.json
 ```
-```bash
-./dolphincuda -c config_gpu.json
-```
-
-### Output
-
-The processed images are saved in the TIF format, if the `--seperate` flag is set the image will also saved as a directory where every layer is a single TIF file, and optional PSF files can be saved if the `--savepsf` flag is set. Additional information, such as the time taken for processing, will be displayed if the `--time` option is enabled.
 
 ## License
 
@@ -185,8 +109,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - The project uses the CLI11 library for command-line argument parsing.
 - The `nlohmann/json` library is used for reading and handling JSON files.
-- The `OpenCV` library facilitates image processing tasks.
 - `FFTW` is used for fast Fourier transformations during the deconvolution process.
+- `ITK` is used for image processing.
+- `spdlog` is used for logging.
 - Icon attribution <a href="https://www.flaticon.com/free-icons/whale" title="whale icons">Whale icons created by Freepik - Flaticon</a>
 
 ---
