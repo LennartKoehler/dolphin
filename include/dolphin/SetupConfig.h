@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/Config.h"
 #include <array>
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/Logging.h"
 
 enum OutputCompressionType {
     OUTPUT_COMPRESSION_NONE = 1,
@@ -70,7 +71,16 @@ public:
 
     std::string getName() const override { return std::string("SetupConfig"); };
     SetupConfig& operator=(const SetupConfig& other);
-    DeconvolutionType getDeconvType() {return (labeledImage.empty() ? DeconvolutionType::STANDARD : DeconvolutionType::LABELED);}
+    DeconvolutionType getDeconvType() {
+        if (labeledImage.empty() && labelPSFMap.empty()){
+            return DeconvolutionType::LABELED;
+        }
+        if (labeledImage.empty() != labelPSFMap.empty()){
+            spdlog::get("deconvolution")->warn("Recieved either labeled_image or label_psf_map but not the other, running in default deconvolution mode");
+        }
+        return DeconvolutionType::STANDARD;
+    }
+
 
     static SetupConfig createFromJSONFile(const std::string& path);
 
