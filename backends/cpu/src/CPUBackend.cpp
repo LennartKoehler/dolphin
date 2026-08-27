@@ -186,7 +186,7 @@ LogCallback& getGlobalLogger() {
 void log(const std::string& message, LogLevel level) {
     auto& cb = getGlobalLogger();
     if (!cb) return;
-    cb("cpu:cpu", message, level);
+    cb("cpu", message, level);
 }
 
 
