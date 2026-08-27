@@ -24,6 +24,7 @@ target_link_libraries(dolphin_image PRIVATE project_options)
 target_include_directories(dolphin_image
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../lib/nlohmann/json/single_include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../lib/spdlog/include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../backends/dolphinbackend/include/>

@@ -24,7 +24,7 @@ See the LICENSE file provided with the code for the full license.
 #include <chrono>
 #include <thread>
 #include <itkImageRegionIterator.h>
-#include <spdlog/spdlog.h>
+#include "dolphin/Logging.h"
 
 namespace fs = std::filesystem;
 
@@ -573,9 +573,6 @@ int TiffReader::countTiffDirectories(TIFF* tif) {
 
 void TiffReader::customTifWarningHandler(const char* module, const char* fmt, va_list ap) {
     auto logger = spdlog::get("reader");
-    if (!logger) {
-        return;
-    }
 
     va_list ap_copy;
     va_copy(ap_copy, ap);

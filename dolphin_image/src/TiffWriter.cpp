@@ -25,7 +25,7 @@ See the LICENSE file provided with the code for the full license.
 #include <algorithm>
 #include <itkImageSliceIteratorWithIndex.h>
 #include <itkImageRegionIterator.h>
-#include <spdlog/spdlog.h>
+#include "dolphin/Logging.h"
 
 namespace fs = std::filesystem;
 
@@ -33,7 +33,7 @@ uint16_t WriterCompressionConfig::parseCompression(const std::string& s) {
     if (s == "none" || s == "NONE" || s == "1") return COMPRESSION_NONE;
     if (s == "lzw" || s == "LZW" || s == "5") return COMPRESSION_LZW;
     if (s == "deflate" || s == "DEFLATE" || s == "zip" || s == "ZIP" || s == "8") return COMPRESSION_DEFLATE;
-    spdlog::warn("Unknown compression scheme '{}', defaulting to none", s);
+    spdlog::get("writer")->warn("Unknown compression scheme '{}', defaulting to none", s);
     return COMPRESSION_NONE;
 }
 
@@ -148,7 +148,7 @@ TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShap
     try {
         this->tif = openTiff(filename.c_str(), imageShape);
     } catch (const std::exception& e) {
-        spdlog::error("{}", e.what());
+        spdlog::get("writer")->error("{}", e.what());
         throw;
     }
     regionWriter_ = std::make_unique<TiffRegionWriterStripped>();
@@ -165,7 +165,7 @@ void TiffWriter::configure(WriterCompressionConfig compressionConfig, WriterConf
         regionWriter_ = std::make_unique<TiffRegionWriterStripped>();
     }
 
-    spdlog::debug("TiffWriter configured: compression={}, level={}, tiles={}x{}",
+    spdlog::get("writer")->debug("TiffWriter configured: compression={}, level={}, tiles={}x{}",
         WriterCompressionConfig::compressionToString(compressionConfig.compressionScheme),
         compressionConfig.compressionLevel,
         writerConfig.tileWidth, writerConfig.tileLength);
@@ -201,13 +201,13 @@ bool TiffWriter::setSubimage(const Image3D& image, const BoxCoord& coord,
         }
         return true;
     } catch (const TiffException& e) {
-        spdlog::error("TIFF error in setSubimage {}", e.what());
+        spdlog::get("writer")->error("TIFF error in setSubimage {}", e.what());
         return false;
     } catch (const std::exception& e) {
-        spdlog::error("Exception in setSubimage {}", e.what());
+        spdlog::get("writer")->error("Exception in setSubimage {}", e.what());
         return false;
     } catch (...) {
-        spdlog::error("Unknown exception in setSubimage");
+        spdlog::get("writer")->error("Unknown exception in setSubimage");
         return false;
     }
 
@@ -313,7 +313,7 @@ bool TiffWriter::writeToFile_(size_t z, size_t depth, const Image3D& layers) con
     }
 
     writtenToDepth = z + depth;
-    spdlog::info("Successfully saved ImageFileDirectory ({}): {} - {}", outputFilename, z, z + depth);
+    spdlog::get("writer")->info("Successfully saved ImageFileDirectory ({}): {} - {}", outputFilename, z, z + depth);
     return true;
 }
 
@@ -361,9 +361,6 @@ void TiffWriter::setTiffFields(TIFF* tif, const ImageMetaData& metaData,
 
 void TiffWriter::customTifWarningHandler(const char* module, const char* fmt, va_list ap) {
     auto logger = spdlog::get("writer");
-    if (!logger) {
-        return;
-    }
 
     va_list ap_copy;
     va_copy(ap_copy, ap);
@@ -426,7 +423,7 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image,
         TIFFSetWarningHandler(TiffWriter::customTifWarningHandler);
         TIFF* tif = openTiff(filename.c_str(), imgShape);
 
-        spdlog::debug("Writing TIFF: compression={}, level={}, tiles={}x{}",
+        spdlog::get("writer")->debug("Writing TIFF: compression={}, level={}, tiles={}x{}",
             WriterCompressionConfig::compressionToString(compressionConfig.compressionScheme),
             compressionConfig.compressionLevel,
             writerConfig.tileWidth, writerConfig.tileLength);
@@ -455,10 +452,10 @@ bool TiffWriter::writeToFile(const std::string& filename, const Image3D& image,
         return true;
 
     } catch (const std::exception& e) {
-        spdlog::error("Exception in writeToFile: {}", e.what());
+        spdlog::get("writer")->error("Exception in writeToFile: {}", e.what());
         return false;
     } catch (...) {
-        spdlog::error("Unknown exception in writeToFile");
+        spdlog::get("writer")->error("Unknown exception in writeToFile");
         return false;
     }
 }

@@ -693,3 +693,116 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.ARTIFACT_NAME }}.zip
+
+  # -----------------------------------------------------------------
+  # GHCR — Publish all artifacts to GHCR via ORAS
+  # -----------------------------------------------------------------
+  ghcr-publish:
+    name: Publish artifacts to GHCR
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/')
+
+    needs:
+      - prepare
+      - ubuntu-publish
+      - ubuntu-cuda-publish
+      - macos-publish
+      - windows-publish
+      - windows-cuda-publish
+
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      GHCR_USERNAME: ${{ github.actor }}
+      GHCR_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@v1
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: oras-input
+
+      - name: Create ORAS configuration
+        shell: bash
+        run: |
+          jq -n \
+            --arg version "$VERSION" \
+            --arg root "$GITHUB_WORKSPACE/oras-input" \
+            '{
+              defaults: {
+                mode: "archive",
+                artifact_type: "application/vnd.asb.bundle.v1",
+                annotations: {
+                  "org.opencontainers.image.description":
+                    "Dolphin image deconvolution and PSF generation CLI",
+                  "org.opencontainers.image.licenses": "MIT"
+                }
+              },
+              artifacts: [
+                {
+                  coord:
+                    ("com.github.lennartkoehler:dolphin:"
+                     + $version + "-linux_amd64"),
+                  source:
+                    ($root + "/dolphin-" + $version
+                     + "-linux-x86_64/dolphin-" + $version
+                     + "-linux-x86_64.tar.gz")
+                },
+                {
+                  coord:
+                    ("com.github.lennartkoehler:dolphin:"
+                     + $version + "-linux_amd64_gpu_cu130"),
+                  source:
+                    ($root + "/dolphin-" + $version
+                     + "-linux-x86_64-cu130/dolphin-" + $version
+                     + "-linux-x86_64-cu130.tar.gz")
+                },
+                {
+                  coord:
+                    ("com.github.lennartkoehler:dolphin:"
+                     + $version + "-macos_arm64"),
+                  source:
+                    ($root + "/dolphin-" + $version
+                     + "-macos-arm64/dolphin-" + $version
+                     + "-macos-arm64.tar.gz")
+                },
+                {
+                  coord:
+                    ("com.github.lennartkoehler:dolphin:"
+                     + $version + "-windows_amd64"),
+                  source:
+                    ($root + "/dolphin-" + $version
+                     + "-windows-x64/dolphin-" + $version
+                     + "-windows-x64.zip")
+                },
+                {
+                  coord:
+                    ("com.github.lennartkoehler:dolphin:"
+                     + $version + "-windows_amd64_gpu_cu128"),
+                  source:
+                    ($root + "/dolphin-" + $version
+                     + "-windows-x64-cu128/dolphin-" + $version
+                     + "-windows-x64-cu128.zip")
+                }
+              ]
+            }' > oras-config.json
+
+      - name: Publish to GHCR
+        run: |
+          python3 scripts/oras_publish_v2.py \
+            --config oras-config.json \
+            --target ghcr \
+            --ghcr-owner lennartkoehler \
+            --ghcr-repo dolphin \
+            --prefix artifacts \
+            --login-env \
+            --require-source

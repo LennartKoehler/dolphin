@@ -188,11 +188,11 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
 
     std::vector<BoxCoordWithPadding> cubePositions;
     std::vector<BoxCoordWithPadding> lastCubePositions;
-    int dimIterator = 0;
-    for (int dimIterator = 0; dimIterator < 3; dimIterator++){
-        while(lastCubePositions.empty() || lastCubePositions.size() >= cubePositions.size()){
 
-            lastCubePositions = cubePositions;
+    for (int dimIterator = 0; dimIterator < 3; dimIterator++){
+        CuboidShape lastValidMaxSize = currentMaxSize;
+
+        while(true) {
             cubePositions.clear();
 
             CuboidShape cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
@@ -208,14 +208,21 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
                 imageOriginalShape,
                 imagePadding);
 
+            if (!lastCubePositions.empty() && cubePositions.size() > lastCubePositions.size()) {
+                cubePositions = lastCubePositions;
+                currentMaxSize = lastValidMaxSize;
+                break;
+            }
+
+            lastCubePositions = cubePositions;
+            lastValidMaxSize = currentMaxSize;
+
             bool success = decreaseSize(tempCubeAccessor, dimIterator, minSize);
             if (!success) {
-                lastCubePositions = cubePositions;
                 break;
             }
         }
-        cubePositions = lastCubePositions; // take the prevous before more cubes were needed, the while loop goes beyond by one
-
+        cubePositions = lastCubePositions;
     }
 
     return cubePositions;
