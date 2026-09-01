@@ -48,6 +48,7 @@ GaussianPSFConfig::GaussianPSFConfig(const GaussianPSFConfig& other)
     sigmaZ = other.sigmaZ;
     nanometerScale = other.nanometerScale;
     pixelScaling = other.pixelScaling;
+    cutoffThreshold = other.cutoffThreshold;
     // dont clear because parent already cleared
     registerAllParameters();
 
@@ -72,5 +73,6 @@ void GaussianPSFConfig::registerAllParameters(){
     getParameters().push_back({ParameterType::Float, &sigmaZ, "Sigma Z", true, "sigma_z", "--sigma_z", "Sigma Z", false, true, 0.1, 100.0, nullptr});
     getParameters().push_back({ParameterType::Float, &nanometerScale, "Nanometer Scale", true, "nanometer_scale", "--nanometer_scale", "Nanometer scale", false, true, 1e-9, 1e-6, nullptr});
     getParameters().push_back({ParameterType::Float, &pixelScaling, "Pixel Scaling", true, "pixel_scaling", "--pixel_scaling", "Pixel scaling", false, true, 1e-9, 1e-4, nullptr});
+    getParameters().push_back({ParameterType::Float, &cutoffThreshold, "Cutoff Threshold", true, "cutoff_threshold", "--cutoff_threshold", "Stop generating when PSF values drop below this fraction of peak", false, true, 1e-6, 0.1, nullptr});
 
 }

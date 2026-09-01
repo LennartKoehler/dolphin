@@ -63,7 +63,8 @@ public:
     /** Pixel size in lateral direction. */
     float pixelSizeLateral_nm = 100.0f;
 
-    
+    float cutoffThreshold = 1e-3f;
+
 private:
     void registerAllParameters();
 
