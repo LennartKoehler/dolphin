@@ -82,7 +82,8 @@ protected:
         PSFHandler& psfHandler,
         const DeconvolutionConfig& deconvConfig,
         const SetupConfig& setupConfig,
-        const CuboidShape& imageSize
+        const CuboidShape& imageSize,
+        const Padding& padding
     ) const;
 
     void resolveThreadsAndDevices(

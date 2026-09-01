@@ -49,6 +49,8 @@ void PSFHandler::generatePSFs(
         if (config->sizeX == 0) config->sizeX = maxSize.width;
         if (config->sizeY == 0) config->sizeY = maxSize.height;
         if (config->sizeZ == 0) config->sizeZ = maxSize.depth;
+        config->autoSize = true;
+        config->cutoffThreshold = 1e-4f;
         auto psf = std::make_shared<PSF>(PSFCreator::generatePSFFromPSFConfig(config, threadpool, progressFn));
         psfs.push_back(psf);
     }
@@ -121,26 +123,13 @@ Result<CuboidShape> PSFHandler::getMaxShape() const
     return Result<CuboidShape>::ok(std::move(largestPSF));
 }
 
-std::vector<std::shared_ptr<PSF>> PSFHandler::createPSFs(
-    const CuboidShape& psfShape)
-{
-    if (!psfsGenerated) {
-        for (const auto& config : psfConfigs){
-            if (config->sizeX == 0) config->sizeX = psfShape.width;
-            if (config->sizeY == 0) config->sizeY = psfShape.height;
-            if (config->sizeZ == 0) config->sizeZ = psfShape.depth;
-            auto psf = std::make_shared<PSF>(PSFCreator::generatePSFFromPSFConfig(config, threadpool, progressFn));
-            psfs.push_back(psf);
-        }
-        psfsGenerated = true;
-    }
-
+void PSFHandler::fitPSFsToShape(const CuboidShape& targetShape) {
     for (auto& psf : psfs){
         CuboidShape currentShape = psf->getShape();
-        if (currentShape < psfShape) {
-            ImagePadding::padToShape(*psf, psfShape, PaddingFillType::ZERO);
-        } else if (psfShape < currentShape) {
-            spdlog::get("deconvolution")->critical("PSF (size: {}) is larger than the cube shape ({})", currentShape.print(), psfShape.print());
+        if (currentShape < targetShape) {
+            ImagePadding::padToShape(*psf, targetShape, PaddingFillType::ZERO);
+        } else if (targetShape < currentShape) {
+            spdlog::get("deconvolution")->critical("PSF (size: {}) is larger than the target shape ({})", currentShape.print(), targetShape.print());
             throw std::runtime_error("PSF too large for cube constraints");
         }
     }
@@ -148,7 +137,6 @@ std::vector<std::shared_ptr<PSF>> PSFHandler::createPSFs(
     if (psfs.empty()){
         throw std::runtime_error("No PSFs supplied as either a PSF Config or as a file");
     }
-    return psfs;
 }
 
 std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {

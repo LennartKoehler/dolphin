@@ -93,7 +93,6 @@ std::vector<PSF> PSFCreator::readPSFsFromFilePath(const std::vector<std::string>
 
 
 PSF PSFCreator::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, std::shared_ptr<ThreadPool> threadPool, progressCallbackFn fn){
-
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(psfConfig);
     psfGenerator->configure(threadPool, fn);
@@ -102,7 +101,6 @@ PSF PSFCreator::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, s
     psf.ID = psfConfig->ID;
     spdlog::info("Successfully created PSF of type {} with ID: {}", psfConfig->getModelName(), psf.ID);
     return psf;
-
 }
 
 std::vector<std::shared_ptr<PSFConfig>> PSFCreator::generatePSFsFromDir(const std::string& psfDirPath){

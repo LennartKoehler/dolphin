@@ -291,7 +291,7 @@ TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
     auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 
-    EXPECT_THROW(psfHandler.createPSFs(CuboidShape{32, 32, 16}), std::runtime_error);
+    EXPECT_THROW(psfHandler.fitPSFsToShape(CuboidShape{32, 32, 16}), std::runtime_error);
 }
 
 

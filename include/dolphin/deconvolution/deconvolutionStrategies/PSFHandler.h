@@ -27,8 +27,9 @@ public:
 
     Result<CuboidShape> getMaxShape() const;
 
-    std::vector<std::shared_ptr<PSF>> createPSFs(
-        const CuboidShape& psfShape);
+    const std::vector<std::shared_ptr<PSF>>& getPSFs() const { return psfs; }
+
+    void fitPSFsToShape(const CuboidShape& targetShape);
 
 private:
     CuboidShape getPSFPadding(const PSF& psf, PaddingStrategyType paddingStrategy, float paddingRelativeMax) const;
