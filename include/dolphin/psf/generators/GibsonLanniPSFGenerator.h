@@ -36,10 +36,12 @@ public:
 		std::vector<float> data;
 		size_t lateralCutoff;
 	};
-	SliceData SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config) const;
+	SliceData SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config, size_t forcedCutoff = 0) const;
 
 private:
-	void initBesselHelper() const;
+	void initBesselHelper(size_t sizeX, size_t sizeY) const;
+	PSF generateFixedSizePSF() const;
+	PSF generateAutoSizePSF() const;
 	std::unique_ptr<NumericalIntegrator> numericalIntegrator;
     std::shared_ptr<GibsonLanniPSFConfig> config;
 

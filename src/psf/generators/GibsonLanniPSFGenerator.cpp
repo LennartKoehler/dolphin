@@ -85,13 +85,79 @@ void GibsonLanniPSFGenerator::setConfig(const std::shared_ptr<const PSFConfig> c
 }
 
 PSF GibsonLanniPSFGenerator::generatePSF() const {
-    initBesselHelper();
+    bool autoSize = (config->sizeX == 0 || config->sizeY == 0 || config->sizeZ == 0);
 
+    size_t effX = config->sizeX > 0 ? config->sizeX : 256;
+    size_t effY = config->sizeY > 0 ? config->sizeY : 256;
+
+    initBesselHelper(effX, effY);
+
+    if (autoSize) {
+        return generateAutoSizePSF();
+    }
+    return generateFixedSizePSF();
+}
+
+PSF GibsonLanniPSFGenerator::generateFixedSizePSF() const {
+    size_t sizeX = config->sizeX;
+    size_t sizeY = config->sizeY;
+    size_t sizeZ = config->sizeZ;
+    size_t lateralHalf = (std::min(sizeX, sizeY) - 1) / 2;
+    double pixelSizeAxial = static_cast<double>(config->pixelSizeAxial_nm);
+
+    progressTracker.setMax(sizeZ);
+
+    ImageType::Pointer itkImage = ImageType::New();
+    ImageType::SizeType imgSize;
+    imgSize[0] = sizeX;
+    imgSize[1] = sizeY;
+    imgSize[2] = sizeZ;
+    ImageType::IndexType start;
+    start.Fill(0);
+    ImageType::RegionType region;
+    region.SetSize(imgSize);
+    region.SetIndex(start);
+    itkImage->SetRegions(region);
+    itkImage->Allocate();
+    itkImage->FillBuffer(0.0f);
+
+    long zCenter = static_cast<long>(sizeZ / 2);
+    size_t offsetX = sizeX / 2 - lateralHalf;
+    size_t offsetY = sizeY / 2 - lateralHalf;
+
+    for (size_t z = 0; z < sizeZ; z++) {
+        long offset = static_cast<long>(z) - zCenter;
+        GibsonLanniPSFConfig cfg = *config;
+        cfg.ti_nm = cfg.ti0_nm + pixelSizeAxial * static_cast<double>(offset);
+
+        auto slice = SinglePlanePSFAsVector(cfg, lateralHalf);
+        size_t sliceW = 2 * slice.lateralCutoff + 1;
+
+        for (size_t y = 0; y < sliceW; y++) {
+            for (size_t x = 0; x < sliceW; x++) {
+                itk::Index<3> idx;
+                idx[0] = static_cast<itk::IndexValueType>(x + offsetX);
+                idx[1] = static_cast<itk::IndexValueType>(y + offsetY);
+                idx[2] = static_cast<itk::IndexValueType>(z);
+                itkImage->SetPixel(idx, slice.data[y * sliceW + x]);
+            }
+        }
+    }
+
+    return PSF(std::move(itkImage), config->ID);
+}
+
+PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const {
+    size_t effX = config->sizeX > 0 ? config->sizeX : 256;
+    size_t effY = config->sizeY > 0 ? config->sizeY : 256;
+    size_t effZ = config->sizeZ > 0 ? config->sizeZ : 256;
     double threshold = static_cast<double>(config->cutoffThreshold);
     double pixelSizeAxial = static_cast<double>(config->pixelSizeAxial_nm);
 
     auto makeCfg = [&](long offset) {
         GibsonLanniPSFConfig cfg = *config;
+        cfg.sizeX = effX;
+        cfg.sizeY = effY;
         cfg.ti_nm = cfg.ti0_nm + pixelSizeAxial * static_cast<double>(offset);
         return cfg;
     };
@@ -106,12 +172,12 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
     size_t maxCutoff = centerSlice.lateralCutoff;
     slices.push_back({0, std::move(centerSlice), peakVal});
 
-    progressTracker.setMax(config->sizeZ);
+    progressTracker.setMax(effZ);
 
     long negOffset = 0;
     while (slices.back().centerVal >= threshold * peakVal) {
+        if (negOffset - 1 < -static_cast<long>(effZ / 2)) break;
         negOffset--;
-        if (negOffset < -static_cast<long>(config->sizeZ / 2)) break;
         auto slice = SinglePlanePSFAsVector(makeCfg(negOffset));
         size_t c = slice.lateralCutoff;
         double val = slice.data[c * (2 * c + 1) + c];
@@ -122,8 +188,8 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
 
     long posOffset = 0;
     while (slices[0].centerVal >= threshold * peakVal) {
+        if (posOffset + 1 > static_cast<long>(effZ / 2)) break;
         posOffset++;
-        if (posOffset > static_cast<long>(config->sizeZ / 2)) break;
         auto slice = SinglePlanePSFAsVector(makeCfg(posOffset));
         size_t c = slice.lateralCutoff;
         double val = slice.data[c * (2 * c + 1) + c];
@@ -174,12 +240,12 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
     return PSF(std::move(itkImage), config->ID);
 }
 
-void GibsonLanniPSFGenerator::initBesselHelper() const {
+void GibsonLanniPSFGenerator::initBesselHelper(size_t sizeX, size_t sizeY) const {
     assert (config != nullptr && "Config not initialized");
 
     BesselHelper& besselHelper = BesselHelper::instance();
-    double nx = config->sizeX;
-    double ny = config->sizeY;
+    double nx = static_cast<double>(sizeX);
+    double ny = static_cast<double>(sizeY);
     double x0 = (nx - 1) / 2.0;
     double y0 = (ny - 1) / 2.0;
 
@@ -195,12 +261,13 @@ void GibsonLanniPSFGenerator::initBesselHelper() const {
     besselHelper.init(0, maxValue, dx);
 }
 
-GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config) const {
+GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config, size_t forcedCutoff) const {
     int OVER_SAMPLING = config.OVER_SAMPLING;
     double NA = config.NA;
     double pixelSizeLateral_nm = config.pixelSizeLateral_nm;
     double threshold = static_cast<double>(config.cutoffThreshold);
-    size_t maxLateral = std::min(config.sizeX, config.sizeY) / 2;
+
+    size_t maxLateral = forcedCutoff > 0 ? forcedCutoff : (std::min(config.sizeX, config.sizeY) / 2);
     size_t maxSamples = maxLateral * OVER_SAMPLING;
 
     std::vector<double> cachedProfile;
@@ -224,7 +291,16 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::SinglePlanePSFAsVect
         h.push_back(numericalIntegrator->integrateComplex(integrand0, a, b, integrationTolerance, integrationAccuracy));
     }
 
-    if (!(h.size() > 1 && h.back() < threshold * h[0])) {
+    if (forcedCutoff > 0) {
+        size_t n = h.size();
+        while (n <= maxSamples) {
+            double r_px = static_cast<double>(n) / static_cast<double>(OVER_SAMPLING);
+            GibsonLanniIntegrand integrand(config, r_px * pixelSizeLateral_nm);
+            double val = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
+            h.push_back(val);
+            n++;
+        }
+    } else if (!(h.size() > 1 && h.back() < threshold * h[0])) {
         size_t n = h.size();
         while (n < maxSamples) {
             double r_px = static_cast<double>(n) / static_cast<double>(OVER_SAMPLING);
@@ -241,7 +317,8 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::SinglePlanePSFAsVect
         cachedRadialProfiles[config.ti_nm] = h;
     }
 
-    size_t cutoff = static_cast<size_t>(std::ceil(static_cast<double>(h.size() - 1) / OVER_SAMPLING));
+    size_t cutoff = forcedCutoff > 0 ? forcedCutoff
+        : static_cast<size_t>(std::ceil(static_cast<double>(h.size() - 1) / OVER_SAMPLING));
     size_t gridSize = 2 * cutoff + 1;
     std::vector<float> sliceData(gridSize * gridSize, 0.0f);
 

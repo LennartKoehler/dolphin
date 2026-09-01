@@ -204,13 +204,39 @@ TEST_F(PSFGeneratorTest, PSFConstructorWithID) {
     EXPECT_EQ(psf.getShape(), CuboidShape(4, 4, 4));
 }
 
+// --- Fixed-size PSF generation tests ---
+
+TEST_F(PSFGeneratorTest, GibsonLanniFixedSize) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["size_x"] = 33;
+    j["size_y"] = 33;
+    j["size_z"] = 17;
+    auto generator = factory.createGenerator("GibsonLanni", j);
+
+    PSF psf = generator->generatePSF();
+    CuboidShape shape = psf.getShape();
+
+    EXPECT_EQ(shape.width, 33u);
+    EXPECT_EQ(shape.height, 33u);
+    EXPECT_EQ(shape.depth, 17u);
+
+    for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
+        EXPECT_FALSE(std::isnan(*it));
+        EXPECT_FALSE(std::isinf(*it));
+    }
+}
+
 // --- Threshold-based PSF cutoff tests ---
 
 TEST_F(PSFGeneratorTest, GibsonLanniThresholdCutoff) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    j["cutoff_threshold"] = 0.05f;
-    auto generator = factory.createGenerator("GibsonLanni", j);
+    auto config = factory.createConfig(j);
+    auto* glConfig = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
+    ASSERT_NE(glConfig, nullptr);
+    glConfig->cutoffThreshold = 0.05f;
+    auto generator = factory.createGenerator(config);
 
     PSF psf = generator->generatePSF();
     CuboidShape shape = psf.getShape();
