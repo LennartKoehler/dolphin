@@ -48,7 +48,6 @@ GaussianPSFConfig::GaussianPSFConfig(const GaussianPSFConfig& other)
     sigmaZ = other.sigmaZ;
     nanometerScale = other.nanometerScale;
     pixelScaling = other.pixelScaling;
-    cutoffThreshold = other.cutoffThreshold;
     // dont clear because parent already cleared
     registerAllParameters();
 

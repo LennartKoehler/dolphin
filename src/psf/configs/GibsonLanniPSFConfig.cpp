@@ -60,7 +60,6 @@ GibsonLanniPSFConfig::GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other)
     pixelSizeLateral_nm = other.pixelSizeLateral_nm;
     ng0 = other.ng0;
     ng = other.ng;
-    cutoffThreshold = other.cutoffThreshold;
     // dont clear because parent already cleared, else i clear the parent
     registerAllParameters();
 }

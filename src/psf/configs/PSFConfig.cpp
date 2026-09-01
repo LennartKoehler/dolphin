@@ -23,6 +23,7 @@ PSFConfig::PSFConfig(const PSFConfig& other)
     : Config()  // Delegate to default constructor first (registers parameters)
 {
     // Then copy the values
+    autoSize = other.autoSize;
     ID = other.ID;
     psfModelName = other.psfModelName;
     sizeX = other.sizeX;
@@ -31,6 +32,7 @@ PSFConfig::PSFConfig(const PSFConfig& other)
     resLateral_nm = other.resLateral_nm;
     resAxial_nm = other.resAxial_nm;
     NA = other.NA;
+    cutoffThreshold = other.cutoffThreshold;
     registerAllParameters();
 
     // Copy any other members

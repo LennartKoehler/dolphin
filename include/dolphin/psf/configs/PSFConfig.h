@@ -63,6 +63,7 @@ public:
 
     std::string psfModelName;
     std::string ID;
+    bool autoSize;
 
     size_t sizeX = 0;
     size_t sizeY = 0;
@@ -70,6 +71,7 @@ public:
     float NA = 1.0f;
     float resLateral_nm = 200.0f;
     float resAxial_nm = 200.0f;
+    float cutoffThreshold = 1e-3f;
 
 protected:
     void registerAllParameters();

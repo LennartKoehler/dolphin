@@ -233,9 +233,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniThresholdCutoff) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
     auto config = factory.createConfig(j);
-    auto* glConfig = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
-    ASSERT_NE(glConfig, nullptr);
-    glConfig->cutoffThreshold = 0.05f;
+    config->cutoffThreshold = 0.05f;
     auto generator = factory.createGenerator(config);
 
     PSF psf = generator->generatePSF();

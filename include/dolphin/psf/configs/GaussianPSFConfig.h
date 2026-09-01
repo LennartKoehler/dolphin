@@ -37,8 +37,6 @@ public:
     float pixelScaling = 1e-6f; //TODO should this be here? or in main config?
     float nanometerScale = 1e-9f;
 
-    float cutoffThreshold = 1e-3f;
-
 
 
 private:
