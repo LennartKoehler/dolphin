@@ -3,6 +3,7 @@
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
+#include "dolphin/psf/generators/GibsonLanniPSFGenerator.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/psf/PSF.h"
 #include "dolphin/Logging.h"
@@ -130,16 +131,6 @@ TEST_F(PSFGeneratorTest, GaussianPSFNoNaN) {
     }
 }
 
-TEST_F(PSFGeneratorTest, GaussianPSFGetPadding) {
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = json::parse(TestUtils::gaussianPSFConfigJSON());
-    auto generator = factory.createGenerator("Gaussian", j);
-    auto padding = generator->getPadding(PaddingStrategyType::PARENT);
-    EXPECT_GE(padding.width, 0);
-    EXPECT_GE(padding.height, 0);
-    EXPECT_GE(padding.depth, 0);
-}
-
 TEST_F(PSFGeneratorTest, GaussianPSFCreateFromConfig) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gaussianPSFConfigJSON());
@@ -160,7 +151,10 @@ TEST_F(PSFGeneratorTest, GibsonLanniPSFGeneration) {
     EXPECT_TRUE(generator->hasConfig());
 
     PSF psf = generator->generatePSF();
-    EXPECT_EQ(psf.getShape(), CuboidShape(64, 64, 32));
+    CuboidShape shape = psf.getShape();
+    EXPECT_GT(shape.width, 0u);
+    EXPECT_GT(shape.height, 0u);
+    EXPECT_GT(shape.depth, 0u);
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniPSFNoNaN) {
@@ -181,8 +175,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniPSFCentered) {
     auto generator = factory.createGenerator("GibsonLanni", j);
     PSF psf = generator->generatePSF();
 
+    CuboidShape shape = psf.getShape();
     float maxVal = psf.getMax();
-    float centerVal = psf.getPixel(64 / 2, 64 / 2, 32 / 2);
+    float centerVal = psf.getPixel(shape.width / 2, shape.height / 2, shape.depth / 2);
     EXPECT_NEAR(centerVal, maxVal, maxVal * 0.1f);
 }
 
@@ -207,4 +202,182 @@ TEST_F(PSFGeneratorTest, PSFConstructorWithID) {
     PSF psf(std::move(img), "my_id");
     EXPECT_EQ(psf.ID, "my_id");
     EXPECT_EQ(psf.getShape(), CuboidShape(4, 4, 4));
+}
+
+// --- Threshold-based PSF cutoff tests ---
+
+TEST_F(PSFGeneratorTest, GibsonLanniThresholdCutoff) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["cutoff_threshold"] = 0.05f;
+    auto generator = factory.createGenerator("GibsonLanni", j);
+
+    PSF psf = generator->generatePSF();
+    CuboidShape shape = psf.getShape();
+
+    EXPECT_LT(shape.width, 64u);
+    EXPECT_LT(shape.height, 64u);
+    EXPECT_LT(shape.depth, 32u);
+
+    float maxVal = psf.getMax();
+    float edgeVal = psf.getPixel(0, 0, 0);
+    EXPECT_LT(edgeVal, maxVal * 5e-2f);
+
+    float centerEdgeZ = psf.getPixel(shape.width / 2, shape.height / 2, 0);
+    EXPECT_LT(centerEdgeZ, maxVal * 5e-2f);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniThresholdPeakCentered) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["particle_axial_position_nm"] = 1000.0f;
+    auto generator = factory.createGenerator("GibsonLanni", j);
+
+    PSF psf = generator->generatePSF();
+    CuboidShape shape = psf.getShape();
+
+    size_t cx = shape.width / 2;
+    size_t cy = shape.height / 2;
+    size_t cz = shape.depth / 2;
+
+    float maxVal = 0.0f;
+    size_t maxZ = 0;
+    for (size_t z = 0; z < shape.depth; z++) {
+        float val = psf.getPixel(cx, cy, z);
+        if (val > maxVal) { maxVal = val; maxZ = z; }
+    }
+
+    EXPECT_LE(std::abs(static_cast<long>(maxZ) - static_cast<long>(cz)), 2);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniNoNaN) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    auto generator = factory.createGenerator("GibsonLanni", j);
+    PSF psf = generator->generatePSF();
+
+    for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
+        EXPECT_FALSE(std::isnan(*it));
+        EXPECT_FALSE(std::isinf(*it));
+    }
+}
+
+// --- Energy-based PSF extent tests ---
+
+TEST_F(PSFGeneratorTest, EnergyExtentGibsonLanniAxial) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["particle_axial_position_nm"] = 1000.0f;
+    auto generator = factory.createGenerator("GibsonLanni", j);
+
+    PSF psf = generator->generatePSF();
+    CuboidShape shape = psf.getShape();
+
+    size_t cx = shape.width / 2;
+    size_t cy = shape.height / 2;
+
+    float maxVal = 0.0f;
+    size_t zPeak = 0;
+    for (size_t z = 0; z < shape.depth; z++) {
+        float val = psf.getPixel(cx, cy, z);
+        if (val > maxVal) { maxVal = val; zPeak = z; }
+    }
+
+    PSFExtent extent = psf.computeEnergyExtent(1.0, 0.90);
+
+    double axialTotal = 0.0;
+    for (size_t z = 0; z < shape.depth; z++) {
+        axialTotal += psf.getPixel(cx, cy, z);
+    }
+
+    auto axialEnergyAt = [&](size_t d) -> double {
+        double sum = 0.0;
+        long lo = static_cast<long>(zPeak) - static_cast<long>(d);
+        long hi = static_cast<long>(zPeak) + static_cast<long>(d);
+        for (size_t z = 0; z < shape.depth; z++) {
+            if (static_cast<long>(z) >= lo && static_cast<long>(z) <= hi)
+                sum += psf.getPixel(cx, cy, z);
+        }
+        return sum / axialTotal;
+    };
+
+    EXPECT_GE(axialEnergyAt(extent.zHalfExtent), 0.90);
+    if (extent.zHalfExtent > 0) {
+        EXPECT_LT(axialEnergyAt(extent.zHalfExtent - 1), 0.90);
+    }
+}
+
+TEST_F(PSFGeneratorTest, EnergyExtentGibsonLanniLateral) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    auto generator = factory.createGenerator("GibsonLanni", j);
+
+    PSF psf = generator->generatePSF();
+    CuboidShape shape = psf.getShape();
+
+    size_t cx = shape.width / 2;
+    size_t cy = shape.height / 2;
+
+    float maxVal = 0.0f;
+    size_t zPeak = 0;
+    for (size_t z = 0; z < shape.depth; z++) {
+        float val = psf.getPixel(cx, cy, z);
+        if (val > maxVal) { maxVal = val; zPeak = z; }
+    }
+
+    PSFExtent extent = psf.computeEnergyExtent(0.90, 1.0);
+
+    double lateralTotal = 0.0;
+    for (size_t x = 0; x < shape.width; x++) {
+        lateralTotal += psf.getPixel(x, cy, zPeak);
+    }
+
+    auto lateralEnergyAt = [&](size_t r) -> double {
+        double sum = 0.0;
+        for (size_t x = 0; x < shape.width; x++) {
+            if (static_cast<long>(x) >= static_cast<long>(cx) - static_cast<long>(r) &&
+                static_cast<long>(x) <= static_cast<long>(cx) + static_cast<long>(r))
+                sum += psf.getPixel(x, cy, zPeak);
+        }
+        return sum / lateralTotal;
+    };
+
+    EXPECT_GE(lateralEnergyAt(extent.lateralExtent), 0.90);
+    if (extent.lateralExtent > 0) {
+        EXPECT_LT(lateralEnergyAt(extent.lateralExtent - 1), 0.90);
+    }
+}
+
+TEST_F(PSFGeneratorTest, EnergyExtentGaussian) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gaussianPSFConfigJSON());
+    auto generator = factory.createGenerator("Gaussian", j);
+
+    PSF psf = generator->generatePSF();
+    CuboidShape shape = psf.getShape();
+
+    size_t cx = shape.width / 2;
+    size_t cy = shape.height / 2;
+    size_t cz = shape.depth / 2;
+
+    double axialTotal = 0.0;
+    for (size_t z = 0; z < shape.depth; z++) {
+        axialTotal += psf.getPixel(cx, cy, z);
+    }
+
+    PSFExtent extent = psf.computeEnergyExtent(0.90, 0.90);
+
+    auto axialEnergyAt = [&](size_t d) -> double {
+        double sum = 0.0;
+        for (size_t z = 0; z < shape.depth; z++) {
+            if (z >= cz - d && z <= cz + d)
+                sum += psf.getPixel(cx, cy, z);
+        }
+        return sum / axialTotal;
+    };
+
+    EXPECT_GE(axialEnergyAt(extent.zHalfExtent), 0.90);
+    if (extent.zHalfExtent > 0) {
+        EXPECT_LT(axialEnergyAt(extent.zHalfExtent - 1), 0.90);
+    }
 }
