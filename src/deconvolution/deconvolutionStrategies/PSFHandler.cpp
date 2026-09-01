@@ -7,7 +7,7 @@ CuboidShape PSFHandler::getPSFPadding(const PSF& psf, PaddingStrategyType paddin
     CuboidShape padding;
     switch(paddingType){
     case(PARENT): {
-        padding = psf.computeEnergyExtent(0.999, 0.999) * 2;
+        padding = psf.getRegionLargerThreshold(paddingRelativeMax * psf.getMax());
         break;
     }
     case(FULL_PSF):

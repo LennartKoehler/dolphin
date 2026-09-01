@@ -97,7 +97,7 @@ TEST_F(PreprocessorTest, ParentPadding) {
     psf.setPixel(4, 4, 4, 1.0f);
     psf.setPixel(0, 0, 0, 0.0001f);
 
-    CuboidShape padding = psf.computeEnergyExtent(0.95, 0.95);
+    CuboidShape padding = psf.getRegionLargerThreshold(0.01f * psf.getMax());
     EXPECT_GE(padding.width, 0u);
     EXPECT_GE(padding.height, 0u);
     EXPECT_GE(padding.depth, 0u);

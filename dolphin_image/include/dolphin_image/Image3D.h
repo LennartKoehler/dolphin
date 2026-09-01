@@ -92,7 +92,6 @@ public:
 
     CuboidShape getShape() const;
     CuboidShape getRegionLargerThreshold(float threshold) const;
-    CuboidShape computeEnergyExtent(double lateralFraction, double axialFraction) const;
     float getMax() const;
     void flip();
     void scale(size_t new_size_x, size_t new_size_y, size_t new_size_z);
