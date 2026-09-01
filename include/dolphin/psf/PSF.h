@@ -20,10 +20,6 @@ See the LICENSE file provided with the code for the full license.
 
 typedef std::string PSFID;
 
-struct PSFExtent {
-    size_t zHalfExtent;
-    size_t lateralExtent;
-};
 
 class PSF : public Image3D{
 public:
@@ -34,7 +30,6 @@ public:
     void readFromTiffFile(const std::string& path);
     void writeToTiffFile(const std::string& path);
 
-    PSFExtent computeEnergyExtent(double lateralFraction, double axialFraction) const;
 
     std::string ID;
 };

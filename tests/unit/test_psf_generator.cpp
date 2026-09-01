@@ -307,7 +307,7 @@ TEST_F(PSFGeneratorTest, EnergyExtentGibsonLanniAxial) {
         if (val > maxVal) { maxVal = val; zPeak = z; }
     }
 
-    PSFExtent extent = psf.computeEnergyExtent(1.0, 0.90);
+    CuboidShape extent = psf.computeEnergyExtent(1.0, 0.90);
 
     double axialTotal = 0.0;
     for (size_t z = 0; z < shape.depth; z++) {
@@ -325,9 +325,9 @@ TEST_F(PSFGeneratorTest, EnergyExtentGibsonLanniAxial) {
         return sum / axialTotal;
     };
 
-    EXPECT_GE(axialEnergyAt(extent.zHalfExtent), 0.90);
-    if (extent.zHalfExtent > 0) {
-        EXPECT_LT(axialEnergyAt(extent.zHalfExtent - 1), 0.90);
+    EXPECT_GE(axialEnergyAt(extent.depth), 0.90);
+    if (extent.depth > 0) {
+        EXPECT_LT(axialEnergyAt(extent.depth - 1), 0.90);
     }
 }
 
@@ -349,7 +349,7 @@ TEST_F(PSFGeneratorTest, EnergyExtentGibsonLanniLateral) {
         if (val > maxVal) { maxVal = val; zPeak = z; }
     }
 
-    PSFExtent extent = psf.computeEnergyExtent(0.90, 1.0);
+    CuboidShape extent = psf.computeEnergyExtent(0.90, 1.0);
 
     double lateralTotal = 0.0;
     for (size_t x = 0; x < shape.width; x++) {
@@ -366,9 +366,9 @@ TEST_F(PSFGeneratorTest, EnergyExtentGibsonLanniLateral) {
         return sum / lateralTotal;
     };
 
-    EXPECT_GE(lateralEnergyAt(extent.lateralExtent), 0.90);
-    if (extent.lateralExtent > 0) {
-        EXPECT_LT(lateralEnergyAt(extent.lateralExtent - 1), 0.90);
+    EXPECT_GE(lateralEnergyAt(extent.width), 0.90);
+    if (extent.width > 0) {
+        EXPECT_LT(lateralEnergyAt(extent.width - 1), 0.90);
     }
 }
 
@@ -389,7 +389,7 @@ TEST_F(PSFGeneratorTest, EnergyExtentGaussian) {
         axialTotal += psf.getPixel(cx, cy, z);
     }
 
-    PSFExtent extent = psf.computeEnergyExtent(0.90, 0.90);
+    CuboidShape extent = psf.computeEnergyExtent(0.90, 0.90);
 
     auto axialEnergyAt = [&](size_t d) -> double {
         double sum = 0.0;
@@ -400,8 +400,8 @@ TEST_F(PSFGeneratorTest, EnergyExtentGaussian) {
         return sum / axialTotal;
     };
 
-    EXPECT_GE(axialEnergyAt(extent.zHalfExtent), 0.90);
-    if (extent.zHalfExtent > 0) {
-        EXPECT_LT(axialEnergyAt(extent.zHalfExtent - 1), 0.90);
+    EXPECT_GE(axialEnergyAt(extent.depth), 0.90);
+    if (extent.depth > 0) {
+        EXPECT_LT(axialEnergyAt(extent.depth - 1), 0.90);
     }
 }
