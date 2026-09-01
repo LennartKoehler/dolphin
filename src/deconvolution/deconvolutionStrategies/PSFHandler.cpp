@@ -7,7 +7,7 @@ CuboidShape PSFHandler::getPSFPadding(const PSF& psf, PaddingStrategyType paddin
     CuboidShape padding;
     switch(paddingType){
     case(PARENT): {
-        PSFExtent extent = psf.computeEnergyExtent(0.95, 0.95);
+        PSFExtent extent = psf.computeEnergyExtent(0.98, 0.98);
         padding = CuboidShape{extent.lateralExtent, extent.lateralExtent, extent.zHalfExtent};
         break;
     }
@@ -39,11 +39,26 @@ void PSFHandler::loadConfigsFromSetup(const SetupConfig& setupConfig) {
 }
 
 
-// this also generates the PSF
-Result<Padding> PSFHandler::getPadding(
+void PSFHandler::generatePSFs(
     const SetupConfig& setupConfig,
-    const DeconvolutionConfig& deconvConfig,
     const CuboidShape& maxSize)
+{
+    loadConfigsFromSetup(setupConfig);
+
+    for (const auto& config : psfConfigs){
+        if (config->sizeX == 0) config->sizeX = maxSize.width;
+        if (config->sizeY == 0) config->sizeY = maxSize.height;
+        if (config->sizeZ == 0) config->sizeZ = maxSize.depth;
+        auto psf = std::make_shared<PSF>(PSFCreator::generatePSFFromPSFConfig(config, threadpool, progressFn));
+        psfs.push_back(psf);
+    }
+
+    psfsGenerated = true;
+}
+
+
+Result<Padding> PSFHandler::getPadding(
+    const DeconvolutionConfig& deconvConfig) const
 {
     Padding padding;
 
@@ -63,17 +78,6 @@ Result<Padding> PSFHandler::getPadding(
         }
 
         default:{
-            loadConfigsFromSetup(setupConfig);
-
-            for (auto& config : psfConfigs){
-                config->sizeX = maxSize.width;
-                config->sizeY = maxSize.height;
-                config->sizeZ = maxSize.depth;
-                std::shared_ptr<PSF> psf = std::make_shared<PSF>(PSFCreator::generatePSFFromPSFConfig(config, threadpool, progressFn));
-                psfs.push_back(psf);
-            }
-
-
             std::vector<CuboidShape> psfPaddings;
             for (const auto& psf : psfs){
                 CuboidShape paddingSize = getPSFPadding(*psf, deconvConfig.paddingStrategyType, deconvConfig.paddingRelativeMax);
@@ -82,7 +86,6 @@ Result<Padding> PSFHandler::getPadding(
 
             CuboidShape result = getLargestShape(psfPaddings);
             padding = Padding{result / 2, result - result / 2};
-            psfsGenerated = true;
         }
     }
 
@@ -98,21 +101,11 @@ Result<Padding> PSFHandler::getPadding(
 }
 
 
-
-
-Result<CuboidShape> PSFHandler::getMaxShape(
-    const SetupConfig& setupConfig,
-    const DeconvolutionConfig& deconvConfig)
+Result<CuboidShape> PSFHandler::getMaxShape() const
 {
-    loadConfigsFromSetup(setupConfig);
-
     std::vector<CuboidShape> psfShapes;
 
-    for (const auto& config : psfConfigs){
-        psfShapes.push_back(config->getShape());
-    }
-
-    for (auto& psf : psfs){
+    for (const auto& psf : psfs){
         psfShapes.push_back(psf->getShape());
     }
 
@@ -132,17 +125,14 @@ std::vector<std::shared_ptr<PSF>> PSFHandler::createPSFs(
     const CuboidShape& psfShape)
 {
     if (!psfsGenerated) {
-        // for (auto& psf : psfs){
-        //     psfs.push_back(psfs)
-        // }
-        for (auto& config : psfConfigs){
-            config->sizeX = psfShape.width;
-            config->sizeY = psfShape.height;
-            config->sizeZ = psfShape.depth;
+        for (const auto& config : psfConfigs){
+            if (config->sizeX == 0) config->sizeX = psfShape.width;
+            if (config->sizeY == 0) config->sizeY = psfShape.height;
+            if (config->sizeZ == 0) config->sizeZ = psfShape.depth;
             auto psf = std::make_shared<PSF>(PSFCreator::generatePSFFromPSFConfig(config, threadpool, progressFn));
             psfs.push_back(psf);
         }
-
+        psfsGenerated = true;
     }
 
     for (auto& psf : psfs){

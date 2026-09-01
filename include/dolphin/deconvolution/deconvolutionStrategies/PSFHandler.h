@@ -18,15 +18,14 @@ public:
     void setInlinePSFConfigs(std::vector<std::shared_ptr<PSFConfig>> configs) { inlinePsfConfigs = std::move(configs); }
     bool hasInlineConfigs() const { return !inlinePsfConfigs.empty(); }
 
-
-    Result<Padding> getPadding(
+    void generatePSFs(
         const SetupConfig& setupConfig,
-        const DeconvolutionConfig& deconvConfig,
         const CuboidShape& maxSize);
 
-    Result<CuboidShape> getMaxShape(
-        const SetupConfig& setupConfig,
-        const DeconvolutionConfig& deconvConfig);
+    Result<Padding> getPadding(
+        const DeconvolutionConfig& deconvConfig) const;
+
+    Result<CuboidShape> getMaxShape() const;
 
     std::vector<std::shared_ptr<PSF>> createPSFs(
         const CuboidShape& psfShape);

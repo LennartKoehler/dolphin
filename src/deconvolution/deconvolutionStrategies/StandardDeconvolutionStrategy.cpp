@@ -194,7 +194,8 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
     );
     size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(real_t);
 
-    Result<Padding> paddingResult = psfHandler.getPadding(setupConfig, deconvConfig, imageSize);
+    psfHandler.generatePSFs(setupConfig, imageSize);
+    Result<Padding> paddingResult = psfHandler.getPadding(deconvConfig);
     // this cubepadding might still change due to good shapes for DFT. But this is the minimum!
     if (!paddingResult.success) {
         throw std::runtime_error("Error while getting Padding");
@@ -205,7 +206,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
         spdlog::get("deconvolution")->warn("Feathering radius ({}) is smaller than padding (which is probably the size of the psf) ({}), which can cause artifacts",
             deconvConfig.featheringRadius, (padding.before + padding.after).print());
 
-    Result<CuboidShape> maxPSFresult = psfHandler.getMaxShape(setupConfig, deconvConfig);
+    Result<CuboidShape> maxPSFresult = psfHandler.getMaxShape();
     // this cubepadding might still change due to good shapes for DFT. But this is the minimum!
     if (!maxPSFresult.success) {
         throw std::runtime_error("Error while getting Padding");

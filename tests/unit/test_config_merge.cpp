@@ -179,7 +179,7 @@ TEST_F(ConfigMergeTest, InlinePSFGibsonLanni) {
     auto config = factory.createConfig(jsonData);
     ASSERT_NE(config, nullptr);
     EXPECT_EQ(config->getModelName(), "GibsonLanni");
-    EXPECT_EQ(config->sizeX, 64);
+    EXPECT_EQ(config->sizeX, 0);
     EXPECT_FLOAT_EQ(config->NA, 1.4f);
 }
 
@@ -244,7 +244,8 @@ TEST_F(ConfigMergeTest, PSFHandlerInlineConfigsPreferredOverFilePaths) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::NONE;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig, CuboidShape{64, 64, 32});
+    psfHandler.generatePSFs(setupConfig, CuboidShape{64, 64, 32});
+    auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 }
 
@@ -264,15 +265,16 @@ TEST_F(ConfigMergeTest, PSFHandlerDoubleLoadFix) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig, CuboidShape{32, 32, 16});
+    psfHandler.generatePSFs(setupConfig, CuboidShape{32, 32, 16});
+    auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 
-    auto shapeResult = psfHandler.getMaxShape(setupConfig, deconvConfig);
+    auto shapeResult = psfHandler.getMaxShape();
     ASSERT_TRUE(shapeResult.success);
 
-    EXPECT_EQ(shapeResult.value.width, 32);
-    EXPECT_EQ(shapeResult.value.height, 32);
-    EXPECT_EQ(shapeResult.value.depth, 16);
+    EXPECT_EQ(shapeResult.value.width, 32u);
+    EXPECT_EQ(shapeResult.value.height, 32u);
+    EXPECT_EQ(shapeResult.value.depth, 16u);
 }
 
 TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
@@ -285,7 +287,8 @@ TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig, CuboidShape{32, 32, 16});
+    psfHandler.generatePSFs(setupConfig, CuboidShape{32, 32, 16});
+    auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 
     EXPECT_THROW(psfHandler.createPSFs(CuboidShape{32, 32, 16}), std::runtime_error);
