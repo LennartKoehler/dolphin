@@ -184,13 +184,18 @@ void CLIFrontend::deconvolution() {
 bool CLIFrontend::handlePSFGeneration(const PSFConfigBundle& bundle) {
     std::vector<std::string> missingParams = checkRequired(const_cast<SetupConfigPSF&>(bundle.setupConfig));
     if (!missingParams.empty()) {
-        std::cout << psfCLI->help() << std::endl;
+        spdlog::error("Required parameter(s) missing:");
+        for (const auto& p : missingParams) {
+            spdlog::error("  - {}", p);
+        }
+        spdlog::info("Provide parameters via CLI or use -c/--config, -s/--setup_config, -p/--psf_configs for JSON config files");
+        spdlog::info("{}", psfCLI->help());
         return false;
     }
 
     if (!bundle.hasPSF) {
         spdlog::error("No PSF config provided — use -p/--psf_configs or inline psf_configs in JSON");
-        std::cout << psfCLI->help() << std::endl;
+        spdlog::info("{}", psfCLI->help());
         return false;
     }
 
