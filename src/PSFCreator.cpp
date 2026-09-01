@@ -99,7 +99,7 @@ PSF PSFCreator::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, s
     spdlog::info("Generating PSF of type {} with ID: {}", psfConfig->getModelName(), psfConfig->ID);
     PSF psf = psfGenerator->generatePSF();
     psf.ID = psfConfig->ID;
-    spdlog::info("Successfully created PSF of type {} with ID: {}", psfConfig->getModelName(), psf.ID);
+    spdlog::info("Successfully created PSF of type {} with ID {} and size {}", psfConfig->getModelName(), psf.ID, psf.getShape().print());
     return psf;
 }
 

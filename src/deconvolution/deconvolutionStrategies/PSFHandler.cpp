@@ -7,8 +7,7 @@ CuboidShape PSFHandler::getPSFPadding(const PSF& psf, PaddingStrategyType paddin
     CuboidShape padding;
     switch(paddingType){
     case(PARENT): {
-        PSFExtent extent = psf.computeEnergyExtent(0.98, 0.98);
-        padding = CuboidShape{extent.lateralExtent, extent.lateralExtent, extent.zHalfExtent};
+        padding = psf.computeEnergyExtent(0.999, 0.999) * 2;
         break;
     }
     case(FULL_PSF):
@@ -97,6 +96,8 @@ Result<Padding> PSFHandler::getPadding(
         return Result<Padding>::fail(
             "Padding for cubes is smaller than zero");
     }
+
+    spdlog::get("deconvolution")->debug("PSFHandler reported the following necessary padding: {} before, {} after", padding.before.print(), padding.after.print());
 
 
     return Result<Padding>::ok(std::move(padding));
