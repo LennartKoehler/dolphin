@@ -14,15 +14,14 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <memory>
+#include <map>
+#include <mutex>
+#include <vector>
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/psf/generators/SimpsonIntegrator.h"
 
 class GibsonLanniPSFConfig;
-
-struct LateralClip {
-	size_t xMin, xMax, yMin, yMax;
-};
 
 class GibsonLanniPSFGenerator : public BasePSFGenerator {
 public:
@@ -32,15 +31,20 @@ public:
     void setConfig(const std::shared_ptr<const PSFConfig> config) override;
     bool hasConfig() override;
 	void setIntegrator(std::unique_ptr<NumericalIntegrator> integrator);
-	std::vector<float> SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config, const LateralClip& clip) const;
-    CuboidShape getPadding(PaddingStrategyType paddingType) const override;
+
+	struct SliceData {
+		std::vector<float> data;
+		size_t lateralCutoff;
+	};
+	SliceData SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config) const;
 
 private:
 	void initBesselHelper() const;
-	LateralClip clipSize() const;
 	std::unique_ptr<NumericalIntegrator> numericalIntegrator;
     std::shared_ptr<GibsonLanniPSFConfig> config;
 
+	mutable std::map<double, std::vector<double>> cachedRadialProfiles;
+	mutable std::mutex cacheMutex;
 };
 
 
