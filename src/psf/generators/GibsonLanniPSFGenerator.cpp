@@ -85,14 +85,13 @@ void GibsonLanniPSFGenerator::setConfig(const std::shared_ptr<const PSFConfig> c
 }
 
 PSF GibsonLanniPSFGenerator::generatePSF() const {
-    bool autoSize = (config->sizeX == 0 || config->sizeY == 0 || config->sizeZ == 0);
 
     size_t effX = config->sizeX > 0 ? config->sizeX : 256;
     size_t effY = config->sizeY > 0 ? config->sizeY : 256;
 
     initBesselHelper(effX, effY);
 
-    if (autoSize) {
+    if (config->autoSize) {
         return generateAutoSizePSF();
     }
     return generateFixedSizePSF();
