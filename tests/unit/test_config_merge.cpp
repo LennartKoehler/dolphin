@@ -244,7 +244,7 @@ TEST_F(ConfigMergeTest, PSFHandlerInlineConfigsPreferredOverFilePaths) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::NONE;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig);
+    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig, CuboidShape{64, 64, 32});
     ASSERT_TRUE(paddingResult.success);
 }
 
@@ -264,7 +264,7 @@ TEST_F(ConfigMergeTest, PSFHandlerDoubleLoadFix) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig);
+    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig, CuboidShape{32, 32, 16});
     ASSERT_TRUE(paddingResult.success);
 
     auto shapeResult = psfHandler.getMaxShape(setupConfig, deconvConfig);
@@ -285,7 +285,7 @@ TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig);
+    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig, CuboidShape{32, 32, 16});
     ASSERT_TRUE(paddingResult.success);
 
     EXPECT_THROW(psfHandler.createPSFs(CuboidShape{32, 32, 16}), std::runtime_error);

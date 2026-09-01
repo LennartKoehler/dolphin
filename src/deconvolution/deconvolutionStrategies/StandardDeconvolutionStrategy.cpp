@@ -194,7 +194,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
     );
     size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(real_t);
 
-    Result<Padding> paddingResult = psfHandler.getPadding(setupConfig, deconvConfig);
+    Result<Padding> paddingResult = psfHandler.getPadding(setupConfig, deconvConfig, imageSize);
     // this cubepadding might still change due to good shapes for DFT. But this is the minimum!
     if (!paddingResult.success) {
         throw std::runtime_error("Error while getting Padding");

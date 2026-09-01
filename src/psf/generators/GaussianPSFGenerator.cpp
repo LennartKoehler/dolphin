@@ -33,24 +33,11 @@ bool GaussianPSFGenerator::hasConfig(){
     return config != nullptr;
 }
 
-CuboidShape GaussianPSFGenerator::getPadding(PaddingStrategyType paddingType) const {
-    switch(paddingType){
-        case(NONE):
-            return CuboidShape{0,0,0};
-        case(PARENT):
-            return CuboidShape{static_cast<size_t>(config->sigmaX * 4), static_cast<size_t>(config->sigmaY * 4), static_cast<size_t>(config->sigmaZ * 4)};
-        case(FULL_PSF):
-            return CuboidShape{config->sizeX, config->sizeY, config->sizeZ};
-        case(MANUAL):
-            return CuboidShape{SIZE_MAX, SIZE_MAX, SIZE_MAX};
-        default:
-            return CuboidShape{SIZE_MAX, SIZE_MAX, SIZE_MAX};
-    }
-}
 
+//
 ImageType::RegionType GaussianPSFGenerator::getNonNegligibleRegion(size_t width, size_t height, size_t layers,
                                                       double centerX, double centerY, double centerZ) const {
-    constexpr double cutoffFactor = 5.0;
+    double cutoffFactor = std::sqrt(-2.0 * std::log(static_cast<double>(config->cutoffThreshold)));
 
     size_t xMin = static_cast<size_t>(std::max(0L, static_cast<long>(std::floor(centerX - cutoffFactor * config->sigmaX))));
     size_t xMax = std::min(width - 1, static_cast<size_t>(std::max(0L, static_cast<long>(std::ceil(centerX + cutoffFactor * config->sigmaX)))));
