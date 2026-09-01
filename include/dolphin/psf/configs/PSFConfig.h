@@ -64,9 +64,9 @@ public:
     std::string psfModelName;
     std::string ID;
 
-    size_t sizeX = 20;
-    size_t sizeY = 20;
-    size_t sizeZ = 10;
+    size_t sizeX = 0;
+    size_t sizeY = 0;
+    size_t sizeZ = 0;
     float NA = 1.0f;
     float resLateral_nm = 200.0f;
     float resAxial_nm = 200.0f;

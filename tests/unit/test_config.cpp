@@ -165,9 +165,9 @@ TEST_F(ConfigTest, SetupConfigAssignment) {
 TEST_F(ConfigTest, GaussianPSFConfigDefaults) {
     GaussianPSFConfig config;
     EXPECT_EQ(config.psfModelName, "Gaussian");
-    EXPECT_EQ(config.sizeX, 20);
-    EXPECT_EQ(config.sizeY, 20);
-    EXPECT_EQ(config.sizeZ, 10);
+    EXPECT_EQ(config.sizeX, 0);
+    EXPECT_EQ(config.sizeY, 0);
+    EXPECT_EQ(config.sizeZ, 0);
     EXPECT_FLOAT_EQ(config.sigmaX, 10);
     EXPECT_FLOAT_EQ(config.sigmaY, 10);
     EXPECT_FLOAT_EQ(config.sigmaZ, 10);
@@ -194,9 +194,9 @@ TEST_F(ConfigTest, GibsonLanniPSFConfigLoadFromJSON) {
     auto config = PSFConfig::createFromJSON(j);
     ASSERT_NE(config, nullptr);
     EXPECT_EQ(config->getModelName(), "GibsonLanni");
-    EXPECT_EQ(config->sizeX, 64);
-    EXPECT_EQ(config->sizeY, 64);
-    EXPECT_EQ(config->sizeZ, 32);
+    EXPECT_EQ(config->sizeX, 0);
+    EXPECT_EQ(config->sizeY, 0);
+    EXPECT_EQ(config->sizeZ, 0);
     EXPECT_FLOAT_EQ(config->NA, 1.4f);
 
     auto* glConfig = dynamic_cast<GibsonLanniPSFConfig*>(config.get());

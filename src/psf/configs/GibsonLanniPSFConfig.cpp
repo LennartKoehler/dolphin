@@ -42,7 +42,6 @@ void GibsonLanniPSFConfig::registerAllParameters(){
     getParameters().push_back({ParameterType::Float, &pixelSizeLateral_nm, "Pixel Size Lateral (nm)", false, "pixel_size_lateral_nm", "--pixel_size_lateral_nm", "Pixel size lateral", false, true, 1.0, 1000.0, nullptr});
     getParameters().push_back({ParameterType::Float, &ng0, "Coverslip RI Design", true, "coverslip_ri_design", "--coverslip_ri_design", "Coverslip RI design", false, true, 1.0, 2.0, nullptr});
     getParameters().push_back({ParameterType::Float, &ng, "Coverslip RI Experimental", true, "coverslip_ri_experimental", "--coverslip_ri_experimental", "Coverslip RI experimental", false, true, 1.0, 2.0, nullptr});
-    getParameters().push_back({ParameterType::Float, &cutoffThreshold, "Cutoff Threshold", true, "cutoff_threshold", "--cutoff_threshold", "Stop generating when PSF values drop below this fraction of peak", false, true, 1e-6, 0.1, nullptr});
 }
 GibsonLanniPSFConfig::GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other)
     : PSFConfig(other){
