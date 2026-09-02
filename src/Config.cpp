@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/Config.h"
 
+#include <fstream>
 #include <spdlog/spdlog.h>
 
 

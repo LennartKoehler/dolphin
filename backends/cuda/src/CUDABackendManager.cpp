@@ -157,7 +157,6 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
         cudaStreamDestroy(config.stream);
         throw;
     }
-    }
 }
 
 
