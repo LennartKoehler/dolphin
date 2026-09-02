@@ -13,7 +13,6 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
-#include <functional>
 #include <vector>
 #include <list>
 #include <itkImage.h>
@@ -292,7 +291,7 @@ struct CustomList{
 
 class LazyImage3D : public Image3D{
 
-    virtual ~LazyImage3D() override;
+    ~LazyImage3D() override;
     void update();
 
     std::vector<std::reference_wrapper<IImageOperation>> deferredOperations;

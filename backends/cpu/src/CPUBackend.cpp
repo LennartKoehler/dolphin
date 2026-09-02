@@ -1,15 +1,26 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #include "CPUBackend.h"
 #include "dolphinbackend/Exceptions.h"
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IComputeBackend.h"
 #include <algorithm>
 #include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
 #include <cmath>
 #include <cstring>
 #include <cassert>
-#include <iostream>
-#include <sstream>
-#include <thread>
 
 #ifdef __linux__
 #include <unistd.h>
@@ -29,15 +40,6 @@
 using dolphin::backend::buildCpuContext;
 
 #ifdef _OPENMP
-//
-// #include <omp.h>
-// #define OMP_STRINGIFY(x) #x
-// #define OMP_PRAGMA(x) _Pragma(OMP_STRINGIFY(x))
-//
-// #define OMP(openmp_directive, useOMP, threads) \
-//     if(false && threads>1) OMP_PRAGMA(openmp_directive num_threads(threads))
-//
-// #else
 
 #define OMP(openmp_directive, useOMP, threads)
 #else
@@ -178,7 +180,7 @@ void stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& func) {
 
 LogCallback& getGlobalLogger() {
     static LogCallback* cb = new LogCallback([](const std::string& context, const std::string& message, LogLevel level){
-        std::cout << context << ": " << message << std::endl;
+        spdlog::info("[{}] {}", context, message);
     });
     return *cb;
 }
@@ -245,11 +247,7 @@ void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
     if ((access.data.totalUsedMemory + requiredSize) > access.data.maxMemorySize) {
 
         throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CPU", requiredSize, "Memory Allocation", buildCpuContext());
-        // log(fmt::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::LOG_ERROR);
     }
-    // backend.memory.memoryCondition.wait(lock, [this, requiredSize]() {
-    //     return backend.memory.maxMemorySize == 0 || (backend.memory.totalUsedMemory + requiredSize) <= backend.memory.maxMemorySize;
-    // });
 }
 
 // CPUBackendMemoryManager implementation
@@ -403,21 +401,6 @@ size_t CPUBackendMemoryManager::getAllocatedMemory() const {
 }
 
 float CPUBackendMemoryManager::estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
-    // size_t Nx = shape.width;
-    // size_t Ny = shape.height;
-    // size_t Nz = shape.depth;
-    //
-    // size_t complexElements = static_cast<size_t>(Nz) * Ny * (Nx / 2 + 1);
-    //
-    // size_t planCreationTemp = sizeof(complex_t) * complexElements;
-    // // size_t fftwMeasureScratch = sizeof(complex_t) * complexElements;
-    // // size_t persistentPlanOverhead = sizeof(complex_t) * complexElements;
-    //
-    // size_t totalWorkspace = planCreationTemp; //+ fftwMeasureScratch + persistentPlanOverhead;
-    //
-    // log(fmt::format("Estimated FFTW workspace for shape {}: {:.2f} MB",
-    //     shape.print(), totalWorkspace / 1e6), LogLevel::LOG_DEBUG);
-
     return 2;
 }
 
@@ -487,34 +470,6 @@ void CPUComputeBackend::backwardFFT(const ComplexData& in, RealData& out) const 
     real_t normFactor{1.0f / out.getSize().getVolume()};
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
-
-// void CPUComputeBackend::octantFourierShift(RealData& data) const {
-//     size_t width = data.getSize().width;
-//     size_t height = data.getSize().height;
-//     size_t depth = data.getSize().depth;
-//
-//     size_t halfWidth = width / 2;
-//     size_t halfHeight = height / 2;
-//     size_t halfDepth = depth / 2;
-//
-//
-//
-//     for (size_t z = 0; z < depth; ++z) {
-//         size_t newZ = (z + halfDepth) % depth;
-//         for (size_t y = 0; y < height; ++y) {
-//             size_t newY = (y + halfHeight) % height;
-//             for (size_t x = 0; x < width; ++x) {
-//                 size_t newX = (x + halfWidth) % width;
-//
-//                 size_t srcIdx = z * height * width + y * width + x;
-//                 size_t dstIdx = newZ * height * width + newY * width + newX;
-//
-//                 // data[dstIdx] = temp[srcIdx];
-//                 std::swap(data[dstIdx], data[srcIdx]);
-//             }
-//         }
-//     }
-// }
 
 void CPUComputeBackend::octantFourierShift(RealData& data) const {
     size_t width = data.getSize().width;
@@ -832,52 +787,6 @@ void CPUComputeBackend::complexDivisionStabilized(const ComplexData& a, const Co
         }
     });
 }
-
-// // Specialized Functions
-// void CPUComputeBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
-//     auto siPsf = getStrideInfo(psf);
-//     auto siLap = getStrideInfo(laplacian);
-//     const complex_t* ptrPsf = psf.getData();
-//     complex_t*       ptrLap = laplacian.getData();
-//
-//     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
-//     for (size_t z = 0; z < siPsf.depth; ++z) {
-//         float wz = 2 * M_PI * z / siPsf.depth;
-//         for (size_t y = 0; y < siPsf.height; ++y) {
-//             float wy = 2 * M_PI * y / siPsf.height;
-//             auto offPsf = z * siPsf.sliceStride + y * siPsf.stride;
-//             auto offLap = z * siLap.sliceStride + y * siLap.stride;
-//             for (size_t x = 0; x < siPsf.width; ++x) {
-//                 float wx = 2 * M_PI * x / siPsf.width;
-//                 float lap_val = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
-//                 ptrLap[offLap + x][0] = ptrPsf[offPsf + x][0] * lap_val;
-//                 ptrLap[offLap + x][1] = ptrPsf[offPsf + x][1] * lap_val;
-//             }
-//         }
-//     }
-// }
-//
-// // void CPUComputeBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
-//     real_t max_val = 0.0, max_val2 = 0.0;
-//     OMP(omp parallel for, config.useOMP, config.ompThreads)
-//     for (size_t j = 0; j < resultImage.getSize().getVolume(); j++) {
-//         max_val = std::max(max_val, resultImage[j][0]);
-//         max_val2 = std::max(max_val2, resultImage[j][1]);
-//     }
-//     OMP(omp parallel for, config.useOMP, config.ompThreads)
-//     for (size_t j = 0; j < resultImage.getSize().getVolume(); j++) {
-//         resultImage[j][0] /= (max_val + epsilon);
-//         resultImage[j][1] /= (max_val2 + epsilon);
-//     }
-// }
-//
-// void CPUComputeBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
-//     OMP(omp parallel for, config.useOMP, config.ompThreads)
-//     for (size_t i = 0; i < data.getSize().getVolume(); ++i) {
-//         data[i][0] /= cubeVolume;
-//         data[i][1] /= cubeVolume;
-//     }
-// }
 
 // Debug functions
 void CPUComputeBackend::hasNAN(const ComplexData& data) const {

@@ -15,18 +15,16 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphinbackend/ComplexData.h"
-#include <memory>
 
 class RLTVDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
 public:
-    // Constructor that takes a backend parameter
     RLTVDeconvolutionAlgorithm() = default;
-    virtual ~RLTVDeconvolutionAlgorithm() = default;
+    ~RLTVDeconvolutionAlgorithm() = default;
 
     void configure(const DeconvolutionConfig& config) override;
-    virtual void init(const CuboidShape& dataSize) override;
+    void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
-    virtual void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
+    void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
     size_t getMemoryMultiplier() const override;
 protected:
     int iterations;

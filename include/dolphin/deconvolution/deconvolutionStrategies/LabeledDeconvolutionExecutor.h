@@ -38,10 +38,10 @@ The labelimage (int pixelvalues) provides the information for which psf should b
 class LabeledDeconvolutionExecutor : public StandardDeconvolutionExecutor {
 public:
     LabeledDeconvolutionExecutor();
-    virtual ~LabeledDeconvolutionExecutor() = default;
+    ~LabeledDeconvolutionExecutor() = default;
 
     // Configuration methods
-    virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) override;
+    void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) override;
 
     void setLabelReader(std::unique_ptr<ReaderHandler> labelReader) {this->labelReader = std::move(labelReader);}
     void setPsfLabelMap(RangeMap<std::string> psfLabelMap) {this->psfLabelMap = psfLabelMap;}

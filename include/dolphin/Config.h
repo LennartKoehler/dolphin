@@ -14,11 +14,10 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include "nlohmann/json.hpp"
-#include <fstream>
-#include <iostream>
 #include <unordered_set>
 #include <vector>
 #include <array>
+#include <stdexcept>
 #include <spdlog/spdlog.h>
 
 using json = nlohmann::json;
@@ -115,8 +114,7 @@ class Config{
     using ParamVisitor = std::function<void(ConfigParameter)>;
 
 public:
-    Config(){
-    }
+    Config() = default;
 
 
     // Copy/move of Config is deleted because the `parameters` vector holds void* pointers
@@ -214,8 +212,7 @@ protected:
         for (auto const& [k, v] : map.getMap()) {
             if (v == value) return std::string(k);
         }
-        assert (false && "cant find value");
-        return "";
+        throw std::runtime_error("cant find value");
     }
 
 

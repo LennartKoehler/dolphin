@@ -1,3 +1,16 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #pragma once
 
 
@@ -75,9 +88,6 @@ private:
 class IBackend {
 
     friend class IBackendManager;
-    // friend class BackendFactory;
-    // friend class IComputeBackend;
-    // friend class IBackendMemoryManager;
 
 
 public:
@@ -102,8 +112,6 @@ public:
     virtual IBackendMemoryManager* getMemoryManagerPtr() const noexcept = 0;
 
     // Access to the Owner object for advanced ownership management
-    // virtual Owner<IComputeBackend, IBackendMemoryManager>& getOwner() noexcept = 0;
-    // virtual const Owner<IComputeBackend, IBackendMemoryManager>& getOwner() const noexcept = 0;
 
     // Backend component access
     virtual const IComputeBackend& getComputeManager() const noexcept = 0;

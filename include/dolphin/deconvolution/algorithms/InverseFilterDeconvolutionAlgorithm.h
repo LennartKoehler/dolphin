@@ -18,7 +18,6 @@ See the LICENSE file provided with the code for the full license.
 
 class InverseFilterDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
 public:
-    // Constructor that takes a backend parameter
     InverseFilterDeconvolutionAlgorithm() = default;
     ~InverseFilterDeconvolutionAlgorithm() = default;
 

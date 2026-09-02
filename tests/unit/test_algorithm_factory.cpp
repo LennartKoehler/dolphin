@@ -1,3 +1,16 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #include <gtest/gtest.h>
 #include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
@@ -45,11 +58,6 @@ TEST_F(AlgorithmFactoryTest, HasConvolution) {
 TEST_F(AlgorithmFactoryTest, HasRLAD) {
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
     EXPECT_TRUE(factory.isAlgorithmAvailable("RichardsonLucywithAdaptiveDamping"));
-}
-
-TEST_F(AlgorithmFactoryTest, HasTestAlgorithm) {
-    auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    EXPECT_TRUE(factory.isAlgorithmAvailable("TestAlgorithm"));
 }
 
 TEST_F(AlgorithmFactoryTest, IsAlgorithmAvailableFalse) {

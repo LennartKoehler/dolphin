@@ -13,7 +13,6 @@ See the LICENSE file provided with the code for the full license.
 
 #include <chrono>
 #include <filesystem>
-#include <fstream>
 #include <memory>
 #include <spdlog/spdlog.h>
 

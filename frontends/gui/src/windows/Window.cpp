@@ -99,27 +99,3 @@ void Window::startWindow(){
 void Window::endWindow(){
     ImGui::End();
 }
-
-
-
-
-
-// CompositeWindow::CompositeWindow(GUIFrontend* frontend, int width, int height, std::string name)
-//     : Window(frontend, width, height, name)  // CompositeWindow calls Window constructor
-// {
-//     // CompositeWindow-specific initialization
-// }
-
-// void CompositeWindow::startWindow(){
-//     ImGui::Begin(name.c_str(), &active, ImGuiWindowFlags_AlwaysAutoResize);
-//     content();
-//     ImGui::End();
-// }
-
-// void CompositeWindow::show(){
-//     startWindow();
-//     showChildren();
-// }
-
-// void CompositeWindow::content(){
-// }

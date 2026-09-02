@@ -14,7 +14,6 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/algorithms/ConvolutionAlgorithm.h"
 #include "dolphinbackend/IBackendMemoryManager.h"
 #include "dolphinbackend/IComputeBackend.h"
-#include <iostream>
 #include <cassert>
 #include <spdlog/spdlog.h>
 
