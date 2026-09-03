@@ -31,6 +31,7 @@ public:
     // size_t getMemoryMultiplier() const override;
 private:
     // bool initialized = false;
+    ComplexData f_complex;
 
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };
