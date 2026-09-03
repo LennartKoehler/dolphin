@@ -56,15 +56,21 @@ void adjustDimensionsEdgeConditions(
     // If subimage cube  is larger than image in any dimension, adjust to make padding after larger while making dimensions of box smaller
     // so basically if psf is larger than image in any dimension
     if (currentCube.box.dimensions.width > imageOriginalShape.width) {
-        currentCube.padding.after.width = currentCube.padding.after.width + currentCube.box.dimensions.width - imageOriginalShape.width;
+        size_t totalPadding = currentCube.padding.after.width + currentCube.box.dimensions.width - imageOriginalShape.width;
+        currentCube.padding.after.width = totalPadding - totalPadding / 2;
+        currentCube.padding.after.width = totalPadding / 2;
         currentCube.box.dimensions.width = imageOriginalShape.width;
     }
     if (currentCube.box.dimensions.height > imageOriginalShape.height) {
-        currentCube.padding.after.height = currentCube.padding.after.height + currentCube.box.dimensions.height - imageOriginalShape.height;
+        size_t totalPadding = currentCube.padding.after.height + currentCube.box.dimensions.height - imageOriginalShape.height;
+        currentCube.padding.after.height = totalPadding - totalPadding / 2;
+        currentCube.padding.after.height = totalPadding / 2;
         currentCube.box.dimensions.height = imageOriginalShape.height;
     }
     if (currentCube.box.dimensions.depth > imageOriginalShape.depth) {
-        currentCube.padding.after.depth = currentCube.padding.after.depth + currentCube.box.dimensions.depth - imageOriginalShape.depth;
+        size_t totalPadding = currentCube.padding.after.depth + currentCube.box.dimensions.depth - imageOriginalShape.depth;
+        currentCube.padding.after.depth = totalPadding - totalPadding / 2;
+        currentCube.padding.after.depth = totalPadding / 2;
         currentCube.box.dimensions.depth = imageOriginalShape.depth;
     }
 
