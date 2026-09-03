@@ -34,9 +34,8 @@ protected:
     bool initialized = false;
 
     // Algorithm-specific data members for intermediate calculations
-    ComplexData f_complex;  // Frequency domain
-    ComplexView c_complex;  // Frequency domain
-    RealData c;             // Spatial domain (real-valued)
+    ComplexView c_complex;  // Frequency domain (view of c's memory)
+    RealData c;             // Spatial domain (real-valued, FFT-in-place buffer)
     RealData gx;
     RealData gy;
     RealData gz;

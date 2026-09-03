@@ -50,9 +50,6 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
     assert(memory.isOnDevice(f.getData()) && "PSF is not on device");
     memory.memCopy(g, f);
 
-    // Allocate temporary complex buffer for f in frequency domain
-    ComplexData f_complex = memory.allocateMemoryOnDeviceComplex(f.getSize());
-
     for (int n = 0; n < iterations; ++n) {
         // Calculate damping factor
         double a;
@@ -63,10 +60,10 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         }
 
         // a) First transformation: Fn = FFT(fn)
-        deconvolution.forwardFFT(f, f_complex);
+        deconvolution.forwardFFT(f, c_complex);
 
-        // Fn' = Fn * H
-        deconvolution.complexMultiplication(f_complex, H, c_complex);
+        // Fn' = Fn * H (in-place: c_complex * H -> c_complex)
+        deconvolution.complexMultiplication(c_complex, H, c_complex);
 
         // fn' = IFFT(Fn')
         deconvolution.backwardFFT(c_complex, c);
