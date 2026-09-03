@@ -135,8 +135,8 @@ TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
     };
 
     std::vector<AlgoSpec> specs = {
-        {"RichardsonLucy", 2},
-        {"RichardsonLucyTotalVariation", 6},
+        {"RichardsonLucy", 1},
+        {"RichardsonLucyTotalVariation", 5},
         {"InverseFilter", 0},
         {"Convolution", 0},
         {"RichardsonLucywithAdaptiveDamping", 1},
