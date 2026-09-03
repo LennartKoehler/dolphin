@@ -34,6 +34,5 @@ private:
 
     // Algorithm-specific data members for intermediate calculations
     ComplexData c_complex;
-    ComplexData f_complex;
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };
