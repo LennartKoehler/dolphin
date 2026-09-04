@@ -57,19 +57,19 @@ void adjustDimensionsEdgeConditions(
     // so basically if psf is larger than image in any dimension
     if (currentCube.box.dimensions.width > imageOriginalShape.width) {
         size_t totalPadding = currentCube.padding.after.width + currentCube.box.dimensions.width - imageOriginalShape.width;
-        currentCube.padding.after.width = totalPadding - totalPadding / 2;
+        currentCube.padding.before.width = totalPadding - totalPadding / 2;
         currentCube.padding.after.width = totalPadding / 2;
         currentCube.box.dimensions.width = imageOriginalShape.width;
     }
     if (currentCube.box.dimensions.height > imageOriginalShape.height) {
         size_t totalPadding = currentCube.padding.after.height + currentCube.box.dimensions.height - imageOriginalShape.height;
-        currentCube.padding.after.height = totalPadding - totalPadding / 2;
+        currentCube.padding.before.height = totalPadding - totalPadding / 2;
         currentCube.padding.after.height = totalPadding / 2;
         currentCube.box.dimensions.height = imageOriginalShape.height;
     }
     if (currentCube.box.dimensions.depth > imageOriginalShape.depth) {
         size_t totalPadding = currentCube.padding.after.depth + currentCube.box.dimensions.depth - imageOriginalShape.depth;
-        currentCube.padding.after.depth = totalPadding - totalPadding / 2;
+        currentCube.padding.before.depth = totalPadding - totalPadding / 2;
         currentCube.padding.after.depth = totalPadding / 2;
         currentCube.box.dimensions.depth = imageOriginalShape.depth;
     }
@@ -192,6 +192,8 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
     ){
     std::array<size_t*, 3> tempCubeAccessor  = currentMaxSize.getReference();
 
+    assert(currentMaxSize >= minSize && "Input size already below minimum");
+
     std::vector<BoxCoordWithPadding> cubePositions;
     std::vector<BoxCoordWithPadding> lastCubePositions;
     int dimIterator = 0;
@@ -258,14 +260,11 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
 
     std::vector<BoxCoordWithPadding> cubePositions;
 
-    int ncubes = 0;
-    CuboidShape cubeSizeToUse = currentMaxSize;
-
     while (true){
 
         cubePositions.clear();
 
-        cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
+        CuboidShape cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
 
         BoxCoordWithPadding startCube{
             BoxCoord{CuboidShape(0,0,0), cubeSizeToUse},
@@ -279,11 +278,9 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
                 imageOriginalShape,
                 imagePadding);
 
-            ncubes = cubePositions.size();
+            if (cubePositions.size() >= minNumberCubes)
+                break;
         }
-
-        if (ncubes >= minNumberCubes)
-            break;
 
         bool success = decreaseLargestDim(tempCubeAccessor, minSize);
         if (!success)
