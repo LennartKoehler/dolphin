@@ -22,7 +22,7 @@ public:
         const SetupConfig& setupConfig,
         const CuboidShape& maxSize);
 
-    Result<Padding> getPadding(
+    Result<PaddingScheme> getPadding(
         const DeconvolutionConfig& deconvConfig) const;
 
     Result<CuboidShape> getMaxShape() const;

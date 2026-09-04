@@ -6,15 +6,13 @@
 CuboidShape PSFHandler::getPSFPadding(const PSF& psf, PaddingStrategyType paddingType, float paddingRelativeMax) const {
     CuboidShape padding;
     switch(paddingType){
-    case(PARENT): {
-        padding = psf.getRegionLargerThreshold(paddingRelativeMax * psf.getMax());
-        break;
-    }
     case(FULL_PSF):
         padding = psf.getShape();
         break;
+    case(PARENT):
+    case(NONE):
     default:
-        padding = CuboidShape{0, 0, 0};
+        padding = psf.getRegionLargerThreshold(paddingRelativeMax * psf.getMax());
         break;
     }
     return padding;
@@ -58,16 +56,12 @@ void PSFHandler::generatePSFs(
 }
 
 
-Result<Padding> PSFHandler::getPadding(
+Result<PaddingScheme> PSFHandler::getPadding(
     const DeconvolutionConfig& deconvConfig) const
 {
     Padding padding;
 
     switch(deconvConfig.paddingStrategyType){
-        case NONE:{
-            padding = Padding{CuboidShape{0,0,0}, CuboidShape{0,0,0}};
-            break;
-        }
         case MANUAL:{
             CuboidShape manualPadding{
                 static_cast<size_t>(std::max(0, deconvConfig.cubePadding[0])),
@@ -93,14 +87,21 @@ Result<Padding> PSFHandler::getPadding(
     if (padding.before < CuboidShape{0,0,0} ||
         padding.after  < CuboidShape{0,0,0})
     {
-        return Result<Padding>::fail(
+        return Result<PaddingScheme>::fail(
             "Padding for cubes is smaller than zero");
     }
 
-    spdlog::get("deconvolution")->debug("PSFHandler reported the following necessary padding: {} before, {} after", padding.before.print(), padding.after.print());
+    PaddingScheme scheme;
+    scheme.insidePadding = padding;
+    scheme.imagePadding = (deconvConfig.paddingStrategyType == PaddingStrategyType::NONE)
+        ? Padding{CuboidShape{0,0,0}, CuboidShape{0,0,0}}
+        : padding;
 
+    spdlog::get("deconvolution")->debug("PSFHandler reported the following necessary padding: inside {} before, {} after; image {} before, {} after",
+        scheme.insidePadding.before.print(), scheme.insidePadding.after.print(),
+        scheme.imagePadding.before.print(), scheme.imagePadding.after.print());
 
-    return Result<Padding>::ok(std::move(padding));
+    return Result<PaddingScheme>::ok(std::move(scheme));
 }
 
 

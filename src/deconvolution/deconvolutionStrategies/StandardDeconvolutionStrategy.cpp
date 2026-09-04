@@ -65,12 +65,12 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     // PSF handling
     psfHandler.generatePSFs(setupConfig, imageSize);
-    Result<Padding> paddingResult = psfHandler.getPadding(deconvConfig);
+    Result<PaddingScheme> paddingResult = psfHandler.getPadding(deconvConfig);
     // this cubepadding might still change due to good shapes for DFT. But this is the minimum!
     if (!paddingResult.success) {
         throw std::runtime_error("Error while getting Padding");
     }
-    Padding padding = std::move(paddingResult.value);
+    PaddingScheme paddingScheme = std::move(paddingResult.value);
 
     std::shared_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(deconvConfig);
 
@@ -110,7 +110,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         deconvConfig,
         setupConfig,
         imageSize,
-        padding);
+        paddingScheme);
 
 
     std::vector<std::shared_ptr<TaskContext>> contexts = createContexts(
@@ -123,7 +123,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         workerConfig);
 
     BoxCoordWithPadding workShape = cubeCoordinatesWithPadding[0];
-    padding = workShape.padding;// overwrite padding with the updated padding (may have changed)
+    Padding padding = workShape.padding; // overwrite padding with the updated padding (may have changed)
 
     CuboidShape paddedShape = workShape.getPaddedShape();
 
@@ -186,7 +186,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
     const DeconvolutionConfig& deconvConfig,
     const SetupConfig& setupConfig,
     const CuboidShape& imageSize,
-    const Padding& padding
+    const PaddingScheme& paddingScheme
 ) const {
     size_t maxMemoryPerCube = getMaxMemoryPerCube(
         ioThreads,
@@ -198,9 +198,9 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
     size_t maxMemCubeVolume = maxMemoryPerCube / sizeof(real_t);
 
 
-    if(padding.before + padding.after < deconvConfig.featheringRadius)
+    if(paddingScheme.insidePadding.before + paddingScheme.insidePadding.after < deconvConfig.featheringRadius)
         spdlog::get("deconvolution")->warn("Feathering radius ({}) is smaller than padding (which is probably the size of the psf) ({}), which can cause artifacts",
-            deconvConfig.featheringRadius, (padding.before + padding.after).print());
+            deconvConfig.featheringRadius, (paddingScheme.insidePadding.before + paddingScheme.insidePadding.after).print());
 
     Result<CuboidShape> maxPSFresult = psfHandler.getMaxShape();
     // this cubepadding might still change due to good shapes for DFT. But this is the minimum!
@@ -209,13 +209,13 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
     }
     CuboidShape maxPSF = std::move(maxPSFresult.value);
 
-    CuboidShape minShape = maxPSF + padding.getTotalPadding();
+    CuboidShape minShape = maxPSF + paddingScheme.insidePadding.getTotalPadding();
 
     if (minShape.getVolume() * sizeof(real_t) > maxMemDevice_byte){
         throw std::runtime_error("Deconvolution with the largest PSF and padding requires too much memory. The minimum size for one cube would be: " + minShape.print());
     }
 
-    Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(padding, imageSize, maxMemCubeVolume, workerThreads * nDevices, deconvConfig.paddingStrategyType, minShape);
+    Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(paddingScheme.insidePadding, paddingScheme.imagePadding, imageSize, maxMemCubeVolume, workerThreads * nDevices, minShape);
     if (!cubeCoordinatesWithPaddingResult.success) {
         throw std::runtime_error("Error while splitting image: " + cubeCoordinatesWithPaddingResult.getErrorString());
     }

@@ -83,7 +83,7 @@ protected:
         const DeconvolutionConfig& deconvConfig,
         const SetupConfig& setupConfig,
         const CuboidShape& imageSize,
-        const Padding& padding
+        const PaddingScheme& paddingScheme
     ) const;
 
     void resolveThreadsAndDevices(
