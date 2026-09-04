@@ -7,6 +7,7 @@
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/ProgressTracking.h"
 #include "dolphin/ServiceAbstractions.h"
+#include "dolphinbackend/CuboidShape.h"
 
 
 class PSFHandler{
@@ -25,7 +26,7 @@ public:
     Result<PaddingScheme> getPadding(
         const DeconvolutionConfig& deconvConfig) const;
 
-    Result<CuboidShape> getMaxShape() const;
+    CuboidShape getMaxShape() const;
 
     const std::vector<std::shared_ptr<PSF>>& getPSFs() const { return psfs; }
 

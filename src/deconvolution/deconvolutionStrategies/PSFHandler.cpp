@@ -105,7 +105,7 @@ Result<PaddingScheme> PSFHandler::getPadding(
 }
 
 
-Result<CuboidShape> PSFHandler::getMaxShape() const
+CuboidShape PSFHandler::getMaxShape() const
 {
     std::vector<CuboidShape> psfShapes;
 
@@ -115,14 +115,7 @@ Result<CuboidShape> PSFHandler::getMaxShape() const
 
     CuboidShape largestPSF = getLargestShape(psfShapes);
 
-    if (largestPSF < CuboidShape{0,0,0})
-    {
-        return Result<Padding>::fail(
-            "Padding for cubes is smaller than zero");
-    }
-
-
-    return Result<CuboidShape>::ok(std::move(largestPSF));
+    return largestPSF;
 }
 
 void PSFHandler::fitPSFsToShape(const CuboidShape& targetShape) {

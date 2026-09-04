@@ -270,11 +270,10 @@ TEST_F(ConfigMergeTest, PSFHandlerDoubleLoadFix) {
     ASSERT_TRUE(paddingResult.success);
 
     auto shapeResult = psfHandler.getMaxShape();
-    ASSERT_TRUE(shapeResult.success);
 
-    EXPECT_EQ(shapeResult.value.width, 32u);
-    EXPECT_EQ(shapeResult.value.height, 32u);
-    EXPECT_EQ(shapeResult.value.depth, 16u);
+    EXPECT_EQ(shapeResult.width, 32u);
+    EXPECT_EQ(shapeResult.height, 32u);
+    EXPECT_EQ(shapeResult.depth, 16u);
 }
 
 TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
