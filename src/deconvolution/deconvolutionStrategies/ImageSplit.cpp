@@ -27,6 +27,8 @@ void adjustCubeToBoundaries(
     const Padding& cubePadding,
     const Padding& imagePadding) {
 
+    CuboidShape targetPaddedShape = cube.getPaddedShape();
+
     // Clamp if cube larger than image in any dimension
     if (cube.box.dimensions.width > imageOriginalShape.width)
         cube.box.dimensions.width = imageOriginalShape.width;
@@ -58,6 +60,14 @@ void adjustCubeToBoundaries(
     cube.padding.after.height  = atEndY   ? imagePadding.after.height  : cubePadding.after.height;
     cube.padding.before.depth  = atStartZ ? imagePadding.before.depth  : cubePadding.before.depth;
     cube.padding.after.depth   = atEndZ   ? imagePadding.after.depth   : cubePadding.after.depth;
+
+    // Compensate padding so padded shape is preserved (clamping/padding swap must not shrink total size)
+    if (cube.getPaddedShape().width < targetPaddedShape.width)
+        cube.padding.after.width += targetPaddedShape.width - cube.getPaddedShape().width;
+    if (cube.getPaddedShape().height < targetPaddedShape.height)
+        cube.padding.after.height += targetPaddedShape.height - cube.getPaddedShape().height;
+    if (cube.getPaddedShape().depth < targetPaddedShape.depth)
+        cube.padding.after.depth += targetPaddedShape.depth - cube.getPaddedShape().depth;
 }
 
 // add new cube recursively
@@ -247,9 +257,8 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
         }
     }
     size_t targetCubeCount = cubePositions.size();
-    CuboidShape inputPaddedShape = cubePositions[0].getPaddedShape();
     cubePositions = reduceSizeWhileKeepingNCubes(
-        inputPaddedShape,
+        currentMaxSize,
         imageOriginalShape,
         cubePadding,
         imagePadding,
