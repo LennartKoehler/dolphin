@@ -57,9 +57,7 @@ struct CuboidShape{
 
 
     inline void clamp(const CuboidShape& maxSize) {
-        width  = width  < maxSize.width  ? width  : maxSize.width;
-        height = height < maxSize.height ? height : maxSize.height;
-        depth  = depth  < maxSize.depth  ? depth  : maxSize.depth;
+        setMax(maxSize);
     }
 
     inline size_t getNumberSubcubes(CuboidShape other) const {
