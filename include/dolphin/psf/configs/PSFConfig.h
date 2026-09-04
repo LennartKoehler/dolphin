@@ -63,7 +63,7 @@ public:
 
     std::string psfModelName;
     std::string ID;
-    bool autoSize;
+    bool autoSize = false;
 
     size_t sizeX = 0;
     size_t sizeY = 0;

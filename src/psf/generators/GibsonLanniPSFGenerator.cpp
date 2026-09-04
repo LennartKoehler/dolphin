@@ -91,7 +91,7 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
 
     initBesselHelper(effX, effY);
 
-    if (config->autoSize) {
+    if (config->autoSize || config->sizeX == 0 || config->sizeY == 0 || config->sizeZ == 0) {
         return generateAutoSizePSF();
     }
     return generateFixedSizePSF();

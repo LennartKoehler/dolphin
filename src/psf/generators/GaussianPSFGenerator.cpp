@@ -64,7 +64,7 @@ ImageType::RegionType GaussianPSFGenerator::getNonNegligibleRegion(size_t width,
 }
 
 PSF GaussianPSFGenerator::generatePSF() const {
-    if (config->autoSize) {
+    if (config->autoSize || config->sizeX == 0 || config->sizeY == 0 || config->sizeZ == 0) {
         return generateAutoSizePSF();
     }
     return generateFixedSizePSF();
@@ -139,16 +139,17 @@ PSF GaussianPSFGenerator::generateAutoSizePSF() const {
     size_t halfY = static_cast<size_t>(std::ceil(cutoffFactor * config->sigmaY));
     size_t halfZ = static_cast<size_t>(std::ceil(cutoffFactor * config->sigmaZ));
 
-    if (config->sizeX > 0) halfX = std::min(halfX, (config->sizeX - 1) / 2);
-    if (config->sizeY > 0) halfY = std::min(halfY, (config->sizeY - 1) / 2);
-    if (config->sizeZ > 0) halfZ = std::min(halfZ, (config->sizeZ - 1) / 2);
-
     size_t width = 2 * halfX + 1;
     size_t height = 2 * halfY + 1;
     size_t layers = 2 * halfZ + 1;
-    double centerX = static_cast<double>(halfX);
-    double centerY = static_cast<double>(halfY);
-    double centerZ = static_cast<double>(halfZ);
+
+    if (config->sizeX > 0) width = std::min(width, config->sizeX);
+    if (config->sizeY > 0) height = std::min(height, config->sizeY);
+    if (config->sizeZ > 0) layers = std::min(layers, config->sizeZ);
+
+    double centerX = static_cast<double>(width - 1) / 2.0;
+    double centerY = static_cast<double>(height - 1) / 2.0;
+    double centerZ = static_cast<double>(layers - 1) / 2.0;
 
     ImageType::Pointer itkImage = ImageType::New();
     ImageType::SizeType size;
