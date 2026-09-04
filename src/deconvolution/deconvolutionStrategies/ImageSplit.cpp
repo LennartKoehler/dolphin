@@ -146,19 +146,20 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
         const CuboidShape& imageOriginalShape,
         const Padding& cubePadding,
         const Padding& imagePadding,
-        CuboidShape minSize
+        const CuboidShape& minSize,
+        size_t targetCubeCount,
+        std::vector<BoxCoordWithPadding> cubePositions
     ){
     std::array<size_t*, 3> tempCubeAccessor  = currentMaxSize.getReference();
 
     assert(currentMaxSize >= minSize && "Input size already below minimum");
 
-    std::vector<BoxCoordWithPadding> cubePositions;
-    std::vector<BoxCoordWithPadding> lastCubePositions;
-    for (int dimIterator = 0; dimIterator < 3; dimIterator++){
-        while(lastCubePositions.empty() || lastCubePositions.size() >= cubePositions.size()){
+    for (int dim = 0; dim < 3; dim++) {
+        while (true) {
+            CuboidShape saved = currentMaxSize;
 
-            lastCubePositions = cubePositions;
-            cubePositions.clear();
+            if (!decreaseSize(tempCubeAccessor, dim, minSize))
+                break;
 
             CuboidShape cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
 
@@ -167,21 +168,21 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
                 cubePadding
             };
 
+            std::vector<BoxCoordWithPadding> newCubes;
             addCubeRecursion(
-                cubePositions,
+                newCubes,
                 startCube,
                 imageOriginalShape,
                 cubePadding,
                 imagePadding);
 
-            bool success = decreaseSize(tempCubeAccessor, dimIterator, minSize);
-            if (!success) {
-                lastCubePositions = cubePositions;
+            if (newCubes.size() > targetCubeCount) {
+                currentMaxSize = saved;
                 break;
             }
-        }
-        cubePositions = lastCubePositions; // take the prevous before more cubes were needed, the while loop goes beyond by one
 
+            cubePositions = std::move(newCubes);
+        }
     }
 
     return cubePositions;
@@ -245,12 +246,16 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
                 "Not enough memory to fit the smallest possible cube: " + minSize.print());
         }
     }
+    size_t targetCubeCount = cubePositions.size();
+    CuboidShape inputPaddedShape = cubePositions[0].getPaddedShape();
     cubePositions = reduceSizeWhileKeepingNCubes(
-        cubePositions[0].getPaddedShape(),
+        inputPaddedShape,
         imageOriginalShape,
         cubePadding,
         imagePadding,
-        minSize
+        minSize,
+        targetCubeCount,
+        std::move(cubePositions)
     );
 
     return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(cubePositions));
