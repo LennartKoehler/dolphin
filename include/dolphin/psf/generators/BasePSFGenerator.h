@@ -33,8 +33,6 @@ public:
         this->threadPool = threadpool;
     }
 
-    virtual CuboidShape getPadding(PaddingStrategyType paddingType) const = 0;
-
 protected:
     mutable ProgressTracking progressTracker;
     std::shared_ptr<ThreadPool> threadPool;

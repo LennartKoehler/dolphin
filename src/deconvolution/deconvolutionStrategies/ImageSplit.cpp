@@ -15,69 +15,59 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphinbackend/CuboidShape.h"
-#include <algorithm>    // std::sort, std::stable_sort
+#include <algorithm>
 #include <vector>
 #include <stdexcept>
 
 
-void adjustDimensionsEdgeConditions(
-    BoxCoordWithPadding& currentCube,
+void adjustCubeToBoundaries(
+    BoxCoordWithPadding& cube,
     const CuboidShape& imageOriginalShape,
     const CuboidShape& remainingSize,
-    const PaddingStrategyType& imagePadding){
+    const Padding& cubePadding,
+    const Padding& imagePadding) {
 
-    if (imagePadding == PaddingStrategyType::NONE){
-        if (currentCube.box.position.depth == 0) {
-            currentCube.box.dimensions.depth += currentCube.padding.before.depth;
-            currentCube.padding.before.depth = 0;
-        }
-        if (currentCube.box.position.width == 0) {
-            currentCube.box.dimensions.width += currentCube.padding.before.width;
-            currentCube.padding.before.width = 0;
-        }
-        if (currentCube.box.position.height == 0) {
-            currentCube.box.dimensions.height += currentCube.padding.before.height;
-            currentCube.padding.before.height = 0;
-        }
-        // if the subimage + padding after is larger or equal to original image, then no padding
-        if (currentCube.box.dimensions.width + currentCube.padding.after.width >= imageOriginalShape.width) {
-            currentCube.box.dimensions.width += currentCube.padding.after.width;
-            currentCube.padding.after.width = 0;
-        }
-        if (currentCube.box.dimensions.height + currentCube.padding.after.height >= imageOriginalShape.height) {
-            currentCube.box.dimensions.height += currentCube.padding.after.height;
-            currentCube.padding.after.height = 0;
-        }
-        if (currentCube.box.dimensions.depth + currentCube.padding.after.depth >= imageOriginalShape.depth) {
-            currentCube.box.dimensions.depth += currentCube.padding.after.depth;
-            currentCube.padding.after.depth = 0;
-        }
-    }
-    // If subimage cube  is larger than image in any dimension, adjust to make padding after larger while making dimensions of box smaller
-    // so basically if psf is larger than image in any dimension
-    if (currentCube.box.dimensions.width > imageOriginalShape.width) {
-        currentCube.padding.after.width = currentCube.padding.after.width + currentCube.box.dimensions.width - imageOriginalShape.width;
-        currentCube.box.dimensions.width = imageOriginalShape.width;
-    }
-    if (currentCube.box.dimensions.height > imageOriginalShape.height) {
-        currentCube.padding.after.height = currentCube.padding.after.height + currentCube.box.dimensions.height - imageOriginalShape.height;
-        currentCube.box.dimensions.height = imageOriginalShape.height;
-    }
-    if (currentCube.box.dimensions.depth > imageOriginalShape.depth) {
-        currentCube.padding.after.depth = currentCube.padding.after.depth + currentCube.box.dimensions.depth - imageOriginalShape.depth;
-        currentCube.box.dimensions.depth = imageOriginalShape.depth;
-    }
+    CuboidShape targetPaddedShape = cube.getPaddedShape();
 
-    // If this would be the last cube and doesn't fit completely, shift it back to create overlap with the previous cube and therefore prevent going out of bounds
-    if (remainingSize.depth < currentCube.box.dimensions.depth && remainingSize.depth > 0) {
-        currentCube.box.position.depth -= (currentCube.box.dimensions.depth - remainingSize.depth);
-    }
-    if (remainingSize.width < currentCube.box.dimensions.width && remainingSize.width > 0) {
-        currentCube.box.position.width -= (currentCube.box.dimensions.width - remainingSize.width);
-    }
-    if (remainingSize.height < currentCube.box.dimensions.height && remainingSize.height > 0) {
-        currentCube.box.position.height -= (currentCube.box.dimensions.height - remainingSize.height);
-    }
+    // Clamp if cube larger than image in any dimension
+    if (cube.box.dimensions.width > imageOriginalShape.width)
+        cube.box.dimensions.width = imageOriginalShape.width;
+    if (cube.box.dimensions.height > imageOriginalShape.height)
+        cube.box.dimensions.height = imageOriginalShape.height;
+    if (cube.box.dimensions.depth > imageOriginalShape.depth)
+        cube.box.dimensions.depth = imageOriginalShape.depth;
+
+    // Shift-back for last cube in each dimension to prevent going out of bounds
+    if (remainingSize.width < cube.box.dimensions.width && remainingSize.width > 0)
+        cube.box.position.width -= static_cast<int64_t>(cube.box.dimensions.width - remainingSize.width);
+    if (remainingSize.height < cube.box.dimensions.height && remainingSize.height > 0)
+        cube.box.position.height -= static_cast<int64_t>(cube.box.dimensions.height - remainingSize.height);
+    if (remainingSize.depth < cube.box.dimensions.depth && remainingSize.depth > 0)
+        cube.box.position.depth -= static_cast<int64_t>(cube.box.dimensions.depth - remainingSize.depth);
+
+    // Determine boundary status after shift-back
+    bool atStartX = (cube.box.position.width == 0);
+    bool atEndX = (cube.box.position.width + static_cast<int64_t>(cube.box.dimensions.width) >= static_cast<int64_t>(imageOriginalShape.width));
+    bool atStartY = (cube.box.position.height == 0);
+    bool atEndY = (cube.box.position.height + static_cast<int64_t>(cube.box.dimensions.height) >= static_cast<int64_t>(imageOriginalShape.height));
+    bool atStartZ = (cube.box.position.depth == 0);
+    bool atEndZ = (cube.box.position.depth + static_cast<int64_t>(cube.box.dimensions.depth) >= static_cast<int64_t>(imageOriginalShape.depth));
+
+    // Set padding: imagePadding at image boundary, cubePadding for interior overlap
+    cube.padding.before.width  = atStartX ? imagePadding.before.width  : cubePadding.before.width;
+    cube.padding.after.width   = atEndX   ? imagePadding.after.width   : cubePadding.after.width;
+    cube.padding.before.height = atStartY ? imagePadding.before.height : cubePadding.before.height;
+    cube.padding.after.height  = atEndY   ? imagePadding.after.height  : cubePadding.after.height;
+    cube.padding.before.depth  = atStartZ ? imagePadding.before.depth  : cubePadding.before.depth;
+    cube.padding.after.depth   = atEndZ   ? imagePadding.after.depth   : cubePadding.after.depth;
+
+    // Compensate padding so padded shape is preserved (clamping/padding swap must not shrink total size)
+    if (cube.getPaddedShape().width < targetPaddedShape.width)
+        cube.padding.after.width += targetPaddedShape.width - cube.getPaddedShape().width;
+    if (cube.getPaddedShape().height < targetPaddedShape.height)
+        cube.padding.after.height += targetPaddedShape.height - cube.getPaddedShape().height;
+    if (cube.getPaddedShape().depth < targetPaddedShape.depth)
+        cube.padding.after.depth += targetPaddedShape.depth - cube.getPaddedShape().depth;
 }
 
 // add new cube recursively
@@ -85,7 +75,8 @@ void addCubeRecursion(
     std::vector<BoxCoordWithPadding>& cubePositions,
     BoxCoordWithPadding& currentCube,
     const CuboidShape& imageOriginalShape,
-    const PaddingStrategyType& imagePadding){
+    const Padding& cubePadding,
+    const Padding& imagePadding) {
 
     assert(currentCube.box.dimensions.getVolume() > 0);
 
@@ -93,22 +84,14 @@ void addCubeRecursion(
     if (currentCube.box.position.width >= static_cast<int64_t>(imageOriginalShape.width)){
         currentCube.box.position.width = 0;
         currentCube.box.position.height += currentCube.box.dimensions.height;
-        addCubeRecursion(
-            cubePositions,
-            currentCube,
-            imageOriginalShape,
-            imagePadding);
+        addCubeRecursion(cubePositions, currentCube, imageOriginalShape, cubePadding, imagePadding);
         return;
     }
     // next slice
     if (currentCube.box.position.height >= static_cast<int64_t>(imageOriginalShape.height)){
         currentCube.box.position.height = 0;
         currentCube.box.position.depth += currentCube.box.dimensions.depth;
-        addCubeRecursion(
-            cubePositions,
-            currentCube,
-            imageOriginalShape,
-            imagePadding);
+        addCubeRecursion(cubePositions, currentCube, imageOriginalShape, cubePadding, imagePadding);
         return;
     }
     // were done
@@ -117,25 +100,16 @@ void addCubeRecursion(
 
     CuboidShape remainingSize = imageOriginalShape - currentCube.box.position;
 
-    adjustDimensionsEdgeConditions(
-        currentCube,
-        imageOriginalShape,
-        remainingSize,
-        imagePadding);
+    BoxCoordWithPadding cubeToPush = currentCube;
 
-    cubePositions.push_back(currentCube);
+    adjustCubeToBoundaries(cubeToPush, imageOriginalShape, remainingSize, cubePadding, imagePadding);
 
+    cubePositions.push_back(cubeToPush);
 
-    // next cube (column)
+    // next cube (column) — advance by nominal (unmutated) cube size
     currentCube.box.position.width += currentCube.box.dimensions.width;
-    addCubeRecursion(
-        cubePositions,
-        currentCube,
-        imageOriginalShape,
-        imagePadding);
+    addCubeRecursion(cubePositions, currentCube, imageOriginalShape, cubePadding, imagePadding);
 }
-
-
 
 
 template <typename T>
@@ -181,19 +155,21 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
         CuboidShape currentMaxSize,
         const CuboidShape& imageOriginalShape,
         const Padding& cubePadding,
-        PaddingStrategyType imagePadding,
-        CuboidShape minSize
+        const Padding& imagePadding,
+        const CuboidShape& minSize,
+        size_t targetCubeCount,
+        std::vector<BoxCoordWithPadding> cubePositions
     ){
     std::array<size_t*, 3> tempCubeAccessor  = currentMaxSize.getReference();
 
-    std::vector<BoxCoordWithPadding> cubePositions;
-    std::vector<BoxCoordWithPadding> lastCubePositions;
-    int dimIterator = 0;
-    for (int dimIterator = 0; dimIterator < 3; dimIterator++){
-        while(lastCubePositions.empty() || lastCubePositions.size() >= cubePositions.size()){
+    assert(currentMaxSize >= minSize && "Input size already below minimum");
 
-            lastCubePositions = cubePositions;
-            cubePositions.clear();
+    for (int dim = 0; dim < 3; dim++) {
+        while (true) {
+            CuboidShape saved = currentMaxSize;
+
+            if (!decreaseSize(tempCubeAccessor, dim, minSize))
+                break;
 
             CuboidShape cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
 
@@ -202,20 +178,21 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
                 cubePadding
             };
 
+            std::vector<BoxCoordWithPadding> newCubes;
             addCubeRecursion(
-                cubePositions,
+                newCubes,
                 startCube,
                 imageOriginalShape,
+                cubePadding,
                 imagePadding);
 
-            bool success = decreaseSize(tempCubeAccessor, dimIterator, minSize);
-            if (!success) {
-                lastCubePositions = cubePositions;
+            if (newCubes.size() > targetCubeCount) {
+                currentMaxSize = saved;
                 break;
             }
-        }
-        cubePositions = lastCubePositions; // take the prevous before more cubes were needed, the while loop goes beyond by one
 
+            cubePositions = std::move(newCubes);
+        }
     }
 
     return cubePositions;
@@ -227,19 +204,16 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
 // i assume one could have also had a more complicated "model" of all the interactions and get a cube distribution that way
 Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const Padding& cubePadding,
+    const Padding& imagePadding,
     const CuboidShape& imageOriginalShape,
     const size_t& maxVolumePerCube,
     const size_t& minNumberCubes,
-    const PaddingStrategyType& imagePadding,
     const CuboidShape& minSize)
     {
 
     assert(minSize > cubePadding.getTotalPadding());
 
-    CuboidShape currentMaxSize;
-
-    if (imagePadding == PaddingStrategyType::NONE) currentMaxSize = imageOriginalShape;
-    else currentMaxSize = imageOriginalShape + cubePadding.before + cubePadding.after;
+    CuboidShape currentMaxSize = imageOriginalShape + imagePadding.before + imagePadding.after;
 
     currentMaxSize.setMin(minSize); // because it has to be atleast as big as the psf
 
@@ -252,14 +226,11 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
 
     std::vector<BoxCoordWithPadding> cubePositions;
 
-    int ncubes = 0;
-    CuboidShape cubeSizeToUse = currentMaxSize;
-
     while (true){
 
         cubePositions.clear();
 
-        cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
+        CuboidShape cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
 
         BoxCoordWithPadding startCube{
             BoxCoord{CuboidShape(0,0,0), cubeSizeToUse},
@@ -271,13 +242,12 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
                 cubePositions,
                 startCube,
                 imageOriginalShape,
+                cubePadding,
                 imagePadding);
 
-            ncubes = cubePositions.size();
+            if (cubePositions.size() >= minNumberCubes)
+                break;
         }
-
-        if (ncubes >= minNumberCubes)
-            break;
 
         bool success = decreaseLargestDim(tempCubeAccessor, minSize);
         if (!success)
@@ -286,14 +256,16 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
                 "Not enough memory to fit the smallest possible cube: " + minSize.print());
         }
     }
+    size_t targetCubeCount = cubePositions.size();
     cubePositions = reduceSizeWhileKeepingNCubes(
-        cubePositions[0].getPaddedShape(),
+        currentMaxSize,
         imageOriginalShape,
         cubePadding,
         imagePadding,
-        minSize
+        minSize,
+        targetCubeCount,
+        std::move(cubePositions)
     );
 
     return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(cubePositions));
     }
-

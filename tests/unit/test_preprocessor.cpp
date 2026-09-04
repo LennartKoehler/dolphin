@@ -97,18 +97,18 @@ TEST_F(PreprocessorTest, ParentPadding) {
     psf.setPixel(4, 4, 4, 1.0f);
     psf.setPixel(0, 0, 0, 0.0001f);
 
-    auto padding = PaddingStrategy::parentPadding(psf, 0.001f);
-    EXPECT_GE(padding.width, 0);
-    EXPECT_GE(padding.height, 0);
-    EXPECT_GE(padding.depth, 0);
+    CuboidShape padding = psf.getRegionLargerThreshold(0.01f * psf.getMax());
+    EXPECT_GE(padding.width, 0u);
+    EXPECT_GE(padding.height, 0u);
+    EXPECT_GE(padding.depth, 0u);
 }
 
 TEST_F(PreprocessorTest, FullPSFPadding) {
     PSF psf(Image3D(CuboidShape(8, 8, 8), 1.0f), "test");
-    auto padding = PaddingStrategy::fullPSFPadding(psf);
-    EXPECT_EQ(padding.width, 8);
-    EXPECT_EQ(padding.height, 8);
-    EXPECT_EQ(padding.depth, 8);
+    CuboidShape padding = psf.getShape();
+    EXPECT_EQ(padding.width, 8u);
+    EXPECT_EQ(padding.height, 8u);
+    EXPECT_EQ(padding.depth, 8u);
 }
 
 TEST_F(PreprocessorTest, PSFPreprocessorCaching) {

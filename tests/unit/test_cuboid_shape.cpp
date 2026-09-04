@@ -95,13 +95,6 @@ TEST(CuboidShapeTest, MultiplicationByInt) {
     EXPECT_EQ(c.depth, 12);
 }
 
-TEST(CuboidShapeTest, MultiplicationByDouble) {
-    CuboidShape a(2, 3, 4);
-    CuboidShape c = a * 2.5;
-    EXPECT_EQ(c.width, 5);
-    EXPECT_EQ(c.height, 7);
-    EXPECT_EQ(c.depth, 10);
-}
 
 TEST(CuboidShapeTest, AdditionByInt) {
     CuboidShape a(2, 3, 4);

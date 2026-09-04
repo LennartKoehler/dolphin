@@ -28,11 +28,13 @@ public:
     PSF generatePSF() const override;
     void setConfig(const std::shared_ptr<const PSFConfig> config) override;
     bool hasConfig() override;
-    CuboidShape getPadding(PaddingStrategyType paddingType) const override;
 
 private:
     ImageType::RegionType getNonNegligibleRegion(size_t width, size_t height, size_t layers,
                                    double centerX, double centerY, double centerZ) const;
+
+    PSF generateFixedSizePSF() const;
+    PSF generateAutoSizePSF() const;
 
     std::shared_ptr<GaussianPSFConfig> config;
 };

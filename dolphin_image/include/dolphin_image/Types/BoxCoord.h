@@ -33,6 +33,11 @@ struct Padding{
 
 
 
+struct PaddingScheme {
+    Padding insidePadding;
+    Padding imagePadding;
+};
+
 struct BoxCoord {
     CuboidPosition position;
     CuboidShape dimensions;

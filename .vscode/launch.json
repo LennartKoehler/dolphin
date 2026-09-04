@@ -5,14 +5,26 @@
             "name": "Debug dolphin CLI",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/frontends/cli/build/dolphin_cli",
+            "program": "${workspaceFolder}/debug_build/frontends/cli/dolphin",
             "args": [
-                "psfgenerator",
-                "-p", "../configs/default_psf_config_gibsonlanni.json",
-                "-d", "${workspaceFolder}/results"
+                "deconvolution",
+                "-c", "${workspaceFolder}/configs/default_config.json"
+            ],
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Enable break on all exceptions",
+                    "text": "catch throw",
+                    "ignoreFailures": true
+                }
+
             ],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/frontends",
+            "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb"

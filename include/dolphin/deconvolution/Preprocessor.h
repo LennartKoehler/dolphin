@@ -112,30 +112,29 @@ namespace Preprocessor{
     Image3D convertRealDataToImage(const RealData& data);
 
 }
-namespace PaddingStrategy {
-
-    inline CuboidShape parentPadding(const PSF& psf, float paddingRelativeMax) {
-
-        CuboidShape psfSize = psf.getShape();
-        // TODO what is this threshold, how do i set it
-        float threshold = paddingRelativeMax * psf.getMax(); // pad up until values drop below 0.01% of max value (their influence is negligable)
-        CuboidShape paddingRegion = psf.getRegionLargerThreshold(threshold);
-
-        return paddingRegion;
-        // CuboidShape paddingbefore = paddingRegion / 2;
-        // return Padding{paddingbefore, paddingRegion - paddingbefore};
-    }
-    inline CuboidShape fullPSFPadding(const PSF& psf) {
-        CuboidShape paddingRegion = psf.getShape();
-
-        return paddingRegion;
-        // CuboidShape paddingbefore = paddingRegion / 2;
-        // return Padding{paddingbefore, paddingRegion - paddingbefore};
-    }
-
-    // inline Padding manualPadding(const std::vector<PSF>& psfs, const CuboidShape& imageShape, const DeconvolutionConfig& config) {
-    //     CuboidShape paddingHalf = imageShape / 2;
-    //     return Padding(paddingHalf, imageShape - paddingHalf);
-    // }
-
-}
+// namespace PaddingStrategy {
+//
+//     inline CuboidShape parentPadding(const PSF& psf, float paddingRelativeMax) {
+//
+//         CuboidShape psfSize = psf.getShape();
+//         // TODO what is this threshold, how do i set it
+//         float threshold = paddingRelativeMax * psf.getMax(); // pad up until values drop below 0.01% of max value (their influence is negligable)
+//         CuboidShape paddingRegion = psf.getRegionLargerThreshold(threshold);
+//
+//         return paddingRegion;
+//         // CuboidShape paddingbefore = paddingRegion / 2;
+//         // return Padding{paddingbefore, paddingRegion - paddingbefore};
+//     }
+//     inline CuboidShape fullPSFPadding(const PSF& psf) {
+//
+//         return paddingRegion;
+//         // CuboidShape paddingbefore = paddingRegion / 2;
+//         // return Padding{paddingbefore, paddingRegion - paddingbefore};
+//     }
+//
+//     // inline Padding manualPadding(const std::vector<PSF>& psfs, const CuboidShape& imageShape, const DeconvolutionConfig& config) {
+//     //     CuboidShape paddingHalf = imageShape / 2;
+//     //     return Padding(paddingHalf, imageShape - paddingHalf);
+//     // }
+//
+// }

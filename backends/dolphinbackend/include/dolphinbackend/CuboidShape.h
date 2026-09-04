@@ -57,9 +57,7 @@ struct CuboidShape{
 
 
     inline void clamp(const CuboidShape& maxSize) {
-        width  = width  < maxSize.width  ? width  : maxSize.width;
-        height = height < maxSize.height ? height : maxSize.height;
-        depth  = depth  < maxSize.depth  ? depth  : maxSize.depth;
+        setMax(maxSize);
     }
 
     inline size_t getNumberSubcubes(CuboidShape other) const {
@@ -134,9 +132,6 @@ struct CuboidShape{
     }
     inline CuboidShape operator*(const size_t value) const {
         return CuboidShape(this->width*value, this->height*value, this->depth*value);
-    }
-    inline CuboidShape operator*(const double value) const {
-        return CuboidShape(static_cast<size_t>(this->width*value), static_cast<size_t>(this->height*value), static_cast<size_t>(this->depth*value));
     }
     inline CuboidShape operator+(const size_t value) const {
         return CuboidShape(this->width+value, this->height+value, this->depth+value);

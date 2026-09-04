@@ -12,6 +12,9 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include <filesystem>
+#include <algorithm>
+#include <cmath>
+#include <vector>
 #include "dolphin/psf/PSF.h"
 #include "dolphin_image/IO/TiffReader.h"
 #include "dolphin_image/IO/TiffWriter.h"
@@ -36,3 +39,4 @@ void PSF::readFromTiffFile(const std::string& path){
 void PSF::writeToTiffFile(const std::string& path){
     TiffWriter::writeToFile(path , image);
 }
+
