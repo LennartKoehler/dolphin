@@ -885,57 +885,6 @@ namespace CUBE_FTT {
         return cudaSuccess;
     }
 
-    // cudaError_t padMat(size_t oldNx, size_t oldNy, size_t oldNz, size_t newNx, size_t newNy, size_t newNz, complex_t* oldMat, complex_t* newMat)
-    // {
-    //     if (!oldMat || !newMat) {
-    //         return cudaErrorInvalidValue;
-    //     }
-    //
-    //     auto start = std::chrono::high_resolution_clock::now();
-    //     // Sicherheitsprüfung: Neue Dimensionen müssen größer oder gleich den alten sein
-    //     if (newNx < oldNx || newNy < oldNy || newNz < oldNz) {
-    //         return cudaErrorInvalidValue;
-    //     }
-    //
-    //     // Offset für Padding (Startkoordinaten der alten Matrix in der neuen Matrix)
-    //     size_t offsetX = (newNx - oldNx) / 2;
-    //     size_t offsetY = (newNy - oldNy) / 2;
-    //     size_t offsetZ = (newNz - oldNz) / 2;
-    //
-    //     // Initialisiere die neue Matrix mit Nullen
-    //     for (size_t i = 0; i < newNx * newNy * newNz; ++i) {
-    //         newMat[i][0] = 0.0; // Realteil
-    //         newMat[i][1] = 0.0; // Imaginärteil
-    //     }
-    //
-    //     // Kopiere die Werte der alten Matrix in die Mitte der neuen Matrix
-    //     for (size_t z = 0; z < oldNz; ++z) {
-    //         for (size_t y = 0; y < oldNy; ++y) {
-    //             for (size_t x = 0; x < oldNx; ++x) {
-    //                 // Index in der alten Matrix
-    //                 size_t oldIndex = z * oldNy * oldNx + y * oldNx + x;
-    //
-    //                 // Index in der neuen Matrix
-    //                 size_t newIndex =
-    //                     (z + offsetZ) * newNy * newNx +
-    //                     (y + offsetY) * newNx +
-    //                     (x + offsetX);
-    //
-    //                 // Kopiere den Wert
-    //                 newMat[newIndex][0] = oldMat[oldIndex][0]; // Realteil
-    //                 newMat[newIndex][1] = oldMat[oldIndex][1]; // Imaginärteil
-    //             }
-    //         }
-    //     }
-    //     auto end = std::chrono::high_resolution_clock::now();
-    //     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-    //     float time = duration.count();
-    //
-    //
-    //
-    //     return cudaSuccess;
-    // }
-
     cudaError_t normalizeData(size_t Nx, size_t Ny, size_t Nz, complex_t* d_data, cudaStream_t stream) {
         if (!d_data) {
             return cudaErrorInvalidValue;

@@ -1,9 +1,21 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #pragma once
 #include <unordered_map>
 #include <string>
 #include <functional>
 #include "DefaultGUIStyleConfig.h"
-class GLFWwindow;
 class GUIFrontend;
 
 class Content{
@@ -37,8 +49,8 @@ protected:
 class Window : public Content{
 public:
     Window(int width, int height, std::string name);
-    virtual ~Window(){}
-    virtual void show() override;
+    virtual ~Window() = default;
+    void show() override;
 
 protected:
     int width;

@@ -12,9 +12,6 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "cuda_backend/CUDABackendManager.h"
-#include <iostream>
-#include <sstream>
-#include <thread>
 #include <stdexcept>
 #include "cuda_backend/CUDABackend.h"
 #include "dolphinbackend/Exceptions.h"
@@ -66,8 +63,6 @@ void CUDABackendManager::init(LogCallback fn) {
             "cuda:cuda",
             fmt::format("Device {} has compute capability {}.{} and {:.2f} GB memory", deviceNumber, deviceProp.major, deviceProp.minor, (totalMem/1e9)),
             LogLevel::LOG_INFO);
-        // printf("Device %d has compute capability %d.%d and %.2fGB memory\n",
-        // device, deviceProp.major, deviceProp.minor, (totalMem/1e9));
 
     }
 
@@ -97,28 +92,8 @@ void CUDABackendManager::setThreadDistribution(const size_t& totalThreads, size_
 
 }
 
-// IComputeBackend& CUDABackendManager::getComputeBackend(const BackendConfig& config) {
-//     auto compute = createComputeBackend(configToConfig(config));
-//     std::unique_lock<std::mutex> lock(mutex_);
-//     computeBackends.push_back(std::move(compute));
-//     return *computeBackends.back();
-// }
-//
-// IBackendMemoryManager& CUDABackendManager::getBackendMemoryManager(const BackendConfig& config) {
-//     auto manager = createMemoryManager(configToConfig(config));
-//     std::unique_lock<std::mutex> lock(mutex_);
-//     memoryManagers.push_back(std::move(manager));
-//     return *memoryManagers.back();
-// }
-
 IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig& config) {
     CUDABackendConfig cudaconfig = configToConfig(config);
-    // auto compute = createComputeBackend(cudaconfig);
-    // auto mem = createMemoryManager(cudaconfig);
-    // auto backend = std::unique_ptr<CUDABackend>(new CUDABackend(cudaconfig, std::move(compute), std::move(mem)));
-    // std::unique_lock<std::mutex> lock(mutex_);
-    // IBackend& ref = *backend;
-    // backends.push_back(std::move(backend));
     CUDABackend& backend = createNewBackend(cudaconfig);
     return backend;
 }
@@ -131,16 +106,6 @@ CUDABackendConfig CUDABackendManager::configToConfig(const BackendConfig& config
     CUDABackendConfig cudaconfig{device, createStream()};
     return cudaconfig;
 }
-
-
-// IBackend& CUDABackendManager::clone(IBackend& backend, const BackendConfig& config){cudabacked
-//
-//     CUDADevice newdevice = devices[usedDeviceCounter];
-//     usedDeviceCounter = ++usedDeviceCounter % nDevices; // keep looping
-//
-//     CUDABackendConfig cudaconfig{newdevice, 0};
-//     return createNewBackend(cudaconfig);
-// }
 
 
 IBackend& CUDABackendManager::createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config){
@@ -194,24 +159,6 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
     }
 }
 
-
-
-
-// void CUDABackendManager::cleanup() {
-//     std::unique_lock<std::mutex> lock(mutex_);
-
-//     // Clean up all active thread backends
-//     for (auto& pair : threadBackends_) {
-//         if (pair.second.backend) {
-//             pair.second.backend->mutableComputeManager().cleanup();
-//         }
-//     }
-//     threadBackends_.clear();
-
-
-
-//     g_logger_cuda(fmt::format("Cleaned up CUDA backend manager"), LogLevel::LOG_INFO);
-// }
 
 cudaStream_t CUDABackendManager::createStream() const {
     cudaStream_t stream;

@@ -59,7 +59,7 @@ jobs:
           cache-to: type=gha,scope=cuda,mode=max
 
       - name: Run tests (skip CUDA runtime tests — no GPU on CI)
-        run: docker run --rm dolphin-cuda:latest bash -c 'cd /workspace/build && ctest --output-on-failure -E "cuda" || true'
+        run: docker run --rm dolphin-cuda:latest bash -c 'cd /workspace/build && ctest --output-on-failure -E "cuda"'
 
   macos:
     strategy:
@@ -277,4 +277,4 @@ jobs:
         run: cmake --build build -j
 
       - name: Run tests (skip CUDA runtime tests — no GPU on CI)
-        run: ctest --test-dir build --output-on-failure -E "cuda" || true
+        run: ctest --test-dir build --output-on-failure -E "cuda"

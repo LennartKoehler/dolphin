@@ -15,8 +15,6 @@ See the LICENSE file provided with the code for the full license.
 #include <memory>
 #include <string>
 #include <map>
-#include <functional>
-// #include <dlfcn.h>
 #include "cpu_backend/CPUBackendManager.h"
 
 #if ENABLE_CUDA
@@ -131,39 +129,10 @@ private:
 #endif
     }
 
-    // ---------------- Internal loader ----------------
-    // template <typename T>
-    // T* loadSymbolFromLibrary(const std::string& backendName, const char* symbolName) {
-    //     void* handle = getHandle(backendName);
-    //     if (!handle) {
-    //         // spdlog::get("backend")->warn("Could not load backend library '{}'", backendName);
-    //         return nullptr;
-    //     }
-    //
-    //     using create_fn = T*();
-    //     auto create_symbol = reinterpret_cast<create_fn*>(dlsym(handle, symbolName));
-    //     if (!create_symbol) {
-    //         dlclose(handle);
-    //         return nullptr;
-    //     }
-    //
-    //     return create_symbol();
-    // }
-    //
-    // // ---------------- Shared library handle loader ----------------
-    // static void* getHandle(const std::string& backendName) {
-    //     void* handle = dlopen(backendName.c_str(), RTLD_LAZY);
-    //     return handle;
-    // }
-
     template <typename T>
     T& getBackend(IBackendManager& manager, const BackendConfig& config) {
         if constexpr (std::is_same_v<T, IBackend>) {
             return manager.createBackendForCurrentThread(config);
-        // } else if constexpr (std::is_same_v<T, IBackendMemoryManager>) {
-        //     return manager.getBackendMemoryManager(config);
-        // } else if constexpr (std::is_same_v<T, IComputeBackend>) {
-        //     return manager.getComputeBackend(config);
         } else {
             static_assert(always_false<T>, "Unsupported interface type");
         }

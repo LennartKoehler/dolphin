@@ -1,3 +1,16 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #pragma once
 
 #include "CPUBackend.h"
@@ -26,7 +39,7 @@ public:
     // Default wisdom file location: ~/.fftw/wisdom in user home directory
     FFTWWisdomManager() = default;
     FFTWWisdomManager(const std::string& wisdomFilename);
-    ~FFTWWisdomManager();
+    ~FFTWWisdomManager() = default;
 
     bool importWisdom();
     bool exportWisdom();
@@ -76,12 +89,10 @@ class CPUBackendManager : public IBackendManager{
 public:
 
     CPUBackendManager() = default;
-    virtual ~CPUBackendManager() override = default;
+    ~CPUBackendManager() override = default;
     void init(LogCallback fn) override;
 
-    // virtual IComputeBackend& getComputeBackend(const BackendConfig& config) override;
-    // virtual IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;
-    virtual IBackend& createBackendForCurrentThread(const BackendConfig& config) override;
+    IBackend& createBackendForCurrentThread(const BackendConfig& config) override;
 
     // IBackend& clone(IBackend& backend, const BackendConfig& config) override ;
     IBackend& createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config) override;
