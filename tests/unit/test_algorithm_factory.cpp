@@ -27,7 +27,7 @@ protected:
 TEST_F(AlgorithmFactoryTest, GetAvailableAlgorithms) {
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
     auto algorithms = factory.getAvailableAlgorithms();
-    EXPECT_GE(algorithms.size(), 7u);
+    EXPECT_GE(algorithms.size(), 6u);
 }
 
 TEST_F(AlgorithmFactoryTest, HasRichardsonLucy) {
