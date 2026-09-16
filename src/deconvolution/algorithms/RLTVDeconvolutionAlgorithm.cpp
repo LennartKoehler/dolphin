@@ -31,8 +31,6 @@ void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     c = std::move(memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize));
     c_complex = c.reinterpret(); // same data pointer, just reinterpreted
 
-    // Allocate temporary complex buffer for FFT operations
-    f_complex = memory.allocateMemoryOnDeviceComplex(dataSize);
     tv = memory.allocateMemoryOnDeviceReal(dataSize);
     gx = memory.allocateMemoryOnDeviceReal(dataSize);
     gy = memory.allocateMemoryOnDeviceReal(dataSize);
@@ -62,10 +60,10 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         if (progressFunction) progressFunction(iterations);
 
         // a) First transformation: Fn = FFT(fn)
-        deconvolution.forwardFFT(f, f_complex);
+        deconvolution.forwardFFT(f, c_complex);
 
-        // Fn' = Fn * H
-        deconvolution.complexMultiplication(f_complex, H, c_complex);
+        // Fn' = Fn * H (in-place: c_complex * H -> c_complex)
+        deconvolution.complexMultiplication(c_complex, H, c_complex);
 
         // fn' = IFFT(Fn')
         deconvolution.backwardFFT(c_complex, c);
@@ -106,7 +104,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecifi
 }
 
 size_t RLTVDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 6; // Allocates 4 additional arrays of input size
+    return 5; // Allocates 5 additional arrays of input size (c, tv, gx, gy, gz)
 }
 
 void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
