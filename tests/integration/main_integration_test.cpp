@@ -21,6 +21,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/IO/TiffWriter.h"
 #include "TestUtils.h"
 #include <filesystem>
+#include <fstream>
 
 class MainIntegrationTest : public ::testing::Test {
 protected:

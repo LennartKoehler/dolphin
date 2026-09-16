@@ -2,6 +2,7 @@ FROM nvidia/cuda:13.0.0-devel-ubuntu22.04 AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    ca-certificates \
     cmake \
     git \
     wget \
