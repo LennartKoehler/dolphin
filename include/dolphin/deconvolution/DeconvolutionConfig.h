@@ -42,7 +42,7 @@ public:
     std::string algorithmName = "RichardsonLucy";
     int iterations = 10;
     float epsilon = 1e-6f;
-    float lambda = 0.001f;
+    float lambda = 0.1f;
     PaddingFillType paddingFillType = PaddingFillType::ZERO;
     PaddingStrategyType paddingStrategyType = PaddingStrategyType::PARENT;
     float paddingRelativeMax = 0.001f;

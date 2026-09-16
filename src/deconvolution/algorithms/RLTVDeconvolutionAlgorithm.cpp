@@ -113,7 +113,7 @@ void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
 
     deconvolution.gradient(g, gx, gy, gz);
 
-    const real_t tvBeta = static_cast<real_t>(lambda) * static_cast<real_t>(0.1);
+    const real_t tvBeta = static_cast<real_t>(1e-6);
     deconvolution.normalizeTV(gx, gy, gz, tvBeta);
 
     deconvolution.divergence(gx, gy, gz, tv);
