@@ -59,6 +59,7 @@ if(NOT WIN32)
     find_library(DEFLATE_LIBRARY NAMES deflate)
     find_library(Z_LIBRARY NAMES z)
     find_library(WEBP_LIBRARY NAMES webp)
+    find_library(SHARPYUV_LIBRARY NAMES sharpyuv)
     # macOS system libraries use .tbd stubs which find_library may miss
     # when CMAKE_FIND_LIBRARY_SUFFIXES doesn't include .tbd.
     # Fall back to -lz so the linker finds /usr/lib/libz.tbd directly.
@@ -80,6 +81,9 @@ if(DEFLATE_LIBRARY)
 endif()
 if(WEBP_LIBRARY)
     list(APPEND TIFF_DEPS ${WEBP_LIBRARY})
+endif()
+if(SHARPYUV_LIBRARY)
+    list(APPEND TIFF_DEPS ${SHARPYUV_LIBRARY})
 endif()
 if(Z_LIBRARY)
     list(APPEND TIFF_DEPS ${Z_LIBRARY})
