@@ -72,11 +72,10 @@ public:
     std::string getName() const override { return std::string("SetupConfig"); };
     SetupConfig& operator=(const SetupConfig& other);
     DeconvolutionType getDeconvType() {
-        if (labeledImage.empty() && labelPSFMap.empty()){
-            return DeconvolutionType::STANDARD;
-        }
-        if (labeledImage.empty() != labelPSFMap.empty()){
-            spdlog::get("deconvolution")->warn("Recieved either labeled_image or label_psf_map but not the other, running in default deconvolution mode");
+        if (labeledImage.empty()){
+            if (!labelPSFMap.empty()){
+                spdlog::get("deconvolution")->warn("Recieved label_psf_map without labeled_image, running in default deconvolution mode");
+            }
             return DeconvolutionType::STANDARD;
         }
         return DeconvolutionType::LABELED;
