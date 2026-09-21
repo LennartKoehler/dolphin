@@ -5,39 +5,50 @@
     "epsilon": 1e-6,
     "lambda": 0.015,
     "padding_fill": "mirror",
-    "padding_strategy": "parent"
+    "padding_strategy": "parent",
+    "padding_relative_max": 0.0,
+    "feathering_radius": 0,
+    "cube_size": [0, 0, 0],
+    "cube_padding": [-1, -1, -1]
   },
 
   "psf_configs": [
     {
       "model_name": "Gaussian",
       "id": "ID1234",
-      "res_lateral_nm": 5000,
-      "res_axial_nm": 5000,
       "size_x": 64,
       "size_y": 64,
       "size_z": 64,
       "sigma_x": 5,
       "sigma_y": 5,
-      "sigma_z": 5
+      "sigma_z": 5,
+      "quality_factor": 1.0,
+      "NA": 1.0,
+      "res_lateral_nm": 5000,
+      "res_axial_nm": 5000,
+      "nanometer_scale": 1e-9,
+      "pixel_scaling": 1e-6
     }
   ],
 
   "setup_config": {
-    "psf_file_paths": [],
-    "save_psf": true,
-    "output": "/home/lennart-k-hler/data/dolphin_results/deconv_bacteria.tif",
-
+    "image_path": "<path/to/input.tif>",
+    "output": "<path/to/output.tif>",
     "backend": "cpu",
+    "n_threads": 1,
+    "n_worker_threads": 11,
     "n_io_threads": 2,
-    "n_worker_threads" : 11,
-    "n_devices" : 1,
+    "n_devices": 1,
+    "n_reader_threads": 0,
     "max_mem_host_gb": 64,
     "max_mem_device_gb": 8,
-
-    "image_path": "/home/lennart-k-hler/data/dolphin_test_data/bacteria.tif",
-
+    "psf_file_paths": [],
+    "save_psf": true,
+    "labeled_image": "",
+    "label_psf_map": "",
     "output_compression": "none",
-    "output_compression_level": -1
+    "output_compression_level": -1,
+    "tile_width": 0,
+    "tile_length": 0
   }
 }

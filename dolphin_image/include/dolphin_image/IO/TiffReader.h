@@ -61,14 +61,14 @@ public:
     template<typename T>
     static void convertTileRow(const char* tileRowData, std::vector<T>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel);
     static void convertTileRowToFloat(const char* tileRowData, std::vector<float>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel);
-    virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset = 0) const override;
+    void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset = 0) const override;
 };
 
 class TiffRegionReaderStriped : public ITiffRegionReader{
 public:
     BoxCoord computeReadSource(const ImageMetaData& metadata, const BoxCoord& box) const override;
     static void convertScanlineToFloat(const char* scanlineData, std::vector<float>& rowData, size_t width, const ImageMetaData& metaData, int channel);
-    virtual void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset = 0) const override;
+    void readRegion(TIFF* tiffile, const ImageMetaData& metaData, const BoxCoord& region, Image3D& image, int ifdchannel, int sppchannel, size_t zImageOffset = 0) const override;
 };
 
 class TiffRegionReaderScanline : public ITiffRegionReader{
@@ -143,7 +143,6 @@ public:
 
     Image3D getSubimage(const BoxCoord& box) const override;
     size_t getRequiredMemory(const CuboidShape& subimageSize) const override;
-    // void prefetch(const std::vector<BoxCoord>& boxes) const override;
     const ImageMetaData& getMetaData() const override;
 
 private:

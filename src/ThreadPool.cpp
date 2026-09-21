@@ -12,7 +12,6 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin/ThreadPool.h"
-#include <iostream>
 #include <spdlog/spdlog.h>
 
 ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc)

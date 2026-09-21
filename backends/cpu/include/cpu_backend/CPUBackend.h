@@ -1,7 +1,19 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #pragma once
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IComputeBackend.h"
-// #include "CPUBackendManager.h"
 
 #include <fftw3.h>
 #include "dolphinbackend/Exceptions.h"
@@ -187,9 +199,6 @@ public:
     void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
 
     // Specialized functions
-    // void calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const override;
-    // void normalizeImage(ComplexData& resultImage, real_t epsilon) const override;
-    // void rescaledInverse(ComplexData& data, real_t cubeVolume) const override;
 
     // Debug functions
     void hasNAN(const ComplexData& data) const override;
@@ -388,9 +397,4 @@ public:
 
 
     // Overloaded version for CPU: simply return the original since CPU doesn't need complex_t thread management
-    // IBackend& clone() override ;
-
-    // IBackend& cloneSharedMemory() override;
-
-    // void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads) override;
 };
