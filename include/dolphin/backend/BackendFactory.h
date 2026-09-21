@@ -125,7 +125,6 @@ private:
 
 #if ENABLE_CUDA
         addBackendManager("cuda", std::move(std::make_unique<CUDABackendManager>()));
-
 #endif
     }
 
@@ -163,7 +162,16 @@ private:
     }
 
     void addBackendManager(const std::string& backendName, std::unique_ptr<IBackendManager> manager){
-        manager->init(logCallback_fn);
+        try {
+            manager->init(logCallback_fn);
+        } catch (const std::exception& e) {
+            getBackendLogger()->warn("Failed to initialize backend '{}': {}", backendName, e.what());
+            return;
+        }
+        if (manager->getNumberDevices() <= 0) {
+            getBackendLogger()->warn("Backend '{}' reports no devices, skipping registration", backendName);
+            return;
+        }
         loadedManagers[backendName] = std::move(manager);
     }
 

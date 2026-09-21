@@ -28,12 +28,23 @@ void CUDABackendManager::init(LogCallback fn) {
 
 
     cudaError_t err = cudaGetDeviceCount(&nDevices);
+    if (err == cudaErrorInsufficientDriver || err == cudaErrorNoDevice) {
+        g_logger_cuda(
+            "cuda:cuda",
+            fmt::format("CUDA unavailable ({}): {}, CUDA backend disabled", cudaGetErrorName(err), cudaGetErrorString(err)),
+            LogLevel::LOG_WARN);
+        cudaGetLastError();
+        nDevices = 0;
+        return;
+    }
     CUDA_CHECK(err, "cudaGetDeviceCount", buildCudaContext({CUDADevice{0, nullptr}, cudaStreamLegacy}));
 
     if (nDevices <= 0) {
-        throw dolphin::backend::BackendException(
-            "No CUDA devices found", "CUDA", "CUDABackendManager constructor",
-            buildCudaContext({CUDADevice{0, nullptr}, cudaStreamLegacy}));
+        g_logger_cuda(
+            "cuda:cuda",
+            "No CUDA devices found, CUDA backend disabled",
+            LogLevel::LOG_WARN);
+        return;
     }
 
     for (int deviceNumber = 0; deviceNumber < nDevices; ++deviceNumber) {
