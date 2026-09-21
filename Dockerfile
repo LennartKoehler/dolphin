@@ -59,9 +59,17 @@ RUN ./configure \
     make -j$(nproc) && \
     make install
 
-RUN apt-get update && apt-get install -y software-properties-common && \
-    add-apt-repository ppa:ubuntu-toolchain-r/test && \
-    apt-get update && apt-get install -y gcc-13 g++-13 && \
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        software-properties-common && \
+    for attempt in 1 2 3; do \
+        add-apt-repository -y ppa:ubuntu-toolchain-r/test && break; \
+        if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+        echo "PPA unavailable; retrying in 15 seconds..." && \
+        sleep 15; \
+    done && \
+    apt-get update -o Acquire::Retries=3 && \
+    apt-get install -y --no-install-recommends gcc-13 g++-13 && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 130 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 130 && \
     rm -rf /var/lib/apt/lists/*
