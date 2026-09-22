@@ -44,7 +44,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         ? static_cast<size_t>(setupConfig.numReaderThreads)
         : setupConfig.nIOThreads;
     readerConfig.readerMemory_byte = memory.hostMem_byte;
-    int readerChannel = 0; //unused
+    int readerChannel = 0; //TODO unused
     reader->configure(readerChannel, readerConfig);
     std::shared_ptr<ReaderHandler> readerHandler = std::make_shared<ReaderHandler>(reader, deconvConfig.paddingFillType);
 
@@ -202,9 +202,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
         spdlog::get("deconvolution")->warn("Feathering radius ({}) is smaller than padding (which is probably the size of the psf) ({}), which can cause artifacts",
             deconvConfig.featheringRadius, (paddingScheme.insidePadding.before + paddingScheme.insidePadding.after).print());
 
-    CuboidShape maxPSF = psfHandler.getMaxShape();
-    CuboidShape minShape = maxPSF;
-    minShape.setMin(paddingScheme.insidePadding.getTotalPadding() + 1);
+    CuboidShape minShape = paddingScheme.insidePadding.getTotalPadding() + 1;
 
     if (minShape.getVolume() * sizeof(real_t) > maxMemDevice_byte){
         throw std::runtime_error("Deconvolution with the largest PSF and padding requires too much memory. The minimum size for one cube would be: " + minShape.print());
