@@ -1,5 +1,6 @@
 #include "dolphin/deconvolution/deconvolutionStrategies/PSFHandler.h"
 #include "dolphin/PSFCreator.h"
+#include "dolphin_image/ImagePadding.h"
 #include <spdlog/spdlog.h>
 
 
@@ -93,6 +94,8 @@ Result<PaddingScheme> PSFHandler::getPadding(
 
     PaddingScheme scheme;
     scheme.insidePadding = padding;
+    scheme.insidePadding.before = scheme.insidePadding.before * 2;
+    scheme.insidePadding.after = scheme.insidePadding.after * 2;
     scheme.imagePadding = (deconvConfig.paddingStrategyType == PaddingStrategyType::NONE)
         ? Padding{CuboidShape{0,0,0}, CuboidShape{0,0,0}}
         : padding;
@@ -124,8 +127,8 @@ void PSFHandler::fitPSFsToShape(const CuboidShape& targetShape) {
         if (currentShape < targetShape) {
             ImagePadding::padToShape(*psf, targetShape, PaddingFillType::ZERO);
         } else if (targetShape < currentShape) {
-            spdlog::get("deconvolution")->critical("PSF (size: {}) is larger than the target shape ({})", currentShape.print(), targetShape.print());
-            throw std::runtime_error("PSF too large for cube constraints");
+            spdlog::get("deconvolution")->info("PSF (size: {}) is being cropped to target shape ({})", currentShape.print(), targetShape.print());
+            ImagePadding::reduceToShape(*psf, targetShape);
         }
     }
 
