@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/CuboidShape.h"
 #include <algorithm>    // std::sort, std::stable_sort
 #include <vector>
+#include <stdexcept>
 
 
 void adjustDimensionsEdgeConditions(

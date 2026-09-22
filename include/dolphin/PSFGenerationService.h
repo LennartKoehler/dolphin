@@ -20,6 +20,7 @@ See the LICENSE file provided with the code for the full license.
 
 class ThreadPool;
 class PSFGeneratorFactory;
+class BasePSFGenerator;
 
 class PSFGenerationService : public IService{
 public:
@@ -45,6 +46,8 @@ private:
     std::string savePSF(const std::string& path, std::shared_ptr<PSF> psf);
     std::string savePSFConfig(const std::string& path, const std::string& name, std::shared_ptr<PSFConfig> psfconfig);
     std::string getExecutableDirectory();
+    // void logMessage(const std::string& message);
+    // void handleError(const std::string& error);
 
     std::unique_ptr<PSFGenerationResult> createResult(
         bool success,

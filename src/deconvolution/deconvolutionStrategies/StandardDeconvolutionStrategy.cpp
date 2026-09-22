@@ -350,6 +350,20 @@ size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
 }
 
 
+
+
+// void StandardDeconvolutionStrategy::configureReaderWriter(
+//     std::shared_ptr<ImageReader> reader,
+//     std::shared_ptr<ImageWriter> writer,
+//     size_t numReaderThreads,
+//     size_t readerMemory,
+//     size_t numWriterThreads,
+//     size_t writerMemory,
+// ){
+// }
+
+
+
 Memory StandardDeconvolutionStrategy::resolveMemory(const SetupConfig& config) const{
 
     Memory memory;

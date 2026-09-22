@@ -1,8 +1,7 @@
 FROM nvidia/cuda:13.0.0-devel-ubuntu22.04 AS builder
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y \
     build-essential \
-    ca-certificates \
     cmake \
     git \
     wget \
@@ -11,9 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 
-RUN wget http://download.osgeo.org/libtiff/tiff-4.7.0.tar.gz && \
-    tar -xzf tiff-4.7.0.tar.gz
-WORKDIR /build/tiff-4.7.0
+RUN wget http://download.osgeo.org/libtiff/tiff-4.5.1.tar.gz && \
+    tar -xzf tiff-4.5.1.tar.gz
+WORKDIR /build/tiff-4.5.1
 RUN ./configure \
         --disable-jbig \
         --disable-webp \

@@ -31,11 +31,11 @@ See the LICENSE file provided with the code for the full license.
 class StandardDeconvolutionExecutor : public IDeconvolutionExecutor {
 public:
     StandardDeconvolutionExecutor();
-    ~StandardDeconvolutionExecutor();
+    virtual ~StandardDeconvolutionExecutor();
 
     // IDeconvolutionExecutor interface
-    void execute(DeconvolutionPlan plan) override;
-    void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) override;
+    virtual void execute(DeconvolutionPlan plan) override;
+    virtual void configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn) override;
 
 protected:
     virtual std::function<void()> createTask(

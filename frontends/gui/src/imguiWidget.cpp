@@ -200,6 +200,7 @@ void imguiFileExplorer::display(const ConfigParameter& p){
     {
         selected = fileDialog.GetSelected().string();
         *static_cast<std::string*>(p.value) = selected;
+        // std::cout << "Selected filename" <<  << std::endl;
         fileDialog.ClearSelected();
     }
     ImGui::PopID();
