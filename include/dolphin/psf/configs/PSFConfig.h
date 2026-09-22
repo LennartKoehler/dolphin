@@ -13,8 +13,10 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
+#include <iterator>
 #include <string>
 #include <vector>
+#include <iostream>
 
 #include "dolphin/Config.h"
 #include "dolphinbackend/CuboidShape.h"
@@ -37,11 +39,11 @@ public:
     resAxial_nm(resAxial_nm),
     resLateral_nm(resLateral_nm){};
 
-    virtual ~PSFConfig() = default;
+    virtual ~PSFConfig(){};
 
     PSFConfig(const PSFConfig& other);
 
-    std::string getName() const override{
+    virtual std::string getName() const override{
         return std::string("PSFConfig " + getModelName());
     }
 

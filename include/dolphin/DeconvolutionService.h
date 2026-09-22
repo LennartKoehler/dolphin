@@ -15,10 +15,17 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/ProgressTracking.h"
 #include "dolphin/ServiceAbstractions.h"
+#include <algorithm>
 #include <memory>
 
 // Forward declarations
+class ThreadPool;
+class Hyperstack;
+class BaseDeconvolutionAlgorithm;
+class DeconvolutionConfig;
+class DeconvolutionStrategy;
 class DeconvolutionStrategyPair;
+class DeconvolutionAlgorithmFactory;
 
 
 
@@ -27,7 +34,10 @@ public:
     DeconvolutionService();
     ~DeconvolutionService() override;
 
+    // IDeconvolutionService interface
     std::unique_ptr<DeconvolutionResult> deconvolve(const DeconvolutionRequest& request);
+
+    // virtual std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(const DeconvolutionRequest& request);
 
 
 
@@ -43,6 +53,9 @@ public:
 
 
 private:
+    // void logMessage(const std::string& message);
+    // void handleError(const std::string& error);
+
     std::unique_ptr<DeconvolutionResult> createResult(
         bool success,
         const std::string& message,
@@ -52,9 +65,16 @@ private:
 
     bool validateAlgorithmConfig(const std::string& algorithm) const;
     bool validateDeconvolutionRequest(const DeconvolutionRequest& request) const;
+    // bool validateImageConfig(const json& config) const;
 
     // Algorithm management
     std::unique_ptr<DeconvolutionStrategyPair> deconvolutionStrategyPair;
+
+    // PSF package management
+    // std::vector<PSF> createPSFsFromSetup(
+    //     std::shared_ptr<SetupConfig> setupConfig,
+    //     const CuboidShape& imageShape,
+    //     std::shared_ptr<ThreadPool> threadPool);
 
     // Configuration
     bool initialized_;

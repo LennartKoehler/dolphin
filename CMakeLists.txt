@@ -13,6 +13,13 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# Optimization flags for different build types
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -march=native")
+# set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-omit-frame-pointer")
+# set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma")
+# set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -ffast-math -DNDEBUG -funroll-loops -mavx2 -mfma")
+# set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 add_library(project_options INTERFACE)
 
 
@@ -20,6 +27,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(project_options INTERFACE
       $<$<CONFIG:Release>:-O3;-ffast-math;-fno-finite-math-only;-DNDEBUG;-funroll-loops>
       $<$<CONFIG:Debug>:-g;-O0;-fno-omit-frame-pointer>
+      $<$<CONFIG:DebugVectorization>:-g;-O0;-fno-omit-frame-pointer>
+      $<$<CONFIG:NoVectorization>:-O3;-ffast-math;-fno-finite-math-only;-DNDEBUG;-fno-tree-vectorize;-fno-tree-slp-vectorize>
       $<$<CONFIG:RelWithDebInfo>:-O3;-g;-ffast-math;-fno-finite-math-only;-DNDEBUG;-funroll-loops>
     )
     # x86-only AVX flags (skip on ARM/Apple Silicon)
@@ -39,6 +48,7 @@ elseif(MSVC)
     target_compile_definitions(project_options INTERFACE _USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
 endif()
 
+# link_directories(/usr/local/lib)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ".so" ".dll" ".dylib")
 find_package(TIFF REQUIRED)
@@ -58,8 +68,6 @@ if(NOT WIN32)
     find_library(LZMA_LIBRARY NAMES lzma)
     find_library(DEFLATE_LIBRARY NAMES deflate)
     find_library(Z_LIBRARY NAMES z)
-    find_library(WEBP_LIBRARY NAMES webp)
-    find_library(SHARPYUV_LIBRARY NAMES sharpyuv)
     # macOS system libraries use .tbd stubs which find_library may miss
     # when CMAKE_FIND_LIBRARY_SUFFIXES doesn't include .tbd.
     # Fall back to -lz so the linker finds /usr/lib/libz.tbd directly.
@@ -79,12 +87,6 @@ endif()
 if(DEFLATE_LIBRARY)
     list(APPEND TIFF_DEPS ${DEFLATE_LIBRARY})
 endif()
-if(WEBP_LIBRARY)
-    list(APPEND TIFF_DEPS ${WEBP_LIBRARY})
-endif()
-if(SHARPYUV_LIBRARY)
-    list(APPEND TIFF_DEPS ${SHARPYUV_LIBRARY})
-endif()
 if(Z_LIBRARY)
     list(APPEND TIFF_DEPS ${Z_LIBRARY})
 elseif(TARGET ZLIB::ZLIB)
@@ -102,23 +104,33 @@ else()
     message(STATUS "Using system default FFTW")
 endif()
 
-# GoogleTest — fetched only when tests are enabled
+message(STATUS "ITK version: ${ITK_VERSION}")
+message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message(STATUS "ITK_BUILD_TYPE: ${ITK_BUILD_TYPE}")
+message(STATUS "ITK_DIR: ${ITK_DIR}")
+get_target_property(itk_release ITKCommon IMPORTED_LOCATION_RELEASE)
+get_target_property(itk_debug   ITKCommon IMPORTED_LOCATION_DEBUG)
+
+message(STATUS "ITKCommon RELEASE: ${itk_release}")
+message(STATUS "ITKCommon DEBUG:   ${itk_debug}")
+
+# GoogleTest — fetched early so backend test subdirectories can use it
+# Ensure GoogleTest uses the same CRT (dynamic /MD) as the project
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.14.0
+)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+include(GoogleTest)
+
 option(ENABLE_TESTS "Enable tests" ON)
 option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
 
 if(ENABLE_TESTS)
-    # Ensure GoogleTest uses the same CRT (dynamic /MD) as the project
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-    include(FetchContent)
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.14.0
-    )
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(googletest)
-    include(GoogleTest)
-
     enable_testing()
 endif()
 
@@ -146,7 +158,7 @@ endif()
 # Set BUILD_DOLPHIN_LIBRARY=OFF if you only need the backends and
 # dolphin_image.  For example, in a parent project:
 #   set(BUILD_DOLPHIN_LIBRARY OFF CACHE BOOL "" FORCE)
-#   add_subdirectory(dolphin)
+#   add_subdirectory(lib/dolphin)
 # ------------------------------------------------------------
 option(BUILD_DOLPHIN_LIBRARY "Build the main dolphin library" ON)
 
@@ -191,6 +203,7 @@ set(DOLPHIN_SOURCES
     src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/TestAlgorithm.cpp
 )
 
 
@@ -247,6 +260,24 @@ target_link_libraries(dolphin
 
 
 
+
+
+# Compiler flags for Valgrind-safe build
+# if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+#     target_compile_options( dolphin PROPERTIES
+#         -O0             # Disable optimizations
+#         -g              # Debug symbols
+#         -march=x86-64   # Only baseline instructions
+#         -mno-avx        # Disable AVX
+#         -mno-avx2       # Disable AVX2
+#         -mno-fma        # Disable FMA
+#         -Wall           # Enable warnings
+#         -Wextra
+#         -g
+#         -O0
+#         -fno-omit-frame-pointer
+#     )
+# endif()
 
 
 # Set version for the library

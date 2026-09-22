@@ -123,6 +123,7 @@ const T& ManagedData<T>::access(std::size_t linearIndex) const{
 
 template<typename T>
 size_t ManagedData<T>::convertIndex(size_t linearIndex) const {
+    // return linearIndex;
     return linearIndex + (linearIndex / size.width) * padding;
 }
 

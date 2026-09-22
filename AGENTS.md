@@ -9,7 +9,7 @@ DOLPHIN (Deconvolution with Optimized Local PSFs for High-speed Image recoNstruc
 ## Build Commands
 
 ### Prerequisites
-- CUDA toolkit 12.8+ (for GPU version)
+- CUDA toolkit 12.1+ (for GPU version)
 - OpenCV 4.6.0+
 - FFTW 3.3.10+
 - LibTIFF 4.7.0+
@@ -17,7 +17,13 @@ DOLPHIN (Deconvolution with Optimized Local PSFs for High-speed Image recoNstruc
 
 ### Build Process
 ```bash
-# Build main application (CUBE is built automatically via add_subdirectory)
+# Build CUBE library (required for GPU support)
+mkdir ./lib/cube/build
+cd ./lib/cube/build
+cmake ..
+make
+
+# Build main application
 mkdir ./build
 cd ./build
 cmake ..
@@ -25,17 +31,11 @@ make
 ```
 
 ### Executables
-- `./dolphin` - CLI version (CPU or GPU depending on BUILD_CUDA flag)
-- GUI built separately from `frontends/gui/`
+- `./dolphin` - CPU version
+- `./dolphincuda` - GPU version (if CUDA available)
 
 ### Testing
-Comprehensive GoogleTest suite with ctest integration. Tests are in `tests/` directory.
-```bash
-cd build
-cmake .. -DENABLE_TESTS=ON
-make
-ctest --output-on-failure
-```
+No formal test suite exists. Use test data in configs/default_config.json path.
 
 ## Critical Non-Obvious Patterns
 
@@ -56,17 +56,18 @@ ctest --output-on-failure
 - Hyperstack data structures use channels for multi-dimensional image data
 
 ### GPU Support Architecture
-- CUDA code compiled separately via `backends/cuda/lib/cube/CMakeLists.txt`
-- Conditional compilation with `#if ENABLE_CUDA` guards (set via `target_compile_definitions`)
-- GPU version links with `CUBE` library - built automatically via add_subdirectory
+- CUDA code compiled separately via `lib/cube/CMakeLists.txt`
+- Conditional compilation with `#ifdef CUDA_AVAILABLE` guards
+- GPU version links with `CUBE` library - must build cube first or compilation fails
 
 ### File I/O Conventions
 - TIFF reading auto-detects file vs directory based on extension
 - Results always saved to `../result/` directory relative to executable
+- Separate layer saving controlled by `sep` flag (not `seperate`)
 
 ### Frontend Architecture  
 - Dual frontend system: `CLIFrontend` for CLI, `GUIFrontend` for GUI
-- CLI and GUI are separate executables with separate `main.cpp` files
+- Frontends selected based on `argc > 1` in main()
 - GUI passes `Dolphin` instance directly to constructor (unusual dependency injection)
 
 ### PSF System
@@ -76,9 +77,9 @@ ctest --output-on-failure
 - GibsonLanni and Gaussian PSF generators have different coordinate systems
 
 ### Critical Build Flags
-- `CMAKE_CXX_FLAGS`: `-O3 -ffast-math -fno-finite-math-only -DNDEBUG -funroll-loops -mavx2 -mfma` (CPU optimization, GCC only)
+- `CMAKE_CXX_FLAGS`: `-O3 -ffast-math -fopenmp -march=native` (CPU optimization)
 - `CUDA_ARCHITECTURES`: "75;80;90" (explicit GPU targets)
-- OpenMP used for FFTW threading when available
+- Uses OpenMP for parallelization - compile with `-fopenmp`
 
 ## Avoid Common Pitfalls
 
@@ -90,7 +91,7 @@ ctest --output-on-failure
 ### Algorithm Registration
 - Adding new algorithms requires updating both factory register list AND CLI option parsing
 - Algorithm names case-sensitive and must match exactly
-- Configs typically use `"RichardsonLucy"` as the algorithm
+- Default algorithm is "RichardsonLucyTotalVariation"
 
 ### PSF Coordinate System
 - GibsonLanni uses different coordinate conventions than Gaussian
@@ -105,14 +106,14 @@ ctest --output-on-failure
 ## Performance Notes
 
 - OpenMP enabled by default - compile with `-fopenmp` for parallelization
-- GPU version significantly faster but requires CUDA 12.8+ and specific GPU architectures
+- GPU version significantly faster but requires CUDA 12.1+ and specific GPU architectures
 - Subimage processing controlled by `subimageSize` parameter (0 = auto-adjust to PSF size)
 - Final image always saved regardless of errors - check console for algorithm failures
 
 ## Development Patterns
 
 ### Adding New Algorithms
-1. Extend `DeconvolutionAlgorithm`
+1. Extend `BaseDeconvolutionAlgorithm`
 2. Register in factory constructor
 3. Add CLI option in frontend
 4. Update default configurations

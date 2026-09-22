@@ -1,18 +1,24 @@
 .vscode/*
 .cache/*
+.roo/*
+.VSCodeCounter/*
 **/build/
+**/dockerbuild/
+build/*
 *build*/
 profiling/results/*
 result/*
 results/*
+result/tiles/*
+cmake-build-debug/*
+input/*
+lib/cube/build/*
 configs/
-configs_checkpoint/
 **/debug.log
 
-# Generated artifacts
-compile_commands.json
-imgui.ini
-speed.txt
-CMakeUserPresets.json
-CMakeCache.txt
-CMakeFiles/
+
+
+uml.puml
+uml2.puml
+uml3.puml
+

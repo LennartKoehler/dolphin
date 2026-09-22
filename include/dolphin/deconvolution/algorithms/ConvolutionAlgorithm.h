@@ -15,9 +15,11 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include <memory>
+#include <iostream>
 
 class ConvolutionAlgorithm : public DeconvolutionAlgorithm {
 public:
+    // Constructor that takes a backend parameter
     ConvolutionAlgorithm() = default;
     ~ConvolutionAlgorithm() = default;
     
