@@ -30,4 +30,6 @@ namespace ImagePadding {
 
     void expandToMinSize(Image3D& image, const CuboidShape& minSize);
 
+    Padding reduceToShape(Image3D& image, const CuboidShape& targetShape);
+
 } // namespace ImagePadding
