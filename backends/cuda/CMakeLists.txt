@@ -1,6 +1,3 @@
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/cube ${CMAKE_BINARY_DIR}/cube/build)
-set(DOUBLE_PRECISION OFF) # explicit
-
 find_package(CUDAToolkit 12.8 QUIET)
 
 if(NOT CUDAToolkit_FOUND)

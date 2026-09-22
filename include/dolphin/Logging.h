@@ -22,6 +22,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <filesystem>
 #include <functional>
+#include <iostream>
 #include <mutex>
 #include <string>
 
@@ -120,7 +121,7 @@ namespace Logging{
             auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
             bool truncate = true;
             auto debugLogPath = logDir / "debug.log";
-            std::cout << "[info] Writing log to" << debugLogPath << std::endl;
+            std::cout << "[info] Writing log to " << debugLogPath << std::endl;
             auto debugLogSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(debugLogPath.string(), truncate);
             debugLogSink->set_level(spdlog::level::trace);
             consoleSink->set_level(spdlog::level::warn);
