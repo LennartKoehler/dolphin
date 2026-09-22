@@ -113,11 +113,6 @@ public:
     void setData(T* data) {this->data = data;}
 
     // Stride is computed as padding + width (memory row length)
-    // inline size_t getStride() const { return size.width + padding; }
-    // void setStride(size_t stride) {
-    //     this->padding = stride - size.width;
-    // }
-
     inline size_t getPadding() const { return padding; }
     inline void setPadding(size_t padding) { this->padding = padding; }
 

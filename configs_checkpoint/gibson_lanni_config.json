@@ -14,20 +14,29 @@
 
   "psf_configs": [
     {
-      "model_name": "Gaussian",
-      "id": "ID1234",
+      "model_name": "GibsonLanni",
+      "id": "GL_PSF",
       "size_x": 64,
       "size_y": 64,
       "size_z": 64,
-      "sigma_x": 5,
-      "sigma_y": 5,
-      "sigma_z": 5,
-      "quality_factor": 1.0,
-      "NA": 1.0,
-      "res_lateral_nm": 5000,
-      "res_axial_nm": 5000,
-      "nanometer_scale": 1e-9,
-      "pixel_scaling": 1e-6
+      "NA": 1.4,
+      "res_lateral_nm": 100,
+      "res_axial_nm": 100,
+      "lambda_nm": 520.0,
+      "working_distance_design_nm": 150000.0,
+      "working_distance_experimental_nm": 150000.0,
+      "immersion_ri_design": 1.515,
+      "immersion_ri_experimental": 1.515,
+      "coverslip_thickness_design_nm": 170.0,
+      "coverslip_thickness_experimental_nm": 170.0,
+      "coverslip_ri_design": 1.5,
+      "coverslip_ri_experimental": 1.5,
+      "sample_ri": 1.33,
+      "particle_axial_position_nm": 1000.0,
+      "pixel_size_axial_nm": 100.0,
+      "pixel_size_lateral_nm": 100.0,
+      "OVER_SAMPLING": 4.0,
+      "accuracy": 32
     }
   ],
 
