@@ -11,6 +11,49 @@ protected:
         Logging::init();
     }
 };
+bool checkSameShape(const CuboidShape& fullImage, const std::vector<BoxCoordWithPadding>& cubes){
+    if (cubes.empty()) return false;
+    CuboidShape shape = cubes[0].getPaddedBox().dimensions;
+    for (const BoxCoordWithPadding& cube : cubes){
+       if (cube.getPaddedBox().dimensions != shape) return false;
+    }
+    return true;
+}
+
+constexpr size_t maxCompletenessCheckVolume = 100000000; // ~400 MB as float image
+
+bool checkCompleteness(const CuboidShape& fullImage, const std::vector<BoxCoordWithPadding>& cubes){
+    if (cubes.empty()) return false;
+    if (fullImage.getVolume() > maxCompletenessCheckVolume) {
+        GTEST_LOG_(WARNING) << "Skipping completeness check, image too large: " << fullImage.print();
+        return true;
+    }
+
+    Image3D image(fullImage, 1.0);
+    const BoxCoord imageBox{CuboidShape(0, 0, 0), fullImage};
+
+    for (const BoxCoordWithPadding& cube : cubes){
+        // boxes may extend past the image when boundary padding is absorbed into the box
+        BoxCoord visibleBox = cube.box;
+        visibleBox.cropTo(imageBox);
+        if (visibleBox.dimensions.width == 0 || visibleBox.dimensions.height == 0 || visibleBox.dimensions.depth == 0)
+            continue;
+
+        Image3D zero(visibleBox.dimensions, 1.0);
+        image.subtractSubimage(visibleBox, zero);
+
+    }
+    return image.isEqual(0.0);
+}
+
+void expectViableSplit(const CuboidShape& imageSize, const Result<std::vector<BoxCoordWithPadding>>& result) {
+    ASSERT_TRUE(result.success);
+    ASSERT_FALSE(result.value.empty());
+    EXPECT_TRUE(checkSameShape(imageSize, result.value))
+        << "not all cubes share the same padded shape";
+    EXPECT_TRUE(checkCompleteness(imageSize, result.value))
+        << "cubes do not cover the complete image";
+}
 
 std::string printShape(const CuboidShape& imageSize,
                        const Padding& cubePadding,
@@ -39,8 +82,7 @@ TEST_F(ImageSplitTest, SmallImageNoPadding) {
     Padding imagePadding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
     auto result = splitImageHomogeneous(padding, imagePadding, imageSize, 1000000, 1, CuboidShape(1, 1, 1));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, imagePadding, 1000000, 1, CuboidShape(1, 1, 1), result);
-    ASSERT_TRUE(result.success);
-    EXPECT_GE(result.value.size(), 1u);
+    expectViableSplit(imageSize, result);
 }
 
 TEST_F(ImageSplitTest, ImageWithPadding) {
@@ -48,8 +90,7 @@ TEST_F(ImageSplitTest, ImageWithPadding) {
     Padding padding{CuboidShape(10, 10, 5), CuboidShape(10, 10, 5)};
     auto result = splitImageHomogeneous(padding, padding, imageSize, 1000000, 1, CuboidShape(21, 21, 11));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, padding, 1000000, 1, CuboidShape(21, 21, 11), result);
-    ASSERT_TRUE(result.success);
-    EXPECT_GE(result.value.size(), 1u);
+    expectViableSplit(imageSize, result);
 }
 
 TEST_F(ImageSplitTest, LargeImageMultipleCubes) {
@@ -57,7 +98,7 @@ TEST_F(ImageSplitTest, LargeImageMultipleCubes) {
     Padding padding{CuboidShape(32, 32, 16), CuboidShape(32, 32, 16)};
     auto result = splitImageHomogeneous(padding, padding, imageSize, 1000000, 4, CuboidShape(65, 65, 33));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, padding, 1000000, 4, CuboidShape(65, 65, 33), result);
-    ASSERT_TRUE(result.success);
+    expectViableSplit(imageSize, result);
     EXPECT_GE(result.value.size(), 4u);
 }
 
@@ -68,8 +109,7 @@ TEST_F(ImageSplitTest, VeryLargeImage) {
     Padding imagePadding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
     auto result = splitImageHomogeneous(padding, imagePadding, imageSize, 9e9, 8, CuboidShape(9, 9, 5));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, imagePadding, 9e9, 8, CuboidShape(9, 9, 5), result);
-    ASSERT_TRUE(result.success);
-    EXPECT_GE(result.value.size(), 1u);
+    expectViableSplit(imageSize, result);
 }
 
 TEST_F(ImageSplitTest, VerySmallImage) {
@@ -78,8 +118,7 @@ TEST_F(ImageSplitTest, VerySmallImage) {
     Padding imagePadding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
     auto result = splitImageHomogeneous(padding, imagePadding, imageSize, 1000000, 1, CuboidShape(9, 9, 5));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, imagePadding, 1000000, 1, CuboidShape(9, 9, 5), result);
-    ASSERT_TRUE(result.success);
-    EXPECT_GE(result.value.size(), 1u);
+    expectViableSplit(imageSize, result);
 }
 
 TEST_F(ImageSplitTest, NonePaddingType) {
@@ -88,7 +127,7 @@ TEST_F(ImageSplitTest, NonePaddingType) {
     Padding imagePadding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
     auto result = splitImageHomogeneous(padding, imagePadding, imageSize, 500000, 2, CuboidShape(41, 41, 21));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, imagePadding, 500000, 2, CuboidShape(41, 41, 21), result);
-    ASSERT_TRUE(result.success);
+    expectViableSplit(imageSize, result);
     EXPECT_GE(result.value.size(), 2u);
 }
 
@@ -97,7 +136,7 @@ TEST_F(ImageSplitTest, CubeCoverageVerification) {
     Padding padding{CuboidShape(8, 8, 4), CuboidShape(8, 8, 4)};
     auto result = splitImageHomogeneous(padding, padding, imageSize, 500000, 1, CuboidShape(17, 17, 9));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, padding, 500000, 1, CuboidShape(17, 17, 9), result);
-    ASSERT_TRUE(result.success);
+    expectViableSplit(imageSize, result);
     for (const auto& cube : result.value) {
         EXPECT_GE(cube.box.position.width, 0);
         EXPECT_GE(cube.box.position.height, 0);
@@ -113,7 +152,7 @@ TEST_F(ImageSplitTest, HighMinCubes) {
     Padding padding{CuboidShape(16, 16, 8), CuboidShape(16, 16, 8)};
     auto result = splitImageHomogeneous(padding, padding, imageSize, 1000000, 8, CuboidShape(33, 33, 17));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, padding, 1000000, 8, CuboidShape(33, 33, 17), result);
-    ASSERT_TRUE(result.success);
+    expectViableSplit(imageSize, result);
     EXPECT_GE(result.value.size(), 8u);
 }
 
@@ -122,8 +161,7 @@ TEST_F(ImageSplitTest, ConstrainedMemory) {
     Padding padding{CuboidShape(10, 10, 5), CuboidShape(10, 10, 5)};
     auto result = splitImageHomogeneous(padding, padding, imageSize, 50000, 1, CuboidShape(21, 21, 11));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, padding, 50000, 1, CuboidShape(21, 21, 11), result);
-    ASSERT_TRUE(result.success);
-    EXPECT_GE(result.value.size(), 1u);
+    expectViableSplit(imageSize, result);
 }
 
 TEST_F(ImageSplitTest, AsymmetricImage) {
@@ -132,7 +170,7 @@ TEST_F(ImageSplitTest, AsymmetricImage) {
     Padding imagePadding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
     auto result = splitImageHomogeneous(padding, imagePadding, imageSize, 300000, 2, CuboidShape(41, 21, 11));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, imagePadding, 300000, 2, CuboidShape(41, 21, 11), result);
-    ASSERT_TRUE(result.success);
+    expectViableSplit(imageSize, result);
     EXPECT_GE(result.value.size(), 2u);
 }
 
@@ -158,7 +196,7 @@ TEST_F(ImageSplitTest, FirstCubeAtOriginNonePadding) {
     Padding imagePadding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
     auto result = splitImageHomogeneous(padding, imagePadding, imageSize, 500000, 1, CuboidShape(17, 17, 9));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, imagePadding, 500000, 1, CuboidShape(17, 17, 9), result);
-    ASSERT_TRUE(result.success);
+    expectViableSplit(imageSize, result);
 
     bool foundOriginCube = false;
     for (const auto& cube : result.value) {
@@ -179,8 +217,7 @@ TEST_F(ImageSplitTest, MinimumViableImage) {
     Padding imagePadding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
     auto result = splitImageHomogeneous(padding, imagePadding, imageSize, 1000000, 1, CuboidShape(5, 5, 5));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, imagePadding, 1000000, 1, CuboidShape(5, 5, 5), result);
-    ASSERT_TRUE(result.success);
-    EXPECT_GE(result.value.size(), 1u);
+    expectViableSplit(imageSize, result);
 }
 
 TEST_F(ImageSplitTest, NoPadding) {
@@ -189,8 +226,7 @@ TEST_F(ImageSplitTest, NoPadding) {
     Padding imagePadding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
     auto result = splitImageHomogeneous(padding, imagePadding, imageSize, 500000, 1, CuboidShape(1, 1, 1));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, imagePadding, 500000, 1, CuboidShape(1, 1, 1), result);
-    ASSERT_TRUE(result.success);
-    EXPECT_GE(result.value.size(), 1u);
+    expectViableSplit(imageSize, result);
 }
 
 TEST_F(ImageSplitTest, LargePaddingRelative) {
@@ -198,8 +234,7 @@ TEST_F(ImageSplitTest, LargePaddingRelative) {
     Padding padding{CuboidShape(20, 20, 10), CuboidShape(20, 20, 10)};
     auto result = splitImageHomogeneous(padding, padding, imageSize, 500000, 1, CuboidShape(41, 41, 21));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, padding, 500000, 1, CuboidShape(41, 41, 21), result);
-    ASSERT_TRUE(result.success);
-    EXPECT_GE(result.value.size(), 1u);
+    expectViableSplit(imageSize, result);
 }
 
 TEST_F(ImageSplitTest, CubeSizeEqualsImage) {
@@ -207,6 +242,5 @@ TEST_F(ImageSplitTest, CubeSizeEqualsImage) {
     Padding padding{CuboidShape(10, 10, 5), CuboidShape(10, 10, 5)};
     auto result = splitImageHomogeneous(padding, padding, imageSize, 10000000, 1, CuboidShape(21, 21, 11));
     GTEST_LOG_(INFO) << printShape(imageSize, padding, padding, 10000000, 1, CuboidShape(21, 21, 11), result);
-    ASSERT_TRUE(result.success);
-    EXPECT_GE(result.value.size(), 1u);
+    expectViableSplit(imageSize, result);
 }

@@ -27,47 +27,53 @@ void adjustCubeToBoundaries(
     const Padding& cubePadding,
     const Padding& imagePadding) {
 
-    CuboidShape targetPaddedShape = cube.getPaddedShape();
+    // // clamp cube to image size (whole-image cube case, e.g. PSF larger than image)
+    // cube.box.dimensions.width  = std::min(cube.box.dimensions.width,  imageOriginalShape.width);
+    // cube.box.dimensions.height = std::min(cube.box.dimensions.height, imageOriginalShape.height);
+    // cube.box.dimensions.depth  = std::min(cube.box.dimensions.depth,  imageOriginalShape.depth);
 
-    // Clamp if cube larger than image in any dimension
-    if (cube.box.dimensions.width > imageOriginalShape.width)
-        cube.box.dimensions.width = imageOriginalShape.width;
-    if (cube.box.dimensions.height > imageOriginalShape.height)
-        cube.box.dimensions.height = imageOriginalShape.height;
-    if (cube.box.dimensions.depth > imageOriginalShape.depth)
-        cube.box.dimensions.depth = imageOriginalShape.depth;
+    // last cube per dimension: overflow goes into padding before (box stays on grid, boxes contiguous)
+    if (remainingSize.width < cube.box.dimensions.width && remainingSize.width > 0){
+        int64_t extra = static_cast<int64_t>(cube.box.dimensions.width - remainingSize.width);
+        cube.box.dimensions.width -= extra;
+        cube.padding.before.width += extra;
+    }
+    if (remainingSize.height < cube.box.dimensions.height && remainingSize.height > 0){
+        int64_t extra = static_cast<int64_t>(cube.box.dimensions.height - remainingSize.height);
+        cube.box.dimensions.height -= extra;
+        cube.padding.before.height += extra;
+    }
+    if (remainingSize.depth < cube.box.dimensions.depth && remainingSize.depth > 0){
+        int64_t extra = static_cast<int64_t>(cube.box.dimensions.depth - remainingSize.depth);
+        cube.box.dimensions.depth -= extra;
+        cube.padding.before.depth += extra;
+    }
 
-    // Shift-back for last cube in each dimension to prevent going out of bounds
-    if (remainingSize.width < cube.box.dimensions.width && remainingSize.width > 0)
-        cube.box.position.width -= static_cast<int64_t>(cube.box.dimensions.width - remainingSize.width);
-    if (remainingSize.height < cube.box.dimensions.height && remainingSize.height > 0)
-        cube.box.position.height -= static_cast<int64_t>(cube.box.dimensions.height - remainingSize.height);
-    if (remainingSize.depth < cube.box.dimensions.depth && remainingSize.depth > 0)
-        cube.box.position.depth -= static_cast<int64_t>(cube.box.dimensions.depth - remainingSize.depth);
-
-    // Determine boundary status after shift-back
-    bool atStartX = (cube.box.position.width == 0);
-    bool atEndX = (cube.box.position.width + static_cast<int64_t>(cube.box.dimensions.width) >= static_cast<int64_t>(imageOriginalShape.width));
-    bool atStartY = (cube.box.position.height == 0);
-    bool atEndY = (cube.box.position.height + static_cast<int64_t>(cube.box.dimensions.height) >= static_cast<int64_t>(imageOriginalShape.height));
-    bool atStartZ = (cube.box.position.depth == 0);
-    bool atEndZ = (cube.box.position.depth + static_cast<int64_t>(cube.box.dimensions.depth) >= static_cast<int64_t>(imageOriginalShape.depth));
-
-    // Set padding: imagePadding at image boundary, cubePadding for interior overlap
-    cube.padding.before.width  = atStartX ? imagePadding.before.width  : cubePadding.before.width;
-    cube.padding.after.width   = atEndX   ? imagePadding.after.width   : cubePadding.after.width;
-    cube.padding.before.height = atStartY ? imagePadding.before.height : cubePadding.before.height;
-    cube.padding.after.height  = atEndY   ? imagePadding.after.height  : cubePadding.after.height;
-    cube.padding.before.depth  = atStartZ ? imagePadding.before.depth  : cubePadding.before.depth;
-    cube.padding.after.depth   = atEndZ   ? imagePadding.after.depth   : cubePadding.after.depth;
-
-    // Compensate padding so padded shape is preserved (clamping/padding swap must not shrink total size)
-    if (cube.getPaddedShape().width < targetPaddedShape.width)
-        cube.padding.after.width += targetPaddedShape.width - cube.getPaddedShape().width;
-    if (cube.getPaddedShape().height < targetPaddedShape.height)
-        cube.padding.after.height += targetPaddedShape.height - cube.getPaddedShape().height;
-    if (cube.getPaddedShape().depth < targetPaddedShape.depth)
-        cube.padding.after.depth += targetPaddedShape.depth - cube.getPaddedShape().depth;
+    // boundary faces get exactly imagePadding, interior faces at least cubePadding
+    if (cube.box.position.width == 0){
+        cube.box.dimensions.width += cube.padding.before.width - imagePadding.before.width;
+        cube.padding.before.width  = imagePadding.before.width;
+    }
+    if (cube.box.position.height == 0){
+        cube.box.dimensions.height += cube.padding.before.height - imagePadding.before.height;
+        cube.padding.before.height  = imagePadding.before.height;
+    }
+    if (cube.box.position.depth == 0){
+        cube.box.dimensions.depth += cube.padding.before.depth - imagePadding.before.depth;
+        cube.padding.before.depth  = imagePadding.before.depth;
+    }
+    if (cube.box.position.width + cube.box.dimensions.width == imageOriginalShape.width){
+        cube.box.dimensions.width += cube.padding.after.width - imagePadding.after.width;
+        cube.padding.after.width  = imagePadding.after.width;
+    }
+    if (cube.box.position.height + cube.box.dimensions.height == imageOriginalShape.height){
+        cube.box.dimensions.height += cube.padding.after.height - imagePadding.after.height;
+        cube.padding.after.height  = imagePadding.after.height;
+    }
+    if (cube.box.position.depth + cube.box.dimensions.depth == imageOriginalShape.depth){
+        cube.box.dimensions.depth += cube.padding.after.depth - imagePadding.after.depth;
+        cube.padding.after.depth  = imagePadding.after.depth;
+    }
 }
 
 // add new cube recursively
@@ -187,7 +193,7 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
                 imagePadding);
 
             if (newCubes.size() > targetCubeCount) {
-                currentMaxSize = saved;
+                currentMaxSize = saved; // max size is the previous max size as the most recent size reduction caused the number of cubes to go up (unwanted)
                 break;
             }
 
