@@ -10,7 +10,6 @@ Adolf-Reichwein-Straße 23, 07745 Jena, Germany
 The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
-
 #pragma once
 #include "windows/Window.h"
 #include "dolphin/Config.h"
@@ -22,7 +21,7 @@ public:
 
 protected:
     std::shared_ptr<Config> config;
-    
+
 };
 
 class ConfigContent : public Content, public ConfigBase {

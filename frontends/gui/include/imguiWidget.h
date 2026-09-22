@@ -10,7 +10,6 @@ Adolf-Reichwein-Straße 23, 07745 Jena, Germany
 The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
-
 #pragma once
 
 #include "GUIStyleConfig.h"
@@ -66,14 +65,14 @@ public:
 private:
     std::vector<int>* values = nullptr;
     int newValue = 0;  // Value to be added
-    
+
     void displayElement(int* val, int index);
     void addElementWidget();
     void removeElement(int index);
 };
 
 class imguiStringSelection : public imguiWidget {
-public:    
+public:
     void display(const ConfigParameter& p) override;
 
 private:

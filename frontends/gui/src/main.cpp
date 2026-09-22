@@ -10,7 +10,6 @@ Adolf-Reichwein-Straße 23, 07745 Jena, Germany
 The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
-
 #include <dolphin/Dolphin.h>
 #include "GUIFrontend.h"
 #include <filesystem>
@@ -33,6 +32,8 @@ static std::filesystem::path resolveLogDir() {
 }
 
 int main(int argc, char** argv) {
+    std::cout << "[Start Dolphin GUI]" << std::endl;
+
     // Initialize Dolphin with a proper log directory
     Dolphin* dolphin = new Dolphin();
     dolphin->init(resolveLogDir());

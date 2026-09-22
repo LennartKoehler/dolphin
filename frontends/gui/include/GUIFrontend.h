@@ -10,7 +10,6 @@ Adolf-Reichwein-Straße 23, 07745 Jena, Germany
 The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
-
 #pragma once
 #include "dolphin/Dolphin.h"
 #include "dolphin/frontend/IFrontend.h"
@@ -27,7 +26,7 @@ public:
 
     std::unique_ptr<PSFGenerationResult> generatePSF(std::shared_ptr<PSFConfig> config);
     std::future<std::unique_ptr<DeconvolutionResult>> deconvolve(std::shared_ptr<SetupConfig> config, std::shared_ptr<DeconvolutionConfig> deconvConfig);
- 
+
     double mainScale;
 
 private:

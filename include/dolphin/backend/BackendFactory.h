@@ -1,4 +1,5 @@
-/* Copyright by Lennart Koehler
+/*
+Copyright by Lennart Koehler
 
 Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
 https://www.leibniz-hki.de/en/applied-systems-biology.html

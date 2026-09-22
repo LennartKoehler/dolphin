@@ -10,7 +10,6 @@ Adolf-Reichwein-Straße 23, 07745 Jena, Germany
 The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
-
 #pragma once
 #include <stdexcept>
 #include <string>
@@ -22,13 +21,13 @@ public:
 
 class TiffFileOpenException : public TiffException {
 public:
-    explicit TiffFileOpenException(const std::string& filename) 
+    explicit TiffFileOpenException(const std::string& filename)
         : TiffException("Cannot open TIFF file: " + filename) {}
 };
 
 class TiffReadException : public TiffException {
 public:
-    explicit TiffReadException(const std::string& message) 
+    explicit TiffReadException(const std::string& message)
         : TiffException("TIFF read error: " + message) {}
 };
 
@@ -40,12 +39,12 @@ public:
 
 class TiffMetadataException : public TiffException {
 public:
-    explicit TiffMetadataException(const std::string& message) 
+    explicit TiffMetadataException(const std::string& message)
         : TiffException("TIFF metadata error: " + message) {}
 };
 
 class TiffMemoryException : public TiffException {
 public:
-    explicit TiffMemoryException(const std::string& message) 
+    explicit TiffMemoryException(const std::string& message)
         : TiffException("TIFF memory error: " + message) {}
 };
