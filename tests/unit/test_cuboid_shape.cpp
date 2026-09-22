@@ -213,12 +213,44 @@ TEST(CuboidShapeTest, GetLargestShapeEmpty) {
     EXPECT_EQ(largest.depth, 0);
 }
 
-TEST(CuboidShapeTest, GetReference) {
+TEST(CuboidShapeTest, AtAccessor) {
     CuboidShape s(10, 20, 30);
-    auto refs = s.getReference();
-    EXPECT_EQ(*refs[0], 10);
-    EXPECT_EQ(*refs[1], 20);
-    EXPECT_EQ(*refs[2], 30);
-    *refs[0] = 99;
-    EXPECT_EQ(s.width, 99);
+    EXPECT_EQ(s.at(0), 10);
+    EXPECT_EQ(s.at(1), 20);
+    EXPECT_EQ(s.at(2), 30);
+    s.at(1) = 99;
+    EXPECT_EQ(s.height, 99);
+
+    const CuboidShape& cs = s;
+    EXPECT_EQ(cs.at(0), 10);
+    EXPECT_EQ(cs.at(1), 99);
+}
+
+TEST(CuboidShapeTest, Transform) {
+    CuboidShape s(10, 20, 30);
+    s.transform([](size_t& d){ d += 1; });
+    EXPECT_EQ(s.width, 11);
+    EXPECT_EQ(s.height, 21);
+    EXPECT_EQ(s.depth, 31);
+}
+
+TEST(CuboidShapeTest, TransformWith) {
+    CuboidShape a(10, 20, 30);
+    CuboidShape b(5, 50, 30);
+    a.transformWith(b, [](size_t& x, size_t y){ x = std::min(x, y); });
+    EXPECT_EQ(a.width, 5);
+    EXPECT_EQ(a.height, 20);
+    EXPECT_EQ(a.depth, 30);
+}
+
+TEST(CuboidPositionTest, AtAccessor) {
+    CuboidPosition p(10, 20, 30);
+    EXPECT_EQ(p.at(0), 10);
+    EXPECT_EQ(p.at(1), 20);
+    EXPECT_EQ(p.at(2), 30);
+    p.at(2) = -5;
+    EXPECT_EQ(p.depth, -5);
+
+    const CuboidPosition& cp = p;
+    EXPECT_EQ(cp.at(2), -5);
 }

@@ -42,8 +42,24 @@ struct CuboidShape{
         return std::array<size_t, 3>{width, height, depth};
     }
 
-    std::array<size_t*, 3> getReference() {
-        return std::array<size_t*, 3>{&width, &height, &depth};
+    size_t& at(size_t dimension) {
+        assert(dimension < 3);
+        return dimension == 0 ? width : dimension == 1 ? height : depth;
+    }
+    size_t at(size_t dimension) const {
+        assert(dimension < 3);
+        return dimension == 0 ? width : dimension == 1 ? height : depth;
+    }
+
+    template <typename F>
+    CuboidShape& transform(F&& f) {
+        f(width); f(height); f(depth);
+        return *this;
+    }
+    template <typename F>
+    CuboidShape& transformWith(const CuboidShape& other, F&& f) {
+        f(width, other.width); f(height, other.height); f(depth, other.depth);
+        return *this;
     }
 
     size_t getVolume() const {
@@ -69,23 +85,17 @@ struct CuboidShape{
 
     inline void toNextPowerOfTwo(){
         assert(*this > CuboidShape(0,0,0));
-        width = std::bit_ceil(static_cast<uint32_t>(width));
-        height = std::bit_ceil(static_cast<uint32_t>(height));
-        depth = std::bit_ceil(static_cast<uint32_t>(depth));
+        transform([](size_t& d){ d = std::bit_ceil(static_cast<uint32_t>(d)); });
     }
 
 
 
     inline void setMax(const CuboidShape& other){
-        this->width = this->width < other.width ? this->width : other.width;
-        this->height = this->height < other.height ? this->height : other.height;
-        this->depth = this->depth < other.depth ? this->depth : other.depth;
+        transformWith(other, [](size_t& a, size_t b){ a = std::min(a, b); });
     }
 
     inline void setMin(const CuboidShape& other){
-        this->width = this->width > other.width ? this->width : other.width;
-        this->height = this->height > other.height ? this->height : other.height;
-        this->depth = this->depth > other.depth ? this->depth : other.depth;
+        transformWith(other, [](size_t& a, size_t b){ a = std::max(a, b); });
     }
 
     inline bool operator==(const CuboidShape& other) const {
@@ -169,6 +179,15 @@ struct CuboidPosition {
           height(static_cast<int64_t>(shape.height)),
           depth(static_cast<int64_t>(shape.depth)) {}
 
+    int64_t& at(size_t dimension) {
+        assert(dimension < 3);
+        return dimension == 0 ? width : dimension == 1 ? height : depth;
+    }
+    int64_t at(size_t dimension) const {
+        assert(dimension < 3);
+        return dimension == 0 ? width : dimension == 1 ? height : depth;
+    }
+
     CuboidPosition operator-(const CuboidPosition& other) const {
         return CuboidPosition(width - other.width, height - other.height, depth - other.depth);
     }
@@ -242,9 +261,7 @@ inline CuboidShape operator-(const CuboidShape& s, const CuboidPosition& p) {
 inline CuboidShape getLargestShape(const std::vector<CuboidShape>& psfSizes) {
     CuboidShape maxPsfShape{0, 0, 0};
     for (const auto& psf : psfSizes) {
-        maxPsfShape.width = std::max(maxPsfShape.width, psf.width);
-        maxPsfShape.height = std::max(maxPsfShape.height, psf.height);
-        maxPsfShape.depth = std::max(maxPsfShape.depth, psf.depth);
+        maxPsfShape.transformWith(psf, [](size_t& a, size_t b){ a = std::max(a, b); });
     }
     return maxPsfShape;
 }

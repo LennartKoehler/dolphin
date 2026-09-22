@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphinbackend/CuboidShape.h"
 #include <algorithm>
+#include <numeric>
 #include <vector>
 #include <stdexcept>
 
@@ -27,52 +28,25 @@ void adjustCubeToBoundaries(
     const Padding& cubePadding,
     const Padding& imagePadding) {
 
-    // // clamp cube to image size (whole-image cube case, e.g. PSF larger than image)
-    // cube.box.dimensions.width  = std::min(cube.box.dimensions.width,  imageOriginalShape.width);
-    // cube.box.dimensions.height = std::min(cube.box.dimensions.height, imageOriginalShape.height);
-    // cube.box.dimensions.depth  = std::min(cube.box.dimensions.depth,  imageOriginalShape.depth);
-
     // last cube per dimension: overflow goes into padding before (box stays on grid, boxes contiguous)
-    if (remainingSize.width < cube.box.dimensions.width && remainingSize.width > 0){
-        int64_t extra = static_cast<int64_t>(cube.box.dimensions.width - remainingSize.width);
-        cube.box.dimensions.width -= extra;
-        cube.padding.before.width += extra;
-    }
-    if (remainingSize.height < cube.box.dimensions.height && remainingSize.height > 0){
-        int64_t extra = static_cast<int64_t>(cube.box.dimensions.height - remainingSize.height);
-        cube.box.dimensions.height -= extra;
-        cube.padding.before.height += extra;
-    }
-    if (remainingSize.depth < cube.box.dimensions.depth && remainingSize.depth > 0){
-        int64_t extra = static_cast<int64_t>(cube.box.dimensions.depth - remainingSize.depth);
-        cube.box.dimensions.depth -= extra;
-        cube.padding.before.depth += extra;
+    for (size_t d = 0; d < 3; ++d) {
+        if (remainingSize.at(d) < cube.box.dimensions.at(d) && remainingSize.at(d) > 0){
+            size_t extra = cube.box.dimensions.at(d) - remainingSize.at(d);
+            cube.box.dimensions.at(d) -= extra;
+            cube.padding.before.at(d) += extra;
+        }
     }
 
     // boundary faces get exactly imagePadding, interior faces at least cubePadding
-    if (cube.box.position.width == 0){
-        cube.box.dimensions.width += cube.padding.before.width - imagePadding.before.width;
-        cube.padding.before.width  = imagePadding.before.width;
-    }
-    if (cube.box.position.height == 0){
-        cube.box.dimensions.height += cube.padding.before.height - imagePadding.before.height;
-        cube.padding.before.height  = imagePadding.before.height;
-    }
-    if (cube.box.position.depth == 0){
-        cube.box.dimensions.depth += cube.padding.before.depth - imagePadding.before.depth;
-        cube.padding.before.depth  = imagePadding.before.depth;
-    }
-    if (cube.box.position.width + cube.box.dimensions.width == imageOriginalShape.width){
-        cube.box.dimensions.width += cube.padding.after.width - imagePadding.after.width;
-        cube.padding.after.width  = imagePadding.after.width;
-    }
-    if (cube.box.position.height + cube.box.dimensions.height == imageOriginalShape.height){
-        cube.box.dimensions.height += cube.padding.after.height - imagePadding.after.height;
-        cube.padding.after.height  = imagePadding.after.height;
-    }
-    if (cube.box.position.depth + cube.box.dimensions.depth == imageOriginalShape.depth){
-        cube.box.dimensions.depth += cube.padding.after.depth - imagePadding.after.depth;
-        cube.padding.after.depth  = imagePadding.after.depth;
+    for (size_t d = 0; d < 3; ++d) {
+        if (cube.box.position.at(d) == 0){
+            cube.box.dimensions.at(d) += cube.padding.before.at(d) - imagePadding.before.at(d);
+            cube.padding.before.at(d) = imagePadding.before.at(d);
+        }
+        if (cube.box.position.at(d) + static_cast<int64_t>(cube.box.dimensions.at(d)) == static_cast<int64_t>(imageOriginalShape.at(d))){
+            cube.box.dimensions.at(d) += cube.padding.after.at(d) - imagePadding.after.at(d);
+            cube.padding.after.at(d) = imagePadding.after.at(d);
+        }
     }
 }
 
@@ -118,39 +92,29 @@ void addCubeRecursion(
 }
 
 
-template <typename T>
-std::array<size_t, 3> sort_indexes(const std::array<T*, 3> &v) {
-
-    // initialize original index locations
+std::array<size_t, 3> sortDimensionsBySizeDesc(const CuboidShape& shape) {
     std::array<size_t, 3> idx;
     std::iota(idx.begin(), idx.end(), 0);
-
-    // sort indexes based on comparing values in v
-    // using std::stable_sort instead of std::sort
-    // to avoid unnecessary index re-orderings
-    // when v contains elements of equal values
     std::stable_sort(idx.begin(), idx.end(),
-                [&v](size_t i1, size_t i2) {return *v[i1] > *v[i2];});
-
+                [&shape](size_t i1, size_t i2) {return shape.at(i1) > shape.at(i2);});
     return idx;
 }
-bool decreaseSize(std::array<size_t*, 3>& tempCubeAccessor, int dimension, const CuboidShape& minSize){
 
-    size_t newSize = previousSmooth(*tempCubeAccessor[dimension]);
-    if (newSize >= minSize.getArray()[dimension]){
-        *(tempCubeAccessor[dimension]) = newSize;
+bool decreaseSize(CuboidShape& size, int dimension, const CuboidShape& minSize){
+    size_t newSize = previousSmooth(size.at(dimension));
+    if (newSize >= minSize.at(dimension)){
+        size.at(dimension) = newSize;
         return true;
     }
     return false;
 }
 
-bool decreaseLargestDim(std::array<size_t*, 3>& tempCubeAccessor, const CuboidShape& minSize){
-
-    std::array<size_t, 3> sortedIndices = sort_indexes<size_t>(tempCubeAccessor);
+bool decreaseLargestDim(CuboidShape& size, const CuboidShape& minSize){
+    std::array<size_t, 3> sortedIndices = sortDimensionsBySizeDesc(size);
     for (const auto dimIndex : sortedIndices){
-        size_t newSize = previousSmooth(*tempCubeAccessor[dimIndex]);
-        if (newSize >= minSize.getArray()[dimIndex]){
-            *(tempCubeAccessor[dimIndex]) = newSize;
+        size_t newSize = previousSmooth(size.at(dimIndex));
+        if (newSize >= minSize.at(dimIndex)){
+            size.at(dimIndex) = newSize;
             return true;
         }
     }
@@ -166,15 +130,13 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
         size_t targetCubeCount,
         std::vector<BoxCoordWithPadding> cubePositions
     ){
-    std::array<size_t*, 3> tempCubeAccessor  = currentMaxSize.getReference();
-
     assert(currentMaxSize >= minSize && "Input size already below minimum");
 
     for (int dim = 0; dim < 3; dim++) {
         while (true) {
             CuboidShape saved = currentMaxSize;
 
-            if (!decreaseSize(tempCubeAccessor, dim, minSize))
+            if (!decreaseSize(currentMaxSize, dim, minSize))
                 break;
 
             CuboidShape cubeSizeToUse = currentMaxSize - cubePadding.before - cubePadding.after;
@@ -224,11 +186,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     currentMaxSize.setMin(minSize); // because it has to be atleast as big as the psf
 
     // get next smooth size for faster fftw
-    currentMaxSize.width = nextSmooth(currentMaxSize.width);
-    currentMaxSize.height = nextSmooth(currentMaxSize.height);
-    currentMaxSize.depth = nextSmooth(currentMaxSize.depth);
-
-    std::array<size_t*, 3> tempCubeAccessor  = currentMaxSize.getReference();
+    currentMaxSize.transform([](size_t& d){ d = nextSmooth(d); });
 
     std::vector<BoxCoordWithPadding> cubePositions;
 
@@ -255,7 +213,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
                 break;
         }
 
-        bool success = decreaseLargestDim(tempCubeAccessor, minSize);
+        bool success = decreaseLargestDim(currentMaxSize, minSize);
         if (!success)
         {
             return Result<std::vector<BoxCoordWithPadding>>::fail(

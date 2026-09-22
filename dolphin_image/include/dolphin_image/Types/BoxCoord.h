@@ -43,40 +43,30 @@ struct BoxCoord {
     CuboidShape dimensions;
     bool operator==(const BoxCoord& other) const {return (position == other.position && dimensions == other.dimensions);}
     bool isWithin(const BoxCoord& other) const {
-        return (position.width >= other.position.width &&
-                position.height >= other.position.height &&
-                position.depth >= other.position.depth &&
-                position.width + static_cast<int64_t>(dimensions.width) <= other.position.width + static_cast<int64_t>(other.dimensions.width) &&
-                position.height + static_cast<int64_t>(dimensions.height) <= other.position.height + static_cast<int64_t>(other.dimensions.height) &&
-                position.depth + static_cast<int64_t>(dimensions.depth) <= other.position.depth + static_cast<int64_t>(other.dimensions.depth));
+        for (size_t d = 0; d < 3; ++d) {
+            if (position.at(d) < other.position.at(d) ||
+                position.at(d) + static_cast<int64_t>(dimensions.at(d)) > other.position.at(d) + static_cast<int64_t>(other.dimensions.at(d)))
+                return false;
+        }
+        return true;
     }
     Padding cropTo(const BoxCoord& other) {
         CuboidPosition originalPosition = position;
         CuboidShape originalDimensions = dimensions;
 
-        CuboidPosition positionDiff = position - other.position;
-        positionDiff.width = std::min<int64_t>(0, positionDiff.width);
-        positionDiff.height = std::min<int64_t>(0, positionDiff.height);
-        positionDiff.depth = std::min<int64_t>(0, positionDiff.depth);
-
-        position.width = std::max(position.width, other.position.width);
-        position.height = std::max(position.height, other.position.height);
-        position.depth = std::max(position.depth, other.position.depth);
-
-        int64_t maxWidth = std::max<int64_t>(0, other.position.width + static_cast<int64_t>(other.dimensions.width) - position.width);
-        int64_t maxHeight = std::max<int64_t>(0, other.position.height + static_cast<int64_t>(other.dimensions.height) - position.height);
-        int64_t maxDepth = std::max<int64_t>(0, other.position.depth + static_cast<int64_t>(other.dimensions.depth) - position.depth);
-
-        dimensions.width = static_cast<size_t>(std::min<int64_t>(static_cast<int64_t>(dimensions.width) + positionDiff.width, maxWidth));
-        dimensions.height = static_cast<size_t>(std::min<int64_t>(static_cast<int64_t>(dimensions.height) + positionDiff.height, maxHeight));
-        dimensions.depth = static_cast<size_t>(std::min<int64_t>(static_cast<int64_t>(dimensions.depth) + positionDiff.depth, maxDepth));
-
         Padding croppedPadding;
-        croppedPadding.before = (position - originalPosition).toShape();
+        for (size_t d = 0; d < 3; ++d) {
+            int64_t positionDiff = std::min<int64_t>(0, position.at(d) - other.position.at(d));
 
-        croppedPadding.after.width = static_cast<size_t>(std::max<int64_t>(0, static_cast<int64_t>(originalDimensions.width) - static_cast<int64_t>(dimensions.width) - static_cast<int64_t>(croppedPadding.before.width)));
-        croppedPadding.after.height = static_cast<size_t>(std::max<int64_t>(0, static_cast<int64_t>(originalDimensions.height) - static_cast<int64_t>(dimensions.height) - static_cast<int64_t>(croppedPadding.before.height)));
-        croppedPadding.after.depth = static_cast<size_t>(std::max<int64_t>(0, static_cast<int64_t>(originalDimensions.depth) - static_cast<int64_t>(dimensions.depth) - static_cast<int64_t>(croppedPadding.before.depth)));
+            position.at(d) = std::max(position.at(d), other.position.at(d));
+
+            int64_t maxDim = std::max<int64_t>(0, other.position.at(d) + static_cast<int64_t>(other.dimensions.at(d)) - position.at(d));
+
+            dimensions.at(d) = static_cast<size_t>(std::min<int64_t>(static_cast<int64_t>(dimensions.at(d)) + positionDiff, maxDim));
+
+            croppedPadding.before.at(d) = static_cast<size_t>(position.at(d) - originalPosition.at(d));
+            croppedPadding.after.at(d) = static_cast<size_t>(std::max<int64_t>(0, static_cast<int64_t>(originalDimensions.at(d)) - static_cast<int64_t>(dimensions.at(d)) - static_cast<int64_t>(croppedPadding.before.at(d))));
+        }
 
         assert(croppedPadding.before + croppedPadding.after + dimensions == originalDimensions && "CropTo something went wrong while cropping");
 
