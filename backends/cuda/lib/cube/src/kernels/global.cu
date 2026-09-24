@@ -410,21 +410,21 @@ void gradientGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t
 
         // Gradient in x-direction: forward difference
         if (x < width - 1) {
-            gradX[indexOut] = image[indexIn] - image[indexIn + 1];
+            gradX[indexOut] = image[indexIn + 1] - image[indexIn];
         } else {
             gradX[indexOut] = 0.0;
         }
 
         // Gradient in y-direction: forward difference
         if (y < height - 1) {
-            gradY[indexOut] = image[indexIn] - image[indexIn + strideIn];
+            gradY[indexOut] = image[indexIn + strideIn] - image[indexIn];
         } else {
             gradY[indexOut] = 0.0;
         }
 
         // Gradient in z-direction: forward difference
         if (z < depth - 1) {
-            gradZ[indexOut] = image[indexIn] - image[indexIn + strideIn * height];
+            gradZ[indexOut] = image[indexIn + strideIn * height] - image[indexIn];
         } else {
             gradZ[indexOut] = 0.0;
         }
@@ -445,8 +445,9 @@ void computeTVGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideDiv, size
         size_t indexDiv = z * (strideDiv * height) + y * strideDiv + x;
         size_t indexTv = z * (strideTv * height) + y * strideTv + x;
 
-        // TV damping factor: tv = 1 / (1 + lambda * div)
-        // The denominator is always >= 1 for lambda > 0
+        // TV damping factor: tv = 1 / (1 - lambda * div)
+        // div is negative at edges/spikes (standard forward gradient + backward divergence),
+        // so the denominator > 1 there, producing damping.
         real_t d = div[indexDiv];
         real_t denom = 1.0 - lambda * d;
         denom = fmax(denom, (real_t)1e-8);
@@ -498,8 +499,8 @@ void gradientXGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_
         size_t nextIndex = index + 1;
 
         // Compute gradient in the x-direction
-        gradX[index][0] = image[index][0] - image[nextIndex][0]; // Real part
-        gradX[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+        gradX[index][0] = image[nextIndex][0] - image[index][0]; // Real part
+        gradX[index][1] = image[nextIndex][1] - image[index][1]; // Imaginary part
     }
 
     // Handle boundary condition at the last x position
@@ -525,8 +526,8 @@ void gradientYGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_
         size_t nextIndex = index + width;
 
         // Compute gradient in the y-direction
-        gradY[index][0] = image[index][0] - image[nextIndex][0]; // Real part
-        gradY[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+        gradY[index][0] = image[nextIndex][0] - image[index][0]; // Real part
+        gradY[index][1] = image[nextIndex][1] - image[index][1]; // Imaginary part
     }
 
     // Handle boundary condition at the last y position
@@ -552,8 +553,8 @@ void gradientZGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_
         size_t nextIndex = index + height * width;
 
         // Compute gradient in the z-direction
-        gradZ[index][0] = image[index][0] - image[nextIndex][0]; // Real part
-        gradZ[index][1] = image[index][1] - image[nextIndex][1]; // Imaginary part
+        gradZ[index][0] = image[nextIndex][0] - image[index][0]; // Real part
+        gradZ[index][1] = image[nextIndex][1] - image[index][1]; // Imaginary part
     }
 
     // Handle boundary condition at the last z position
@@ -632,8 +633,9 @@ void computeTVGlobal(size_t Nx, size_t Ny, size_t Nz, real_t lambda, complex_t* 
     size_t index = z * height * width + y * width + x;
 
     if (x < width && y < height && z < depth) {
-        // TV damping factor: tv = 1 / (1 + lambda * div)
-        // The denominator is always >= 1 for lambda > 0
+        // TV damping factor: tv = 1 / (1 - lambda * div)
+        // div is negative at edges/spikes (standard forward gradient + backward divergence),
+        // so the denominator > 1 there, producing damping.
         real_t d = div[index][0]; // real part only
         real_t denom = 1.0 - lambda * d;
         denom = fmax(denom, (real_t)1e-8);

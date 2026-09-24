@@ -891,7 +891,7 @@ TEST_F(CPUComputeBackendTest, GradientX) {
     for (size_t z = 0; z < shape.depth; ++z)
         for (size_t y = 0; y < shape.height; ++y)
             for (size_t x = 0; x < shape.width - 1; ++x)
-                EXPECT_TRUE(approxEqual(gradX[z * shape.height * shape.width + y * shape.width + x], -1.0f, 1e-4f));
+                EXPECT_TRUE(approxEqual(gradX[z * shape.height * shape.width + y * shape.width + x], 1.0f, 1e-4f));
 }
 
 TEST_F(CPUComputeBackendTest, ComplexGradients) {

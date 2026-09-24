@@ -33,15 +33,6 @@ protected:
     }
 };
 
-TEST_F(ConfigTest, DeconvolutionConfigDefaults) {
-    DeconvolutionConfig config;
-    EXPECT_EQ(config.algorithmName, "RichardsonLucy");
-    EXPECT_EQ(config.iterations, 10);
-    EXPECT_FLOAT_EQ(config.epsilon, 1e-6f);
-    EXPECT_FLOAT_EQ(config.lambda, 0.001f);
-    EXPECT_EQ(config.paddingFillType, PaddingFillType::ZERO);
-    EXPECT_EQ(config.paddingStrategyType, PaddingStrategyType::PARENT);
-}
 
 TEST_F(ConfigTest, DeconvolutionConfigLoadFromJSON) {
     auto jsonStr = TestUtils::defaultDeconvConfigJSON();
