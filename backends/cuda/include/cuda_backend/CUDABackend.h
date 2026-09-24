@@ -200,8 +200,6 @@ public:
     void complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
 
 
-    // void saveInterimImages(const ComplexData& resultImage, int gridNum, int channel_z, int i) const override;
-
     // Gradient and TV functions
     void gradientX(const ComplexData& image, ComplexData& gradX) const override;
     void gradientY(const ComplexData& image, ComplexData& gradY) const override;
@@ -221,14 +219,8 @@ public:
     void normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const override;
 
     // Layer and visualization functions
-    // void reorderLayers(ComplexData& data) override;
-    // void visualizeFFT(const ComplexData& data) override;
 
     // Conversion functions
-    // void readCVMat(const std::vector<cv::Mat>& input, ComplexData& output) override;
-    // void convertFFTWComplexToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
-    // void convertFFTWComplexRealToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
-    // void convertFFTWComplexImgToCVMatVector(const ComplexData& input, std::vector<cv::Mat>& output) override;
    void hasNAN(const ComplexData& data) const override;
 
 
@@ -330,16 +322,6 @@ public:
             auto memoryManager = std::make_unique<CUDABackendMemoryManager>(config);
             CUDABackend* backend = new CUDABackend(config, std::move(compute), std::move(memoryManager));
 
-            // size_t freeMem, totalMem;
-            // cudaError_t err = cudaMemGetInfo(&freeMem, &totalMem);
-            // CUDA_CHECK(err, "create - cudaMemGetInfo");
-
-            // if (totalMem == 0) {
-            //     throw dolphin::backend::BackendException(
-            //         "Device 0 reports zero memory", "CUDA", "create");
-            // }
-
-            // backend->setDevice(CUDADevice{0, new MemoryTracking(totalMem)});
             return backend;
         } catch (...) {
             // Clean up any allocated resources if creation fails

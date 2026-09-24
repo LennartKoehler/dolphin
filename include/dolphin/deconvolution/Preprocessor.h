@@ -100,7 +100,6 @@ private:
     std::mutex mutex;
     std::function<std::unique_ptr<ComplexData>(const CuboidShape, std::shared_ptr<PSF>, IBackend& backend)> preprocessingFunction;
     std::unordered_map<Key, std::unique_ptr<ComplexData>, KeyHash, KeyEqual> preprocessedPSFs;
-    // std::vector<IBackend&> psfBackends;
 
 };
 namespace Preprocessor{

@@ -1,13 +1,6 @@
 #!/bin/bash
 set -e
 
-IMAGE=dolphin-cuda-builder:latest
-
-if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-    echo "Building builder image..."
-    docker build -f Dockerfile.builder -t "$IMAGE" .
-fi
-
 echo "Building project + CLI in container..."
 docker build -f Dockerfile -t dolphin_build .
 
