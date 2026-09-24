@@ -100,7 +100,6 @@ CuboidShape GibsonLanniPSFGenerator::getPadding(PaddingStrategyType paddingType)
 void GibsonLanniPSFGenerator::initBesselHelper() const {
     assert (config != nullptr && "Config not initialized");
 
-    BesselHelper& besselHelper = BesselHelper::instance();
     double nx = config->sizeX;
     double ny = config->sizeY;
     // The center of the image in units of [pixels]
@@ -113,10 +112,11 @@ void GibsonLanniPSFGenerator::initBesselHelper() const {
     double max_k0NAr = k0 * config->NA * maxRadius * config->pixelSizeLateral_nm;
     double maxRho = std::min(float(1), config->ns / config->NA);
 
-    double maxValue = max_k0NAr * maxRho; // TODO IMPORTANT is maxvalue just sizeX or sizeY?
+    // maxRadius covers the image corner, so any sizeX/sizeY asymmetry is included
+    double maxValue = max_k0NAr * maxRho;
     double dx = 0.1;
 
-    besselHelper.init(0, maxValue, dx);
+    besselHelper.init(maxValue, dx);
 }
 
 LateralClip GibsonLanniPSFGenerator::clipSize() const {
@@ -176,7 +176,7 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
         GibsonLanniPSFConfig configCopy = *(this->config);
         configCopy.ti_nm = configCopy.ti0_nm + configCopy.pixelSizeAxial_nm * (static_cast<double>(z) - (config->sizeZ - 1.0) / 2.0);
         tempSphereLayers.emplace_back(threadPool->enqueue([this, configCopy, clip](){
-            return SinglePlanePSFAsVector(configCopy, clip);
+            return singlePlanePSF(configCopy, clip);
         }));
     }
 
@@ -212,7 +212,7 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
 }
 
 
-std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config, const LateralClip& clip) const {
+std::vector<float> GibsonLanniPSFGenerator::singlePlanePSF(const GibsonLanniPSFConfig& config, const LateralClip& clip) const {
     size_t nx = config.sizeX;
     size_t ny = config.sizeY;
     int OVER_SAMPLING = config.OVER_SAMPLING;
@@ -242,12 +242,12 @@ std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonL
     double a = 0.0;
     double b = std::min(1.0, config.ns / NA);
     int integrationAccuracy = config.accuracy;
-        double integrationTolerance = 1E-1;
+    double integrationTolerance = 1E-6;
 
     for (size_t n = 0; n < r.size(); n++) { // get kirchhoffdiffraction for specific radius
 
         r[n] = static_cast<double>(n) / static_cast<double>(OVER_SAMPLING);
-        GibsonLanniIntegrand integrand(config, r[n] * pixelSizeLateral_nm);
+        GibsonLanniIntegrand integrand(config, r[n] * pixelSizeLateral_nm, this->besselHelper);
         h[n] = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
     }
 
@@ -279,8 +279,8 @@ std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonL
 }
 
 
-GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r)
-    : config(config), r(r) {
+GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r, const BesselHelper& besselHelper)
+    : config(config), r(r), besselHelper(besselHelper) {
         k0 = 2.0 * M_PI / config.lambda_nm;
         k0NAr = k0 * config.NA * r;
     }
@@ -288,7 +288,7 @@ GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, d
 std::array<double, 2> GibsonLanniIntegrand::operator()(double rho) const {
     std::array<double, 2> I = {0.0, 0.0};
 
-    const BesselHelper& besselHelper = BesselHelper::instance();
+    // const BesselHelper& besselHelper = BesselHelper::instance();
     double BesselValue = besselHelper.get(k0NAr * rho);
 
     if ((config.NA * rho / config.ns) > 1.0)

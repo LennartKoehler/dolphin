@@ -60,8 +60,6 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
     psfConfig.sigmaX = 5;
     psfConfig.sigmaY = 5;
     psfConfig.sigmaZ = 5;
-    psfConfig.resLateral_nm = 5000;
-    psfConfig.resAxial_nm = 5000;
 
     std::string psfConfigPath = testDir + "/psf_config.json";
     {

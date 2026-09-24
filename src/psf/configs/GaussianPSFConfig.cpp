@@ -24,9 +24,8 @@ GaussianPSFConfig::GaussianPSFConfig() : PSFConfig() {
 
 GaussianPSFConfig::GaussianPSFConfig(float qualityFactor, float sigmaX, float sigmaY, float sigmaZ,
                                       float nanometerScale, float pixelScaling,
-                                      size_t sizeX, size_t sizeY, size_t sizeZ,
-                                      float NA, float resLateral_nm, float resAxial_nm)
-    : PSFConfig(sizeX, sizeY, sizeZ, NA, resLateral_nm, resAxial_nm),
+                                      size_t sizeX, size_t sizeY, size_t sizeZ)
+    : PSFConfig(),
       qualityFactor(qualityFactor),
       sigmaX(sigmaX),
       sigmaY(sigmaY),
@@ -34,6 +33,9 @@ GaussianPSFConfig::GaussianPSFConfig(float qualityFactor, float sigmaX, float si
       nanometerScale(nanometerScale),
       pixelScaling(pixelScaling)
 {
+    this->sizeX = sizeX;
+    this->sizeY = sizeY;
+    this->sizeZ = sizeZ;
     psfModelName = "Gaussian";
     registerAllParameters();
 }
