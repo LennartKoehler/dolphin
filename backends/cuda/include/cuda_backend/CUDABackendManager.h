@@ -23,7 +23,6 @@ See the LICENSE file provided with the code for the full license.
 #include <mutex>
 #include <condition_variable>
 #include <array>
-#include <thread>
 #include <unordered_map>
 #include <cuda_runtime.h>
 #include <atomic>
@@ -46,9 +45,7 @@ public:
     ~CUDABackendManager() override = default;
     void init(LogCallback fn) override;
 
-    // virtual IComputeBackend& getComputeBackend(const BackendConfig& config) override;
-    // virtual IBackendMemoryManager& getBackendMemoryManager(const BackendConfig& config) override;
-    virtual IBackend& createBackendForCurrentThread(const BackendConfig& config) override;
+    IBackend& createBackendForCurrentThread(const BackendConfig& config) override;
 
 
     // IBackend& clone(IBackend& backend, const BackendConfig& config) override ;

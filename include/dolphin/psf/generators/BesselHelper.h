@@ -14,7 +14,6 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include <vector>
 #include <cmath>
-#include <algorithm>
 
 #if defined(_MSC_VER)
 inline double dolphin_cyl_bessel_j0(double x) { return _j0(x); }

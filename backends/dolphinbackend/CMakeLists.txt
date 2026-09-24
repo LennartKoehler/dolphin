@@ -15,11 +15,6 @@ target_link_libraries(dolphinbackend PRIVATE project_options)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT APPLE)
     target_link_options(dolphinbackend PUBLIC -static-libstdc++ -static-libgcc)
 endif()
-# target_compile_options(dolphinbackend PRIVATE
-#     -g
-#     -O0
-#     -fno-omit-frame-pointer
-# )
 
 target_include_directories(dolphinbackend
     PRIVATE

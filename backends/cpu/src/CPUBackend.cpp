@@ -1,15 +1,25 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
 #include "CPUBackend.h"
 #include "dolphinbackend/Exceptions.h"
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IComputeBackend.h"
 #include <algorithm>
 #include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
 #include <cmath>
 #include <cstring>
 #include <cassert>
-#include <iostream>
-#include <sstream>
-#include <thread>
 
 #ifdef __linux__
 #include <unistd.h>
@@ -29,15 +39,6 @@
 using dolphin::backend::buildCpuContext;
 
 #ifdef _OPENMP
-//
-// #include <omp.h>
-// #define OMP_STRINGIFY(x) #x
-// #define OMP_PRAGMA(x) _Pragma(OMP_STRINGIFY(x))
-//
-// #define OMP(openmp_directive, useOMP, threads) \
-//     if(false && threads>1) OMP_PRAGMA(openmp_directive num_threads(threads))
-//
-// #else
 
 #define OMP(openmp_directive, useOMP, threads)
 #else
@@ -178,7 +179,7 @@ void stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& func) {
 
 LogCallback& getGlobalLogger() {
     static LogCallback* cb = new LogCallback([](const std::string& context, const std::string& message, LogLevel level){
-        std::cout << context << ": " << message << std::endl;
+        spdlog::info("[{}] {}", context, message);
     });
     return *cb;
 }
@@ -245,11 +246,7 @@ void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
     if ((access.data.totalUsedMemory + requiredSize) > access.data.maxMemorySize) {
 
         throw dolphin::backend::MemoryException("Exceeded set memory constraint", "CPU", requiredSize, "Memory Allocation", buildCpuContext());
-        // log(fmt::format("CPUBackend out of memory, waiting for memory to free up"), LogLevel::LOG_ERROR);
     }
-    // backend.memory.memoryCondition.wait(lock, [this, requiredSize]() {
-    //     return backend.memory.maxMemorySize == 0 || (backend.memory.totalUsedMemory + requiredSize) <= backend.memory.maxMemorySize;
-    // });
 }
 
 // CPUBackendMemoryManager implementation
@@ -403,21 +400,6 @@ size_t CPUBackendMemoryManager::getAllocatedMemory() const {
 }
 
 float CPUBackendMemoryManager::estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
-    // size_t Nx = shape.width;
-    // size_t Ny = shape.height;
-    // size_t Nz = shape.depth;
-    //
-    // size_t complexElements = static_cast<size_t>(Nz) * Ny * (Nx / 2 + 1);
-    //
-    // size_t planCreationTemp = sizeof(complex_t) * complexElements;
-    // // size_t fftwMeasureScratch = sizeof(complex_t) * complexElements;
-    // // size_t persistentPlanOverhead = sizeof(complex_t) * complexElements;
-    //
-    // size_t totalWorkspace = planCreationTemp; //+ fftwMeasureScratch + persistentPlanOverhead;
-    //
-    // log(fmt::format("Estimated FFTW workspace for shape {}: {:.2f} MB",
-    //     shape.print(), totalWorkspace / 1e6), LogLevel::LOG_DEBUG);
-
     return 2;
 }
 
@@ -487,34 +469,6 @@ void CPUComputeBackend::backwardFFT(const ComplexData& in, RealData& out) const 
     real_t normFactor{1.0f / out.getSize().getVolume()};
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
-
-// void CPUComputeBackend::octantFourierShift(RealData& data) const {
-//     size_t width = data.getSize().width;
-//     size_t height = data.getSize().height;
-//     size_t depth = data.getSize().depth;
-//
-//     size_t halfWidth = width / 2;
-//     size_t halfHeight = height / 2;
-//     size_t halfDepth = depth / 2;
-//
-//
-//
-//     for (size_t z = 0; z < depth; ++z) {
-//         size_t newZ = (z + halfDepth) % depth;
-//         for (size_t y = 0; y < height; ++y) {
-//             size_t newY = (y + halfHeight) % height;
-//             for (size_t x = 0; x < width; ++x) {
-//                 size_t newX = (x + halfWidth) % width;
-//
-//                 size_t srcIdx = z * height * width + y * width + x;
-//                 size_t dstIdx = newZ * height * width + newY * width + newX;
-//
-//                 // data[dstIdx] = temp[srcIdx];
-//                 std::swap(data[dstIdx], data[srcIdx]);
-//             }
-//         }
-//     }
-// }
 
 void CPUComputeBackend::octantFourierShift(RealData& data) const {
     size_t width = data.getSize().width;
@@ -833,52 +787,6 @@ void CPUComputeBackend::complexDivisionStabilized(const ComplexData& a, const Co
     });
 }
 
-// // Specialized Functions
-// void CPUComputeBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
-//     auto siPsf = getStrideInfo(psf);
-//     auto siLap = getStrideInfo(laplacian);
-//     const complex_t* ptrPsf = psf.getData();
-//     complex_t*       ptrLap = laplacian.getData();
-//
-//     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
-//     for (size_t z = 0; z < siPsf.depth; ++z) {
-//         float wz = 2 * M_PI * z / siPsf.depth;
-//         for (size_t y = 0; y < siPsf.height; ++y) {
-//             float wy = 2 * M_PI * y / siPsf.height;
-//             auto offPsf = z * siPsf.sliceStride + y * siPsf.stride;
-//             auto offLap = z * siLap.sliceStride + y * siLap.stride;
-//             for (size_t x = 0; x < siPsf.width; ++x) {
-//                 float wx = 2 * M_PI * x / siPsf.width;
-//                 float lap_val = -2 * (cos(wx) + cos(wy) + cos(wz) - 3);
-//                 ptrLap[offLap + x][0] = ptrPsf[offPsf + x][0] * lap_val;
-//                 ptrLap[offLap + x][1] = ptrPsf[offPsf + x][1] * lap_val;
-//             }
-//         }
-//     }
-// }
-//
-// // void CPUComputeBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
-//     real_t max_val = 0.0, max_val2 = 0.0;
-//     OMP(omp parallel for, config.useOMP, config.ompThreads)
-//     for (size_t j = 0; j < resultImage.getSize().getVolume(); j++) {
-//         max_val = std::max(max_val, resultImage[j][0]);
-//         max_val2 = std::max(max_val2, resultImage[j][1]);
-//     }
-//     OMP(omp parallel for, config.useOMP, config.ompThreads)
-//     for (size_t j = 0; j < resultImage.getSize().getVolume(); j++) {
-//         resultImage[j][0] /= (max_val + epsilon);
-//         resultImage[j][1] /= (max_val2 + epsilon);
-//     }
-// }
-//
-// void CPUComputeBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
-//     OMP(omp parallel for, config.useOMP, config.ompThreads)
-//     for (size_t i = 0; i < data.getSize().getVolume(); ++i) {
-//         data[i][0] /= cubeVolume;
-//         data[i][1] /= cubeVolume;
-//     }
-// }
-
 // Debug functions
 void CPUComputeBackend::hasNAN(const ComplexData& data) const {
     int nanCount = 0, infCount = 0;
@@ -938,8 +846,8 @@ void CPUComputeBackend::gradientX(const ComplexData& image, ComplexData& gradX) 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width - 1; ++x) {
-                ptrGrd[offGrd + x][0] = ptrImg[offImg + x][0] - ptrImg[offImg + x + 1][0];
-                ptrGrd[offGrd + x][1] = ptrImg[offImg + x][1] - ptrImg[offImg + x + 1][1];
+                ptrGrd[offGrd + x][0] = ptrImg[offImg + x + 1][0] - ptrImg[offImg + x][0];
+                ptrGrd[offGrd + x][1] = ptrImg[offImg + x + 1][1] - ptrImg[offImg + x][1];
             }
             // Boundary: last column
             ptrGrd[offGrd + siImg.width - 1][0] = 0.0;
@@ -960,8 +868,8 @@ void CPUComputeBackend::gradientY(const ComplexData& image, ComplexData& gradY) 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width; ++x) {
-                ptrGrd[offGrd + x][0] = ptrImg[offImg + x][0] - ptrImg[offImg + siImg.stride + x][0];
-                ptrGrd[offGrd + x][1] = ptrImg[offImg + x][1] - ptrImg[offImg + siImg.stride + x][1];
+                ptrGrd[offGrd + x][0] = ptrImg[offImg + siImg.stride + x][0] - ptrImg[offImg + x][0];
+                ptrGrd[offGrd + x][1] = ptrImg[offImg + siImg.stride + x][1] - ptrImg[offImg + x][1];
             }
         }
         // Boundary: last row
@@ -986,8 +894,8 @@ void CPUComputeBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width; ++x) {
-                ptrGrd[offGrd + x][0] = ptrImg[offImg + x][0] - ptrImg[offImg + siImg.sliceStride + x][0];
-                ptrGrd[offGrd + x][1] = ptrImg[offImg + x][1] - ptrImg[offImg + siImg.sliceStride + x][1];
+                ptrGrd[offGrd + x][0] = ptrImg[offImg + siImg.sliceStride + x][0] - ptrImg[offImg + x][0];
+                ptrGrd[offGrd + x][1] = ptrImg[offImg + siImg.sliceStride + x][1] - ptrImg[offImg + x][1];
             }
         }
     }
@@ -1005,15 +913,15 @@ void CPUComputeBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) 
 
 void CPUComputeBackend::computeTV(real_t lambda, const ComplexData& div, ComplexData& tv) const {
     // Expects div to contain the divergence of the smoothed normalized gradient field.
-    // Computes: tv[i] = 1 / (1 + lambda * div[i])
-    // This is the TV damping factor in the RL-TV update:
-    //   f_{n+1} = f_n * RL_correction / (1 + lambda * div)
-    // The denominator is always >= 1 for lambda > 0, so no clamping is needed.
+    // Computes: tv[i] = 1 / (1 - lambda * div[i])
+    // This is the TV damping factor in the RL-TV update (Dey et al.):
+    //   f_{n+1} = f_n * RL_correction / (1 - lambda * div)
+    // div is negative at edges/spikes (standard forward gradient + backward divergence),
+    // so the denominator > 1 there, producing damping. The clamp ensures positivity.
     stridedIteration(div, tv, [lambda](auto* rowDiv, auto* rowTv, size_t w) {
         for (size_t x = 0; x < w; ++x) {
             real_t d = rowDiv[x][0];
-            real_t denom = static_cast<real_t>(1.0) + lambda * d;
-            // Safety: ensure denominator stays positive (should always be true for well-behaved data)
+            real_t denom = static_cast<real_t>(1.0) - lambda * d;
             denom = std::max(denom, static_cast<real_t>(1e-8));
             rowTv[x][0] = static_cast<real_t>(1.0 / denom);
             rowTv[x][1] = 0.0;
@@ -1054,7 +962,7 @@ void CPUComputeBackend::gradientX(const RealData& image, RealData& gradX) const 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width - 1; ++x)
-                ptrGrd[offGrd + x] = ptrImg[offImg + x] - ptrImg[offImg + x + 1];
+                ptrGrd[offGrd + x] = ptrImg[offImg + x + 1] - ptrImg[offImg + x];
             ptrGrd[offGrd + siImg.width - 1] = 0.0;
         }
     }
@@ -1072,7 +980,7 @@ void CPUComputeBackend::gradientY(const RealData& image, RealData& gradY) const 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width; ++x)
-                ptrGrd[offGrd + x] = ptrImg[offImg + x] - ptrImg[offImg + siImg.stride + x];
+                ptrGrd[offGrd + x] = ptrImg[offImg + siImg.stride + x] - ptrImg[offImg + x];
         }
         // Boundary: last row
         auto offGrd = z * siGrd.sliceStride + (siImg.height - 1) * siGrd.stride;
@@ -1093,7 +1001,7 @@ void CPUComputeBackend::gradientZ(const RealData& image, RealData& gradZ) const 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width; ++x)
-                ptrGrd[offGrd + x] = ptrImg[offImg + x] - ptrImg[offImg + siImg.sliceStride + x];
+                ptrGrd[offGrd + x] = ptrImg[offImg + siImg.sliceStride + x] - ptrImg[offImg + x];
         }
     }
     // Boundary: last slice
@@ -1131,9 +1039,9 @@ void CPUComputeBackend::gradient(const RealData& image, RealData& gradX, RealDat
             for (size_t x = 0; x < siImg.width; ++x) {
                 bool lastX = x >= siImg.width - 1;
 
-                ptrX[offX + x] = !lastX ? ptrImg[offImg + x] - ptrImg [offImg + x + 1] : real_t(0);
-                ptrY[offY + x] = !lastY ? ptrImg[offImg + x] - ptrImg [offImg + x + siImg.stride] : real_t(0);
-                ptrZ[offZ + x] = !lastZ ? ptrImg[offImg + x] - ptrImg[offImg + x + siImg.sliceStride] : real_t(0);
+                ptrX[offX + x] = !lastX ? ptrImg[offImg + x + 1] - ptrImg[offImg + x] : real_t(0);
+                ptrY[offY + x] = !lastY ? ptrImg[offImg + x + siImg.stride] - ptrImg[offImg + x] : real_t(0);
+                ptrZ[offZ + x] = !lastZ ? ptrImg[offImg + x + siImg.sliceStride] - ptrImg[offImg + x] : real_t(0);
 
             }
         }
@@ -1208,15 +1116,15 @@ void CPUComputeBackend::divergence(const ComplexData& gx, const ComplexData& gy,
 
 void CPUComputeBackend::computeTV(real_t lambda, const RealData& div, RealData& tv) const {
     // Expects div to contain the divergence of the smoothed normalized gradient field.
-    // Computes: tv[i] = 1 / (1 + lambda * div[i])
-    // This is the TV damping factor in the RL-TV update:
-    //   f_{n+1} = f_n * RL_correction / (1 + lambda * div)
-    // The denominator is always >= 1 for lambda > 0, so no clamping is needed.
+    // Computes: tv[i] = 1 / (1 - lambda * div[i])
+    // This is the TV damping factor in the RL-TV update (Dey et al.):
+    //   f_{n+1} = f_n * RL_correction / (1 - lambda * div)
+    // div is negative at edges/spikes (standard forward gradient + backward divergence),
+    // so the denominator > 1 there, producing damping. The clamp ensures positivity.
     stridedIteration(div, tv, [lambda](auto* rowDiv, auto* rowTv, size_t w) {
         for (size_t x = 0; x < w; ++x) {
             real_t d = rowDiv[x];
             real_t denom = static_cast<real_t>(1.0) - lambda * d;
-            // Safety: ensure denominator stays positive
             denom = std::max(denom, static_cast<real_t>(1e-8));
             rowTv[x] = static_cast<real_t>(1.0 / denom);
         }

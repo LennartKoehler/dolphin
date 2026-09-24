@@ -20,7 +20,6 @@ See the LICENSE file provided with the code for the full license.
 
 struct CuboidShape;
 class IBackend;
-class IBackendMemoryManager;
 class DeconvolutionAlgorithm;
 class PSF;
 class PSFPreprocessor;
@@ -42,26 +41,6 @@ public:
         RealData& f_device,
         PSFPreprocessor& psfpreprocessor,
         std::function<void(int)> progressFunction);
-
-    // static ComplexData staticDeconvolveSingleCube(
-    //     IBackend& backend,
-    //     std::unique_ptr<DeconvolutionAlgorithm> algorithm,
-    //     const CuboidShape& workShape,
-    //     const std::vector<std::shared_ptr<PSF>>& psfs_host,
-    //     ComplexData& g_device,
-    //     ComplexData& f_device,
-    //     PSFPreprocessor& psfpreprocessor);
-    //
-    // static ComplexData staticDeconvolveSingleCubeWithCopying(
-    //     IBackend& backend,
-    //     std::shared_ptr<IBackendMemoryManager> hostbackend,
-    //     std::unique_ptr<DeconvolutionAlgorithm> algorithm,
-    //     const CuboidShape& workShape,
-    //     const std::vector<std::shared_ptr<PSF>>& psfs_host,
-    //     ComplexData& g_host,
-    //     PSFPreprocessor& psfpreprocessor);
-
-
 
 private:
 

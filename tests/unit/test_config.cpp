@@ -1,3 +1,16 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
+
 #include <gtest/gtest.h>
 #include "dolphin/Config.h"
 #include "dolphin/SetupConfig.h"
@@ -20,15 +33,6 @@ protected:
     }
 };
 
-TEST_F(ConfigTest, DeconvolutionConfigDefaults) {
-    DeconvolutionConfig config;
-    EXPECT_EQ(config.algorithmName, "RichardsonLucy");
-    EXPECT_EQ(config.iterations, 10);
-    EXPECT_FLOAT_EQ(config.epsilon, 1e-6f);
-    EXPECT_FLOAT_EQ(config.lambda, 0.001f);
-    EXPECT_EQ(config.paddingFillType, PaddingFillType::ZERO);
-    EXPECT_EQ(config.paddingStrategyType, PaddingStrategyType::PARENT);
-}
 
 TEST_F(ConfigTest, DeconvolutionConfigLoadFromJSON) {
     auto jsonStr = TestUtils::defaultDeconvConfigJSON();

@@ -13,10 +13,8 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
-#include <iterator>
 #include <string>
 #include <vector>
-#include <iostream>
 
 #include "dolphin/Config.h"
 #include "dolphinbackend/CuboidShape.h"
@@ -29,7 +27,7 @@ public:
 
     PSFConfig(const PSFConfig& other);
 
-    virtual std::string getName() const override{
+    std::string getName() const override{
         return std::string("PSFConfig " + getModelName());
     }
 
