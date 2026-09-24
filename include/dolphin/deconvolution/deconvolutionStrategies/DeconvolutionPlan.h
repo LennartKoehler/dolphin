@@ -176,37 +176,3 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const PaddingStrategyType& imagePadding,
     const CuboidShape& minShape);
 
-
-
-//
-// class LabelBuilder{
-// public:
-//
-//     LabelBuilder(std::vector<std::string> psfIds, Image3D&& mask) : psfIDs(psfIds), unprocessedMask(mask){}
-//     Image3D& accessImage() {return unprocessedMask;}
-//
-//     void setMaskConverterFunction(std::function<RealData&&(Image3D&)> maskConverter){
-//         maskConverterFn = maskConverter;
-//     }
-//
-//     void setPSFConverterFunction(std::function<std::vector<std::shared_ptr<PSF>>(std::vector<std::string>)> psfConverter){
-//         psfConverterFn = psfConverter;
-//     }
-//
-//     Label build(){
-//         assert(psfConverterFn && maskConverterFn);
-//         return Label{
-//             maskConverterFn(unprocessedMask),
-//             psfConverterFn(psfIDs)};
-//     }
-//
-// private:
-//     std::vector<std::string> psfIDs;
-//     Image3D unprocessedMask;
-//
-//     std::function<std::vector<std::shared_ptr<PSF>>(std::vector<std::string>)> psfConverterFn;
-//     std::function<RealData&&(Image3D&)> maskConverterFn;
-//
-// };
-//
-

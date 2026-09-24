@@ -13,17 +13,14 @@ See the LICENSE file provided with the code for the full license.
 
 #include "cuda_backend/CUDABackend.h"
 #include "cuda_backend/CUDABackendManager.h"
-// #include <ioconfig.stream>
-// #include <sconfig.stream>
 #include <cassert>
-#include <iostream>
 #include <spdlog/fmt/fmt.h>
-
+#include <spdlog/spdlog.h>
 
 
 
 LogCallback g_logger_cuda =[](const std::string& context, const std::string& message, LogLevel level){
-    std::cout << context << ": " << message << std::endl;
+    spdlog::info("[{}] {}", context, message);
 };
 
 
@@ -66,64 +63,8 @@ bool CUDABackendMemoryManager::isOnDevice(const void* ptr) const {
         CUDA_CHECK(result, "isOnDevice", buildCudaContext(config));
         return false; // Never reached
     }
-}
+    }
 
-
-// TODO do i want this memCopy or the normal other one
-// void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const{
-//
-//
-//     // Setup cudaMemcpy3D parameters
-//     cudaMemcpy3DParms copyParams = {0};
-//
-//     // Source parameters
-//     copyParams.srcPtr = make_cudaPitchedPtr(
-//         srcData.getData(),                           // Source pointer
-//         srcData.getSize().width * sizeof(complex_t),  // Pitch (row width in bytes)
-//         srcData.getSize().width,                     // Width in elements
-//         srcData.getSize().height                     // Height in elements
-//     );
-//     copyParams.srcPos = make_cudaPos(0, 0, 0); // Start from origin
-//
-//     // Destination parameters
-//     copyParams.dstPtr = make_cudaPitchedPtr(
-//         destData.getData(),                          // Destination pointer
-//         destData.getSize().width * sizeof(complex_t), // Pitch (row width in bytes)
-//         destData.getSize().width,                    // Width in elements
-//         destData.getSize().height                    // Height in elements
-//     );
-//     copyParams.dstPos = make_cudaPos(0, 0, 0); // Start from origin
-//
-//     // Copy extent (how much to copy)
-//     copyParams.extent = make_cudaExtent(
-//         srcData.getSize().width * sizeof(complex_t),  // Width in bytes
-//         srcData.getSize().height,                    // Height in elements
-//         srcData.getSize().depth                      // Depth in elements
-//     );
-//
-//     // Determine copy direction
-//     bool srcIsDevice = isOnDevice(srcData.getData());
-//     bool dstIsDevice = isOnDevice(destData.getData());
-//
-//     if (srcIsDevice && dstIsDevice) {
-//         copyParams.kind = cudaMemcpyDeviceToDevice;
-//     } else if (!srcIsDevice && dstIsDevice) {
-//         copyParams.kind = cudaMemcpyHostToDevice;
-//     } else if (srcIsDevice && !dstIsDevice) {
-//         copyParams.kind = cudaMemcpyDeviceToHost;
-//     } else {
-//         copyParams.kind = cudaMemcpyHostToHost;
-//     }
-//
-//     // Execute the copy
-//     cudaError_t err = cudaMemcpy3DAsync(&copyParams, config.stream);
-//     CUDA_CHECK(err, "memCopy - cudaMemcpy3DAsync", buildCudaContext(config));
-//
-//     err = cudaStreamSynchronize(config.stream);
-//     CUDA_CHECK(err, "memCopy - cudaStreamSynchronize", buildCudaContext(config));
-//
-//     destData.backend = this;
-// }
 
 RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
     ensureDevice();
@@ -197,34 +138,6 @@ DataView<complex_t> CUDABackendMemoryManager::reinterpret(RealData& data) const{
     return result;
 }
 
-
-
-// RealData CUDABackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const{
-//     RealData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(real_t), 0};
-//     IBackendMemoryManager::allocateMemoryOnDevice(result);
-//     return result;
-// }
-//
-// RealData CUDABackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
-//     RealData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(real_t), 0};
-//     IBackendMemoryManager::allocateMemoryOnDevice(result);
-//     return result;
-// }
-//
-// ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
-//     CuboidShape complexShape = shape;
-//     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
-//     ComplexData result{ this, nullptr, complexShape, shape, complexShape.getVolume() * sizeof(complex_t), 0};
-//     IBackendMemoryManager::allocateMemoryOnDevice(result);
-//     return result;
-// }
-//
-// ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
-//     ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
-//     IBackendMemoryManager::allocateMemoryOnDevice(result);
-//     return result;
-// }
-//
 
 void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) const {
     ensureDevice();
@@ -341,58 +254,6 @@ size_t CUDABackendMemoryManager::getAllocatedMemory() const {
 
 // estimation not provided for large sizes (>32bit range)
 float CUDABackendMemoryManager::estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
-    // size_t totalWorkspace = shape.getVolume() * sizeof(real_t) * 2; //*2 for forward and backward
-
-    // ensureDevice();
-    // long long int Nx = static_cast<long long int>(shape.width);
-    // long long int Ny = static_cast<long long int>(shape.height);
-    // long long int Nz = static_cast<long long int>(shape.depth);
-    //
-    // int rank = 3;
-    // long long int n[3] = {Nz, Ny, Nx};
-    //
-    // long long int istride = 1;
-    // long long int ostride = 1;
-    //
-    // long long int inembed_r2c[3] = {Nz, Ny, 2*(Nx/2+1)};
-    // long long int onembed_r2c[3] = {Nz, Ny, Nx/2+1};
-    // long long int idist_r2c = Nz * Ny * 2*(Nx/2+1);
-    // long long int odist_r2c = Nz * Ny * (Nx/2+1);
-    //
-    // size_t r2cWorkSize = 0;
-    // cufftHandle r2cPlan = 0;
-    // cufftResult r2cResult = cufftCreate(&r2cPlan);
-    // if (r2cResult == CUFFT_SUCCESS) {
-    //     r2cResult = cufftGetSizeMany64(r2cPlan, rank, n,
-    //         inembed_r2c, istride, idist_r2c,
-    //         onembed_r2c, ostride, odist_r2c,
-    //         CUFFT_R2C, 1, &r2cWorkSize);
-    //     cufftDestroy(r2cPlan);
-    // }
-    //
-    // long long int inembed_c2r[3] = {Nz, Ny, Nx/2+1};
-    // long long int onembed_c2r[3] = {Nz, Ny, 2*(Nx/2+1)};
-    // long long int idist_c2r = Nz * Ny * (Nx/2+1);
-    // long long int odist_c2r = Nz * Ny * 2*(Nx/2+1);
-    //
-    // size_t c2rWorkSize = 0;
-    // cufftHandle c2rPlan = 0;
-    // cufftResult c2rResult = cufftCreate(&c2rPlan);
-    // if (c2rResult == CUFFT_SUCCESS) {
-    //     c2rResult = cufftGetSizeMany64(c2rPlan, rank, n,
-    //         inembed_c2r, istride, idist_c2r,
-    //         onembed_c2r, ostride, odist_c2r,
-    //         CUFFT_C2R, 1, &c2rWorkSize);
-    //     cufftDestroy(c2rPlan);
-    // }
-    //
-    // size_t totalWorkspace = 0;
-    // if (r2cResult == CUFFT_SUCCESS) totalWorkspace += r2cWorkSize;
-    // if (c2rResult == CUFFT_SUCCESS) totalWorkspace += c2rWorkSize;
-
-    // logWithContext(fmt::format("Estimated cuFFT workspace for shape {}: {:.2f} MB)",
-    //     shape.print(), totalWorkspace / 1e6), LogLevel::LOG_DEBUG);
-
     return 2;
 }
 
@@ -432,11 +293,6 @@ void CUDAComputeBackend::addPlan(const FFTPlanDescription& description, cufftHan
     cuFFTPlans.push_back(std::move(plan));
 }
 
-// void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const PlanDescription& description) const {
-//     size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
-//     CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2R, &tempSize), "getPlan - C2R plan setup", buildCudaContext(config));
-// }
-
 void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPlanDescription& description) const {
     int rank = 3;
     long long int Nx = static_cast<long long int>(description.shape.width);
@@ -458,18 +314,11 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
     long long int idist;
     long long int odist = Nz * Ny * (Nx/2+1);
 
-    // if (description.inPlace) {
     inembed[0] = Nz;
     inembed[1] = Ny;
     inembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
     idist = Nz * Ny * 2*(Nx/2+1);
     size_t worksize = idist * sizeof(real_t);
-    // } else {
-    //     inembed[0] = Nz;
-    //     inembed[1] = Ny;
-    //     inembed[2] = Nx;           // unpadded last dimension
-    //     idist = Nz * Ny * Nx;
-    // }
 
     try {
 
@@ -502,11 +351,6 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
     }
 }
 
-// void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const PlanDescription& description) const {
-//     size_t tempSize = sizeof(complex_t) * description.shape.depth * description.shape.height * description.shape.width;
-//     CUFFT_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_R2C, &tempSize), "getPlan - R2C plan setup", buildCudaContext(config));
-// }
-
 void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPlanDescription& description) const {
     int rank = 3;
     long long int Nx = static_cast<long long int>(description.shape.width);
@@ -528,18 +372,11 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPla
     long long int odist;
     long long int idist = Nz * Ny * (Nx/2+1);
 
-    // if (description.inPlace) {
     onembed[0] = Nz;
     onembed[1] = Ny;
     onembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
     odist = Nz * Ny * 2*(Nx/2+1);
     size_t worksize = odist * sizeof(real_t);
-    // } else {
-    //     inembed[0] = Nz;
-    //     inembed[1] = Ny;
-    //     inembed[2] = Nx;           // unpadded last dimension
-    //     idist = Nz * Ny * Nx;
-    // }
 
     try {
 
@@ -897,23 +734,6 @@ void CUDAComputeBackend::hasNAN(const ComplexData& data) const {
     // Implementation would go here
     logWithContext(fmt::format("hasNAN called on CUDA backend"), LogLevel::LOG_DEBUG);
 }
-
-// void CUDAComputeBackend::calculateLaplacianOfPSF(const ComplexData& psf, ComplexData& laplacian) const {
-//     cudaError_t err = CUBE_REG::calculateLaplacian(psf.getSize().width, psf.getSize().height, psf.getSize().depth, psf.getData(), laplacian.getData(), config.stream);
-//     CUDA_CHECK(err, "calculateLaplacianOfPSF", buildCudaContext(config));
-// }
-
-// void CUDAComputeBackend::normalizeImage(ComplexData& resultImage, real_t epsilon) const {
-//     cudaError_t err = CUBE_FTT::normalizeData(1, 1, 1, resultImage.getData(), config.stream);
-//     CUDA_CHECK(err, "normalizeImage", buildCudaContext(config));
-// }
-
-// void CUDAComputeBackend::rescaledInverse(ComplexData& data, real_t cubeVolume) const {
-//     for (int i = 0; i < data.getSize().getVolume(); ++i) {
-//         data.getData()[i][0] /= cubeVolume;
-//         data.getData()[i][1] /= cubeVolume;
-//     }
-// }
 
 // Gradient and TV Functions
 void CUDAComputeBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {

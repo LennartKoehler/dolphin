@@ -16,9 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/Postprocessor.h"
 #include <functional>
 #include <itkImageRegionIterator.h>
-#include <set>
 #include <stdexcept>
-#include <iostream>
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"

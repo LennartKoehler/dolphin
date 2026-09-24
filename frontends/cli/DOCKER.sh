@@ -5,7 +5,7 @@ IMAGE=dolphin-cuda-builder:latest
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "Building builder image..."
-    docker build -f Dockerfile.builder -t "$IMAGE" .
+    docker build -f Dockerfile --target builder -t "$IMAGE" .
 fi
 
 echo "Building project + CLI in container..."

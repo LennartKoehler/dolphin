@@ -21,7 +21,6 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/ThreadPool.h"
 #include <chrono>
 #include <fstream>
-#include <sstream>
 #include <memory>
 #include <spdlog/spdlog.h>
 
@@ -100,13 +99,6 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         // Handle saving if requested
         if (!request.getConfig()->outputPath.empty()) {
             output_file = savePSF(request.getConfig()->outputPath, psf);
-
-            // // if a config was not provided by file the generated psfconfig is saved next
-            // // to the psf otherwise you already have the config somewhere, no need to save it
-            // if (request.config_.psf_config_ != nullptr){
-            //     std::string configFilename = "Config_" + filenameBase + ".json";
-            //     std::string output_file_config = savePSFConfig(request.output_path, configFilename, request.config_.psf_config_);
-            // }
         }
 
 
@@ -132,12 +124,6 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         return createResult(false, error_msg, duration);
     }
 }
-
-// std::future<std::unique_ptr<PSFGenerationResult>> PSFGenerationService::generatePSFAsync(const PSFGenerationRequest& request){
-//     return thread_pool_->enqueue([this, request](){
-//         return generatePSF(request);
-//     });
-// }
 
 std::vector<std::string> PSFGenerationService::getSupportedPSFTypes() const {
     return supported_types_;
@@ -208,7 +194,6 @@ bool PSFGenerationService::isValidPSFType(const std::string& psf_type) const {
 std::string PSFGenerationService::savePSF(const std::string& path, std::shared_ptr<PSF> psf){
     // Use filesystem::path for better path handling
     std::filesystem::path output_path = path;
-    // std::filesystem::path output_path = base_path / filename;  // Automatically handles separators
 
     // Ensure directory exists
     std::filesystem::create_directories(output_path.parent_path());

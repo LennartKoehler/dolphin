@@ -1,6 +1,6 @@
 <div style="display: flex; align-items: center;">
     <img src="icon.png" alt="Whale Icon" width="60" height="60" style="margin-right: 10px;">
-    <h1>DOLPHIN v1.6.2</h1>
+    <h1>DOLPHIN</h1>
 </div>
 
 
@@ -12,44 +12,46 @@ Deconvolution with Optimized Local PSFs for High-speed Image recoNstruction (DOL
 
 - **Input Image Formats**: Supports both single image files and directories of image slices in TIF format.
 - **Point Spread Function (PSF) Input**: Allows users to provide a PSF as a file, a directory of slices, or generate a synthetic PSF.
+- **PSF Models**:
+    - Gaussian — tunable sigma values and quality factor
+    - Gibson-Lanni — physically-based model with optical design/experimental parameters
 - **Multiple Deconvolution Algorithms**:
     - Richardson-Lucy (RL)
     - Richardson-Lucy with Total Variation (RLTV)
+    - Richardson-Lucy with Adaptive Damping (RLAD)
     - Regularized Inverse Filter (RIF)
     - Inverse Filter
+    - Convolution
+- **Labeled Image Deconvolution**: Assign different PSFs to specific regions of the image via a labeled image and label-to-PSF mapping.
 - **Support for multiple PSFs**: Users can provide or generate multiple PSFs for specific layers or subimages.
-- **Flexible Parameters**: Adjustable parameters such as sigma values for synthetic PSF generation, iteration counts, lambda for regularization, and more.
+- **Flexible Padding**: Configurable padding fill types (zero, mirror, linear, quadratic, sinusoid, gaussian) and padding strategies (none, parent, full_psf, manual).
+- **Output Compression**: TIFF output supports none, LZW, and Deflate compression with adjustable compression level.
+- **GPU Acceleration**: Optional CUDA backend for GPU-accelerated FFT operations.
 - **Image Subdivision**: Processes images as grids of smaller subimages for memory efficiency and better performance.
-- **Time Measurement**: Option to display the duration of deconvolution processes.
 - **Configuration via CLI or JSON**: Users can specify parameters through command-line arguments or by providing a JSON configuration file.
 
 ## Requirements
 
 Standard usage
-- C++17 or later
-- [OpenCV](https://opencv.org/) 4.6.0 (for image processing)
-- [FFTW](http://www.fftw.org/) 3.3.10 (for fast Fourier transforms) 
+- C++20 or later
+- [FFTW](http://www.fftw.org/) 3.3.10 (for fast Fourier transforms)
 - [LibTIFF](https://libtiff.gitlab.io/libtiff/) 4.7.0 (for Tag Image File Format)
+- [ITK](https://itk.org/) (for image processing)
 
 GPU acceleration
-- [NVCC](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/) 12.1.105 (NVIDIA CUDA Compiler Driver)
-- [cuFFTW](https://docs.nvidia.com/cuda/cufft/) 11.0.2 (for fast Fourier transforms on GPU)
-  
+- [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit) 12.8+ (NVIDIA CUDA Compiler Driver)
+- [cuFFT](https://docs.nvidia.com/cuda/cufft/) (for fast Fourier transforms on GPU)
+
 included Header files
-- [CLI11](https://github.com/CLIUtils/CLI11) 2.4.1 (for command-line parsing)
-- [nlohmann/json](https://github.com/nlohmann/json) 3.11.3 (for JSON handling)
-- [CUBE](https://git.uni-jena.de/qi36soq/cube) 0.3.1 (for operations on GPU)
+- [CLI11](https://github.com/CLIUtils/CLI11) (for command-line parsing)
+- [nlohmann/json](https://github.com/nlohmann/json) (for JSON handling)
+- [spdlog](https://github.com/gabime/spdlog) (for logging)
+- [CUBE](https://git.uni-jena.de/qi36soq/cube) (for operations on GPU)
 
 ## Build
-First build the CUBE library in /lib/cube/, if CUDA is installed on your system.
-```bash
-mkdir ./lib/cube/build
-cd ./lib/cube/build
 
-cmake ..
-make
-```
-Then the DOLPHIN:
+### Library (CPU + GPU backends)
+
 ```bash
 mkdir ./build
 cd ./build
@@ -58,124 +60,294 @@ cmake ..
 make
 ```
 
+### CLI Executable
+
+The CLI frontend is **off by default**. Enable it explicitly:
+
+```bash
+mkdir ./build
+cd ./build
+
+cmake .. -DBUILD_CLI=ON
+make
+```
+
+This produces the `./dolphin` executable.
+
+### Tests
+
+```bash
+cd ./build
+cmake .. -DENABLE_TESTS=ON -DBUILD_CLI=ON
+make
+ctest --output-on-failure
+```
+
+### Build Options
+
+| Option | Default | Description |
+|---|---|---|
+| `BUILD_CUDA` | `ON` | Build CUDA GPU backend (requires CUDA Toolkit 12.8+) |
+| `BUILD_CLI` | `OFF` | Build the CLI frontend executable (`dolphin`) |
+| `ENABLE_TESTS` | `ON` | Build GoogleTest suite and register with ctest |
+| `ENABLE_BENCHMARKS` | `ON` | Build benchmark executables |
+| `BUILD_DOLPHIN_LIBRARY` | `ON` | Build the main dolphin static library |
+
+The CUBE library (for GPU support) is built automatically via `add_subdirectory` when `BUILD_CUDA=ON`.
+
 ## Usage
 
-### Command-Line Options
+### Command-Line Interface
 
-DOLPHIN provides a variety of command-line options:
+DOLPHIN uses a subcommand-based CLI with two modes:
 
 ```
--i, --image <path>               Input Image Path (required)
--p, --psf <path>                 Input PSF Path (required)
--a, --algorithm <algorithm>      Algorithm Selection ('rl'/'rltv'/'rif'/'inverse') (required)
---iterations <value>             Number of iterations [10] (for RL)
---lambda <value>                 Lambda for Regularized Inverse Filter [1e-2]
---epsilon <value>                Epsilon for complex division [1e-6]
---borderType <type>              Border type for image extension (0=constant, 1=replicate, 2=reflect) [2] 
---psfSafetyBorder <value>        Padding around the PSF [10] (pixel)
---subimageSize <value>           Edge length of grid subimages [0] (pixel, 0 = auto adjust to PSF)
---gpu <type>                     Type of GPU API ('cuda'/'none') [none]
--c, --config <path>              Path to JSON configuration file (required if no CLI arguments are provided)
-Flags:
---savepsf                        Save the PSF used in the process [false]
---time                           Show the processing time [false]
---grid                           Process image in subimages [false]
---seperate                       Save image layers separately [false]
---info                           Print information about the input image [false]
---showExampleLayers              Display example layers of the image and PSF [false]
---saveSubimages                  Saves subimages seperate as file in /result/tiles/ [false]
+dolphin psfgenerator    Generate PSF file
+dolphin deconvolution   Run deconvolution
 ```
 
-The PSF can be provided as a TIF file, a TIF directory (where each layer is a separate TIF file), or a JSON configuration file. The JSON configuration file can be used to generate a synthetic PSF or specify the path to a file or directory. With a configuration-based PSF file, it is possible to target specific sub-images for processing. This requires an array of PSFs as input. Only the first PSF in the array will be processed globally, while all subsequent PSFs will be processed based on their corresponding sub-image and layer IDs. If no position is specified, the PSF will not be applied. If a position is provided multiple times, only the PSF with the smaller index in the array will be applied; subsequent PSFs at the same position will be ignored. The following JSON configuration show a example configuration of a synthetic PSF and a configuration file with a file path.
+Both subcommands accept configuration via JSON files or individual CLI flags. When a JSON config and CLI flags overlap, the JSON config takes precedence and the CLI flags are ignored.
+
+#### Config File Flags
+See configs_checkpoints directory for examples of configuration files.
+
 ```
-{
-  "sigmax": 2.5,
-  "sigmay": 2.5,
-  "sigmaz": 2.5,
-  "psfx": 20,
-  "psfy": 20,
-  "psfz": 46,
-  "psfmodel": "gauss",
-  "layers": [2,3],
-  "subimages": [136]
-}
+-c, --config <path>          Path to combined configuration file (setup + deconvolution + PSF)
+-s, --setup_config <path>    Path to setup config JSON file
+-d, --deconv_config <path>   Path to deconvolution config JSON file (deconvolution only)
+-p, --psf_configs <paths>    Path(s) to PSF config JSON file(s)
 ```
+
+#### Key CLI Flags
+
+All configuration parameters are also exposed as CLI flags. The most commonly used ones:
+
+**Setup:**
 ```
-{
-  "path": "../input/psf.tif",
-  "layers": [3,4],
-  "subimages": [10,11,12,16]
-}
+-i, --image_path <path>       Input image path (TIF file or directory)
+-o, --output <path>           Output path
+    --backend <cpu|gpu>       Compute backend
+    --n_worker_threads <n>    Number of worker threads
+    --n_io_threads <n>        Number of I/O threads
+    --n_devices <n>           Number of GPU devices
+    --save_psf                Save the used PSF to disk
+    --psf_file_paths <paths>  Path(s) to pre-existing PSF file(s)
+    --labeled_image <path>    Labeled image for region-based PSF assignment
+    --label_psf_map <map>     Label-to-PSF mapping (e.g. "0[ID1234], 1[constant_hyperstack_1]")
+    --output_compression <type>      TIFF compression: none, lzw, deflate
+    --output_compression_level <n>   Compression level (-1 to 9)
 ```
-DOLPHIN provides this parameters for a PSF configuration:
+
+**Deconvolution:**
 ```
-path                             Path to PSF TIF file or dir (string "" or json array of strings["",""])
-psfx                             X dimension of PSF (pixel) (integer)
-psfy                             Y dimension of PSF (pixel) (integer)
-psfz                             Z dimension of PSF (pixel) (integer)
-psfmodel                         PSF model for generation ('gauss')
-sigmax                           Spread of data in x dim, the larger σ, the wider and flatter the bell curve (double)
-sigmay                           Spread of data in y dim, the larger σ, the wider and flatter the bell curve (double)
-sigmaz                           Spread of data in z dim, the larger σ, the wider and flatter the bell curve (double)
-layers                           Specific layers, where PSF will be applied (json array of integers [])
-subimages                        Specific subimages, where PSF will be applied (json array of integers [])
+    --algorithm_name <name>    Algorithm (see list below)
+    --iterations <n>           Number of iterations
+    --epsilon <val>            Convergence threshold
+    --lambda <val>             Regularization parameter
+    --padding_fill <type>      Padding fill: zero, mirror, linear, quadratic, sinusoid, gaussian
+    --padding_strategy <type>  Padding strategy: none, parent, full_psf, manual
+    --feathering_radius <n>   Feathering radius for subimage boundaries
 ```
+
+Algorithm names must match exactly: `RichardsonLucy`, `RichardsonLucyTotalVariation`,
+`RichardsonLucywithAdaptiveDamping`, `RegularizedInverseFilter`, `InverseFilter`, `Convolution`.
+
 ### Example
 
 ```bash
-./dolphin -i input_image.tif -p psf.tif -a rl --iterations 100 --time
+./dolphin deconvolution -c config.json
 ```
 
-This command will run the Richardson-Lucy algorithm with a PSF file using the input image file and displaying the time taken.
+This command will run deconvolution using a combined JSON configuration file.
 
 ```bash
-./dolphin -i input_image.tif -p psf_syn.json psf_path.json -a rltv --iterations 50 --info
+./dolphin psfgenerator -s setup_config.json -p psf_config.json
 ```
 
-This command will run the Richardson-Lucy with Total Variation algorithm with a synthetic PSF using a config file globally and a PSF file locally through another config file. The metadata of the input image will displayed. 
-### Using a Configuration File
+This command will generate a PSF using the specified setup and PSF configuration files.
 
-You can specify your input, PSF, and other parameters using a JSON file. An example of the JSON configuration file is shown below:
+### JSON Configuration
+
+A combined JSON config file contains three top-level sections: `setup_config`, `deconvolution_config`, and `psf_configs`. Example configurations are in `configs_checkpoint/`.
+
+#### Annotated Example
 
 ```json
 {
-  "image_path": "../input/your_image.tif",
-  "info": false,
-  "showExampleLayers": false,
-  "time": false,
-  "seperate": false,
+  "deconvolution_config": {
+    "algorithm_name": "RichardsonLucy",
+    "iterations": 30,
+    "epsilon": 1e-6,
+    "lambda": 0.015,
+    "padding_fill": "mirror",
+    "padding_strategy": "parent"
+  },
 
-  "algorithm": "rltv",
-  "epsilon": 1e-6,
-  "lambda": 0.015,
-  "iterations": 10,
+  "psf_configs": [
+    {
+      "model_name": "Gaussian",
+      "id": "ID1234",
+      "res_lateral_nm": 5000,
+      "res_axial_nm": 5000,
+      "size_x": 64,
+      "size_y": 64,
+      "size_z": 64,
+      "sigma_x": 5,
+      "sigma_y": 5,
+      "sigma_z": 5
+    }
+  ],
 
-  "psf_path": ["../configs/default_psf.json"],
-  "savePsf": false,
-
-  "grid": true,
-  "borderType": 2,
-  "cubeSize": 0,
-  "psfSafetyBorder": 10,
-  
-  "saveSubimages": false,
-
-  "gpu": "none"
+  "setup_config": {
+    "image_path": "/path/to/input.tif",
+    "output": "/path/to/output.tif",
+    "backend": "cpu",
+    "n_io_threads": 2,
+    "n_worker_threads": 11,
+    "n_devices": 1,
+    "max_mem_host_gb": 64,
+    "max_mem_device_gb": 8,
+    "psf_file_paths": [],
+    "save_psf": true,
+    "output_compression": "none",
+    "output_compression_level": -1
+  }
 }
 ```
-DOLPHIN creates two executable if CUDA is availabe on your system: dolphin and dolphincuda. Make sure your specify the "gpu" parameter with "cuda" if your are using the GPU accelerated version dolphincuda.
-You can run the tool using the configuration file like this:
 
-```bash
-./dolphin -c config.json
+#### `setup_config` Parameters
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `image_path` | string | yes | — | Input image path (TIF file or directory of slices) |
+| `output` | string | yes | — | Output image path |
+| `backend` | string | no | `cpu` | Compute backend (`cpu` or `gpu`) |
+| `n_threads` | int | no | `1` | Number of threads |
+| `n_worker_threads` | int | no | `1` | Number of worker threads |
+| `n_io_threads` | int | no | `1` | Number of I/O threads |
+| `n_devices` | int | no | `1` | Number of GPU devices |
+| `max_mem_host_gb` | float | no | `0` | Maximum host memory in GB (0 = unlimited) |
+| `max_mem_device_gb` | float | no | `0` | Maximum device memory in GB (0 = unlimited) |
+| `psf_file_paths` | string[] | no | `[]` | Path(s) to pre-existing PSF file(s) |
+| `save_psf` | bool | no | `false` | Save the used PSF to disk |
+| `labeled_image` | string | no | — | Labeled image path for region-based PSF assignment |
+| `label_psf_map` | string | no | — | Label-to-PSF mapping (e.g. `"0[ID1234], 1[constant_hyperstack_1]"`) |
+| `output_compression` | string | no | `none` | TIFF compression: `none`, `lzw`, `deflate` |
+| `output_compression_level` | int | no | `-1` | Compression level (-1 = default, 0–9 for deflate) |
+| `tile_width` | int | no | `0` | TIFF tile width (0 = strips) |
+| `tile_length` | int | no | `0` | TIFF tile length (0 = strips) |
+
+#### `deconvolution_config` Parameters
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `algorithm_name` | string | yes | `RichardsonLucy` | Algorithm selection (see names above) |
+| `iterations` | int | no | `10` | Number of iterations (1–10000) |
+| `epsilon` | float | no | `1e-6` | Convergence threshold (1e-12 to 1e-3) |
+| `lambda` | float | no | `0.001` | Regularization parameter (0–1) |
+| `padding_fill` | string | no | `zero` | Fill method: `zero`, `mirror`, `linear`, `quadratic`, `sinusoid`, `gaussian` |
+| `padding_strategy` | string | no | `parent` | Strategy: `none`, `parent`, `full_psf`, `manual` |
+| `padding_relative_max` | float | no | `0` | Pad until PSF is below this fraction of max PSF value |
+| `feathering_radius` | int | no | `0` | Feathering radius for subimage boundaries |
+| `cube_padding` | int[3] | no | `[-1,-1,-1]` | Manual padding per axis (x, y, z); doubled internally |
+
+#### `psf_configs`
+
+An array of PSF config objects. Each must contain a `model_name` field. See [PSF Models](#psf-models) below for model-specific parameters.
+
+#### Labeled Image Deconvolution
+
+When `labeled_image` is set in `setup_config`, DOLPHIN switches to labeled deconvolution mode. Each unique label value in the labeled image is mapped to a PSF via `label_psf_map`. Only the labeled region's outline is deconvolved with its assigned PSF. Set `labeled_image` and `label_psf_map` in `setup_config` to enable this mode (see `configs_checkpoint/default_config.json`).
+
+### PSF Models
+
+#### Gaussian
+
+A simple Gaussian PSF defined by sigma values along each axis.
+
+```json
+{
+  "model_name": "Gaussian",
+  "id": "ID1234",
+  "size_x": 64,
+  "size_y": 64,
+  "size_z": 64,
+  "sigma_x": 5,
+  "sigma_y": 5,
+  "sigma_z": 5,
+  "quality_factor": 1.0,
+  "res_lateral_nm": 5000,
+  "res_axial_nm": 5000,
+  "NA": 1.0
+}
 ```
-```bash
-./dolphincuda -c config_gpu.json
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `id` | string | — | Identifier used in `label_psf_map` |
+| `size_x`, `size_y`, `size_z` | int | `20`, `20`, `10` | PSF dimensions in voxels |
+| `sigma_x`, `sigma_y`, `sigma_z` | float | `10.0` | Gaussian sigma per axis |
+| `quality_factor` | float | `1.0` | Blur factor (1.0 = ideal, >1 = blurrier) |
+| `res_lateral_nm` | float | `200.0` | Lateral resolution in nm |
+| `res_axial_nm` | float | `200.0` | Axial resolution in nm |
+| `NA` | float | `1.0` | Numerical aperture |
+| `nanometer_scale` | float | `1e-9` | Nanometer scale factor |
+| `pixel_scaling` | float | `1e-6` | Pixel scaling factor |
+
+#### Gibson-Lanni
+
+A physically-based PSF model accounting for microscope optical design and experimental deviations (cover slip thickness, immersion medium refractive index mismatches, etc.).
+
+```json
+{
+  "model_name": "GibsonLanni",
+  "id": "GL_PSF",
+  "size_x": 64,
+  "size_y": 64,
+  "size_z": 64,
+  "NA": 1.4,
+  "res_lateral_nm": 100,
+  "res_axial_nm": 100,
+  "lambda_nm": 520.0,
+  "working_distance_design_nm": 150000.0,
+  "working_distance_experimental_nm": 150000.0,
+  "immersion_ri_design": 1.515,
+  "immersion_ri_experimental": 1.515,
+  "coverslip_thickness_design_nm": 170.0,
+  "coverslip_thickness_experimental_nm": 170.0,
+  "coverslip_ri_design": 1.5,
+  "coverslip_ri_experimental": 1.5,
+  "sample_ri": 1.33,
+  "particle_axial_position_nm": 1000.0,
+  "pixel_size_axial_nm": 100.0,
+  "pixel_size_lateral_nm": 100.0,
+  "OVER_SAMPLING": 4.0,
+  "accuracy": 32
+}
 ```
 
-### Output
-
-The processed images are saved in the TIF format, if the `--seperate` flag is set the image will also saved as a directory where every layer is a single TIF file, and optional PSF files can be saved if the `--savepsf` flag is set. Additional information, such as the time taken for processing, will be displayed if the `--time` option is enabled.
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `id` | string | — | Identifier used in `label_psf_map` |
+| `size_x`, `size_y`, `size_z` | int | `20`, `20`, `10` | PSF dimensions in voxels |
+| `NA` | float | `1.0` | Numerical aperture |
+| `res_lateral_nm` | float | `200.0` | Lateral resolution in nm |
+| `res_axial_nm` | float | `200.0` | Axial resolution in nm |
+| `lambda_nm` | float | `520.0` | Emission wavelength in nm |
+| `working_distance_design_nm` | float | `150000.0` | Design working distance (objective) in nm |
+| `working_distance_experimental_nm` | float | `150000.0` | Experimental working distance in nm |
+| `immersion_ri_design` | float | `1.515` | Design immersion medium refractive index |
+| `immersion_ri_experimental` | float | `1.515` | Experimental immersion medium refractive index |
+| `coverslip_thickness_design_nm` | float | `170.0` | Design coverslip thickness in nm |
+| `coverslip_thickness_experimental_nm` | float | `170.0` | Experimental coverslip thickness in nm |
+| `coverslip_ri_design` | float | `1.5` | Design coverslip refractive index |
+| `coverslip_ri_experimental` | float | `1.5` | Experimental coverslip refractive index |
+| `sample_ri` | float | `1.33` | Sample refractive index |
+| `particle_axial_position_nm` | float | `1000.0` | Axial position of the particle in nm |
+| `pixel_size_axial_nm` | float | `100.0` | Pixel size in axial direction in nm |
+| `pixel_size_lateral_nm` | float | `100.0` | Pixel size in lateral direction in nm |
+| `OVER_SAMPLING` | float | `4.0` | Oversampling factor for PSF computation |
+| `accuracy` | int | `32` | Numerical integration accuracy |
 
 ## License
 
@@ -185,8 +357,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - The project uses the CLI11 library for command-line argument parsing.
 - The `nlohmann/json` library is used for reading and handling JSON files.
-- The `OpenCV` library facilitates image processing tasks.
 - `FFTW` is used for fast Fourier transformations during the deconvolution process.
+- `cuFFT` is used for GPU-accelerated FFT operations when CUDA is enabled.
+- `OpenMP` is used for parallel FFTW threading.
+- `ITK` is used for image processing.
+- `spdlog` is used for logging.
 - Icon attribution <a href="https://www.flaticon.com/free-icons/whale" title="whale icons">Whale icons created by Freepik - Flaticon</a>
 
 ---
