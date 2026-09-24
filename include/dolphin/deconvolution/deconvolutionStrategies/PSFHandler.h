@@ -7,6 +7,7 @@
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/ProgressTracking.h"
 #include "dolphin/ServiceAbstractions.h"
+#include "dolphin_image/Types/BoxCoord.h"
 #include "dolphinbackend/CuboidShape.h"
 
 
@@ -30,7 +31,6 @@ public:
 
     const std::vector<std::shared_ptr<PSF>>& getPSFs() const { return psfs; }
 
-    void fitPSFsToShape(const CuboidShape& targetShape);
 
 private:
     CuboidShape getPSFPadding(const PSF& psf, PaddingStrategyType paddingStrategy, float paddingRelativeMax) const;

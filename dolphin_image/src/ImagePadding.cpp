@@ -20,6 +20,7 @@ See the LICENSE file provided with the code for the full license.
 #include <itkImageDuplicator.h>
 
 
+
 /**
  * Zero-pad the image to the target size and fix the region to start at (0,0,0).
  * Returns the padded image with original data preserved and padding filled with 0.
@@ -159,6 +160,15 @@ void ImagePadding::padImage(Image3D& image, const Padding& padding, PaddingFillT
     else if (paddingType == PaddingFillType::QUADRATIC) padImageQuadratic(image, padding, shapeScale);
     else if (paddingType == PaddingFillType::SINUSOID) padImageSinusoid(image, padding);
     else if (paddingType == PaddingFillType::GAUSSIAN) padImageGaussian(image, padding, shapeScale);
+}
+
+void ImagePadding::fitToShape(Image3D& image, const CuboidShape& targetShape, PaddingFillType paddingtype) {
+    CuboidShape currentShape = image.getShape();
+    if (currentShape < targetShape) {
+        ImagePadding::padToShape(image, targetShape, paddingtype);
+    } else if (targetShape < currentShape) {
+        ImagePadding::reduceToShape(image, targetShape);
+    }
 }
 
 

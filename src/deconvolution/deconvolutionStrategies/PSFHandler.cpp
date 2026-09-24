@@ -121,21 +121,6 @@ CuboidShape PSFHandler::getMaxShape() const
     return largestPSF;
 }
 
-void PSFHandler::fitPSFsToShape(const CuboidShape& targetShape) {
-    for (auto& psf : psfs){
-        CuboidShape currentShape = psf->getShape();
-        if (currentShape < targetShape) {
-            ImagePadding::padToShape(*psf, targetShape, PaddingFillType::ZERO);
-        } else if (targetShape < currentShape) {
-            spdlog::get("deconvolution")->info("PSF (size: {}) is being cropped to target shape ({})", currentShape.print(), targetShape.print());
-            ImagePadding::reduceToShape(*psf, targetShape);
-        }
-    }
-
-    if (psfs.empty()){
-        throw std::runtime_error("No PSFs supplied as either a PSF Config or as a file");
-    }
-}
 
 std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
 
@@ -148,7 +133,7 @@ std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
             auto logger = spdlog::get("deconvolution");
             logger->debug("Preprocessing PSF...");
 
-            ImagePadding::padToShape(*inputPSF, targetShape, PaddingFillType::ZERO);
+            ImagePadding::fitToShape(*inputPSF, targetShape, PaddingFillType::ZERO);
             RealData h = Preprocessor::convertImageToRealData(*inputPSF);
             RealData h_device = backend.getMemoryManager().copyDataToDevice(h);
 

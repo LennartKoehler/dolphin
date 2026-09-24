@@ -28,23 +28,24 @@ void adjustCubeToBoundaries(
     const Padding& cubePadding,
     const Padding& imagePadding) {
 
-    // last cube per dimension: overflow goes into padding before (box stays on grid, boxes contiguous)
     for (size_t d = 0; d < 3; ++d) {
-        if (remainingSize.at(d) < cube.box.dimensions.at(d) && remainingSize.at(d) > 0){
-            size_t extra = cube.box.dimensions.at(d) - remainingSize.at(d);
-            cube.box.dimensions.at(d) -= extra;
-            cube.padding.before.at(d) += extra;
-        }
-    }
-
-    // boundary faces get exactly imagePadding, interior faces at least cubePadding
-    for (size_t d = 0; d < 3; ++d) {
+        // boundary faces get exactly imagePadding, interior faces at least cubePadding
         if (cube.box.position.at(d) == 0){
             cube.box.dimensions.at(d) += cube.padding.before.at(d) - imagePadding.before.at(d);
             cube.padding.before.at(d) = imagePadding.before.at(d);
         }
-        if (cube.box.position.at(d) + static_cast<int64_t>(cube.box.dimensions.at(d)) == static_cast<int64_t>(imageOriginalShape.at(d))){
-            cube.box.dimensions.at(d) += cube.padding.after.at(d) - imagePadding.after.at(d);
+        // if (cube.box.position.at(d) + static_cast<int64_t>(cube.box.dimensions.at(d)) == static_cast<int64_t>(imageOriginalShape.at(d))){
+        //     cube.padding.before.at(d) += cube.padding.after.at(d) - imagePadding.after.at(d);
+        //     cube.padding.after.at(d) = imagePadding.after.at(d);
+        // }
+        // last cube per dimension: overflow goes into padding before (box stays on grid, boxes contiguous)
+        // if the cube is larger than the entire image, then this will reduce the size (dimensions) of the cube and make that into padding
+        //      this is because the dimension is used for the image primarily (e.g. writer and therefore has to match the image dimensions)
+        if (remainingSize.at(d) <= cube.box.dimensions.at(d) && remainingSize.at(d) > 0){
+            size_t extra = cube.box.dimensions.at(d) - remainingSize.at(d)
+                    - (cube.padding.after.at(d) - imagePadding.after.at(d)); // this is the same as the if condition above (image padding different than cube padding)
+            cube.box.dimensions.at(d) -= extra;
+            cube.padding.before.at(d) += extra;
             cube.padding.after.at(d) = imagePadding.after.at(d);
         }
     }
@@ -87,7 +88,7 @@ void addCubeRecursion(
     cubePositions.push_back(cubeToPush);
 
     // next cube (column) — advance by nominal (unmutated) cube size
-    currentCube.box.position.width += currentCube.box.dimensions.width;
+    currentCube.box.position.width += cubeToPush.box.dimensions.width;
     addCubeRecursion(cubePositions, currentCube, imageOriginalShape, cubePadding, imagePadding);
 }
 
@@ -170,6 +171,9 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
 // but also keep the size a smooth number for fftw, and somewhat "dynamic" padding if at an edge or not etc.
 // so this is more of a just try out a bunch and when all conditions are sufficiently met then keep that plan
 // i assume one could have also had a more complicated "model" of all the interactions and get a cube distribution that way
+//
+// imagePadding is the padding which the cubes should have at the edge of the image facing outwards, this might be less than cubePadding,
+//      which is the padding cubes have on the inside of the image (so the overlap between neighboring cubes)
 Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const Padding& cubePadding,
     const Padding& imagePadding,
@@ -232,4 +236,4 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     );
 
     return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(cubePositions));
-    }
+}

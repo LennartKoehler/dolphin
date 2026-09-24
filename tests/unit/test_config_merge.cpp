@@ -11,6 +11,7 @@
 #include "dolphin/ThreadPool.h"
 #include "dolphin/Logging.h"
 #include "TestUtils.h"
+#include "dolphin_image/Types/PaddingFillType.h"
 #include "nlohmann/json.hpp"
 #include <fstream>
 #include <filesystem>
@@ -290,7 +291,7 @@ TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
     auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 
-    EXPECT_THROW(psfHandler.fitPSFsToShape(CuboidShape{32, 32, 16}), std::runtime_error);
+    EXPECT_THROW(ImagePadding::fitToShape(*psfHandler.getPSFs()[0], CuboidShape{32, 32, 16}, PaddingFillType::ZERO), std::runtime_error);
 }
 
 

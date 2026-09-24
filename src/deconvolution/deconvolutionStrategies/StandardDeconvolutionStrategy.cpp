@@ -127,7 +127,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     CuboidShape paddedShape = workShape.getPaddedShape();
 
-    psfHandler.fitPSFsToShape(paddedShape);
+    // psfHandler.fitPSFsToShape(paddedShape); // the psfpreprocessor does this
     const std::vector<std::shared_ptr<PSF>>& psfs = psfHandler.getPSFs();
 
     if (workShape.padding.getTotalPadding() / workShape.box.dimensions> 3)
