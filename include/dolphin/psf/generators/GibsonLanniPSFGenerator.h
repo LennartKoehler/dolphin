@@ -32,7 +32,7 @@ public:
     void setConfig(const std::shared_ptr<const PSFConfig> config) override;
     bool hasConfig() override;
 	void setIntegrator(std::unique_ptr<NumericalIntegrator> integrator);
-	std::vector<float> SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config, const LateralClip& clip) const;
+	std::vector<float> singlePlanePSF(const GibsonLanniPSFConfig& config, const LateralClip& clip) const;
     CuboidShape getPadding(PaddingStrategyType paddingType) const override;
 
 private:

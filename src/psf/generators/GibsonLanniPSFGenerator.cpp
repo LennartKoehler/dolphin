@@ -176,7 +176,7 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
         GibsonLanniPSFConfig configCopy = *(this->config);
         configCopy.ti_nm = configCopy.ti0_nm + configCopy.pixelSizeAxial_nm * (static_cast<double>(z) - (config->sizeZ - 1.0) / 2.0);
         tempSphereLayers.emplace_back(threadPool->enqueue([this, configCopy, clip](){
-            return SinglePlanePSFAsVector(configCopy, clip);
+            return singlePlanePSF(configCopy, clip);
         }));
     }
 
@@ -212,7 +212,7 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
 }
 
 
-std::vector<float> GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config, const LateralClip& clip) const {
+std::vector<float> GibsonLanniPSFGenerator::singlePlanePSF(const GibsonLanniPSFConfig& config, const LateralClip& clip) const {
     size_t nx = config.sizeX;
     size_t ny = config.sizeY;
     int OVER_SAMPLING = config.OVER_SAMPLING;

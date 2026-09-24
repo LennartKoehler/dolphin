@@ -49,7 +49,7 @@ double SimpsonIntegrator::adaptiveSimpson(std::function<std::array<double, 2>(do
     double tolerance, int accuracy){
 
         int K = getK(accuracy);
-        int N = 2;
+        int64_t N = 2;
         int k = 0;
         int iteration = 1;
         double del = (b - a) / 2.0;
