@@ -100,7 +100,6 @@ CuboidShape GibsonLanniPSFGenerator::getPadding(PaddingStrategyType paddingType)
 void GibsonLanniPSFGenerator::initBesselHelper() const {
     assert (config != nullptr && "Config not initialized");
 
-    BesselHelper& besselHelper = BesselHelper::instance();
     double nx = config->sizeX;
     double ny = config->sizeY;
     // The center of the image in units of [pixels]
@@ -242,12 +241,12 @@ std::vector<float> GibsonLanniPSFGenerator::singlePlanePSF(const GibsonLanniPSFC
     double a = 0.0;
     double b = std::min(1.0, config.ns / NA);
     int integrationAccuracy = config.accuracy;
-        double integrationTolerance = 1E-1;
+    double integrationTolerance = 1E-6;
 
     for (size_t n = 0; n < r.size(); n++) { // get kirchhoffdiffraction for specific radius
 
         r[n] = static_cast<double>(n) / static_cast<double>(OVER_SAMPLING);
-        GibsonLanniIntegrand integrand(config, r[n] * pixelSizeLateral_nm);
+        GibsonLanniIntegrand integrand(config, r[n] * pixelSizeLateral_nm, this->besselHelper);
         h[n] = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
     }
 
@@ -279,8 +278,8 @@ std::vector<float> GibsonLanniPSFGenerator::singlePlanePSF(const GibsonLanniPSFC
 }
 
 
-GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r)
-    : config(config), r(r) {
+GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r, const BesselHelper& besselHelper)
+    : config(config), r(r), besselHelper(besselHelper) {
         k0 = 2.0 * M_PI / config.lambda_nm;
         k0NAr = k0 * config.NA * r;
     }
@@ -288,7 +287,7 @@ GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, d
 std::array<double, 2> GibsonLanniIntegrand::operator()(double rho) const {
     std::array<double, 2> I = {0.0, 0.0};
 
-    const BesselHelper& besselHelper = BesselHelper::instance();
+    // const BesselHelper& besselHelper = BesselHelper::instance();
     double BesselValue = besselHelper.get(k0NAr * rho);
 
     if ((config.NA * rho / config.ns) > 1.0)

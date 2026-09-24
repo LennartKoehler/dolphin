@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/psf/generators/SimpsonIntegrator.h"
+#include "dolphin/psf/generators/BesselHelper.h"
 
 class GibsonLanniPSFConfig;
 
@@ -36,17 +37,19 @@ public:
     CuboidShape getPadding(PaddingStrategyType paddingType) const override;
 
 private:
-	void initBesselHelper() const;
+	void initBesselHelper() const ;
 	LateralClip clipSize() const;
+
 	std::unique_ptr<NumericalIntegrator> numericalIntegrator;
     std::shared_ptr<GibsonLanniPSFConfig> config;
+    mutable BesselHelper besselHelper;
 
 };
 
 
 class GibsonLanniIntegrand {
 public:
-    GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r);
+    GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r, const BesselHelper& besselHelper);
 	std::array<double, 2> operator()(double rho) const;
 
 private:
@@ -54,5 +57,6 @@ private:
 	const double r;
 	double k0;
 	double k0NAr;
+    const BesselHelper& besselHelper;
 };
 
