@@ -93,8 +93,6 @@ inline bool hasInf(const Image3D& img) {
         return R"({
             "model_name": "Gaussian",
             "id": "test_gaussian",
-            "res_lateral_nm": 5000,
-            "res_axial_nm": 5000,
             "size_x": 32,
             "size_y": 32,
             "size_z": 16,
@@ -110,8 +108,6 @@ inline bool hasInf(const Image3D& img) {
                 {
                     "model_name": "Gaussian",
                     "id": "inline_gauss",
-                    "res_lateral_nm": 5000,
-                    "res_axial_nm": 5000,
                     "size_x": 32,
                     "size_y": 32,
                     "size_z": 16,
@@ -127,8 +123,6 @@ inline std::string gibsonLanniPSFConfigJSON() {
     return R"({
         "model_name": "GibsonLanni",
         "id": "test_gl",
-        "res_lateral_nm": 2500,
-        "res_axial_nm": 2500,
         "size_x": 64,
         "size_y": 64,
         "size_z": 32,
@@ -247,8 +241,6 @@ inline std::string combinedWithInlinePSFJSON() {
             {
                 "model_name": "Gaussian",
                 "id": "inline_gauss",
-                "res_lateral_nm": 5000,
-                "res_axial_nm": 5000,
                 "size_x": 32,
                 "size_y": 32,
                 "size_z": 16,
@@ -266,8 +258,6 @@ inline std::string combinedWithInlinePSFJSON() {
             {
                 "model_name": "Gaussian",
                 "id": "psf1",
-                "res_lateral_nm": 5000,
-                "res_axial_nm": 5000,
                 "size_x": 32,
                 "size_y": 32,
                 "size_z": 16,
@@ -278,8 +268,6 @@ inline std::string combinedWithInlinePSFJSON() {
             {
                 "model_name": "GibsonLanni",
                 "id": "psf2",
-                "res_lateral_nm": 2500,
-                "res_axial_nm": 2500,
                 "size_x": 64,
                 "size_y": 64,
                 "size_z": 32,
@@ -332,8 +320,6 @@ inline std::string combinedWithInlinePSFJSON() {
         return R"({
             "model_name": "Gaussian",
             "id": "standalone_gauss",
-            "res_lateral_nm": 5000,
-            "res_axial_nm": 5000,
             "size_x": 16,
             "size_y": 16,
             "size_z": 8,
@@ -349,8 +335,6 @@ inline std::string combinedWithInlinePSFJSON() {
                 {
                     "model_name": "Gaussian",
                     "id": "standalone_gauss",
-                    "res_lateral_nm": 5000,
-                    "res_axial_nm": 5000,
                     "size_x": 16,
                     "size_y": 16,
                     "size_z": 8,

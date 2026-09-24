@@ -1,8 +1,6 @@
 {
   "model_name": "GibsonLanni",
   "id": "DefaultGibsonLanniConfig",
-  "res_lateral_nm": 2500,
-  "res_axial_nm": 2500,
   "size_x": 256,
   "size_y": 256,
   "size_z": 256,

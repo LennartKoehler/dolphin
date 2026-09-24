@@ -614,8 +614,6 @@ TEST_F(CLIFrontendTest, LoadPSFJSONBundle_SubObjectFormat) {
             {
                 "model_name": "Gaussian",
                 "id": "inline_gauss",
-                "res_lateral_nm": 5000,
-                "res_axial_nm": 5000,
                 "size_x": 32,
                 "size_y": 32,
                 "size_z": 16,
@@ -713,8 +711,6 @@ TEST_F(CLIFrontendTest, LoadAndMergePSF_JSONSetupAndPSF_CLIOverwritten) {
             {
                 "model_name": "Gaussian",
                 "id": "inline_gauss",
-                "res_lateral_nm": 5000,
-                "res_axial_nm": 5000,
                 "size_x": 32,
                 "size_y": 32,
                 "size_z": 16,
@@ -779,8 +775,6 @@ TEST_F(CLIFrontendTest, LoadAndGeneratePSF_InlinePSFFromJSON) {
             {
                 "model_name": "GibsonLanni",
                 "id": "test_gl",
-                "res_lateral_nm": 2500,
-                "res_axial_nm": 2500,
                 "size_x": 64,
                 "size_y": 64,
                 "size_z": 32,

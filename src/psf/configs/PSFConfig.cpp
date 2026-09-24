@@ -28,9 +28,6 @@ PSFConfig::PSFConfig(const PSFConfig& other)
     sizeX = other.sizeX;
     sizeY = other.sizeY;
     sizeZ = other.sizeZ;
-    resLateral_nm = other.resLateral_nm;
-    resAxial_nm = other.resAxial_nm;
-    NA = other.NA;
     registerAllParameters();
 
     // Copy any other members
@@ -81,9 +78,6 @@ void PSFConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Int, &sizeX, "Size X", false, "size_x", "--size_x", "PSF size X", false, true, 1, 1024, nullptr});
     parameters.push_back({ParameterType::Int, &sizeY, "Size Y", false, "size_y", "--size_y", "PSF size Y", false, true, 1, 1024, nullptr});
     parameters.push_back({ParameterType::Int, &sizeZ, "Size Z", false, "size_z", "--size_z", "PSF size Z", false, true, 1, 512, nullptr});
-    parameters.push_back({ParameterType::Float, &NA, "Numerical Aperture", false, "NA", "--NA", "Numerical aperture", false, true, 0.1, 2.0, nullptr});
-    parameters.push_back({ParameterType::Float, &resLateral_nm, "Lateral Resolution (nm)", false, "res_lateral_nm", "--res_lateral_nm", "Lateral resolution in nm", false, true, 10.0, 500.0, nullptr});
-    parameters.push_back({ParameterType::Float, &resAxial_nm, "Axial Resolution (nm)", false, "res_axial_nm", "--res_axial_nm", "Axial resolution in nm", false, true, 50.0, 2000.0, nullptr});
     parameters.push_back({ParameterType::String, &ID, "ID", true, "id", "--id", "PSF identifier", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &psfModelName, "Model Name", true, "model_name", "--model_name", "PSF model name", false, false, 0.0, 0.0, nullptr});
 }

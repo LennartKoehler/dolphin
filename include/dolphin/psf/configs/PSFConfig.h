@@ -25,20 +25,6 @@ class PSFConfig : public Config{
 public:
     PSFConfig();
 
-    PSFConfig(
-        size_t sizeX,
-        size_t sizeY,
-        size_t sizeZ,
-        float NA,
-        float resLateral_nm,
-        float resAxial_nm)
-    : sizeX(sizeX),
-    sizeY(sizeY),
-    sizeZ(sizeZ),
-    NA(NA),
-    resAxial_nm(resAxial_nm),
-    resLateral_nm(resLateral_nm){};
-
     virtual ~PSFConfig(){};
 
     PSFConfig(const PSFConfig& other);
@@ -67,9 +53,6 @@ public:
     size_t sizeX = 20;
     size_t sizeY = 20;
     size_t sizeZ = 10;
-    float NA = 1.0f;
-    float resLateral_nm = 200.0f;
-    float resAxial_nm = 200.0f;
 
 protected:
     void registerAllParameters();

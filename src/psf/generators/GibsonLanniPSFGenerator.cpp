@@ -112,10 +112,11 @@ void GibsonLanniPSFGenerator::initBesselHelper() const {
     double max_k0NAr = k0 * config->NA * maxRadius * config->pixelSizeLateral_nm;
     double maxRho = std::min(float(1), config->ns / config->NA);
 
-    double maxValue = max_k0NAr * maxRho; // TODO IMPORTANT is maxvalue just sizeX or sizeY?
+    // maxRadius covers the image corner, so any sizeX/sizeY asymmetry is included
+    double maxValue = max_k0NAr * maxRho;
     double dx = 0.1;
 
-    besselHelper.init(0, maxValue, dx);
+    besselHelper.init(maxValue, dx);
 }
 
 LateralClip GibsonLanniPSFGenerator::clipSize() const {

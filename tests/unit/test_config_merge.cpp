@@ -180,7 +180,10 @@ TEST_F(ConfigMergeTest, InlinePSFGibsonLanni) {
     ASSERT_NE(config, nullptr);
     EXPECT_EQ(config->getModelName(), "GibsonLanni");
     EXPECT_EQ(config->sizeX, 64);
-    EXPECT_FLOAT_EQ(config->NA, 1.4f);
+
+    auto* glConfig = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
+    ASSERT_NE(glConfig, nullptr);
+    EXPECT_FLOAT_EQ(glConfig->NA, 1.4f);
 }
 
 TEST_F(ConfigMergeTest, InlinePSFMultiple) {
@@ -443,8 +446,6 @@ TEST_F(ConfigMergeTest, CLISim_SetupAndPSFInJSON_DeconvKeepsCLI) {
             {
                 "model_name": "Gaussian",
                 "id": "inline_gauss",
-                "res_lateral_nm": 5000,
-                "res_axial_nm": 5000,
                 "size_x": 32,
                 "size_y": 32,
                 "size_z": 16,
@@ -522,8 +523,6 @@ TEST_F(ConfigMergeTest, CLISim_AllThreeSectionsInJSON) {
             {
                 "model_name": "Gaussian",
                 "id": "inline1",
-                "res_lateral_nm": 5000,
-                "res_axial_nm": 5000,
                 "size_x": 32,
                 "size_y": 32,
                 "size_z": 16,
@@ -743,8 +742,6 @@ TEST_F(ConfigMergeTest, PSFSim_SetupAndPSFInJSON_CLIOverwritten) {
             {
                 "model_name": "Gaussian",
                 "id": "inline_gauss",
-                "res_lateral_nm": 5000,
-                "res_axial_nm": 5000,
                 "size_x": 32,
                 "size_y": 32,
                 "size_z": 16,
