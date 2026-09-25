@@ -105,6 +105,9 @@ endif()
 # GoogleTest — fetched only when tests are enabled
 option(ENABLE_TESTS "Enable tests" ON)
 option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
+# Individual per-file test executables (debugging aid); the combined
+# dolphin_all_tests binary is always built when ENABLE_TESTS=ON.
+option(DOLPHIN_INDIVIDUAL_TESTS "Build individual test executables in addition to the combined test binary" OFF)
 
 if(ENABLE_TESTS)
     # Ensure GoogleTest uses the same CRT (dynamic /MD) as the project

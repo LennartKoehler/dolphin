@@ -74,7 +74,7 @@ target_compile_definitions(cpu_backend PRIVATE
 target_link_libraries(cpu_backend PUBLIC
     dolphinbackend)
 
-if(ENABLE_TESTS)
+if(ENABLE_TESTS AND DOLPHIN_INDIVIDUAL_TESTS)
     add_subdirectory(tests)
 endif()
 

@@ -25,16 +25,24 @@ function(dolphin_add_test name)
     gtest_discover_tests(${name} DISCOVERY_TIMEOUT 30)
 endfunction()
 
-add_subdirectory(backends)
-add_subdirectory(IO)
-add_subdirectory(deconvolution)
-add_subdirectory(image)
-add_subdirectory(integration)
-add_subdirectory(unit)
+# ---------------------------------------------------------------------------
+# Individual test executables (opt-in, for isolated debugging)
+# ---------------------------------------------------------------------------
+if(DOLPHIN_INDIVIDUAL_TESTS)
+    add_subdirectory(backends)
+    add_subdirectory(IO)
+    add_subdirectory(deconvolution)
+    add_subdirectory(image)
+    add_subdirectory(integration)
+    add_subdirectory(unit)
+endif()
 
 # ---------------------------------------------------------------------------
 # Combined test binary — runs every test in a single executable
 # ---------------------------------------------------------------------------
+# Individual per-file test executables are only built when
+# DOLPHIN_INDIVIDUAL_TESTS=ON (option defined in the root CMakeLists.txt);
+# the combined binary below is always built and registered with ctest.
 set(ALL_TEST_SOURCES
     unit/test_cuboid_shape.cpp
     unit/test_image3d.cpp
@@ -55,6 +63,7 @@ set(ALL_TEST_SOURCES
     backends/independent_fft_test.cpp
     integration/cubeShapeTest.cpp
     integration/main_integration_test.cpp
+    integration/e2e_deconvolution_test.cpp
     image/image_comparison_test.cpp
     deconvolution/feathering_test.cpp
     deconvolution/padding_test.cpp
@@ -119,3 +128,5 @@ target_compile_definitions(dolphin_all_tests PRIVATE
 if(TARGET cuda_backend)
     set_target_properties(dolphin_all_tests PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
+
+gtest_discover_tests(dolphin_all_tests DISCOVERY_TIMEOUT 30)
