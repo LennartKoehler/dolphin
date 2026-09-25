@@ -15,6 +15,10 @@ endif()
 
 add_library(project_options INTERFACE)
 
+# Shared precompiled-header helper (cmake/DolphinPCH.cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+include(DolphinPCH)
+
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(project_options INTERFACE
@@ -200,6 +204,8 @@ set(DOLPHIN_SOURCES
 
 # Create shared library for Dolphin API
 add_library(dolphin STATIC ${DOLPHIN_SOURCES})
+
+dolphin_target_pch(dolphin)
 
 
 target_link_libraries(dolphin PRIVATE project_options)

@@ -37,6 +37,8 @@ add_library(cpu_backend STATIC
     src/CPUBackendManager.cpp
 )
 
+dolphin_target_pch(cpu_backend HEADERS <spdlog/spdlog.h>)
+
 target_include_directories(cpu_backend
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include/cpu_backend
