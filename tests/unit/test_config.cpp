@@ -201,10 +201,10 @@ TEST_F(ConfigTest, GibsonLanniPSFConfigLoadFromJSON) {
     EXPECT_EQ(config->sizeX, 0);
     EXPECT_EQ(config->sizeY, 0);
     EXPECT_EQ(config->sizeZ, 0);
-    EXPECT_FLOAT_EQ(config->NA, 1.4f);
 
     auto* glConfig = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
     ASSERT_NE(glConfig, nullptr);
+    EXPECT_FLOAT_EQ(glConfig->NA, 1.4f);
     EXPECT_FLOAT_EQ(glConfig->lambda_nm, 450.0f);
 }
 

@@ -27,6 +27,7 @@ void GibsonLanniPSFConfig::registerAllParameters(){
 
     // GibsonLanni-specific parameters
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
+    getParameters().push_back({ParameterType::Float, &NA, "Numerical Aperture", false, "NA", "--NA", "Numerical aperture", false, true, 0.1, 2.0, nullptr});
     getParameters().push_back({ParameterType::Float, &ti0_nm, "Working Distance Design (nm)", false, "working_distance_design_nm", "--working_distance_design_nm", "Working distance design", false, true, 0.0, 20000.0, nullptr});
     getParameters().push_back({ParameterType::Float, &ti_nm, "Working Distance Experimental (nm)", false, "working_distance_experimental_nm", "--working_distance_experimental_nm", "Working distance experimental", false, true, 0.0, 20000.0, nullptr});
     getParameters().push_back({ParameterType::Float, &ni0, "Immersion RI Design", false, "immersion_ri_design", "--immersion_ri_design", "Immersion RI design", false, true, 1.0, 2.0, nullptr});
@@ -45,6 +46,7 @@ void GibsonLanniPSFConfig::registerAllParameters(){
 }
 GibsonLanniPSFConfig::GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other)
     : PSFConfig(other){
+    NA = other.NA;
     ti0_nm = other.ti0_nm;
     ti_nm = other.ti_nm;
     ni0 = other.ni0;

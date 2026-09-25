@@ -40,7 +40,7 @@ Standard usage
 
 GPU acceleration
 - [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit) 12.8+ (NVIDIA CUDA Compiler Driver)
-- [cuFFT](https://docs.nvidia.com/cuda/cufft/) (for fast Fourier transforms on GPU)
+- [cuFFT](https://docs.nvidia.com/cuda/cufft/) (included in CUDA Toolkit for fast Fourier transforms on GPU)
 
 included Header files
 - [CLI11](https://github.com/CLIUtils/CLI11) (for command-line parsing)
@@ -368,7 +368,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Contact
 
-For questions or feedback, please contact [christoph.manitz@uni-jena.de].
+For questions or feedback, please contact [lennart.koehler@leibniz-hki.de].
 
 ---
 

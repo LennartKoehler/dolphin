@@ -37,8 +37,8 @@ double SimpsonIntegrator::integrateComplex(std::function<std::array<double, 2>(d
         return adaptiveSimpson(func, a, b, tolerance, accuracy);
 }
 
-double SimpsonIntegrator::integrate(std::function<double(double)> func, 
-    double a, double b, 
+double SimpsonIntegrator::integrate(std::function<double(double)> func,
+    double a, double b,
     double tolerance, int accuracy){
         throw std::runtime_error("SimpsonIntegrator::integrate() not implemented - use integrateComplex() instead");
 
@@ -47,9 +47,9 @@ double SimpsonIntegrator::integrate(std::function<double(double)> func,
 double SimpsonIntegrator::adaptiveSimpson(std::function<std::array<double, 2>(double)> func,
     double a, double b,
     double tolerance, int accuracy){
-  
+
         int K = getK(accuracy);
-        int N = 2;
+        int64_t N = 2;
         int k = 0;
         int iteration = 1;
         double del = (b - a) / 2.0;
@@ -69,7 +69,7 @@ double SimpsonIntegrator::adaptiveSimpson(std::function<std::array<double, 2>(do
         double realSum = valueX0[0] + 2.0 * sumEvenIndex[0] + 4.0 * sumOddIndex[0] + valueXn[0];
         double imagSum = valueX0[1] + 2.0 * sumEvenIndex[1] + 4.0 * sumOddIndex[1] + valueXn[1];
 
-        double curI = (realSum * realSum + imagSum * imagSum) * del * del;
+        double curI = (realSum * realSum + imagSum * imagSum) * del * del / 9.0;
         double prevI = curI;
 
         // LK compute more precise integrals by increasing the number of interpolation points
@@ -90,7 +90,7 @@ double SimpsonIntegrator::adaptiveSimpson(std::function<std::array<double, 2>(do
 
             realSum = valueX0[0] + 2.0 * sumEvenIndex[0] + 4.0 * sumOddIndex[0] + valueXn[0];
             imagSum = valueX0[1] + 2.0 * sumEvenIndex[1] + 4.0 * sumOddIndex[1] + valueXn[1];
-            curI = (realSum * realSum + imagSum * imagSum) * del * del;
+            curI = (realSum * realSum + imagSum * imagSum) * del * del / 9.0;
 
             if (prevI == 0.0)
                 curDifference = std::abs((prevI - curI) / 1e-5);

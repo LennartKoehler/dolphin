@@ -26,7 +26,10 @@ public:
     float OVER_SAMPLING = 4.0f;
     float lambda_nm = 520.0f;
     int accuracy = 32;
-    
+
+    /** Numerical aperture of the objective. */
+    float NA = 1.0f;
+
     /** Working distance of the objective (design value). */
     float ti0_nm = 150000.0f;
 

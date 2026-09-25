@@ -846,8 +846,8 @@ void CPUComputeBackend::gradientX(const ComplexData& image, ComplexData& gradX) 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width - 1; ++x) {
-                ptrGrd[offGrd + x][0] = ptrImg[offImg + x][0] - ptrImg[offImg + x + 1][0];
-                ptrGrd[offGrd + x][1] = ptrImg[offImg + x][1] - ptrImg[offImg + x + 1][1];
+                ptrGrd[offGrd + x][0] = ptrImg[offImg + x + 1][0] - ptrImg[offImg + x][0];
+                ptrGrd[offGrd + x][1] = ptrImg[offImg + x + 1][1] - ptrImg[offImg + x][1];
             }
             // Boundary: last column
             ptrGrd[offGrd + siImg.width - 1][0] = 0.0;
@@ -868,8 +868,8 @@ void CPUComputeBackend::gradientY(const ComplexData& image, ComplexData& gradY) 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width; ++x) {
-                ptrGrd[offGrd + x][0] = ptrImg[offImg + x][0] - ptrImg[offImg + siImg.stride + x][0];
-                ptrGrd[offGrd + x][1] = ptrImg[offImg + x][1] - ptrImg[offImg + siImg.stride + x][1];
+                ptrGrd[offGrd + x][0] = ptrImg[offImg + siImg.stride + x][0] - ptrImg[offImg + x][0];
+                ptrGrd[offGrd + x][1] = ptrImg[offImg + siImg.stride + x][1] - ptrImg[offImg + x][1];
             }
         }
         // Boundary: last row
@@ -894,8 +894,8 @@ void CPUComputeBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width; ++x) {
-                ptrGrd[offGrd + x][0] = ptrImg[offImg + x][0] - ptrImg[offImg + siImg.sliceStride + x][0];
-                ptrGrd[offGrd + x][1] = ptrImg[offImg + x][1] - ptrImg[offImg + siImg.sliceStride + x][1];
+                ptrGrd[offGrd + x][0] = ptrImg[offImg + siImg.sliceStride + x][0] - ptrImg[offImg + x][0];
+                ptrGrd[offGrd + x][1] = ptrImg[offImg + siImg.sliceStride + x][1] - ptrImg[offImg + x][1];
             }
         }
     }
@@ -913,15 +913,15 @@ void CPUComputeBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) 
 
 void CPUComputeBackend::computeTV(real_t lambda, const ComplexData& div, ComplexData& tv) const {
     // Expects div to contain the divergence of the smoothed normalized gradient field.
-    // Computes: tv[i] = 1 / (1 + lambda * div[i])
-    // This is the TV damping factor in the RL-TV update:
-    //   f_{n+1} = f_n * RL_correction / (1 + lambda * div)
-    // The denominator is always >= 1 for lambda > 0, so no clamping is needed.
+    // Computes: tv[i] = 1 / (1 - lambda * div[i])
+    // This is the TV damping factor in the RL-TV update (Dey et al.):
+    //   f_{n+1} = f_n * RL_correction / (1 - lambda * div)
+    // div is negative at edges/spikes (standard forward gradient + backward divergence),
+    // so the denominator > 1 there, producing damping. The clamp ensures positivity.
     stridedIteration(div, tv, [lambda](auto* rowDiv, auto* rowTv, size_t w) {
         for (size_t x = 0; x < w; ++x) {
             real_t d = rowDiv[x][0];
-            real_t denom = static_cast<real_t>(1.0) + lambda * d;
-            // Safety: ensure denominator stays positive (should always be true for well-behaved data)
+            real_t denom = static_cast<real_t>(1.0) - lambda * d;
             denom = std::max(denom, static_cast<real_t>(1e-8));
             rowTv[x][0] = static_cast<real_t>(1.0 / denom);
             rowTv[x][1] = 0.0;
@@ -962,7 +962,7 @@ void CPUComputeBackend::gradientX(const RealData& image, RealData& gradX) const 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width - 1; ++x)
-                ptrGrd[offGrd + x] = ptrImg[offImg + x] - ptrImg[offImg + x + 1];
+                ptrGrd[offGrd + x] = ptrImg[offImg + x + 1] - ptrImg[offImg + x];
             ptrGrd[offGrd + siImg.width - 1] = 0.0;
         }
     }
@@ -980,7 +980,7 @@ void CPUComputeBackend::gradientY(const RealData& image, RealData& gradY) const 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width; ++x)
-                ptrGrd[offGrd + x] = ptrImg[offImg + x] - ptrImg[offImg + siImg.stride + x];
+                ptrGrd[offGrd + x] = ptrImg[offImg + siImg.stride + x] - ptrImg[offImg + x];
         }
         // Boundary: last row
         auto offGrd = z * siGrd.sliceStride + (siImg.height - 1) * siGrd.stride;
@@ -1001,7 +1001,7 @@ void CPUComputeBackend::gradientZ(const RealData& image, RealData& gradZ) const 
             auto offImg = z * siImg.sliceStride + y * siImg.stride;
             auto offGrd = z * siGrd.sliceStride + y * siGrd.stride;
             for (size_t x = 0; x < siImg.width; ++x)
-                ptrGrd[offGrd + x] = ptrImg[offImg + x] - ptrImg[offImg + siImg.sliceStride + x];
+                ptrGrd[offGrd + x] = ptrImg[offImg + siImg.sliceStride + x] - ptrImg[offImg + x];
         }
     }
     // Boundary: last slice
@@ -1039,9 +1039,9 @@ void CPUComputeBackend::gradient(const RealData& image, RealData& gradX, RealDat
             for (size_t x = 0; x < siImg.width; ++x) {
                 bool lastX = x >= siImg.width - 1;
 
-                ptrX[offX + x] = !lastX ? ptrImg[offImg + x] - ptrImg [offImg + x + 1] : real_t(0);
-                ptrY[offY + x] = !lastY ? ptrImg[offImg + x] - ptrImg [offImg + x + siImg.stride] : real_t(0);
-                ptrZ[offZ + x] = !lastZ ? ptrImg[offImg + x] - ptrImg[offImg + x + siImg.sliceStride] : real_t(0);
+                ptrX[offX + x] = !lastX ? ptrImg[offImg + x + 1] - ptrImg[offImg + x] : real_t(0);
+                ptrY[offY + x] = !lastY ? ptrImg[offImg + x + siImg.stride] - ptrImg[offImg + x] : real_t(0);
+                ptrZ[offZ + x] = !lastZ ? ptrImg[offImg + x + siImg.sliceStride] - ptrImg[offImg + x] : real_t(0);
 
             }
         }
@@ -1116,15 +1116,15 @@ void CPUComputeBackend::divergence(const ComplexData& gx, const ComplexData& gy,
 
 void CPUComputeBackend::computeTV(real_t lambda, const RealData& div, RealData& tv) const {
     // Expects div to contain the divergence of the smoothed normalized gradient field.
-    // Computes: tv[i] = 1 / (1 + lambda * div[i])
-    // This is the TV damping factor in the RL-TV update:
-    //   f_{n+1} = f_n * RL_correction / (1 + lambda * div)
-    // The denominator is always >= 1 for lambda > 0, so no clamping is needed.
+    // Computes: tv[i] = 1 / (1 - lambda * div[i])
+    // This is the TV damping factor in the RL-TV update (Dey et al.):
+    //   f_{n+1} = f_n * RL_correction / (1 - lambda * div)
+    // div is negative at edges/spikes (standard forward gradient + backward divergence),
+    // so the denominator > 1 there, producing damping. The clamp ensures positivity.
     stridedIteration(div, tv, [lambda](auto* rowDiv, auto* rowTv, size_t w) {
         for (size_t x = 0; x < w; ++x) {
             real_t d = rowDiv[x];
             real_t denom = static_cast<real_t>(1.0) - lambda * d;
-            // Safety: ensure denominator stays positive
             denom = std::max(denom, static_cast<real_t>(1e-8));
             rowTv[x] = static_cast<real_t>(1.0 / denom);
         }

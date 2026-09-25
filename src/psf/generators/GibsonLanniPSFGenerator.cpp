@@ -124,12 +124,27 @@ PSF GibsonLanniPSFGenerator::generateFixedSizePSF() const {
     size_t offsetX = sizeX / 2 - lateralHalf;
     size_t offsetY = sizeY / 2 - lateralHalf;
 
-    for (size_t z = 0; z < sizeZ; z++) {
-        long offset = static_cast<long>(z) - zCenter;
+    auto makeSliceCfg = [&](size_t z) {
         GibsonLanniPSFConfig cfg = *config;
+        long offset = static_cast<long>(z) - zCenter;
         cfg.ti_nm = cfg.ti0_nm + pixelSizeAxial * static_cast<double>(offset);
+        return cfg;
+    };
 
-        auto slice = SinglePlanePSFAsVector(cfg, lateralHalf);
+    std::vector<std::future<SliceData>> sliceFutures;
+    sliceFutures.reserve(sizeZ);
+    for (size_t z = 0; z < sizeZ; z++) {
+        if (threadPool) {
+            sliceFutures.emplace_back(threadPool->enqueue([this, cfg = makeSliceCfg(z), lateralHalf]() {
+                return singlePlanePSF(cfg, lateralHalf);
+            }));
+        } else {
+            throw std::runtime_error("GibsonLanniPSFGenerator thredpool not configured");
+        }
+    }
+
+    for (size_t z = 0; z < sizeZ; z++) {
+        SliceData slice = sliceFutures[z].get();
         size_t sliceW = 2 * slice.lateralCutoff + 1;
 
         for (size_t y = 0; y < sliceW; y++) {
@@ -164,7 +179,7 @@ PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const {
     struct GeneratedSlice { long offset; SliceData slice; double centerVal; };
     std::vector<GeneratedSlice> slices;
 
-    auto centerSlice = SinglePlanePSFAsVector(makeCfg(0));
+    auto centerSlice = singlePlanePSF(makeCfg(0));
     size_t cc = centerSlice.lateralCutoff;
     double peakVal = centerSlice.data[cc * (2 * cc + 1) + cc];
     long peakOffset = 0;
@@ -177,7 +192,7 @@ PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const {
     while (slices.back().centerVal >= threshold * peakVal) {
         if (negOffset - 1 < -static_cast<long>(effZ / 2)) break;
         negOffset--;
-        auto slice = SinglePlanePSFAsVector(makeCfg(negOffset));
+        auto slice = singlePlanePSF(makeCfg(negOffset));
         size_t c = slice.lateralCutoff;
         double val = slice.data[c * (2 * c + 1) + c];
         if (val > peakVal) { peakVal = val; peakOffset = negOffset; }
@@ -189,7 +204,7 @@ PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const {
     while (slices[0].centerVal >= threshold * peakVal) {
         if (posOffset + 1 > static_cast<long>(effZ / 2)) break;
         posOffset++;
-        auto slice = SinglePlanePSFAsVector(makeCfg(posOffset));
+        auto slice = singlePlanePSF(makeCfg(posOffset));
         size_t c = slice.lateralCutoff;
         double val = slice.data[c * (2 * c + 1) + c];
         if (val > peakVal) { peakVal = val; peakOffset = posOffset; }
@@ -242,9 +257,9 @@ PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const {
 void GibsonLanniPSFGenerator::initBesselHelper(size_t sizeX, size_t sizeY) const {
     assert (config != nullptr && "Config not initialized");
 
-    BesselHelper& besselHelper = BesselHelper::instance();
     double nx = static_cast<double>(sizeX);
     double ny = static_cast<double>(sizeY);
+    // The center of the image in units of [pixels]
     double x0 = (nx - 1) / 2.0;
     double y0 = (ny - 1) / 2.0;
 
@@ -254,13 +269,14 @@ void GibsonLanniPSFGenerator::initBesselHelper(size_t sizeX, size_t sizeY) const
     double max_k0NAr = k0 * config->NA * maxRadius * config->pixelSizeLateral_nm;
     double maxRho = std::min(float(1), config->ns / config->NA);
 
+    // maxRadius covers the image corner, so any sizeX/sizeY asymmetry is included
     double maxValue = max_k0NAr * maxRho;
     double dx = 0.1;
 
-    besselHelper.init(0, maxValue, dx);
+    besselHelper.init(maxValue, dx);
 }
 
-GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config, size_t forcedCutoff) const {
+GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const GibsonLanniPSFConfig& config, size_t forcedCutoff) const {
     int OVER_SAMPLING = config.OVER_SAMPLING;
     double NA = config.NA;
     double pixelSizeLateral_nm = config.pixelSizeLateral_nm;
@@ -279,14 +295,14 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::SinglePlanePSFAsVect
 
     double a = 0.0;
     double b = std::min(1.0, config.ns / NA);
-    double integrationTolerance = 1E-1;
+    double integrationTolerance = 1E-6;
     int integrationAccuracy = config.accuracy;
 
     std::vector<double> h;
     if (!cachedProfile.empty()) {
         h = cachedProfile;
     } else {
-        GibsonLanniIntegrand integrand0(config, 0.0);
+        GibsonLanniIntegrand integrand0(config, 0.0, besselHelper);
         h.push_back(numericalIntegrator->integrateComplex(integrand0, a, b, integrationTolerance, integrationAccuracy));
     }
 
@@ -294,7 +310,7 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::SinglePlanePSFAsVect
         size_t n = h.size();
         while (n <= maxSamples) {
             double r_px = static_cast<double>(n) / static_cast<double>(OVER_SAMPLING);
-            GibsonLanniIntegrand integrand(config, r_px * pixelSizeLateral_nm);
+            GibsonLanniIntegrand integrand(config, r_px * pixelSizeLateral_nm, besselHelper);
             double val = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
             h.push_back(val);
             n++;
@@ -303,7 +319,7 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::SinglePlanePSFAsVect
         size_t n = h.size();
         while (n < maxSamples) {
             double r_px = static_cast<double>(n) / static_cast<double>(OVER_SAMPLING);
-            GibsonLanniIntegrand integrand(config, r_px * pixelSizeLateral_nm);
+            GibsonLanniIntegrand integrand(config, r_px * pixelSizeLateral_nm, besselHelper);
             double val = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
             h.push_back(val);
             n++;
@@ -345,8 +361,8 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::SinglePlanePSFAsVect
 }
 
 
-GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r)
-    : config(config), r(r) {
+GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r, const BesselHelper& besselHelper)
+    : config(config), r(r), besselHelper(besselHelper) {
         k0 = 2.0 * M_PI / config.lambda_nm;
         k0NAr = k0 * config.NA * r;
     }
@@ -354,7 +370,6 @@ GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, d
 std::array<double, 2> GibsonLanniIntegrand::operator()(double rho) const {
     std::array<double, 2> I = {0.0, 0.0};
 
-    const BesselHelper& besselHelper = BesselHelper::instance();
     double BesselValue = besselHelper.get(k0NAr * rho);
 
     if ((config.NA * rho / config.ns) > 1.0)

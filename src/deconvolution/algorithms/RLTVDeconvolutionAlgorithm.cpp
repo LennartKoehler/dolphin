@@ -83,10 +83,11 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         // d) Update the estimated image: fn+1' = fn * c'
         deconvolution.multiplication(f, c, f);
 
+        // fn+1 = fn+1' / (1 - lambda * div) — TV regularization (Dey et al.)
+        // div is the divergence of the normalized gradient of f. At edges/noise
+        // spikes, div < 0, so (1 - lambda*div) > 1, damping those regions.
+        // tv = 1/(1-lambda*div), so f * tv = f/(1-lambda*div).
         computeTV(f);
-        // fn+1 = fn+1' / (1 + lambda * div) — TV regularization reduces
-        // the update at edges. tv = 1/(1+lambda*div), so f * tv = f/(1+lambda*div)
-        // which is equivalent to dividing by the TV damping factor.
         deconvolution.multiplication(f, tv, f);
 
         // backend->sync();
@@ -112,7 +113,7 @@ void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
 
     deconvolution.gradient(g, gx, gy, gz);
 
-    const real_t tvBeta = static_cast<real_t>(lambda) * static_cast<real_t>(0.1);
+    const real_t tvBeta = static_cast<real_t>(1e-6);
     deconvolution.normalizeTV(gx, gy, gz, tvBeta);
 
     deconvolution.divergence(gx, gy, gz, tv);

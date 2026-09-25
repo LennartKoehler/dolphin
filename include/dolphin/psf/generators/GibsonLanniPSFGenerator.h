@@ -20,6 +20,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/psf/generators/SimpsonIntegrator.h"
+#include "dolphin/psf/generators/BesselHelper.h"
 
 class GibsonLanniPSFConfig;
 
@@ -36,14 +37,16 @@ public:
 		std::vector<float> data;
 		size_t lateralCutoff;
 	};
-	SliceData SinglePlanePSFAsVector(const GibsonLanniPSFConfig& config, size_t forcedCutoff = 0) const;
+	SliceData singlePlanePSF(const GibsonLanniPSFConfig& config, size_t forcedCutoff = 0) const;
 
 private:
 	void initBesselHelper(size_t sizeX, size_t sizeY) const;
 	PSF generateFixedSizePSF() const;
 	PSF generateAutoSizePSF() const;
+
 	std::unique_ptr<NumericalIntegrator> numericalIntegrator;
     std::shared_ptr<GibsonLanniPSFConfig> config;
+    mutable BesselHelper besselHelper;
 
 	mutable std::map<double, std::vector<double>> cachedRadialProfiles;
 	mutable std::mutex cacheMutex;
@@ -52,7 +55,7 @@ private:
 
 class GibsonLanniIntegrand {
 public:
-    GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r);
+    GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r, const BesselHelper& besselHelper);
 	std::array<double, 2> operator()(double rho) const;
 
 private:
@@ -60,5 +63,6 @@ private:
 	const double r;
 	double k0;
 	double k0NAr;
+    const BesselHelper& besselHelper;
 };
 
