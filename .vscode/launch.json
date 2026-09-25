@@ -345,11 +345,11 @@
             "name": "Debug dolphin config psfgenerator",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/frontends/cli/build/dolphin_cli",
+            "program": "${workspaceFolder}/debug_build/frontends/cli/dolphin",
             "args": [
                 "psfgenerator",
-                "-p", "../configs/default_psf_config_gibsonlanni.json",
-                "-d", "${workspaceFolder}/results"
+                "-p", "../configs/default_psf_gibsonlanni.json",
+                "-s", "../configs/default_config.json"
             ],
             "additionalSOLibSearchPath": "${workspaceFolder}/lib/cube/**",
             "stopAtEntry": false,

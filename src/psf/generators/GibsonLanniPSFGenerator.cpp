@@ -64,7 +64,7 @@ See the LICENSE file provided with the code for the full license.
 #include <itkImageRegionIterator.h>
 #include <algorithm>
 #include <cmath>
-#include <future>
+#include <mutex>
 #include <spdlog/spdlog.h>
 
 GibsonLanniPSFGenerator::GibsonLanniPSFGenerator(std::unique_ptr<NumericalIntegrator> integrator)
@@ -161,59 +161,190 @@ PSF GibsonLanniPSFGenerator::generateFixedSizePSF() const {
     return PSF(std::move(itkImage), config->ID);
 }
 
-PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const {
-    size_t effX = config->sizeX > 0 ? config->sizeX : 256;
-    size_t effY = config->sizeY > 0 ? config->sizeY : 256;
-    size_t effZ = config->sizeZ > 0 ? config->sizeZ : 256;
-    double threshold = static_cast<double>(config->cutoffThreshold);
-    double pixelSizeAxial = static_cast<double>(config->pixelSizeAxial_nm);
+
+
+PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const
+{
+    const size_t effX = config->sizeX > 0 ? config->sizeX : 256;
+    const size_t effY = config->sizeY > 0 ? config->sizeY : 256;
+    const size_t effZ = config->sizeZ > 0 ? config->sizeZ : 256;
+
+    const double threshold =
+        static_cast<double>(config->cutoffThreshold);
+
+    const double pixelSizeAxial =
+        static_cast<double>(config->pixelSizeAxial_nm);
 
     auto makeCfg = [&](long offset) {
         GibsonLanniPSFConfig cfg = *config;
         cfg.sizeX = effX;
         cfg.sizeY = effY;
-        cfg.ti_nm = cfg.ti0_nm + pixelSizeAxial * static_cast<double>(offset);
+        cfg.ti_nm =
+            cfg.ti0_nm +
+            pixelSizeAxial * static_cast<double>(offset);
         return cfg;
     };
-
-    struct GeneratedSlice { long offset; SliceData slice; double centerVal; };
-    std::vector<GeneratedSlice> slices;
-
-    auto centerSlice = singlePlanePSF(makeCfg(0));
-    size_t cc = centerSlice.lateralCutoff;
-    double peakVal = centerSlice.data[cc * (2 * cc + 1) + cc];
-    long peakOffset = 0;
-    size_t maxCutoff = centerSlice.lateralCutoff;
-    slices.push_back({0, std::move(centerSlice), peakVal});
-
     progressTracker.setMax(effZ);
 
-    long negOffset = 0;
-    while (slices.back().centerVal >= threshold * peakVal) {
-        if (negOffset - 1 < -static_cast<long>(effZ / 2)) break;
-        negOffset--;
-        auto slice = singlePlanePSF(makeCfg(negOffset));
-        size_t c = slice.lateralCutoff;
-        double val = slice.data[c * (2 * c + 1) + c];
-        if (val > peakVal) { peakVal = val; peakOffset = negOffset; }
-        maxCutoff = std::max(maxCutoff, slice.lateralCutoff);
-        slices.push_back({negOffset, std::move(slice), val});
-    }
+    struct GeneratedSlice {
+        long offset;
+        SliceData slice;
+        double centerVal;
+    };
 
-    long posOffset = 0;
-    while (slices[0].centerVal >= threshold * peakVal) {
-        if (posOffset + 1 > static_cast<long>(effZ / 2)) break;
-        posOffset++;
-        auto slice = singlePlanePSF(makeCfg(posOffset));
-        size_t c = slice.lateralCutoff;
-        double val = slice.data[c * (2 * c + 1) + c];
-        if (val > peakVal) { peakVal = val; peakOffset = posOffset; }
-        maxCutoff = std::max(maxCutoff, slice.lateralCutoff);
-        slices.insert(slices.begin(), {posOffset, std::move(slice), val});
-    }
+    struct PendingSlice {
+        long offset;
+        std::future<std::optional<SliceData>> future;
+    };
 
-    long maxNeg = std::abs(peakOffset - negOffset);
-    long maxPos = posOffset - peakOffset;
+    std::vector<GeneratedSlice> slices;
+
+    // Generate center synchronously.
+    SliceData centerSlice = singlePlanePSF(makeCfg(0));
+
+    const size_t centerCutoff = centerSlice.lateralCutoff;
+    double peakVal =
+        centerSlice.data[
+            centerCutoff * (2 * centerCutoff + 1) +
+            centerCutoff
+        ];
+
+    size_t maxCutoff = centerSlice.lateralCutoff;
+
+    slices.push_back({
+        0,
+        std::move(centerSlice),
+        peakVal
+    });
+
+    const long maxOffset = static_cast<long>(effZ / 2);
+    const size_t lookAhead =
+        threadPool->getNumberWorkers() + 2;
+
+    /*
+     * direction == +1 produces 1, 2, 3, ...
+     * direction == -1 produces -1, -2, -3, ...
+     */
+    auto generateDirection = [&](long direction) {
+        std::deque<PendingSlice> pending;
+
+        auto cancelled =
+            std::make_shared<std::atomic_bool>(false);
+
+        long nextOffset = direction;
+
+        auto offsetIsValid = [&](long offset) {
+            return std::abs(offset) <= maxOffset;
+        };
+
+        auto enqueueNext = [&] {
+            const long taskOffset = nextOffset;
+            nextOffset += direction;
+
+            // Construct the configuration before submitting the task.
+            auto cfg = makeCfg(taskOffset);
+
+            pending.push_back({
+                taskOffset,
+                threadPool->enqueue(
+                    [this,
+                     cfg = std::move(cfg),
+                     cancelled]() mutable
+                        -> std::optional<SliceData>
+                    {
+                        if (cancelled->load(
+                                std::memory_order_relaxed)) {
+                            return std::nullopt;
+                        }
+
+                        return singlePlanePSF(cfg);
+                    })
+            });
+        };
+
+        // Initially fill the pipeline.
+        while (pending.size() < lookAhead &&
+               offsetIsValid(nextOffset)) {
+            enqueueNext();
+        }
+
+        while (!pending.empty()) {
+            PendingSlice current =
+                std::move(pending.front());
+
+            pending.pop_front();
+
+            // Futures are consumed in enqueue order.
+            std::optional<SliceData> result =
+                current.future.get();
+
+            if (!result) {
+                continue;
+            }
+
+            SliceData slice = std::move(*result);
+
+            const size_t c = slice.lateralCutoff;
+            const double value =
+                slice.data[c * (2 * c + 1) + c];
+
+            if (value > peakVal) {
+                peakVal = value;
+            }
+
+            maxCutoff =
+                std::max(maxCutoff, slice.lateralCutoff);
+
+            if (value < threshold * peakVal) {
+                cancelled->store(
+                    true,
+                    std::memory_order_relaxed);
+
+                break;
+            }
+
+            slices.push_back({
+                current.offset,
+                std::move(slice),
+                value
+            });
+
+            // Keep a fixed number of calculations in flight.
+            if (offsetIsValid(nextOffset)) {
+                enqueueNext();
+            }
+        }
+
+        /*
+         * Work that had already started must finish unless
+         * singlePlanePSF itself supports cooperative cancellation.
+         */
+        cancelled->store(true, std::memory_order_relaxed);
+
+        for (PendingSlice& task : pending) {
+            task.future.wait();
+        }
+    };
+
+    generateDirection(-1);
+    generateDirection(+1);
+
+    // Final physical order: -N, ..., -1, 0, 1, ..., N
+    std::sort(
+        slices.begin(),
+        slices.end(),
+        [](const GeneratedSlice& lhs,
+           const GeneratedSlice& rhs) {
+            return lhs.offset < rhs.offset;
+        });
+
+    const long lhsOffset = slices.front().offset;
+    const long rhsOffset = slices.back().offset;
+
+    // Anchor the image on the reference slice (offset 0) so it stays
+    // exactly centered. The shorter side is zero-padded to compensate.
+    long maxNeg = std::abs(lhsOffset);
+    long maxPos = rhsOffset;
     long zHalfExtent = std::max(maxNeg, maxPos);
     size_t psfD = static_cast<size_t>(2 * zHalfExtent + 1);
     size_t psfW = 2 * maxCutoff + 1;
@@ -233,7 +364,7 @@ PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const {
     itkImage->FillBuffer(0.0f);
 
     for (const auto& s : slices) {
-        long targetZ = s.offset - peakOffset + zHalfExtent;
+        long targetZ = s.offset + zHalfExtent;
         if (targetZ < 0 || targetZ >= static_cast<long>(psfD))
             continue;
 
