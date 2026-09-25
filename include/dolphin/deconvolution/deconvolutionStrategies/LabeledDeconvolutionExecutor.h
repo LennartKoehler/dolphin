@@ -27,7 +27,6 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IBackendMemoryManager.h"
-#include <itkImage.h>
 
 using featheringKernelPreprocessingFunction = std::function<std::unique_ptr<ComplexData>(const CuboidShape, std::shared_ptr<PSF>, IBackend&)>;
 

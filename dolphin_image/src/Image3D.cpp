@@ -12,6 +12,9 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #include "dolphin_image/Image3D.h"
+#include <itkExtractImageFilter.h>
+#include <itkRegionOfInterestImageFilter.h>
+#include <itkImageDuplicator.h>
 #include <itkTestingComparisonImageFilter.h>
 #include <cmath>
 #include <cstring>
