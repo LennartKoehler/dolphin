@@ -136,9 +136,9 @@ inline std::string gibsonLanniPSFConfigJSON() {
     return R"({
         "model_name": "GibsonLanni",
         "id": "test_gl",
-        "size_x": 64,
-        "size_y": 64,
-        "size_z": 32,
+        "size_x": 0,
+        "size_y": 0,
+        "size_z": 0,
         "NA": 1.4,
         "lambda_nm": 450.0,
         "accuracy": 32,

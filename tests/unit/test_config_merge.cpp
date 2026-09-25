@@ -24,6 +24,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/ThreadPool.h"
 #include "dolphin/Logging.h"
 #include "TestUtils.h"
+#include "dolphin_image/Types/PaddingFillType.h"
 #include "nlohmann/json.hpp"
 #include <fstream>
 #include <filesystem>
@@ -192,7 +193,7 @@ TEST_F(ConfigMergeTest, InlinePSFGibsonLanni) {
     auto config = factory.createConfig(jsonData);
     ASSERT_NE(config, nullptr);
     EXPECT_EQ(config->getModelName(), "GibsonLanni");
-    EXPECT_EQ(config->sizeX, 64);
+    EXPECT_EQ(config->sizeX, 0);
 
     auto* glConfig = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
     ASSERT_NE(glConfig, nullptr);
@@ -260,7 +261,8 @@ TEST_F(ConfigMergeTest, PSFHandlerInlineConfigsPreferredOverFilePaths) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::NONE;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig);
+    psfHandler.generatePSFs(setupConfig, CuboidShape{64, 64, 32});
+    auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 }
 
@@ -280,15 +282,15 @@ TEST_F(ConfigMergeTest, PSFHandlerDoubleLoadFix) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig);
+    psfHandler.generatePSFs(setupConfig, CuboidShape{32, 32, 16});
+    auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 
-    auto shapeResult = psfHandler.getMaxShape(setupConfig, deconvConfig);
-    ASSERT_TRUE(shapeResult.success);
+    auto shapeResult = psfHandler.getMaxShape();
 
-    EXPECT_EQ(shapeResult.value.width, 32);
-    EXPECT_EQ(shapeResult.value.height, 32);
-    EXPECT_EQ(shapeResult.value.depth, 16);
+    EXPECT_EQ(shapeResult.width, 32u);
+    EXPECT_EQ(shapeResult.height, 32u);
+    EXPECT_EQ(shapeResult.depth, 16u);
 }
 
 TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
@@ -301,10 +303,11 @@ TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig);
+    psfHandler.generatePSFs(setupConfig, CuboidShape{32, 32, 16});
+    auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 
-    EXPECT_THROW(psfHandler.createPSFs(CuboidShape{32, 32, 16}), std::runtime_error);
+    EXPECT_THROW(ImagePadding::fitToShape(*psfHandler.getPSFs()[0], CuboidShape{32, 32, 16}, PaddingFillType::ZERO), std::runtime_error);
 }
 
 
