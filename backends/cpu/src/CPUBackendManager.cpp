@@ -300,14 +300,6 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
     }
 }
 
-void FFTWManager::initializePlan(const FFTWPlanDescription& description) {
-    fftwf_plan newPlan;
-    if (description.type == PlanType::COMPLEX) newPlan = initializePlanComplex(description);
-    else if (description.type == PlanType::REAL && description.direction == PlanDirection::FORWARD) newPlan = initializePlanRealToComplex(description);
-    else if (description.type == PlanType::REAL && description.direction == PlanDirection::BACKWARD) newPlan = initializePlanComplexToReal(description);
-
-    addPlan(newPlan, description);
-}
 
 fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& description) {
     // not threadsafe!
@@ -351,6 +343,14 @@ fftwf_plan FFTWManager::initializePlanComplex(const FFTWPlanDescription& descrip
     }
 }
 
+void FFTWManager::initializePlan(const FFTWPlanDescription& description) {
+    fftwf_plan newPlan;
+    if (description.type == PlanType::COMPLEX) newPlan = initializePlanComplex(description);
+    else if (description.type == PlanType::REAL && description.direction == PlanDirection::FORWARD) newPlan = initializePlanRealToComplex(description);
+    else if (description.type == PlanType::REAL && description.direction == PlanDirection::BACKWARD) newPlan = initializePlanComplexToReal(description);
+
+    addPlan(newPlan, description);
+}
 
 void FFTWManager::destroyFFTPlans() {
     std::unique_lock<std::shared_mutex> lock(mutex_);

@@ -233,8 +233,8 @@ void StandardDeconvolutionStrategy::resolveThreadsAndDevices(
     size_t& nWorkerThreads,
     size_t& nIOThreads,
     size_t& totalThreads,
-    BackendConfig& ioconfig,
-    BackendConfig& workerconfig
+    BackendConfig& workerconfig,
+    BackendConfig& ioconfig
 ) const{
         int numberDevices = manager.getNumberDevices();
         numberDevices = std::min(numberDevices, configNDevices);
@@ -259,7 +259,6 @@ std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createC
     BackendConfig ioconfig,
     BackendConfig workerconfig
 ) const{
-
 
     std::vector<std::shared_ptr<TaskContext>> contexts;
 
