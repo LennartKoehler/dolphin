@@ -28,7 +28,7 @@ using LogCallback = std::function<void(const std::string& context, const std::st
 
 struct BackendConfig{
 
-    size_t nThreads = 1; // whatever this means for the backendmanager. But manager has the opportunity to configure this
+    size_t nThreads = 0; // whatever this means for the backendmanager. But manager has the opportunity to configure this
     std::string backendName = "default"; //TODO
     int deviceId = -1; // -1 = round-robin, >=0 = explicit device
 };
