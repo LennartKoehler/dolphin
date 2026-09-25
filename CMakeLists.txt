@@ -103,8 +103,8 @@ else()
 endif()
 
 # GoogleTest — fetched only when tests are enabled
-option(ENABLE_TESTS "Enable tests" ON)
-option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
+option(ENABLE_TESTS "Enable tests" OFF)
+option(ENABLE_BENCHMARKS "Build benchmark executables" OFF)
 # Individual per-file test executables (debugging aid); the combined
 # dolphin_all_tests binary is always built when ENABLE_TESTS=ON.
 option(DOLPHIN_INDIVIDUAL_TESTS "Build individual test executables in addition to the combined test binary" OFF)

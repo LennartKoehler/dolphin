@@ -17,12 +17,18 @@ DOLPHIN (Deconvolution with Optimized Local PSFs for High-speed Image recoNstruc
 
 ### Build Process
 ```bash
-# Build main application (CUBE is built automatically via add_subdirectory)
+# Developer build (recommended): native CUDA arch, combined test binary, no benchmarks
+cmake --preset dev
+cmake --build --preset dev
+
+# Plain build (as before)
 mkdir ./build
 cd ./build
 cmake ..
 make
 ```
+CMakePresets.json also provides `dev-ccache`, `dev-ninja`, `dev-ninja-ccache` (require the
+respective tools), `release` (full 75;80;90 CUDA arch list + benchmarks) and `cpu-only`.
 
 ### Executables
 - `./dolphin` - CLI version (CPU or GPU depending on BUILD_CUDA flag)
@@ -31,11 +37,13 @@ make
 ### Testing
 Comprehensive GoogleTest suite with ctest integration. Tests are in `tests/` directory.
 ```bash
-cd build
-cmake .. -DENABLE_TESTS=ON
-make
-ctest --output-on-failure
+cmake --preset dev                # ENABLE_TESTS=ON is set by the dev preset
+cmake --build --preset dev
+ctest --preset dev
 ```
+Tests default to OFF for plain builds (`-DENABLE_TESTS=ON` to enable). By default only the
+combined `dolphin_all_tests` binary is built (runs all 483 tests via ctest). Individual
+per-file test executables are opt-in: `-DDOLPHIN_INDIVIDUAL_TESTS=ON`.
 
 ## Critical Non-Obvious Patterns
 

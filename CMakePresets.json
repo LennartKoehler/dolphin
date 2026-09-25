@@ -1,0 +1,130 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "dev",
+      "displayName": "Developer build (fast iteration)",
+      "description": "Single native CUDA arch, no benchmarks, no individual test executables",
+      "binaryDir": "build-dev",
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CUDA_ARCHITECTURES": "native",
+        "ENABLE_TESTS": "ON",
+        "ENABLE_BENCHMARKS": "OFF",
+        "DOLPHIN_INDIVIDUAL_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "dev-ccache",
+      "displayName": "Developer build with ccache (requires ccache installed)",
+      "description": "Like dev, but routes C/C++/CUDA compiles through ccache",
+      "inherits": "dev",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER_LAUNCHER": "ccache",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "ccache",
+        "CMAKE_CUDA_COMPILER_LAUNCHER": "ccache"
+      }
+    },
+    {
+      "name": "dev-ninja",
+      "displayName": "Developer build with Ninja (requires ninja installed)",
+      "description": "Like dev, but uses the Ninja generator for faster build-graph scheduling",
+      "inherits": "dev",
+      "generator": "Ninja"
+    },
+    {
+      "name": "dev-ninja-ccache",
+      "displayName": "Developer build with Ninja + ccache (requires both installed)",
+      "description": "Fastest local iteration: Ninja scheduling plus ccache reuse across branch switches",
+      "inherits": "dev-ninja",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER_LAUNCHER": "ccache",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "ccache",
+        "CMAKE_CUDA_COMPILER_LAUNCHER": "ccache"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release build (full CUDA arch list, all extras)",
+      "description": "Matches CI/release defaults: 75;80;90 architectures, benchmarks on",
+      "binaryDir": "build-release",
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CUDA_ARCHITECTURES": "75;80;90",
+        "ENABLE_BENCHMARKS": "ON",
+        "BUILD_CLI": "ON"
+      }
+    },
+    {
+      "name": "cpu-only",
+      "displayName": "CPU-only build (no CUDA toolkit needed)",
+      "description": "Skips the CUDA backend entirely",
+      "binaryDir": "build-cpu",
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_CUDA": "OFF",
+        "ENABLE_BENCHMARKS": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "jobs": 0
+    },
+    {
+      "name": "dev-ccache",
+      "configurePreset": "dev-ccache",
+      "jobs": 0
+    },
+    {
+      "name": "dev-ninja",
+      "configurePreset": "dev-ninja",
+      "jobs": 0
+    },
+    {
+      "name": "dev-ninja-ccache",
+      "configurePreset": "dev-ninja-ccache",
+      "jobs": 0
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "jobs": 0
+    },
+    {
+      "name": "cpu-only",
+      "configurePreset": "cpu-only",
+      "jobs": 0
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 0, "stopOnFailure": false }
+    },
+    {
+      "name": "dev-ninja",
+      "configurePreset": "dev-ninja",
+      "output": { "outputOnFailure": false },
+      "execution": { "jobs": 0, "stopOnFailure": false }
+    },
+    {
+      "name": "dev-ninja-ccache",
+      "configurePreset": "dev-ninja-ccache",
+      "output": { "outputOnFailure": false },
+      "execution": { "jobs": 0, "stopOnFailure": false }
+    }
+  ]
+}
