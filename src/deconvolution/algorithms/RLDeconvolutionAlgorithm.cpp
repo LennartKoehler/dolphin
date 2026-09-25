@@ -1,15 +1,15 @@
-// This file contains the implementation of the Richardson-Lucy deconvolution algorithm.
-// Copyright by Lennart Koehler
+/*
+Copyright by Lennart Koehler
 
-// Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
-// https://www.leibniz-hki.de/en/applied-systems-biology.html
-// HKI-Center for Systems Biology of Infection
-// Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
-// Adolf-Reichwein-Straße 23, 07745 Jena, Germany
-//
-// The project code is licensed under the MIT license.
-// See the LICENSE file provided with the code for the full license.
-// */
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
 
 #include "dolphin/deconvolution/algorithms/RLDeconvolutionAlgorithm.h"
 #include <cassert>
@@ -41,7 +41,6 @@ void RLDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     //
     // Allocate memory for intermediate arrays
     c_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
-    f_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
 
     initialized = true;
 }
@@ -64,17 +63,14 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, Rea
 
     memory.memCopy(g, f);
     RealView c_real = memory.reinterpret(c_complex);
-    // f_complex = memory.reinterpret(f);
-    // RealData c_real = memory.allocateMemoryOnDeviceRealFFTInPlace(g.getSize());
-    // f_complex = memory.allocateMemoryOnDeviceComplex(g.getSize());
 
     for (int n = 0; n < iterations; ++n) {
 
         // a) First transformation: Fn = FFT(fn)
-        deconvolution.forwardFFT(f, f_complex);
+        deconvolution.forwardFFT(f, c_complex);
 
-        // Fn\' = Fn * H
-        deconvolution.complexMultiplication(f_complex, H, c_complex);
+        // Fn\' = Fn * H (in-place: c_complex * H -> c_complex)
+        deconvolution.complexMultiplication(c_complex, H, c_complex);
 
         // fn\' = IFFT(Fn\') + NORMALIZE
         deconvolution.backwardFFT(c_complex, c_real);
@@ -113,5 +109,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RLDeconvolutionAlgorithm::cloneSpecific(
 }
 
 size_t RLDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 2; // Allocates 2 additional array of input size
+    return 1; // Allocates 1 additional array of input size
 }

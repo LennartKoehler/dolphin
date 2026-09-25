@@ -26,16 +26,12 @@ using json = nlohmann::json;
 class Dolphin{
 public:
     Dolphin() = default;
-    ~Dolphin(){}
+    ~Dolphin() = default;
 
     void init(const std::filesystem::path& logDir = std::filesystem::current_path());
 
     std::unique_ptr<PSFGenerationResult> generatePSF(PSFGenerationRequest request); // should prob just take the request
     std::unique_ptr<DeconvolutionResult> deconvolve(DeconvolutionRequest request);
-
-    // std::future<std::unique_ptr<PSFGenerationResult>> generatePSFAsync(PSFGenerationRequest request);
-    // std::future<std::unique_ptr<DeconvolutionResult>> deconvolveAsync(DeconvolutionRequest request);
-
 
 private:
 
@@ -46,10 +42,4 @@ private:
 
     // Flag to track if service layer is initialized
     bool service_layer_initialized_ = false;
-
-
-    // Multithreading
-    // std::unique_ptr<ThreadPool> background_pool_;
-    // std::unordered_map<std::string, std::future<void>> running_operations_;
-    // std::mutex operations_mutex_;
 };

@@ -1,3 +1,15 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
 #include <gtest/gtest.h>
 #include "CLIFrontend.h"
 #include "dolphin/Config.h"
@@ -614,8 +626,6 @@ TEST_F(CLIFrontendTest, LoadPSFJSONBundle_SubObjectFormat) {
             {
                 "model_name": "Gaussian",
                 "id": "inline_gauss",
-                "res_lateral_nm": 5000,
-                "res_axial_nm": 5000,
                 "size_x": 32,
                 "size_y": 32,
                 "size_z": 16,
@@ -713,8 +723,6 @@ TEST_F(CLIFrontendTest, LoadAndMergePSF_JSONSetupAndPSF_CLIOverwritten) {
             {
                 "model_name": "Gaussian",
                 "id": "inline_gauss",
-                "res_lateral_nm": 5000,
-                "res_axial_nm": 5000,
                 "size_x": 32,
                 "size_y": 32,
                 "size_z": 16,
@@ -779,8 +787,6 @@ TEST_F(CLIFrontendTest, LoadAndGeneratePSF_InlinePSFFromJSON) {
             {
                 "model_name": "GibsonLanni",
                 "id": "test_gl",
-                "res_lateral_nm": 2500,
-                "res_axial_nm": 2500,
                 "size_x": 64,
                 "size_y": 64,
                 "size_z": 32,

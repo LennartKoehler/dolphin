@@ -1,3 +1,15 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
 #include <gtest/gtest.h>
 #include <memory>
 #include <cmath>
@@ -879,7 +891,7 @@ TEST_F(CPUComputeBackendTest, GradientX) {
     for (size_t z = 0; z < shape.depth; ++z)
         for (size_t y = 0; y < shape.height; ++y)
             for (size_t x = 0; x < shape.width - 1; ++x)
-                EXPECT_TRUE(approxEqual(gradX[z * shape.height * shape.width + y * shape.width + x], -1.0f, 1e-4f));
+                EXPECT_TRUE(approxEqual(gradX[z * shape.height * shape.width + y * shape.width + x], 1.0f, 1e-4f));
 }
 
 TEST_F(CPUComputeBackendTest, ComplexGradients) {

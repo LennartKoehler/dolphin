@@ -31,8 +31,6 @@ void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     c = std::move(memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize));
     c_complex = c.reinterpret(); // same data pointer, just reinterpreted
 
-    // Allocate temporary complex buffer for FFT operations
-    f_complex = memory.allocateMemoryOnDeviceComplex(dataSize);
     tv = memory.allocateMemoryOnDeviceReal(dataSize);
     gx = memory.allocateMemoryOnDeviceReal(dataSize);
     gy = memory.allocateMemoryOnDeviceReal(dataSize);
@@ -62,10 +60,10 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         if (progressFunction) progressFunction(iterations);
 
         // a) First transformation: Fn = FFT(fn)
-        deconvolution.forwardFFT(f, f_complex);
+        deconvolution.forwardFFT(f, c_complex);
 
-        // Fn' = Fn * H
-        deconvolution.complexMultiplication(f_complex, H, c_complex);
+        // Fn' = Fn * H (in-place: c_complex * H -> c_complex)
+        deconvolution.complexMultiplication(c_complex, H, c_complex);
 
         // fn' = IFFT(Fn')
         deconvolution.backwardFFT(c_complex, c);
@@ -85,10 +83,11 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         // d) Update the estimated image: fn+1' = fn * c'
         deconvolution.multiplication(f, c, f);
 
+        // fn+1 = fn+1' / (1 - lambda * div) — TV regularization (Dey et al.)
+        // div is the divergence of the normalized gradient of f. At edges/noise
+        // spikes, div < 0, so (1 - lambda*div) > 1, damping those regions.
+        // tv = 1/(1-lambda*div), so f * tv = f/(1-lambda*div).
         computeTV(f);
-        // fn+1 = fn+1' / (1 + lambda * div) — TV regularization reduces
-        // the update at edges. tv = 1/(1+lambda*div), so f * tv = f/(1+lambda*div)
-        // which is equivalent to dividing by the TV damping factor.
         deconvolution.multiplication(f, tv, f);
 
         // backend->sync();
@@ -106,7 +105,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecifi
 }
 
 size_t RLTVDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 6; // Allocates 4 additional arrays of input size
+    return 5; // Allocates 5 additional arrays of input size (c, tv, gx, gy, gz)
 }
 
 void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
@@ -114,7 +113,7 @@ void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
 
     deconvolution.gradient(g, gx, gy, gz);
 
-    const real_t tvBeta = static_cast<real_t>(lambda) * static_cast<real_t>(0.1);
+    const real_t tvBeta = static_cast<real_t>(1e-6);
     deconvolution.normalizeTV(gx, gy, gz, tvBeta);
 
     deconvolution.divergence(gx, gy, gz, tv);

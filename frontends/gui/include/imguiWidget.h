@@ -1,3 +1,15 @@
+/*
+Copyright by Lennart Koehler
+
+Research Group Applied Systems Biology - Head: Prof. Dr. Marc Thilo Figge
+https://www.leibniz-hki.de/en/applied-systems-biology.html
+HKI-Center for Systems Biology of Infection
+Leibniz Institute for Natural Product Research and Infection Biology - Hans Knöll Institute (HKI)
+Adolf-Reichwein-Straße 23, 07745 Jena, Germany
+
+The project code is licensed under the MIT license.
+See the LICENSE file provided with the code for the full license.
+*/
 #pragma once
 
 #include "GUIStyleConfig.h"
@@ -9,7 +21,7 @@
 class imguiWidget{
 public:
     imguiWidget() = default;
-    virtual ~imguiWidget(){}
+    virtual ~imguiWidget() = default;
     virtual void display(const ConfigParameter& p) = 0;
     void operator() (const ConfigParameter& p);
 
@@ -53,14 +65,14 @@ public:
 private:
     std::vector<int>* values = nullptr;
     int newValue = 0;  // Value to be added
-    
+
     void displayElement(int* val, int index);
     void addElementWidget();
     void removeElement(int index);
 };
 
 class imguiStringSelection : public imguiWidget {
-public:    
+public:
     void display(const ConfigParameter& p) override;
 
 private:

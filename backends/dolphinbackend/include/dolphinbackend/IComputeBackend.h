@@ -63,7 +63,7 @@ struct FFTPlanDescription{
 class IComputeBackend{
 public:
     IComputeBackend() = default;
-    virtual ~IComputeBackend(){};
+    virtual ~IComputeBackend() = default;
 
     /**
      * Get the device type of this backend
