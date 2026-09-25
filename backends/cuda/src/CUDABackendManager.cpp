@@ -71,7 +71,7 @@ void CUDABackendManager::init(LogCallback fn) {
         devices.push_back(CUDADevice{deviceNumber, new MemoryTracking(totalMem)});
 
         g_logger_cuda(
-            "cuda:cuda",
+            "cuda",
             fmt::format("Device {} has compute capability {}.{} and {:.2f} GB memory", deviceNumber, deviceProp.major, deviceProp.minor, (totalMem/1e9)),
             LogLevel::LOG_INFO);
 
