@@ -224,7 +224,7 @@ ConfigBundle CLIFrontend::mergeBundles(const ConfigBundle& jsonBundle, const Con
 
     if (jsonBundle.hasSetup) {
         if (cliBundle.hasSetup) {
-            spdlog::warn("Setup config loaded from JSON — CLI setup args ignored");
+            spdlog::info("Setup config loaded from JSON — CLI setup args ignored");
         }
         merged.setupConfig = jsonBundle.setupConfig;
     } else {
@@ -234,7 +234,7 @@ ConfigBundle CLIFrontend::mergeBundles(const ConfigBundle& jsonBundle, const Con
 
     if (jsonBundle.hasDeconv) {
         if (cliBundle.hasDeconv) {
-            spdlog::warn("Deconvolution config loaded from JSON — CLI deconvolution args ignored");
+            spdlog::info("Deconvolution config loaded from JSON — CLI deconvolution args ignored");
         }
         merged.deconvConfig = jsonBundle.deconvConfig;
     } else {
@@ -277,7 +277,7 @@ PSFConfigBundle CLIFrontend::mergePSFBundles(const PSFConfigBundle& jsonBundle, 
 
     if (jsonBundle.hasSetup) {
         if (cliBundle.hasSetup) {
-            spdlog::warn("Setup config loaded from JSON — CLI setup args ignored");
+            spdlog::info("Setup config loaded from JSON — CLI setup args ignored");
         }
         merged.setupConfig = jsonBundle.setupConfig;
     } else {
