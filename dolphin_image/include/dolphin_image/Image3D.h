@@ -80,8 +80,11 @@ public:
     Image3D& operator=(Image3D&&) noexcept;
     Image3D& operator=(const Image3D&);
     bool isEqual(const Image3D& other, float tolerance) const;
+    bool isEqual(PixelType value) const;
 
     Image3D getInRange(float min, float max) const;
+    void setSubimage(const BoxCoord& region, const Image3D& values);
+    void subtractSubimage(const BoxCoord& region, const Image3D& values);
 
     Image3D getSubimageCopy(const BoxCoord& coords) const;
 

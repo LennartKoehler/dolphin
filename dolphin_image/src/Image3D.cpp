@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin_image/Image3D.h"
 #include <itkTestingComparisonImageFilter.h>
+#include <itkStatisticsImageFilter.h>
 #include <cmath>
 #include <cstring>
 
@@ -76,6 +77,24 @@ Image3D& Image3D::operator=(const Image3D& other) {
         }
     }
     return *this;
+}
+
+bool Image3D::isEqual(PixelType value) const{
+    // Handle null images
+    if (image.IsNull()){
+        return true;
+    }
+
+    using StatFilterType = itk::StatisticsImageFilter<ImageType>;
+
+    auto statFilter = StatFilterType::New();
+    statFilter->SetInput(image);
+    statFilter->Update();
+
+    double minVal = statFilter->GetMinimum();
+    double maxVal = statFilter->GetMaximum();
+
+    return (minVal == value && maxVal == value);
 }
 
 bool Image3D::isEqual(const Image3D& other, float tolerance) const{
@@ -571,6 +590,68 @@ void Image3D::executeOperations(std::vector<std::reference_wrapper<IConstImageOp
             iterator++;
         }
     }
+}
+
+void Image3D::subtractSubimage(const BoxCoord& region, const Image3D& values){
+    // Compute number of pixels in a slice
+    ImageType::RegionType requestedRegion = image->GetRequestedRegion();
+
+    // Define the slice region
+    ImageType::IndexType start;
+    start[0] = region.position.width;
+    start[1] = region.position.height;
+    start[2] = region.position.depth;
+
+    ImageType::SizeType size;
+    size[0] = region.dimensions.width;
+    size[1] = region.dimensions.height;
+    size[2] = region.dimensions.depth;
+
+    ImageType::RegionType sliceRegion;
+    sliceRegion.SetIndex(start);
+    sliceRegion.SetSize(size);
+
+    // Iterator over the slice
+    itk::ImageRegionIterator<ImageType> it(image, sliceRegion);
+
+    it.GoToBegin();
+    // iterate over both images
+    for (const PixelType& other : values){
+        it.Set(it.Get() - other);
+        ++it;
+    }
+    assert(it.IsAtEnd());
+}
+
+void Image3D::setSubimage(const BoxCoord& region, const Image3D& values){
+    // Compute number of pixels in a slice
+    ImageType::RegionType requestedRegion = image->GetRequestedRegion();
+
+    // Define the slice region
+    ImageType::IndexType start;
+    start[0] = region.position.width;
+    start[1] = region.position.height;
+    start[2] = region.position.depth;
+
+    ImageType::SizeType size;
+    size[0] = region.dimensions.width;
+    size[1] = region.dimensions.height;
+    size[2] = region.dimensions.depth;
+
+    ImageType::RegionType sliceRegion;
+    sliceRegion.SetIndex(start);
+    sliceRegion.SetSize(size);
+
+    // Iterator over the slice
+    itk::ImageRegionIterator<ImageType> it(image, sliceRegion);
+
+    it.GoToBegin();
+    // iterate over both images
+    for (const PixelType& other : values){
+        it.Set(other);
+        ++it;
+    }
+    assert(it.IsAtEnd());
 }
 
 void Image3D::setSlice(size_t sliceindex, const void* data) {

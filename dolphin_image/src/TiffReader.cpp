@@ -316,7 +316,7 @@ std::shared_ptr<BufferEntry> TiffReader::readSubimage(const BoxCoord& box, std::
         f.get();
     }
 
-    spdlog::get("reader")->info("Successfully read chunk ({}): ({},{},{}) {}x{}x{}", metaData.filename, box.position.width, box.position.height, box.position.depth, box.dimensions.width, box.dimensions.height, box.dimensions.depth);
+    spdlog::get("reader")->info("Successfully read chunk ({}): ({},{},{}) {}x{}x{}", metaData.filename, source.position.width, source.position.height, source.position.depth, source.dimensions.width, source.dimensions.height, source.dimensions.depth);
     if (eptr) {
         decltype(pendingIt->waiters) waiters;
         lock.lock();
