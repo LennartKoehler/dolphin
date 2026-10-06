@@ -102,7 +102,7 @@ struct CUDABackendConfig{
 
 inline std::string buildCudaContext(const CUDABackendConfig& config) {
     std::ostringstream ctx;
-    ctx << "cuda:cuda" << config.device.id
+    ctx << "cuda" << config.device.id
         << ":stream:0x" << std::hex << reinterpret_cast<uintptr_t>(config.stream);
     return ctx.str();
 }
