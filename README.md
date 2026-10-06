@@ -30,7 +30,9 @@ Deconvolution with Optimized Local PSFs for High-speed Image recoNstruction (DOL
 - **Image Subdivision**: Processes images as grids of smaller subimages for memory efficiency and better performance.
 - **Configuration via CLI or JSON**: Users can specify parameters through command-line arguments or by providing a JSON configuration file.
 
-## Requirements
+## Build
+
+### Requirements
 
 Standard usage
 - C++20 or later
@@ -48,9 +50,7 @@ included Header files
 - [spdlog](https://github.com/gabime/spdlog) (for logging)
 - [CUBE](https://git.uni-jena.de/qi36soq/cube) (for operations on GPU)
 
-## Build
-
-### Library (CPU + GPU backends)
+### Library
 
 ```bash
 mkdir ./build
@@ -58,29 +58,6 @@ cd ./build
 
 cmake ..
 make
-```
-
-### CLI Executable
-
-The CLI frontend is **off by default**. Enable it explicitly:
-
-```bash
-mkdir ./build
-cd ./build
-
-cmake .. -DBUILD_CLI=ON
-make
-```
-
-This produces the `./dolphin` executable.
-
-### Tests
-
-```bash
-cd ./build
-cmake .. -DENABLE_TESTS=ON -DBUILD_CLI=ON
-make
-ctest --output-on-failure
 ```
 
 ### Build Options
@@ -93,7 +70,7 @@ ctest --output-on-failure
 | `ENABLE_BENCHMARKS` | `ON` | Build benchmark executables |
 | `BUILD_DOLPHIN_LIBRARY` | `ON` | Build the main dolphin static library |
 
-The CUBE library (for GPU support) is built automatically via `add_subdirectory` when `BUILD_CUDA=ON`.
+The CUBE library (for GPU support) is built automatically `BUILD_CUDA=ON`.
 
 ## Usage
 
@@ -120,7 +97,7 @@ See configs_checkpoints directory for examples of configuration files.
 
 #### Key CLI Flags
 
-All configuration parameters are also exposed as CLI flags. The most commonly used ones:
+All configuration parameters are also exposed as CLI flags:
 
 **Setup:**
 ```
@@ -187,8 +164,6 @@ A combined JSON config file contains three top-level sections: `setup_config`, `
     {
       "model_name": "Gaussian",
       "id": "ID1234",
-      "res_lateral_nm": 5000,
-      "res_axial_nm": 5000,
       "size_x": 64,
       "size_y": 64,
       "size_z": 64,
@@ -275,10 +250,7 @@ A simple Gaussian PSF defined by sigma values along each axis.
   "sigma_x": 5,
   "sigma_y": 5,
   "sigma_z": 5,
-  "quality_factor": 1.0,
-  "res_lateral_nm": 5000,
-  "res_axial_nm": 5000,
-  "NA": 1.0
+  "quality_factor": 1.0
 }
 ```
 
@@ -288,9 +260,6 @@ A simple Gaussian PSF defined by sigma values along each axis.
 | `size_x`, `size_y`, `size_z` | int | `20`, `20`, `10` | PSF dimensions in voxels |
 | `sigma_x`, `sigma_y`, `sigma_z` | float | `10.0` | Gaussian sigma per axis |
 | `quality_factor` | float | `1.0` | Blur factor (1.0 = ideal, >1 = blurrier) |
-| `res_lateral_nm` | float | `200.0` | Lateral resolution in nm |
-| `res_axial_nm` | float | `200.0` | Axial resolution in nm |
-| `NA` | float | `1.0` | Numerical aperture |
 | `nanometer_scale` | float | `1e-9` | Nanometer scale factor |
 | `pixel_scaling` | float | `1e-6` | Pixel scaling factor |
 
@@ -306,8 +275,6 @@ A physically-based PSF model accounting for microscope optical design and experi
   "size_y": 64,
   "size_z": 64,
   "NA": 1.4,
-  "res_lateral_nm": 100,
-  "res_axial_nm": 100,
   "lambda_nm": 520.0,
   "working_distance_design_nm": 150000.0,
   "working_distance_experimental_nm": 150000.0,
@@ -331,8 +298,6 @@ A physically-based PSF model accounting for microscope optical design and experi
 | `id` | string | — | Identifier used in `label_psf_map` |
 | `size_x`, `size_y`, `size_z` | int | `20`, `20`, `10` | PSF dimensions in voxels |
 | `NA` | float | `1.0` | Numerical aperture |
-| `res_lateral_nm` | float | `200.0` | Lateral resolution in nm |
-| `res_axial_nm` | float | `200.0` | Axial resolution in nm |
 | `lambda_nm` | float | `520.0` | Emission wavelength in nm |
 | `working_distance_design_nm` | float | `150000.0` | Design working distance (objective) in nm |
 | `working_distance_experimental_nm` | float | `150000.0` | Experimental working distance in nm |
