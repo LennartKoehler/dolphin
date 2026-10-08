@@ -73,29 +73,14 @@ Result<PaddingScheme> PSFHandler::getPadding(
     const DeconvolutionConfig& deconvConfig) const
 {
     Padding padding;
-
-    switch(deconvConfig.paddingStrategyType){
-        case MANUAL:{
-            CuboidShape manualPadding{
-                static_cast<size_t>(std::max(0, deconvConfig.cubePadding[0])),
-                static_cast<size_t>(std::max(0, deconvConfig.cubePadding[1])),
-                static_cast<size_t>(std::max(0, deconvConfig.cubePadding[2]))
-            };
-            padding = Padding{manualPadding / 2, manualPadding - manualPadding / 2};
-            break;
-        }
-
-        default:{
-            std::vector<CuboidShape> psfPaddings;
-            for (const auto& psf : psfs){
-                CuboidShape paddingSize = getPSFPadding(*psf, deconvConfig.paddingStrategyType, deconvConfig.paddingRelativeMax);
-                psfPaddings.push_back(paddingSize);
-            }
-
-            CuboidShape result = getLargestShape(psfPaddings);
-            padding = Padding{result / 2, result - result / 2};
-        }
+    std::vector<CuboidShape> psfPaddings;
+    for (const auto& psf : psfs){
+        CuboidShape paddingSize = getPSFPadding(*psf, deconvConfig.paddingStrategyType, deconvConfig.paddingRelativeMax);
+        psfPaddings.push_back(paddingSize);
     }
+
+    CuboidShape result = getLargestShape(psfPaddings);
+    padding = Padding{result / 2, result - result / 2};
 
     if (padding.before < CuboidShape{0,0,0} ||
         padding.after  < CuboidShape{0,0,0})

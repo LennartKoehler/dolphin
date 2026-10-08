@@ -190,7 +190,8 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const CuboidShape& imageOriginalShape,
     const size_t& maxVolumePerCube,
     const size_t& minNumberCubes,
-    const CuboidShape& minSize)
+    const CuboidShape& minSize,
+    const bool sliceAllDimensions)
     {
 
     assert(minSize > cubePadding.getTotalPadding());
@@ -227,7 +228,20 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
                 break;
         }
 
-        bool success = decreaseLargestDim(currentMaxSize, minSize);
+        bool success = false;
+        if (sliceAllDimensions){
+            success = decreaseLargestDim(currentMaxSize, minSize);
+        }
+        else {
+            int ZDimIndex = 2;
+            size_t newSize = previousSmooth(currentMaxSize.at(ZDimIndex)); //
+            if (newSize >= minSize.at(ZDimIndex)){
+                currentMaxSize.at(ZDimIndex) = newSize;
+                success = true;
+            }
+            success = false;
+        }
+
         if (!success)
         {
             return Result<std::vector<BoxCoordWithPadding>>::fail(
@@ -235,6 +249,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
         }
     }
     size_t targetCubeCount = cubePositions.size();
+    // shouldnt need to know about sliceAllDimensions as it doesnt slice itself, just reduce all sizes (which should only be z dim) as thats the only one sliced in that case
     cubePositions = reduceSizeWhileKeepingNCubes(
         currentMaxSize,
         imageOriginalShape,

@@ -208,7 +208,15 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
         throw std::runtime_error("Deconvolution with the largest PSF and padding requires too much memory. The minimum size for one cube would be: " + minShape.print());
     }
 
-    Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(paddingScheme.insidePadding, paddingScheme.imagePadding, imageSize, maxMemCubeVolume, workerThreads * nDevices, minShape);
+    Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult = splitImageHomogeneous(
+        paddingScheme.insidePadding,
+		paddingScheme.imagePadding,
+		imageSize,
+		maxMemCubeVolume,
+		workerThreads * nDevices,
+		minShape,
+		deconvConfig.sliceAllDimensions);
+
     if (!cubeCoordinatesWithPaddingResult.success) {
         throw std::runtime_error("Error while splitting image: " + cubeCoordinatesWithPaddingResult.getErrorString());
     }
