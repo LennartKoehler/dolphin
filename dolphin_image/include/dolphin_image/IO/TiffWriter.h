@@ -19,8 +19,6 @@ See the LICENSE file provided with the code for the full license.
 #include <memory>
 
 #include <tiffio.h>
-#include <itkImageSliceIteratorWithIndex.h>
-#include <itkImageRegionIterator.h>
 #include "dolphin_image/IO/ReaderWriter.h"
 #include "dolphin_image/IO/TiffExceptions.h"
 #include "dolphin_image/ImageMetaData.h"

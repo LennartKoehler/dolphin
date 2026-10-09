@@ -43,7 +43,7 @@ target_link_libraries(cuda_backend PRIVATE project_options)
 
 
 
-if(ENABLE_TESTS)
+if(ENABLE_TESTS AND DOLPHIN_INDIVIDUAL_TESTS)
     add_subdirectory(tests)
 endif()
 

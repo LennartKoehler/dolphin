@@ -76,6 +76,7 @@ WORKDIR /workspace/build
 RUN cmake -DCMAKE_BUILD_TYPE=Release \
           -DBUILD_CUDA=OFF \
           -DBUILD_CLI=ON \
+          -DENABLE_TESTS=ON \
           -DFFTW_PATH="/usr/local/fftw3/lib" \
           .. && \
     cmake --build . -- -j$(nproc) && \
