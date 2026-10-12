@@ -13,10 +13,13 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 #include <vector>
+#include <memory>
 #include "dolphin/Config.h"
 #include <array>
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/Logging.h"
+
+class PSFConfig;
 
 enum OutputCompressionType {
     OUTPUT_COMPRESSION_NONE = 1,
@@ -89,6 +92,10 @@ public:
     std::string imagePath;
     std::vector<std::string> psfFilePaths;
     bool savePsf = false;
+
+    // Runtime-only PSF model definitions to generate (not serialized to/from JSON).
+    // Carried here so the deconvolution request needs no separate PSF channel.
+    std::vector<std::shared_ptr<PSFConfig>> psfConfigs;
 private:
     void registerAllParameters() override;
 };

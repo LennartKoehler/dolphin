@@ -202,10 +202,9 @@ TEST_F(CLIFrontendTest, GenerateDeconvRequest_WiresAllConfigs) {
     EXPECT_EQ(request.getDeconvolutionConfig()->algorithmName, "RichardsonLucy");
     EXPECT_EQ(request.getDeconvolutionConfig()->iterations, 10);
 
-    EXPECT_TRUE(request.hasInlinePSFConfigs());
-    ASSERT_EQ(request.getInlinePSFConfigs().size(), 1);
-    EXPECT_EQ(request.getInlinePSFConfigs()[0]->getModelName(), "Gaussian");
-    EXPECT_EQ(request.getInlinePSFConfigs()[0]->ID, "test_gaussian");
+    ASSERT_EQ(request.getConfig()->psfConfigs.size(), 1);
+    EXPECT_EQ(request.getConfig()->psfConfigs[0]->getModelName(), "Gaussian");
+    EXPECT_EQ(request.getConfig()->psfConfigs[0]->ID, "test_gaussian");
 }
 
 TEST_F(CLIFrontendTest, GenerateDeconvRequest_NoPSFConfigs) {
@@ -218,8 +217,7 @@ TEST_F(CLIFrontendTest, GenerateDeconvRequest_NoPSFConfigs) {
 
     DeconvolutionRequest request = fe.generateDeconvRequest(bundle);
 
-    EXPECT_FALSE(request.hasInlinePSFConfigs());
-    EXPECT_TRUE(request.getInlinePSFConfigs().empty());
+    EXPECT_TRUE(request.getConfig()->psfConfigs.empty());
 }
 
 TEST_F(CLIFrontendTest, GenerateDeconvRequest_SetupConfigValues) {
@@ -256,10 +254,9 @@ TEST_F(CLIFrontendTest, GenerateDeconvRequest_MultipleInlinePSFs) {
 
     DeconvolutionRequest request = fe.generateDeconvRequest(bundle);
 
-    EXPECT_TRUE(request.hasInlinePSFConfigs());
-    ASSERT_EQ(request.getInlinePSFConfigs().size(), 2);
-    EXPECT_EQ(request.getInlinePSFConfigs()[0]->getModelName(), "Gaussian");
-    EXPECT_EQ(request.getInlinePSFConfigs()[1]->getModelName(), "GibsonLanni");
+    ASSERT_EQ(request.getConfig()->psfConfigs.size(), 2);
+    EXPECT_EQ(request.getConfig()->psfConfigs[0]->getModelName(), "Gaussian");
+    EXPECT_EQ(request.getConfig()->psfConfigs[1]->getModelName(), "GibsonLanni");
 }
 
 // =============================================================
@@ -1013,7 +1010,7 @@ TEST_F(CLIFrontendTest, SeparateConfigs_AllSeparate_Deconvolution) {
     DeconvolutionRequest request = fe.generateDeconvRequest(merged);
     EXPECT_EQ(request.getConfig()->imagePath, "standalone_input.tif");
     EXPECT_EQ(request.getDeconvolutionConfig()->algorithmName, "RegularizedInverseFilter");
-    EXPECT_TRUE(request.hasInlinePSFConfigs());
+    EXPECT_EQ(request.getConfig()->psfConfigs.size(), 1);
 }
 
 TEST_F(CLIFrontendTest, SeparateConfigs_PSFGenerator_SetupAndPSF) {

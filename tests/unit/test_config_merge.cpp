@@ -216,35 +216,31 @@ TEST_F(ConfigMergeTest, InlinePSFMultiple) {
     EXPECT_EQ(configs[1]->ID, "psf2");
 }
 
-TEST_F(ConfigMergeTest, DeconvolutionRequestInlinePSFEmpty) {
-    auto setupConfig = std::make_shared<SetupConfig>();
-    auto deconvConfig = std::make_shared<DeconvolutionConfig>();
-    DeconvolutionRequest request(setupConfig, deconvConfig);
+TEST_F(ConfigMergeTest, SetupConfigPSFConfigsEmpty) {
+    SetupConfig setupConfig;
 
-    EXPECT_FALSE(request.hasInlinePSFConfigs());
-    EXPECT_TRUE(request.getInlinePSFConfigs().empty());
+    EXPECT_TRUE(setupConfig.psfConfigs.empty());
 }
 
-TEST_F(ConfigMergeTest, DeconvolutionRequestInlinePSFSetGet) {
-    auto setupConfig = std::make_shared<SetupConfig>();
-    auto deconvConfig = std::make_shared<DeconvolutionConfig>();
-
+TEST_F(ConfigMergeTest, SetupConfigPSFConfigsSetGet) {
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     json gaussJson = json::parse(TestUtils::gaussianPSFConfigJSON());
     auto psfConfig = factory.createConfig(gaussJson);
 
-    std::vector<std::shared_ptr<PSFConfig>> configs = {psfConfig};
+    SetupConfig setupConfig;
+    setupConfig.psfConfigs = {psfConfig};
 
-    DeconvolutionRequest request(setupConfig, deconvConfig);
-    request.setInlinePSFConfigs(configs);
+    ASSERT_EQ(setupConfig.psfConfigs.size(), 1);
+    EXPECT_EQ(setupConfig.psfConfigs[0]->getModelName(), "Gaussian");
+    EXPECT_EQ(setupConfig.psfConfigs[0]->ID, "test_gaussian");
 
-    EXPECT_TRUE(request.hasInlinePSFConfigs());
-    ASSERT_EQ(request.getInlinePSFConfigs().size(), 1);
-    EXPECT_EQ(request.getInlinePSFConfigs()[0]->getModelName(), "Gaussian");
-    EXPECT_EQ(request.getInlinePSFConfigs()[0]->ID, "test_gaussian");
+    // the runtime PSF configs survive a copy
+    SetupConfig copy = setupConfig;
+    ASSERT_EQ(copy.psfConfigs.size(), 1);
+    EXPECT_EQ(copy.psfConfigs[0].get(), psfConfig.get());
 }
 
-TEST_F(ConfigMergeTest, PSFHandlerInlineConfigsPreferredOverFilePaths) {
+TEST_F(ConfigMergeTest, PSFHandlerSetupPSFConfigs) {
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     json gaussJson = json::parse(TestUtils::gaussianPSFConfigJSON());
     auto psfConfig = factory.createConfig(gaussJson);
@@ -252,10 +248,8 @@ TEST_F(ConfigMergeTest, PSFHandlerInlineConfigsPreferredOverFilePaths) {
     auto threadPool = std::make_shared<ThreadPool>(1);
     PSFHandler psfHandler(threadPool, [](std::atomic<float>&, float){});
 
-    psfHandler.setInlinePSFConfigs({psfConfig});
-    EXPECT_TRUE(psfHandler.hasInlineConfigs());
-
     SetupConfig setupConfig;
+    setupConfig.psfConfigs = {psfConfig};
     setupConfig.psfFilePaths = {};
 
     DeconvolutionConfig deconvConfig;
@@ -274,9 +268,8 @@ TEST_F(ConfigMergeTest, PSFHandlerDoubleLoadFix) {
     auto threadPool = std::make_shared<ThreadPool>(1);
     PSFHandler psfHandler(threadPool, [](std::atomic<float>&, float){});
 
-    psfHandler.setInlinePSFConfigs({psfConfig});
-
     SetupConfig setupConfig;
+    setupConfig.psfConfigs = {psfConfig};
     setupConfig.psfFilePaths = {};
 
     DeconvolutionConfig deconvConfig;

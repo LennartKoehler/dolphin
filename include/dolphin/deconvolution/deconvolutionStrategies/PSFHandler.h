@@ -29,9 +29,6 @@ public:
     PSFHandler(std::shared_ptr<ThreadPool> threadpool, progressCallbackFn fn) : threadpool(threadpool), progressFn(fn){}
     std::unique_ptr<PSFPreprocessor> createPSFPreprocessor() const ;
 
-    void setInlinePSFConfigs(std::vector<std::shared_ptr<PSFConfig>> configs) { inlinePsfConfigs = std::move(configs); }
-    bool hasInlineConfigs() const { return !inlinePsfConfigs.empty(); }
-
     void generatePSFs(
         const SetupConfig& setupConfig,
         const CuboidShape& maxSize);
@@ -54,7 +51,6 @@ private:
     std::vector<std::shared_ptr<PSF>> psfs;
     bool psfsGenerated = false;
     std::vector<std::shared_ptr<PSFConfig>> psfConfigs;
-    std::vector<std::shared_ptr<PSFConfig>> inlinePsfConfigs;
     bool configsLoaded = false;
 };
 

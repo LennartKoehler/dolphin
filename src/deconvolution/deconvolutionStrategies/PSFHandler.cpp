@@ -36,9 +36,7 @@ void PSFHandler::loadConfigsFromSetup(const SetupConfig& setupConfig) {
     if (configsLoaded) return;
     configsLoaded = true;
 
-    if (hasInlineConfigs()) {
-        psfConfigs = inlinePsfConfigs;
-    }
+    psfConfigs = setupConfig.psfConfigs;
 
     if (!setupConfig.psfFilePaths.empty()) {
         std::vector<PSF> filePSFs = PSFCreator::readPSFsFromFilePath(setupConfig.psfFilePaths);

@@ -161,11 +161,12 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
     // --- Step 4: Deconvolution ---
     GTEST_LOG_(INFO) << "Step 4: Running deconvolution";
 
+    auto setupConfigPtr = std::make_shared<SetupConfig>(readSetupConfig);
+    setupConfigPtr->psfConfigs = {readPsfConfig};
     DeconvolutionRequest request(
-        std::make_shared<SetupConfig>(readSetupConfig),
+        setupConfigPtr,
         std::make_shared<DeconvolutionConfig>(readDeconvConfig),
         progressCallback);
-    request.setInlinePSFConfigs({readPsfConfig});
 
     auto result = dolphin->deconvolve(request);
 

@@ -48,8 +48,8 @@ void runWithConfig(std::string configpath){
         SetupConfig config = SetupConfig::createFromJSONFile(configpath);
         DeconvolutionConfig deconvConfig = DeconvolutionConfig::createFromJSONFile(configpath);
         std::shared_ptr<PSFConfig> psfConfig = PSFConfig::createFromJSONFile(configpath);
+        config.psfConfigs = {psfConfig};
         DeconvolutionRequest request(std::make_shared<SetupConfig>(config), std::make_shared<DeconvolutionConfig>(deconvConfig), progressVisualization);
-        request.setInlinePSFConfigs(std::vector<std::shared_ptr<PSFConfig>>{psfConfig});
         dolphin->deconvolve(request);
     }
     catch(const std::exception& e){

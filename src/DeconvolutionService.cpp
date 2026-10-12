@@ -98,10 +98,6 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
 
         PSFHandler psfHandler{localThreadPool, progressCallback};
 
-        if (request.hasInlinePSFConfigs()) {
-            psfHandler.setInlinePSFConfigs(request.getInlinePSFConfigs());
-        }
-
         // Create deconvolution strategy pair using factory
         DeconvolutionStrategyFactory& factory = DeconvolutionStrategyFactory::getInstance();
         auto strategyPair = factory.createStrategyPair(setupConfig, deconvConfig);
