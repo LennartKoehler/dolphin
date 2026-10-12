@@ -154,19 +154,21 @@ static void applyPaddingWeight(
 
 
 void ImagePadding::padImage(Image3D& image, const Padding& padding, PaddingFillType paddingType, float shapeScale){
-    if (paddingType == PaddingFillType::MIRROR) padImageMirror(image, padding);
-    else if (paddingType == PaddingFillType::ZERO) padImageZero(image, padding);
-    else if (paddingType == PaddingFillType::LINEAR) padImageLinear(image, padding);
-    else if (paddingType == PaddingFillType::QUADRATIC) padImageQuadratic(image, padding, shapeScale);
-    else if (paddingType == PaddingFillType::SINUSOID) padImageSinusoid(image, padding);
-    else if (paddingType == PaddingFillType::GAUSSIAN) padImageGaussian(image, padding, shapeScale);
+    if (padding.getTotalPadding() > 0){
+        if (paddingType == PaddingFillType::MIRROR) padImageMirror(image, padding);
+        else if (paddingType == PaddingFillType::ZERO) padImageZero(image, padding);
+        else if (paddingType == PaddingFillType::LINEAR) padImageLinear(image, padding);
+        else if (paddingType == PaddingFillType::QUADRATIC) padImageQuadratic(image, padding, shapeScale);
+        else if (paddingType == PaddingFillType::SINUSOID) padImageSinusoid(image, padding);
+        else if (paddingType == PaddingFillType::GAUSSIAN) padImageGaussian(image, padding, shapeScale);
+    }
 }
 
 void ImagePadding::fitToShape(Image3D& image, const CuboidShape& targetShape, PaddingFillType paddingtype) {
     CuboidShape currentShape = image.getShape();
-    if (currentShape < targetShape) {
+    if (currentShape.smallerAny(targetShape)) {
         ImagePadding::padToShape(image, targetShape, paddingtype);
-    } else if (targetShape < currentShape) {
+    } else if (targetShape.smallerAny(currentShape)) {
         ImagePadding::reduceToShape(image, targetShape);
     }
 }

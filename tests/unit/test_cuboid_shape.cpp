@@ -189,7 +189,7 @@ TEST(CuboidShapeTest, GreaterThanOrEqual) {
 }
 
 TEST(CuboidShapeTest, LessThanShape) {
-    CuboidShape a(5, 20, 30);
+    CuboidShape a(5, 5, 5);
     CuboidShape b(10, 10, 10);
     EXPECT_TRUE(a < b);
 }

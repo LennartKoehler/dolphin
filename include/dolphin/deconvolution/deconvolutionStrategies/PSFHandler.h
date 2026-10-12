@@ -38,11 +38,15 @@ public:
 
     CuboidShape getMaxShape() const;
 
-    const std::vector<std::shared_ptr<PSF>>& getPSFs() const { return psfs; }
+    std::vector<std::shared_ptr<PSF>>& getPSFs(const CuboidShape& shape);
 
 
 private:
-    CuboidShape getPSFPadding(const PSF& psf, PaddingStrategyType paddingStrategy, float paddingRelativeMax) const;
+    static std::string paddingStrategyName(PaddingStrategyType type);
+    static CuboidShape getManualCubePadding(const std::array<int, 3>& cubePadding);
+    CuboidShape getManualRelativeMaxPadding(const PSF& psf, float paddingRelativeMax) const;
+    CuboidShape getPresetPadding(const PSF& psf, PaddingStrategyType paddingType) const;
+    Result<PaddingScheme> makePaddingScheme(CuboidShape totalPadding) const;
 
     void loadConfigsFromSetup(const SetupConfig& setupConfig);
 

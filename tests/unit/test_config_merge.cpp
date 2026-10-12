@@ -273,7 +273,7 @@ TEST_F(ConfigMergeTest, PSFHandlerDoubleLoadFix) {
     setupConfig.psfFilePaths = {};
 
     DeconvolutionConfig deconvConfig;
-    deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
+    deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
 
     psfHandler.generatePSFs(setupConfig, CuboidShape{32, 32, 16});
     auto paddingResult = psfHandler.getPadding(deconvConfig);
@@ -286,7 +286,7 @@ TEST_F(ConfigMergeTest, PSFHandlerDoubleLoadFix) {
     EXPECT_EQ(shapeResult.depth, 16u);
 }
 
-TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
+TEST_F(ConfigMergeTest, PSFHandlerNoConfigsFailsPadding) {
     auto threadPool = std::make_shared<ThreadPool>(1);
     PSFHandler psfHandler(threadPool, [](std::atomic<float>&, float){});
 
@@ -294,13 +294,12 @@ TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
     setupConfig.psfFilePaths = {};
 
     DeconvolutionConfig deconvConfig;
-    deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
+    deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
 
     psfHandler.generatePSFs(setupConfig, CuboidShape{32, 32, 16});
     auto paddingResult = psfHandler.getPadding(deconvConfig);
-    ASSERT_TRUE(paddingResult.success);
-
-    EXPECT_THROW(ImagePadding::fitToShape(*psfHandler.getPSFs()[0], CuboidShape{32, 32, 16}, PaddingFillType::ZERO), std::runtime_error);
+    ASSERT_FALSE(paddingResult.success);
+    EXPECT_EQ(psfHandler.getPSFs(CuboidShape{0,0,0}).size(), 0u);
 }
 
 

@@ -164,7 +164,7 @@ inline std::string defaultDeconvConfigJSON() {
         "epsilon": 1e-6,
         "lambda": 0.001,
         "padding_fill": "mirror",
-        "padding_strategy": "parent"
+        "padding_strategy": "max"
     })";
 }
 
@@ -224,7 +224,7 @@ inline std::string defaultDeconvConfigJSON() {
             "epsilon": 1e-5,
             "lambda": 0.02,
             "padding_fill": "mirror",
-            "padding_strategy": "parent"
+            "padding_strategy": "max"
         }
     })";
     }
@@ -248,7 +248,7 @@ inline std::string combinedWithInlinePSFJSON() {
             "epsilon": 1e-6,
             "lambda": 0.001,
             "padding_fill": "mirror",
-            "padding_strategy": "parent"
+            "padding_strategy": "max"
         },
         "psf_configs": [
             {
@@ -325,7 +325,7 @@ inline std::string combinedWithInlinePSFJSON() {
             "epsilon": 1e-8,
             "lambda": 0.01,
             "padding_fill": "mirror",
-            "padding_strategy": "parent"
+            "padding_strategy": "max"
         })";
     }
 
@@ -380,7 +380,7 @@ inline std::string combinedWithInlinePSFJSON() {
                 "epsilon": 1e-6,
                 "lambda": 0.001,
                 "padding_fill": "mirror",
-                "padding_strategy": "parent"
+                "padding_strategy": "max"
             }
         })";
     }

@@ -126,7 +126,7 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
     deconvConfig.epsilon = 1e-6f;
     deconvConfig.lambda = 0.001f;
     deconvConfig.paddingFillType = PaddingFillType::MIRROR;
-    deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
+    deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
 
     std::string setupConfigPath = testDir + "/setup_config.json";
     {
@@ -155,7 +155,7 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
         EXPECT_EQ(readDeconvConfig.algorithmName, "RichardsonLucy");
         EXPECT_EQ(readDeconvConfig.iterations, 5);
         EXPECT_EQ(readDeconvConfig.paddingFillType, PaddingFillType::MIRROR);
-        EXPECT_EQ(readDeconvConfig.paddingStrategyType, PaddingStrategyType::PARENT);
+        EXPECT_EQ(readDeconvConfig.paddingStrategyType, PaddingStrategyType::LOW);
     }
 
     // --- Step 4: Deconvolution ---
