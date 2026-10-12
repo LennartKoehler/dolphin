@@ -37,14 +37,16 @@ public:
     std::string outputPath;
     std::string backend = "cpu";
 
-    int nThreads = 1;
-    int nIOThreads = 1;
-    int nWorkerThreads = 1;
-    int nDevices = 1;
-    float maxMemHost_gb = 0;
-    float maxMemDevice_gb = 0;
+    int nThreads = -1;
+    int nIOThreads = -1;
+    int nWorkerThreads = -1;
+    int numReaderThreads = -1;
 
-    int numReaderThreads = 0;
+    int nDevices = -1;
+
+    float maxMemHost_gb = -1;
+    float maxMemDevice_gb = -1;
+
 
     OutputCompressionType outputCompression = OUTPUT_COMPRESSION_NONE;
     int outputCompressionLevel = -1;
