@@ -159,7 +159,9 @@ TEST_F(PSFGeneratorTest, GaussianPSFCreateFromConfig) {
 TEST_F(PSFGeneratorTest, GibsonLanniPSFGeneration) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    auto generator = factory.createGenerator("GibsonLanni", j);
+    auto config = factory.createConfig(j);
+    config->cutoffThreshold = 0.05f;
+    auto generator = factory.createGenerator(config);
     ASSERT_NE(generator, nullptr);
     EXPECT_TRUE(generator->hasConfig());
 
@@ -173,7 +175,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniPSFGeneration) {
 TEST_F(PSFGeneratorTest, GibsonLanniPSFNoNaN) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    auto generator = factory.createGenerator("GibsonLanni", j);
+    auto config = factory.createConfig(j);
+    config->cutoffThreshold = 0.05f;
+    auto generator = factory.createGenerator(config);
     PSF psf = generator->generatePSF();
 
     for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
@@ -185,7 +189,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniPSFNoNaN) {
 TEST_F(PSFGeneratorTest, GibsonLanniPSFCentered) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    auto generator = factory.createGenerator("GibsonLanni", j);
+    auto config = factory.createConfig(j);
+    config->cutoffThreshold = 0.05f;
+    auto generator = factory.createGenerator(config);
     PSF psf = generator->generatePSF();
 
     CuboidShape shape = psf.getShape();
@@ -252,23 +258,30 @@ TEST_F(PSFGeneratorTest, GibsonLanniThresholdCutoff) {
     PSF psf = generator->generatePSF();
     CuboidShape shape = psf.getShape();
 
+    // The cutoff should shrink the PSF well below the full auto-size domain.
     EXPECT_LT(shape.width, 64u);
     EXPECT_LT(shape.height, 64u);
     EXPECT_LT(shape.depth, 32u);
 
     float maxVal = psf.getMax();
+
+    // The axial crop keeps every slice whose on-axis intensity is at or above the
+    // cutoff threshold and stops at the first slice below it. So the on-axis edge is
+    // the last *significant* slice: it sits at/above the threshold, not below it.
+    float centerEdgeZ = psf.getPixel(shape.width / 2, shape.height / 2, 0);
+    EXPECT_GE(centerEdgeZ, maxVal * 5e-2f);
+
+    // The corner lies beyond the lateral cutoff and must be negligible.
     float edgeVal = psf.getPixel(0, 0, 0);
     EXPECT_LT(edgeVal, maxVal * 5e-2f);
-
-    float centerEdgeZ = psf.getPixel(shape.width / 2, shape.height / 2, 0);
-    EXPECT_LT(centerEdgeZ, maxVal * 5e-2f);
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniThresholdPeakCentered) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    j["particle_axial_position_nm"] = 1000.0f;
-    auto generator = factory.createGenerator("GibsonLanni", j);
+    auto config = factory.createConfig(j);
+    config->cutoffThreshold = 0.05f;
+    auto generator = factory.createGenerator(config);
 
     PSF psf = generator->generatePSF();
     CuboidShape shape = psf.getShape();
@@ -290,7 +303,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniThresholdPeakCentered) {
 TEST_F(PSFGeneratorTest, GibsonLanniNoNaN) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    auto generator = factory.createGenerator("GibsonLanni", j);
+    auto config = factory.createConfig(j);
+    config->cutoffThreshold = 0.05f;
+    auto generator = factory.createGenerator(config);
     PSF psf = generator->generatePSF();
 
     for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
