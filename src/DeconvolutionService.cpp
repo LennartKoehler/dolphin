@@ -135,6 +135,8 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
             return createResult(false, plan.getErrorString(), std::chrono::duration<double>::zero());
         }
 
+        logPlan(plan.value);
+
         // TODO access deconvplan to save psfs, not very nice
         if (setupConfig->savePsf){
             for (auto psf : plan.value.tasks[0]->sharedDescriptor->psfs){
@@ -184,6 +186,50 @@ bool DeconvolutionService::validateAlgorithmConfig(const std::string& algorithm)
 bool DeconvolutionService::validateDeconvolutionRequest(const DeconvolutionRequest& request) const{
     return validateAlgorithmConfig(request.getDeconvolutionConfig()->algorithmName);
 }
+
+void DeconvolutionService::logPlan(const DeconvolutionPlan& plan) const {
+    if (plan.tasks.empty()) {
+        logger_->warn("Deconvolution plan contains no tasks");
+        return;
+    }
+
+    size_t totalEstimatedMemory_byte = 0;
+    for (const auto& task : plan.tasks) {
+        totalEstimatedMemory_byte += task->sharedDescriptor->estimatedMemoryUsage;
+    }
+    constexpr double bytesPerMiB = 1024.0 * 1024.0;
+    logger_->debug(
+        "Deconvolution plan: {} tasks (totalTasks: {}), estimated memory: {} bytes ({:.2f} MiB) total, {} bytes ({:.2f} MiB) per task",
+        plan.tasks.size(), plan.totalTasks,
+        totalEstimatedMemory_byte, static_cast<double>(totalEstimatedMemory_byte) / bytesPerMiB,
+        plan.tasks[0]->sharedDescriptor->estimatedMemoryUsage,
+        static_cast<double>(plan.tasks[0]->sharedDescriptor->estimatedMemoryUsage) / bytesPerMiB);
+
+    const CubeTaskSharedDescriptor& shared = *plan.tasks[0]->sharedDescriptor;
+    const ImageMetaData& metadata = shared.reader->getMetaData();
+    logger_->debug(
+        "Plan shared descriptor: input file '{}', image shape ({}), {} PSFs, {} devices",
+        metadata.filename, metadata.getShape().print(),
+        shared.psfs.size(), plan.tasks[0]->context->manager.getNumberDevices());
+
+    for (const auto& psf : shared.psfs) {
+        logger_->debug("Plan PSF: ID '{}', shape ({})", psf->ID, psf->getShape().print());
+    }
+
+    for (const auto& task : plan.tasks) {
+        const TaskContext& context = *task->context;
+        logger_->debug(
+            "Plan task {}: box ({}), padding before ({}), padding after ({}), padded shape ({}), device {} ({}), io threads {}, worker threads {}",
+            task->taskId,
+            task->paddedBox.box.print(),
+            task->paddedBox.padding.before.print(),
+            task->paddedBox.padding.after.print(),
+            task->paddedBox.getPaddedShape().print(),
+            context.workerconfig.deviceId, context.workerconfig.backendName,
+            context.ioconfig.nThreads, context.workerconfig.nThreads);
+    }
+}
+
 
 
 std::unique_ptr<DeconvolutionResult> DeconvolutionService::createResult(

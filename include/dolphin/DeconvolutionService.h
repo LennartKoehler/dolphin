@@ -19,6 +19,7 @@ See the LICENSE file provided with the code for the full license.
 
 // Forward declarations
 class DeconvolutionStrategyPair;
+struct DeconvolutionPlan;
 
 
 
@@ -52,6 +53,8 @@ private:
 
     bool validateAlgorithmConfig(const std::string& algorithm) const;
     bool validateDeconvolutionRequest(const DeconvolutionRequest& request) const;
+
+    void logPlan(const DeconvolutionPlan& plan) const;
 
     // Algorithm management
     std::unique_ptr<DeconvolutionStrategyPair> deconvolutionStrategyPair;
