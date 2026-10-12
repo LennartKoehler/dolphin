@@ -24,7 +24,7 @@ Deconvolution with Optimized Local PSFs for High-speed Image recoNstruction (DOL
     - Convolution
 - **Labeled Image Deconvolution**: Assign different PSFs to specific regions of the image via a labeled image and label-to-PSF mapping.
 - **Support for multiple PSFs**: Users can provide or generate multiple PSFs for specific layers or subimages.
-- **Flexible Padding**: Configurable padding fill types (zero, mirror, linear, quadratic, sinusoid, gaussian) and padding strategies (none, parent, full_psf, manual).
+- **Flexible Padding**: Configurable padding fill types (zero, mirror, linear, quadratic, sinusoid, gaussian) and PSF padding presets (none, low, medium, max) or explicit padding via `cube_padding` / `padding_relative_max`.
 - **Output Compression**: TIFF output supports none, LZW, and Deflate compression with adjustable compression level.
 - **GPU Acceleration**: Optional CUDA backend for GPU-accelerated FFT operations.
 - **Image Subdivision**: Processes images as grids of smaller subimages for memory efficiency and better performance.
@@ -109,7 +109,7 @@ dolphin deconvolution   Run deconvolution
 Both subcommands accept configuration via JSON files or individual CLI flags. When a JSON config and CLI flags overlap, the JSON config takes precedence and the CLI flags are ignored.
 
 #### Config File Flags
-See configs_checkpoints directory for examples of configuration files.
+See configs_templates directory for examples of configuration files.
 
 ```
 -c, --config <path>          Path to combined configuration file (setup + deconvolution + PSF)
@@ -145,7 +145,7 @@ All configuration parameters are also exposed as CLI flags. The most commonly us
     --epsilon <val>            Convergence threshold
     --lambda <val>             Regularization parameter
     --padding_fill <type>      Padding fill: zero, mirror, linear, quadratic, sinusoid, gaussian
-    --padding_strategy <type>  Padding strategy: none, parent, full_psf, manual
+    --padding_strategy <type>  Padding preset: none, low, medium, max
     --feathering_radius <n>   Feathering radius for subimage boundaries
 ```
 
@@ -168,7 +168,7 @@ This command will generate a PSF using the specified setup and PSF configuration
 
 ### JSON Configuration
 
-A combined JSON config file contains three top-level sections: `setup_config`, `deconvolution_config`, and `psf_configs`. Example configurations are in `configs_checkpoint/`.
+A combined JSON config file contains three top-level sections: `setup_config`, `deconvolution_config`, and `psf_configs`. Example configurations are in `configs_template/`.
 
 #### Annotated Example
 
@@ -180,7 +180,7 @@ A combined JSON config file contains three top-level sections: `setup_config`, `
     "epsilon": 1e-6,
     "lambda": 0.015,
     "padding_fill": "mirror",
-    "padding_strategy": "parent"
+    "padding_strategy": "max"
   },
 
   "psf_configs": [
@@ -246,10 +246,10 @@ A combined JSON config file contains three top-level sections: `setup_config`, `
 | `epsilon` | float | no | `1e-6` | Convergence threshold (1e-12 to 1e-3) |
 | `lambda` | float | no | `0.001` | Regularization parameter (0–1) |
 | `padding_fill` | string | no | `zero` | Fill method: `zero`, `mirror`, `linear`, `quadratic`, `sinusoid`, `gaussian` |
-| `padding_strategy` | string | no | `parent` | Strategy: `none`, `parent`, `full_psf`, `manual` |
-| `padding_relative_max` | float | no | `0` | Pad until PSF is below this fraction of max PSF value |
+| `padding_strategy` | string | no | `medium` | Preset PSF padding threshold: `none`, `low`, `medium`, `max` |
+| `padding_relative_max` | float | no | `0` | Pad until PSF is below this fraction of its max value (0–1); `> 0` overrides `padding_strategy` |
 | `feathering_radius` | int | no | `0` | Feathering radius for subimage boundaries |
-| `cube_padding` | int[3] | no | `[-1,-1,-1]` | Manual padding per axis (x, y, z); doubled internally |
+| `cube_padding` | int[3] | no | `[-1,-1,-1]` | Manual per-axis (x, y, z) padding; all `>= 0` overrides the other options |
 
 #### `psf_configs`
 
@@ -257,7 +257,7 @@ An array of PSF config objects. Each must contain a `model_name` field. See [PSF
 
 #### Labeled Image Deconvolution
 
-When `labeled_image` is set in `setup_config`, DOLPHIN switches to labeled deconvolution mode. Each unique label value in the labeled image is mapped to a PSF via `label_psf_map`. Only the labeled region's outline is deconvolved with its assigned PSF. Set `labeled_image` and `label_psf_map` in `setup_config` to enable this mode (see `configs_checkpoint/default_config.json`).
+When `labeled_image` is set in `setup_config`, DOLPHIN switches to labeled deconvolution mode. Each unique label value in the labeled image is mapped to a PSF via `label_psf_map`. Only the labeled region's outline is deconvolved with its assigned PSF. Set `labeled_image` and `label_psf_map` in `setup_config` to enable this mode (see `configs_template/default_config.json`).
 
 ### PSF Models
 
