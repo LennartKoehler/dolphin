@@ -175,5 +175,5 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const size_t& maxVolumePerCube,
     const size_t& minNumberCubes,
     const CuboidShape& minShape,
-    const bool sliceAllDimensions);
+    bool sliceAllDimensions);
 

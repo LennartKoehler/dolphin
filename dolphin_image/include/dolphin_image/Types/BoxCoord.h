@@ -29,6 +29,9 @@ struct Padding{
     size_t getPaddingHeightTotal() const { return before.height + after.height;}
     size_t getPaddingDepthTotal() const { return before.depth + after.depth;}
     CuboidShape getTotalPadding() const {return before + after;}
+    std::string print() const {
+        return "Before: " + before.print() + "; after: " + after.print();
+    }
 };
 
 
@@ -88,6 +91,9 @@ struct BoxCoordWithPadding {
     }
     BoxCoord getPaddedBox() const {
         return BoxCoord{this->box.position - this->padding.before, this->box.dimensions + this->padding.before + this->padding.after};
+    }
+    std::string print() const{
+        return "BoxCoord: (" + box.print() + "); Padding: (" + padding.print() + ")";
     }
 };
 

@@ -104,6 +104,18 @@ TEST_F(ConfigMergeTest, DeconvConfigFromSubObject) {
     EXPECT_FLOAT_EQ(config.lambda, 0.02f);
 }
 
+TEST_F(ConfigMergeTest, DeconvConfigSliceAllDimensions) {
+    auto jsonStr = R"({
+        "slice_all_dimensions": true
+    })";
+    auto path = writeTempJSON(jsonStr, "deconv_slice_dims.json");
+    auto config = DeconvolutionConfig::createFromJSONFile(path);
+    EXPECT_TRUE(config.sliceAllDimensions);
+
+    DeconvolutionConfig defaultConfig;
+    EXPECT_FALSE(defaultConfig.sliceAllDimensions);
+}
+
 TEST_F(ConfigMergeTest, DeconvConfigFromRootLevel) {
     auto jsonStr = R"({
         "algorithm_name": "Convolution",
