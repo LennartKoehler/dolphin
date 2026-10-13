@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
 #include "dolphin/psf/generators/GibsonLanniPSFGenerator.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
+#include "dolphin/psf/generators/SimpsonIntegrator.h"
 #include "dolphin/psf/PSF.h"
 #include "dolphin/Logging.h"
 #include "TestUtils.h"
@@ -32,6 +33,17 @@ protected:
         Logging::init();
     }
 };
+
+TEST_F(PSFGeneratorTest, SimpsonAccuracyMapsToK) {
+    SimpsonIntegrator integrator;
+    EXPECT_EQ(integrator.getK(1), 1);
+    EXPECT_EQ(integrator.getK(3), 3);
+    EXPECT_EQ(integrator.getK(5), 5);
+    EXPECT_EQ(integrator.getK(10), 10);
+    EXPECT_EQ(integrator.getK(0), 1);
+    EXPECT_EQ(integrator.getK(-3), 1);
+    EXPECT_EQ(integrator.getK(32), 10);
+}
 
 TEST_F(PSFGeneratorTest, FactoryGetAvailableModels) {
     auto& factory = PSFGeneratorFactory::getInstance();

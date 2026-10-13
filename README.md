@@ -322,7 +322,7 @@ A physically-based PSF model accounting for microscope optical design and experi
   "pixel_size_axial_nm": 100.0,
   "pixel_size_lateral_nm": 100.0,
   "OVER_SAMPLING": 4.0,
-  "accuracy": 32
+  "accuracy": 5
 }
 ```
 
@@ -347,7 +347,7 @@ A physically-based PSF model accounting for microscope optical design and experi
 | `pixel_size_axial_nm` | float | `100.0` | Pixel size in axial direction in nm |
 | `pixel_size_lateral_nm` | float | `100.0` | Pixel size in lateral direction in nm |
 | `OVER_SAMPLING` | float | `4.0` | Oversampling factor for PSF computation |
-| `accuracy` | int | `32` | Numerical integration accuracy |
+| `accuracy` | int | `5` | Simpson integrator convergence strictness (1..10); higher is slower |
 
 ## License
 

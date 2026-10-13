@@ -25,7 +25,10 @@ public:
 
     float OVER_SAMPLING = 4.0f;
     float lambda_nm = 520.0f;
-    int accuracy = 32;
+    /** Convergence strictness for the Simpson integrator (1..10).
+     *  Maps directly to the number of consecutive sub-interval refinements
+     *  that must meet the tolerance. Higher = stricter convergence, slower. */
+    int accuracy = 5;
 
     /** Numerical aperture of the objective. */
     float NA = 1.0f;
