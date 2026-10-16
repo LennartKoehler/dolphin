@@ -411,7 +411,7 @@ void GibsonLanniPSFGenerator::initBesselHelper(size_t sizeX, size_t sizeY) const
     double x0 = (nx - 1) / 2.0;
     double y0 = (ny - 1) / 2.0;
 
-    double k0 = 2.0 * M_PI / config->lambda_nm;
+    double k0 = 2.0 * M_PI / config->wavelength_nm;
     size_t maxRadius = static_cast<size_t>(std::round(std::sqrt((nx - x0) * (nx - x0) + (ny - y0) * (ny - y0)))) + 1;
 
     double max_k0NAr = k0 * config->NA * maxRadius * config->pixelSizeLateral_nm;
@@ -522,7 +522,7 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const
 
 GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r, const BesselHelper& besselHelper)
     : config(config), r(r), besselHelper(besselHelper) {
-        k0 = 2.0 * M_PI / config.lambda_nm;
+        k0 = 2.0 * M_PI / config.wavelength_nm;
         k0NAr = k0 * config.NA * r;
     }
 

@@ -308,7 +308,7 @@ A physically-based PSF model accounting for microscope optical design and experi
   "NA": 1.4,
   "res_lateral_nm": 100,
   "res_axial_nm": 100,
-  "lambda_nm": 520.0,
+  "wavelength_nm": 520.0,
   "working_distance_design_nm": 150000.0,
   "working_distance_experimental_nm": 150000.0,
   "immersion_ri_design": 1.515,
@@ -333,7 +333,7 @@ A physically-based PSF model accounting for microscope optical design and experi
 | `NA` | float | `1.0` | Numerical aperture |
 | `res_lateral_nm` | float | `200.0` | Lateral resolution in nm |
 | `res_axial_nm` | float | `200.0` | Axial resolution in nm |
-| `lambda_nm` | float | `520.0` | Emission wavelength in nm |
+| `wavelength_nm` | float | `520.0` | Emission wavelength in nm |
 | `working_distance_design_nm` | float | `150000.0` | Design working distance (objective) in nm |
 | `working_distance_experimental_nm` | float | `150000.0` | Experimental working distance in nm |
 | `immersion_ri_design` | float | `1.515` | Design immersion medium refractive index |

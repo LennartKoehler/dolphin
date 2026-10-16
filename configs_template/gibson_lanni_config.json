@@ -22,7 +22,7 @@
       "NA": 1.4,
       "res_lateral_nm": 100,
       "res_axial_nm": 100,
-      "lambda_nm": 520.0,
+      "wavelength_nm": 520.0,
       "working_distance_design_nm": 150000.0,
       "working_distance_experimental_nm": 150000.0,
       "immersion_ri_design": 1.515,

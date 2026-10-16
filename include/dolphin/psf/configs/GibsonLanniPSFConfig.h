@@ -24,7 +24,7 @@ public:
 
 
     float OVER_SAMPLING = 4.0f;
-    float lambda_nm = 520.0f;
+    float wavelength_nm = 520.0f;
     /** Convergence strictness for the Simpson integrator (1..10).
      *  Maps directly to the number of consecutive sub-interval refinements
      *  that must meet the tolerance. Higher = stricter convergence, slower.

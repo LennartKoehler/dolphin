@@ -205,7 +205,7 @@ TEST_F(ConfigTest, GibsonLanniPSFConfigLoadFromJSON) {
     auto* glConfig = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
     ASSERT_NE(glConfig, nullptr);
     EXPECT_FLOAT_EQ(glConfig->NA, 1.4f);
-    EXPECT_FLOAT_EQ(glConfig->lambda_nm, 450.0f);
+    EXPECT_FLOAT_EQ(glConfig->wavelength_nm, 450.0f);
 }
 
 TEST_F(ConfigTest, PSFConfigInvalidModel) {
