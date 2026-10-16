@@ -129,7 +129,10 @@ PSF GibsonLanniPSFGenerator::generateFixedSizePSF() const {
     itkImage->Allocate();
     itkImage->FillBuffer(0.0f);
 
-    long zCenter = static_cast<long>(sizeZ / 2);
+    // Center on the middle voxel like BIG ((nz-1)/2), not the floor
+    // division of sizeZ/2, which shifts the axial center by half a pixel
+    // for even sizeZ.
+    long zCenter = static_cast<long>((sizeZ - 1) / 2);
     size_t offsetX = sizeX / 2 - lateralHalf;
     size_t offsetY = sizeY / 2 - lateralHalf;
 
