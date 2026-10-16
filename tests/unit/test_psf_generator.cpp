@@ -45,6 +45,34 @@ TEST_F(PSFGeneratorTest, SimpsonAccuracyMapsToK) {
     EXPECT_EQ(integrator.getK(32), 10);
 }
 
+TEST_F(PSFGeneratorTest, GibsonLanniConfigChangeInvalidatesCache) {
+    // Two configs that share the same ti_nm (the cache key) but differ in NA.
+    // Without cache invalidation in setConfig(), the second generation would
+    // reuse the stale radial profile and produce an identical PSF.
+    auto buildConfig = [](float na) {
+        auto& factory = PSFGeneratorFactory::getInstance();
+        json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+        j["size_x"] = 33;
+        j["size_y"] = 33;
+        j["size_z"] = 5;
+        j["accuracy"] = 2;
+        j["NA"] = na;
+        return factory.createConfig(j);
+    };
+
+    auto gen = std::make_shared<GibsonLanniPSFGenerator>();
+    gen->configure(std::make_shared<ThreadPool>(), nullptr);
+
+    gen->setConfig(buildConfig(1.4f));
+    PSF first = gen->generatePSF();
+
+    gen->setConfig(buildConfig(1.0f));
+    PSF second = gen->generatePSF();
+
+    EXPECT_EQ(first.getShape(), second.getShape());
+    EXPECT_FALSE(first.isEqual(second, 1e-4f));
+}
+
 TEST_F(PSFGeneratorTest, FactoryGetAvailableModels) {
     auto& factory = PSFGeneratorFactory::getInstance();
     auto models = factory.getAvailablePSFModels();

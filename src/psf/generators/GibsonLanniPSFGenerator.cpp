@@ -82,6 +82,12 @@ void GibsonLanniPSFGenerator::setConfig(const std::shared_ptr<const PSFConfig> c
     auto* ucfg = dynamic_cast<const GibsonLanniPSFConfig*>(config.get());
     if (!ucfg) throw std::runtime_error("Wrong config type");
     this->config = std::make_unique<GibsonLanniPSFConfig>(*ucfg);
+    // Profiles are cached keyed on ti_nm only, but the integrand also
+    // depends on every other optical parameter. Invalidate on config change.
+    {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        cachedRadialProfiles.clear();
+    }
 }
 
 PSF GibsonLanniPSFGenerator::generatePSF() const {
