@@ -866,7 +866,7 @@ TEST_F(CLIFrontendTest, LoadDeconvConfigFile_RootLevelFormat) {
 
     EXPECT_EQ(config.algorithmName, "RegularizedInverseFilter");
     EXPECT_EQ(config.iterations, 30);
-    EXPECT_FLOAT_EQ(config.epsilon, 1e-8f);
+    EXPECT_FLOAT_EQ(config.min_denominator, 1e-8f);
 }
 
 TEST_F(CLIFrontendTest, LoadDeconvConfigFile_SubObjectFormat) {

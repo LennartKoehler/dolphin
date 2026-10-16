@@ -92,8 +92,8 @@
   **Default**: 1e-2.  
   **Required**: No.
 
-- `--epsilon <value>`  
-  **Description**: Epsilon value for avoiding division by zero in complex division.  
+- `--min_denominator <value>`  
+  **Description**: Lower bound on the division denominator, guards against division by zero in complex division.  
   **Default**: 1e-6.  
   **Required**: No.
 

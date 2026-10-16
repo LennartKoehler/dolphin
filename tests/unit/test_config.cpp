@@ -41,7 +41,7 @@ TEST_F(ConfigTest, DeconvolutionConfigLoadFromJSON) {
     ASSERT_TRUE(config.loadFromJSON(j));
     EXPECT_EQ(config.algorithmName, "RichardsonLucy");
     EXPECT_EQ(config.iterations, 10);
-    EXPECT_FLOAT_EQ(config.epsilon, 1e-6f);
+    EXPECT_FLOAT_EQ(config.min_denominator, 1e-6f);
     EXPECT_FLOAT_EQ(config.signal_to_noise, 0.001f);
 }
 
@@ -242,12 +242,12 @@ TEST_F(ConfigTest, ConfigWriteToJSONRoundTrip) {
     DeconvolutionConfig config1;
     config1.algorithmName = "Convolution";
     config1.iterations = 3;
-    config1.epsilon = 1e-3f;
+    config1.min_denominator = 1e-3f;
     json j = config1.writeToJSON();
 
     DeconvolutionConfig config2;
     ASSERT_TRUE(config2.loadFromJSON(j));
     EXPECT_EQ(config2.algorithmName, "Convolution");
     EXPECT_EQ(config2.iterations, 3);
-    EXPECT_FLOAT_EQ(config2.epsilon, 1e-3f);
+    EXPECT_FLOAT_EQ(config2.min_denominator, 1e-3f);
 }

@@ -161,7 +161,7 @@ inline std::string defaultDeconvConfigJSON() {
     return R"({
         "algorithm_name": "RichardsonLucy",
         "iterations": 10,
-        "epsilon": 1e-6,
+        "min_denominator": 1e-6,
         "signal_to_noise": 0.001,
         "padding_fill": "mirror",
         "padding_strategy": "max"
@@ -173,7 +173,7 @@ inline std::string defaultDeconvConfigJSON() {
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 5,
-            "epsilon": 1e-6,
+            "min_denominator": 1e-6,
             "signal_to_noise": 0.001,
             "padding_fill": "mirror"
         },
@@ -221,7 +221,7 @@ inline std::string defaultDeconvConfigJSON() {
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 20,
-            "epsilon": 1e-5,
+            "min_denominator": 1e-5,
             "signal_to_noise": 0.02,
             "padding_fill": "mirror",
             "padding_strategy": "max"
@@ -245,7 +245,7 @@ inline std::string combinedWithInlinePSFJSON() {
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 10,
-            "epsilon": 1e-6,
+            "min_denominator": 1e-6,
             "signal_to_noise": 0.001,
             "padding_fill": "mirror",
             "padding_strategy": "max"
@@ -322,7 +322,7 @@ inline std::string combinedWithInlinePSFJSON() {
         return R"({
             "algorithm_name": "RegularizedInverseFilter",
             "iterations": 30,
-            "epsilon": 1e-8,
+            "min_denominator": 1e-8,
             "signal_to_noise": 0.01,
             "padding_fill": "mirror",
             "padding_strategy": "max"
@@ -377,7 +377,7 @@ inline std::string combinedWithInlinePSFJSON() {
             "deconvolution_config": {
                 "algorithm_name": "Convolution",
                 "iterations": 1,
-                "epsilon": 1e-6,
+                "min_denominator": 1e-6,
                 "signal_to_noise": 0.001,
                 "padding_fill": "mirror",
                 "padding_strategy": "max"

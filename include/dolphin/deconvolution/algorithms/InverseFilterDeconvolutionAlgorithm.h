@@ -27,7 +27,7 @@ public:
     void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
     size_t getMemoryMultiplier() const override;
 private:
-    double epsilon;
+    double min_denominator;
     bool initialized = false;
 
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;

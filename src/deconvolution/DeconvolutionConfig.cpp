@@ -23,7 +23,7 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     : Config(),
     algorithmName(other.algorithmName),
     iterations(other.iterations),
-    epsilon(other.epsilon),
+    min_denominator(other.min_denominator),
     signal_to_noise(other.signal_to_noise),
     paddingFillType(other.paddingFillType),
     paddingStrategyType(other.paddingStrategyType),
@@ -40,7 +40,7 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(const DeconvolutionConfig& o
     if (this != &other) {
         algorithmName = other.algorithmName;
         iterations = other.iterations;
-        epsilon = other.epsilon;
+        min_denominator = other.min_denominator;
         signal_to_noise = other.signal_to_noise;
         paddingFillType = other.paddingFillType;
         paddingStrategyType = other.paddingStrategyType;
@@ -58,7 +58,7 @@ DeconvolutionConfig::DeconvolutionConfig(DeconvolutionConfig&& other) noexcept
     : Config(),
     algorithmName(std::move(other.algorithmName)),
     iterations(other.iterations),
-    epsilon(other.epsilon),
+    min_denominator(other.min_denominator),
     signal_to_noise(other.signal_to_noise),
     paddingFillType(other.paddingFillType),
     paddingStrategyType(other.paddingStrategyType),
@@ -75,7 +75,7 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(DeconvolutionConfig&& other)
     if (this != &other) {
         algorithmName = std::move(other.algorithmName);
         iterations = other.iterations;
-        epsilon = other.epsilon;
+        min_denominator = other.min_denominator;
         signal_to_noise = other.signal_to_noise;
         paddingFillType = other.paddingFillType;
         paddingStrategyType = other.paddingStrategyType;
@@ -138,7 +138,7 @@ void DeconvolutionConfig::registerAllParameters() {
     // Register each parameter as a ConfigParameter struct
     parameters.push_back({ParameterType::StringSelection, &algorithmName, "Algorithm Name", true, "algorithm_name", "--algorithm_name", "Algorithm selection", false, false, 0.0, 0.0, algorithmOptionsVoid});
     parameters.push_back({ParameterType::Int, &iterations, "Iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
-    parameters.push_back({ParameterType::Float, &epsilon, "Epsilon", true, "epsilon", "--epsilon", "Epsilon", false, true, 1e-12, 1e-3, nullptr});
+    parameters.push_back({ParameterType::Float, &min_denominator, "Min Denominator", true, "min_denominator", "--min_denominator", "Min denominator", false, true, 1e-12, 1e-3, nullptr});
     parameters.push_back({ParameterType::Float, &signal_to_noise, "Signal to Noise", true, "signal_to_noise", "--signal_to_noise", "Signal to noise ratio", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Map, &paddingFillType, "Padding Fill", true, "padding_fill", "--padding_fill", "Type of fill method for the image padding", false, true, 0.0, 5.0, paddingFillMap_p});
     parameters.push_back({ParameterType::Map, &paddingStrategyType, "Padding Strategy", true, "padding_strategy", "--padding_strategy",

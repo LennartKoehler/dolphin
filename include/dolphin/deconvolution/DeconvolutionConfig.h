@@ -45,7 +45,7 @@ public:
     // Use the struct for parameters
     std::string algorithmName = "RichardsonLucy";
     int iterations = 10;
-    float epsilon = 1e-6f;
+    float min_denominator = 1e-6f;
     float signal_to_noise = 0.1f;
     PaddingFillType paddingFillType = PaddingFillType::ZERO;
     PaddingStrategyType paddingStrategyType = PaddingStrategyType::DEFAULT;

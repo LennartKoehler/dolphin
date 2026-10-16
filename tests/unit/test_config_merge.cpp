@@ -100,7 +100,7 @@ TEST_F(ConfigMergeTest, DeconvConfigFromSubObject) {
     auto config = DeconvolutionConfig::createFromJSONFile(path);
     EXPECT_EQ(config.algorithmName, "RichardsonLucy");
     EXPECT_EQ(config.iterations, 20);
-    EXPECT_FLOAT_EQ(config.epsilon, 1e-5f);
+    EXPECT_FLOAT_EQ(config.min_denominator, 1e-5f);
     EXPECT_FLOAT_EQ(config.signal_to_noise, 0.02f);
 }
 
@@ -120,7 +120,7 @@ TEST_F(ConfigMergeTest, DeconvConfigFromRootLevel) {
     auto jsonStr = R"({
         "algorithm_name": "Convolution",
         "iterations": 3,
-        "epsilon": 1e-3,
+        "min_denominator": 1e-3,
         "signal_to_noise": 0.1
     })";
     auto path = writeTempJSON(jsonStr, "deconv_root.json");
@@ -536,7 +536,7 @@ TEST_F(ConfigMergeTest, CLISim_AllThreeSectionsInJSON) {
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 15,
-            "epsilon": 1e-4,
+            "min_denominator": 1e-4,
             "signal_to_noise": 0.05
         },
         "psf_configs": [
