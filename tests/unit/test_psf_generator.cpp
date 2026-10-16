@@ -55,7 +55,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfigChangeInvalidatesCache) {
         j["size_x"] = 33;
         j["size_y"] = 33;
         j["size_z"] = 5;
-        j["accuracy"] = 2;
+        j["integration_accuracy"] = 2;
         j["NA"] = na;
         return factory.createConfig(j);
     };

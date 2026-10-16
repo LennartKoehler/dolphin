@@ -32,7 +32,7 @@ public:
      *  Note: this is NOT compatible with the BIG PSFGenerator's accuracy
      *  semantics (0=Good, 1=Better, 2=Best). Legacy configs using 0/1/2
      *  now mean strictness 1/2. */
-    int accuracy = 5;
+    int integration_accuracy = 5;
 
     /** Numerical aperture of the objective. */
     float NA = 1.0f;

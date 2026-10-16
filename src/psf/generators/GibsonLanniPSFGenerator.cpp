@@ -455,7 +455,7 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const
     double a = 0.0;
     double b = integrationUpperBound(config);
     double integrationTolerance = 1E-6;
-    int integrationAccuracy = config.accuracy;
+    int integrationAccuracy = config.integration_accuracy;
 
     std::vector<double> h;
     if (!cachedProfile.empty()) {

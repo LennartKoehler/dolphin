@@ -789,7 +789,7 @@ TEST_F(CLIFrontendTest, LoadAndGeneratePSF_InlinePSFFromJSON) {
                 "size_z": 32,
                 "NA": 1.4,
                 "wavelength_nm": 450.0,
-                "accuracy": 5,
+                "integration_accuracy": 5,
                 "working_distance_design_nm": 150000.0,
                 "working_distance_experimental_nm": 150000.0,
                 "immersion_ri_design": 1.515,
