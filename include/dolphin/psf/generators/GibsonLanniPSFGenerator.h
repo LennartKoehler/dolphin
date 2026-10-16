@@ -43,6 +43,7 @@ private:
 	void initBesselHelper(size_t sizeX, size_t sizeY) const;
 	PSF generateFixedSizePSF() const;
 	PSF generateAutoSizePSF() const;
+	static double integrationUpperBound(const GibsonLanniPSFConfig& cfg);
 
 	std::unique_ptr<NumericalIntegrator> numericalIntegrator;
     std::shared_ptr<GibsonLanniPSFConfig> config;

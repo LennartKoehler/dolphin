@@ -95,6 +95,15 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
     if (!threadPool)
         throw std::runtime_error("GibsonLanniPSFGenerator threadpool not configured");
 
+    // The old per-evaluation "NA*rho/ns > 1" log fired on every integrand
+    // evaluation (thousands of lines per slice). Emit it once per generation
+    // instead: the violation is monotonic in rho, so if it holds at the upper
+    // bound b it holds somewhere in the domain.
+    const double rhoMax = integrationUpperBound(*config);
+    if (config->NA * rhoMax / config->ns > 1.0)
+        spdlog::warn("GibsonLanni: NA*rho/ns > 1 within the integration domain (ns={}, NA={}, rho_max={})",
+                     config->ns, config->NA, rhoMax);
+
     size_t effX = config->sizeX > 0 ? config->sizeX : 256;
     size_t effY = config->sizeY > 0 ? config->sizeY : 256;
 
@@ -415,6 +424,17 @@ void GibsonLanniPSFGenerator::initBesselHelper(size_t sizeX, size_t sizeY) const
     besselHelper.init(maxValue, dx);
 }
 
+double GibsonLanniPSFGenerator::integrationUpperBound(const GibsonLanniPSFConfig& cfg) {
+    const double NA = cfg.NA;
+    // Each sqrt(1 - (NA*rho/n)^2) term requires rho <= n/NA, so the upper
+    // bound is the tightest such limit across every medium in the path (and
+    // 1.0 at the pupil edge). For standard configs the sample (ns) is the
+    // smallest RI, so this reduces to the original min(1.0, ns/NA); only
+    // exotic configs tighten the bound.
+    return std::min({1.0, cfg.ns / NA, cfg.ni / NA, cfg.ni0 / NA,
+                     cfg.ng / NA, cfg.ng0 / NA});
+}
+
 GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const GibsonLanniPSFConfig& config, size_t forcedCutoff) const {
     int OVER_SAMPLING = config.OVER_SAMPLING;
     double NA = config.NA;
@@ -433,13 +453,7 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const
     }
 
     double a = 0.0;
-    // Each sqrt(1 - (NA*rho/n)^2) term requires rho <= n/NA, so the upper
-    // bound is the tightest such limit across every medium in the path (and
-    // 1.0 at the pupil edge). For standard configs the sample (ns) is the
-    // smallest RI, so this reduces to the original min(1.0, ns/NA); only
-    // exotic configs tighten the bound.
-    double b = std::min({1.0, config.ns / NA, config.ni / NA, config.ni0 / NA,
-                         config.ng / NA, config.ng0 / NA});
+    double b = integrationUpperBound(config);
     double integrationTolerance = 1E-6;
     int integrationAccuracy = config.accuracy;
 
@@ -516,9 +530,6 @@ std::array<double, 2> GibsonLanniIntegrand::operator()(double rho) const {
     std::array<double, 2> I = {0.0, 0.0};
 
     double BesselValue = besselHelper.get(k0NAr * rho);
-
-    if ((config.NA * rho / config.ns) > 1.0)
-        spdlog::info("Warning: NA*rho/ns > 1, (ns,NA,rho)=({}, {}, {})\n", config.ns, config.NA, rho);
 
     double naRho = config.NA * rho;
 
