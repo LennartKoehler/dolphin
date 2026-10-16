@@ -77,7 +77,9 @@ public:
     DeconvolutionType getDeconvType() {
         if (labeledImage.empty()){
             if (!labelPSFMap.empty()){
-                spdlog::get("deconvolution")->warn("Recieved label_psf_map without labeled_image, running in default deconvolution mode");
+                auto logger = spdlog::get("deconvolution");
+                if (logger)
+                    logger->warn("Recieved label_psf_map without labeled_image, running in default deconvolution mode");
             }
             return DeconvolutionType::STANDARD;
         }
