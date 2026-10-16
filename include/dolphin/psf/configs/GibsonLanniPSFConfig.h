@@ -27,7 +27,11 @@ public:
     float lambda_nm = 520.0f;
     /** Convergence strictness for the Simpson integrator (1..10).
      *  Maps directly to the number of consecutive sub-interval refinements
-     *  that must meet the tolerance. Higher = stricter convergence, slower. */
+     *  that must meet the tolerance. Higher = stricter convergence, slower.
+     *  Values outside [1,10] are clamped to that range.
+     *  Note: this is NOT compatible with the BIG PSFGenerator's accuracy
+     *  semantics (0=Good, 1=Better, 2=Best). Legacy configs using 0/1/2
+     *  now mean strictness 1/2. */
     int accuracy = 5;
 
     /** Numerical aperture of the objective. */
