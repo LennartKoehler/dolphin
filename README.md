@@ -321,7 +321,7 @@ A physically-based PSF model accounting for microscope optical design and experi
   "particle_axial_position_nm": 1000.0,
   "pixel_size_axial_nm": 100.0,
   "pixel_size_lateral_nm": 100.0,
-  "OVER_SAMPLING": 4.0,
+  "oversampling_factor": 4.0,
   "integration_accuracy": 5
 }
 ```
@@ -346,7 +346,7 @@ A physically-based PSF model accounting for microscope optical design and experi
 | `particle_axial_position_nm` | float | `1000.0` | Axial position of the particle in nm |
 | `pixel_size_axial_nm` | float | `100.0` | Pixel size in axial direction in nm |
 | `pixel_size_lateral_nm` | float | `100.0` | Pixel size in lateral direction in nm |
-| `OVER_SAMPLING` | float | `4.0` | Oversampling factor for PSF computation |
+| `oversampling_factor` | float | `4.0` | Oversampling factor for PSF computation |
 | `integration_accuracy` | int | `5` | Simpson integrator convergence strictness (1..10, clamped); higher is slower. Not compatible with the BIG PSFGenerator's `accuracy` (0=Good, 1=Better, 2=Best); legacy 0/1/2 configs now mean strictness 1/2 |
 
 ## License

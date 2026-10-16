@@ -35,7 +35,7 @@
       "particle_axial_position_nm": 1000.0,
       "pixel_size_axial_nm": 100.0,
       "pixel_size_lateral_nm": 100.0,
-      "OVER_SAMPLING": 4.0,
+      "oversampling_factor": 4.0,
       "integration_accuracy": 5
     }
   ],

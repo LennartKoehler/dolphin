@@ -23,7 +23,7 @@ public:
 	GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other);
 
 
-    float OVER_SAMPLING = 4.0f;
+    float oversampling_factor = 4.0f;
     float wavelength_nm = 520.0f;
     /** Convergence strictness for the Simpson integrator (1..10).
      *  Maps directly to the number of consecutive sub-interval refinements

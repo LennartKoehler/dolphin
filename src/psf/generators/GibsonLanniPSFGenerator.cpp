@@ -436,13 +436,13 @@ double GibsonLanniPSFGenerator::integrationUpperBound(const GibsonLanniPSFConfig
 }
 
 GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const GibsonLanniPSFConfig& config, size_t forcedCutoff) const {
-    int OVER_SAMPLING = config.OVER_SAMPLING;
+    int oversampling_factor = config.oversampling_factor;
     double NA = config.NA;
     double pixelSizeLateral_nm = config.pixelSizeLateral_nm;
     double threshold = static_cast<double>(config.cutoffThreshold);
 
     size_t maxLateral = forcedCutoff > 0 ? forcedCutoff : (std::min(config.sizeX, config.sizeY) / 2);
-    size_t maxSamples = maxLateral * OVER_SAMPLING;
+    size_t maxSamples = maxLateral * oversampling_factor;
 
     std::vector<double> cachedProfile;
     {
@@ -468,7 +468,7 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const
     if (forcedCutoff > 0) {
         size_t n = h.size();
         while (n <= maxSamples) {
-            double r_px = static_cast<double>(n) / static_cast<double>(OVER_SAMPLING);
+            double r_px = static_cast<double>(n) / static_cast<double>(oversampling_factor);
             GibsonLanniIntegrand integrand(config, r_px * pixelSizeLateral_nm, besselHelper);
             double val = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
             h.push_back(val);
@@ -477,7 +477,7 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const
     } else if (!(h.size() > 1 && h.back() < threshold * h[0])) {
         size_t n = h.size();
         while (n < maxSamples) {
-            double r_px = static_cast<double>(n) / static_cast<double>(OVER_SAMPLING);
+            double r_px = static_cast<double>(n) / static_cast<double>(oversampling_factor);
             GibsonLanniIntegrand integrand(config, r_px * pixelSizeLateral_nm, besselHelper);
             double val = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
             h.push_back(val);
@@ -492,7 +492,7 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const
     }
 
     size_t cutoff = forcedCutoff > 0 ? forcedCutoff
-        : static_cast<size_t>(std::ceil(static_cast<double>(h.size() - 1) / OVER_SAMPLING));
+        : static_cast<size_t>(std::ceil(static_cast<double>(h.size() - 1) / oversampling_factor));
     size_t gridSize = 2 * cutoff + 1;
     std::vector<float> sliceData(gridSize * gridSize, 0.0f);
 
@@ -501,12 +501,12 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const
             double dx = static_cast<double>(x) - static_cast<double>(cutoff);
             double dy = static_cast<double>(y) - static_cast<double>(cutoff);
             double rPixel = std::sqrt(dx * dx + dy * dy);
-            size_t index = static_cast<size_t>(std::floor(rPixel * OVER_SAMPLING));
+            size_t index = static_cast<size_t>(std::floor(rPixel * oversampling_factor));
 
             double value = 0.0;
             if (index + 1 < h.size()) {
-                double r0 = static_cast<double>(index) / static_cast<double>(OVER_SAMPLING);
-                value = h[index] + (h[index + 1] - h[index]) * (rPixel - r0) * OVER_SAMPLING;
+                double r0 = static_cast<double>(index) / static_cast<double>(oversampling_factor);
+                value = h[index] + (h[index + 1] - h[index]) * (rPixel - r0) * oversampling_factor;
             } else if (index < h.size()) {
                 value = h[index];
             }
