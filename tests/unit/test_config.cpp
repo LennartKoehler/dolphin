@@ -42,7 +42,7 @@ TEST_F(ConfigTest, DeconvolutionConfigLoadFromJSON) {
     EXPECT_EQ(config.algorithmName, "RichardsonLucy");
     EXPECT_EQ(config.iterations, 10);
     EXPECT_FLOAT_EQ(config.epsilon, 1e-6f);
-    EXPECT_FLOAT_EQ(config.lambda, 0.001f);
+    EXPECT_FLOAT_EQ(config.signal_to_noise, 0.001f);
 }
 
 TEST_F(ConfigTest, DeconvolutionConfigWriteToJSON) {
@@ -59,14 +59,14 @@ TEST_F(ConfigTest, DeconvolutionConfigRoundTrip) {
     DeconvolutionConfig config1;
     config1.algorithmName = "RichardsonLucyTotalVariation";
     config1.iterations = 25;
-    config1.lambda = 0.05f;
+    config1.signal_to_noise = 0.05f;
     json j = config1.writeToJSON();
 
     DeconvolutionConfig config2;
     ASSERT_TRUE(config2.loadFromJSON(j));
     EXPECT_EQ(config2.algorithmName, "RichardsonLucyTotalVariation");
     EXPECT_EQ(config2.iterations, 25);
-    EXPECT_FLOAT_EQ(config2.lambda, 0.05f);
+    EXPECT_FLOAT_EQ(config2.signal_to_noise, 0.05f);
 }
 
 TEST_F(ConfigTest, DeconvolutionConfigCopyConstructor) {

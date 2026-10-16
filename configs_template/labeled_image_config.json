@@ -3,7 +3,7 @@
     "algorithm_name": "RichardsonLucy",
     "iterations": 10,
     "epsilon": 1e-6,
-    "lambda": 0.015,
+    "signal_to_noise": 0.015,
     "padding_fill": "mirror",
     "padding_strategy": "max"
   },

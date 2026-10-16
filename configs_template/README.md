@@ -87,8 +87,8 @@
   **Default**: 10.  
   **Required**: No.
 
-- `--lambda <value>`  
-  **Description**: Lambda parameter for the Regularized Inverse Filter.  
+- `--signal_to_noise <value>`  
+  **Description**: Signal to noise ratio used for regularization (RLTV / Regularized Inverse Filter).  
   **Default**: 1e-2.  
   **Required**: No.
 

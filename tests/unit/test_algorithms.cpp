@@ -42,7 +42,7 @@ protected:
         config.algorithmName = name;
         config.iterations = 5;
         config.epsilon = 1e-6f;
-        config.lambda = 0.001f;
+        config.signal_to_noise = 0.001f;
         auto& factory = DeconvolutionAlgorithmFactory::getInstance();
         return factory.createShared(config);
     }

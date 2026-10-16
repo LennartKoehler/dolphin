@@ -27,7 +27,7 @@ public:
     void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
     size_t getMemoryMultiplier() const override;
 private:
-    double lambda;
+    double signal_to_noise;
     bool initialized = false;
     
     // Algorithm-specific data members for intermediate calculations (frequency domain)

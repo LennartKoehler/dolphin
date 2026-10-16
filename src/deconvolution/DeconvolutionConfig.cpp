@@ -24,7 +24,7 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     algorithmName(other.algorithmName),
     iterations(other.iterations),
     epsilon(other.epsilon),
-    lambda(other.lambda),
+    signal_to_noise(other.signal_to_noise),
     paddingFillType(other.paddingFillType),
     paddingStrategyType(other.paddingStrategyType),
     paddingRelativeMax(other.paddingRelativeMax),
@@ -41,7 +41,7 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(const DeconvolutionConfig& o
         algorithmName = other.algorithmName;
         iterations = other.iterations;
         epsilon = other.epsilon;
-        lambda = other.lambda;
+        signal_to_noise = other.signal_to_noise;
         paddingFillType = other.paddingFillType;
         paddingStrategyType = other.paddingStrategyType;
         paddingRelativeMax = other.paddingRelativeMax;
@@ -59,7 +59,7 @@ DeconvolutionConfig::DeconvolutionConfig(DeconvolutionConfig&& other) noexcept
     algorithmName(std::move(other.algorithmName)),
     iterations(other.iterations),
     epsilon(other.epsilon),
-    lambda(other.lambda),
+    signal_to_noise(other.signal_to_noise),
     paddingFillType(other.paddingFillType),
     paddingStrategyType(other.paddingStrategyType),
     paddingRelativeMax(other.paddingRelativeMax),
@@ -76,7 +76,7 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(DeconvolutionConfig&& other)
         algorithmName = std::move(other.algorithmName);
         iterations = other.iterations;
         epsilon = other.epsilon;
-        lambda = other.lambda;
+        signal_to_noise = other.signal_to_noise;
         paddingFillType = other.paddingFillType;
         paddingStrategyType = other.paddingStrategyType;
         paddingRelativeMax = other.paddingRelativeMax;
@@ -139,7 +139,7 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::StringSelection, &algorithmName, "Algorithm Name", true, "algorithm_name", "--algorithm_name", "Algorithm selection", false, false, 0.0, 0.0, algorithmOptionsVoid});
     parameters.push_back({ParameterType::Int, &iterations, "Iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
     parameters.push_back({ParameterType::Float, &epsilon, "Epsilon", true, "epsilon", "--epsilon", "Epsilon", false, true, 1e-12, 1e-3, nullptr});
-    parameters.push_back({ParameterType::Float, &lambda, "Lambda", true, "lambda", "--lambda", "Lambda regularization", false, false, 0.0, 1.0, nullptr});
+    parameters.push_back({ParameterType::Float, &signal_to_noise, "Signal to Noise", true, "signal_to_noise", "--signal_to_noise", "Signal to noise ratio", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Map, &paddingFillType, "Padding Fill", true, "padding_fill", "--padding_fill", "Type of fill method for the image padding", false, true, 0.0, 5.0, paddingFillMap_p});
     parameters.push_back({ParameterType::Map, &paddingStrategyType, "Padding Strategy", true, "padding_strategy", "--padding_strategy",
         "Preset PSF padding threshold: none, low, medium, max. Overridden if cube_padding or padding_relative_max is set", false, true, 0.0, 4, paddingStrategyMap_p});

@@ -143,7 +143,7 @@ All configuration parameters are also exposed as CLI flags. The most commonly us
     --algorithm_name <name>    Algorithm (see list below)
     --iterations <n>           Number of iterations
     --epsilon <val>            Convergence threshold
-    --lambda <val>             Regularization parameter
+    --signal_to_noise <val>    Signal to noise ratio
     --padding_fill <type>      Padding fill: zero, mirror, linear, quadratic, sinusoid, gaussian
     --padding_strategy <type>  Padding preset: none, low, medium, max
     --feathering_radius <n>   Feathering radius for subimage boundaries
@@ -178,7 +178,7 @@ A combined JSON config file contains three top-level sections: `setup_config`, `
     "algorithm_name": "RichardsonLucy",
     "iterations": 30,
     "epsilon": 1e-6,
-    "lambda": 0.015,
+    "signal_to_noise": 0.015,
     "padding_fill": "mirror",
     "padding_strategy": "max"
   },
@@ -244,7 +244,7 @@ A combined JSON config file contains three top-level sections: `setup_config`, `
 | `algorithm_name` | string | yes | `RichardsonLucy` | Algorithm selection (see names above) |
 | `iterations` | int | no | `10` | Number of iterations (1–10000) |
 | `epsilon` | float | no | `1e-6` | Convergence threshold (1e-12 to 1e-3) |
-| `lambda` | float | no | `0.001` | Regularization parameter (0–1) |
+| `signal_to_noise` | float | no | `0.001` | Signal to noise ratio (0–1) |
 | `padding_fill` | string | no | `zero` | Fill method: `zero`, `mirror`, `linear`, `quadratic`, `sinusoid`, `gaussian` |
 | `padding_strategy` | string | no | `medium` | Preset PSF padding threshold: `none`, `low`, `medium`, `max` |
 | `padding_relative_max` | float | no | `0` | Pad until PSF is below this fraction of its max value (0–1); `> 0` overrides `padding_strategy` |

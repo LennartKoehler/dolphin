@@ -46,7 +46,7 @@ public:
     std::string algorithmName = "RichardsonLucy";
     int iterations = 10;
     float epsilon = 1e-6f;
-    float lambda = 0.1f;
+    float signal_to_noise = 0.1f;
     PaddingFillType paddingFillType = PaddingFillType::ZERO;
     PaddingStrategyType paddingStrategyType = PaddingStrategyType::DEFAULT;
     float paddingRelativeMax = 0.0f; // > 0: fraction of PSF max to pad to; 0 = use preset
