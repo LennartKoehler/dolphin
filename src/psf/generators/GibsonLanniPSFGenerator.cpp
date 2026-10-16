@@ -92,6 +92,9 @@ void GibsonLanniPSFGenerator::setConfig(const std::shared_ptr<const PSFConfig> c
 
 PSF GibsonLanniPSFGenerator::generatePSF() const {
 
+    if (!threadPool)
+        throw std::runtime_error("GibsonLanniPSFGenerator threadpool not configured");
+
     size_t effX = config->sizeX > 0 ? config->sizeX : 256;
     size_t effY = config->sizeY > 0 ? config->sizeY : 256;
 
@@ -140,13 +143,9 @@ PSF GibsonLanniPSFGenerator::generateFixedSizePSF() const {
     std::vector<std::future<SliceData>> sliceFutures;
     sliceFutures.reserve(sizeZ);
     for (size_t z = 0; z < sizeZ; z++) {
-        if (threadPool) {
-            sliceFutures.emplace_back(threadPool->enqueue([this, cfg = makeSliceCfg(z), lateralHalf]() {
-                return singlePlanePSF(cfg, lateralHalf);
-            }));
-        } else {
-            throw std::runtime_error("GibsonLanniPSFGenerator thredpool not configured");
-        }
+        sliceFutures.emplace_back(threadPool->enqueue([this, cfg = makeSliceCfg(z), lateralHalf]() {
+            return singlePlanePSF(cfg, lateralHalf);
+        }));
     }
 
     for (size_t z = 0; z < sizeZ; z++) {

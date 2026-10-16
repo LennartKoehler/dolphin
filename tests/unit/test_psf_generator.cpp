@@ -73,6 +73,27 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfigChangeInvalidatesCache) {
     EXPECT_FALSE(first.isEqual(second, 1e-4f));
 }
 
+TEST_F(PSFGeneratorTest, GibsonLanniNoThreadPoolThrows) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    auto makeGen = [&](int sizeX, int sizeY, int sizeZ) {
+        json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+        j["size_x"] = sizeX;
+        j["size_y"] = sizeY;
+        j["size_z"] = sizeZ;
+        auto config = factory.createConfig(j);
+        config->cutoffThreshold = 0.05f;
+        auto gen = std::make_shared<GibsonLanniPSFGenerator>();
+        gen->setConfig(config);
+        // no configure() call -> threadPool stays null
+        return gen;
+    };
+
+    // Auto-size path used to dereference threadPool unguarded (segfault).
+    EXPECT_THROW(makeGen(0, 0, 0)->generatePSF(), std::runtime_error);
+    // Fixed-size path used to throw only deep inside the slice loop.
+    EXPECT_THROW(makeGen(33, 33, 5)->generatePSF(), std::runtime_error);
+}
+
 TEST_F(PSFGeneratorTest, FactoryGetAvailableModels) {
     auto& factory = PSFGeneratorFactory::getInstance();
     auto models = factory.getAvailablePSFModels();
