@@ -430,7 +430,13 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const
     }
 
     double a = 0.0;
-    double b = std::min(1.0, config.ns / NA);
+    // Each sqrt(1 - (NA*rho/n)^2) term requires rho <= n/NA, so the upper
+    // bound is the tightest such limit across every medium in the path (and
+    // 1.0 at the pupil edge). For standard configs the sample (ns) is the
+    // smallest RI, so this reduces to the original min(1.0, ns/NA); only
+    // exotic configs tighten the bound.
+    double b = std::min({1.0, config.ns / NA, config.ni / NA, config.ni0 / NA,
+                         config.ng / NA, config.ng0 / NA});
     double integrationTolerance = 1E-6;
     int integrationAccuracy = config.accuracy;
 
