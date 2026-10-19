@@ -166,10 +166,11 @@ void ImagePadding::padImage(Image3D& image, const Padding& padding, PaddingFillT
 
 void ImagePadding::fitToShape(Image3D& image, const CuboidShape& targetShape, PaddingFillType paddingtype) {
     CuboidShape currentShape = image.getShape();
+    if (targetShape.smallerAny(currentShape)) {
+        ImagePadding::reduceToShape(image, targetShape);
+    }
     if (currentShape.smallerAny(targetShape)) {
         ImagePadding::padToShape(image, targetShape, paddingtype);
-    } else if (targetShape.smallerAny(currentShape)) {
-        ImagePadding::reduceToShape(image, targetShape);
     }
 }
 
