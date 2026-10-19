@@ -267,7 +267,7 @@ TEST_F(ConfigMergeTest, PSFHandlerSetupPSFConfigs) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::NONE;
 
-    psfHandler.generatePSFs(setupConfig, CuboidShape{64, 64, 32});
+    psfHandler.generatePSFs(setupConfig, deconvConfig, CuboidShape{64, 64, 32});
     auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 }
@@ -287,7 +287,7 @@ TEST_F(ConfigMergeTest, PSFHandlerDoubleLoadFix) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
 
-    psfHandler.generatePSFs(setupConfig, CuboidShape{32, 32, 16});
+    psfHandler.generatePSFs(setupConfig, deconvConfig, CuboidShape{32, 32, 16});
     auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 
@@ -308,7 +308,7 @@ TEST_F(ConfigMergeTest, PSFHandlerNoConfigsFailsPadding) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
 
-    psfHandler.generatePSFs(setupConfig, CuboidShape{32, 32, 16});
+    psfHandler.generatePSFs(setupConfig, deconvConfig, CuboidShape{32, 32, 16});
     auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_FALSE(paddingResult.success);
     EXPECT_EQ(psfHandler.getPSFs(CuboidShape{0,0,0}).size(), 0u);

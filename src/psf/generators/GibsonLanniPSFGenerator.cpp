@@ -95,6 +95,12 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
     if (!threadPool)
         throw std::runtime_error("GibsonLanniPSFGenerator threadpool not configured");
 
+    // cutoffThreshold <= 0 means "not set" (e.g. standalone PSF generation
+    // without a padding strategy); fall back to the MEDIUM trim margin.
+    // this->config is a private copy, so this never leaks to the caller.
+    if (config->cutoffThreshold <= 0.0f)
+        config->cutoffThreshold = 1e-6f;
+
     // The old per-evaluation "NA*rho/ns > 1" log fired on every integrand
     // evaluation (thousands of lines per slice). Emit it once per generation
     // instead: the violation is monotonic in rho, so if it holds at the upper
@@ -186,8 +192,7 @@ PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const
     const size_t effY = config->sizeY > 0 ? config->sizeY : 256;
     const size_t effZ = config->sizeZ > 0 ? config->sizeZ : 256;
 
-    const double threshold =
-        static_cast<double>(config->cutoffThreshold);
+    const double threshold = static_cast<double>(config->cutoffThreshold);
 
     const double pixelSizeAxial =
         static_cast<double>(config->pixelSizeAxial_nm);
@@ -201,167 +206,97 @@ PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const
             pixelSizeAxial * static_cast<double>(offset);
         return cfg;
     };
-    progressTracker.setMax(effZ);
+
+    const long maxOffset = static_cast<long>(effZ / 2);
 
     struct GeneratedSlice {
         long offset;
         SliceData slice;
-        double centerVal;
     };
-
-    struct PendingSlice {
-        long offset;
-        std::future<std::optional<SliceData>> future;
-    };
-
-    std::vector<GeneratedSlice> slices;
-
-    // Generate center synchronously.
-    SliceData centerSlice = singlePlanePSF(makeCfg(0));
-
-    const size_t centerCutoff = centerSlice.lateralCutoff;
-    double peakVal =
-        centerSlice.data[
-            centerCutoff * (2 * centerCutoff + 1) +
-            centerCutoff
-        ];
-
-    size_t maxCutoff = centerSlice.lateralCutoff;
-
-    slices.push_back({
-        0,
-        std::move(centerSlice),
-        peakVal
-    });
-
-    const long maxOffset = static_cast<long>(effZ / 2);
-    const size_t lookAhead =
-        threadPool->getNumberWorkers() + 2;
 
     /*
-     * direction == +1 produces 1, 2, 3, ...
-     * direction == -1 produces -1, -2, -3, ...
+     * Pass 1: axial extent. Only the on-axis value of every candidate slice
+     * is computed (one integration per slice, all in parallel). The axial
+     * support is the contiguous region around the focus whose on-axis value
+     * stays above threshold * global peak.
      */
-    auto generateDirection = [&](long direction) {
-        std::deque<PendingSlice> pending;
+    const long scanRange = 2 * maxOffset + 1;
+    std::vector<std::future<double>> centerFutures;
+    centerFutures.reserve(scanRange);
+    for (long offset = -maxOffset; offset <= maxOffset; ++offset) {
+        centerFutures.emplace_back(threadPool->enqueue([this, cfg = makeCfg(offset)]() {
+            return centerValue(cfg);
+        }));
+    }
 
-        auto cancelled =
-            std::make_shared<std::atomic_bool>(false);
+    double peakVal = 0.0;
+    std::vector<double> centerVals(scanRange);
+    for (long i = 0; i < scanRange; ++i) {
+        centerVals[i] = centerFutures[i].get();
+        peakVal = std::max(peakVal, centerVals[i]);
+    }
+    if (peakVal <= 0.0) {
+        throw std::runtime_error("GibsonLanni: PSF has zero intensity at every scanned slice");
+    }
 
-        long nextOffset = direction;
-
-        auto offsetIsValid = [&](long offset) {
-            return std::abs(offset) <= maxOffset;
-        };
-
-        auto enqueueNext = [&] {
-            const long taskOffset = nextOffset;
-            nextOffset += direction;
-
-            // Construct the configuration before submitting the task.
-            auto cfg = makeCfg(taskOffset);
-
-            pending.push_back({
-                taskOffset,
-                threadPool->enqueue(
-                    [this,
-                     cfg = std::move(cfg),
-                     cancelled]() mutable
-                        -> std::optional<SliceData>
-                    {
-                        if (cancelled->load(
-                                std::memory_order_relaxed)) {
-                            return std::nullopt;
-                        }
-
-                        return singlePlanePSF(cfg);
-                    })
-            });
-        };
-
-        // Initially fill the pipeline.
-        while (pending.size() < lookAhead &&
-               offsetIsValid(nextOffset)) {
-            enqueueNext();
-        }
-
-        while (!pending.empty()) {
-            PendingSlice current =
-                std::move(pending.front());
-
-            pending.pop_front();
-
-            // Futures are consumed in enqueue order.
-            std::optional<SliceData> result =
-                current.future.get();
-
-            if (!result) {
-                continue;
-            }
-
-            SliceData slice = std::move(*result);
-
-            const size_t c = slice.lateralCutoff;
-            const double value =
-                slice.data[c * (2 * c + 1) + c];
-
-            if (value > peakVal) {
-                peakVal = value;
-            }
-
-            maxCutoff =
-                std::max(maxCutoff, slice.lateralCutoff);
-
-            if (value < threshold * peakVal) {
-                cancelled->store(
-                    true,
-                    std::memory_order_relaxed);
-
-                break;
-            }
-
-            slices.push_back({
-                current.offset,
-                std::move(slice),
-                value
-            });
-
-            // Keep a fixed number of calculations in flight.
-            if (offsetIsValid(nextOffset)) {
-                enqueueNext();
-            }
-        }
-
-        /*
-         * Work that had already started must finish unless
-         * singlePlanePSF itself supports cooperative cancellation.
-         */
-        cancelled->store(true, std::memory_order_relaxed);
-
-        for (PendingSlice& task : pending) {
-            task.future.wait();
-        }
+    const double axialCutoff = threshold * peakVal;
+    const auto valueAt = [&](long offset) {
+        return centerVals[offset + maxOffset];
     };
 
-    generateDirection(-1);
-    generateDirection(+1);
+    long extentNeg = 0;
+    while (extentNeg < maxOffset &&
+           valueAt(-(extentNeg + 1)) >= axialCutoff) {
+        ++extentNeg;
+    }
+    long extentPos = 0;
+    while (extentPos < maxOffset &&
+           valueAt(extentPos + 1) >= axialCutoff) {
+        ++extentPos;
+    }
 
-    // Final physical order: -N, ..., -1, 0, 1, ..., N
-    std::sort(
-        slices.begin(),
-        slices.end(),
-        [](const GeneratedSlice& lhs,
-           const GeneratedSlice& rhs) {
-            return lhs.offset < rhs.offset;
-        });
+    const bool axialCapped =
+        extentNeg == maxOffset || extentPos == maxOffset;
+    if (axialCapped) {
+        spdlog::warn("GibsonLanni: axial cutoff {} not reached, PSF truncated by the size cap ({} slices)",
+                     threshold, 2 * maxOffset + 1);
+    }
 
-    const long lhsOffset = slices.front().offset;
-    const long rhsOffset = slices.back().offset;
+    /*
+     * Pass 2: full radial profiles, only for the kept slices, all in
+     * parallel. The per-slice lateral cutoff logic in singlePlanePSF is
+     * unchanged.
+     */
+    progressTracker.setMax(static_cast<float>(extentNeg + extentPos + 1));
 
-    // Anchor the image on the reference slice (offset 0) so it stays
-    // exactly centered. The shorter side is zero-padded to compensate.
-    long maxNeg = std::abs(lhsOffset);
-    long maxPos = rhsOffset;
+    std::vector<std::future<SliceData>> sliceFutures;
+    sliceFutures.reserve(extentNeg + extentPos + 1);
+    for (long offset = -extentNeg; offset <= extentPos; ++offset) {
+        sliceFutures.emplace_back(threadPool->enqueue([this, cfg = makeCfg(offset)]() {
+            return singlePlanePSF(cfg);
+        }));
+    }
+
+    std::vector<GeneratedSlice> slices;
+    slices.reserve(sliceFutures.size());
+    size_t maxCutoff = 0;
+    const size_t lateralCap = std::min(effX, effY) / 2;
+    bool lateralCapped = false;
+    for (size_t i = 0; i < sliceFutures.size(); ++i) {
+        SliceData slice = sliceFutures[i].get();
+        const long offset = static_cast<long>(i) - extentNeg;
+        maxCutoff = std::max(maxCutoff, slice.lateralCutoff);
+        lateralCapped = lateralCapped || slice.lateralCutoff >= lateralCap;
+        slices.push_back({offset, std::move(slice)});
+    }
+    if (lateralCapped) {
+        spdlog::warn("GibsonLanni: lateral cutoff {} not reached on at least one slice, PSF truncated by the size cap ({})",
+                     threshold, 2 * maxCutoff + 1);
+    }
+
+    // Final physical order: -N, ..., -1, 0, 1, ..., N (already ordered)
+    const long maxNeg = extentNeg;
+    const long maxPos = extentPos;
     long zHalfExtent = std::max(maxNeg, maxPos);
     size_t psfD = static_cast<size_t>(2 * zHalfExtent + 1);
     size_t psfW = 2 * maxCutoff + 1;
@@ -435,6 +370,37 @@ double GibsonLanniPSFGenerator::integrationUpperBound(const GibsonLanniPSFConfig
                      cfg.ng / NA, cfg.ng0 / NA});
 }
 
+namespace {
+
+// True if the cached radial profile already satisfies the request: either a
+// forced lateral cutoff is fully covered, or the profile already crossed the
+// threshold (or reached the sample cap).
+bool cachedProfileComplete(const std::vector<double>& h, size_t forcedCutoff, size_t maxSamples, double threshold) {
+    if (h.empty()) return false;
+    if (forcedCutoff > 0) return h.size() > maxSamples;
+    if (h.size() > 1 && h.back() < threshold * h[0]) return true;
+    return h.size() >= maxSamples;
+}
+
+} // namespace
+
+double GibsonLanniPSFGenerator::centerValue(const GibsonLanniPSFConfig& config) const {
+    // On-axis value: only the r=0 integral is needed (J0(0)=1). Uses the
+    // cached radial profile if this slice was already computed.
+    {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        auto it = cachedRadialProfiles.find(config.ti_nm);
+        if (it != cachedRadialProfiles.end() && !it->second.empty())
+            return it->second[0];
+    }
+
+    double a = 0.0;
+    double b = integrationUpperBound(config);
+    GibsonLanniIntegrand integrand(config, 0.0, besselHelper);
+    return numericalIntegrator->integrateComplex(
+        integrand, a, b, 1E-6, config.integration_accuracy);
+}
+
 GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const GibsonLanniPSFConfig& config, size_t forcedCutoff) const {
     int oversampling_factor = config.oversampling_factor;
     double NA = config.NA;
@@ -444,45 +410,36 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const
     size_t maxLateral = forcedCutoff > 0 ? forcedCutoff : (std::min(config.sizeX, config.sizeY) / 2);
     size_t maxSamples = maxLateral * oversampling_factor;
 
-    std::vector<double> cachedProfile;
+    std::vector<double> h;
     {
         std::lock_guard<std::mutex> lock(cacheMutex);
         auto it = cachedRadialProfiles.find(config.ti_nm);
         if (it != cachedRadialProfiles.end())
-            cachedProfile = it->second;
+            h = it->second;
     }
 
-    double a = 0.0;
-    double b = integrationUpperBound(config);
-    double integrationTolerance = 1E-6;
-    int integrationAccuracy = config.integration_accuracy;
+    const double k0 = 2.0 * M_PI / config.wavelength_nm;
 
-    std::vector<double> h;
-    if (!cachedProfile.empty()) {
-        h = cachedProfile;
-    } else {
-        GibsonLanniIntegrand integrand0(config, 0.0, besselHelper);
-        h.push_back(numericalIntegrator->integrateComplex(integrand0, a, b, integrationTolerance, integrationAccuracy));
-    }
+    if (!cachedProfileComplete(h, forcedCutoff, maxSamples, threshold)) {
+        // Fixed-node quadrature: phase tabulated once, then one MAC per radius.
+        const size_t maxRadiusSamples = forcedCutoff > 0
+            ? maxSamples
+            : maxSamples; // the per-radius break below stops early anyway
 
-    if (forcedCutoff > 0) {
-        size_t n = h.size();
-        while (n <= maxSamples) {
+        GibsonLanniQuadrature quadrature;
+        const double b = integrationUpperBound(config);
+        const double maxR_nm = (static_cast<double>(maxRadiusSamples) / oversampling_factor) * pixelSizeLateral_nm;
+        const double maxArg = k0 * NA * maxR_nm * b;
+        quadrature.init(config, b, GibsonLanniQuadrature::nodeCount(maxArg, config.integration_accuracy));
+
+        h.clear();
+        h.push_back(quadrature.evaluateSquared(0.0, besselHelper));
+        for (size_t n = 1; n <= maxRadiusSamples; ++n) {
             double r_px = static_cast<double>(n) / static_cast<double>(oversampling_factor);
-            GibsonLanniIntegrand integrand(config, r_px * pixelSizeLateral_nm, besselHelper);
-            double val = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
+            double k0NAr = k0 * NA * r_px * pixelSizeLateral_nm;
+            double val = quadrature.evaluateSquared(k0NAr, besselHelper);
             h.push_back(val);
-            n++;
-        }
-    } else if (!(h.size() > 1 && h.back() < threshold * h[0])) {
-        size_t n = h.size();
-        while (n < maxSamples) {
-            double r_px = static_cast<double>(n) / static_cast<double>(oversampling_factor);
-            GibsonLanniIntegrand integrand(config, r_px * pixelSizeLateral_nm, besselHelper);
-            double val = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
-            h.push_back(val);
-            n++;
-            if (val < threshold * h[0]) break;
+            if (forcedCutoff == 0 && val < threshold * h[0]) break;
         }
     }
 
@@ -532,19 +489,24 @@ std::array<double, 2> GibsonLanniIntegrand::operator()(double rho) const {
     double BesselValue = besselHelper.get(k0NAr * rho);
 
     double naRho = config.NA * rho;
+    double naRhoOverNs = naRho / config.ns;
+    double naRhoOverNg = naRho / config.ng;
+    double naRhoOverNg0 = naRho / config.ng0;
+    double naRhoOverNi = naRho / config.ni;
+    double naRhoOverNi0 = naRho / config.ni0;
 
     double OPD1 = config.ns * config.particleAxialPosition_nm *
-        std::sqrt(std::max(0.0, 1.0 - std::pow(naRho / config.ns, 2)));
+        std::sqrt(std::max(0.0, 1.0 - naRhoOverNs * naRhoOverNs));
 
     double OPD2 = config.ng * config.tg_nm *
-            std::sqrt(std::max(0.0, 1.0 - std::pow(naRho / config.ng, 2)))
+            std::sqrt(std::max(0.0, 1.0 - naRhoOverNg * naRhoOverNg))
         - config.ng0 * config.tg0_nm *
-            std::sqrt(std::max(0.0, 1.0 - std::pow(naRho / config.ng0, 2)));
+            std::sqrt(std::max(0.0, 1.0 - naRhoOverNg0 * naRhoOverNg0));
 
     double OPD3 = config.ni * config.ti_nm *
-            std::sqrt(std::max(0.0, 1.0 - std::pow(naRho / config.ni, 2)))
+            std::sqrt(std::max(0.0, 1.0 - naRhoOverNi * naRhoOverNi))
         - config.ni0 * config.ti0_nm *
-            std::sqrt(std::max(0.0, 1.0 - std::pow(naRho / config.ni0, 2)));
+            std::sqrt(std::max(0.0, 1.0 - naRhoOverNi0 * naRhoOverNi0));
 
     double OPD = OPD1 + OPD2 + OPD3;
 
@@ -554,4 +516,68 @@ std::array<double, 2> GibsonLanniIntegrand::operator()(double rho) const {
     I[1] = BesselValue * std::sin(W) * rho;
 
     return I;
+}
+
+size_t GibsonLanniQuadrature::nodeCount(double maxArgument, int accuracy) {
+    // The integrand oscillates like J0(maxArgument * rho); resolve its
+    // oscillations with ~2*accuracy nodes per half period (accuracy 1..10).
+    int k = accuracy < 1 ? 1 : (accuracy > 10 ? 10 : accuracy);
+    double oscillations = maxArgument / M_PI;
+    size_t n = static_cast<size_t>(std::max(256.0, 2.0 * k * oscillations));
+    n = std::min<size_t>(n, 1u << 16);
+    // Composite Simpson needs an even node count.
+    return n + (n % 2);
+}
+
+void GibsonLanniQuadrature::init(const GibsonLanniPSFConfig& config, double upperBound, size_t n) {
+    if (n < 2) n = 2;
+    const double del = upperBound / static_cast<double>(n);
+    const double k0 = 2.0 * M_PI / config.wavelength_nm;
+
+    rho.resize(n);
+    cosW.resize(n);
+    sinW.resize(n);
+
+    for (size_t i = 0; i < n; ++i) {
+        const double r = (i + 1) * del;
+        rho[i] = r;
+
+        const double naRho = config.NA * r;
+        const double naRhoOverNs = naRho / config.ns;
+        const double naRhoOverNg = naRho / config.ng;
+        const double naRhoOverNg0 = naRho / config.ng0;
+        const double naRhoOverNi = naRho / config.ni;
+        const double naRhoOverNi0 = naRho / config.ni0;
+
+        const double OPD =
+            config.ns * config.particleAxialPosition_nm *
+                std::sqrt(std::max(0.0, 1.0 - naRhoOverNs * naRhoOverNs))
+            + config.ng * config.tg_nm *
+                std::sqrt(std::max(0.0, 1.0 - naRhoOverNg * naRhoOverNg))
+            - config.ng0 * config.tg0_nm *
+                std::sqrt(std::max(0.0, 1.0 - naRhoOverNg0 * naRhoOverNg0))
+            + config.ni * config.ti_nm *
+                std::sqrt(std::max(0.0, 1.0 - naRhoOverNi * naRhoOverNi))
+            - config.ni0 * config.ti0_nm *
+                std::sqrt(std::max(0.0, 1.0 - naRhoOverNi0 * naRhoOverNi0));
+
+        const double W = k0 * OPD;
+
+        // Composite Simpson weights (4 odd, 2 even); rho factor folded in.
+        const double weight = ((i + 1) % 2 == 1 ? 4.0 : 2.0) * del / 3.0;
+        cosW[i] = std::cos(W) * r * weight;
+        sinW[i] = std::sin(W) * r * weight;
+    }
+}
+
+double GibsonLanniQuadrature::evaluateSquared(double k0NAr, const BesselHelper& besselHelper) const {
+    double realSum = 0.0;
+    double imagSum = 0.0;
+    const size_t n = rho.size();
+    for (size_t i = 0; i < n; ++i) {
+        const double besselValue = besselHelper.get(k0NAr * rho[i]);
+        realSum += besselValue * cosW[i];
+        imagSum += besselValue * sinW[i];
+    }
+    return realSum * realSum + imagSum * imagSum;
 }

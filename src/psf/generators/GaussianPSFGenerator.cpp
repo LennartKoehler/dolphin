@@ -37,7 +37,12 @@ bool GaussianPSFGenerator::hasConfig(){
 //
 ImageType::RegionType GaussianPSFGenerator::getNonNegligibleRegion(size_t width, size_t height, size_t layers,
                                                       double centerX, double centerY, double centerZ) const {
-    double cutoffFactor = std::sqrt(-2.0 * std::log(static_cast<double>(config->cutoffThreshold)));
+    // cutoffThreshold <= 0 means "not set" (e.g. standalone PSF generation
+    // without a padding strategy); fall back to the MEDIUM trim margin.
+    const double threshold = config->cutoffThreshold > 0.0f
+        ? static_cast<double>(config->cutoffThreshold)
+        : 1e-6;
+    double cutoffFactor = std::sqrt(-2.0 * std::log(threshold));
 
     size_t xMin = static_cast<size_t>(std::max(0L, static_cast<long>(std::floor(centerX - cutoffFactor * config->sigmaX))));
     size_t xMax = std::min(width - 1, static_cast<size_t>(std::max(0L, static_cast<long>(std::ceil(centerX + cutoffFactor * config->sigmaX)))));
@@ -133,7 +138,11 @@ PSF GaussianPSFGenerator::generateFixedSizePSF() const {
 }
 
 PSF GaussianPSFGenerator::generateAutoSizePSF() const {
-    double cutoffFactor = std::sqrt(-2.0 * std::log(static_cast<double>(config->cutoffThreshold)));
+    // Same fallback as getNonNegligibleRegion: 0 = not set.
+    const double threshold = config->cutoffThreshold > 0.0f
+        ? static_cast<double>(config->cutoffThreshold)
+        : 1e-6;
+    double cutoffFactor = std::sqrt(-2.0 * std::log(threshold));
 
     size_t halfX = static_cast<size_t>(std::ceil(cutoffFactor * config->sigmaX));
     size_t halfY = static_cast<size_t>(std::ceil(cutoffFactor * config->sigmaY));

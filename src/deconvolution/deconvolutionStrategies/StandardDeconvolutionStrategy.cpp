@@ -65,7 +65,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     CuboidShape imageSize = CuboidShape{metadata.imageWidth, metadata.imageLength, metadata.slices};
 
     // PSF handling
-    psfHandler.generatePSFs(setupConfig, imageSize);
+    psfHandler.generatePSFs(setupConfig, deconvConfig, imageSize);
     Result<PaddingScheme> paddingResult = psfHandler.getPadding(deconvConfig);
     if (!paddingResult.success) {
         throw std::runtime_error("Error while getting Padding");

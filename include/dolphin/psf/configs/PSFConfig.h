@@ -52,7 +52,10 @@ public:
     size_t sizeX = 0;
     size_t sizeY = 0;
     size_t sizeZ = 0;
-    float cutoffThreshold = 1e-3f;
+    /** Relative intensity cutoff for the auto-size PSF support.
+     *  0 (default): derive the cutoff from the deconvolution padding strategy
+     *  (see PSFHandler). >0: explicit cutoff used as-is. */
+    float cutoffThreshold = 0.0f;
 
 protected:
     void registerAllParameters();

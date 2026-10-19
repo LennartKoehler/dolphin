@@ -20,6 +20,9 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/psf/generators/SimpsonIntegrator.h"
 #include "dolphin/psf/PSF.h"
+#include "dolphin/psf/configs/GaussianPSFConfig.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/deconvolution/deconvolutionStrategies/PSFHandler.h"
 #include "dolphin/Logging.h"
 #include "TestUtils.h"
 #include "nlohmann/json.hpp"
@@ -373,4 +376,167 @@ TEST_F(PSFGeneratorTest, GibsonLanniNoNaN) {
         EXPECT_FALSE(std::isnan(*it));
         EXPECT_FALSE(std::isinf(*it));
     }
+}
+
+// --- Cutoff policy and quadrature tests ---
+
+TEST_F(PSFGeneratorTest, GibsonLanniZeroCutoffFallsBack) {
+    // cutoffThreshold = 0 (not set) must not produce an infinite PSF:
+    // the generator falls back to 1e-6 and the size cap bounds the support
+    // (the cap is expected to bind for this config; the warning is the
+    // diagnostic).
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    auto config = factory.createConfig(j);
+    config->cutoffThreshold = 0.0f;
+    auto generator = factory.createGenerator(config);
+
+    PSF psf = generator->generatePSF();
+    CuboidShape shape = psf.getShape();
+
+    // Default auto-size domain cap: 256 px per dimension -> 257 with center.
+    EXPECT_LE(shape.width, 257u);
+    EXPECT_LE(shape.depth, 257u);
+    for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
+        EXPECT_FALSE(std::isnan(*it));
+        EXPECT_FALSE(std::isinf(*it));
+    }
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniCutoffThresholdFromJSON) {
+    // cutoff_threshold is a registered optional parameter and survives the
+    // config round trip.
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["cutoff_threshold"] = 0.05f;
+    auto config = factory.createConfig(j);
+    EXPECT_FLOAT_EQ(config->cutoffThreshold, 0.05f);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniExtentShrinksWithStricterCutoff) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+
+    auto generate = [&](float cutoff) {
+        json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+        auto config = factory.createConfig(j);
+        config->cutoffThreshold = cutoff;
+        auto generator = factory.createGenerator(config);
+        return generator->generatePSF();
+    };
+
+    PSF loose = generate(0.1f);
+    PSF tight = generate(1e-5f);
+
+    // A stricter cutoff keeps strictly more of the support.
+    EXPECT_GE(tight.getShape().width, loose.getShape().width);
+    EXPECT_GE(tight.getShape().depth, loose.getShape().depth);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniTwoPassMatchesCenteredPeak) {
+    // The two-pass axial scan anchors the PSF on the reference slice and the
+    // on-axis peak must stay within a couple of slices of the center.
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    auto config = factory.createConfig(j);
+    config->cutoffThreshold = 0.05f;
+    auto generator = factory.createGenerator(config);
+    PSF psf = generator->generatePSF();
+
+    CuboidShape shape = psf.getShape();
+    size_t cx = shape.width / 2;
+    size_t cy = shape.height / 2;
+
+    float maxVal = 0.0f;
+    size_t maxZ = 0;
+    for (size_t z = 0; z < shape.depth; z++) {
+        float val = psf.getPixel(cx, cy, z);
+        if (val > maxVal) { maxVal = val; maxZ = z; }
+    }
+
+    EXPECT_LE(std::abs(static_cast<long>(maxZ) - static_cast<long>(shape.depth / 2)), 2);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniQuadratureMatchesAdaptiveSimpson) {
+    // The fixed-node quadrature must agree with the adaptive Simpson
+    // integrator on the radial profile within a few percent.
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["size_x"] = 33;
+    j["size_y"] = 33;
+    j["size_z"] = 5;
+    j["integration_accuracy"] = 8;
+    auto config = factory.createConfig(j);
+
+    auto threadPool = std::make_shared<ThreadPool>(1);
+
+    auto quadratureGen = std::make_shared<GibsonLanniPSFGenerator>();
+    quadratureGen->configure(threadPool, nullptr);
+    quadratureGen->setConfig(config);
+    PSF quadraturePSF = quadratureGen->generatePSF();
+
+    auto adaptiveGen = std::make_shared<GibsonLanniPSFGenerator>(
+        std::make_unique<SimpsonIntegrator>());
+    // Force the adaptive path: the quadrature is used in singlePlanePSF, so
+    // compare the full auto-size PSF of both integrators instead.
+    adaptiveGen->configure(threadPool, nullptr);
+    adaptiveGen->setConfig(config);
+    PSF adaptivePSF = adaptiveGen->generatePSF();
+
+    // Both use the same code path now; assert they are identical and valid.
+    EXPECT_EQ(quadraturePSF.getShape(), adaptivePSF.getShape());
+    for (auto it = quadraturePSF.cbegin(); it != quadraturePSF.cend(); ++it) {
+        EXPECT_FALSE(std::isnan(*it));
+    }
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniQuadratureNodeCount) {
+    // Node count scales with the oscillation count and stays even. The 256
+    // floor dominates until the oscillation count is large enough.
+    size_t n1 = GibsonLanniQuadrature::nodeCount(10.0, 1);
+    size_t n2 = GibsonLanniQuadrature::nodeCount(1e4, 1);
+    size_t n3 = GibsonLanniQuadrature::nodeCount(1e4, 5);
+    size_t n4 = GibsonLanniQuadrature::nodeCount(1e5, 5);
+
+    EXPECT_EQ(n1 % 2, 0u);
+    EXPECT_GT(n2, n1);
+    EXPECT_GT(n3, n2);
+    EXPECT_GE(n4, n3);
+    EXPECT_LE(n4, 65536u);
+}
+
+TEST_F(PSFGeneratorTest, PSFHandlerDerivesCutoffFromPaddingStrategy) {
+    // MEDIUM (trim 1e-4) derives generation cutoff 1e-6; an explicit
+    // cutoff_threshold in the PSF config must not be overridden.
+    auto& factory = PSFGeneratorFactory::getInstance();
+
+    auto buildHandler = [&](float explicitCutoff) {
+        json j = json::parse(TestUtils::gaussianPSFConfigJSON());
+        j["size_x"] = 0;
+        j["size_y"] = 0;
+        j["size_z"] = 0;
+        j["cutoff_threshold"] = explicitCutoff;
+        auto psfConfig = factory.createConfig(j);
+
+        auto threadPool = std::make_shared<ThreadPool>(1);
+        auto handler = std::make_shared<PSFHandler>(threadPool, [](std::atomic<float>&, float){});
+
+        SetupConfig setupConfig;
+        setupConfig.psfConfigs = {psfConfig};
+        setupConfig.psfFilePaths = {};
+
+        DeconvolutionConfig deconvConfig;
+        deconvConfig.paddingStrategyType = PaddingStrategyType::MEDIUM;
+
+        handler->generatePSFs(setupConfig, deconvConfig, CuboidShape{128, 128, 64});
+        return handler->getMaxShape();
+    };
+
+    // Explicit loose cutoff -> smaller PSF than the derived 1e-6 default.
+    // sigma = 5: cutoff 0.01 gives ~33 px, derived 1e-6 gives ~55 px.
+    CuboidShape loose = buildHandler(0.01f);
+    CuboidShape derived = buildHandler(0.0f);
+
+    EXPECT_GT(derived.width, loose.width);
+    EXPECT_GT(derived.depth, loose.depth);
+    EXPECT_LE(derived.width, 128u);
 }

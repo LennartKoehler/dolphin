@@ -44,6 +44,7 @@ private:
 	PSF generateFixedSizePSF() const;
 	PSF generateAutoSizePSF() const;
 	static double integrationUpperBound(const GibsonLanniPSFConfig& cfg);
+	double centerValue(const GibsonLanniPSFConfig& config) const;
 
 	std::unique_ptr<NumericalIntegrator> numericalIntegrator;
     std::shared_ptr<GibsonLanniPSFConfig> config;
@@ -65,5 +66,32 @@ private:
 	double k0;
 	double k0NAr;
     const BesselHelper& besselHelper;
+};
+
+/**
+ * Fixed-node composite Simpson quadrature for the Gibson-Lanni radial
+ * integral. The phase W(rho) depends only on rho, not on the evaluation
+ * radius, so it is tabulated once per slice. Every radius is then a plain
+ * multiply-accumulate over tabulated J0 values (BesselHelper), which avoids
+ * the per-radius adaptive restarts of SimpsonIntegrator.
+ */
+class GibsonLanniQuadrature {
+public:
+    // Node count for a given max argument of J0(k0*NA*r*rho) and the
+    // accuracy setting (1..10); scaled to resolve the fastest oscillation.
+    static size_t nodeCount(double maxArgument, int accuracy);
+
+    // Tabulates phase terms on (0, upperBound] with n nodes (n even).
+    void init(const GibsonLanniPSFConfig& config, double upperBound, size_t n);
+
+    // |integral|^2 of the Gibson-Lanni integrand at radius r_nm (in nm).
+    double evaluateSquared(double k0NAr, const BesselHelper& besselHelper) const;
+
+    size_t nodeCount() const { return rho.size(); }
+
+private:
+    std::vector<double> rho;      // nodes on (0, upperBound]
+    std::vector<double> cosW;     // cos(W(rho_j)) * rho_j * weight_j
+    std::vector<double> sinW;     // sin(W(rho_j)) * rho_j * weight_j
 };
 

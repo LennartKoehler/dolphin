@@ -74,8 +74,31 @@ void PSFHandler::loadConfigsFromSetup(const SetupConfig& setupConfig) {
 }
 
 
+float PSFHandler::generationCutoffThreshold(const DeconvolutionConfig& deconvConfig) {
+    // The PSF is generated two orders of magnitude below the trim threshold so
+    // the later trim (padding) keeps a margin instead of cutting into signal.
+    if (deconvConfig.paddingRelativeMax > 0.0f)
+        return deconvConfig.paddingRelativeMax * 1e-2f;
+
+    switch (deconvConfig.paddingStrategyType) {
+        case(LOW):
+            return 1e-5f;
+        case(MAX):
+            return 1e-9f; // full support; the size cap bounds the cost
+        case(DEFAULT):
+            [[fallthrough]];
+        case(NONE):
+            [[fallthrough]];
+        case(MEDIUM):
+            return 1e-6f;
+        default:
+            return 1e-6f;
+    }
+}
+
 void PSFHandler::generatePSFs(
     const SetupConfig& setupConfig,
+    const DeconvolutionConfig& deconvConfig,
     const CuboidShape& maxSize)
 {
     loadConfigsFromSetup(setupConfig);
@@ -85,7 +108,8 @@ void PSFHandler::generatePSFs(
         if (config->sizeY == 0) config->sizeY = maxSize.height;
         if (config->sizeZ == 0) config->sizeZ = maxSize.depth;
         config->autoSize = true;
-        config->cutoffThreshold = 1e-9f;
+        if (config->cutoffThreshold <= 0.0f)
+            config->cutoffThreshold = generationCutoffThreshold(deconvConfig);
         auto psf = std::make_shared<PSF>(PSFCreator::generatePSFFromPSFConfig(config, threadpool, progressFn));
         psfs.push_back(psf);
     }

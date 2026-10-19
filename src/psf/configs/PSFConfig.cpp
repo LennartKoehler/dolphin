@@ -82,4 +82,5 @@ void PSFConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Int, &sizeZ, "Size Z", false, "size_z", "--size_z", "PSF size Z (0 = auto)", false, true, 0, 512, nullptr});
     parameters.push_back({ParameterType::String, &ID, "ID", true, "id", "--id", "PSF identifier", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &psfModelName, "Model Name", true, "model_name", "--model_name", "PSF model name", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Float, &cutoffThreshold, "Cutoff Threshold", true, "cutoff_threshold", "--cutoff_threshold", "Relative intensity cutoff for auto-size PSF (0 = derive from padding strategy)", false, true, 0.0, 1.0, nullptr});
 }

@@ -31,6 +31,7 @@ public:
 
     void generatePSFs(
         const SetupConfig& setupConfig,
+        const DeconvolutionConfig& deconvConfig,
         const CuboidShape& maxSize);
 
     Result<PaddingScheme> getPadding(
@@ -43,6 +44,7 @@ public:
 
 private:
     static std::string paddingStrategyName(PaddingStrategyType type);
+    static float generationCutoffThreshold(const DeconvolutionConfig& deconvConfig);
     static CuboidShape getManualCubePadding(const std::array<int, 3>& cubePadding);
     CuboidShape getManualRelativeMaxPadding(const PSF& psf, float paddingRelativeMax) const;
     CuboidShape getPresetPadding(const PSF& psf, PaddingStrategyType paddingType) const;
