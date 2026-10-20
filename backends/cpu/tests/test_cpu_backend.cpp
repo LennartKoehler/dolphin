@@ -448,6 +448,70 @@ TEST_F(CPUComputeBackendTest, RealFFTRoundTrip) {
     }
 }
 
+TEST_F(CPUComputeBackendTest, RealFFTRoundTripOutOfPlaceUnpadded) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    RealData realIn = memMgr.allocateMemoryOnDeviceReal(shape);
+    ComplexData complexOut = memMgr.allocateMemoryOnDeviceComplex(shape);
+    RealData realOut = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        realIn[i] = static_cast<real_t>(i % 10) * 0.1f;
+    }
+
+    deconv.forwardFFT(realIn, complexOut);
+    deconv.backwardFFT(complexOut, realOut);
+
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        EXPECT_TRUE(approxEqual(realOut[i], realIn[i], 1e-3f));
+    }
+}
+
+TEST_F(CPUComputeBackendTest, RealFFTMixedPadding) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    RealData realIn = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+    ComplexData complexOut = memMgr.allocateMemoryOnDeviceComplex(shape);
+    RealData realOut = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        realIn[i] = static_cast<real_t>(i % 7) * 0.2f;
+    }
+
+    deconv.forwardFFT(realIn, complexOut);
+    deconv.backwardFFT(complexOut, realOut);
+
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        EXPECT_TRUE(approxEqual(realOut[i], realIn[i], 1e-3f));
+    }
+}
+
+TEST_F(CPUComputeBackendTest, ForwardFFTRejectsFullComplexOutput) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    RealData realIn = memMgr.allocateMemoryOnDeviceReal(shape);
+    ComplexData fullOut = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+
+    EXPECT_THROW(deconv.forwardFFT(realIn, fullOut), dolphin::backend::BackendException);
+}
+
+TEST_F(CPUComputeBackendTest, BackwardFFTRejectsFullComplexInput) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    ComplexData fullIn = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+    RealData realOut = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    EXPECT_THROW(deconv.backwardFFT(fullIn, realOut), dolphin::backend::BackendException);
+}
+
 TEST_F(CPUComputeBackendTest, ComplexMultiplication) {
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
