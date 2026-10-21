@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include <thread>
 #include <atomic>
 #include <limits>
+#include <utility>
 
 #include "dolphinbackend/ComplexData.h"
 #include "dolphinbackend/CuboidShape.h"
@@ -445,6 +446,261 @@ TEST_F(CPUComputeBackendTest, RealFFTRoundTrip) {
 
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         EXPECT_TRUE(approxEqual(realOut[i], realIn[i], 1e-3f));
+    }
+}
+
+TEST_F(CPUComputeBackendTest, RealFFTRoundTripOutOfPlaceUnpadded) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    RealData realIn = memMgr.allocateMemoryOnDeviceReal(shape);
+    ComplexData complexOut = memMgr.allocateMemoryOnDeviceComplex(shape);
+    RealData realOut = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        realIn[i] = static_cast<real_t>(i % 10) * 0.1f;
+    }
+
+    deconv.forwardFFT(realIn, complexOut);
+    deconv.backwardFFT(complexOut, realOut);
+
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        EXPECT_TRUE(approxEqual(realOut[i], realIn[i], 1e-3f));
+    }
+}
+
+TEST_F(CPUComputeBackendTest, RealFFTMixedPadding) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    RealData realIn = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+    ComplexData complexOut = memMgr.allocateMemoryOnDeviceComplex(shape);
+    RealData realOut = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        realIn[i] = static_cast<real_t>(i % 7) * 0.2f;
+    }
+
+    deconv.forwardFFT(realIn, complexOut);
+    deconv.backwardFFT(complexOut, realOut);
+
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        EXPECT_TRUE(approxEqual(realOut[i], realIn[i], 1e-3f));
+    }
+}
+
+TEST_F(CPUComputeBackendTest, ForwardFFTRejectsFullComplexOutput) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    RealData realIn = memMgr.allocateMemoryOnDeviceReal(shape);
+    ComplexData fullOut = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+
+    EXPECT_THROW(deconv.forwardFFT(realIn, fullOut), dolphin::backend::BackendException);
+}
+
+TEST_F(CPUComputeBackendTest, BackwardFFTRejectsFullComplexInput) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    ComplexData fullIn = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+    RealData realOut = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    EXPECT_THROW(deconv.backwardFFT(fullIn, realOut), dolphin::backend::BackendException);
+}
+
+// ---------------------------------------------------------------------------
+// Exact-reference FFT tests (4x4x4).
+//
+// Reference values are precomputed externally with a direct 3D DFT matching the
+// backend convention (forward unnormalized, backward normalized by 1/64), i.e.
+// the same definition as numpy fftn/ifftn/rfftn/irfftn. Element order is
+// (depth, height, width) with width fastest. Each direction is validated
+// independently against its own precomputed input->expected pair (no
+// forward-then-backward chaining), so a wrong sign, axis order, or
+// normalization constant is caught - things a self round-trip would hide.
+// kRealInput == kRealFwdRef's inverse (c2r expected output), kComplexInput ==
+// kComplexFwdRef's inverse (c2c backward expected output).
+// ---------------------------------------------------------------------------
+// 64 values, order (d,h,w), w fastest
+static const float kRealInput[64] = {
+    1.5f, 2.144218f, 2.48545f, 2.363209f, 1.67052f, 2.216471f, 2.366665f, 2.050463f,
+    1.814642f, 2.213558f, 2.159297f, 1.67738f, 1.908327f, 2.124574f, 1.870705f, 1.26612f,
+    2.229426f, 2.682039f, 2.6963f, 2.265501f, 2.342356f, 2.622495f, 2.433496f, 1.864249f,
+    2.391207f, 2.473848f, 2.098472f, 1.441626f, 2.36045f, 2.238209f, 1.709988f, 1.024217f,
+    2.841471f, 2.991665f, 2.675463f, 2.041581f, 2.838558f, 2.784297f, 2.30238f, 1.619459f,
+    2.749574f, 2.495705f, 1.89112f, 1.220164f, 2.5713f, 2.140501f, 1.467254f, 0.8681975f,
+    3.247495f, 3.058496f, 2.489249f, 1.80748f, 3.098848f, 2.723472f, 2.066626f, 1.437234f,
+    2.863209f, 2.334988f, 1.649217f, 1.128424f, 2.550463f, 1.916581f, 1.263142f, 0.8974699f,
+};
+
+// 48 values (width/2+1), order (d,h,w), w fastest
+static const std::pair<float, float> kRealFwdRef[48] = {
+    { 136.7366f, 0.0f }, { 5.353021f, -14.18834f }, { 8.46878f, 0.0f }, { 6.916611f, -8.260091f }, { -1.560067f, 3.950193f }, { -1.820381f, 1.424452f }, { 7.506386f, 0.0f }, { -2.36811f, 1.290039f },
+    { -1.585358f, 0.0f }, { 6.916611f, 8.260091f }, { -3.537128f, -0.6464766f }, { -1.820381f, -1.424452f }, { -3.66709f, -0.3414858f }, { -3.311381f, 7.227719f }, { -3.455937f, 2.274593f }, { -0.7968273f, 2.521816f },
+    { 1.783271f, 0.1766f }, { 0.360273f, 0.7431893f }, { -1.430885f, 0.9417652f }, { 0.6198914f, 0.8819139f }, { -0.2390408f, 0.4601886f }, { -2.334409f, -0.204279f }, { -0.359695f, 1.290551f }, { -0.6879596f, 0.09236156f },
+    { -2.075984f, 0.0f }, { -4.000905f, 2.179512f }, { -2.678451f, 0.0f }, { -1.273379f, 0.9964219f }, { 0.4934078f, 0.8143286f }, { -0.2718488f, 0.3970706f }, { -1.108977f, 0.0f }, { -0.2065793f, 0.5475446f },
+    { -0.32682f, 0.0f }, { -1.273379f, -0.9964219f }, { -0.7291756f, 0.2044635f }, { -0.2718488f, -0.3970706f }, { -3.66709f, 0.3414858f }, { -5.995245f, -0.5854793f }, { -3.455937f, -2.274593f }, { -2.334409f, 0.204279f },
+    { -0.5100081f, 1.014623f }, { -0.6879596f, -0.09236156f }, { -1.430885f, -0.9417652f }, { -0.7315295f, 0.1096019f }, { -0.2390408f, -0.4601886f }, { -0.7968273f, -2.521816f }, { -0.7069638f, -0.7629233f }, { 0.360273f, -0.7431893f },
+};
+
+// 64 values, order (d,h,w), w fastest
+static const std::pair<float, float> kComplexInput[64] = {
+    { 1.f, 1.f }, { 0.721061f, 0.7f }, { 0.2967067f, 0.4f }, { -0.2376422f, 0.1f }, { 1.7f, 2.391207f }, { 1.421061f, 2.091207f }, { 0.9967067f, 1.791207f }, { 0.4623578f, 1.491207f },
+    { 2.4f, 2.808496f }, { 2.121061f, 2.508496f }, { 1.696707f, 2.208496f }, { 1.162358f, 1.908496f }, { 3.1f, 2.342254f }, { 2.821061f, 2.042254f }, { 2.396707f, 1.742254f }, { 1.862358f, 1.442254f },
+    { 0.92161f, 1.564642f }, { 0.3674988f, 1.264642f }, { -0.2288445f, 0.9646425f }, { -0.8048461f, 0.6646425f }, { 1.62161f, 2.491665f }, { 1.067499f, 2.191665f }, { 0.4711555f, 1.891665f }, { -0.1048461f, 1.591665f },
+    { 2.32161f, 2.334988f }, { 1.767499f, 2.034988f }, { 1.171156f, 1.734988f }, { 0.5951539f, 1.434988f }, { 3.02161f, 1.812234f }, { 2.467499f, 1.512234f }, { 1.871156f, 1.212234f }, { 1.295154f, 0.9122338f },
+    { 0.3727979f, 1.932039f }, { -0.1885011f, 1.632039f }, { -0.6568888f, 1.332039f }, { -0.9899925f, 1.032039f }, { 1.072798f, 2.245705f }, { 0.5114989f, 1.945705f }, { 0.04311125f, 1.645705f }, { -0.2899925f, 1.345705f },
+    { 1.772798f, 1.744459f }, { 1.211499f, 1.444459f }, { 0.7431112f, 1.144459f }, { 0.4100075f, 0.8444589f }, { 2.472798f, 1.52247f }, { 1.911499f, 1.22247f }, { 1.443111f, 0.9224699f }, { 1.110008f, 0.6224699f },
+    { -0.004072142f, 1.973848f }, { -0.2991352f, 1.673848f }, { -0.4364567f, 1.373848f }, { -0.4259323f, 1.073848f }, { 0.6959279f, 1.739249f }, { 0.4008648f, 1.439249f }, { 0.2635433f, 1.139249f }, { 0.2740677f, 0.8392493f },
+    { 1.395928f, 1.243198f }, { 1.100865f, 0.9431975f }, { 0.9635433f, 0.6431975f }, { 0.9740677f, 0.3431975f }, { 2.095928f, 1.574185f }, { 1.800865f, 1.274185f }, { 1.663543f, 0.9741853f }, { 1.674068f, 0.6741853f },
+};
+
+// 64 values, order (d,h,w), w fastest
+static const std::pair<float, float> kComplexFwdRef[64] = {
+    { 64.82945f, 94.08256f }, { 22.86328f, -2.637347f }, { 12.48937f, 9.6f }, { 3.663276f, 21.83735f }, { -15.93327f, 15.75755f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f },
+    { -22.4f, -6.0692f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { -28.86673f, -29.04245f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f },
+    { 19.66304f, -1.294918f }, { -5.487765f, -3.501127f }, { -0.3244592f, -3.382296f }, { 2.876618f, -2.243432f }, { -8.701112f, -10.04177f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f },
+    { -1.231514f, -3.333153f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { -3.306854f, -5.926839f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f },
+    { 4.910876f, 5.010488f }, { 0.6005638f, -1.84421f }, { 1.172157f, 0.0f }, { 0.6005638f, 1.84421f }, { -0.2892264f, -6.324883f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f },
+    { 0.0f, -2.063939f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.2892264f, -6.324883f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f },
+    { 6.278642f, 10.0732f }, { 2.876618f, 2.243432f }, { -0.3244592f, 3.382296f }, { -5.487765f, 3.501127f }, { 3.306854f, -5.926839f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f },
+    { 1.231514f, -3.333153f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 8.701112f, -10.04177f }, { 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f },
+};
+
+TEST_F(CPUComputeBackendTest, RealForwardFFTMatchesReference) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(4, 4, 4);
+    const real_t tol = 1e-3f;
+
+    // Out-of-place: unpadded real input -> complex output
+    {
+        RealData realIn = memMgr.allocateMemoryOnDeviceReal(shape);
+        ComplexData complexOut = memMgr.allocateMemoryOnDeviceComplex(shape);
+        for (size_t i = 0; i < 64; ++i) realIn[i] = kRealInput[i];
+        deconv.forwardFFT(realIn, complexOut);
+        for (size_t i = 0; i < 48; ++i) {
+            EXPECT_NEAR(complexOut[i][0], kRealFwdRef[i].first, tol) << "OOP fwd real bin " << i;
+            EXPECT_NEAR(complexOut[i][1], kRealFwdRef[i].second, tol) << "OOP fwd real bin " << i;
+        }
+    }
+    // In-place: padded real buffer reinterpreted as a complex view
+    {
+        RealData realIn = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+        DataView<complex_t> complexOut = memMgr.reinterpret(realIn);
+        for (size_t i = 0; i < 64; ++i) realIn[i] = kRealInput[i];
+        deconv.forwardFFT(realIn, complexOut);
+        for (size_t i = 0; i < 48; ++i) {
+            EXPECT_NEAR(complexOut[i][0], kRealFwdRef[i].first, tol) << "IP fwd real bin " << i;
+            EXPECT_NEAR(complexOut[i][1], kRealFwdRef[i].second, tol) << "IP fwd real bin " << i;
+        }
+    }
+}
+
+TEST_F(CPUComputeBackendTest, RealBackwardFFTMatchesReference) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(4, 4, 4);
+    const real_t tol = 1e-3f;
+
+    // Out-of-place: complex input -> unpadded real output
+    {
+        ComplexData complexIn = memMgr.allocateMemoryOnDeviceComplex(shape);
+        RealData realOut = memMgr.allocateMemoryOnDeviceReal(shape);
+        for (size_t i = 0; i < 48; ++i) {
+            complexIn[i][0] = kRealFwdRef[i].first;
+            complexIn[i][1] = kRealFwdRef[i].second;
+        }
+        deconv.backwardFFT(complexIn, realOut);
+        for (size_t i = 0; i < 64; ++i)
+            EXPECT_NEAR(realOut[i], kRealInput[i], tol) << "OOP bwd real bin " << i;
+    }
+    // In-place: complex view on a padded real buffer
+    {
+        RealData realOut = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+        DataView<complex_t> complexIn = memMgr.reinterpret(realOut);
+        for (size_t i = 0; i < 48; ++i) {
+            complexIn[i][0] = kRealFwdRef[i].first;
+            complexIn[i][1] = kRealFwdRef[i].second;
+        }
+        deconv.backwardFFT(complexIn, realOut);
+        for (size_t i = 0; i < 64; ++i)
+            EXPECT_NEAR(realOut[i], kRealInput[i], tol) << "IP bwd real bin " << i;
+    }
+}
+
+TEST_F(CPUComputeBackendTest, ComplexForwardFFTMatchesReference) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(4, 4, 4);
+    const real_t tol = 1e-3f;
+
+    // Out-of-place
+    {
+        ComplexData in = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+        ComplexData out = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+        for (size_t i = 0; i < 64; ++i) {
+            in[i][0] = kComplexInput[i].first;
+            in[i][1] = kComplexInput[i].second;
+        }
+        deconv.forwardFFT(in, out);
+        for (size_t i = 0; i < 64; ++i) {
+            EXPECT_NEAR(out[i][0], kComplexFwdRef[i].first, tol) << "OOP fwd complex bin " << i;
+            EXPECT_NEAR(out[i][1], kComplexFwdRef[i].second, tol) << "OOP fwd complex bin " << i;
+        }
+    }
+    // In-place
+    {
+        ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+        for (size_t i = 0; i < 64; ++i) {
+            data[i][0] = kComplexInput[i].first;
+            data[i][1] = kComplexInput[i].second;
+        }
+        deconv.forwardFFT(data, data);
+        for (size_t i = 0; i < 64; ++i) {
+            EXPECT_NEAR(data[i][0], kComplexFwdRef[i].first, tol) << "IP fwd complex bin " << i;
+            EXPECT_NEAR(data[i][1], kComplexFwdRef[i].second, tol) << "IP fwd complex bin " << i;
+        }
+    }
+}
+
+TEST_F(CPUComputeBackendTest, ComplexBackwardFFTMatchesReference) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(4, 4, 4);
+    const real_t tol = 1e-3f;
+
+    // Out-of-place
+    {
+        ComplexData in = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+        ComplexData out = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+        for (size_t i = 0; i < 64; ++i) {
+            in[i][0] = kComplexFwdRef[i].first;
+            in[i][1] = kComplexFwdRef[i].second;
+        }
+        deconv.backwardFFT(in, out);
+        for (size_t i = 0; i < 64; ++i) {
+            EXPECT_NEAR(out[i][0], kComplexInput[i].first, tol) << "OOP bwd complex bin " << i;
+            EXPECT_NEAR(out[i][1], kComplexInput[i].second, tol) << "OOP bwd complex bin " << i;
+        }
+    }
+    // In-place
+    {
+        ComplexData data = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+        for (size_t i = 0; i < 64; ++i) {
+            data[i][0] = kComplexFwdRef[i].first;
+            data[i][1] = kComplexFwdRef[i].second;
+        }
+        deconv.backwardFFT(data, data);
+        for (size_t i = 0; i < 64; ++i) {
+            EXPECT_NEAR(data[i][0], kComplexInput[i].first, tol) << "IP bwd complex bin " << i;
+            EXPECT_NEAR(data[i][1], kComplexInput[i].second, tol) << "IP bwd complex bin " << i;
+        }
     }
 }
 

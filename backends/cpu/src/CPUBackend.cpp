@@ -284,8 +284,7 @@ ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidS
     log(fmt::format("allocateMemoryOnDeviceComplex for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     CuboidShape complexShape = shape;
     complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
-    CuboidShape originalShape = shape;
-    ComplexData result{ this, nullptr, complexShape, originalShape, complexShape.getVolume() * sizeof(complex_t), 0};
+    ComplexData result{ this, nullptr, complexShape, shape, complexShape.getVolume() * sizeof(complex_t), 0};
 
     // No extra padding: stride equals the complex width
     IBackendMemoryManager::allocateMemoryOnDevice(result);
@@ -453,8 +452,16 @@ void CPUComputeBackend::forwardFFT(const RealData& in, ComplexData& out) const {
     BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data", buildCpuContext());
     BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data", buildCpuContext());
 
+    size_t complexWidth = in.getSize().width / 2 + 1;
+    BACKEND_CHECK(out.getSize().width == complexWidth, "r2c output must have half-width complex layout (width/2+1)", "CPU", "forwardFFT - output layout", buildCpuContext());
+    BACKEND_CHECK(out.getPadding() == 0, "r2c output must not have padding", "CPU", "forwardFFT - output layout", buildCpuContext());
+
     bool inPlace = in.getData() == (real_t*)out.getData();
-    FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::REAL, in.getSize(), inPlace);
+    if (inPlace) {
+        size_t paddedWidth = 2 * complexWidth;
+        BACKEND_CHECK(in.getSize().width + in.getPadding() == paddedWidth, "In-place r2c requires the real buffer to be padded to width 2*(width/2+1)", "CPU", "forwardFFT - in-place layout", buildCpuContext());
+    }
+    FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::REAL, in.getSize(), inPlace, in.getPadding());
     fftwManager.executeForwardFFTReal(description, reinterpret_cast<real_t*>(in.getData()), reinterpret_cast<fftwf_complex*>(out.getData()));
 }
 
@@ -462,8 +469,16 @@ void CPUComputeBackend::backwardFFT(const ComplexData& in, RealData& out) const 
     BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data", buildCpuContext());
     BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data", buildCpuContext());
 
+    BACKEND_CHECK(in.getSize().width == out.getSize().width / 2 + 1, "c2r input must have half-width complex layout (width/2+1)", "CPU", "backwardFFT - input layout", buildCpuContext());
+    BACKEND_CHECK(in.getPadding() == 0, "c2r input must not have padding", "CPU", "backwardFFT - input layout", buildCpuContext());
+
     bool inPlace = in.getData() == (complex_t*)out.getData();
-    FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL ,out.getSize(), inPlace);
+    if (inPlace) {
+        size_t complexWidth = out.getSize().width / 2 + 1;
+        size_t paddedWidth = 2 * complexWidth;
+        BACKEND_CHECK(out.getSize().width + out.getPadding() == paddedWidth, "In-place c2r requires the real buffer to be padded to width 2*(width/2+1)", "CPU", "backwardFFT - in-place layout", buildCpuContext());
+    }
+    FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL ,out.getSize(), inPlace, out.getPadding());
     fftwManager.executeBackwardFFTReal(description, reinterpret_cast<fftwf_complex*>(in.getData()), reinterpret_cast<real_t*>(out.getData()));
 
     real_t normFactor{1.0f / out.getSize().getVolume()};

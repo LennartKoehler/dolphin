@@ -93,7 +93,7 @@ TEST_F(BackendFactoryTest, CPUFFTRoundTrip) {
 
     CuboidShape shape{8, 8, 8};
     RealData realData = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
-    ComplexData complexData = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+    ComplexData complexData = memMgr.allocateMemoryOnDeviceComplex(shape);
 
     for (size_t i = 0; i < static_cast<size_t>(shape.getVolume()); i++) {
         realData.access(i) = 1.0f;
