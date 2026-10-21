@@ -26,6 +26,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/IComputeBackend.h"
 #include "cuda_backend/CUDABackend.h"
 #include "cuda_backend/CUDABackendManager.h"
+#include "dolphinbackend/Exceptions.h"
 
 struct ComplexHost {
     real_t data[2];
@@ -453,6 +454,74 @@ TEST_F(CUDAComputeBackendTest, RealFFTRoundTrip) {
     auto readback = readbackReal(realIn);
     for (size_t i = 0; i < shape.getVolume(); ++i)
         EXPECT_NEAR(readback[i], hostIn[i], 1e-2f);
+}
+
+TEST_F(CUDAComputeBackendTest, RealFFTRoundTripOutOfPlaceUnpadded) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    RealData realIn = memMgr.allocateMemoryOnDeviceReal(shape);
+    ComplexData complexOut = memMgr.allocateMemoryOnDeviceComplex(shape);
+    RealData realOut = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    std::vector<real_t> hostIn(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        hostIn[i] = static_cast<real_t>(i % 10) * 0.1f;
+
+    writeRealToDevice(realIn, hostIn);
+    deconv.forwardFFT(realIn, complexOut);
+    deconv.backwardFFT(complexOut, realOut);
+    backend->sync();
+
+    auto readback = readbackReal(realOut);
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        EXPECT_NEAR(readback[i], hostIn[i], 1e-2f);
+}
+
+TEST_F(CUDAComputeBackendTest, RealFFTMixedPadding) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    RealData realIn = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+    ComplexData complexOut = memMgr.allocateMemoryOnDeviceComplex(shape);
+    RealData realOut = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    std::vector<real_t> hostIn(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        hostIn[i] = static_cast<real_t>(i % 7) * 0.2f;
+
+    writeRealToDevice(realIn, hostIn);
+    deconv.forwardFFT(realIn, complexOut);
+    deconv.backwardFFT(complexOut, realOut);
+    backend->sync();
+
+    auto readback = readbackReal(realOut);
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        EXPECT_NEAR(readback[i], hostIn[i], 1e-2f);
+}
+
+TEST_F(CUDAComputeBackendTest, ForwardFFTRejectsFullComplexOutput) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    RealData realIn = memMgr.allocateMemoryOnDeviceReal(shape);
+    ComplexData fullOut = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+
+    EXPECT_THROW(deconv.forwardFFT(realIn, fullOut), dolphin::backend::BackendException);
+}
+
+TEST_F(CUDAComputeBackendTest, BackwardFFTRejectsFullComplexInput) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 16, 8);
+
+    ComplexData fullIn = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+    RealData realOut = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    EXPECT_THROW(deconv.backwardFFT(fullIn, realOut), dolphin::backend::BackendException);
 }
 
 TEST_F(CUDAComputeBackendTest, ComplexMultiplication) {

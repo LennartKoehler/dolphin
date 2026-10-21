@@ -83,9 +83,29 @@ class CUDABackendManager;
         ); \
     } \
 }
+struct CUDAFFTPlanDescription : public FFTPlanDescription{
+    // Row padding (in real_t elements) of the real buffer this plan addresses.
+    // 0 for unpadded real data and for complex->complex plans.
+    size_t realPadding;
+
+    CUDAFFTPlanDescription(
+        PlanDirection direction,
+        PlanType type,
+        CuboidShape shape,
+        bool inPlace,
+        size_t realPadding = 0
+    ):
+        FFTPlanDescription(direction, type, shape, inPlace),
+        realPadding(realPadding) {}
+
+    bool operator==(const CUDAFFTPlanDescription& other) const {
+        return (FFTPlanDescription::operator==(other) && realPadding == other.realPadding);
+    }
+};
+
 struct cuFFTPlan{
     cufftHandle plan;
-    FFTPlanDescription description;
+    CUDAFFTPlanDescription description;
 };
 
 using cudaDeviceID = int;
@@ -231,16 +251,16 @@ private:
     void logWithContext(const std::string& msg, LogLevel level) const;
     void ensureDevice() const { cudaSetDevice(config.device.id); }
 
-    cufftHandle initializePlan_(const FFTPlanDescription& description);
+    cufftHandle initializePlan_(const CUDAFFTPlanDescription& description);
 
-    void createPlanComplex(cufftHandle& plan, const FFTPlanDescription& description) const;
-    void createPlanRealToComplex(cufftHandle& plan, const FFTPlanDescription& description) const;
-    void createPlanComplexToReal(cufftHandle& plan, const FFTPlanDescription& description) const ;
+    void createPlanComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description) const;
+    void createPlanRealToComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description) const;
+    void createPlanComplexToReal(cufftHandle& plan, const CUDAFFTPlanDescription& description) const ;
 
     void destroyPlans();
 
-    cufftHandle getPlan(const FFTPlanDescription& description);
-    void addPlan(const FFTPlanDescription& description, cufftHandle handle);
+    cufftHandle getPlan(const CUDAFFTPlanDescription& description);
+    void addPlan(const CUDAFFTPlanDescription& description, cufftHandle handle);
     std::vector<cuFFTPlan> cuFFTPlans;
 
     CUDABackendConfig config;
