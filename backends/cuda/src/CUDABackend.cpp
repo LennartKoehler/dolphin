@@ -845,3 +845,4 @@ void CUDAComputeBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData&
     cudaError_t err = CUBE_REG::normalizeTV(Nx, gradX.getSize().height, gradX.getSize().depth, strideGradX, strideGradY, strideGradZ, gradX.getData(), gradY.getData(), gradZ.getData(), beta, config.stream);
     CUDA_CHECK(err, "normalizeTV (real)", buildCudaContext(config));
 }
+

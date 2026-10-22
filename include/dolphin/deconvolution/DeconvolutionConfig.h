@@ -50,6 +50,20 @@ public:
     std::array<int, 3> cubeSize{}; // currently unused
     std::array<int, 3> cubePadding{-1, -1, -1}; // this padding is later doubled
 
+    // --- PoissonMLE (Poisson / I-divergence likelihood) specific parameters ---
+    // Master dial: effective SNR (acuity). Drives shrinkage, sieve and photon scale.
+    float poissonSnr = 10.0f;
+    // Shrinkage strength lambda for the prior step. 0 => derive from poissonSnr.
+    float poissonLambda = 0.0f;
+    // Background level bg. 0 => estimate from the data (mean of dimmest decile).
+    float poissonBackground = 0.0f;
+    // Enable the annealed anisotropic Gaussian roughness ("sieve") step.
+    bool poissonSieve = true;
+    // Enable the lambda-shrinkage + flux-conservation prior step.
+    bool poissonPrior = true;
+    // Number of sieve smoothing passes per iteration.
+    int poissonSievePasses = 2;
+
 private:
     virtual void registerAllParameters();
 };
