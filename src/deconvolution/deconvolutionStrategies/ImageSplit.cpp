@@ -210,8 +210,8 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const size_t& maxVolumePerCube,
     const size_t& minNumberCubes,
     const CuboidShape& minSize,
-    bool sliceAllDimensions)
-    {
+    bool sliceAllDimensions
+){
 
     assert(cubePadding.before >= imagePadding.before);
     assert(minSize > cubePadding.getTotalPadding());
@@ -295,4 +295,33 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     }
 
     return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(cubePositions));
+}
+
+
+// mainly for reproducability etc
+Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneousFixedSize(
+    const Padding& cubePadding,
+    const Padding& imagePadding,
+    const CuboidShape& imageOriginalShape,
+    const CuboidShape& fixedCubeShape
+){
+
+    std::vector<BoxCoordWithPadding> cubePositions;
+    BoxCoord startCube{
+        BoxCoord{CuboidShape(0,0,0), fixedCubeShape}
+    };
+    try{
+        addCubeRecursion(
+            cubePositions,
+            startCube.position,
+            startCube,
+            imageOriginalShape,
+            cubePadding,
+            imagePadding,
+            fixedCubeShape);
+        return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(cubePositions));
+    }
+    catch(const std::runtime_error& e){
+        return Result<std::vector<BoxCoordWithPadding>>::fail(e.what());
+    }
 }

@@ -45,7 +45,7 @@ public:
 private:
     static std::string paddingStrategyName(PaddingStrategyType type);
     static float generationCutoffThreshold(const DeconvolutionConfig& deconvConfig);
-    static CuboidShape getManualCubePadding(const std::array<int, 3>& cubePadding);
+    static CuboidShape getManualCubePadding(const std::array<int64_t, 3>& cubePadding);
     CuboidShape getManualRelativeMaxPadding(const PSF& psf, float paddingRelativeMax) const;
     CuboidShape getPresetPadding(const PSF& psf, PaddingStrategyType paddingType) const;
     Result<PaddingScheme> makePaddingScheme(CuboidShape totalPadding) const;

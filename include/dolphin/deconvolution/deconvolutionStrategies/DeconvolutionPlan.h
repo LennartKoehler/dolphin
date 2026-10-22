@@ -177,3 +177,9 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const CuboidShape& minShape,
     bool sliceAllDimensions);
 
+Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneousFixedSize(
+    const Padding& cubePadding,
+    const Padding& imagePadding,
+    const CuboidShape& imageOriginalShape,
+    const CuboidShape& fixedCubeSize);
+

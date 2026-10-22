@@ -24,12 +24,23 @@ protected:
         Logging::init();
     }
 };
-bool checkSameShape(const CuboidShape& fullImage, const std::vector<BoxCoordWithPadding>& cubes){
+bool checkSameShape(const std::vector<BoxCoordWithPadding>& cubes){
     if (cubes.empty()) return false;
     BoxCoordWithPadding previous = cubes[0];
     for (const BoxCoordWithPadding& cube : cubes){
        if (cube.getPaddedBox().dimensions != previous.getPaddedBox().dimensions){
             GTEST_LOG_(WARNING) << "Previous BoxCoordWithPadding: " << previous.print() << "; Current BoxCoordWithPadding: " << cube.print();
+            return false;
+        }
+    }
+    return true;
+}
+
+bool checkSameShapeReference(CuboidShape reference, const std::vector<BoxCoordWithPadding>& cubes){
+    if (cubes.empty()) return false;
+    for (const BoxCoordWithPadding& cube : cubes){
+       if (cube.getPaddedBox().dimensions != reference){
+            GTEST_LOG_(WARNING) << "reference BoxCoordWithPadding: " << reference.print() << "; Current BoxCoordWithPadding: " << cube.print();
             return false;
         }
     }
@@ -65,7 +76,7 @@ bool checkCompleteness(const CuboidShape& fullImage, const std::vector<BoxCoordW
 void expectViableSplit(const CuboidShape& imageSize, const Result<std::vector<BoxCoordWithPadding>>& result) {
     ASSERT_TRUE(result.success);
     ASSERT_FALSE(result.value.empty());
-    EXPECT_TRUE(checkSameShape(imageSize, result.value))
+    EXPECT_TRUE(checkSameShape(result.value))
         << "not all cubes share the same padded shape";
     EXPECT_TRUE(checkCompleteness(imageSize, result.value))
         << "cubes do not cover the complete image";
@@ -252,6 +263,21 @@ TEST_F(ImageSplitTest, MinimumViableImage) {
     auto result = splitImageHomogeneous(padding, imagePadding, imageSize, 1000000, 1, CuboidShape(5, 5, 5), sliceAllDimensions);
     GTEST_LOG_(INFO) << printShape(imageSize, padding, imagePadding, 1000000, 1, CuboidShape(5, 5, 5), result);
     expectViableSplit(imageSize, result);
+}
+
+TEST_F(ImageSplitTest, ImageSplitFixedSize) {
+    CuboidShape imageSize(64, 64, 64);
+    Padding padding{CuboidShape(10, 10, 10), CuboidShape(10, 10, 10)};
+    Padding imagePadding{CuboidShape(4, 4, 4), CuboidShape(4, 4, 4)};
+    CuboidShape fixedSize{45, 45, 45};
+    bool sliceAllDimensions = true;
+    CuboidShape minSize = CuboidShape(5, 5, 5);
+    size_t maxMemoryPerCube = 1000000;
+    int minNumberCubes = 1;
+    auto result = splitImageHomogeneousFixedSize(padding, imagePadding, imageSize, fixedSize);
+    GTEST_LOG_(INFO) << printShape(imageSize, padding, imagePadding, maxMemoryPerCube, minNumberCubes, minSize, result);
+    expectViableSplit(imageSize, result);
+    checkSameShapeReference(fixedSize, result.value);
 }
 
 TEST_F(ImageSplitTest, NoPadding) {

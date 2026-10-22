@@ -29,7 +29,7 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     paddingStrategyType(other.paddingStrategyType),
     paddingRelativeMax(other.paddingRelativeMax),
     featheringRadius(other.featheringRadius),
-    // cubeSize(other.cubeSize),
+    cubeSize(other.cubeSize),
     cubePadding(other.cubePadding)
     {
         parameters.clear();
@@ -46,7 +46,7 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(const DeconvolutionConfig& o
         paddingStrategyType = other.paddingStrategyType;
         paddingRelativeMax = other.paddingRelativeMax;
         featheringRadius = other.featheringRadius;
-        // cubeSize = other.cubeSize;
+        cubeSize = other.cubeSize;
         cubePadding = other.cubePadding;
         parameters.clear();
         registerAllParameters();
@@ -64,7 +64,7 @@ DeconvolutionConfig::DeconvolutionConfig(DeconvolutionConfig&& other) noexcept
     paddingStrategyType(other.paddingStrategyType),
     paddingRelativeMax(other.paddingRelativeMax),
     featheringRadius(other.featheringRadius),
-    // cubeSize(other.cubeSize),
+    cubeSize(other.cubeSize),
     cubePadding(other.cubePadding)
     {
         parameters.clear();
@@ -81,7 +81,7 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(DeconvolutionConfig&& other)
         paddingStrategyType = other.paddingStrategyType;
         paddingRelativeMax = other.paddingRelativeMax;
         featheringRadius = other.featheringRadius;
-        // cubeSize = other.cubeSize;
+        cubeSize = other.cubeSize;
         cubePadding = other.cubePadding;
         parameters.clear();
         registerAllParameters();
@@ -146,7 +146,7 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::Float, &paddingRelativeMax, "Padding Relative Max", true, "padding_relative_max", "--padding_relative_max",
         "Pad until PSF is below this fraction of its max value (0-1). > 0 overrides padding_strategy", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Int, &featheringRadius, "Feathering Radius", true, "feathering_radius", "--feathering_radius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
-    // parameters.push_back({ParameterType::IntArray3, &cubeSize, "Cube Size", true, "cube_size", "--cube_size", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
+    parameters.push_back({ParameterType::IntArray3, &cubeSize, "Cube Size", true, "cube_size", "--cube_size", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::IntArray3, &cubePadding, "Cube Padding", true, "cube_padding", "--cube_padding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::Bool, &sliceAllDimensions, "Slice all dimensions", true, "slice_all_dimensions", "--slice_all_dimensions", "Slice all dimensions not only Z dimension", false, false, 0.0, 0.0, nullptr});
     // its labeled if the labeled image is given

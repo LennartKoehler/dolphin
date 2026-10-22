@@ -14,8 +14,10 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/PSFCreator.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin_image/ImagePadding.h"
+#include <cstdint>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
+#include <sys/types.h>
 
 
 std::string PSFHandler::paddingStrategyName(PaddingStrategyType type) {
@@ -29,11 +31,11 @@ std::string PSFHandler::paddingStrategyName(PaddingStrategyType type) {
     }
 }
 
-CuboidShape PSFHandler::getManualCubePadding(const std::array<int, 3>& cubePadding) {
+CuboidShape PSFHandler::getManualCubePadding(const std::array<int64_t, 3>& cubePadding) {
     return CuboidShape{
-        static_cast<size_t>(std::max(0, cubePadding[0])),
-        static_cast<size_t>(std::max(0, cubePadding[1])),
-        static_cast<size_t>(std::max(0, cubePadding[2]))
+        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[0])),
+        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[1])),
+        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[2]))
     };
 }
 

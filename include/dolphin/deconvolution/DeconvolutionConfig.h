@@ -51,8 +51,8 @@ public:
     PaddingStrategyType paddingStrategyType = PaddingStrategyType::DEFAULT;
     float paddingRelativeMax = 0.0f; // > 0: fraction of PSF max to pad to; 0 = use preset
     int featheringRadius = 0;
-    // std::array<int, 3> cubeSize{}; // currently unused
-    std::array<int, 3> cubePadding{-1, -1, -1}; // this padding is later doubled
+    std::array<size_t, 3> cubeSize{0, 0, 0}; // currently unused
+    std::array<int64_t, 3> cubePadding{-1, -1, -1}; // this padding is later doubled
     bool sliceAllDimensions = false;
 
 private:

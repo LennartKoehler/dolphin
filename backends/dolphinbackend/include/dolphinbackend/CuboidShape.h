@@ -33,10 +33,12 @@ struct CuboidShape{
         height(height),
         depth(depth){
         }
+
     CuboidShape(const std::array<size_t, 3>& dimensions)
         : width(dimensions[0]),
         height(dimensions[1]),
         depth(dimensions[2]){}
+
 
     std::array<size_t, 3> getArray() const {
         return std::array<size_t, 3>{width, height, depth};
