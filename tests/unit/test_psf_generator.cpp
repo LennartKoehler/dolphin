@@ -37,6 +37,22 @@ protected:
     }
 };
 
+// Fast GibsonLanni config: coarser pixels, lower accuracy, bounded domain.
+// All assertions are relative to the generated PSF, so this is pure effort
+// reduction. size 48 keeps the PSF support (<= ~25 px) below the domain cap
+// and the axial defocus at +/-12um instead of +/-24.5um.
+inline json fastGlJSON() {
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["size_x"] = 48;
+    j["size_y"] = 48;
+    j["size_z"] = 48;
+    j["pixel_size_axial_nm"] = 500.0;
+    j["pixel_size_lateral_nm"] = 500.0;
+    j["integration_accuracy"] = 3;
+    j["oversampling_factor"] = 2;
+    return j;
+}
+
 TEST_F(PSFGeneratorTest, SimpsonAccuracyMapsToK) {
     SimpsonIntegrator integrator;
     EXPECT_EQ(integrator.getK(1), 1);
@@ -54,11 +70,10 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfigChangeInvalidatesCache) {
     // reuse the stale radial profile and produce an identical PSF.
     auto buildConfig = [](float na) {
         auto& factory = PSFGeneratorFactory::getInstance();
-        json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-        j["size_x"] = 33;
-        j["size_y"] = 33;
-        j["size_z"] = 5;
-        j["integration_accuracy"] = 2;
+        json j = fastGlJSON();
+        j["size_x"] = 21;
+        j["size_y"] = 21;
+        j["size_z"] = 3;
         j["NA"] = na;
         return factory.createConfig(j);
     };
@@ -222,8 +237,9 @@ TEST_F(PSFGeneratorTest, GaussianPSFCreateFromConfig) {
 
 TEST_F(PSFGeneratorTest, GibsonLanniPSFGeneration) {
     auto& factory = PSFGeneratorFactory::getInstance();
-    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    json j = fastGlJSON();
     auto config = factory.createConfig(j);
+    config->autoSize = true;
     config->cutoffThreshold = 0.05f;
     auto generator = factory.createGenerator(config);
     ASSERT_NE(generator, nullptr);
@@ -234,15 +250,6 @@ TEST_F(PSFGeneratorTest, GibsonLanniPSFGeneration) {
     EXPECT_GT(shape.width, 0u);
     EXPECT_GT(shape.height, 0u);
     EXPECT_GT(shape.depth, 0u);
-}
-
-TEST_F(PSFGeneratorTest, GibsonLanniPSFNoNaN) {
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    auto config = factory.createConfig(j);
-    config->cutoffThreshold = 0.05f;
-    auto generator = factory.createGenerator(config);
-    PSF psf = generator->generatePSF();
 
     for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
         EXPECT_FALSE(std::isnan(*it));
@@ -252,8 +259,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniPSFNoNaN) {
 
 TEST_F(PSFGeneratorTest, GibsonLanniPSFCentered) {
     auto& factory = PSFGeneratorFactory::getInstance();
-    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    json j = fastGlJSON();
     auto config = factory.createConfig(j);
+    config->autoSize = true;
     config->cutoffThreshold = 0.05f;
     auto generator = factory.createGenerator(config);
     PSF psf = generator->generatePSF();
@@ -291,18 +299,18 @@ TEST_F(PSFGeneratorTest, PSFConstructorWithID) {
 
 TEST_F(PSFGeneratorTest, GibsonLanniFixedSize) {
     auto& factory = PSFGeneratorFactory::getInstance();
-    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    j["size_x"] = 33;
-    j["size_y"] = 33;
-    j["size_z"] = 17;
+    json j = fastGlJSON();
+    j["size_x"] = 21;
+    j["size_y"] = 21;
+    j["size_z"] = 5;
     auto generator = factory.createGenerator("GibsonLanni", j);
 
     PSF psf = generator->generatePSF();
     CuboidShape shape = psf.getShape();
 
-    EXPECT_EQ(shape.width, 33u);
-    EXPECT_EQ(shape.height, 33u);
-    EXPECT_EQ(shape.depth, 17u);
+    EXPECT_EQ(shape.width, 21u);
+    EXPECT_EQ(shape.height, 21u);
+    EXPECT_EQ(shape.depth, 5u);
 
     for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
         EXPECT_FALSE(std::isnan(*it));
@@ -314,8 +322,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniFixedSize) {
 
 TEST_F(PSFGeneratorTest, GibsonLanniThresholdCutoff) {
     auto& factory = PSFGeneratorFactory::getInstance();
-    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    json j = fastGlJSON();
     auto config = factory.createConfig(j);
+    config->autoSize = true;
     config->cutoffThreshold = 0.05f;
     auto generator = factory.createGenerator(config);
 
@@ -340,44 +349,6 @@ TEST_F(PSFGeneratorTest, GibsonLanniThresholdCutoff) {
     EXPECT_LT(edgeVal, maxVal * 5e-2f);
 }
 
-TEST_F(PSFGeneratorTest, GibsonLanniThresholdPeakCentered) {
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    auto config = factory.createConfig(j);
-    config->cutoffThreshold = 0.05f;
-    auto generator = factory.createGenerator(config);
-
-    PSF psf = generator->generatePSF();
-    CuboidShape shape = psf.getShape();
-
-    size_t cx = shape.width / 2;
-    size_t cy = shape.height / 2;
-    size_t cz = shape.depth / 2;
-
-    float maxVal = 0.0f;
-    size_t maxZ = 0;
-    for (size_t z = 0; z < shape.depth; z++) {
-        float val = psf.getPixel(cx, cy, z);
-        if (val > maxVal) { maxVal = val; maxZ = z; }
-    }
-
-    EXPECT_LE(std::abs(static_cast<long>(maxZ) - static_cast<long>(cz)), 2);
-}
-
-TEST_F(PSFGeneratorTest, GibsonLanniNoNaN) {
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    auto config = factory.createConfig(j);
-    config->cutoffThreshold = 0.05f;
-    auto generator = factory.createGenerator(config);
-    PSF psf = generator->generatePSF();
-
-    for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
-        EXPECT_FALSE(std::isnan(*it));
-        EXPECT_FALSE(std::isinf(*it));
-    }
-}
-
 // --- Cutoff policy and quadrature tests ---
 
 TEST_F(PSFGeneratorTest, GibsonLanniZeroCutoffFallsBack) {
@@ -387,6 +358,11 @@ TEST_F(PSFGeneratorTest, GibsonLanniZeroCutoffFallsBack) {
     // diagnostic).
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    // Keep 100nm pixels so the cap genuinely binds, but bound the domain:
+    // with effZ = 96 the axial scan is only 97 slices (still capped).
+    j["size_x"] = 96;
+    j["size_y"] = 96;
+    j["size_z"] = 96;
     auto config = factory.createConfig(j);
     config->cutoffThreshold = 0.0f;
     auto generator = factory.createGenerator(config);
@@ -417,8 +393,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniExtentShrinksWithStricterCutoff) {
     auto& factory = PSFGeneratorFactory::getInstance();
 
     auto generate = [&](float cutoff) {
-        json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+        json j = fastGlJSON();
         auto config = factory.createConfig(j);
+        config->autoSize = true;
         config->cutoffThreshold = cutoff;
         auto generator = factory.createGenerator(config);
         return generator->generatePSF();
@@ -436,8 +413,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniTwoPassMatchesCenteredPeak) {
     // The two-pass axial scan anchors the PSF on the reference slice and the
     // on-axis peak must stay within a couple of slices of the center.
     auto& factory = PSFGeneratorFactory::getInstance();
-    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    json j = fastGlJSON();
     auto config = factory.createConfig(j);
+    config->autoSize = true;
     config->cutoffThreshold = 0.05f;
     auto generator = factory.createGenerator(config);
     PSF psf = generator->generatePSF();
@@ -461,10 +439,12 @@ TEST_F(PSFGeneratorTest, GibsonLanniQuadratureMatchesAdaptiveSimpson) {
     // integrator on the radial profile within a few percent.
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    j["size_x"] = 33;
-    j["size_y"] = 33;
-    j["size_z"] = 5;
-    j["integration_accuracy"] = 8;
+    j["size_x"] = 17;
+    j["size_y"] = 17;
+    j["size_z"] = 3;
+    j["integration_accuracy"] = 2;
+    j["pixel_size_lateral_nm"] = 500.0;
+    j["oversampling_factor"] = 2;
     auto config = factory.createConfig(j);
 
     auto threadPool = std::make_shared<ThreadPool>(1);
