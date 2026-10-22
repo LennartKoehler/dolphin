@@ -846,3 +846,19 @@ void CUDAComputeBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData&
     CUDA_CHECK(err, "normalizeTV (real)", buildCudaContext(config));
 }
 
+void CUDAComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
+    ensureDevice();
+    size_t Nx = out.getSize().width;
+    size_t strideGradX = Nx + out.getPadding();
+
+    // Gaussian OTF in cycles per sample: OTF(f) = exp(-2*pi^2 * sigma^2 * f^2),
+    // i.e. the Fourier transform of a spatial Gaussian with std-dev `sigma` samples.
+    // (Do NOT use 2*(2*pi)^2*sigma^2 = 8*pi^2*sigma^2: that is the angular-frequency
+    //  form and is 4x too large for cycles/sample bins.)
+    const real_t twoPiSq = (real_t)M_PI * (real_t)M_PI * 2.0f;
+    const real_t ax = twoPiSq * sigmaX * sigmaX;
+    const real_t ay = twoPiSq * sigmaY * sigmaY;
+    const real_t az = twoPiSq * sigmaZ * sigmaZ;
+    cudaError_t err = CUBE_MLE::fillGaussianOTF(Nx, out.getSize().height, out.getSize().depth, strideGradX,  out.getData(), ax, ay, az, config.stream);
+    CUDA_CHECK(err, "fillGaussianOTF", buildCudaContext(config));
+}

@@ -234,7 +234,7 @@ public:
     // separable anisotropic 3D Gaussian whose spatial std-devs are sigmaX/Y/Z (in
     // voxels):  OTF(k) = exp(-2*pi^2 * (sx^2 fx^2 + sy^2 fy^2 + sz^2 fz^2)), real-valued,
     // with fx/fy/fz in cycles per sample (bin index / N, wrapped). DC at origin.
-    virtual void fillGaussianOTF(ComplexData& out, const CuboidShape& shape, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
+    virtual void fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
         COMPUTE_NOT_IMPLEMENTED(fillGaussianOTF);
     }
 

@@ -301,7 +301,7 @@ TEST_F(AlgorithmTestBase, FillGaussianOTFMatchesSpatialGaussian) {
     const size_t W = shape.width, H = shape.height, D = shape.depth;
     const size_t complexW = W / 2 + 1;
     ComplexData otF = mem.allocateMemoryOnDeviceComplex(shape);
-    compute.fillGaussianOTF(otF, shape, sigma, sigma, sigma);
+    compute.fillGaussianOTF(otF, sigma, sigma, sigma);
     backend->sync();
 
     const complex_t* p = otF.getData();

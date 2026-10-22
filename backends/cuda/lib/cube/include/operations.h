@@ -68,6 +68,9 @@ namespace CUBE_FTT {
     // cudaError_t padMat(size_t oldNx, size_t oldNy, size_t oldNz, size_t newNx, size_t newNy, size_t newNz, complex_t* oldMat, complex_t* newMat);
     cudaError_t normalizeData(size_t Nx, size_t Ny, size_t Nz, complex_t* d_data, cudaStream_t stream = 0);
 }
+namespace CUBE_MLE {
+    cudaError_t fillGaussianOTF(size_t Nx, size_t Ny, size_t Nz,  complex_t* out, const real_t ax, const real_t ay, const real_t az, cudaStream_t stream = 0);
+}
 
 namespace CUBE_DEVICE_KERNEL {
     // Testing __device__ kernels

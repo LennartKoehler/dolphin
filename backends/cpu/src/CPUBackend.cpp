@@ -911,15 +911,11 @@ void CPUComputeBackend::poissonLineSearchEval(const RealData& g, const RealData&
     *d2J = static_cast<real_t>(sumDD);
 }
 
-void CPUComputeBackend::fillGaussianOTF(ComplexData& out, const CuboidShape& shape, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
+void CPUComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
     BACKEND_CHECK(out.getData() != nullptr, "Result pointer is null", "CPU", "fillGaussianOTF - result", buildCpuContext());
 
-    const size_t W = shape.width, H = shape.height, D = shape.depth;
-    const size_t complexW = W / 2 + 1;
+    const size_t W = out.getRealSize().width, H = out.getRealSize().height, D = out.getRealSize().depth;
     auto si = getStrideInfo(out);
-    si.width = complexW;
-    si.stride = complexW;
-    si.sliceStride = complexW * H;
     complex_t* ptr = out.getData();
     // Gaussian OTF in cycles per sample: OTF(f) = exp(-2*pi^2 * sigma^2 * f^2),
     // i.e. the Fourier transform of a spatial Gaussian with std-dev `sigma` samples.
@@ -940,7 +936,7 @@ void CPUComputeBackend::fillGaussianOTF(ComplexData& out, const CuboidShape& sha
         for (size_t y = 0; y < H; ++y) {
             const real_t ky = (y <= H / 2 ? real_t(y) : -real_t(H - y)) / real_t(H);
             real_t gy = std::exp(-ay * ky * ky) * gz;
-            for (size_t x = 0; x < complexW; ++x) {
+            for (size_t x = 0; x < si.width; ++x) {
                 real_t kx = (real_t)x / (real_t)W;
                 ptr[z * si.sliceStride + y * si.stride + x][0] = std::exp(-ax * kx * kx) * gy;
                 ptr[z * si.sliceStride + y * si.stride + x][1] = 0.0f;

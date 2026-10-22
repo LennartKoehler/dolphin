@@ -63,12 +63,12 @@ real_t newtonLineSearch(const IComputeBackend& compute,
 // Operates in-place on `f` (which has the in-place-FFT layout): r2c, multiply by the
 // (half-complex) Gaussian OTF, c2r. `f` is both the source and the output.
 void applySieve(const IComputeBackend& compute, RealData& f, ComplexData& sieveOTF,
-                real_t sigmaX, real_t sigmaY, real_t sigmaZ, const CuboidShape& shape) {
+                real_t sigmaX, real_t sigmaY, real_t sigmaZ) {
     if (sigmaX < 0.05f && sigmaY < 0.05f && sigmaZ < 0.05f) {
         return; // smoothing width ~ 0, sieve is the identity
     }
     ComplexView fv = f.reinterpret();       // non-owning complex view of f
-    compute.fillGaussianOTF(sieveOTF, shape, sigmaX, sigmaY, sigmaZ);
+    compute.fillGaussianOTF(sieveOTF, sigmaX, sigmaY, sigmaZ);
     compute.forwardFFT(f, fv);              // in-place r2c -> f (frequency domain)
     compute.complexMultiplication(fv, sieveOTF, fv);
     compute.backwardFFT(fv, f);             // in-place c2r -> f (smoothed, spatial)
@@ -308,7 +308,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
             const real_t sl = 0.5f * psfLat * t;
             const real_t sa = 0.5f * psfAx * t;
             for (int p = 0; p < sievePasses; ++p) {
-                applySieve(compute, f, sieveOTF, sl, sl, sa, shape);
+                applySieve(compute, f, sieveOTF, sl, sl, sa);
             }
         }
 

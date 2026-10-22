@@ -230,7 +230,7 @@ public:
     void realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const override;
     void poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
                                real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const override;
-    void fillGaussianOTF(ComplexData& out, const CuboidShape& shape, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const override;
+    void fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const override;
 
 private:
     FFTWManager& fftwManager;
