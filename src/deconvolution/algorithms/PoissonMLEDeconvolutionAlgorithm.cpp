@@ -197,7 +197,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     // RichardsonLucy is scale-invariant and never needed this; the I-divergence
     // is not. DC bin is element [0] of the half-complex buffer. (CPU reads it
     // directly; a CUDA port needs a single host readback here.)
-    memory.memCopy(H.getData(), hNorm.getData(), H.getDataBytes(), H.getSize());
+    memory.memCopy(H, hNorm);
     const real_t dc = hNorm.getData()[0][0];
     if (std::abs(dc) > 1e-9f) {
         // scalarMultiplication takes complex_t (real_t[2]) by value: pass a named
@@ -215,7 +215,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     const real_t psfLat = 0.5f * (sigX + sigY);
     const real_t psfAx = sigZ;
 
-    const real_t bg = (backgroundOverride > 0.0f) ? backgroundOverride : estimateBackground(g, memory);
+    const real_t bg = (backgroundOverride > -1.0f) ? backgroundOverride : estimateBackground(g, memory);
 
     // SNR -> shrinkage strength lambda. 0 = derive from SNR (lambda = base/snr:
     // higher SNR -> weaker prior, closer to the pure MLE).

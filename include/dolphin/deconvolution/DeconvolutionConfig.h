@@ -56,7 +56,7 @@ public:
     // Shrinkage strength lambda for the prior step. 0 => derive from poissonSnr.
     float poissonLambda = 0.0f;
     // Background level bg. 0 => estimate from the data (mean of dimmest decile).
-    float poissonBackground = 0.0f;
+    float poissonBackground = -1.0f;
     // Enable the annealed anisotropic Gaussian roughness ("sieve") step.
     bool poissonSieve = true;
     // Enable the lambda-shrinkage + flux-conservation prior step.
