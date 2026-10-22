@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IComputeBackend.h"
 #include <algorithm>
+#include <span>
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 #include <cmath>
@@ -73,6 +74,13 @@ struct StrideInfo {
     size_t depth;
     size_t stride;       // elements per row  (width + padding)
     size_t sliceStride;  // elements per slice (stride * height)
+
+    size_t getVolume() const { return width * height * depth; }
+
+    bool operator==(const StrideInfo& other) const {
+        return width == other.width && height == other.height && depth == other.depth
+            && stride == other.stride && sliceStride == other.sliceStride;
+    }
 };
 
 template<typename DataRef>
@@ -167,6 +175,7 @@ void stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& func) {
             func(p1 + off1, p2 + off2, p3 + off3, si1.width);
         }
 }
+
 
 
 
@@ -299,6 +308,11 @@ ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplexFull(const Cub
 }
 DataView<real_t> CPUBackendMemoryManager::reinterpret(ComplexData& data) const{
     CuboidShape realShape = data.getRealSize();
+    // Reinterpret the complex buffer as real_t for the in-place real FFT. A complex
+    // buffer holds (W/2+1) complex_t per row = 2*(W/2+1) real_t. Viewed as a real
+    // buffer of width W, each row therefore has 2*(W/2+1) - W padding elements.
+    // NOTE: this padding is *derived* from the real width — it is NOT the ComplexData's
+    // padding field (which is 0 for complex allocations).
     CuboidShape shapeForInplaceFFT = realShape;
     shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
     size_t padding = shapeForInplaceFFT.width - realShape.width;
@@ -309,8 +323,12 @@ DataView<real_t> CPUBackendMemoryManager::reinterpret(ComplexData& data) const{
 
 DataView<complex_t> CPUBackendMemoryManager::reinterpret(RealData& data) const{
     CuboidShape complexShape = data.getSize();
-    complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
+    complexShape.width = complexShape.width / 2 + 1; // fftw representation of real-valued data in complex space
 
+    // A real buffer's rows are padded to 2*(W/2+1) real_t = exactly (W/2+1) complex_t
+    // per row. So the complex view needs NO padding: complex_width == W/2+1 and
+    // stride == width, making convertIndex() exact. (The real buffer's row padding is
+    // fully consumed by the two reals that make up one complex_t.)
     DataView<complex_t> result = DataView<complex_t>{reinterpret_cast<complex_t*>(data.getData()), complexShape, data.getSize(), data.getDataBytes(), 0};
     return result;
 }
@@ -643,29 +661,6 @@ void CPUComputeBackend::complexDivision(const ComplexData& a, const ComplexData&
 }
 
 
-void CPUComputeBackend::complexAddition(complex_t** data, ComplexData& sum, size_t nImages, size_t imageVolume) const {
-    BACKEND_CHECK(sum.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b", buildCpuContext());
-
-    auto si = getStrideInfo(sum);
-    complex_t* ptrSum = sum.getData();
-
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (size_t imageindex = 0; imageindex < nImages; ++imageindex) {
-        complex_t* a = data[imageindex];
-        for (size_t z = 0; z < si.depth; ++z) {
-            for (size_t y = 0; y < si.height; ++y) {
-                size_t off = z * si.sliceStride + y * si.stride;
-                for (size_t x = 0; x < si.width; ++x) {
-                    #pragma omp atomic
-                    ptrSum[off + x][0] += a[off + x][0];
-                    #pragma omp atomic
-                    ptrSum[off + x][1] += a[off + x][1];
-                }
-            }
-        }
-    }
-}
-
 void CPUComputeBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexAddition - input a", buildCpuContext());
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b", buildCpuContext());
@@ -679,25 +674,24 @@ void CPUComputeBackend::complexAddition(const ComplexData& a, const ComplexData&
     });
 }
 
-void CPUComputeBackend::sum(const ComplexData& data, complex_t* result) const {
+ComplexValue CPUComputeBackend::sum(const ComplexData& data) const {
     BACKEND_CHECK(data.getData() != nullptr, "Input data pointer is null", "CPU", "sum - input data", buildCpuContext());
-    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "sum - result", buildCpuContext());
 
-    result[0][0] = 0.0f;
-    result[0][1] = 0.0f;
+    ComplexValue result;
 
     stridedIteration(data, [&](auto* rowData, size_t w) {
         for (size_t x = 0; x < w; ++x) {
-            result[0][0] += rowData[x][0];
-            result[0][1] += rowData[x][1];
+            result.re += rowData[x][0];
+            result.im += rowData[x][1];
         }
     });
+
+    return result;
 }
 
-void CPUComputeBackend::meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const {
+real_t CPUComputeBackend::meanSquareError(const ComplexData& a, const ComplexData& b) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "meanSquareError - input a", buildCpuContext());
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "meanSquareError - input b", buildCpuContext());
-    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "meanSquareError - result", buildCpuContext());
 
     real_t sumSq = 0.0f;
 
@@ -709,27 +703,36 @@ void CPUComputeBackend::meanSquareError(const ComplexData& a, const ComplexData&
         }
     });
 
-    *result = sumSq / static_cast<real_t>(a.getSize().getVolume());
+    return sumSq / static_cast<real_t>(a.getSize().getVolume());
 }
 
-void CPUComputeBackend::sumToOne(real_t** data, size_t nImages, size_t imageVolume) const {
-    // NOTE: Uses raw real_t** with flat indexing. External pointers are assumed
-    // to share the same stride layout but we don't have CuboidShape for them.
-    // If stride-aware access is needed, the API should be updated to pass shapes.
+void CPUComputeBackend::sumToOne(std::span<ManagedData<real_t>*> data) const {
+    BACKEND_CHECK(!data.empty(), "No data provided", "CPU", "sumToOne", buildCpuContext());
+
+    const StrideInfo si = getStrideInfo(*data[0]);
+    for (auto* d : data) {
+        BACKEND_CHECK(d->getData() != nullptr, "Input data pointer is null", "CPU", "sumToOne", buildCpuContext());
+        BACKEND_CHECK(si == getStrideInfo(*d), "All buffers must share the same stride layout", "CPU", "sumToOne", buildCpuContext());
+    }
+
     OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (size_t i = 0; i < imageVolume; ++i) {
-        real_t sum{ 0 };
-
-        for (size_t imageindex = 0; imageindex < nImages; ++imageindex) {
-            sum += data[imageindex][i];
-        }
-
-        for (size_t imageindex = 0; imageindex < nImages; ++imageindex) {
-            if (sum == 0.0f) data[imageindex][i] = 0.0f;
-            data[imageindex][i] /= sum;
+    for (size_t z = 0; z < si.depth; ++z) {
+        for (size_t y = 0; y < si.height; ++y) {
+            size_t off = z * si.sliceStride + y * si.stride;
+            for (size_t x = 0; x < si.width; ++x) {
+                real_t sum{ 0 };
+                for (auto* d : data) {
+                    sum += d->getData()[off + x];
+                }
+                for (auto* d : data) {
+                    if (sum == 0.0f) d->getData()[off + x] = 0.0f;
+                    else d->getData()[off + x] /= sum;
+                }
+            }
         }
     }
 }
+
 void CPUComputeBackend::scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const {
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a", buildCpuContext());
     BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result", buildCpuContext());

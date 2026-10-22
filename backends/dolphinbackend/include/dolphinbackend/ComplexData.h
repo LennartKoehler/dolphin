@@ -23,6 +23,22 @@ class DataView;
 typedef float real_t;
 typedef real_t complex_t[2];
 
+// A pass-by-value complex number.
+//
+// `complex_t` is a C-style array (real_t[2]), so it cannot be returned by value.
+// Backend reductions (e.g. IComputeBackend::sum) return a ComplexValue instead,
+// which is convertible to/from the raw complex_t array used across the backends.
+struct ComplexValue {
+    real_t re = 0;
+    real_t im = 0;
+
+    ComplexValue() = default;
+    ComplexValue(real_t r, real_t i) : re(r), im(i) {}
+    ComplexValue(complex_t v) : re(v[0]), im(v[1]) {}
+
+    bool operator==(const ComplexValue& other) const { return re == other.re && im == other.im; }
+};
+
 // Type trait to compute the "other" data type (real_t <-> complex_t)
 template<typename T>
 struct other_type {

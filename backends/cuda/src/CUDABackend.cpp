@@ -113,9 +113,11 @@ ComplexData CUDABackendMemoryManager::allocateMemoryOnDeviceComplexFull(const Cu
 }
 DataView<real_t> CUDABackendMemoryManager::reinterpret(ComplexData& data) const{
     CuboidShape realShape = data.getRealSize();
-    // The padding field on ComplexData stores the real_t padding value P_real = 2*(W/2+1) - W,
-    // which allows recovering the original real width: real_width = 2*complex_width - P_real = W.
-    // The same P_real value is the correct real_t padding for the resulting RealView.
+    // Reinterpret the complex buffer as real_t for the in-place real FFT. A complex
+    // buffer holds (W/2+1) complex_t per row = 2*(W/2+1) real_t. Viewed as a real
+    // buffer of width W, each row therefore has 2*(W/2+1) - W padding elements.
+    // NOTE: this padding is *derived* from the real width — it is NOT the ComplexData's
+    // padding field (which is 0 for complex allocations).
     CuboidShape shapeForInplaceFFT = realShape;
     shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
     size_t padding = shapeForInplaceFFT.width - realShape.width;
@@ -126,14 +128,12 @@ DataView<real_t> CUDABackendMemoryManager::reinterpret(ComplexData& data) const{
 
 DataView<complex_t> CUDABackendMemoryManager::reinterpret(RealData& data) const{
     CuboidShape complexShape = data.getSize();
-    complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
+    complexShape.width = complexShape.width / 2 + 1; // fftw/cufft representation of real-valued data in complex space
 
-    // Keep the real padding value as-is in the complex view's padding field.
-    // Although this is technically in real_t units (not complex_t), it serves as metadata
-    // that allows reinterpret(ComplexData -> RealView) to correctly recover the original
-    // real width via: real_width = 2 * complex_width - padding = W.
-    // The ComplexView's convertIndex() is never used in the FFT path (raw pointers are
-    // used instead), so the incorrect padding units don't cause issues in practice.
+    // A real buffer's rows are padded to 2*(W/2+1) real_t = exactly (W/2+1) complex_t
+    // per row. So the complex view needs NO padding: complex_width == W/2+1 and
+    // stride == width, making convertIndex() exact. (The real buffer's row padding is
+    // fully consumed by the two reals that make up one complex_t.)
     DataView<complex_t> result = DataView<complex_t>{reinterpret_cast<complex_t*>(data.getData()), complexShape, data.getSize(), data.getDataBytes(), 0};
     return result;
 }
@@ -567,10 +567,9 @@ void CUDAComputeBackend::inverseQuadrantShift(ComplexData& data) const {
 
 
 
-void CUDAComputeBackend::sum(const ComplexData& data, complex_t* result) const {
+ComplexValue CUDAComputeBackend::sum(const ComplexData& data) const {
     ensureDevice();
     BACKEND_CHECK(data.getData() != nullptr, "Input data pointer is null", "CUDA", "sum - input data", buildCudaContext(config));
-    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CUDA", "sum - result", buildCudaContext(config));
 
     complex_t* d_result;
     cudaError_t err = cudaMallocAsync(&d_result, sizeof(complex_t), config.stream);
@@ -588,19 +587,21 @@ void CUDAComputeBackend::sum(const ComplexData& data, complex_t* result) const {
         CUDA_CHECK(err, "sum", buildCudaContext(config));
     }
 
-    err = cudaMemcpyAsync(result, d_result, sizeof(complex_t), cudaMemcpyDeviceToHost, config.stream);
+    complex_t h_result{0, 0};
+    err = cudaMemcpyAsync(&h_result, d_result, sizeof(complex_t), cudaMemcpyDeviceToHost, config.stream);
     cudaFreeAsync(d_result, config.stream);
     CUDA_CHECK(err, "sum - cudaMemcpyAsync", buildCudaContext(config));
 
     err = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(err, "sum - cudaStreamSynchronize", buildCudaContext(config));
+
+    return ComplexValue(h_result);
 }
 
-void CUDAComputeBackend::meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const {
+real_t CUDAComputeBackend::meanSquareError(const ComplexData& a, const ComplexData& b) const {
     ensureDevice();
     BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "meanSquareError - input a", buildCudaContext(config));
     BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CUDA", "meanSquareError - input b", buildCudaContext(config));
-    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CUDA", "meanSquareError - result", buildCudaContext(config));
 
     real_t* d_result;
     cudaError_t err = cudaMallocAsync(&d_result, sizeof(real_t), config.stream);
@@ -618,7 +619,7 @@ void CUDAComputeBackend::meanSquareError(const ComplexData& a, const ComplexData
         CUDA_CHECK(err, "meanSquareError", buildCudaContext(config));
     }
 
-    real_t d_sumSq;
+    real_t d_sumSq = 0.0f;
     err = cudaMemcpyAsync(&d_sumSq, d_result, sizeof(real_t), cudaMemcpyDeviceToHost, config.stream);
     cudaFreeAsync(d_result, config.stream);
     CUDA_CHECK(err, "meanSquareError - cudaMemcpyAsync", buildCudaContext(config));
@@ -626,17 +627,39 @@ void CUDAComputeBackend::meanSquareError(const ComplexData& a, const ComplexData
     err = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(err, "meanSquareError - cudaStreamSynchronize", buildCudaContext(config));
 
-    *result = d_sumSq / static_cast<real_t>(a.getSize().getVolume());
+    return d_sumSq / static_cast<real_t>(a.getSize().getVolume());
 }
 
-void CUDAComputeBackend::complexAddition(complex_t** dataPointer, ComplexData& sums, size_t nImages, size_t imageVolume) const {
+void CUDAComputeBackend::sumToOne(std::span<ManagedData<real_t>*> data) const {
     ensureDevice();
-    cudaError_t err = CUBE_MAT::complexAddition(dataPointer, sums.getData(), nImages, imageVolume, config.stream);
-}
+    BACKEND_CHECK(!data.empty(), "No data provided", "CUDA", "sumToOne", buildCudaContext(config));
 
-void CUDAComputeBackend::sumToOne(real_t** data, size_t nImages, size_t imageVolume) const {
-    ensureDevice();
-    cudaError_t err = CUBE_MAT::sumToOne(data, nImages, imageVolume, config.stream);
+    const auto& ref = *data[0];
+    BACKEND_CHECK(ref.getData() != nullptr, "Input data pointer is null", "CUDA", "sumToOne", buildCudaContext(config));
+    const CuboidShape shape = ref.getSize();
+    const size_t stride = shape.width + ref.getPadding();
+    const size_t sliceStride = stride * shape.height;
+
+    // The kernel dereferences the pointer array on the device, so the array of
+    // pointers must live in device memory (a host malloc'd array is invalid).
+    std::vector<real_t*> h_data(data.size());
+    for (size_t i = 0; i < data.size(); ++i) {
+        BACKEND_CHECK(data[i]->getData() != nullptr, "Input data pointer is null", "CUDA", "sumToOne", buildCudaContext(config));
+        BACKEND_CHECK(data[i]->getSize() == shape && data[i]->getPadding() == ref.getPadding(),
+                      "All buffers must share the same size and stride layout", "CUDA", "sumToOne", buildCudaContext(config));
+        h_data[i] = data[i]->getData();
+    }
+
+    real_t** d_data = nullptr;
+    cudaError_t err = cudaMallocAsync(&d_data, data.size() * sizeof(real_t*), config.stream);
+    CUDA_CHECK(err, "sumToOne - cudaMallocAsync", buildCudaContext(config));
+
+    err = cudaMemcpyAsync(d_data, h_data.data(), data.size() * sizeof(real_t*), cudaMemcpyHostToDevice, config.stream);
+    CUDA_CHECK(err, "sumToOne - cudaMemcpyAsync", buildCudaContext(config));
+
+    err = CUBE_MAT::sumToOne(shape.width, shape.height, shape.depth, stride, sliceStride, d_data, data.size(), config.stream);
+    cudaFreeAsync(d_data, config.stream);
+    CUDA_CHECK(err, "sumToOne", buildCudaContext(config));
 }
 
 // Complex Arithmetic Operations

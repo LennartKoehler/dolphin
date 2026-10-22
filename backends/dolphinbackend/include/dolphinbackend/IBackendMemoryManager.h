@@ -196,18 +196,6 @@ public:
         memCopy(srcdata.getData(), destdata.getData(), byteSize, srcdata.getSize());
     }
 
-    template<typename T>
-    T** createDataArray(std::vector<ManagedData<T>*>& data) const {
-        int N = data.size();
-        //TODO add check etc.
-        size_t size = sizeof(void*) * N;
-        T** dataPointer = (T**)malloc(size);
-        for (int i = 0; i < N; ++i) {
-            dataPointer[i] = data[i]->getData();
-        }
-        return dataPointer;
-    }
-
     virtual void freeMemoryOnDevice(void* ptr, size_t size) const {
         NOT_IMPLEMENTED(freeMemoryOnDevice);
     }
