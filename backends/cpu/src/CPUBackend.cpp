@@ -787,6 +787,164 @@ void CPUComputeBackend::complexDivisionStabilized(const ComplexData& a, const Co
     });
 }
 
+// ========================================================================
+// Real-valued elementwise / reduction primitives (Poisson-likelihood algorithm)
+// ========================================================================
+
+void CPUComputeBackend::realSum(const RealData& a, real_t* result) const {
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realSum - input a", buildCpuContext());
+    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "realSum - result", buildCpuContext());
+
+    real_t sum = 0.0f;
+    stridedIteration(a, [&](auto* rowA, size_t w) {
+        for (size_t x = 0; x < w; ++x) sum += rowA[x];
+    });
+    *result = sum;
+}
+
+void CPUComputeBackend::realLinearCombination(const RealData& a, real_t sa, const RealData& b, real_t sb, RealData& result) const {
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realLinearCombination - input a", buildCpuContext());
+    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "realLinearCombination - input b", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "realLinearCombination - result", buildCpuContext());
+
+    stridedIteration(a, b, result, [sa, sb](auto* rowA, auto* rowB, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) rowR[x] = rowA[x] * sa + rowB[x] * sb;
+    });
+}
+
+void CPUComputeBackend::realAffine(const RealData& a, real_t scalar, real_t add, RealData& result) const {
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realAffine - input a", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "realAffine - result", buildCpuContext());
+
+    stridedIteration(a, result, [scalar, add](auto* rowA, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) rowR[x] = rowA[x] * scalar + add;
+    });
+}
+
+void CPUComputeBackend::realFillConstant(RealData& a, real_t value) const {
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realFillConstant - input a", buildCpuContext());
+
+    stridedIteration(a, [&](auto* rowA, size_t w) {
+        for (size_t x = 0; x < w; ++x) rowA[x] = value;
+    });
+}
+
+void CPUComputeBackend::realSqrtAffine(const RealData& a, real_t scale, real_t add, real_t lambda, RealData& result) const {
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realSqrtAffine - input a", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "realSqrtAffine - result", buildCpuContext());
+
+    const real_t eps = 1e-12f;
+    stridedIteration(a, result, [scale, add, lambda, eps](auto* rowA, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) {
+            real_t arg = rowA[x] * scale + add;
+            if (arg < 0.0f) arg = 0.0f;
+            real_t denom = std::fabs(lambda) < eps ? eps : lambda;
+            rowR[x] = (std::sqrt(arg) - 1.0f) / denom;
+        }
+    });
+}
+
+void CPUComputeBackend::realClampMin(const RealData& a, real_t lo, RealData& result) const {
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realClampMin - input a", buildCpuContext());
+    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "realClampMin - result", buildCpuContext());
+
+    stridedIteration(a, result, [lo](auto* rowA, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) rowR[x] = rowA[x] < lo ? lo : rowA[x];
+    });
+}
+
+void CPUComputeBackend::realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const {
+    BACKEND_CHECK(a.getData() != nullptr, "Input data pointer is null", "CPU", "realStats - input data", buildCpuContext());
+
+    real_t mn = std::numeric_limits<real_t>::max();
+    real_t mx = std::numeric_limits<real_t>::lowest();
+    double sum = 0.0;
+    size_t finite = 0, nonfinite = 0;
+    stridedIteration(a, [&](auto* rowA, size_t w) {
+        for (size_t x = 0; x < w; ++x) {
+            real_t v = rowA[x];
+            if (!std::isfinite(v)) { ++nonfinite; continue; }
+            if (v < mn) mn = v;
+            if (v > mx) mx = v;
+            sum += v;
+            ++finite;
+        }
+    });
+    if (finite > 0) {
+        *minOut = mn;
+        *maxOut = mx;
+        *meanOut = static_cast<real_t>(sum / finite);
+    } else {
+        *minOut = *maxOut = *meanOut = std::numeric_limits<real_t>::quiet_NaN();
+    }
+    *nonFiniteOut = nonfinite;
+}
+
+void CPUComputeBackend::poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
+                                              real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const {
+    BACKEND_CHECK(g.getData() != nullptr, "Input g pointer is null", "CPU", "poissonLineSearchEval - input g", buildCpuContext());
+    BACKEND_CHECK(m.getData() != nullptr, "Input m pointer is null", "CPU", "poissonLineSearchEval - input m", buildCpuContext());
+    BACKEND_CHECK(hd.getData() != nullptr, "Input hd pointer is null", "CPU", "poissonLineSearchEval - input hd", buildCpuContext());
+    BACKEND_CHECK(J != nullptr && dJ != nullptr && d2J != nullptr, "Result pointers are null", "CPU", "poissonLineSearchEval - result", buildCpuContext());
+
+    const real_t eps = 1e-12f;
+    double sumJ = 0.0;
+    double sumD = 0.0;
+    double sumDD = 0.0;
+    stridedIteration(g, m, hd, [&](auto* rowG, auto* rowM, auto* rowHd, size_t w) {
+        for (size_t x = 0; x < w; ++x) {
+            real_t gi = rowG[x];
+            real_t hdv = rowHd[x];
+            real_t mi = rowM[x] + alpha * hdv;
+            if (mi < eps) mi = eps;
+            // J(alpha)
+            if (gi > 0.0f) sumJ += (double)gi * std::log((double)gi / mi) - (double)gi + (double)mi;
+            else           sumJ += (double)mi;
+            // dJ/dalpha
+            sumD += (double)hdv * (1.0 - (double)gi / mi);
+            // d2J/dalpha2
+            sumDD += (double)gi * (double)hdv * (double)hdv / (mi * mi);
+        }
+    });
+    *J = static_cast<real_t>(sumJ);
+    *dJ = static_cast<real_t>(sumD);
+    *d2J = static_cast<real_t>(sumDD);
+}
+
+void CPUComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
+    BACKEND_CHECK(out.getData() != nullptr, "Result pointer is null", "CPU", "fillGaussianOTF - result", buildCpuContext());
+
+    const size_t W = out.getRealSize().width, H = out.getRealSize().height, D = out.getRealSize().depth;
+    auto si = getStrideInfo(out);
+    complex_t* ptr = out.getData();
+    // Gaussian OTF in cycles per sample: OTF(f) = exp(-2*pi^2 * sigma^2 * f^2),
+    // i.e. the Fourier transform of a spatial Gaussian with std-dev `sigma` samples.
+    // (Do NOT use 2*(2*pi)^2*sigma^2 = 8*pi^2*sigma^2: that is the angular-frequency
+    //  form and is 4x too large for cycles/sample bins.)
+    const real_t twoPiSq = (real_t)M_PI * (real_t)M_PI * 2.0f;
+    const real_t ax = twoPiSq * sigmaX * sigmaX;
+    const real_t ay = twoPiSq * sigmaY * sigmaY;
+    const real_t az = twoPiSq * sigmaZ * sigmaZ;
+
+    // Frequency bins are in cycles per SAMPLE: kx = x/W, ky = y/H (wrapped), kz = z/D (wrapped).
+    // (sigmaX/Y/Z are in voxels; exp(-2*pi^2 * sigma^2 * f^2) is the Fourier transform of a
+    //  Gaussian with std-dev `sigma` samples.) Using raw bin indices here would make the
+    //  kernel ~delta for sigma < N/2pi, i.e. keep only DC and flatten the image.
+    for (size_t z = 0; z < D; ++z) {
+        const real_t kz = (z <= D / 2 ? real_t(z) : -real_t(D - z)) / real_t(D);
+        real_t gz = std::exp(-az * kz * kz);
+        for (size_t y = 0; y < H; ++y) {
+            const real_t ky = (y <= H / 2 ? real_t(y) : -real_t(H - y)) / real_t(H);
+            real_t gy = std::exp(-ay * ky * ky) * gz;
+            for (size_t x = 0; x < si.width; ++x) {
+                real_t kx = (real_t)x / (real_t)W;
+                ptr[z * si.sliceStride + y * si.stride + x][0] = std::exp(-ax * kx * kx) * gy;
+                ptr[z * si.sliceStride + y * si.stride + x][1] = 0.0f;
+            }
+        }
+    }
+}
+
 // Debug functions
 void CPUComputeBackend::hasNAN(const ComplexData& data) const {
     int nanCount = 0, infCount = 0;

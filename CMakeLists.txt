@@ -198,6 +198,7 @@ set(DOLPHIN_SOURCES
     src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.cpp
 )
 
 

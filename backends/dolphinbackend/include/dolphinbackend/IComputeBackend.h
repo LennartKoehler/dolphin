@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <string>
 #include <vector>
+#include <stdexcept>
 #include "ComplexData.h"
 
 
@@ -168,6 +169,74 @@ public:
 
     // Smoothed TV subgradient for real-valued gradients
     virtual void normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t beta) const = 0;
+
+    // ========================================================================
+    // Real-valued elementwise / reduction primitives.
+    //
+    // Default implementations throw so backends that do not (yet) support
+    // them (e.g. CUDA) compile unchanged and fail fast at runtime. The CPU
+    // backend overrides all of them. These power the Poisson-likelihood
+    // (PoissonMLE) deconvolution algorithm.
+    // ========================================================================
+
+#define COMPUTE_NOT_IMPLEMENTED(fn) \
+    throw std::runtime_error(std::string(#fn) + " not implemented in " + typeid(*this).name())
+
+    // result = sum of all elements of a
+    virtual void realSum(const RealData& a, real_t* result) const {
+        COMPUTE_NOT_IMPLEMENTED(realSum);
+    }
+
+    // result[i] = sa*a[i] + sb*b[i]   (in-place on a is allowed)
+    virtual void realLinearCombination(const RealData& a, real_t sa, const RealData& b, real_t sb, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realLinearCombination);
+    }
+
+    // result[i] = a[i] * scalar + add
+    virtual void realAffine(const RealData& a, real_t scalar, real_t add, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realAffine);
+    }
+
+    // Fill with a constant value
+    virtual void realFillConstant(RealData& a, real_t value) const {
+        COMPUTE_NOT_IMPLEMENTED(realFillConstant);
+    }
+
+    // result[i] = ( sqrt(a[i]*scale + add) - 1 ) / lambda   (the PoissonMLE shrinkage map)
+    // Guarded so the argument of sqrt is non-negative and lambda != 0.
+    virtual void realSqrtAffine(const RealData& a, real_t scale, real_t add, real_t lambda, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realSqrtAffine);
+    }
+
+    // result[i] = max(a[i], lo)
+    virtual void realClampMin(const RealData& a, real_t lo, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realClampMin);
+    }
+
+    // Statistics over all valid elements: min/max/mean and number of non-finite values
+    // (NaN + Inf). min/max/mean are computed over finite elements only.
+    virtual void realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const {
+        COMPUTE_NOT_IMPLEMENTED(realStats);
+    }
+
+    // One-pass evaluation, at a given step length alpha, of the I-divergence (Poisson NLL
+    // up to a constant) and its first two alpha-derivatives along the line m(alpha) = m + alpha*hd:
+    //   J(alpha)    = sum_i [ g_i*ln(g_i/m_i) - g_i + m_i ]
+    //   dJ/dalpha   = sum_i hd_i * (1 - g_i/m_i)
+    //   d2J/dalpha2 = sum_i g_i * hd_i^2 / m_i^2
+    // Safe division (denominators floored); g_i <= 0 contributes m_i to J.
+    virtual void poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
+                                       real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const {
+        COMPUTE_NOT_IMPLEMENTED(poissonLineSearchEval);
+    }
+
+    // Fill a half-complex (r2c, W/2+1) buffer with the frequency-domain OTF of a
+    // separable anisotropic 3D Gaussian whose spatial std-devs are sigmaX/Y/Z (in
+    // voxels):  OTF(k) = exp(-2*pi^2 * (sx^2 fx^2 + sy^2 fy^2 + sz^2 fz^2)), real-valued,
+    // with fx/fy/fz in cycles per sample (bin index / N, wrapped). DC at origin.
+    virtual void fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
+        COMPUTE_NOT_IMPLEMENTED(fillGaussianOTF);
+    }
 
 };
 

@@ -905,11 +905,42 @@ namespace CUBE_FTT {
         cudaEvent_t event;
         cudaEventCreate(&event);
 
-        size_t num_elements = Nx * Ny * Nz;  // Beispiel: Gesamtzahl der Elemente
+        size_t num_elements = Nx * Ny * Nz;
         int block_size = 1024;
         size_t num_blocks = (num_elements + block_size - 1) / block_size;
 
         normalizeDataGlobal<<<num_blocks, block_size, 0, stream>>>(Nx, Ny, Nz, d_data);
+        cudaError_t errp = cudaPeekAtLastError();
+        if (errp != cudaSuccess) {
+            cudaEventDestroy(event);
+            return errp;
+        }
+
+        cudaEventRecord(event);
+        cudaError_t syncErr = cudaEventSynchronize(event);
+        if (syncErr != cudaSuccess) {
+            cudaEventDestroy(event);
+            return syncErr;
+        }
+
+        cudaEventDestroy(event);
+        return cudaSuccess;
+    }
+}
+namespace CUBE_MLE {
+    cudaError_t fillGaussianOTF(size_t Nx, size_t Ny, size_t Nz,  complex_t* out, const real_t ax, const real_t ay, const real_t az, cudaStream_t stream = 0){
+        if (!out) {
+            return cudaErrorInvalidValue;
+        }
+
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+
+        size_t num_elements = Nx * Ny * Nz;
+        int block_size = 1024;
+        size_t num_blocks = (num_elements + block_size - 1) / block_size;
+
+        fillGaussianOTFGLOBAL<<<num_blocks, block_size, 0, stream>>>(Nx, Ny, Nz, out, ax, ay, az);
         cudaError_t errp = cudaPeekAtLastError();
         if (errp != cudaSuccess) {
             cudaEventDestroy(event);

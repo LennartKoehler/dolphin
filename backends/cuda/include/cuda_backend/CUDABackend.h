@@ -218,9 +218,9 @@ public:
     // normalizeTV for real-valued gradients
     void normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const override;
 
-    // Layer and visualization functions
+    //poissonMLE functions
+    void fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const override;
 
-    // Conversion functions
    void hasNAN(const ComplexData& data) const override;
 
 

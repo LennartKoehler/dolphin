@@ -871,3 +871,27 @@ void padMatGlobal(size_t oldNx, size_t oldNy, size_t oldNz, size_t newNx, size_t
         newMat[newIndex][1] = oldMat[oldIndex][1];
     }
 }
+
+
+__global__
+void fillGaussianOTFGlobal(complex_t* out, size_t Nx, size_t Ny, size_t Nz, size_t stride, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az) const {
+    sliceStride = stride * H;
+    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+
+    // Frequency bins are in cycles per SAMPLE: kx = x/W, ky = y/H (wrapped), kz = z/D (wrapped).
+    // (sigmaX/Y/Z are in voxels; exp(-2*pi^2 * sigma^2 * f^2) is the Fourier transform of a
+    //  Gaussian with std-dev `sigma` samples.) Using raw bin indices here would make the
+    //  kernel ~delta for sigma < N/2pi, i.e. keep only DC and flatten the image.
+    const real_t kz = (z <= Nz / 2 ? real_t(z) : -real_t(Nz - z)) / real_t(Nz);
+    real_t gz = expf(-az * kz * kz);
+    const real_t ky = (y <= H / 2 ? real_t(y) : -real_t(H - y)) / real_t(H);
+    real_t gy = expf(-ay * ky * ky) * gz;
+    real_t kx = (real_t)x / (real_t)Nx;
+    out[z * sliceStride + y * stride + x][0] = std::exp(-ax * kx * kx) * gy;
+    out[z * sliceStride + y * stride + x][1] = 0.0f;
+}
+}
+    }
+}

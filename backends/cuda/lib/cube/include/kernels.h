@@ -68,3 +68,5 @@ __global__ void normalizeDataGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* 
 __global__ void octantFourierShiftGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* data);
 __global__ void octantFourierShiftGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* data);
 __global__ void padMatGlobal(size_t oldNx, size_t oldNy, size_t oldNz, size_t newNx, size_t newNy, size_t newNz, complex_t* oldMat, complex_t* newMat, size_t offsetX, size_t offsetY, size_t offsetZ);
+
+__global__ void fillGaussianOTFGlobal(size_t Nx, size_t Ny, size_t Nz,  complex_t* out, const real_t ax, const real_t ay, const real_t az);

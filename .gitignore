@@ -2,6 +2,7 @@
 .cache/*
 .roo/*
 .VSCodeCounter/*
+NOTES.md
 **/build/
 **/dockerbuild/
 build/*
