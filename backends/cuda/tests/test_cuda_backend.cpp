@@ -724,6 +724,65 @@ TEST_F(CUDAComputeBackendTest, PoissonLineSearchEval) {
     EXPECT_NEAR(d2J, eDD, 1e-3f) << "poissonLineSearchEval d2J mismatch";
 }
 
+TEST_F(CUDAComputeBackendTest, NormalizePsfUnitSum) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    ComplexData psf = memMgr.allocateMemoryOnDeviceComplex(shape);
+    size_t cvol = psf.getSize().getVolume();
+
+    // Distinct known values; DC bin (element [0]) gets a non-unit real part so the
+    // normalization must scale by 1/dc (a no-op implementation would fail this).
+    std::vector<ComplexHost> host(cvol);
+    for (size_t i = 0; i < cvol; ++i) {
+        host[i][0] = static_cast<real_t>(i + 1);
+        host[i][1] = static_cast<real_t>(i) * 0.5f;
+    }
+    host[0][0] = 3.5f; // non-unit DC
+    const real_t dc = host[0][0];
+    ASSERT_GT(dc, 1e-9f);
+    const real_t invDc = 1.0f / dc;
+    writeComplexToDevice(psf, host);
+
+    deconv.normalizePsfUnitSum(psf, 1e-9f);
+    backend->sync();
+
+    std::vector<ComplexHost> rt(cvol);
+    memMgr.memCopy(psf.getData(), rt.data(), cvol * sizeof(complex_t), psf.getSize());
+
+    for (size_t i = 0; i < cvol; ++i) {
+        EXPECT_NEAR(rt[i][0], host[i][0] * invDc, 1e-4f) << "real part mismatch at " << i;
+        EXPECT_NEAR(rt[i][1], host[i][1] * invDc, 1e-4f) << "imag part mismatch at " << i;
+    }
+    EXPECT_NEAR(rt[0][0], 1.0f, 1e-5f) << "DC bin should normalize to 1";
+    EXPECT_NEAR(rt[0][1], 0.0f, 1e-5f) << "DC bin imag should stay 0";
+}
+
+TEST_F(CUDAComputeBackendTest, NormalizePsfUnitSumZeroDcIsNoop) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    ComplexData psf = memMgr.allocateMemoryOnDeviceComplex(shape);
+    size_t cvol = psf.getSize().getVolume();
+
+    // All zeros: |DC| = 0 < eps, so the op must leave the buffer untouched.
+    std::vector<ComplexHost> host(cvol, ComplexHost{});
+    for (auto& h : host) { h[0] = 0.0f; h[1] = 0.0f; }
+    writeComplexToDevice(psf, host);
+
+    deconv.normalizePsfUnitSum(psf, 1e-9f);
+    backend->sync();
+
+    std::vector<ComplexHost> rt(cvol);
+    memMgr.memCopy(psf.getData(), rt.data(), cvol * sizeof(complex_t), psf.getSize());
+    for (size_t i = 0; i < cvol; ++i) {
+        EXPECT_FLOAT_EQ(rt[i][0], 0.0f) << "no-op should not change real part at " << i;
+        EXPECT_FLOAT_EQ(rt[i][1], 0.0f) << "no-op should not change imag part at " << i;
+    }
+}
+
 TEST_F(CUDAComputeBackendTest, ComplexScalarMultiplication) {
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();

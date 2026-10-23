@@ -204,18 +204,10 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     // The forward model m = Hf + bg (and the photon flux bookkeeping) is only
     // physically correct when the OTF's DC term (= sum of the PSF) equals 1.
     // RichardsonLucy is scale-invariant and never needed this; the I-divergence
-    // is not. DC bin is element [0] of the half-complex buffer. The buffer lives
-    // on the device, so read back just the 8-byte DC element to the host.
+    // is not. The backend reads the DC bin per its memory model and scales the
+    // buffer so its DC term is 1.
     memory.memCopy(H, hNorm);
-    real_t hostDc[2] = {0.0f, 0.0f};
-    memory.memCopy(hNorm.getData(), hostDc, sizeof(hostDc), hNorm.getSize());
-    const real_t dc = hostDc[0];
-    if (std::abs(dc) > 1e-9f) {
-        // scalarMultiplication takes complex_t (real_t[2]) by value: pass a named
-        // array, not a braced temporary (which would decay to a pointer).
-        complex_t scale = {1.0f / dc, 0.0f};
-        compute.scalarMultiplication(hNorm, scale, hNorm);
-    }
+    compute.normalizePsfUnitSum(hNorm, 1e-9f);
 
     // ---- Initial estimate: the data itself. ----
     memory.memCopy(g, f);

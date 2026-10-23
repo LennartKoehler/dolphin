@@ -945,6 +945,19 @@ void CPUComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t 
     }
 }
 
+void CPUComputeBackend::normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const {
+    BACKEND_CHECK(psf.getData() != nullptr, "Input psf pointer is null", "CPU", "normalizePsfUnitSum - input psf", buildCpuContext());
+
+    // CPU data is host memory: read the DC bin (real part of element [0]) directly.
+    const real_t dc = psf.getData()[0][0];
+    if (std::abs(dc) <= epsilon) return;
+
+    // scalarMultiplication takes complex_t (real_t[2]) by value: pass a named
+    // array, not a braced temporary (which would decay to a pointer).
+    complex_t scale = {1.0f / dc, 0.0f};
+    scalarMultiplication(psf, scale, psf);
+}
+
 // Debug functions
 void CPUComputeBackend::hasNAN(const ComplexData& data) const {
     int nanCount = 0, infCount = 0;

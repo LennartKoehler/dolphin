@@ -958,3 +958,25 @@ void CUDAComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t
     const real_t az = twoPiSq * sigmaZ * sigmaZ;
     run("fillGaussianOTF", CUBE_MLE::fillGaussianOTF(Nx, out.getSize().height, out.getSize().depth, strideGradX,  out.getData(), twoPiSq, ax, ay, az, config.stream));
 }
+
+void CUDAComputeBackend::normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const {
+    ensureDevice();
+    BACKEND_CHECK(psf.getData() != nullptr, "Input psf pointer is null", "CUDA", "normalizePsfUnitSum - input psf", buildCudaContext(config));
+
+    // The DC bin (element [0] of the half-complex buffer) is device memory, so read
+    // back just the 8-byte DC element to the host before scaling.
+    real_t hostDc[2] = {0.0f, 0.0f};
+    cudaError_t err = cudaMemcpyAsync(hostDc, psf.getData(), sizeof(hostDc), cudaMemcpyDeviceToHost, config.stream);
+    CUDA_CHECK(err, "normalizePsfUnitSum - cudaMemcpyAsync", buildCudaContext(config));
+
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "normalizePsfUnitSum - cudaStreamSynchronize", buildCudaContext(config));
+
+    const real_t dc = hostDc[0];
+    if (std::abs(dc) <= epsilon) return;
+
+    // scalarMultiplication takes complex_t (real_t[2]) by value: pass a named
+    // array, not a braced temporary (which would decay to a pointer).
+    complex_t scale = {1.0f / dc, 0.0f};
+    scalarMultiplication(psf, scale, psf);
+}
