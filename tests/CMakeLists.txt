@@ -46,6 +46,7 @@ set(ALL_TEST_SOURCES
     unit/test_boxcoord.cpp
     unit/test_config.cpp
     unit/test_config_merge.cpp
+    unit/test_default_parameters.cpp
     unit/test_algorithm_factory.cpp
     unit/test_algorithms.cpp
     unit/test_backend_factory.cpp

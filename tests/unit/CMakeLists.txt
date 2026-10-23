@@ -47,6 +47,12 @@ dolphin_add_test(test_config_merge
     INCLUDES ${UNIT_TEST_INCLUDES}
 )
 
+dolphin_add_test(test_default_parameters
+    SOURCES test_default_parameters.cpp
+    LIBS dolphin
+    INCLUDES ${UNIT_TEST_INCLUDES}
+)
+
 dolphin_add_test(test_algorithm_factory
     SOURCES test_algorithm_factory.cpp
     LIBS dolphin

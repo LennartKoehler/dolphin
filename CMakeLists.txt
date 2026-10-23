@@ -152,6 +152,10 @@ option(BUILD_DOLPHIN_LIBRARY "Build the main dolphin library" ON)
 
 if(BUILD_DOLPHIN_LIBRARY)
 
+# Copy template configs into the build tree so executables can find
+# configs_template/ relative to their own location (e.g. DefaultParameters).
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/configs_template" DESTINATION "${CMAKE_BINARY_DIR}")
+
 # Create Dolphin library with full API (deconvolution + PSF + config + orchestrator)
 set(DOLPHIN_SOURCES
     src/Dolphin.cpp
@@ -163,6 +167,7 @@ set(DOLPHIN_SOURCES
     src/ThreadPool.cpp
     src/Config.cpp
     src/SetupConfig.cpp
+    src/DefaultParameters.cpp
 
     src/psf/PSF.cpp
     src/psf/generators/GaussianPSFGenerator.cpp
@@ -318,6 +323,9 @@ endif()
 install(DIRECTORY include/dolphin
     DESTINATION include
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
+install(DIRECTORY configs_template/
+    DESTINATION .
 )
 install(DIRECTORY dolphin_image/include/dolphin_image
     DESTINATION include

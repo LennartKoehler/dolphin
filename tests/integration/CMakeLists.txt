@@ -26,6 +26,12 @@ dolphin_add_test(e2e_deconvolution_test
     INCLUDES ${TEST_INCLUDES}
 )
 
+dolphin_add_test(default_parameters_override_test
+    SOURCES test_default_parameters_override.cpp
+    LIBS dolphin
+    INCLUDES ${TEST_INCLUDES}
+)
+
 add_executable(main_test
     main_test.cpp)
 

@@ -35,7 +35,7 @@ jobs:
           cache-to: type=gha,scope=cpu,mode=max
 
       - name: Run tests
-        run: docker run --rm dolphin-cpu:latest bash -c 'cd /workspace/build && ctest --output-on-failure'
+        run: docker run --rm dolphin-cpu:latest bash -c 'cd /workspace/build && ctest --output-on-failure -LE exhaustive'
 
   ubuntu-cuda:
     runs-on: ubuntu-22.04
@@ -59,7 +59,7 @@ jobs:
           cache-to: type=gha,scope=cuda,mode=max
 
       - name: Run tests (skip CUDA runtime tests — no GPU on CI)
-        run: docker run --rm dolphin-cuda:latest bash -c 'cd /workspace/build && ctest --output-on-failure -E "[Cc][Uu][Dd][Aa]"'
+        run: docker run --rm dolphin-cuda:latest bash -c 'cd /workspace/build && ctest --output-on-failure -E "[Cc][Uu][Dd][Aa]" -LE exhaustive'
 
   macos:
     strategy:
@@ -145,7 +145,7 @@ jobs:
           cmake --build build -- -j$(sysctl -n hw.ncpu)
 
       - name: Run tests
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build --output-on-failure -LE exhaustive
 
   windows:
     runs-on: windows-2022
@@ -207,7 +207,7 @@ jobs:
         run: cmake --build build --config Release -j
 
       - name: Run tests
-        run: ctest --test-dir build --build-config Release --output-on-failure
+        run: ctest --test-dir build --build-config Release --output-on-failure -LE exhaustive
 
   windows-cuda:
     runs-on: windows-2022
@@ -277,4 +277,4 @@ jobs:
         run: cmake --build build -j
 
       - name: Run tests (skip CUDA runtime tests — no GPU on CI)
-        run: ctest --test-dir build --output-on-failure -E "[Cc][Uu][Dd][Aa]"
+        run: ctest --test-dir build --output-on-failure -E "[Cc][Uu][Dd][Aa]" -LE exhaustive

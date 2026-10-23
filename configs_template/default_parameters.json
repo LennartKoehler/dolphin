@@ -1,0 +1,5 @@
+{
+  "low_padding_threshold": 0.001,
+  "medium_padding_threshold": 0.0001,
+  "generation_threshold_multiplier": 0.01
+}

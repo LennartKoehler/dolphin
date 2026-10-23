@@ -13,11 +13,13 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/deconvolutionStrategies/PSFHandler.h"
 #include "dolphin/PSFCreator.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/DefaultParameters.h"
 #include "dolphin_image/ImagePadding.h"
 #include <cstdint>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <sys/types.h>
+
 
 
 std::string PSFHandler::paddingStrategyName(PaddingStrategyType type) {
@@ -44,13 +46,14 @@ CuboidShape PSFHandler::getManualRelativeMaxPadding(const PSF& psf, float paddin
 }
 
 CuboidShape PSFHandler::getPresetPadding(const PSF& psf, PaddingStrategyType paddingType) const {
+    const auto& defaults = DefaultParameters::getDefaultParameters();
     switch(paddingType){
         case(DEFAULT):
             [[fallthrough]];
         case(MEDIUM):
-            return psf.getRegionLargerThreshold(1e-4f * psf.getMax());
+            return psf.getRegionLargerThreshold(defaults.mediumPaddingThreshold() * psf.getMax());
         case(LOW):
-            return psf.getRegionLargerThreshold(1e-3f * psf.getMax());
+            return psf.getRegionLargerThreshold(defaults.lowPaddingThreshold() * psf.getMax());
         case(MAX):
             return psf.getRegionLargerThreshold(1e-20f); // basically only zeroes are not included in padding
         case(NONE):
@@ -77,14 +80,15 @@ void PSFHandler::loadConfigsFromSetup(const SetupConfig& setupConfig) {
 
 
 float PSFHandler::generationCutoffThreshold(const DeconvolutionConfig& deconvConfig) {
-    // The PSF is generated two orders of magnitude below the trim threshold so
-    // the later trim (padding) keeps a margin instead of cutting into signal.
+    // The PSF is generated generationThresholdMultiplier below the trim threshold
+    // so the later trim (padding) keeps a margin instead of cutting into signal.
+    const auto& defaults = DefaultParameters::getDefaultParameters();
     if (deconvConfig.paddingRelativeMax > 0.0f)
-        return deconvConfig.paddingRelativeMax * 1e-2f;
+        return deconvConfig.paddingRelativeMax * defaults.generationThresholdMultiplier();
 
     switch (deconvConfig.paddingStrategyType) {
         case(LOW):
-            return 1e-5f;
+            return defaults.lowPaddingThreshold() * defaults.generationThresholdMultiplier();
         case(MAX):
             return 1e-9f; // full support; the size cap bounds the cost
         case(DEFAULT):
@@ -92,9 +96,9 @@ float PSFHandler::generationCutoffThreshold(const DeconvolutionConfig& deconvCon
         case(NONE):
             [[fallthrough]];
         case(MEDIUM):
-            return 1e-6f;
+            return defaults.mediumPaddingThreshold() * defaults.generationThresholdMultiplier();
         default:
-            return 1e-6f;
+            return defaults.mediumPaddingThreshold() * defaults.generationThresholdMultiplier();
     }
 }
 

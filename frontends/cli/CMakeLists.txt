@@ -57,6 +57,17 @@ target_link_libraries(dolphin_cli
 
 set_target_properties(dolphin_cli PROPERTIES OUTPUT_NAME dolphin)
 
+# Copy template configs next to the CLI binary so DefaultParameters resolves
+# configs_template/default_parameters.json relative to the executable in dev builds.
+if(NOT DOLPHIN_CLI_STANDALONE)
+    add_custom_command(TARGET dolphin_cli POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/configs_template
+            $<TARGET_FILE_DIR:dolphin_cli>/configs_template
+        COMMENT "Copying configs_template next to dolphin CLI"
+    )
+endif()
+
 if(TARGET cuda_backend)
     set_target_properties(dolphin_cli PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()

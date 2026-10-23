@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/Dolphin.h"
 #include "dolphin/Logging.h"
+#include "dolphin/DefaultParameters.h"
 #include <sys/stat.h>
 #include <itkMultiThreaderBase.h>
 
@@ -21,6 +22,8 @@ void Dolphin::init(const std::filesystem::path& logDir){
     itk::MultiThreaderBase::SetGlobalDefaultNumberOfThreads(1);
     // Initialize service layer
     Logging::init(logDir);
+    const auto& parameters = DefaultParameters::getDefaultParameters();
+    parameters.printValues();
     if (!service_layer_initialized_) {
         service_factory_ = ServiceFactory::create();
 
