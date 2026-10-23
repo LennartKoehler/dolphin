@@ -17,9 +17,6 @@ See the LICENSE file provided with the code for the full license.
 #include <list>
 #include <itkImage.h>
 #include <itkImageRegionIterator.h>
-#include <itkExtractImageFilter.h>
-#include <itkRegionOfInterestImageFilter.h>
-#include <itkImageDuplicator.h>
 #include "dolphin_image/HelperClasses.h"
 
 using PixelType = float;

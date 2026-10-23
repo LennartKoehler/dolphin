@@ -13,6 +13,8 @@ set(DOLPHIN_IMAGE_SOURCES
 
 add_library(dolphin_image STATIC ${DOLPHIN_IMAGE_SOURCES})
 
+dolphin_target_pch(dolphin_image)
+
 target_link_libraries(dolphin_image PUBLIC
     dolphinbackend
     TIFF::TIFF

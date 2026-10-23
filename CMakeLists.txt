@@ -15,6 +15,10 @@ endif()
 
 add_library(project_options INTERFACE)
 
+# Shared precompiled-header helper (cmake/DolphinPCH.cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+include(DolphinPCH)
+
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(project_options INTERFACE
@@ -103,8 +107,11 @@ else()
 endif()
 
 # GoogleTest — fetched only when tests are enabled
-option(ENABLE_TESTS "Enable tests" ON)
-option(ENABLE_BENCHMARKS "Build benchmark executables" ON)
+option(ENABLE_TESTS "Enable tests" OFF)
+option(ENABLE_BENCHMARKS "Build benchmark executables" OFF)
+# Individual per-file test executables (debugging aid); the combined
+# dolphin_all_tests binary is always built when ENABLE_TESTS=ON.
+option(DOLPHIN_INDIVIDUAL_TESTS "Build individual test executables in addition to the combined test binary" OFF)
 
 if(ENABLE_TESTS)
     # Ensure GoogleTest uses the same CRT (dynamic /MD) as the project
@@ -197,6 +204,8 @@ set(DOLPHIN_SOURCES
 
 # Create shared library for Dolphin API
 add_library(dolphin STATIC ${DOLPHIN_SOURCES})
+
+dolphin_target_pch(dolphin)
 
 
 target_link_libraries(dolphin PRIVATE project_options)

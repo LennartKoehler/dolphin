@@ -25,7 +25,6 @@ See the LICENSE file provided with the code for the full license.
 #include <cstdint>
 #include <typeindex>
 #include <tiffio.h>
-#include <itkImageRegionIterator.h>
 #include "dolphin_image/IO/ReaderWriter.h"
 #include "dolphin_image/IO/TiffExceptions.h"
 #include "dolphin_image/IO/TiffHandlePool.h"

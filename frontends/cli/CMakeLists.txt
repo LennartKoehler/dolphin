@@ -64,7 +64,10 @@ endif()
 # ---------------------------------------------------------------------------
 # CLI Frontend tests
 # ---------------------------------------------------------------------------
-if(NOT DOLPHIN_CLI_STANDALONE AND ENABLE_TESTS)
+# CLI test sources are compiled into the combined dolphin_all_tests binary
+# (tests/CMakeLists.txt); the individual test_cli_frontend executable is
+# only built when DOLPHIN_INDIVIDUAL_TESTS=ON.
+if(NOT DOLPHIN_CLI_STANDALONE AND ENABLE_TESTS AND DOLPHIN_INDIVIDUAL_TESTS)
     add_executable(test_cli_frontend
         tests/test_cli_frontend.cpp
         src/CLIFrontend.cpp

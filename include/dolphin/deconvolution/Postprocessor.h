@@ -16,7 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include <vector>
 #include "dolphinbackend/ComplexData.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
-#include <itkImage.h>
+#include <itkImageRegionIterator.h>
 #include "dolphin_image/Image3D.h"
 #include "dolphin_image/ImageOperations.h"
 

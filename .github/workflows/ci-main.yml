@@ -134,6 +134,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_CUDA=OFF \
             -DBUILD_CLI=ON \
+            -DENABLE_TESTS=ON \
             -DITK_DIR=$HOME/itk-install/lib/cmake/ITK-5.4 \
             -DOpenMP_ROOT=$(brew --prefix libomp) \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
@@ -194,6 +195,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DBUILD_CUDA=OFF `
             -DBUILD_CLI=ON `
+            -DENABLE_TESTS=ON `
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache
@@ -264,6 +266,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DBUILD_CUDA=ON `
             -DBUILD_CLI=ON `
+            -DENABLE_TESTS=ON `
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\installed"
 
       - name: Save vcpkg binary cache

@@ -77,6 +77,7 @@ WORKDIR /workspace/build
 RUN cmake -DCMAKE_BUILD_TYPE=Release \
           -DBUILD_CUDA=${BUILD_CUDA} \
           -DBUILD_CLI=ON \
+          -DENABLE_TESTS=ON \
           -DFFTW_PATH="/usr/local/fftw3/lib" \
           -DCMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST \
           .. && \
