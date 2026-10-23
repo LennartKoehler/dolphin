@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IComputeBackend.h"
 #include <algorithm>
+#include <span>
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 #include <cmath>
@@ -73,6 +74,13 @@ struct StrideInfo {
     size_t depth;
     size_t stride;       // elements per row  (width + padding)
     size_t sliceStride;  // elements per slice (stride * height)
+
+    size_t getVolume() const { return width * height * depth; }
+
+    bool operator==(const StrideInfo& other) const {
+        return width == other.width && height == other.height && depth == other.depth
+            && stride == other.stride && sliceStride == other.sliceStride;
+    }
 };
 
 template<typename DataRef>
@@ -84,88 +92,6 @@ StrideInfo getStrideInfo(const DataRef& d) {
     info.stride      = static_cast<size_t>(info.width) + d.getPadding();
     info.sliceStride = info.stride * info.height;
     return info;
-}
-
-// --- 1-input ---
-template<typename D1, typename Func>
-void stridedIteration(const D1& d1, Func&& func) {
-    auto si1 = getStrideInfo(d1);
-    auto* p1 = d1.getData();
-    for (size_t z = 0; z < si1.depth; ++z)
-        for (size_t y = 0; y < si1.height; ++y)
-            func(p1 + z * si1.sliceStride + y * si1.stride, si1.width);
-}
-
-// --- 2-input (1 input + result) ---
-template<typename D1, typename DR, typename Func>
-void stridedIteration(const D1& d1, DR& result, Func&& func) {
-    auto si1 = getStrideInfo(d1);
-    auto siR = getStrideInfo(result);
-    const auto* p1 = d1.getData();
-    auto* pR = result.getData();
-    for (size_t z = 0; z < si1.depth; ++z)
-        for (size_t y = 0; y < si1.height; ++y) {
-            auto off1 = z * si1.sliceStride + y * si1.stride;
-            auto offR = z * siR.sliceStride + y * siR.stride;
-            func(p1 + off1, pR + offR, si1.width);
-        }
-}
-
-// --- 3-input (2 inputs + result) ---
-template<typename D1, typename D2, typename DR, typename Func>
-void stridedIteration(const D1& d1, const D2& d2, DR& result, Func&& func) {
-    auto si1 = getStrideInfo(d1);
-    auto si2 = getStrideInfo(d2);
-    auto siR = getStrideInfo(result);
-    const auto* p1 = d1.getData();
-    const auto* p2 = d2.getData();
-    auto* pR = result.getData();
-    for (size_t z = 0; z < si1.depth; ++z)
-        for (size_t y = 0; y < si1.height; ++y) {
-            auto off1 = z * si1.sliceStride + y * si1.stride;
-            auto off2 = z * si2.sliceStride + y * si2.stride;
-            auto offR = z * siR.sliceStride + y * siR.stride;
-            func(p1 + off1, p2 + off2, pR + offR, si1.width);
-        }
-}
-
-// --- 4-input (3 inputs + result) ---
-template<typename D1, typename D2, typename D3, typename DR, typename Func>
-void stridedIteration(const D1& d1, const D2& d2, const D3& d3, DR& result, Func&& func) {
-    auto si1 = getStrideInfo(d1);
-    auto si2 = getStrideInfo(d2);
-    auto si3 = getStrideInfo(d3);
-    auto siR = getStrideInfo(result);
-    const auto* p1 = d1.getData();
-    const auto* p2 = d2.getData();
-    const auto* p3 = d3.getData();
-    auto* pR = result.getData();
-    for (size_t z = 0; z < si1.depth; ++z)
-        for (size_t y = 0; y < si1.height; ++y) {
-            auto off1 = z * si1.sliceStride + y * si1.stride;
-            auto off2 = z * si2.sliceStride + y * si2.stride;
-            auto off3 = z * si3.sliceStride + y * si3.stride;
-            auto offR = z * siR.sliceStride + y * siR.stride;
-            func(p1 + off1, p2 + off2, p3 + off3, pR + offR, si1.width);
-        }
-}
-
-// --- 3-mutable (all three modified, e.g. normalizeTV) ---
-template<typename D1, typename D2, typename D3, typename Func>
-void stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& func) {
-    auto si1 = getStrideInfo(d1);
-    auto si2 = getStrideInfo(d2);
-    auto si3 = getStrideInfo(d3);
-    auto* p1 = d1.getData();
-    auto* p2 = d2.getData();
-    auto* p3 = d3.getData();
-    for (size_t z = 0; z < si1.depth; ++z)
-        for (size_t y = 0; y < si1.height; ++y) {
-            auto off1 = z * si1.sliceStride + y * si1.stride;
-            auto off2 = z * si2.sliceStride + y * si2.stride;
-            auto off3 = z * si3.sliceStride + y * si3.stride;
-            func(p1 + off1, p2 + off2, p3 + off3, si1.width);
-        }
 }
 
 
@@ -250,10 +176,10 @@ void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
 }
 
 // CPUBackendMemoryManager implementation
-bool CPUBackendMemoryManager::isOnDevice(const void* ptr) const {
-    // For CPU backend, all valid pointers are "on backend"
-    return ptr != nullptr;
-}
+// NOTE: no raw-pointer isOnDevice(const void*) override. The CPU backend cannot
+// verify an arbitrary pointer is host memory (not every non-null pointer is on
+// the host — e.g. CUDA device pointers). Use the handle-level
+// isOnDevice(ManagedData<T>), which checks the data's managing backend instead.
 
 
 RealData CPUBackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
@@ -299,19 +225,28 @@ ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplexFull(const Cub
 }
 DataView<real_t> CPUBackendMemoryManager::reinterpret(ComplexData& data) const{
     CuboidShape realShape = data.getRealSize();
+    // Reinterpret the complex buffer as real_t for the in-place real FFT. A complex
+    // buffer holds (W/2+1) complex_t per row = 2*(W/2+1) real_t. Viewed as a real
+    // buffer of width W, each row therefore has 2*(W/2+1) - W padding elements.
+    // NOTE: this padding is *derived* from the real width — it is NOT the ComplexData's
+    // padding field (which is 0 for complex allocations).
     CuboidShape shapeForInplaceFFT = realShape;
     shapeForInplaceFFT.width = 2 *(shapeForInplaceFFT.width/2 + 1);
     size_t padding = shapeForInplaceFFT.width - realShape.width;
 
-    DataView<real_t> result = DataView<real_t>{reinterpret_cast<real_t*>(data.getData()), realShape, realShape, data.getDataBytes(), padding};
+    DataView<real_t> result = createDataView<real_t>(reinterpret_cast<real_t*>(rawData(data)), realShape, realShape, data.getDataBytes(), padding);
     return result;
 }
 
 DataView<complex_t> CPUBackendMemoryManager::reinterpret(RealData& data) const{
     CuboidShape complexShape = data.getSize();
-    complexShape.width = complexShape.width / 2 + 1;//TODO this is the shape that is needed in the fftw representation of real valued data in complex space
+    complexShape.width = complexShape.width / 2 + 1; // fftw representation of real-valued data in complex space
 
-    DataView<complex_t> result = DataView<complex_t>{reinterpret_cast<complex_t*>(data.getData()), complexShape, data.getSize(), data.getDataBytes(), 0};
+    // A real buffer's rows are padded to 2*(W/2+1) real_t = exactly (W/2+1) complex_t
+    // per row. So the complex view needs NO padding: complex_width == W/2+1 and
+    // stride == width, making convertIndex() exact. (The real buffer's row padding is
+    // fully consumed by the two reals that make up one complex_t.)
+    DataView<complex_t> result = createDataView<complex_t>(reinterpret_cast<complex_t*>(rawData(data)), complexShape, data.getSize(), data.getDataBytes(), 0);
     return result;
 }
 
@@ -421,6 +356,91 @@ CPUComputeBackend::~CPUComputeBackend() {
 
 }
 
+// Strided iteration helpers as static members of CPUComputeBackend so they can
+// reach the raw buffer through the inherited protected rawData() helper.
+// (They were free functions before raw access was restricted.)
+
+// --- 1-input ---
+template<typename D1, typename Func>
+void CPUComputeBackend::stridedIteration(const D1& d1, Func&& func) {
+    auto si1 = getStrideInfo(d1);
+    auto* p1 = rawData(d1);
+    for (size_t z = 0; z < si1.depth; ++z)
+        for (size_t y = 0; y < si1.height; ++y)
+            func(p1 + z * si1.sliceStride + y * si1.stride, si1.width);
+}
+
+// --- 2-input (1 input + result) ---
+template<typename D1, typename DR, typename Func>
+void CPUComputeBackend::stridedIteration(const D1& d1, DR& result, Func&& func) {
+    auto si1 = getStrideInfo(d1);
+    auto siR = getStrideInfo(result);
+    const auto* p1 = rawData(d1);
+    auto* pR = rawData(result);
+    for (size_t z = 0; z < si1.depth; ++z)
+        for (size_t y = 0; y < si1.height; ++y) {
+            auto off1 = z * si1.sliceStride + y * si1.stride;
+            auto offR = z * siR.sliceStride + y * siR.stride;
+            func(p1 + off1, pR + offR, si1.width);
+        }
+}
+
+// --- 3-input (2 inputs + result) ---
+template<typename D1, typename D2, typename DR, typename Func>
+void CPUComputeBackend::stridedIteration(const D1& d1, const D2& d2, DR& result, Func&& func) {
+    auto si1 = getStrideInfo(d1);
+    auto si2 = getStrideInfo(d2);
+    auto siR = getStrideInfo(result);
+    const auto* p1 = rawData(d1);
+    const auto* p2 = rawData(d2);
+    auto* pR = rawData(result);
+    for (size_t z = 0; z < si1.depth; ++z)
+        for (size_t y = 0; y < si1.height; ++y) {
+            auto off1 = z * si1.sliceStride + y * si1.stride;
+            auto off2 = z * si2.sliceStride + y * si2.stride;
+            auto offR = z * siR.sliceStride + y * siR.stride;
+            func(p1 + off1, p2 + off2, pR + offR, si1.width);
+        }
+}
+
+// --- 4-input (3 inputs + result) ---
+template<typename D1, typename D2, typename D3, typename DR, typename Func>
+void CPUComputeBackend::stridedIteration(const D1& d1, const D2& d2, const D3& d3, DR& result, Func&& func) {
+    auto si1 = getStrideInfo(d1);
+    auto si2 = getStrideInfo(d2);
+    auto si3 = getStrideInfo(d3);
+    auto siR = getStrideInfo(result);
+    const auto* p1 = rawData(d1);
+    const auto* p2 = rawData(d2);
+    const auto* p3 = rawData(d3);
+    auto* pR = rawData(result);
+    for (size_t z = 0; z < si1.depth; ++z)
+        for (size_t y = 0; y < si1.height; ++y) {
+            auto off1 = z * si1.sliceStride + y * si1.stride;
+            auto off2 = z * si2.sliceStride + y * si2.stride;
+            auto off3 = z * si3.sliceStride + y * si3.stride;
+            auto offR = z * siR.sliceStride + y * siR.stride;
+            func(p1 + off1, p2 + off2, p3 + off3, pR + offR, si1.width);
+        }
+}
+
+// --- 3-mutable (all three modified, e.g. normalizeTV) ---
+template<typename D1, typename D2, typename D3, typename Func>
+void CPUComputeBackend::stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& func) {
+    auto si1 = getStrideInfo(d1);
+    auto si2 = getStrideInfo(d2);
+    auto si3 = getStrideInfo(d3);
+    auto* p1 = rawData(d1);
+    auto* p2 = rawData(d2);
+    auto* p3 = rawData(d3);
+    for (size_t z = 0; z < si1.depth; ++z)
+        for (size_t y = 0; y < si1.height; ++y) {
+            auto off1 = z * si1.sliceStride + y * si1.stride;
+            auto off2 = z * si2.sliceStride + y * si2.stride;
+            auto off3 = z * si3.sliceStride + y * si3.stride;
+            func(p1 + off1, p2 + off2, p3 + off3, si1.width);
+        }
+}
 
 void CPUComputeBackend::initializePlan(const FFTPlanDescription& description) {
 
@@ -429,42 +449,42 @@ void CPUComputeBackend::initializePlan(const FFTPlanDescription& description) {
 
 
 void CPUComputeBackend::forwardFFT(const ComplexData& in, ComplexData& out) const {
-    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data", buildCpuContext());
-    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data", buildCpuContext());
+    BACKEND_CHECK(rawData(in) != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data", buildCpuContext());
+    BACKEND_CHECK(rawData(out) != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data", buildCpuContext());
 
-    bool inPlace = in.getData() == out.getData();
+    bool inPlace = rawData(in) == rawData(out);
     FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::COMPLEX, in.getSize(), inPlace);
-    fftwManager.executeForwardFFT(description, reinterpret_cast<fftwf_complex*>(in.getData()), reinterpret_cast<fftwf_complex*>(out.getData()));
+    fftwManager.executeForwardFFT(description, reinterpret_cast<fftwf_complex*>(rawData(in)), reinterpret_cast<fftwf_complex*>(rawData(out)));
 }
 
 void CPUComputeBackend::backwardFFT(const ComplexData& in, ComplexData& out) const {
-    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data", buildCpuContext());
-    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data", buildCpuContext());
+    BACKEND_CHECK(rawData(in) != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data", buildCpuContext());
+    BACKEND_CHECK(rawData(out) != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data", buildCpuContext());
 
-    bool inPlace = in.getData() == out.getData();
+    bool inPlace = rawData(in) == rawData(out);
     FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize(), inPlace);
-    fftwManager.executeBackwardFFT(description, reinterpret_cast<fftwf_complex*>(in.getData()), reinterpret_cast<fftwf_complex*>(out.getData()));
+    fftwManager.executeBackwardFFT(description, reinterpret_cast<fftwf_complex*>(rawData(in)), reinterpret_cast<fftwf_complex*>(rawData(out)));
 
     complex_t normFactor{1.0f / out.getSize().getVolume(), 0.0f};//TESTVALUE
     scalarMultiplication(out, normFactor, out); // Add normalization
 }
 
 void CPUComputeBackend::forwardFFT(const RealData& in, ComplexData& out) const {
-    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data", buildCpuContext());
-    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data", buildCpuContext());
+    BACKEND_CHECK(rawData(in) != nullptr, "Input data pointer is null", "CPU", "forwardFFT - input data", buildCpuContext());
+    BACKEND_CHECK(rawData(out) != nullptr, "Output data pointer is null", "CPU", "forwardFFT - output data", buildCpuContext());
 
-    bool inPlace = in.getData() == (real_t*)out.getData();
+    bool inPlace = rawData(in) == (real_t*)rawData(out);
     FFTWPlanDescription description(config.ompThreads, PlanDirection::FORWARD, PlanType::REAL, in.getSize(), inPlace);
-    fftwManager.executeForwardFFTReal(description, reinterpret_cast<real_t*>(in.getData()), reinterpret_cast<fftwf_complex*>(out.getData()));
+    fftwManager.executeForwardFFTReal(description, reinterpret_cast<real_t*>(rawData(in)), reinterpret_cast<fftwf_complex*>(rawData(out)));
 }
 
 void CPUComputeBackend::backwardFFT(const ComplexData& in, RealData& out) const {
-    BACKEND_CHECK(in.getData() != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data", buildCpuContext());
-    BACKEND_CHECK(out.getData() != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data", buildCpuContext());
+    BACKEND_CHECK(rawData(in) != nullptr, "Input data pointer is null", "CPU", "backwardFFT - input data", buildCpuContext());
+    BACKEND_CHECK(rawData(out) != nullptr, "Output data pointer is null", "CPU", "backwardFFT - output data", buildCpuContext());
 
-    bool inPlace = in.getData() == (complex_t*)out.getData();
+    bool inPlace = rawData(in) == (complex_t*)rawData(out);
     FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL ,out.getSize(), inPlace);
-    fftwManager.executeBackwardFFTReal(description, reinterpret_cast<fftwf_complex*>(in.getData()), reinterpret_cast<real_t*>(out.getData()));
+    fftwManager.executeBackwardFFTReal(description, reinterpret_cast<fftwf_complex*>(rawData(in)), reinterpret_cast<real_t*>(rawData(out)));
 
     real_t normFactor{1.0f / out.getSize().getVolume()};
     scalarMultiplication(out, normFactor, out); // Add normalization
@@ -582,9 +602,9 @@ void CPUComputeBackend::inverseQuadrantShift(ComplexData& data) const {
 }
 
 void CPUComputeBackend::complexMultiplication(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a", buildCpuContext());
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "complexMultiplication - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "complexMultiplication - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "complexMultiplication - result", buildCpuContext());
 
     stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {
@@ -597,9 +617,9 @@ void CPUComputeBackend::complexMultiplication(const ComplexData& a, const Comple
 }
 
 void CPUComputeBackend::multiplication(const RealData& a, const RealData& b, RealData& result) const{
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "multiplication - input a", buildCpuContext());
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "multiplication - input b", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "multiplication - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "multiplication - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "multiplication - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "multiplication - result", buildCpuContext());
 
     stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x)
@@ -608,9 +628,9 @@ void CPUComputeBackend::multiplication(const RealData& a, const RealData& b, Rea
 }
 
 void CPUComputeBackend::division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "division - input a", buildCpuContext());
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "division - input b", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "division - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "division - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "division - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "division - result", buildCpuContext());
 
     stridedIteration(a, b, result, [epsilon](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {
@@ -622,9 +642,9 @@ void CPUComputeBackend::division(const RealData& a, const RealData& b, RealData&
 
 
 void CPUComputeBackend::complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a", buildCpuContext());
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivision - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "complexDivision - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "complexDivision - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "complexDivision - result", buildCpuContext());
 
     stridedIteration(a, b, result, [epsilon](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {
@@ -643,33 +663,10 @@ void CPUComputeBackend::complexDivision(const ComplexData& a, const ComplexData&
 }
 
 
-void CPUComputeBackend::complexAddition(complex_t** data, ComplexData& sum, size_t nImages, size_t imageVolume) const {
-    BACKEND_CHECK(sum.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b", buildCpuContext());
-
-    auto si = getStrideInfo(sum);
-    complex_t* ptrSum = sum.getData();
-
-    OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (size_t imageindex = 0; imageindex < nImages; ++imageindex) {
-        complex_t* a = data[imageindex];
-        for (size_t z = 0; z < si.depth; ++z) {
-            for (size_t y = 0; y < si.height; ++y) {
-                size_t off = z * si.sliceStride + y * si.stride;
-                for (size_t x = 0; x < si.width; ++x) {
-                    #pragma omp atomic
-                    ptrSum[off + x][0] += a[off + x][0];
-                    #pragma omp atomic
-                    ptrSum[off + x][1] += a[off + x][1];
-                }
-            }
-        }
-    }
-}
-
 void CPUComputeBackend::complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexAddition - input a", buildCpuContext());
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexAddition - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "complexAddition - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "complexAddition - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "complexAddition - result", buildCpuContext());
 
     stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {
@@ -679,25 +676,24 @@ void CPUComputeBackend::complexAddition(const ComplexData& a, const ComplexData&
     });
 }
 
-void CPUComputeBackend::sum(const ComplexData& data, complex_t* result) const {
-    BACKEND_CHECK(data.getData() != nullptr, "Input data pointer is null", "CPU", "sum - input data", buildCpuContext());
-    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "sum - result", buildCpuContext());
+ComplexValue CPUComputeBackend::sum(const ComplexData& data) const {
+    BACKEND_CHECK(rawData(data) != nullptr, "Input data pointer is null", "CPU", "sum - input data", buildCpuContext());
 
-    result[0][0] = 0.0f;
-    result[0][1] = 0.0f;
+    ComplexValue result;
 
     stridedIteration(data, [&](auto* rowData, size_t w) {
         for (size_t x = 0; x < w; ++x) {
-            result[0][0] += rowData[x][0];
-            result[0][1] += rowData[x][1];
+            result.re += rowData[x][0];
+            result.im += rowData[x][1];
         }
     });
+
+    return result;
 }
 
-void CPUComputeBackend::meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "meanSquareError - input a", buildCpuContext());
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "meanSquareError - input b", buildCpuContext());
-    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "meanSquareError - result", buildCpuContext());
+real_t CPUComputeBackend::meanSquareError(const ComplexData& a, const ComplexData& b) const {
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "meanSquareError - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "meanSquareError - input b", buildCpuContext());
 
     real_t sumSq = 0.0f;
 
@@ -709,30 +705,39 @@ void CPUComputeBackend::meanSquareError(const ComplexData& a, const ComplexData&
         }
     });
 
-    *result = sumSq / static_cast<real_t>(a.getSize().getVolume());
+    return sumSq / static_cast<real_t>(a.getSize().getVolume());
 }
 
-void CPUComputeBackend::sumToOne(real_t** data, size_t nImages, size_t imageVolume) const {
-    // NOTE: Uses raw real_t** with flat indexing. External pointers are assumed
-    // to share the same stride layout but we don't have CuboidShape for them.
-    // If stride-aware access is needed, the API should be updated to pass shapes.
+void CPUComputeBackend::sumToOne(std::span<ManagedData<real_t>*> data) const {
+    BACKEND_CHECK(!data.empty(), "No data provided", "CPU", "sumToOne", buildCpuContext());
+
+    const StrideInfo si = getStrideInfo(*data[0]);
+    for (auto* d : data) {
+        BACKEND_CHECK(rawData(*d) != nullptr, "Input data pointer is null", "CPU", "sumToOne", buildCpuContext());
+        BACKEND_CHECK(si == getStrideInfo(*d), "All buffers must share the same stride layout", "CPU", "sumToOne", buildCpuContext());
+    }
+
     OMP(omp parallel for, config.useOMP, config.ompThreads)
-    for (size_t i = 0; i < imageVolume; ++i) {
-        real_t sum{ 0 };
-
-        for (size_t imageindex = 0; imageindex < nImages; ++imageindex) {
-            sum += data[imageindex][i];
-        }
-
-        for (size_t imageindex = 0; imageindex < nImages; ++imageindex) {
-            if (sum == 0.0f) data[imageindex][i] = 0.0f;
-            data[imageindex][i] /= sum;
+    for (size_t z = 0; z < si.depth; ++z) {
+        for (size_t y = 0; y < si.height; ++y) {
+            size_t off = z * si.sliceStride + y * si.stride;
+            for (size_t x = 0; x < si.width; ++x) {
+                real_t sum{ 0 };
+                for (auto* d : data) {
+                    sum += rawData(*d)[off + x];
+                }
+                for (auto* d : data) {
+                    if (sum == 0.0f) rawData(*d)[off + x] = 0.0f;
+                    else rawData(*d)[off + x] /= sum;
+                }
+            }
         }
     }
 }
+
 void CPUComputeBackend::scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result", buildCpuContext());
 
     stridedIteration(a, result, [scalar](auto* rowA, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x)
@@ -741,8 +746,8 @@ void CPUComputeBackend::scalarMultiplication(const RealData& a, real_t scalar, R
 }
 
 void CPUComputeBackend::scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "scalarMultiplication - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "scalarMultiplication - result", buildCpuContext());
 
     const real_t rscalar = scalar[0];
     const real_t iscalar = scalar[1];
@@ -757,9 +762,9 @@ void CPUComputeBackend::scalarMultiplication(const ComplexData& a, complex_t sca
 }
 
 void CPUComputeBackend::complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexMultiplicationWithConjugate - input a", buildCpuContext());
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexMultiplicationWithConjugate - input b", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "complexMultiplicationWithConjugate - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "complexMultiplicationWithConjugate - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "complexMultiplicationWithConjugate - result", buildCpuContext());
 
     stridedIteration(a, b, result, [](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {
@@ -772,9 +777,9 @@ void CPUComputeBackend::complexMultiplicationWithConjugate(const ComplexData& a,
 }
 
 void CPUComputeBackend::complexDivisionStabilized(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "complexDivisionStabilized - input a", buildCpuContext());
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "complexDivisionStabilized - input b", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "complexDivisionStabilized - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "complexDivisionStabilized - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "complexDivisionStabilized - result", buildCpuContext());
 
     stridedIteration(a, b, result, [epsilon](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) {
@@ -796,7 +801,7 @@ void CPUComputeBackend::hasNAN(const ComplexData& data) const {
     real_t maxImag = std::numeric_limits<real_t>::lowest();
 
     auto si = getStrideInfo(data);
-    const complex_t* ptr = data.getData();
+    const complex_t* ptr = rawData(data);
 
     for (size_t z = 0; z < si.depth; ++z) {
         for (size_t y = 0; y < si.height; ++y) {
@@ -837,8 +842,8 @@ void CPUComputeBackend::hasNAN(const ComplexData& data) const {
 void CPUComputeBackend::gradientX(const ComplexData& image, ComplexData& gradX) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradX);
-    const complex_t* ptrImg = image.getData();
-    complex_t*       ptrGrd = gradX.getData();
+    const complex_t* ptrImg = rawData(image);
+    complex_t*       ptrGrd = rawData(gradX);
 
     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
     for (size_t z = 0; z < siImg.depth; ++z) {
@@ -859,8 +864,8 @@ void CPUComputeBackend::gradientX(const ComplexData& image, ComplexData& gradX) 
 void CPUComputeBackend::gradientY(const ComplexData& image, ComplexData& gradY) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradY);
-    const complex_t* ptrImg = image.getData();
-    complex_t*       ptrGrd = gradY.getData();
+    const complex_t* ptrImg = rawData(image);
+    complex_t*       ptrGrd = rawData(gradY);
 
     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
     for (size_t z = 0; z < siImg.depth; ++z) {
@@ -885,8 +890,8 @@ void CPUComputeBackend::gradientY(const ComplexData& image, ComplexData& gradY) 
 void CPUComputeBackend::gradientZ(const ComplexData& image, ComplexData& gradZ) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradZ);
-    const complex_t* ptrImg = image.getData();
-    complex_t*       ptrGrd = gradZ.getData();
+    const complex_t* ptrImg = rawData(image);
+    complex_t*       ptrGrd = rawData(gradZ);
 
     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
     for (size_t z = 0; z < siImg.depth - 1; ++z) {
@@ -953,8 +958,8 @@ void CPUComputeBackend::normalizeTV(ComplexData& gradX, ComplexData& gradY, Comp
 void CPUComputeBackend::gradientX(const RealData& image, RealData& gradX) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradX);
-    const real_t* ptrImg = image.getData();
-    real_t*       ptrGrd = gradX.getData();
+    const real_t* ptrImg = rawData(image);
+    real_t*       ptrGrd = rawData(gradX);
 
     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
     for (size_t z = 0; z < siImg.depth; ++z) {
@@ -971,8 +976,8 @@ void CPUComputeBackend::gradientX(const RealData& image, RealData& gradX) const 
 void CPUComputeBackend::gradientY(const RealData& image, RealData& gradY) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradY);
-    const real_t* ptrImg = image.getData();
-    real_t*       ptrGrd = gradY.getData();
+    const real_t* ptrImg = rawData(image);
+    real_t*       ptrGrd = rawData(gradY);
 
     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
     for (size_t z = 0; z < siImg.depth; ++z) {
@@ -992,8 +997,8 @@ void CPUComputeBackend::gradientY(const RealData& image, RealData& gradY) const 
 void CPUComputeBackend::gradientZ(const RealData& image, RealData& gradZ) const {
     auto siImg = getStrideInfo(image);
     auto siGrd = getStrideInfo(gradZ);
-    const real_t* ptrImg = image.getData();
-    real_t*       ptrGrd = gradZ.getData();
+    const real_t* ptrImg = rawData(image);
+    real_t*       ptrGrd = rawData(gradZ);
 
     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
     for (size_t z = 0; z < siImg.depth - 1; ++z) {
@@ -1018,10 +1023,10 @@ void CPUComputeBackend::gradient(const RealData& image, RealData& gradX, RealDat
     auto siY = getStrideInfo(gradY);
     auto siZ = getStrideInfo(gradZ);
 
-    const real_t* ptrImg = image.getData();
-    real_t*       ptrX = gradX.getData();
-    real_t*       ptrY = gradY.getData();
-    real_t*       ptrZ = gradZ.getData();
+    const real_t* ptrImg = rawData(image);
+    real_t*       ptrX = rawData(gradX);
+    real_t*       ptrY = rawData(gradY);
+    real_t*       ptrZ = rawData(gradZ);
 
     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
     for (size_t z = 0; z < siImg.depth; ++z) {
@@ -1053,10 +1058,10 @@ void CPUComputeBackend::divergence(const RealData& gx, const RealData& gy, const
     auto siGy = getStrideInfo(gy);
     auto siGz = getStrideInfo(gz);
     auto siR  = getStrideInfo(result);
-    const real_t* ptrGx = gx.getData();
-    const real_t* ptrGy = gy.getData();
-    const real_t* ptrGz = gz.getData();
-    real_t*       ptrR  = result.getData();
+    const real_t* ptrGx = rawData(gx);
+    const real_t* ptrGy = rawData(gy);
+    const real_t* ptrGz = rawData(gz);
+    real_t*       ptrR  = rawData(result);
 
     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
     for (size_t z = 0; z < siGx.depth; ++z) {
@@ -1084,10 +1089,10 @@ void CPUComputeBackend::divergence(const ComplexData& gx, const ComplexData& gy,
     auto siGy = getStrideInfo(gy);
     auto siGz = getStrideInfo(gz);
     auto siR  = getStrideInfo(result);
-    const complex_t* ptrGx = gx.getData();
-    const complex_t* ptrGy = gy.getData();
-    const complex_t* ptrGz = gz.getData();
-    complex_t*       ptrR  = result.getData();
+    const complex_t* ptrGx = rawData(gx);
+    const complex_t* ptrGy = rawData(gy);
+    const complex_t* ptrGz = rawData(gz);
+    complex_t*       ptrR  = rawData(result);
 
     OMP(omp parallel for collapse(2), config.useOMP, config.ompThreads)
     for (size_t z = 0; z < siGx.depth; ++z) {

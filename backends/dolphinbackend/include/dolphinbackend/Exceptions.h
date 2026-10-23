@@ -28,6 +28,14 @@ inline std::string buildCpuContext() {
     return ctx.str();
 }
 
+// Context for exceptions raised inside ManagedData itself (no concrete backend
+// available), using the device string reported by the managing memory manager.
+inline std::string buildManagedDataContext(const std::string& deviceString) {
+    std::ostringstream ctx;
+    ctx << "managed:" << deviceString << ":tid:" << std::this_thread::get_id();
+    return ctx.str();
+}
+
 // Base exception class for all backend-related exceptions
 class BackendException : public std::runtime_error {
 public:

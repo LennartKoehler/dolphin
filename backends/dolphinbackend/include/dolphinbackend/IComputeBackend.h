@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <string>
+#include <span>
 #include <vector>
 #include "ComplexData.h"
 
@@ -87,7 +88,18 @@ public:
     // Debug functions
     virtual void hasNAN(const ComplexData& data) const = 0;
 
+    // ============================================================================
+    // Raw buffer access — backend-internal only.
+    // ManagedData grants friendship to this interface, so the static helper
+    // below can reach its (otherwise protected) getData(). Concrete compute
+    // backends obtain raw pointers through this inherited helper. Static so
+    // static member helper functions in a backend can also call it.
+    // ============================================================================
+protected:
+    template<typename T>
+    static T* rawData(const ManagedData<T>& data) { return data.getData(); }
 
+public:
     // FFT functions
     virtual void forwardFFT(const ComplexData& in, ComplexData& out) const = 0;
 
@@ -110,18 +122,26 @@ public:
 
     virtual void multiplication(const RealData& a, const RealData& b, RealData& result) const = 0;
 
-    virtual void sum(const ComplexData& data, complex_t* result) const = 0;
+    // Returns the element-wise sum of all data as a value (backend-agnostic).
+    virtual ComplexValue sum(const ComplexData& data) const = 0;
 
-    virtual void meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const = 0;
+    // Returns the mean square error as a value (backend-agnostic).
+    virtual real_t meanSquareError(const ComplexData& a, const ComplexData& b) const = 0;
 
     virtual void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const = 0;
 
     virtual void division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const = 0;
 
-    virtual void complexAddition(complex_t** data, ComplexData& sum, size_t nImages, size_t imageVolume) const = 0;
     virtual void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const = 0;
 
-    virtual void sumToOne(real_t** data, size_t nImages, size_t imageVolume) const = 0;
+    /**
+     * Sum all data buffers element-wise into the first buffer, then normalize
+     * every buffer in place by the summed value (zero where the sum is zero).
+     * All buffers must be in the same memory space (host or device).
+     * NOTE: all buffers must share the same stride layout (padding + width) —
+     * the stride of the first buffer is used for the whole operation.
+     */
+    virtual void sumToOne(std::span<ManagedData<real_t>*> data) const = 0;
     virtual void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const = 0;
 
     virtual void scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const = 0;
