@@ -187,8 +187,10 @@ std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
 
             backend.getComputeManager().forwardFFT(h_device, *h_result_device);
 
-            h_result_device->setBackend(h_device.getBackend());
-            h_device.setBackend(nullptr);
+            // The view outlives h_device, so it must take over ownership of the
+            // buffer: detach h_device (no free) and let the view own it.
+            h_device.releaseMemory();
+            h_result_device->adoptMemory();
 
             backend.sync();
             return std::move(h_result_device);

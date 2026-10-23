@@ -13,16 +13,13 @@ See the LICENSE file provided with the code for the full license.
 
 #include "ComplexData.h"
 #include "IBackendMemoryManager.h"
-
-template<typename T>
-ManagedData<T>::ManagedData(IBackendMemoryManager const* b, T* d, CuboidShape s, CuboidShape rs, std::size_t bytes, std::size_t padding)
-    : backend(b), data(d), size(s), realSize(rs), bytes(bytes), padding(padding) {}
+#include "Exceptions.h"
 
 template<typename T>
 ManagedData<T>::~ManagedData() {
     if (data) {
         try {
-            if (backend) {
+            if (ownsMemory && backend) {
                 backend->freeMemoryOnDevice(*this);
             }
         } catch(...) {}
@@ -31,10 +28,11 @@ ManagedData<T>::~ManagedData() {
 
 template<typename T>
 ManagedData<T>::ManagedData(const ManagedData& other)
-    : backend(other.backend), size(other.size), realSize(other.realSize), padding(other.padding) {
+    : backend(other.backend), size(other.size), realSize(other.realSize), padding(other.padding), ownsMemory(false) {
     ManagedData copy = backend->createCopy(other);
-    this->bytes = other.getDataBytes();
+    this->bytes = copy.bytes;
     this->data = copy.data;
+    this->ownsMemory = true; // copy ctor steals the buffer from the temporary `copy`
     copy.data = nullptr; // Prevent copy's destructor from freeing the data
 }
 
@@ -44,7 +42,7 @@ ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
         // Free existing data
         if (data) {
             try {
-                if (backend) {
+                if (ownsMemory && backend) {
                     backend->freeMemoryOnDevice(*this);
                 }
             } catch(...){}
@@ -57,7 +55,8 @@ ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
         padding = other.padding;
         ManagedData copy = backend->createCopy(other);
         data = copy.data;
-        bytes = other.getDataBytes();
+        bytes = copy.bytes;
+        ownsMemory = true; // copy-assign steals the buffer from the temporary `copy`
         copy.data = nullptr; // Prevent copy's destructor from freeing the data
     }
     return *this;
@@ -66,13 +65,14 @@ ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
 template<typename T>
 ManagedData<T>::ManagedData(ManagedData&& other) noexcept
     : data(other.data), backend(other.backend), size(other.size), realSize(other.realSize), bytes(other.bytes),
-      padding(other.padding) {
+      padding(other.padding), ownsMemory(other.ownsMemory) {
     other.data = nullptr;
     other.backend = nullptr;
     other.size = CuboidShape{};
     other.realSize = CuboidShape{};
     other.bytes = 0;
     other.padding = 0;
+    other.ownsMemory = false;
 }
 
 template<typename T>
@@ -81,7 +81,7 @@ ManagedData<T>& ManagedData<T>::operator=(ManagedData&& other) noexcept {
         // Free existing data if any
         if (data) {
             try {
-                if (backend) {
+                if (ownsMemory && backend) {
                     backend->freeMemoryOnDevice(*this);
                 }
             } catch(...){}
@@ -92,8 +92,9 @@ ManagedData<T>& ManagedData<T>::operator=(ManagedData&& other) noexcept {
         backend = other.backend;
         size = other.size;
         realSize = other.realSize;
-        bytes = other.getDataBytes();
+        bytes = other.bytes;
         padding = other.padding;
+        ownsMemory = other.ownsMemory;
 
         // Leave other in a valid state
         other.data = nullptr;
@@ -102,6 +103,7 @@ ManagedData<T>& ManagedData<T>::operator=(ManagedData&& other) noexcept {
         other.realSize = CuboidShape{};
         other.bytes = 0;
         other.padding = 0;
+        other.ownsMemory = false;
     }
     return *this;
 }
@@ -111,13 +113,36 @@ DataView<other_type_t<T>> ManagedData<T>::reinterpret() {
     return backend->reinterpret(*this);
 }
 
+namespace {
+// Element access (operator[], access(), Iterator) may only dereference a buffer
+// whose provenance is a host backend. Fails closed: a null backend (unknown
+// origin) or a device backend both throw, so a misplaced or unattributed buffer
+// errors loudly instead of segfaulting.
+inline void assertHostAccess(const IBackendMemoryManager* backend) {
+    if (backend == nullptr) {
+        throw dolphin::backend::BackendException(
+            "Element access requires host provenance; this buffer has no backend",
+            "dolphin", "access",
+            dolphin::backend::buildManagedDataContext("unknown"));
+    }
+    if (!backend->isHostBackend()) {
+        throw dolphin::backend::BackendException(
+            "Element access on non-host data; move the buffer to the host first",
+            "dolphin", "access",
+            dolphin::backend::buildManagedDataContext(backend->getDeviceString()));
+    }
+}
+}
+
 template<typename T>
 T& ManagedData<T>::access(std::size_t linearIndex){
+    assertHostAccess(backend);
     return data[convertIndex(linearIndex)];
 }
 
 template<typename T>
 const T& ManagedData<T>::access(std::size_t linearIndex) const{
+    assertHostAccess(backend);
     return data[convertIndex(linearIndex)];
 }
 

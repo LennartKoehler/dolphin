@@ -13,6 +13,7 @@ function(dolphin_add_test name)
     target_compile_definitions(${name} PRIVATE
         CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
         CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
+        DOLPHIN_RAW_DATA_ACCESS
     )
     if(TARGET cuda_backend)
         foreach(lib ${ARG_LIBS})
@@ -125,6 +126,7 @@ endif()
 target_compile_definitions(dolphin_all_tests PRIVATE
     CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
     CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
+    DOLPHIN_RAW_DATA_ACCESS
 )
 if(TARGET cuda_backend)
     set_target_properties(dolphin_all_tests PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)

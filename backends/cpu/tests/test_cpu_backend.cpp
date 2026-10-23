@@ -361,8 +361,61 @@ TEST_F(CPUMemoryManagerTest, ReinterpretComplexToReal) {
 
 TEST_F(CPUMemoryManagerTest, IsOnDevice) {
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
-    EXPECT_TRUE(memMgr.isOnDevice(reinterpret_cast<const void*>(0x1)));
-    EXPECT_FALSE(memMgr.isOnDevice(nullptr));
+    // Handle-level query: data allocated by this (host) backend is on device.
+    CuboidShape shape(8, 8, 4);
+    RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
+    EXPECT_TRUE(memMgr.isOnDevice(data));
+
+    // Host-backend data (any host manager) is reachable from a host backend,
+    // because host backends share one address space.
+    std::vector<real_t> foreign(shape.getVolume(), 0.0f);
+    RealData foreignHandle;
+    foreignHandle.setData(foreign.data());
+    foreignHandle.setBackend(&memMgr);
+    EXPECT_TRUE(memMgr.isOnDevice(foreignHandle));
+
+    // Handles without buffer or provenance are not on device.
+    RealData empty;
+    EXPECT_FALSE(memMgr.isOnDevice(empty));
+    RealData orphan;
+    orphan.setData(foreign.data());
+    EXPECT_FALSE(memMgr.isOnDevice(orphan));
+
+    // A view carries provenance, so handle-level queries work on it too.
+    DataView<complex_t> complexView = memMgr.reinterpret(data);
+    EXPECT_TRUE(memMgr.isOnDevice(complexView));
+}
+
+TEST_F(CPUMemoryManagerTest, ElementAccessGuard) {
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    // CPU is a host backend: element access is allowed.
+    CuboidShape shape(8, 8, 4);
+    RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
+    EXPECT_NO_THROW({ data[0] = 1.0f; });
+    EXPECT_NO_THROW({ volatile real_t v = data.access(0); (void)v; });
+}
+
+TEST_F(CPUMemoryManagerTest, ReinterpretViewCarriesProvenance) {
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 8, 4);
+    RealData realData = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+
+    DataView<complex_t> complexView = memMgr.reinterpret(realData);
+    EXPECT_EQ(complexView.getBackend(), &memMgr);
+    EXPECT_TRUE(memMgr.isOnDevice(complexView));
+    // The view never owns: destroying it must not free the source buffer.
+    {
+        DataView<complex_t> scoped = memMgr.reinterpret(realData);
+        EXPECT_TRUE(scoped.isValid());
+    }
+    EXPECT_TRUE(memMgr.isOnDevice(realData));
+
+    // adoptMemory/releaseMemory: view takes over ownership of the buffer.
+    DataView<complex_t> owner = memMgr.reinterpret(realData);
+    realData.releaseMemory();
+    owner.adoptMemory();
+    // Now the view frees the buffer on scope exit; realData stays detached.
+    EXPECT_TRUE(memMgr.isHostBackend());
 }
 
 TEST_F(CPUMemoryManagerTest, GetAllocatedMemory) {

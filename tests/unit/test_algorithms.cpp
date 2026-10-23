@@ -60,8 +60,10 @@ protected:
         std::unique_ptr<ComplexView> h_result = std::make_unique<ComplexView>(std::move(backend->getMemoryManager().reinterpret(h_device)));
         backend->getComputeManager().octantFourierShift(h_device);
         backend->getComputeManager().forwardFFT(h_device, *h_result);
-        h_result->setBackend(h_device.getBackend());
-        h_device.setBackend(nullptr);
+        // The returned view outlives h_device, so it takes over buffer ownership:
+        // detach h_device (no free) and let the view own it.
+        h_device.releaseMemory();
+        h_result->adoptMemory();
         backend->sync();
         return std::move(h_result);
     }

@@ -93,11 +93,17 @@ public:
     // Synchronization method - CPU implementation (no-op)
     void sync() override {}
 
+    // CPU memory is host-addressable.
+    bool isHostBackend() const override { return true; }
+
     // Memory management initialization
     void setMemoryLimit(size_t maxMemorySize = 0) override;
 
     // Data management
-    bool isOnDevice(const void* data) const override;
+    // NOTE: no raw isOnDevice(const void*) override — the CPU backend cannot
+    // verify an arbitrary pointer is host memory. Use the handle-level
+    // isOnDevice(ManagedData<T>) from the interface, which checks the data's
+    // managing backend (host backends share one address space).
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
     float estimateFFTWorkspaceCopies(const CuboidShape& shape) const override;
@@ -221,6 +227,21 @@ public:
     void normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const override;
 
 private:
+    // Strided iteration helpers (definitions in CPUBackend.cpp). Static members so
+    // they can reach the raw buffer through the inherited rawData() helper; the
+    // StrideInfo computation (getStrideInfo) only uses public accessors and stays a
+    // free function.
+    template<typename D1, typename Func>
+    static void stridedIteration(const D1& d1, Func&& func);
+    template<typename D1, typename DR, typename Func>
+    static void stridedIteration(const D1& d1, DR& result, Func&& func);
+    template<typename D1, typename D2, typename DR, typename Func>
+    static void stridedIteration(const D1& d1, const D2& d2, DR& result, Func&& func);
+    template<typename D1, typename D2, typename D3, typename DR, typename Func>
+    static void stridedIteration(const D1& d1, const D2& d2, const D3& d3, DR& result, Func&& func);
+    template<typename D1, typename D2, typename D3, typename Func>
+    static void stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& func);
+
     FFTWManager& fftwManager;
     CPUBackendConfig config;
 };

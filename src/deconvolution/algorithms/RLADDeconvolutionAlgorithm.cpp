@@ -46,7 +46,7 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
     const IComputeBackend& deconvolution = backend->getComputeManager();
 
     // Use pre-allocated memory for intermediate arrays
-    assert(memory.isOnDevice(f.getData()) && "Output buffer is not on device");
+    assert(memory.isOnDevice(f) && "Output buffer is not on device");
     memory.memCopy(g, f);
 
     for (int n = 0; n < iterations; ++n) {
