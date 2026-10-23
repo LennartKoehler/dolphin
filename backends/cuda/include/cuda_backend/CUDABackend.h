@@ -230,6 +230,9 @@ private:
 
     void logWithContext(const std::string& msg, LogLevel level) const;
     void ensureDevice() const { cudaSetDevice(config.device.id); }
+    void run(const char* op, cudaError_t err) const {
+        CUDA_CHECK(err, op, buildCudaContext(config));
+    }
 
     cufftHandle initializePlan_(const FFTPlanDescription& description);
 
