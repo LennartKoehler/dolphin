@@ -64,7 +64,7 @@ See the LICENSE file provided with the code for the full license.
 #include <itkImageRegionIterator.h>
 #include <algorithm>
 #include <cmath>
-#include <future>
+#include <mutex>
 #include <spdlog/spdlog.h>
 
 GibsonLanniPSFGenerator::GibsonLanniPSFGenerator(std::unique_ptr<NumericalIntegrator> integrator)
@@ -82,31 +82,271 @@ void GibsonLanniPSFGenerator::setConfig(const std::shared_ptr<const PSFConfig> c
     auto* ucfg = dynamic_cast<const GibsonLanniPSFConfig*>(config.get());
     if (!ucfg) throw std::runtime_error("Wrong config type");
     this->config = std::make_unique<GibsonLanniPSFConfig>(*ucfg);
-}
-
-//TODO
-CuboidShape GibsonLanniPSFGenerator::getPadding(PaddingStrategyType paddingType) const {
-    switch(paddingType){
-    case(PARENT):
-        // TODO
-        return CuboidShape{config->sizeX / 2, config->sizeY / 2, config->sizeZ / 2};
-    case(FULL_PSF):
-        return CuboidShape{config->sizeX, config->sizeY, config->sizeZ};
-    default:
-        return CuboidShape{SIZE_MAX, SIZE_MAX, SIZE_MAX};
+    // Profiles are cached keyed on ti_nm only, but the integrand also
+    // depends on every other optical parameter. Invalidate on config change.
+    {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        cachedRadialProfiles.clear();
     }
 }
 
-void GibsonLanniPSFGenerator::initBesselHelper() const {
+PSF GibsonLanniPSFGenerator::generatePSF() const {
+
+    if (!threadPool)
+        throw std::runtime_error("GibsonLanniPSFGenerator threadpool not configured");
+
+    // cutoffThreshold <= 0 means "not set" (e.g. standalone PSF generation
+    // without a padding strategy); fall back to the MEDIUM trim margin.
+    // this->config is a private copy, so this never leaks to the caller.
+    if (config->cutoffThreshold <= 0.0f)
+        config->cutoffThreshold = 1e-6f;
+
+    // The old per-evaluation "NA*rho/ns > 1" log fired on every integrand
+    // evaluation (thousands of lines per slice). Emit it once per generation
+    // instead: the violation is monotonic in rho, so if it holds at the upper
+    // bound b it holds somewhere in the domain.
+    const double rhoMax = integrationUpperBound(*config);
+    if (config->NA * rhoMax / config->ns > 1.0)
+        spdlog::warn("GibsonLanni: NA*rho/ns > 1 within the integration domain (ns={}, NA={}, rho_max={})",
+                     config->ns, config->NA, rhoMax);
+
+    size_t effX = config->sizeX > 0 ? config->sizeX : 256;
+    size_t effY = config->sizeY > 0 ? config->sizeY : 256;
+
+    initBesselHelper(effX, effY);
+
+    if (config->autoSize || config->sizeX == 0 || config->sizeY == 0 || config->sizeZ == 0) {
+        return generateAutoSizePSF();
+    }
+    return generateFixedSizePSF();
+}
+
+PSF GibsonLanniPSFGenerator::generateFixedSizePSF() const {
+    size_t sizeX = config->sizeX;
+    size_t sizeY = config->sizeY;
+    size_t sizeZ = config->sizeZ;
+    size_t lateralHalf = (std::min(sizeX, sizeY) - 1) / 2;
+    double pixelSizeAxial = static_cast<double>(config->pixelSizeAxial_nm);
+
+    progressTracker.setMax(sizeZ);
+
+    ImageType::Pointer itkImage = ImageType::New();
+    ImageType::SizeType imgSize;
+    imgSize[0] = sizeX;
+    imgSize[1] = sizeY;
+    imgSize[2] = sizeZ;
+    ImageType::IndexType start;
+    start.Fill(0);
+    ImageType::RegionType region;
+    region.SetSize(imgSize);
+    region.SetIndex(start);
+    itkImage->SetRegions(region);
+    itkImage->Allocate();
+    itkImage->FillBuffer(0.0f);
+
+    // Center on the middle voxel like BIG ((nz-1)/2), not the floor
+    // division of sizeZ/2, which shifts the axial center by half a pixel
+    // for even sizeZ.
+    long zCenter = static_cast<long>((sizeZ - 1) / 2);
+    size_t offsetX = sizeX / 2 - lateralHalf;
+    size_t offsetY = sizeY / 2 - lateralHalf;
+
+    auto makeSliceCfg = [&](size_t z) {
+        GibsonLanniPSFConfig cfg = *config;
+        long offset = static_cast<long>(z) - zCenter;
+        cfg.ti_nm = cfg.ti0_nm + pixelSizeAxial * static_cast<double>(offset);
+        return cfg;
+    };
+
+    std::vector<std::future<SliceData>> sliceFutures;
+    sliceFutures.reserve(sizeZ);
+    for (size_t z = 0; z < sizeZ; z++) {
+        sliceFutures.emplace_back(threadPool->enqueue([this, cfg = makeSliceCfg(z), lateralHalf]() {
+            return singlePlanePSF(cfg, lateralHalf);
+        }));
+    }
+
+    for (size_t z = 0; z < sizeZ; z++) {
+        SliceData slice = sliceFutures[z].get();
+        size_t sliceW = 2 * slice.lateralCutoff + 1;
+
+        for (size_t y = 0; y < sliceW; y++) {
+            for (size_t x = 0; x < sliceW; x++) {
+                itk::Index<3> idx;
+                idx[0] = static_cast<itk::IndexValueType>(x + offsetX);
+                idx[1] = static_cast<itk::IndexValueType>(y + offsetY);
+                idx[2] = static_cast<itk::IndexValueType>(z);
+                itkImage->SetPixel(idx, slice.data[y * sliceW + x]);
+            }
+        }
+    }
+
+    return PSF(std::move(itkImage), config->ID);
+}
+
+
+
+PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const
+{
+    const size_t effX = config->sizeX > 0 ? config->sizeX : 256;
+    const size_t effY = config->sizeY > 0 ? config->sizeY : 256;
+    const size_t effZ = config->sizeZ > 0 ? config->sizeZ : 256;
+
+    const double threshold = static_cast<double>(config->cutoffThreshold);
+
+    const double pixelSizeAxial =
+        static_cast<double>(config->pixelSizeAxial_nm);
+
+    auto makeCfg = [&](long offset) {
+        GibsonLanniPSFConfig cfg = *config;
+        cfg.sizeX = effX;
+        cfg.sizeY = effY;
+        cfg.ti_nm =
+            cfg.ti0_nm +
+            pixelSizeAxial * static_cast<double>(offset);
+        return cfg;
+    };
+
+    const long maxOffset = static_cast<long>(effZ / 2);
+
+    struct GeneratedSlice {
+        long offset;
+        SliceData slice;
+    };
+
+    /*
+     * Pass 1: axial extent. Only the on-axis value of every candidate slice
+     * is computed (one integration per slice, all in parallel). The axial
+     * support is the contiguous region around the focus whose on-axis value
+     * stays above threshold * global peak.
+     */
+    const long scanRange = 2 * maxOffset + 1;
+    std::vector<std::future<double>> centerFutures;
+    centerFutures.reserve(scanRange);
+    for (long offset = -maxOffset; offset <= maxOffset; ++offset) {
+        centerFutures.emplace_back(threadPool->enqueue([this, cfg = makeCfg(offset)]() {
+            return centerValue(cfg);
+        }));
+    }
+
+    double peakVal = 0.0;
+    std::vector<double> centerVals(scanRange);
+    for (long i = 0; i < scanRange; ++i) {
+        centerVals[i] = centerFutures[i].get();
+        peakVal = std::max(peakVal, centerVals[i]);
+    }
+    if (peakVal <= 0.0) {
+        throw std::runtime_error("GibsonLanni: PSF has zero intensity at every scanned slice");
+    }
+
+    const double axialCutoff = threshold * peakVal;
+    const auto valueAt = [&](long offset) {
+        return centerVals[offset + maxOffset];
+    };
+
+    long extentNeg = 0;
+    while (extentNeg < maxOffset &&
+           valueAt(-(extentNeg + 1)) >= axialCutoff) {
+        ++extentNeg;
+    }
+    long extentPos = 0;
+    while (extentPos < maxOffset &&
+           valueAt(extentPos + 1) >= axialCutoff) {
+        ++extentPos;
+    }
+
+    const bool axialCapped =
+        extentNeg == maxOffset || extentPos == maxOffset;
+    if (axialCapped) {
+        spdlog::warn("GibsonLanni: axial cutoff {} not reached, PSF truncated by the size cap ({} slices)",
+                     threshold, 2 * maxOffset + 1);
+    }
+
+    /*
+     * Pass 2: full radial profiles, only for the kept slices, all in
+     * parallel. The per-slice lateral cutoff logic in singlePlanePSF is
+     * unchanged.
+     */
+    progressTracker.setMax(static_cast<float>(extentNeg + extentPos + 1));
+
+    std::vector<std::future<SliceData>> sliceFutures;
+    sliceFutures.reserve(extentNeg + extentPos + 1);
+    for (long offset = -extentNeg; offset <= extentPos; ++offset) {
+        sliceFutures.emplace_back(threadPool->enqueue([this, cfg = makeCfg(offset)]() {
+            return singlePlanePSF(cfg);
+        }));
+    }
+
+    std::vector<GeneratedSlice> slices;
+    slices.reserve(sliceFutures.size());
+    size_t maxCutoff = 0;
+    const size_t lateralCap = std::min(effX, effY) / 2;
+    bool lateralCapped = false;
+    for (size_t i = 0; i < sliceFutures.size(); ++i) {
+        SliceData slice = sliceFutures[i].get();
+        const long offset = static_cast<long>(i) - extentNeg;
+        maxCutoff = std::max(maxCutoff, slice.lateralCutoff);
+        lateralCapped = lateralCapped || slice.lateralCutoff >= lateralCap;
+        slices.push_back({offset, std::move(slice)});
+    }
+    if (lateralCapped) {
+        spdlog::warn("GibsonLanni: lateral cutoff {} not reached on at least one slice, PSF truncated by the size cap ({})",
+                     threshold, 2 * maxCutoff + 1);
+    }
+
+    // Final physical order: -N, ..., -1, 0, 1, ..., N (already ordered)
+    const long maxNeg = extentNeg;
+    const long maxPos = extentPos;
+    long zHalfExtent = std::max(maxNeg, maxPos);
+    size_t psfD = static_cast<size_t>(2 * zHalfExtent + 1);
+    size_t psfW = 2 * maxCutoff + 1;
+
+    ImageType::Pointer itkImage = ImageType::New();
+    ImageType::SizeType size;
+    size[0] = psfW;
+    size[1] = psfW;
+    size[2] = psfD;
+    ImageType::IndexType start;
+    start.Fill(0);
+    ImageType::RegionType region;
+    region.SetSize(size);
+    region.SetIndex(start);
+    itkImage->SetRegions(region);
+    itkImage->Allocate();
+    itkImage->FillBuffer(0.0f);
+
+    for (const auto& s : slices) {
+        long targetZ = s.offset + zHalfExtent;
+        if (targetZ < 0 || targetZ >= static_cast<long>(psfD))
+            continue;
+
+        size_t sliceW = 2 * s.slice.lateralCutoff + 1;
+        long pad = static_cast<long>(maxCutoff) - static_cast<long>(s.slice.lateralCutoff);
+
+        for (size_t y = 0; y < sliceW; y++) {
+            for (size_t x = 0; x < sliceW; x++) {
+                itk::Index<3> idx;
+                idx[0] = static_cast<itk::IndexValueType>(x + pad);
+                idx[1] = static_cast<itk::IndexValueType>(y + pad);
+                idx[2] = static_cast<itk::IndexValueType>(targetZ);
+                itkImage->SetPixel(idx, s.slice.data[y * sliceW + x]);
+            }
+        }
+    }
+
+    return PSF(std::move(itkImage), config->ID);
+}
+
+void GibsonLanniPSFGenerator::initBesselHelper(size_t sizeX, size_t sizeY) const {
     assert (config != nullptr && "Config not initialized");
 
-    double nx = config->sizeX;
-    double ny = config->sizeY;
+    double nx = static_cast<double>(sizeX);
+    double ny = static_cast<double>(sizeY);
     // The center of the image in units of [pixels]
     double x0 = (nx - 1) / 2.0;
     double y0 = (ny - 1) / 2.0;
 
-    double k0 = 2.0 * M_PI / config->lambda_nm;
+    double k0 = 2.0 * M_PI / config->wavelength_nm;
     size_t maxRadius = static_cast<size_t>(std::round(std::sqrt((nx - x0) * (nx - x0) + (ny - y0) * (ny - y0)))) + 1;
 
     double max_k0NAr = k0 * config->NA * maxRadius * config->pixelSizeLateral_nm;
@@ -119,184 +359,156 @@ void GibsonLanniPSFGenerator::initBesselHelper() const {
     besselHelper.init(maxValue, dx);
 }
 
-LateralClip GibsonLanniPSFGenerator::clipSize() const {
-    size_t nx = config->sizeX;
-    size_t ny = config->sizeY;
-    double x0 = (nx - 1) / 2.0;
-    double y0 = (ny - 1) / 2.0;
-
-    // Characteristic lateral scale: Airy disk radius in pixels
-    double airyRadius_px = 0.61 * config->lambda_nm / (config->NA * config->pixelSizeLateral_nm);
-
-    // Generous cutoff to capture all significant energy including sidelobes
-    constexpr double cutoffFactor = 10.0;
-    double cutoffRadius = cutoffFactor * airyRadius_px;
-
-    size_t xMin = static_cast<size_t>(std::max(0L, static_cast<long>(std::floor(x0 - cutoffRadius))));
-    size_t xMax = std::min(nx - 1, static_cast<size_t>(std::max(0L, static_cast<long>(std::ceil(x0 + cutoffRadius)))));
-    size_t yMin = static_cast<size_t>(std::max(0L, static_cast<long>(std::floor(y0 - cutoffRadius))));
-    size_t yMax = std::min(ny - 1, static_cast<size_t>(std::max(0L, static_cast<long>(std::ceil(y0 + cutoffRadius)))));
-
-    return {xMin, xMax, yMin, yMax};
+double GibsonLanniPSFGenerator::integrationUpperBound(const GibsonLanniPSFConfig& cfg) {
+    const double NA = cfg.NA;
+    // Each sqrt(1 - (NA*rho/n)^2) term requires rho <= n/NA, so the upper
+    // bound is the tightest such limit across every medium in the path (and
+    // 1.0 at the pupil edge). For standard configs the sample (ns) is the
+    // smallest RI, so this reduces to the original min(1.0, ns/NA); only
+    // exotic configs tighten the bound.
+    return std::min({1.0, cfg.ns / NA, cfg.ni / NA, cfg.ni0 / NA,
+                     cfg.ng / NA, cfg.ng0 / NA});
 }
 
-PSF GibsonLanniPSFGenerator::generatePSF() const {
-    initBesselHelper();
+namespace {
 
-    // Create ITK 3D image
-    ImageType::Pointer itkImage = ImageType::New();
+// True if the cached radial profile already satisfies the request: either a
+// forced lateral cutoff is fully covered, or the profile already crossed the
+// threshold (or reached the sample cap).
+bool cachedProfileComplete(const std::vector<double>& h, size_t forcedCutoff, size_t maxSamples, double threshold) {
+    if (h.empty()) return false;
+    if (forcedCutoff > 0) return h.size() > maxSamples;
+    if (h.size() > 1 && h.back() < threshold * h[0]) return true;
+    return h.size() >= maxSamples;
+}
 
-    // Set the image dimensions
-    ImageType::SizeType size;
-    size[0] = config->sizeX;
-    size[1] = config->sizeY;
-    size[2] = config->sizeZ;
+} // namespace
 
-    ImageType::IndexType start;
-    start.Fill(0);
-
-    ImageType::RegionType region;
-    region.SetSize(size);
-    region.SetIndex(start);
-
-    itkImage->SetRegions(region);
-    itkImage->Allocate();
-    itkImage->FillBuffer(0.0f);
-
-    // Compute the effective lateral region where the PSF is non-negligible
-    LateralClip clip = clipSize();
-
-    // Process each z-slice using threading
-    std::vector<std::future<std::vector<float>>> tempSphereLayers;
-    tempSphereLayers.reserve(config->sizeZ);
-
-    progressTracker.setMax(config->sizeZ);
-
-    for (size_t z = 0; z < config->sizeZ; z++){
-        GibsonLanniPSFConfig configCopy = *(this->config);
-        configCopy.ti_nm = configCopy.ti0_nm + configCopy.pixelSizeAxial_nm * (static_cast<double>(z) - (config->sizeZ - 1.0) / 2.0);
-        tempSphereLayers.emplace_back(threadPool->enqueue([this, configCopy, clip](){
-            return singlePlanePSF(configCopy, clip);
-        }));
+double GibsonLanniPSFGenerator::centerValue(const GibsonLanniPSFConfig& config) const {
+    // On-axis value: only the r=0 integral is needed (J0(0)=1). Uses the
+    // cached radial profile if this slice was already computed.
+    {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        auto it = cachedRadialProfiles.find(config.ti_nm);
+        if (it != cachedRadialProfiles.end() && !it->second.empty())
+            return it->second[0];
     }
 
-    size_t clippedWidth = clip.xMax - clip.xMin + 1;
+    double a = 0.0;
+    double b = integrationUpperBound(config);
+    GibsonLanniIntegrand integrand(config, 0.0, besselHelper);
+    return numericalIntegrator->integrateComplex(
+        integrand, a, b, 1E-6, config.integration_accuracy);
+}
 
-    // Copy data from computed slices into the clipped sub-region of the ITK image
-    for (size_t z = 0; z < config->sizeZ; z++) {
-        std::vector<float> sliceData = tempSphereLayers[z].get();
+GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const GibsonLanniPSFConfig& config, size_t forcedCutoff) const {
+    int oversampling_factor = config.oversampling_factor;
+    double NA = config.NA;
+    double pixelSizeLateral_nm = config.pixelSizeLateral_nm;
+    double threshold = static_cast<double>(config.cutoffThreshold);
 
-        ImageType::IndexType sliceStart;
-        sliceStart[0] = static_cast<itk::IndexValueType>(clip.xMin);
-        sliceStart[1] = static_cast<itk::IndexValueType>(clip.yMin);
-        sliceStart[2] = static_cast<itk::IndexValueType>(z);
+    size_t maxLateral = forcedCutoff > 0 ? forcedCutoff : (std::min(config.sizeX, config.sizeY) / 2);
+    size_t maxSamples = maxLateral * oversampling_factor;
 
-        ImageType::SizeType sliceSize;
-        sliceSize[0] = clippedWidth;
-        sliceSize[1] = clip.yMax - clip.yMin + 1;
-        sliceSize[2] = 1;
+    std::vector<double> h;
+    {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        auto it = cachedRadialProfiles.find(config.ti_nm);
+        if (it != cachedRadialProfiles.end())
+            h = it->second;
+    }
 
-        ImageType::RegionType sliceRegion;
-        sliceRegion.SetIndex(sliceStart);
-        sliceRegion.SetSize(sliceSize);
+    const double k0 = 2.0 * M_PI / config.wavelength_nm;
 
-        itk::ImageRegionIterator<ImageType> it(itkImage, sliceRegion);
+    if (!cachedProfileComplete(h, forcedCutoff, maxSamples, threshold)) {
+        // Fixed-node quadrature: phase tabulated once, then one MAC per radius.
+        const size_t maxRadiusSamples = forcedCutoff > 0
+            ? maxSamples
+            : maxSamples; // the per-radius break below stops early anyway
 
-        size_t dataIndex = 0;
-        for (it.GoToBegin(); !it.IsAtEnd(); ++it, ++dataIndex) {
-            it.Set(sliceData[dataIndex]);
+        GibsonLanniQuadrature quadrature;
+        const double b = integrationUpperBound(config);
+        const double maxR_nm = (static_cast<double>(maxRadiusSamples) / oversampling_factor) * pixelSizeLateral_nm;
+        const double maxArg = k0 * NA * maxR_nm * b;
+        quadrature.init(config, b, GibsonLanniQuadrature::nodeCount(maxArg, config.integration_accuracy));
+
+        h.clear();
+        h.push_back(quadrature.evaluateSquared(0.0, besselHelper));
+        for (size_t n = 1; n <= maxRadiusSamples; ++n) {
+            double r_px = static_cast<double>(n) / static_cast<double>(oversampling_factor);
+            double k0NAr = k0 * NA * r_px * pixelSizeLateral_nm;
+            double val = quadrature.evaluateSquared(k0NAr, besselHelper);
+            h.push_back(val);
+            if (forcedCutoff == 0 && val < threshold * h[0]) break;
         }
     }
 
-    return PSF(std::move(itkImage), config->ID);
-}
-
-
-std::vector<float> GibsonLanniPSFGenerator::singlePlanePSF(const GibsonLanniPSFConfig& config, const LateralClip& clip) const {
-    size_t nx = config.sizeX;
-    size_t ny = config.sizeY;
-    int OVER_SAMPLING = config.OVER_SAMPLING;
-    double NA = config.NA;
-    double lambda_nm = config.lambda_nm;
-    double pixelSizeLateral_nm = config.pixelSizeLateral_nm;
-    double pixelSizeAxial_nm = config.pixelSizeAxial_nm;
-
-
-    // The center of the image in units of [pixels]
-    double x0 = (nx - 1) / 2.0;
-    double y0 = (ny - 1) / 2.0;
-
-    // Lateral particle position in units of [pixels]
-    double xp = x0;
-    double yp = y0;
-
-    // Calculate maximum radius — limited to the clipped region
-    double dxMax = std::max(std::abs(static_cast<double>(clip.xMax) - x0), std::abs(static_cast<double>(clip.xMin) - x0));
-    double dyMax = std::max(std::abs(static_cast<double>(clip.yMax) - y0), std::abs(static_cast<double>(clip.yMin) - y0));
-    size_t maxRadius = static_cast<size_t>(std::round(std::sqrt(dxMax * dxMax + dyMax * dyMax))) + 1;
-
-    std::vector<double> r(maxRadius * OVER_SAMPLING);
-    std::vector<double> h(r.size());
-
-    //TODO set tolerance and K/accuracy for numerical integrator
-    double a = 0.0;
-    double b = std::min(1.0, config.ns / NA);
-    int integrationAccuracy = config.accuracy;
-    double integrationTolerance = 1E-6;
-
-    for (size_t n = 0; n < r.size(); n++) { // get kirchhoffdiffraction for specific radius
-
-        r[n] = static_cast<double>(n) / static_cast<double>(OVER_SAMPLING);
-        GibsonLanniIntegrand integrand(config, r[n] * pixelSizeLateral_nm, this->besselHelper);
-        h[n] = numericalIntegrator->integrateComplex(integrand, a, b, integrationTolerance, integrationAccuracy);
+    {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        cachedRadialProfiles[config.ti_nm] = h;
     }
 
-    // Linear interpolation of the pixel values — only within the clipped region
-    size_t clippedWidth = clip.xMax - clip.xMin + 1;
-    size_t clippedHeight = clip.yMax - clip.yMin + 1;
-    std::vector<float> sliceData(clippedWidth * clippedHeight, 0.0f);
-    double rPixel, value;
-    size_t index;
+    size_t cutoff = forcedCutoff > 0 ? forcedCutoff
+        : static_cast<size_t>(std::ceil(static_cast<double>(h.size() - 1) / oversampling_factor));
+    size_t gridSize = 2 * cutoff + 1;
+    std::vector<float> sliceData(gridSize * gridSize, 0.0f);
 
-    for (size_t x = clip.xMin; x <= clip.xMax; x++) {
-        for (size_t y = clip.yMin; y <= clip.yMax; y++) {
-            rPixel = std::sqrt((static_cast<double>(x) - xp) * (static_cast<double>(x) - xp) + (static_cast<double>(y) - yp) * (static_cast<double>(y) - yp));
-            index = static_cast<size_t>(std::floor(rPixel * OVER_SAMPLING));
+    for (size_t y = 0; y < gridSize; y++) {
+        for (size_t x = 0; x < gridSize; x++) {
+            double dx = static_cast<double>(x) - static_cast<double>(cutoff);
+            double dy = static_cast<double>(y) - static_cast<double>(cutoff);
+            double rPixel = std::sqrt(dx * dx + dy * dy);
+            size_t index = static_cast<size_t>(std::floor(rPixel * oversampling_factor));
 
+            double value = 0.0;
             if (index + 1 < h.size()) {
-                value = h[index] + (h[index + 1] - h[index]) * (rPixel - r[index]) * OVER_SAMPLING;
+                double r0 = static_cast<double>(index) / static_cast<double>(oversampling_factor);
+                value = h[index] + (h[index + 1] - h[index]) * (rPixel - r0) * oversampling_factor;
             } else if (index < h.size()) {
                 value = h[index];
-            } else {
-                value = 0.0;
             }
-            sliceData[(y - clip.yMin) * clippedWidth + (x - clip.xMin)] = static_cast<float>(value);
+
+            sliceData[y * gridSize + x] = static_cast<float>(value);
         }
     }
     progressTracker.add(1);
 
-    return sliceData;
+    return {std::move(sliceData), cutoff};
 }
 
 
 GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r, const BesselHelper& besselHelper)
     : config(config), r(r), besselHelper(besselHelper) {
-        k0 = 2.0 * M_PI / config.lambda_nm;
+        k0 = 2.0 * M_PI / config.wavelength_nm;
         k0NAr = k0 * config.NA * r;
     }
 
 std::array<double, 2> GibsonLanniIntegrand::operator()(double rho) const {
     std::array<double, 2> I = {0.0, 0.0};
 
-    // const BesselHelper& besselHelper = BesselHelper::instance();
     double BesselValue = besselHelper.get(k0NAr * rho);
 
-    if ((config.NA * rho / config.ns) > 1.0)
-        spdlog::info("Warning: NA*rho/ns > 1, (ns,NA,rho)=({}, {}, {})\n", config.ns, config.NA, rho);
+    double naRho = config.NA * rho;
+    double naRhoOverNs = naRho / config.ns;
+    double naRhoOverNg = naRho / config.ng;
+    double naRhoOverNg0 = naRho / config.ng0;
+    double naRhoOverNi = naRho / config.ni;
+    double naRhoOverNi0 = naRho / config.ni0;
 
-    double OPD1 = config.ns * config.particleAxialPosition_nm * std::sqrt(1 - std::pow(config.NA * rho / config.ns, 2));
-    double OPD3 = config.ni * (config.ti_nm - config.ti0_nm) * std::sqrt(1 - std::pow(config.NA * rho / config.ni, 2));
-    double OPD = OPD1 + OPD3;
+    double OPD1 = config.ns * config.particleAxialPosition_nm *
+        std::sqrt(std::max(0.0, 1.0 - naRhoOverNs * naRhoOverNs));
+
+    double OPD2 = config.ng * config.tg_nm *
+            std::sqrt(std::max(0.0, 1.0 - naRhoOverNg * naRhoOverNg))
+        - config.ng0 * config.tg0_nm *
+            std::sqrt(std::max(0.0, 1.0 - naRhoOverNg0 * naRhoOverNg0));
+
+    double OPD3 = config.ni * config.ti_nm *
+            std::sqrt(std::max(0.0, 1.0 - naRhoOverNi * naRhoOverNi))
+        - config.ni0 * config.ti0_nm *
+            std::sqrt(std::max(0.0, 1.0 - naRhoOverNi0 * naRhoOverNi0));
+
+    double OPD = OPD1 + OPD2 + OPD3;
 
     double W = k0 * OPD;
 
@@ -304,4 +516,68 @@ std::array<double, 2> GibsonLanniIntegrand::operator()(double rho) const {
     I[1] = BesselValue * std::sin(W) * rho;
 
     return I;
+}
+
+size_t GibsonLanniQuadrature::nodeCount(double maxArgument, int accuracy) {
+    // The integrand oscillates like J0(maxArgument * rho); resolve its
+    // oscillations with ~2*accuracy nodes per half period (accuracy 1..10).
+    int k = accuracy < 1 ? 1 : (accuracy > 10 ? 10 : accuracy);
+    double oscillations = maxArgument / M_PI;
+    size_t n = static_cast<size_t>(std::max(256.0, 2.0 * k * oscillations));
+    n = std::min<size_t>(n, 1u << 16);
+    // Composite Simpson needs an even node count.
+    return n + (n % 2);
+}
+
+void GibsonLanniQuadrature::init(const GibsonLanniPSFConfig& config, double upperBound, size_t n) {
+    if (n < 2) n = 2;
+    const double del = upperBound / static_cast<double>(n);
+    const double k0 = 2.0 * M_PI / config.wavelength_nm;
+
+    rho.resize(n);
+    cosW.resize(n);
+    sinW.resize(n);
+
+    for (size_t i = 0; i < n; ++i) {
+        const double r = (i + 1) * del;
+        rho[i] = r;
+
+        const double naRho = config.NA * r;
+        const double naRhoOverNs = naRho / config.ns;
+        const double naRhoOverNg = naRho / config.ng;
+        const double naRhoOverNg0 = naRho / config.ng0;
+        const double naRhoOverNi = naRho / config.ni;
+        const double naRhoOverNi0 = naRho / config.ni0;
+
+        const double OPD =
+            config.ns * config.particleAxialPosition_nm *
+                std::sqrt(std::max(0.0, 1.0 - naRhoOverNs * naRhoOverNs))
+            + config.ng * config.tg_nm *
+                std::sqrt(std::max(0.0, 1.0 - naRhoOverNg * naRhoOverNg))
+            - config.ng0 * config.tg0_nm *
+                std::sqrt(std::max(0.0, 1.0 - naRhoOverNg0 * naRhoOverNg0))
+            + config.ni * config.ti_nm *
+                std::sqrt(std::max(0.0, 1.0 - naRhoOverNi * naRhoOverNi))
+            - config.ni0 * config.ti0_nm *
+                std::sqrt(std::max(0.0, 1.0 - naRhoOverNi0 * naRhoOverNi0));
+
+        const double W = k0 * OPD;
+
+        // Composite Simpson weights (4 odd, 2 even); rho factor folded in.
+        const double weight = ((i + 1) % 2 == 1 ? 4.0 : 2.0) * del / 3.0;
+        cosW[i] = std::cos(W) * r * weight;
+        sinW[i] = std::sin(W) * r * weight;
+    }
+}
+
+double GibsonLanniQuadrature::evaluateSquared(double k0NAr, const BesselHelper& besselHelper) const {
+    double realSum = 0.0;
+    double imagSum = 0.0;
+    const size_t n = rho.size();
+    for (size_t i = 0; i < n; ++i) {
+        const double besselValue = besselHelper.get(k0NAr * rho[i]);
+        realSum += besselValue * cosW[i];
+        imagSum += besselValue * sinW[i];
+    }
+    return realSum * realSum + imagSum * imagSum;
 }

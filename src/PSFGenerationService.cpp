@@ -79,7 +79,7 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         std::shared_ptr<PSF> psf;
         std::shared_ptr<SetupConfigPSF> setupConfig = request.getConfig();
 
-        std::shared_ptr<ThreadPool> localThreadPool = std::make_shared<ThreadPool>(setupConfig->nThreads);
+        std::shared_ptr<ThreadPool> localThreadPool = std::make_shared<ThreadPool>(std::max(setupConfig->nThreads, setupConfig->nWorkerThreads));
 
         if (request.getInlinePSFConfigs().size() > 1){
             logger_->warn("PSFGenerator service only generates one PSF per run");

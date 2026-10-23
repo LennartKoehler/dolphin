@@ -549,10 +549,10 @@ PSFGenerationRequest CLIFrontend::generatePSFRequest(const PSFConfigBundle& bund
 
 DeconvolutionRequest CLIFrontend::generateDeconvRequest(const ConfigBundle& bundle) {
     auto setupConfig = std::make_shared<SetupConfig>(bundle.setupConfig);
+    if (bundle.hasPSF) {
+        setupConfig->psfConfigs = bundle.psfConfigs;
+    }
     auto deconvConfig = std::make_shared<DeconvolutionConfig>(bundle.deconvConfig);
     DeconvolutionRequest request(setupConfig, deconvConfig, loggingCallback, progressVisualization);
-    if (bundle.hasPSF) {
-        request.setInlinePSFConfigs(bundle.psfConfigs);
-    }
     return request;
 }

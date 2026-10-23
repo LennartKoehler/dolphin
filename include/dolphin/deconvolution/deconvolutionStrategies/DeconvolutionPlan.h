@@ -170,9 +170,16 @@ static size_t previousSmooth(size_t dim){
 
 Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const Padding& cubePadding,
+    const Padding& imagePadding,
     const CuboidShape& imageOriginalShape,
     const size_t& maxVolumePerCube,
     const size_t& minNumberCubes,
-    const PaddingStrategyType& imagePadding,
-    const CuboidShape& minShape);
+    const CuboidShape& minShape,
+    bool sliceAllDimensions);
+
+Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneousFixedSize(
+    const Padding& cubePadding,
+    const Padding& imagePadding,
+    const CuboidShape& imageOriginalShape,
+    const CuboidShape& fixedCubeSize);
 

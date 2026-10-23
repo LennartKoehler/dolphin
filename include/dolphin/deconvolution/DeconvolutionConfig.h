@@ -21,11 +21,15 @@ See the LICENSE file provided with the code for the full license.
 // PaddingFillType is now defined in dolphin_image/Types/PaddingFillType.h
 // It is still available here for backward compatibility.
 
+// Preset PSF padding thresholds, expressed as a fraction of the PSF max value.
+// Setting cube_padding (all values >= 0) or padding_relative_max (> 0)
+// overrides the preset; see PSFHandler::getPadding for resolution order.
 enum PaddingStrategyType {
+    DEFAULT, // to track if it was set
     NONE,
-    PARENT,
-    FULL_PSF,
-    MANUAL,
+    LOW,
+    MEDIUM,
+    MAX
 };
 
 class DeconvolutionConfig : public Config{
@@ -41,14 +45,15 @@ public:
     // Use the struct for parameters
     std::string algorithmName = "RichardsonLucy";
     int iterations = 10;
-    float epsilon = 1e-6f;
-    float lambda = 0.1f;
+    float min_denominator = 1e-6f;
+    float signal_to_noise = 0.1f;
     PaddingFillType paddingFillType = PaddingFillType::ZERO;
-    PaddingStrategyType paddingStrategyType = PaddingStrategyType::PARENT;
-    float paddingRelativeMax = 0.001f;
+    PaddingStrategyType paddingStrategyType = PaddingStrategyType::DEFAULT;
+    float paddingRelativeMax = 0.0f; // > 0: fraction of PSF max to pad to; 0 = use preset
     int featheringRadius = 0;
-    std::array<int, 3> cubeSize{}; // currently unused
-    std::array<int, 3> cubePadding{-1, -1, -1}; // this padding is later doubled
+    std::array<size_t, 3> cubeSize{0, 0, 0}; // currently unused
+    std::array<int64_t, 3> cubePadding{-1, -1, -1}; // this padding is later doubled
+    bool sliceAllDimensions = false;
 
 private:
     virtual void registerAllParameters();

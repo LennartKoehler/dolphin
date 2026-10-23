@@ -19,7 +19,7 @@ See the LICENSE file provided with the code for the full license.
 void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
     iterations = config.iterations;
-    lambda = config.lambda;
+    signal_to_noise = config.signal_to_noise;
 }
 
 
@@ -98,7 +98,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecifi
     auto copy = std::make_unique<RLTVDeconvolutionAlgorithm>();
     // Copy all relevant state
     copy->iterations = this->iterations;
-    copy->lambda = this->lambda;
+    copy->signal_to_noise = this->signal_to_noise;
     copy->initialized = false; // Clone needs to be re-initialized
     // Don't copy backend - each thread needs its own
     return copy;
@@ -118,5 +118,5 @@ void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
 
     deconvolution.divergence(gx, gy, gz, tv);
 
-    deconvolution.computeTV(static_cast<real_t>(lambda), tv, tv); // in-place: tv is both div input and tv output
+    deconvolution.computeTV(static_cast<real_t>(signal_to_noise), tv, tv); // in-place: tv is both div input and tv output
 }

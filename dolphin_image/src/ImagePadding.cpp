@@ -16,7 +16,9 @@ See the LICENSE file provided with the code for the full license.
 #include <cmath>
 #include <itkConstantPadImageFilter.h>
 #include <itkMirrorPadImageFilter.h>
+#include <itkCropImageFilter.h>
 #include <itkImageDuplicator.h>
+
 
 
 /**
@@ -152,12 +154,24 @@ static void applyPaddingWeight(
 
 
 void ImagePadding::padImage(Image3D& image, const Padding& padding, PaddingFillType paddingType, float shapeScale){
-    if (paddingType == PaddingFillType::MIRROR) padImageMirror(image, padding);
-    else if (paddingType == PaddingFillType::ZERO) padImageZero(image, padding);
-    else if (paddingType == PaddingFillType::LINEAR) padImageLinear(image, padding);
-    else if (paddingType == PaddingFillType::QUADRATIC) padImageQuadratic(image, padding, shapeScale);
-    else if (paddingType == PaddingFillType::SINUSOID) padImageSinusoid(image, padding);
-    else if (paddingType == PaddingFillType::GAUSSIAN) padImageGaussian(image, padding, shapeScale);
+    if (padding.getTotalPadding() > 0){
+        if (paddingType == PaddingFillType::MIRROR) padImageMirror(image, padding);
+        else if (paddingType == PaddingFillType::ZERO) padImageZero(image, padding);
+        else if (paddingType == PaddingFillType::LINEAR) padImageLinear(image, padding);
+        else if (paddingType == PaddingFillType::QUADRATIC) padImageQuadratic(image, padding, shapeScale);
+        else if (paddingType == PaddingFillType::SINUSOID) padImageSinusoid(image, padding);
+        else if (paddingType == PaddingFillType::GAUSSIAN) padImageGaussian(image, padding, shapeScale);
+    }
+}
+
+void ImagePadding::fitToShape(Image3D& image, const CuboidShape& targetShape, PaddingFillType paddingtype) {
+    CuboidShape currentShape = image.getShape();
+    if (targetShape.smallerAny(currentShape)) {
+        ImagePadding::reduceToShape(image, targetShape);
+    }
+    if (currentShape.smallerAny(targetShape)) {
+        ImagePadding::padToShape(image, targetShape, paddingtype);
+    }
 }
 
 
@@ -388,4 +402,47 @@ void ImagePadding::expandToMinSize(Image3D& image, const CuboidShape& minSize) {
 
     ImageType::Pointer expandedImage = mirrorPadFilter->GetOutput();
     image.setItkImage(std::move(expandedImage));
+}
+
+Padding ImagePadding::reduceToShape(Image3D& image, const CuboidShape& targetShape) {
+    CuboidShape currentShape = image.getShape();
+    if (currentShape == targetShape)
+        return Padding{CuboidShape{0, 0, 0}, CuboidShape{0, 0, 0}};
+
+    size_t totalWidthReduction  = currentShape.width  > targetShape.width  ? currentShape.width  - targetShape.width  : 0;
+    size_t totalHeightReduction = currentShape.height > targetShape.height ? currentShape.height - targetShape.height : 0;
+    size_t totalDepthReduction  = currentShape.depth  > targetShape.depth  ? currentShape.depth  - targetShape.depth  : 0;
+
+    size_t widthBefore  = totalWidthReduction / 2;
+    size_t widthAfter   = totalWidthReduction - widthBefore;
+    size_t heightBefore = totalHeightReduction / 2;
+    size_t heightAfter  = totalHeightReduction - heightBefore;
+    size_t depthBefore  = totalDepthReduction / 2;
+    size_t depthAfter   = totalDepthReduction - depthBefore;
+
+    Padding padding{
+        CuboidShape{widthBefore, heightBefore, depthBefore},
+        CuboidShape{widthAfter, heightAfter, depthAfter}
+    };
+
+    using CropFilterType = itk::CropImageFilter<ImageType, ImageType>;
+    auto cropFilter = CropFilterType::New();
+    cropFilter->SetInput(image.getItkImage());
+
+    ImageType::SizeType lowerBound;
+    lowerBound[0] = widthBefore;
+    lowerBound[1] = heightBefore;
+    lowerBound[2] = depthBefore;
+
+    ImageType::SizeType upperBound;
+    upperBound[0] = widthAfter;
+    upperBound[1] = heightAfter;
+    upperBound[2] = depthAfter;
+
+    cropFilter->SetLowerBoundaryCropSize(lowerBound);
+    cropFilter->SetUpperBoundaryCropSize(upperBound);
+    cropFilter->Update();
+
+    image.setItkImage(std::move(cropFilter->GetOutput()));
+    return padding;
 }

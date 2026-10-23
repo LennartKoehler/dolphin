@@ -1,7 +1,7 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 
 function(dolphin_add_test name)
-    cmake_parse_arguments(ARG "" "" "SOURCES;LIBS;INCLUDES" ${ARGN})
+    cmake_parse_arguments(ARG "" "" "SOURCES;LIBS;INCLUDES;LABELS" ${ARGN})
     add_executable(${name} ${ARG_SOURCES})
     target_link_libraries(${name} PRIVATE GTest::gtest_main project_options ${ARG_LIBS})
     if(ARG_INCLUDES)
@@ -22,7 +22,11 @@ function(dolphin_add_test name)
             endif()
         endforeach()
     endif()
-    gtest_discover_tests(${name} DISCOVERY_TIMEOUT 30)
+    if(ARG_LABELS)
+        gtest_discover_tests(${name} DISCOVERY_TIMEOUT 30 PROPERTIES LABELS "${ARG_LABELS}")
+    else()
+        gtest_discover_tests(${name} DISCOVERY_TIMEOUT 30)
+    endif()
 endfunction()
 
 # ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/Types/PaddingFillType.h"
 
 namespace ImagePadding {
+    void fitToShape(Image3D& image, const CuboidShape& targetShape, PaddingFillType padding);
 
     Padding padToShape(Image3D& image3D, const CuboidShape& targetShape, PaddingFillType borderType);
 
@@ -29,5 +30,7 @@ namespace ImagePadding {
     void padImageGaussian(Image3D& image, const Padding& padding, float shapeScale = 1.0f);
 
     void expandToMinSize(Image3D& image, const CuboidShape& minSize);
+
+    Padding reduceToShape(Image3D& image, const CuboidShape& targetShape);
 
 } // namespace ImagePadding

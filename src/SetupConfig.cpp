@@ -137,6 +137,7 @@ SetupConfig::SetupConfig(const SetupConfig& other)
     labeledImage = other.labeledImage;
     labelPSFMap = other.labelPSFMap;
     savePsf = other.savePsf;
+    psfConfigs = other.psfConfigs;  // shallow copy: shared ownership of the PSF configs
 
     registerAllParameters();  // clears and re-registers with pointers to our own members
 }
@@ -153,6 +154,7 @@ SetupConfig& SetupConfig::operator=(const SetupConfig& other) {
         labeledImage = other.labeledImage;
         labelPSFMap = other.labelPSFMap;
         savePsf = other.savePsf;
+        psfConfigs = other.psfConfigs;  // shallow copy: shared ownership of the PSF configs
 
         parameters.clear();
         registerAllParameters();  // re-register with pointers to our own members

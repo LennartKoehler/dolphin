@@ -49,6 +49,7 @@ public:
     ~ThreadPool();
     void setCondition(std::function<bool()> condition);
     size_t queueSize(){ return tasks.size(); } // remember you have to lock the tasks_mutex
+    size_t getNumberWorkers(){ return activeWorkers; }
     bool reduceNumberThreads(int amount);
 
     bool reduceActiveWorkers(int amount);

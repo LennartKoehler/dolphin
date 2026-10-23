@@ -121,6 +121,7 @@ std::function<void()> StandardDeconvolutionExecutor::createTask(
         try {
             runTask(taskDesc);
         }
+        // TODO make these exceptions recoverable?
         catch (const dolphin::backend::MemoryException& e){
             throw std::runtime_error("Not enough free memory on the backend" + e.getDetailedMessage());
         }
