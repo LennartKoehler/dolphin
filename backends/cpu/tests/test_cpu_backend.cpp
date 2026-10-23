@@ -386,13 +386,25 @@ TEST_F(CPUMemoryManagerTest, IsOnDevice) {
     EXPECT_TRUE(memMgr.isOnDevice(complexView));
 }
 
-TEST_F(CPUMemoryManagerTest, ElementAccessGuard) {
+TEST_F(CPUMemoryManagerTest, CopyEmptyHandle) {
+    // Copying a backend-less/empty handle must yield an empty handle, not crash.
+    RealData empty;
+    EXPECT_NO_THROW({
+        RealData copy = empty;
+        EXPECT_FALSE(copy.isValid());
+        RealData assigned;
+        assigned = empty;
+        EXPECT_FALSE(assigned.isValid());
+    });
+}
+
+TEST_F(CPUMemoryManagerTest, ElementAccess) {
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
-    // CPU is a host backend: element access is allowed.
     CuboidShape shape(8, 8, 4);
     RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
-    EXPECT_NO_THROW({ data[0] = 1.0f; });
-    EXPECT_NO_THROW({ volatile real_t v = data.access(0); (void)v; });
+    data[0] = 1.0f;
+    volatile real_t v = data.access(0);
+    EXPECT_FLOAT_EQ(static_cast<real_t>(v), 1.0f);
 }
 
 TEST_F(CPUMemoryManagerTest, ReinterpretViewCarriesProvenance) {
@@ -409,13 +421,42 @@ TEST_F(CPUMemoryManagerTest, ReinterpretViewCarriesProvenance) {
         EXPECT_TRUE(scoped.isValid());
     }
     EXPECT_TRUE(memMgr.isOnDevice(realData));
+}
 
-    // adoptMemory/releaseMemory: view takes over ownership of the buffer.
-    DataView<complex_t> owner = memMgr.reinterpret(realData);
-    realData.releaseMemory();
-    owner.adoptMemory();
-    // Now the view frees the buffer on scope exit; realData stays detached.
-    EXPECT_TRUE(memMgr.isHostBackend());
+TEST_F(CPUMemoryManagerTest, TransferOwnership) {
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 8, 4);
+    RealData realData = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+
+    // Validated transfer returns an owning handle over the SAME buffer; the
+    // source is detached without freeing (freed exactly once, by the owner).
+    DataView<complex_t> view = memMgr.reinterpret(realData);
+    ComplexData owner = memMgr.transferOwnership(realData, view);
+    EXPECT_FALSE(realData.isValid());
+    EXPECT_TRUE(owner.isValid());
+    EXPECT_EQ(owner.getBackend(), &memMgr);
+    EXPECT_EQ(owner.getSize(), view.getSize());
+    EXPECT_EQ(owner.getPadding(), view.getPadding());
+
+    // Invalid transfers throw and modify nothing.
+    RealData other = memMgr.allocateMemoryOnDeviceReal(shape);
+    DataView<complex_t> otherView = memMgr.reinterpret(other);
+
+    // Detached source cannot transfer again.
+    EXPECT_THROW(memMgr.transferOwnership(realData, otherView), dolphin::backend::BackendException);
+
+    // Source owns, but the view aliases a different buffer.
+    EXPECT_THROW(memMgr.transferOwnership(other, view), dolphin::backend::BackendException);
+    EXPECT_TRUE(other.isValid());
+
+    // Source does not own its buffer (foreign memory is never adopted).
+    std::vector<real_t> foreign(shape.getVolume(), 0.0f);
+    RealData foreignHandle;
+    foreignHandle.setData(foreign.data());
+    foreignHandle.setBackend(&memMgr);
+    DataView<complex_t> foreignView = memMgr.reinterpret(foreignHandle);
+    EXPECT_THROW(memMgr.transferOwnership(foreignHandle, foreignView), dolphin::backend::BackendException);
+    EXPECT_TRUE(foreignHandle.isValid());
 }
 
 TEST_F(CPUMemoryManagerTest, GetAllocatedMemory) {

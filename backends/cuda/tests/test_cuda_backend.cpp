@@ -335,8 +335,8 @@ TEST_F(CUDAMemoryManagerTest, IsOnDevice) {
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
     CuboidShape shape(8, 8, 4);
     RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
-    EXPECT_TRUE(memMgr.isOnDevice(data.getData()));
-    EXPECT_FALSE(memMgr.isOnDevice(nullptr));
+    // Pointer-level queries are backend-internal; users query handles.
+    EXPECT_TRUE(memMgr.isOnDevice(data));
 }
 
 TEST_F(CUDAMemoryManagerTest, IsOnDeviceHandleOverload) {
@@ -357,22 +357,6 @@ TEST_F(CUDAMemoryManagerTest, IsOnDeviceHandleOverload) {
     EXPECT_FALSE(memMgr.isOnDevice(empty));
 }
 
-TEST_F(CUDAMemoryManagerTest, ElementAccessOnDeviceThrows) {
-    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
-    CuboidShape shape(8, 8, 4);
-    RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
-
-    // operator[] must refuse to dereference a device pointer.
-    EXPECT_THROW({ volatile real_t v = data[0]; (void)v; }, dolphin::backend::BackendException);
-    EXPECT_THROW(data.access(0), dolphin::backend::BackendException);
-
-    // A buffer with no host provenance is also refused (fail closed).
-    std::vector<real_t> host(shape.getVolume(), 1.0f);
-    RealData orphan;
-    orphan.setData(host.data());
-    EXPECT_THROW({ volatile real_t v = orphan[0]; (void)v; }, dolphin::backend::BackendException);
-}
-
 TEST_F(CUDAMemoryManagerTest, ReinterpretViewCarriesProvenance) {
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
     CuboidShape shape(16, 8, 4);
@@ -381,16 +365,36 @@ TEST_F(CUDAMemoryManagerTest, ReinterpretViewCarriesProvenance) {
     DataView<complex_t> complexView = memMgr.reinterpret(realData);
     // The view carries the allocating backend as provenance...
     EXPECT_EQ(complexView.getBackend(), &memMgr);
-    // ...so handle-level isOnDevice works on it,
+    // ...so handle-level isOnDevice works on it.
     EXPECT_TRUE(memMgr.isOnDevice(complexView));
-    // ...and element access is correctly rejected as device memory.
-    EXPECT_THROW(complexView.access(0), dolphin::backend::BackendException);
     // The view never owns: destroying it must not free the source buffer.
     {
         DataView<complex_t> scoped = memMgr.reinterpret(realData);
         EXPECT_TRUE(scoped.isValid());
     }
     EXPECT_TRUE(memMgr.isOnDevice(realData));
+}
+
+TEST_F(CUDAMemoryManagerTest, TransferOwnership) {
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 8, 4);
+    RealData realData = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+
+    // Validated transfer returns an owning handle over the SAME buffer; the
+    // source is detached without freeing (the device buffer is freed exactly
+    // once, by the owner, on scope exit).
+    DataView<complex_t> view = memMgr.reinterpret(realData);
+    ComplexData owner = memMgr.transferOwnership(realData, view);
+    EXPECT_FALSE(realData.isValid());
+    EXPECT_TRUE(owner.isValid());
+    EXPECT_EQ(owner.getBackend(), &memMgr);
+    EXPECT_EQ(owner.getData(), view.getData());
+
+    // Detached source cannot transfer again (it no longer owns).
+    RealData other = memMgr.allocateMemoryOnDeviceReal(shape);
+    DataView<complex_t> otherView = memMgr.reinterpret(other);
+    EXPECT_THROW(memMgr.transferOwnership(realData, otherView), dolphin::backend::BackendException);
+    EXPECT_TRUE(other.isValid());
 }
 
 TEST_F(CUDAMemoryManagerTest, GetAllocatedMemory) {

@@ -90,16 +90,14 @@ public:
 
     // ============================================================================
     // Raw buffer access — backend-internal only.
-    // ManagedData grants friendship to this interface, so the static helpers
-    // below can reach its (otherwise protected) getData()/setData(). Concrete
-    // compute backends obtain raw pointers through these inherited helpers.
-    // Static so static member helper functions in a backend can also call them.
+    // ManagedData grants friendship to this interface, so the static helper
+    // below can reach its (otherwise protected) getData(). Concrete compute
+    // backends obtain raw pointers through this inherited helper. Static so
+    // static member helper functions in a backend can also call it.
     // ============================================================================
 protected:
     template<typename T>
     static T* rawData(const ManagedData<T>& data) { return data.getData(); }
-    template<typename T>
-    static void setRawData(ManagedData<T>& data, T* p) { data.setData(p); }
 
 public:
     // FFT functions

@@ -13,7 +13,6 @@ See the LICENSE file provided with the code for the full license.
 
 #include "ComplexData.h"
 #include "IBackendMemoryManager.h"
-#include "Exceptions.h"
 
 template<typename T>
 ManagedData<T>::~ManagedData() {
@@ -29,6 +28,14 @@ ManagedData<T>::~ManagedData() {
 template<typename T>
 ManagedData<T>::ManagedData(const ManagedData& other)
     : backend(other.backend), size(other.size), realSize(other.realSize), padding(other.padding), ownsMemory(false) {
+    // Copying an empty/backend-less handle yields an empty handle (guard: the
+    // old code dereferenced a null backend here).
+    if (backend == nullptr || other.data == nullptr) {
+        this->backend = nullptr;
+        this->data = nullptr;
+        this->bytes = 0;
+        return;
+    }
     ManagedData copy = backend->createCopy(other);
     this->bytes = copy.bytes;
     this->data = copy.data;
@@ -46,6 +53,19 @@ ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
                     backend->freeMemoryOnDevice(*this);
                 }
             } catch(...){}
+        }
+
+        // Assigning an empty/backend-less handle leaves this handle empty
+        // (guard: the old code dereferenced a null backend here).
+        if (other.backend == nullptr || other.data == nullptr) {
+            data = nullptr;
+            backend = nullptr;
+            size = other.size;
+            realSize = other.realSize;
+            bytes = 0;
+            padding = other.padding;
+            ownsMemory = false;
+            return *this;
         }
 
         // Copy from other
@@ -113,36 +133,13 @@ DataView<other_type_t<T>> ManagedData<T>::reinterpret() {
     return backend->reinterpret(*this);
 }
 
-namespace {
-// Element access (operator[], access(), Iterator) may only dereference a buffer
-// whose provenance is a host backend. Fails closed: a null backend (unknown
-// origin) or a device backend both throw, so a misplaced or unattributed buffer
-// errors loudly instead of segfaulting.
-inline void assertHostAccess(const IBackendMemoryManager* backend) {
-    if (backend == nullptr) {
-        throw dolphin::backend::BackendException(
-            "Element access requires host provenance; this buffer has no backend",
-            "dolphin", "access",
-            dolphin::backend::buildManagedDataContext("unknown"));
-    }
-    if (!backend->isHostBackend()) {
-        throw dolphin::backend::BackendException(
-            "Element access on non-host data; move the buffer to the host first",
-            "dolphin", "access",
-            dolphin::backend::buildManagedDataContext(backend->getDeviceString()));
-    }
-}
-}
-
 template<typename T>
 T& ManagedData<T>::access(std::size_t linearIndex){
-    assertHostAccess(backend);
     return data[convertIndex(linearIndex)];
 }
 
 template<typename T>
 const T& ManagedData<T>::access(std::size_t linearIndex) const{
-    assertHostAccess(backend);
     return data[convertIndex(linearIndex)];
 }
 

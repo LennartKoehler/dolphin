@@ -132,27 +132,39 @@ public:
     T& access(std::size_t linearIndex);
     const T& access(std::size_t linearIndex) const;
 
-    // Claim ownership of the buffer this handle already points at (e.g. a DataView
-    // that has provenance but does not free), so the destructor releases it.
-    void adoptMemory() { ownsMemory = true; }
-
-    // Detach from the buffer without freeing: the destructor will not release it.
-    // Used to hand ownership of the underlying memory to another handle (e.g. a view).
-    void releaseMemory() { data = nullptr; backend = nullptr; ownsMemory = false; }
-
     // Raw buffer access. In production this is PROTECTED: only the backends can
     // reach it, via the friend interfaces (IBackendMemoryManager / IComputeBackend)
-    // whose protected rawData()/setRawData() helpers expose it to their
-    // implementations. Tests compile with DOLPHIN_RAW_DATA_ACCESS, which promotes
-    // the accessors to public so they can inspect the buffer directly.
-#if defined(DOLPHIN_RAW_DATA_ACCESS)
+    // whose protected rawData() helper exposes it to their implementations.
+    // Tests compile with DOLPHIN_TEST_RAW_ACCESS, which promotes the accessors to
+    // public so they can inspect the buffer directly.
+    //
+    // WARNING (ODR): this macro must only be defined for test executables that
+    // do NOT link the prebuilt dolphinbackend library (no explicit template
+    // instantiations shared across macro-on/macro-off TUs). Defining it in a TU
+    // that links the library creates two different class definitions of
+    // ManagedData<T> (different access specifiers) and is a formal ODR
+    // violation. Access specifiers do not affect layout or codegen, so this is
+    // tolerated as an implementation detail for tests only.
+#if defined(DOLPHIN_TEST_RAW_ACCESS)
 public:
 #else
 protected:
 #endif
     T* getData() const { return data; }
     void setData(T* p) { data = p; }
-#if !defined(DOLPHIN_RAW_DATA_ACCESS)
+
+    // Claim ownership of the buffer this handle already points at (e.g. a DataView
+    // that has provenance but does not free), so the destructor releases it.
+    // Backend-internal: the validated public path is
+    // IBackendMemoryManager::transferOwnership().
+    void adoptMemory() { ownsMemory = true; }
+
+    // Detach from the buffer without freeing: the destructor will not release it.
+    // Used to hand ownership of the underlying memory to another handle (e.g. a view).
+    // Backend-internal: the validated public path is
+    // IBackendMemoryManager::transferOwnership().
+    void releaseMemory() { data = nullptr; backend = nullptr; ownsMemory = false; }
+#if !defined(DOLPHIN_TEST_RAW_ACCESS)
 public:
 #endif
 
@@ -217,8 +229,8 @@ public:
     }
 
     // No-op: a view's provenance is fixed at construction (IBackendMemoryManager::
-    // createDataView). Changing it afterwards would desynchronise the host-access
-    // guard and isOnDevice from the buffer's actual location.
+    // createDataView). Changing it afterwards would desynchronise isOnDevice from
+    // the buffer's actual location.
     void setBackend(IBackendMemoryManager const*) override {}
 
     bool isValid() const override { return this->data != nullptr; }

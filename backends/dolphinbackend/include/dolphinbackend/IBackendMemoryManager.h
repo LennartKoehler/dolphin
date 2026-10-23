@@ -19,6 +19,7 @@ See the LICENSE file provided with the code for the full license.
 #include <vector>
 
 #include "ComplexData.h"
+#include "Exceptions.h"
 
 
 struct BackendConfig;
@@ -152,10 +153,6 @@ public:
 
 
 
-    virtual bool isOnDevice(const void* data) const {
-        NOT_IMPLEMENTED(isOnDevice);
-    }
-
     /**
      * Handle-level query used by algorithms/IO: is this data reachable from this
      * backend?
@@ -182,23 +179,27 @@ public:
 
     // ============================================================================
     // Raw buffer access — backend-internal only.
-    // ManagedData grants friendship to this interface, so the static helpers
-    // below can reach its (otherwise protected) getData()/setData(). Every
-    // concrete backend obtains the raw pointer through these inherited helpers,
-    // which keeps the access path uniform and auditable. Static so that
-    // free-style static member helpers in a backend can also call them.
+    // ManagedData grants friendship to this interface, so the static helper
+    // below can reach its (otherwise protected) getData(). Every concrete
+    // backend obtains the raw pointer through this inherited helper, which
+    // keeps the access path uniform and auditable. Static so that free-style
+    // static member helpers in a backend can also call it.
     // ============================================================================
 protected:
+    // Pointer-level device query: backend-internal (used by the handle-level
+    // isOnDevice above). Reasoning about raw pointers is reserved to the
+    // backends; users query handles.
+    virtual bool isOnDevice(const void* data) const {
+        NOT_IMPLEMENTED(isOnDevice);
+    }
+
     template<typename T>
     static T* rawData(const ManagedData<T>& data) { return data.getData(); }
-    template<typename T>
-    static void setRawData(ManagedData<T>& data, T* p) { data.setData(p); }
 
     /**
      * Create a non-owning view over an existing buffer, tagged with this manager
-     * as provenance (host-access guard + isOnDevice work on views). A view never
-     * frees its buffer; ownership transfer to a view is done explicitly with
-     * ManagedData::releaseMemory()/adoptMemory().
+     * as provenance (isOnDevice works on views). A view never frees its buffer;
+     * ownership transfer to a view is done explicitly via transferOwnership().
      */
     template<typename T>
     DataView<T> createDataView(T* data, CuboidShape size, CuboidShape realSize, std::size_t bytes, std::size_t padding = 0) const {
@@ -208,6 +209,46 @@ protected:
     }
 
 public:
+    /**
+     * Validated ownership transfer of the underlying buffer from a managed
+     * handle to a DataView that must outlive it (e.g. a reinterpret view that is
+     * returned while the allocating handle is dropped). Only ManagedData ->
+     * DataView is possible by construction. Checks:
+     * - the source must be backed by this backend and actually own its buffer
+     *   (adopting foreign memory would free a non-backend pointer on
+     *   destruction),
+     * - the destination view must be backed by this backend,
+     * - both handles must alias the same buffer.
+     * On success the source is detached (won't free) and the result — a
+     * ManagedData handle over the SAME buffer (same pointer, size, padding) —
+     * owns the buffer. On failure nothing is modified and a BackendException is
+     * thrown.
+     */
+    template<typename TFrom, typename TTo>
+    ManagedData<TTo> transferOwnership(ManagedData<TFrom>& from, const DataView<TTo>& to) const {
+        if (from.ownsMemory == false || from.getBackend() != this) {
+            throw dolphin::backend::BackendException(
+                "transferOwnership: source handle does not own a buffer of this backend",
+                "dolphin", "transferOwnership",
+                dolphin::backend::buildManagedDataContext(getDeviceString()));
+        }
+        if (to.getBackend() != this) {
+            throw dolphin::backend::BackendException(
+                "transferOwnership: destination view is not backed by this backend",
+                "dolphin", "transferOwnership",
+                dolphin::backend::buildManagedDataContext(getDeviceString()));
+        }
+        if (static_cast<const void*>(to.data) != static_cast<const void*>(from.data)) {
+            throw dolphin::backend::BackendException(
+                "transferOwnership: handles do not alias the same buffer",
+                "dolphin", "transferOwnership",
+                dolphin::backend::buildManagedDataContext(getDeviceString()));
+        }
+        from.releaseMemory();
+        // Build the owning handle around the same buffer (no copy of the data):
+        // a default construct + steal would invoke the deep-copy constructor.
+        return ManagedData<TTo>(to.backend, to.data, to.getSize(), to.getRealSize(), to.getDataBytes(), to.getPadding());
+    }
     // ============================================================================
     // Low-level void* based memory operations (to be implemented by backends)
     // ============================================================================

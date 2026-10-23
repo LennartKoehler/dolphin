@@ -17,7 +17,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(cuda_backend_test PRIVATE -fno-fast-math)
 endif()
 
-target_compile_definitions(cuda_backend_test PRIVATE DOLPHIN_RAW_DATA_ACCESS)
+target_compile_definitions(cuda_backend_test PRIVATE DOLPHIN_TEST_RAW_ACCESS)
 
 gtest_discover_tests(cuda_backend_test DISCOVERY_TIMEOUT 30)
 
