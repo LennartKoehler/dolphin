@@ -12,71 +12,140 @@ See the LICENSE file provided with the code for the full license.
 */
 #include "kernels.h"
 
-// Conversions (removed - no longer needed with single complex_t type)
-//
-//
+// Device-side grid, index and arithmetic helpers shared by the kernels in
+// this translation unit.
+namespace detail {
 
+__device__ inline size_t tx() { return static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x; }
+__device__ inline size_t ty() { return static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y; }
+__device__ inline size_t tz() { return static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z; }
+
+__device__ inline bool inBounds(size_t x, size_t y, size_t z, size_t Nx, size_t Ny, size_t Nz) {
+    return x < Nx && y < Ny && z < Nz;
+}
+
+// Compact (stride = dimension) 3D index
+__device__ inline size_t index3D(size_t x, size_t y, size_t z, size_t Nx, size_t Ny) {
+    return z * (Nx * Ny) + y * Nx + x;
+}
+
+// Strided 3D index for padded rows
+__device__ inline size_t indexStrided(size_t x, size_t y, size_t z, size_t stride, size_t Ny) {
+    return z * (stride * Ny) + y * stride + x;
+}
+
+__device__ inline void cMul(real_t ar, real_t ai, real_t br, real_t bi, real_t& cr, real_t& ci) {
+    cr = ar * br - ai * bi;
+    ci = ar * bi + ai * br;
+}
+
+// Elementwise binary operations on complex values, applied per grid index.
+struct ComplexMulOp {
+    __device__ void operator()(real_t ar, real_t ai, real_t br, real_t bi, real_t& cr, real_t& ci) const {
+        cMul(ar, ai, br, bi, cr, ci);
+    }
+};
+
+struct ComplexAddOp {
+    __device__ void operator()(real_t ar, real_t ai, real_t br, real_t bi, real_t& cr, real_t& ci) const {
+        cr = ar + br;
+        ci = ai + bi;
+    }
+};
+
+struct ComplexMulConjugateOp {
+    __device__ void operator()(real_t ar, real_t ai, real_t br, real_t bi, real_t& cr, real_t& ci) const {
+        cMul(ar, ai, br, -bi, cr, ci);
+    }
+};
+
+struct ComplexDivOp {
+    real_t epsilon;
+    __device__ void operator()(real_t ar, real_t ai, real_t br, real_t bi, real_t& cr, real_t& ci) const {
+        real_t denom = br * br + bi * bi;
+        if (denom < epsilon) {
+            cr = 0.0;
+            ci = 0.0;
+        } else {
+            cr = (ar * br + ai * bi) / denom;
+            ci = (ai * br - ar * bi) / denom;
+        }
+    }
+};
+
+struct ComplexDivStabilizedOp {
+    real_t epsilon;
+    __device__ void operator()(real_t ar, real_t ai, real_t br, real_t bi, real_t& cr, real_t& ci) const {
+        real_t brj = br;
+        real_t bij = -bi;
+        real_t mag = fmax(epsilon, brj * brj + bij * bij);
+        cr = (ar * brj + ai * bij) / mag;
+        ci = (ai * brj - ar * bij) / mag;
+    }
+};
+
+template <typename Op>
+__device__ inline void complexElementwiseBody(size_t x, size_t y, size_t z, size_t Nx, size_t Ny, size_t Nz,
+                                              const complex_t* A, const complex_t* B, complex_t* C, Op op) {
+    if (!inBounds(x, y, z, Nx, Ny, Nz)) return;
+    size_t index = index3D(x, y, z, Nx, Ny);
+    real_t ar = A[index][0];
+    real_t ai = A[index][1];
+    real_t br = B[index][0];
+    real_t bi = B[index][1];
+    real_t cr, ci;
+    op(ar, ai, br, bi, cr, ci);
+    C[index][0] = cr;
+    C[index][1] = ci;
+}
+
+} // namespace detail
 
 // Mat operations
 // this is not matmul lol
 __global__
 void complexMatMulGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C) {
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (x < Nx && y < Ny && z < Nz) {
-        size_t index = z * (Nx * Ny) + y * Nx + x;
-
-        real_t realA = A[index][0];
-        real_t imagA = A[index][1];
-        real_t realB = B[index][0];
-        real_t imagB = B[index][1];
-
-        // Perform element-wise complex_t multiplication
-        C[index][0] = realA * realB - imagA * imagB; // Realteil
-        C[index][1] = realA * imagB + imagA * realB; // Imaginärteil
-    }
+    detail::complexElementwiseBody(detail::tx(), detail::ty(), detail::tz(), Nx, Ny, Nz, A, B, C, detail::ComplexMulOp{});
 }
 
 
 __global__
 void elementwiseMatMulGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t* C){
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    if (x < Nx && y < Ny && z < Nz) {
-        size_t indexA = z * (strideA * Ny) + y * strideA + x;
-        size_t indexB = z * (strideB * Ny) + y * strideB + x;
-        size_t indexC = z * (strideC * Ny) + y * strideC + x;
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t indexA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t indexB = detail::indexStrided(x, y, z, strideB, Ny);
+        size_t indexC = detail::indexStrided(x, y, z, strideC, Ny);
         C[indexC] = B[indexB] * A[indexA];
     }
 }
 
 __global__
 void scalarMulGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t b, real_t* C){
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    if (x < Nx && y < Ny && z < Nz) {
-        size_t indexA = z * (strideA * Ny) + y * strideA + x;
-        size_t indexC = z * (strideC * Ny) + y * strideC + x;
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t indexA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t indexC = detail::indexStrided(x, y, z, strideC, Ny);
         C[indexC] = A[indexA] * b;
     }
 }
 
 __global__
 void elementwiseMatDivGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t* C, real_t epsilon){
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    if (x < Nx && y < Ny && z < Nz) {
-        size_t indexA = z * (strideA * Ny) + y * strideA + x;
-        size_t indexB = z * (strideB * Ny) + y * strideB + x;
-        size_t indexC = z * (strideC * Ny) + y * strideC + x;
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t indexA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t indexB = detail::indexStrided(x, y, z, strideB, Ny);
+        size_t indexC = detail::indexStrided(x, y, z, strideC, Ny);
         real_t denominator = B[indexB];
         if (denominator < epsilon) C[indexC] = 0;
         else C[indexC] = A[indexA] / B[indexB];
@@ -85,16 +154,18 @@ void elementwiseMatDivGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, si
 
 __global__
 void complexScalarMulGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, real_t realB, real_t imagB, complex_t* C) {
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    if (x < Nx && y < Ny && z < Nz) {
-        size_t index = z * (Nx * Ny) + y * Nx + x;
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t index = detail::index3D(x, y, z, Nx, Ny);
         real_t realA = A[index][0];
         real_t imagA = A[index][1];
-        C[index][0] = realA * realB - imagA * imagB;
-        C[index][1] = realA * imagB + imagA * realB;
+        real_t realC, imagC;
+        detail::cMul(realA, imagA, realB, imagB, realC, imagC);
+        C[index][0] = realC;
+        C[index][1] = imagC;
     }
 }
 
@@ -102,24 +173,17 @@ void complexScalarMulGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, real_
 
 __global__
 void complexAdditionGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C) {
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (x < Nx && y < Ny && z < Nz) {
-        size_t index = z * (Nx * Ny) + y * Nx + x;
-        C[index][0] = B[index][0] + A[index][0];
-        C[index][1] = B[index][1] + A[index][1];
-    }
+    detail::complexElementwiseBody(detail::tx(), detail::ty(), detail::tz(), Nx, Ny, Nz, A, B, C, detail::ComplexAddOp{});
 }
+
 __global__
 void sumGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* data, complex_t* result) {
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    if (x < Nx && y < Ny && z < Nz) {
-        size_t index = z * (Nx * Ny) + y * Nx + x;
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t index = detail::index3D(x, y, z, Nx, Ny);
         atomicAdd(&result[0][0], data[index][0]);
         atomicAdd(&result[0][1], data[index][1]);
     }
@@ -127,12 +191,12 @@ void sumGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* data, complex_t* resu
 
 __global__
 void meanSquareErrorGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* a, complex_t* b, real_t* result) {
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    if (x < Nx && y < Ny && z < Nz) {
-        size_t index = z * (Nx * Ny) + y * Nx + x;
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t index = detail::index3D(x, y, z, Nx, Ny);
         real_t dr = a[index][0] - b[index][0];
         real_t di = a[index][1] - b[index][1];
         atomicAdd(result, dr * dr + di * di);
@@ -141,9 +205,9 @@ void meanSquareErrorGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* a, comple
 
 __global__
 void sumToOneGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, size_t sliceStride, real_t** data, size_t nImages) {
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
     if (x < Nx && y < Ny && z < Nz) {
         size_t offset = z * sliceStride + y * stride + x;
@@ -165,109 +229,22 @@ void sumToOneGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, size_t slice
 
 __global__
 void complexElementwiseMatMulGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C) {
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (x < Nx && y < Ny && z < Nz) {
-        size_t index = z * (Nx * Ny) + y * Nx + x;
-
-        real_t realA = A[index][0];
-        real_t imagA = A[index][1];
-        real_t realB = B[index][0];
-        real_t imagB = B[index][1];
-
-        // Perform element-wise complex_t multiplication
-        C[index][0] = realA * realB - imagA * imagB; // Realteil
-        C[index][1] = realA * imagB + imagA * realB; // Imaginärteil
-    }
+    detail::complexElementwiseBody(detail::tx(), detail::ty(), detail::tz(), Nx, Ny, Nz, A, B, C, detail::ComplexMulOp{});
 }
 
 __global__
 void complexElementwiseMatMulConjugateGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C) {
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    // Check if the thread is within the valid bounds of the 3D grid
-    if (x < Nx && y < Ny && z < Nz) {
-        // Compute the 1D index from the 3D coordinates
-        size_t index = z * (Nx * Ny) + y * Nx + x;
-
-        // Get real and imaginary components of A and conjugated B
-        real_t real_a = A[index][0];
-        real_t imag_a = A[index][1];
-        real_t real_b = B[index][0];
-        real_t imag_b = -B[index][1];
-
-        // Perform the complex_t multiplication with conjugation
-        real_t real_c = real_a * real_b - imag_a * imag_b;
-        real_t imag_c = real_a * imag_b + imag_a * real_b;
-
-        // Store the result in the output array
-        C[index][0] = real_c;
-        C[index][1] = imag_c;
-    }
+    detail::complexElementwiseBody(detail::tx(), detail::ty(), detail::tz(), Nx, Ny, Nz, A, B, C, detail::ComplexMulConjugateOp{});
 }
 
 __global__
 void complexElementwiseMatDivGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon) {
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    // Check if the thread is within the valid bounds of the 3D grid
-    if (x < Nx && y < Ny && z < Nz) {
-        // Compute the 1D index from the 3D coordinates
-        size_t index = z * (Nx * Ny) + y * Nx + x;
-
-        // Get real and imaginary components of A and B
-        real_t real_a = A[index][0];
-        real_t imag_a = A[index][1];
-        real_t real_b = B[index][0];
-        real_t imag_b = B[index][1];
-
-        // Calculate the denominator (magnitude squared of B)
-        real_t denominator = real_b * real_b + imag_b * imag_b;
-
-        // Apply stabilization: if denominator^2 is smaller than epsilon, set to zero
-        if (denominator < epsilon) {
-            C[index][0] = 0.0;  // Real part of C
-            C[index][1] = 0.0;  // Imaginary part of C
-        } else {
-            // Perform the complex_t division
-            C[index][0] = (real_a * real_b + imag_a * imag_b) / denominator; // Real part
-            C[index][1] = (imag_a * real_b - real_a * imag_b) / denominator; // Imaginary part
-        }
-    }
+    detail::complexElementwiseBody(detail::tx(), detail::ty(), detail::tz(), Nx, Ny, Nz, A, B, C, detail::ComplexDivOp{epsilon});
 }
 
 __global__
 void complexElementwiseMatDivStabilizedGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon) {
-    // Compute the 3D coordinates of the current thread
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    // Check if the thread's coordinates are within bounds of the 3D matrix
-    if (x < Nx && y < Ny && z < Nz) {
-        // Calculate the linear index for the current thread's position
-        size_t index = z * (Nx * Ny) + y * Nx + x;
-
-        // Extract the real and imaginary components of A and B
-        real_t real_a = A[index][0];
-        real_t imag_a = A[index][1];
-        real_t real_b = B[index][0];
-        real_t imag_b = -B[index][1];
-
-
-        // Compute the magnitude squared of B with stabilization to avoid division by zero
-        real_t mag = fmax(epsilon, real_b * real_b + imag_b * imag_b);
-
-        // Perform the stabilized element-wise complex_t division
-        C[index][0] = (real_a * real_b + imag_a * imag_b) / mag; // Real part of the result
-        C[index][1] = (imag_a * real_b - real_a * imag_b) / mag; // Imaginary part of the result
-    }
+    detail::complexElementwiseBody(detail::tx(), detail::ty(), detail::tz(), Nx, Ny, Nz, A, B, C, detail::ComplexDivStabilizedOp{epsilon});
 }
 
 // Regularization
@@ -277,11 +254,11 @@ void calculateLaplacianGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* Afft, 
     size_t height = Ny;
     size_t depth = Nz;
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    if (x < width && y < height && z < depth) {
+    if (detail::inBounds(x, y, z, width, height, depth)) {
         size_t index = (z * height + y) * width + x;
 
         // Berechne die Frequenzkomponenten
@@ -301,114 +278,86 @@ void calculateLaplacianGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* Afft, 
 // Gradient kernels for real-valued data
 __global__
 void gradientXGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradX) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (x < width - 1 && y < height && z < depth) {
-        size_t indexIn = z * (strideIn * height) + y * strideIn + x;
-        size_t nextIndexIn = indexIn + 1;
-        size_t indexOut = z * (strideOut * height) + y * strideOut + x;
-
+    if (x < Nx - 1 && y < Ny && z < Nz) {
+        size_t indexIn = detail::indexStrided(x, y, z, strideIn, Ny);
         // Compute gradient in the x-direction
-        gradX[indexOut] = image[indexIn] - image[nextIndexIn];
+        gradX[detail::indexStrided(x, y, z, strideOut, Ny)] = image[indexIn] - image[indexIn + 1];
     }
 
     // Handle boundary condition at the last x position
-    if (x == width - 1 && y < height && z < depth) {
-        size_t lastIndexOut = z * (strideOut * height) + y * strideOut + x;
-        gradX[lastIndexOut] = 0.0;
+    if (x == Nx - 1 && y < Ny && z < Nz) {
+        gradX[detail::indexStrided(x, y, z, strideOut, Ny)] = 0.0;
     }
 }
 
 __global__
 void gradientYGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradY) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (y < height - 1 && x < width && z < depth) {
-        size_t indexIn = z * (strideIn * height) + y * strideIn + x;
-        size_t nextIndexIn = indexIn + strideIn;
-        size_t indexOut = z * (strideOut * height) + y * strideOut + x;
-
+    if (y < Ny - 1 && x < Nx && z < Nz) {
+        size_t indexIn = detail::indexStrided(x, y, z, strideIn, Ny);
         // Compute gradient in the y-direction
-        gradY[indexOut] = image[indexIn] - image[nextIndexIn];
+        gradY[detail::indexStrided(x, y, z, strideOut, Ny)] = image[indexIn] - image[indexIn + strideIn];
     }
 
     // Handle boundary condition at the last y position
-    if (y == height - 1 && x < width && z < depth) {
-        size_t lastIndexOut = z * (strideOut * height) + y * strideOut + x;
-        gradY[lastIndexOut] = 0.0;
+    if (y == Ny - 1 && x < Nx && z < Nz) {
+        gradY[detail::indexStrided(x, y, z, strideOut, Ny)] = 0.0;
     }
 }
 
 __global__
 void gradientZGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradZ) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (z < depth - 1 && y < height && x < width) {
-        size_t indexIn = z * (strideIn * height) + y * strideIn + x;
-        size_t nextIndexIn = indexIn + strideIn * height;
-        size_t indexOut = z * (strideOut * height) + y * strideOut + x;
-
+    if (z < Nz - 1 && y < Ny && x < Nx) {
+        size_t indexIn = detail::indexStrided(x, y, z, strideIn, Ny);
         // Compute gradient in the z-direction
-        gradZ[indexOut] = image[indexIn] - image[nextIndexIn];
+        gradZ[detail::indexStrided(x, y, z, strideOut, Ny)] = image[indexIn] - image[indexIn + strideIn * Ny];
     }
 
     // Handle boundary condition at the last z position
-    if (z == depth - 1 && y < height && x < width) {
-        size_t lastIndexOut = z * (strideOut * height) + y * strideOut + x;
-        gradZ[lastIndexOut] = 0.0;
+    if (z == Nz - 1 && y < Ny && x < Nx) {
+        gradZ[detail::indexStrided(x, y, z, strideOut, Ny)] = 0.0;
     }
 }
 
 // Combined gradient kernel (computes all three gradients in a single pass)
 __global__
 void gradientGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t strideOut, real_t* image, real_t* gradX, real_t* gradY, real_t* gradZ) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (x < width && y < height && z < depth) {
-        size_t indexIn = z * (strideIn * height) + y * strideIn + x;
-        size_t indexOut = z * (strideOut * height) + y * strideOut + x;
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t indexIn = detail::indexStrided(x, y, z, strideIn, Ny);
+        size_t indexOut = detail::indexStrided(x, y, z, strideOut, Ny);
 
         // Gradient in x-direction: forward difference
-        if (x < width - 1) {
+        if (x < Nx - 1) {
             gradX[indexOut] = image[indexIn + 1] - image[indexIn];
         } else {
             gradX[indexOut] = 0.0;
         }
 
         // Gradient in y-direction: forward difference
-        if (y < height - 1) {
+        if (y < Ny - 1) {
             gradY[indexOut] = image[indexIn + strideIn] - image[indexIn];
         } else {
             gradY[indexOut] = 0.0;
         }
 
         // Gradient in z-direction: forward difference
-        if (z < depth - 1) {
-            gradZ[indexOut] = image[indexIn + strideIn * height] - image[indexIn];
+        if (z < Nz - 1) {
+            gradZ[indexOut] = image[indexIn + strideIn * Ny] - image[indexIn];
         } else {
             gradZ[indexOut] = 0.0;
         }
@@ -417,17 +366,13 @@ void gradientGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideIn, size_t
 
 __global__
 void computeTVGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideDiv, size_t strideTv, real_t lambda, real_t* div, real_t* tv) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (x < width && y < height && z < depth) {
-        size_t indexDiv = z * (strideDiv * height) + y * strideDiv + x;
-        size_t indexTv = z * (strideTv * height) + y * strideTv + x;
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t indexDiv = detail::indexStrided(x, y, z, strideDiv, Ny);
+        size_t indexTv = detail::indexStrided(x, y, z, strideTv, Ny);
 
         // TV damping factor: tv = 1 / (1 - lambda * div)
         // div is negative at edges/spikes (standard forward gradient + backward divergence),
@@ -442,17 +387,14 @@ void computeTVGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideDiv, size
 
 __global__
 void normalizeTVGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideGradX, size_t strideGradY, size_t strideGradZ, real_t* gradX, real_t* gradY, real_t* gradZ, real_t epsilon) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    if (x < width && y < height && z < depth) {
-        size_t indexGradX = z * (strideGradX * height) + y * strideGradX + x;
-        size_t indexGradY = z * (strideGradY * height) + y * strideGradY + x;
-        size_t indexGradZ = z * (strideGradZ * height) + y * strideGradZ + x;
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t indexGradX = detail::indexStrided(x, y, z, strideGradX, Ny);
+        size_t indexGradY = detail::indexStrided(x, y, z, strideGradY, Ny);
+        size_t indexGradZ = detail::indexStrided(x, y, z, strideGradZ, Ny);
 
         // Smoothed TV subgradient: gx / sqrt(|nabla f|² + beta²)
         // beta prevents noise amplification in flat regions
@@ -470,108 +412,89 @@ void normalizeTVGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideGradX, 
 
 __global__
 void gradientXGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_t* gradX) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (x < width - 1 && y < height && z < depth) {
-        size_t index = z * height * width + y * width + x;
-        size_t nextIndex = index + 1;
+    if (x < Nx - 1 && y < Ny && z < Nz) {
+        size_t index = detail::index3D(x, y, z, Nx, Ny);
 
         // Compute gradient in the x-direction
-        gradX[index][0] = image[nextIndex][0] - image[index][0]; // Real part
-        gradX[index][1] = image[nextIndex][1] - image[index][1]; // Imaginary part
+        gradX[index][0] = image[index + 1][0] - image[index][0]; // Real part
+        gradX[index][1] = image[index + 1][1] - image[index][1]; // Imaginary part
     }
 
     // Handle boundary condition at the last x position
-    if (x == width - 1 && y < height && z < depth) {
-        size_t lastIndex = z * height * width + y * width + x;
-        gradX[lastIndex][0] = 0.0;
-        gradX[lastIndex][1] = 0.0;
+    if (x == Nx - 1 && y < Ny && z < Nz) {
+        size_t index = detail::index3D(x, y, z, Nx, Ny);
+        gradX[index][0] = 0.0;
+        gradX[index][1] = 0.0;
     }
 }
 
 __global__
 void gradientYGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_t* gradY) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (y < height - 1 && x < width && z < depth) {
-        size_t index = z * height * width + y * width + x;
-        size_t nextIndex = index + width;
+    if (y < Ny - 1 && x < Nx && z < Nz) {
+        size_t index = detail::index3D(x, y, z, Nx, Ny);
 
         // Compute gradient in the y-direction
-        gradY[index][0] = image[nextIndex][0] - image[index][0]; // Real part
-        gradY[index][1] = image[nextIndex][1] - image[index][1]; // Imaginary part
+        gradY[index][0] = image[index + Nx][0] - image[index][0]; // Real part
+        gradY[index][1] = image[index + Nx][1] - image[index][1]; // Imaginary part
     }
 
     // Handle boundary condition at the last y position
-    if (y == height - 1 && x < width && z < depth) {
-        size_t lastIndex = z * height * width + y * width + x;
-        gradY[lastIndex][0] = 0.0;
-        gradY[lastIndex][1] = 0.0;
+    if (y == Ny - 1 && x < Nx && z < Nz) {
+        size_t index = detail::index3D(x, y, z, Nx, Ny);
+        gradY[index][0] = 0.0;
+        gradY[index][1] = 0.0;
     }
 }
 
 __global__
 void gradientZGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* image, complex_t* gradZ) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (z < depth - 1 && y < height && x < width) {
-        size_t index = z * height * width + y * width + x;
-        size_t nextIndex = index + height * width;
+    if (z < Nz - 1 && y < Ny && x < Nx) {
+        size_t index = detail::index3D(x, y, z, Nx, Ny);
 
         // Compute gradient in the z-direction
-        gradZ[index][0] = image[nextIndex][0] - image[index][0]; // Real part
-        gradZ[index][1] = image[nextIndex][1] - image[index][1]; // Imaginary part
+        gradZ[index][0] = image[index + Ny * Nx][0] - image[index][0]; // Real part
+        gradZ[index][1] = image[index + Ny * Nx][1] - image[index][1]; // Imaginary part
     }
 
     // Handle boundary condition at the last z position
-    if (z == depth - 1 && y < height && x < width) {
-        size_t lastIndex = z * height * width + y * width + x;
-        gradZ[lastIndex][0] = 0.0;
-        gradZ[lastIndex][1] = 0.0;
+    if (z == Nz - 1 && y < Ny && x < Nx) {
+        size_t index = detail::index3D(x, y, z, Nx, Ny);
+        gradZ[index][0] = 0.0;
+        gradZ[index][1] = 0.0;
     }
 }
 
 // Divergence kernels (backward differences — adjoint of forward gradient)
 __global__
 void divergenceGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideGx, size_t strideGy, size_t strideGz, size_t strideOut, real_t* gx, real_t* gy, real_t* gz, real_t* result) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (x < width && y < height && z < depth) {
-        size_t indexGx = z * (strideGx * height) + y * strideGx + x;
-        size_t indexGy = z * (strideGy * height) + y * strideGy + x;
-        size_t indexGz = z * (strideGz * height) + y * strideGz + x;
-        size_t indexOut = z * (strideOut * height) + y * strideOut + x;
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t indexGx = detail::indexStrided(x, y, z, strideGx, Ny);
+        size_t indexGy = detail::indexStrided(x, y, z, strideGy, Ny);
+        size_t indexGz = detail::indexStrided(x, y, z, strideGz, Ny);
+        size_t indexOut = detail::indexStrided(x, y, z, strideOut, Ny);
 
         // Backward difference in x: gx[x] - gx[x-1], with 0 at x=0
         real_t divX = gx[indexGx] - (x > 0 ? gx[indexGx - 1] : real_t(0));
         // Backward difference in y: gy[y] - gy[y-1], with 0 at y=0
         real_t divY = gy[indexGy] - (y > 0 ? gy[indexGy - strideGy] : real_t(0));
         // Backward difference in z: gz[z] - gz[z-1], with 0 at z=0
-        real_t divZ = gz[indexGz] - (z > 0 ? gz[indexGz - strideGz * height] : real_t(0));
+        real_t divZ = gz[indexGz] - (z > 0 ? gz[indexGz - strideGz * Ny] : real_t(0));
 
         result[indexOut] = divX + divY + divZ;
     }
@@ -579,26 +502,22 @@ void divergenceGlobalReal(size_t Nx, size_t Ny, size_t Nz, size_t strideGx, size
 
 __global__
 void divergenceGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* gx, complex_t* gy, complex_t* gz, complex_t* result) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-
-    if (x < width && y < height && z < depth) {
-        size_t index = z * height * width + y * width + x;
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t index = detail::index3D(x, y, z, Nx, Ny);
 
         // Backward difference in x (real part only for TV divergence)
         real_t divX_r = gx[index][0] - (x > 0 ? gx[index - 1][0] : real_t(0));
         real_t divX_i = gx[index][1] - (x > 0 ? gx[index - 1][1] : real_t(0));
         // Backward difference in y
-        real_t divY_r = gy[index][0] - (y > 0 ? gy[index - width][0] : real_t(0));
-        real_t divY_i = gy[index][1] - (y > 0 ? gy[index - width][1] : real_t(0));
+        real_t divY_r = gy[index][0] - (y > 0 ? gy[index - Nx][0] : real_t(0));
+        real_t divY_i = gy[index][1] - (y > 0 ? gy[index - Nx][1] : real_t(0));
         // Backward difference in z
-        real_t divZ_r = gz[index][0] - (z > 0 ? gz[index - height * width][0] : real_t(0));
-        real_t divZ_i = gz[index][1] - (z > 0 ? gz[index - height * width][1] : real_t(0));
+        real_t divZ_r = gz[index][0] - (z > 0 ? gz[index - Ny * Nx][0] : real_t(0));
+        real_t divZ_i = gz[index][1] - (z > 0 ? gz[index - Ny * Nx][1] : real_t(0));
 
         result[index][0] = divX_r + divY_r + divZ_r;
         result[index][1] = divX_i + divY_i + divZ_i;
@@ -607,16 +526,12 @@ void divergenceGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* gx, complex_t*
 
 __global__
 void computeTVGlobal(size_t Nx, size_t Ny, size_t Nz, real_t lambda, complex_t* div, complex_t* tv) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    size_t index = detail::index3D(x, y, z, Nx, Ny);
 
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-    size_t index = z * height * width + y * width + x;
-
-    if (x < width && y < height && z < depth) {
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
         // TV damping factor: tv = 1 / (1 - lambda * div)
         // div is negative at edges/spikes (standard forward gradient + backward divergence),
         // so the denominator > 1 there, producing damping.
@@ -631,15 +546,12 @@ void computeTVGlobal(size_t Nx, size_t Ny, size_t Nz, real_t lambda, complex_t* 
 
 __global__
 void normalizeTVGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* gradX, complex_t* gradY, complex_t* gradZ, real_t epsilon) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
-    size_t index = z * height * width + y * width + x;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    size_t index = detail::index3D(x, y, z, Nx, Ny);
 
-    if (x < width && y < height && z < depth) {
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
         // Smoothed TV subgradient: gx / sqrt(|nabla f|² + beta²)
         // beta prevents noise amplification in flat regions
         real_t normSq =
@@ -750,26 +662,23 @@ void normalizeDataGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* d_data) {
 
 __global__
 void octantFourierShiftGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* data) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
-    size_t halfWidth = width / 2;
-    size_t halfHeight = height / 2;
-    size_t halfDepth = depth / 2;
+    size_t halfWidth = Nx / 2;
+    size_t halfHeight = Ny / 2;
+    size_t halfDepth = Nz / 2;
 
     // Calculate the indices for the current thread
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
     // Ensure that the thread is within bounds, just iterate over the first half of the depth
-    if (x < width && y < height && z < halfDepth) {
+    if (x < Nx && y < Ny && z < halfDepth) {
         // Calculate the linear indices using stride for addressing
         // but modular arithmetic on logical dimensions for swap positions
-        size_t idx1 = z * (stride * height) + y * stride + x;
-        size_t idx2 = ((z + halfDepth) % depth) * (stride * height) +
-                   ((y + halfHeight) % height) * stride +
-                   ((x + halfWidth) % width);
+        size_t idx1 = z * (stride * Ny) + y * stride + x;
+        size_t idx2 = ((z + halfDepth) % Nz) * (stride * Ny) +
+                    ((y + halfHeight) % Ny) * stride +
+                    ((x + halfWidth) % Nx);
 
         // Check if the indices are different to avoid duplicate swapping
         if (idx1 != idx2) {
@@ -784,25 +693,22 @@ void octantFourierShiftGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, re
 
 __global__
 void octantFourierShiftGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* data) {
-    size_t width = Nx;
-    size_t height = Ny;
-    size_t depth = Nz;
-    size_t halfWidth = width / 2;
-    size_t halfHeight = height / 2;
-    size_t halfDepth = depth / 2;
+    size_t halfWidth = Nx / 2;
+    size_t halfHeight = Ny / 2;
+    size_t halfDepth = Nz / 2;
 
     // Calculate the indices for the current thread
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
     // Ensure that the thread is within bounds, just iterate over the first 4 octants
     if (z < halfDepth) {
         // Calculate the linear indices for the current element and its counterpart in the other octant
-        size_t idx1 = z * height * width + y * width + x;
-        size_t idx2 = ((z + halfDepth) % depth) * height * width +
-                   ((y + halfHeight) % height) * width +
-                   ((x + halfWidth) % width);
+        size_t idx1 = z * Ny * Nx + y * Nx + x;
+        size_t idx2 = ((z + halfDepth) % Nz) * Ny * Nx +
+                    ((y + halfHeight) % Ny) * Nx +
+                    ((x + halfWidth) % Nx);
 
         // Check if the indices are different to avoid duplicate swapping
         if (idx1 != idx2) {
@@ -825,9 +731,9 @@ __global__
 void padMatGlobal(size_t oldNx, size_t oldNy, size_t oldNz, size_t newNx, size_t newNy, size_t newNz, complex_t* oldMat, complex_t* newMat, size_t offsetX, size_t offsetY, size_t offsetZ)
 {
     // 3D-Index des Threads im Grid
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
     // Neue Matrixgröße als Grenze
     if (x >= newNx || y >= newNy || z >= newNz) return;
