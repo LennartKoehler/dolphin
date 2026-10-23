@@ -69,4 +69,11 @@ __global__ void octantFourierShiftGlobal(size_t Nx, size_t Ny, size_t Nz, comple
 __global__ void octantFourierShiftGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* data);
 __global__ void padMatGlobal(size_t oldNx, size_t oldNy, size_t oldNz, size_t newNx, size_t newNy, size_t newNz, complex_t* oldMat, complex_t* newMat, size_t offsetX, size_t offsetY, size_t offsetZ);
 
-__global__ void fillGaussianOTFGlobal(size_t Nx, size_t Ny, size_t Nz,  complex_t* out, const real_t ax, const real_t ay, const real_t az);
+// Poisson-likelihood (PoissonMLE) real-valued elementwise / reduction kernels
+__global__ void realSumGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, double* result);
+__global__ void realAffineGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scalar, real_t add, real_t* C);
+__global__ void realLinearCombinationGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t sa, real_t* B, real_t sb, real_t* C);
+__global__ void realSqrtAffineGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scale, real_t add, real_t lambda, real_t* C);
+__global__ void realClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t lo, real_t* C);
+__global__ void poissonLineSearchEvalGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideG, size_t strideM, size_t strideHd, real_t* g, real_t* m, real_t* hd, real_t alpha, double* result);
+__global__ void fillGaussianOTFGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, complex_t* out, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az);

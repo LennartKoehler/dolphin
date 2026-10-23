@@ -568,6 +568,162 @@ TEST_F(CUDAComputeBackendTest, RealScalarMultiplication) {
         EXPECT_NEAR(readback[i], hostA[i] * scalar, 1e-2f);
 }
 
+// ============================================================================
+// PoissonMLE real-valued elementwise / reduction ops
+// Reference math mirrors backends/cpu/src/CPUBackend.cpp (double accumulation
+// for reductions; the kernel matches that to stay within float tolerance).
+// ============================================================================
+
+TEST_F(CUDAComputeBackendTest, RealSum) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume());
+    double expected = 0.0;
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        hostA[i] = static_cast<real_t>((i * 3) % 7 + 1); // small exact values
+        expected += hostA[i];
+    }
+    writeRealToDevice(a, hostA);
+
+    real_t result = 0.0f;
+    deconv.realSum(a, &result);
+    backend->sync();
+
+    EXPECT_NEAR(result, expected, 0.05f) << "realSum should match host double sum";
+}
+
+TEST_F(CUDAComputeBackendTest, RealAffine) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) hostA[i] = static_cast<real_t>(i) * 0.5f;
+    writeRealToDevice(a, hostA);
+
+    const real_t s = 2.0f, add = -1.0f;
+    deconv.realAffine(a, s, add, result);
+    backend->sync();
+
+    auto rb = readbackReal(result);
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        EXPECT_NEAR(rb[i], hostA[i] * s + add, 1e-4f) << "realAffine mismatch at " << i;
+}
+
+TEST_F(CUDAComputeBackendTest, RealLinearCombination) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData b = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume()), hostB(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        hostA[i] = static_cast<real_t>(i + 1);
+        hostB[i] = static_cast<real_t>(i + 2);
+    }
+    writeRealToDevice(a, hostA);
+    writeRealToDevice(b, hostB);
+
+    const real_t sa = 1.5f, sb = -0.5f;
+    deconv.realLinearCombination(a, sa, b, sb, result);
+    backend->sync();
+
+    auto rb = readbackReal(result);
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        EXPECT_NEAR(rb[i], hostA[i] * sa + hostB[i] * sb, 1e-4f) << "realLinearCombination mismatch at " << i;
+}
+
+TEST_F(CUDAComputeBackendTest, RealClampMin) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        hostA[i] = static_cast<real_t>(static_cast<int>(i) - static_cast<int>(shape.getVolume()) / 2); // mix of +/-
+    writeRealToDevice(a, hostA);
+
+    const real_t lo = 0.0f;
+    deconv.realClampMin(a, lo, result);
+    backend->sync();
+
+    auto rb = readbackReal(result);
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        EXPECT_FLOAT_EQ(rb[i], hostA[i] < lo ? lo : hostA[i]) << "realClampMin mismatch at " << i;
+}
+
+TEST_F(CUDAComputeBackendTest, RealSqrtAffine) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) hostA[i] = static_cast<real_t>(i + 1) * 0.5f;
+    writeRealToDevice(a, hostA);
+
+    const real_t scale = 2.0f, add = 1.0f, lambda = 0.1f;
+    deconv.realSqrtAffine(a, scale, add, lambda, result);
+    backend->sync();
+
+    auto rb = readbackReal(result);
+    const double eps = 1e-12;
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        double arg = hostA[i] * scale + add;
+        if (arg < 0.0) arg = 0.0;
+        double denom = std::fabs(lambda) < eps ? eps : lambda;
+        EXPECT_NEAR(rb[i], (std::sqrt(arg) - 1.0) / denom, 1e-3f) << "realSqrtAffine mismatch at " << i;
+    }
+}
+
+TEST_F(CUDAComputeBackendTest, PoissonLineSearchEval) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData g = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData m = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData hd = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostG(shape.getVolume()), hostM(shape.getVolume()), hostHd(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        hostG[i] = static_cast<real_t>(i % 3 + 1);                 // 1..3, > 0
+        hostM[i] = 2.0f + static_cast<real_t>(i % 4) * 0.5f;       // 2.0..3.5, keeps mi well above the eps floor
+        hostHd[i] = static_cast<real_t>(static_cast<int>(i % 5) - 2) * 0.2f;  // -0.4..0.4
+    }
+    writeRealToDevice(g, hostG);
+    writeRealToDevice(m, hostM);
+    writeRealToDevice(hd, hostHd);
+
+    const real_t alpha = 0.5f;
+    real_t J = 0, dJ = 0, d2J = 0;
+    deconv.poissonLineSearchEval(g, m, hd, alpha, &J, &dJ, &d2J);
+    backend->sync();
+
+    const double eps = 1e-12;
+    double eJ = 0.0, eD = 0.0, eDD = 0.0;
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        double gi = hostG[i], hdv = hostHd[i];
+        double mi = hostM[i] + alpha * hdv;
+        if (mi < eps) mi = eps;
+        eJ += (gi > 0.0) ? (gi * std::log(gi / mi) - gi + mi) : mi;
+        eD += hdv * (1.0 - gi / mi);
+        eDD += gi * hdv * hdv / (mi * mi);
+    }
+    EXPECT_NEAR(J, eJ, 1e-2f) << "poissonLineSearchEval J mismatch";
+    EXPECT_NEAR(dJ, eD, 1e-3f) << "poissonLineSearchEval dJ mismatch";
+    EXPECT_NEAR(d2J, eDD, 1e-3f) << "poissonLineSearchEval d2J mismatch";
+}
+
 TEST_F(CUDAComputeBackendTest, ComplexScalarMultiplication) {
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();

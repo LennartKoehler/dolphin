@@ -69,7 +69,16 @@ namespace CUBE_FTT {
     cudaError_t normalizeData(size_t Nx, size_t Ny, size_t Nz, complex_t* d_data, cudaStream_t stream = 0);
 }
 namespace CUBE_MLE {
-    cudaError_t fillGaussianOTF(size_t Nx, size_t Ny, size_t Nz,  complex_t* out, const real_t ax, const real_t ay, const real_t az, cudaStream_t stream = 0);
+    // Poisson-likelihood (PoissonMLE) real-valued elementwise / reduction ops.
+    // `result` must be a device double* sized >= 1 (realSum) or >= 3 (poissonLineSearchEval: {J, dJ, d2J}),
+    // pre-zeroed by the caller.
+    cudaError_t realSum(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, double* result, cudaStream_t stream = 0);
+    cudaError_t realAffine(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scalar, real_t add, real_t* C, cudaStream_t stream = 0);
+    cudaError_t realLinearCombination(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t sa, real_t* B, real_t sb, real_t* C, cudaStream_t stream = 0);
+    cudaError_t realSqrtAffine(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scale, real_t add, real_t lambda, real_t* C, cudaStream_t stream = 0);
+    cudaError_t realClampMin(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t lo, real_t* C, cudaStream_t stream = 0);
+    cudaError_t poissonLineSearchEval(size_t Nx, size_t Ny, size_t Nz, size_t strideG, size_t strideM, size_t strideHd, real_t* g, real_t* m, real_t* hd, real_t alpha, double* result, cudaStream_t stream = 0);
+    cudaError_t fillGaussianOTF(size_t Nx, size_t Ny, size_t Nz, size_t stride, complex_t* out, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az, cudaStream_t stream = 0);
 }
 
 namespace CUBE_DEVICE_KERNEL {

@@ -779,12 +779,111 @@ void padMatGlobal(size_t oldNx, size_t oldNy, size_t oldNz, size_t newNx, size_t
 }
 
 
+// ========================================================================
+// Poisson-likelihood (PoissonMLE) real-valued elementwise / reduction kernels
+//
+// Reductions (realSum, poissonLineSearchEval) accumulate into a double* buffer
+// with double atomics to match the CPU reference's double accumulation.
+// ========================================================================
+
 __global__
-void fillGaussianOTFGlobal(complex_t* out, size_t Nx, size_t Ny, size_t Nz, size_t stride, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az) const {
-    sliceStride = stride * H;
-    size_t x = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    size_t y = static_cast<size_t>(blockIdx.y) * blockDim.y + threadIdx.y;
-    size_t z = static_cast<size_t>(blockIdx.z) * blockDim.z + threadIdx.z;
+void realSumGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, double* result) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idx = detail::indexStrided(x, y, z, stride, Ny);
+        atomicAdd(result, (double)a[idx]);
+    }
+}
+
+__global__
+void realAffineGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scalar, real_t add, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        C[idxC] = A[idxA] * scalar + add;
+    }
+}
+
+__global__
+void realLinearCombinationGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t sa, real_t* B, real_t sb, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxB = detail::indexStrided(x, y, z, strideB, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        C[idxC] = A[idxA] * sa + B[idxB] * sb;
+    }
+}
+
+__global__
+void realSqrtAffineGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scale, real_t add, real_t lambda, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        const real_t eps = 1e-12f;
+        real_t arg = A[idxA] * scale + add;
+        if (arg < 0.0f) arg = 0.0f;
+        real_t denom = fabsf(lambda) < eps ? eps : lambda;
+        C[idxC] = (sqrtf(arg) - 1.0f) / denom;
+    }
+}
+
+__global__
+void realClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t lo, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        C[idxC] = A[idxA] < lo ? lo : A[idxA];
+    }
+}
+
+__global__
+void poissonLineSearchEvalGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideG, size_t strideM, size_t strideHd, real_t* g, real_t* m, real_t* hd, real_t alpha, double* result) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxG = detail::indexStrided(x, y, z, strideG, Ny);
+        size_t idxM = detail::indexStrided(x, y, z, strideM, Ny);
+        size_t idxHd = detail::indexStrided(x, y, z, strideHd, Ny);
+        const double eps = 1e-12;
+        double gi = (double)g[idxG];
+        double hdv = (double)hd[idxHd];
+        double mi = (double)m[idxM] + (double)alpha * hdv;
+        if (mi < eps) mi = eps;
+        // J(alpha)
+        double j;
+        if (gi > 0.0) j = gi * log(gi / mi) - gi + mi;
+        else          j = mi;
+        // dJ/dalpha
+        double d = hdv * (1.0 - gi / mi);
+        // d2J/dalpha2
+        double dd = gi * hdv * hdv / (mi * mi);
+        atomicAdd(result + 0, j);
+        atomicAdd(result + 1, d);
+        atomicAdd(result + 2, dd);
+    }
+}
+
+__global__
+void fillGaussianOTFGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, complex_t* out, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az) {
+    size_t sliceStride = stride * Ny;
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
     // Frequency bins are in cycles per SAMPLE: kx = x/W, ky = y/H (wrapped), kz = z/D (wrapped).
     // (sigmaX/Y/Z are in voxels; exp(-2*pi^2 * sigma^2 * f^2) is the Fourier transform of a
@@ -792,12 +891,9 @@ void fillGaussianOTFGlobal(complex_t* out, size_t Nx, size_t Ny, size_t Nz, size
     //  kernel ~delta for sigma < N/2pi, i.e. keep only DC and flatten the image.
     const real_t kz = (z <= Nz / 2 ? real_t(z) : -real_t(Nz - z)) / real_t(Nz);
     real_t gz = expf(-az * kz * kz);
-    const real_t ky = (y <= H / 2 ? real_t(y) : -real_t(H - y)) / real_t(H);
+    const real_t ky = (y <= Ny / 2 ? real_t(y) : -real_t(Ny - y)) / real_t(Ny);
     real_t gy = expf(-ay * ky * ky) * gz;
     real_t kx = (real_t)x / (real_t)Nx;
     out[z * sliceStride + y * stride + x][0] = std::exp(-ax * kx * kx) * gy;
     out[z * sliceStride + y * stride + x][1] = 0.0f;
-}
-}
-    }
 }

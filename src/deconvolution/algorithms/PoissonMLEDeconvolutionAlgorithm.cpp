@@ -87,7 +87,15 @@ void estimatePsfSigmas(const IComputeBackend& compute,
     compute.backwardFFT(work, workReal);
 
     const size_t W = shape.width, Hh = shape.height, D = shape.depth;
-    const real_t* d = workReal.getData();
+
+    // Copy the recovered (device) PSF to the host before the moment loop — the
+    // host pointer must never be dereferenced while it still points at device
+    // memory (CUDA). Same copy-to-host idiom as estimateBackground; the host copy
+    // preserves the padded in-place layout, so the raw stride math below holds.
+    const IBackendMemoryManager& hostMem = BackendFactory::getInstance().getHostBackendMemoryManager();
+    RealData psfCopy = mem.copyDataToDevice(workReal);
+    RealData psfGhost = mem.moveDataFromDevice(psfCopy, hostMem);
+    const real_t* d = psfGhost.getData();
     const size_t stride = 2 * (W / 2 + 1);
     const size_t sliceStride = stride * Hh;
 
@@ -108,6 +116,7 @@ void estimatePsfSigmas(const IComputeBackend& compute,
                     mx2 += v * vx * vx; my2 += v * vy * vy; mz2 += v * vz * vz;
                 }
             }
+    hostMem.freeMemoryOnDevice(psfGhost);
 
     auto sd = [total](double m1, double m2) {
         if (total <= 0.0) return 0.0;
@@ -195,10 +204,12 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     // The forward model m = Hf + bg (and the photon flux bookkeeping) is only
     // physically correct when the OTF's DC term (= sum of the PSF) equals 1.
     // RichardsonLucy is scale-invariant and never needed this; the I-divergence
-    // is not. DC bin is element [0] of the half-complex buffer. (CPU reads it
-    // directly; a CUDA port needs a single host readback here.)
+    // is not. DC bin is element [0] of the half-complex buffer. The buffer lives
+    // on the device, so read back just the 8-byte DC element to the host.
     memory.memCopy(H, hNorm);
-    const real_t dc = hNorm.getData()[0][0];
+    real_t hostDc[2] = {0.0f, 0.0f};
+    memory.memCopy(hNorm.getData(), hostDc, sizeof(hostDc), hNorm.getSize());
+    const real_t dc = hostDc[0];
     if (std::abs(dc) > 1e-9f) {
         // scalarMultiplication takes complex_t (real_t[2]) by value: pass a named
         // array, not a braced temporary (which would decay to a pointer).

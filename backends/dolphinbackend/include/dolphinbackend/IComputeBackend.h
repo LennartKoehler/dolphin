@@ -238,5 +238,15 @@ public:
         COMPUTE_NOT_IMPLEMENTED(fillGaussianOTF);
     }
 
+    // Scale a half-complex OTF buffer in place so its DC bin (element [0]'s real part,
+    // = the sum of the spatial PSF) equals 1. The I-divergence (PoissonMLE) forward model
+    // m = Hf + bg is only physically correct for a unit-sum PSF (RichardsonLucy is
+    // scale-invariant and does not need this). Backends read the DC bin per their memory
+    // model (direct host read on CPU, a single device readback on CUDA). No-op if
+    // |DC| < epsilon.
+    virtual void normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const {
+        COMPUTE_NOT_IMPLEMENTED(normalizePsfUnitSum);
+    }
+
 };
 
