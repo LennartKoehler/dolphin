@@ -1,3 +1,5 @@
+think about iamge padding at outside. if imagepadding outside larger than inside. perhaps its wise to pass the total compute size into the recursion. And just say this is the total size, you have to fit the padding in there, and the rest is image. Currently its weird because the cube dim is total - imagepadding, but what if imagepadding < cubepadding, what about the other way around. I think the best would be to pass total size (restricted by memory) and then just say that if cube position at beginning then this much padding etc. so the recursion stays the same
+
 currently with the changes ot the backendconfig, as this already includes the device, the createbackendiwthsharedmemory is not really needed, as that just used the backends config to configure, now i can just manually take that backends config. Feels like two systems doing the same job
 
 crashes if memory in config is not set propery? should not happen

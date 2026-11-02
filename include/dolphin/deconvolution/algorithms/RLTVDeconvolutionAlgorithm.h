@@ -28,7 +28,7 @@ public:
     size_t getMemoryMultiplier() const override;
 protected:
     int iterations;
-    double lambda;
+    double signal_to_noise;
     bool initialized = false;
 
     // Algorithm-specific data members for intermediate calculations

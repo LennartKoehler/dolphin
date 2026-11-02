@@ -123,10 +123,10 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.algorithmName = "RichardsonLucy";
     deconvConfig.iterations = 5;
-    deconvConfig.epsilon = 1e-6f;
-    deconvConfig.lambda = 0.001f;
+    deconvConfig.min_denominator = 1e-6f;
+    deconvConfig.signal_to_noise = 0.001f;
     deconvConfig.paddingFillType = PaddingFillType::MIRROR;
-    deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
+    deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
 
     std::string setupConfigPath = testDir + "/setup_config.json";
     {
@@ -155,17 +155,18 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
         EXPECT_EQ(readDeconvConfig.algorithmName, "RichardsonLucy");
         EXPECT_EQ(readDeconvConfig.iterations, 5);
         EXPECT_EQ(readDeconvConfig.paddingFillType, PaddingFillType::MIRROR);
-        EXPECT_EQ(readDeconvConfig.paddingStrategyType, PaddingStrategyType::PARENT);
+        EXPECT_EQ(readDeconvConfig.paddingStrategyType, PaddingStrategyType::LOW);
     }
 
     // --- Step 4: Deconvolution ---
     GTEST_LOG_(INFO) << "Step 4: Running deconvolution";
 
+    auto setupConfigPtr = std::make_shared<SetupConfig>(readSetupConfig);
+    setupConfigPtr->psfConfigs = {readPsfConfig};
     DeconvolutionRequest request(
-        std::make_shared<SetupConfig>(readSetupConfig),
+        setupConfigPtr,
         std::make_shared<DeconvolutionConfig>(readDeconvConfig),
         progressCallback);
-    request.setInlinePSFConfigs({readPsfConfig});
 
     auto result = dolphin->deconvolve(request);
 

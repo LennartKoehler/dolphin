@@ -36,9 +36,9 @@ void GibsonLanniPSFConfig::registerAllParameters(){
     getParameters().push_back({ParameterType::Float, &tg_nm, "Coverslip Thickness Experimental (nm)", false, "coverslip_thickness_experimental_nm", "--coverslip_thickness_experimental_nm", "Coverslip thickness experimental", false, true, 0.0, 5000.0, nullptr});
     getParameters().push_back({ParameterType::Float, &ns, "Sample RI", false, "sample_ri", "--sample_ri", "Sample RI", false, true, 1.0, 2.0, nullptr});
     getParameters().push_back({ParameterType::Float, &particleAxialPosition_nm, "Particle Axial Position (nm)", false, "particle_axial_position_nm", "--particle_axial_position_nm", "Particle axial position", false, true, -5000.0, 5000.0, nullptr});
-    getParameters().push_back({ParameterType::Float, &lambda_nm, "Wavelength (nm)", false, "lambda_nm", "--lambda_nm", "Wavelength", false, true, 200.0, 700.0, nullptr});
-    getParameters().push_back({ParameterType::Int, &accuracy, "Accuracy", false, "accuracy", "--accuracy", "Accuracy", false, true, 1, 10, nullptr});
-    getParameters().push_back({ParameterType::Float, &OVER_SAMPLING, "Oversampling", false, "OVER_SAMPLING", "--OVER_SAMPLING", "Oversampling", false, true, 1.0, 10.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &wavelength_nm, "Wavelength (nm)", false, "wavelength_nm", "--wavelength_nm", "Wavelength", false, true, 200.0, 700.0, nullptr});
+    getParameters().push_back({ParameterType::Int, &integration_accuracy, "Integration Accuracy", false, "integration_accuracy", "--integration_accuracy", "Integration accuracy", false, true, 1, 10, nullptr});
+    getParameters().push_back({ParameterType::Float, &oversampling_factor, "Oversampling Factor", false, "oversampling_factor", "--oversampling_factor", "Oversampling factor", false, true, 1.0, 10.0, nullptr});
     getParameters().push_back({ParameterType::Float, &pixelSizeAxial_nm, "Pixel Size Axial (nm)", false, "pixel_size_axial_nm", "--pixel_size_axial_nm", "Pixel size axial", false, true, 1.0, 1000.0, nullptr});
     getParameters().push_back({ParameterType::Float, &pixelSizeLateral_nm, "Pixel Size Lateral (nm)", false, "pixel_size_lateral_nm", "--pixel_size_lateral_nm", "Pixel size lateral", false, true, 1.0, 1000.0, nullptr});
     getParameters().push_back({ParameterType::Float, &ng0, "Coverslip RI Design", true, "coverslip_ri_design", "--coverslip_ri_design", "Coverslip RI design", false, true, 1.0, 2.0, nullptr});
@@ -55,9 +55,9 @@ GibsonLanniPSFConfig::GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other)
     tg_nm = other.tg_nm;
     ns = other.ns;
     particleAxialPosition_nm = other.particleAxialPosition_nm;
-    lambda_nm = other.lambda_nm;
-    accuracy = other.accuracy;
-    OVER_SAMPLING = other.OVER_SAMPLING;
+    wavelength_nm = other.wavelength_nm;
+    integration_accuracy = other.integration_accuracy;
+    oversampling_factor = other.oversampling_factor;
     pixelSizeAxial_nm = other.pixelSizeAxial_nm;
     pixelSizeLateral_nm = other.pixelSizeLateral_nm;
     ng0 = other.ng0;

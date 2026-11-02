@@ -41,8 +41,8 @@ TEST_F(ConfigTest, DeconvolutionConfigLoadFromJSON) {
     ASSERT_TRUE(config.loadFromJSON(j));
     EXPECT_EQ(config.algorithmName, "RichardsonLucy");
     EXPECT_EQ(config.iterations, 10);
-    EXPECT_FLOAT_EQ(config.epsilon, 1e-6f);
-    EXPECT_FLOAT_EQ(config.lambda, 0.001f);
+    EXPECT_FLOAT_EQ(config.min_denominator, 1e-6f);
+    EXPECT_FLOAT_EQ(config.signal_to_noise, 0.001f);
 }
 
 TEST_F(ConfigTest, DeconvolutionConfigWriteToJSON) {
@@ -59,14 +59,14 @@ TEST_F(ConfigTest, DeconvolutionConfigRoundTrip) {
     DeconvolutionConfig config1;
     config1.algorithmName = "RichardsonLucyTotalVariation";
     config1.iterations = 25;
-    config1.lambda = 0.05f;
+    config1.signal_to_noise = 0.05f;
     json j = config1.writeToJSON();
 
     DeconvolutionConfig config2;
     ASSERT_TRUE(config2.loadFromJSON(j));
     EXPECT_EQ(config2.algorithmName, "RichardsonLucyTotalVariation");
     EXPECT_EQ(config2.iterations, 25);
-    EXPECT_FLOAT_EQ(config2.lambda, 0.05f);
+    EXPECT_FLOAT_EQ(config2.signal_to_noise, 0.05f);
 }
 
 TEST_F(ConfigTest, DeconvolutionConfigCopyConstructor) {
@@ -169,9 +169,9 @@ TEST_F(ConfigTest, SetupConfigAssignment) {
 TEST_F(ConfigTest, GaussianPSFConfigDefaults) {
     GaussianPSFConfig config;
     EXPECT_EQ(config.psfModelName, "Gaussian");
-    EXPECT_EQ(config.sizeX, 20);
-    EXPECT_EQ(config.sizeY, 20);
-    EXPECT_EQ(config.sizeZ, 10);
+    EXPECT_EQ(config.sizeX, 0);
+    EXPECT_EQ(config.sizeY, 0);
+    EXPECT_EQ(config.sizeZ, 0);
     EXPECT_FLOAT_EQ(config.sigmaX, 10);
     EXPECT_FLOAT_EQ(config.sigmaY, 10);
     EXPECT_FLOAT_EQ(config.sigmaZ, 10);
@@ -198,14 +198,14 @@ TEST_F(ConfigTest, GibsonLanniPSFConfigLoadFromJSON) {
     auto config = PSFConfig::createFromJSON(j);
     ASSERT_NE(config, nullptr);
     EXPECT_EQ(config->getModelName(), "GibsonLanni");
-    EXPECT_EQ(config->sizeX, 64);
-    EXPECT_EQ(config->sizeY, 64);
-    EXPECT_EQ(config->sizeZ, 32);
+    EXPECT_EQ(config->sizeX, 0);
+    EXPECT_EQ(config->sizeY, 0);
+    EXPECT_EQ(config->sizeZ, 0);
 
     auto* glConfig = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
     ASSERT_NE(glConfig, nullptr);
     EXPECT_FLOAT_EQ(glConfig->NA, 1.4f);
-    EXPECT_FLOAT_EQ(glConfig->lambda_nm, 450.0f);
+    EXPECT_FLOAT_EQ(glConfig->wavelength_nm, 450.0f);
 }
 
 TEST_F(ConfigTest, PSFConfigInvalidModel) {
@@ -242,12 +242,12 @@ TEST_F(ConfigTest, ConfigWriteToJSONRoundTrip) {
     DeconvolutionConfig config1;
     config1.algorithmName = "Convolution";
     config1.iterations = 3;
-    config1.epsilon = 1e-3f;
+    config1.min_denominator = 1e-3f;
     json j = config1.writeToJSON();
 
     DeconvolutionConfig config2;
     ASSERT_TRUE(config2.loadFromJSON(j));
     EXPECT_EQ(config2.algorithmName, "Convolution");
     EXPECT_EQ(config2.iterations, 3);
-    EXPECT_FLOAT_EQ(config2.epsilon, 1e-3f);
+    EXPECT_FLOAT_EQ(config2.min_denominator, 1e-3f);
 }

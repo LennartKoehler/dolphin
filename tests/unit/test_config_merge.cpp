@@ -24,6 +24,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/ThreadPool.h"
 #include "dolphin/Logging.h"
 #include "TestUtils.h"
+#include "dolphin_image/Types/PaddingFillType.h"
 #include "nlohmann/json.hpp"
 #include <fstream>
 #include <filesystem>
@@ -99,16 +100,28 @@ TEST_F(ConfigMergeTest, DeconvConfigFromSubObject) {
     auto config = DeconvolutionConfig::createFromJSONFile(path);
     EXPECT_EQ(config.algorithmName, "RichardsonLucy");
     EXPECT_EQ(config.iterations, 20);
-    EXPECT_FLOAT_EQ(config.epsilon, 1e-5f);
-    EXPECT_FLOAT_EQ(config.lambda, 0.02f);
+    EXPECT_FLOAT_EQ(config.min_denominator, 1e-5f);
+    EXPECT_FLOAT_EQ(config.signal_to_noise, 0.02f);
+}
+
+TEST_F(ConfigMergeTest, DeconvConfigSliceAllDimensions) {
+    auto jsonStr = R"({
+        "slice_all_dimensions": true
+    })";
+    auto path = writeTempJSON(jsonStr, "deconv_slice_dims.json");
+    auto config = DeconvolutionConfig::createFromJSONFile(path);
+    EXPECT_TRUE(config.sliceAllDimensions);
+
+    DeconvolutionConfig defaultConfig;
+    EXPECT_FALSE(defaultConfig.sliceAllDimensions);
 }
 
 TEST_F(ConfigMergeTest, DeconvConfigFromRootLevel) {
     auto jsonStr = R"({
         "algorithm_name": "Convolution",
         "iterations": 3,
-        "epsilon": 1e-3,
-        "lambda": 0.1
+        "min_denominator": 1e-3,
+        "signal_to_noise": 0.1
     })";
     auto path = writeTempJSON(jsonStr, "deconv_root.json");
     auto config = DeconvolutionConfig::createFromJSONFile(path);
@@ -192,7 +205,7 @@ TEST_F(ConfigMergeTest, InlinePSFGibsonLanni) {
     auto config = factory.createConfig(jsonData);
     ASSERT_NE(config, nullptr);
     EXPECT_EQ(config->getModelName(), "GibsonLanni");
-    EXPECT_EQ(config->sizeX, 64);
+    EXPECT_EQ(config->sizeX, 0);
 
     auto* glConfig = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
     ASSERT_NE(glConfig, nullptr);
@@ -215,35 +228,31 @@ TEST_F(ConfigMergeTest, InlinePSFMultiple) {
     EXPECT_EQ(configs[1]->ID, "psf2");
 }
 
-TEST_F(ConfigMergeTest, DeconvolutionRequestInlinePSFEmpty) {
-    auto setupConfig = std::make_shared<SetupConfig>();
-    auto deconvConfig = std::make_shared<DeconvolutionConfig>();
-    DeconvolutionRequest request(setupConfig, deconvConfig);
+TEST_F(ConfigMergeTest, SetupConfigPSFConfigsEmpty) {
+    SetupConfig setupConfig;
 
-    EXPECT_FALSE(request.hasInlinePSFConfigs());
-    EXPECT_TRUE(request.getInlinePSFConfigs().empty());
+    EXPECT_TRUE(setupConfig.psfConfigs.empty());
 }
 
-TEST_F(ConfigMergeTest, DeconvolutionRequestInlinePSFSetGet) {
-    auto setupConfig = std::make_shared<SetupConfig>();
-    auto deconvConfig = std::make_shared<DeconvolutionConfig>();
-
+TEST_F(ConfigMergeTest, SetupConfigPSFConfigsSetGet) {
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     json gaussJson = json::parse(TestUtils::gaussianPSFConfigJSON());
     auto psfConfig = factory.createConfig(gaussJson);
 
-    std::vector<std::shared_ptr<PSFConfig>> configs = {psfConfig};
+    SetupConfig setupConfig;
+    setupConfig.psfConfigs = {psfConfig};
 
-    DeconvolutionRequest request(setupConfig, deconvConfig);
-    request.setInlinePSFConfigs(configs);
+    ASSERT_EQ(setupConfig.psfConfigs.size(), 1);
+    EXPECT_EQ(setupConfig.psfConfigs[0]->getModelName(), "Gaussian");
+    EXPECT_EQ(setupConfig.psfConfigs[0]->ID, "test_gaussian");
 
-    EXPECT_TRUE(request.hasInlinePSFConfigs());
-    ASSERT_EQ(request.getInlinePSFConfigs().size(), 1);
-    EXPECT_EQ(request.getInlinePSFConfigs()[0]->getModelName(), "Gaussian");
-    EXPECT_EQ(request.getInlinePSFConfigs()[0]->ID, "test_gaussian");
+    // the runtime PSF configs survive a copy
+    SetupConfig copy = setupConfig;
+    ASSERT_EQ(copy.psfConfigs.size(), 1);
+    EXPECT_EQ(copy.psfConfigs[0].get(), psfConfig.get());
 }
 
-TEST_F(ConfigMergeTest, PSFHandlerInlineConfigsPreferredOverFilePaths) {
+TEST_F(ConfigMergeTest, PSFHandlerSetupPSFConfigs) {
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
     json gaussJson = json::parse(TestUtils::gaussianPSFConfigJSON());
     auto psfConfig = factory.createConfig(gaussJson);
@@ -251,16 +260,15 @@ TEST_F(ConfigMergeTest, PSFHandlerInlineConfigsPreferredOverFilePaths) {
     auto threadPool = std::make_shared<ThreadPool>(1);
     PSFHandler psfHandler(threadPool, [](std::atomic<float>&, float){});
 
-    psfHandler.setInlinePSFConfigs({psfConfig});
-    EXPECT_TRUE(psfHandler.hasInlineConfigs());
-
     SetupConfig setupConfig;
+    setupConfig.psfConfigs = {psfConfig};
     setupConfig.psfFilePaths = {};
 
     DeconvolutionConfig deconvConfig;
     deconvConfig.paddingStrategyType = PaddingStrategyType::NONE;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig);
+    psfHandler.generatePSFs(setupConfig, deconvConfig, CuboidShape{64, 64, 32});
+    auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 }
 
@@ -272,26 +280,25 @@ TEST_F(ConfigMergeTest, PSFHandlerDoubleLoadFix) {
     auto threadPool = std::make_shared<ThreadPool>(1);
     PSFHandler psfHandler(threadPool, [](std::atomic<float>&, float){});
 
-    psfHandler.setInlinePSFConfigs({psfConfig});
-
     SetupConfig setupConfig;
+    setupConfig.psfConfigs = {psfConfig};
     setupConfig.psfFilePaths = {};
 
     DeconvolutionConfig deconvConfig;
-    deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
+    deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig);
+    psfHandler.generatePSFs(setupConfig, deconvConfig, CuboidShape{32, 32, 16});
+    auto paddingResult = psfHandler.getPadding(deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 
-    auto shapeResult = psfHandler.getMaxShape(setupConfig, deconvConfig);
-    ASSERT_TRUE(shapeResult.success);
+    auto shapeResult = psfHandler.getMaxShape();
 
-    EXPECT_EQ(shapeResult.value.width, 32);
-    EXPECT_EQ(shapeResult.value.height, 32);
-    EXPECT_EQ(shapeResult.value.depth, 16);
+    EXPECT_EQ(shapeResult.width, 32u);
+    EXPECT_EQ(shapeResult.height, 32u);
+    EXPECT_EQ(shapeResult.depth, 16u);
 }
 
-TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
+TEST_F(ConfigMergeTest, PSFHandlerNoConfigsFailsPadding) {
     auto threadPool = std::make_shared<ThreadPool>(1);
     PSFHandler psfHandler(threadPool, [](std::atomic<float>&, float){});
 
@@ -299,12 +306,12 @@ TEST_F(ConfigMergeTest, PSFHandlerNoConfigsThrows) {
     setupConfig.psfFilePaths = {};
 
     DeconvolutionConfig deconvConfig;
-    deconvConfig.paddingStrategyType = PaddingStrategyType::PARENT;
+    deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
 
-    auto paddingResult = psfHandler.getPadding(setupConfig, deconvConfig);
-    ASSERT_TRUE(paddingResult.success);
-
-    EXPECT_THROW(psfHandler.createPSFs(CuboidShape{32, 32, 16}), std::runtime_error);
+    psfHandler.generatePSFs(setupConfig, deconvConfig, CuboidShape{32, 32, 16});
+    auto paddingResult = psfHandler.getPadding(deconvConfig);
+    ASSERT_FALSE(paddingResult.success);
+    EXPECT_EQ(psfHandler.getPSFs(CuboidShape{0,0,0}).size(), 0u);
 }
 
 
@@ -529,8 +536,8 @@ TEST_F(ConfigMergeTest, CLISim_AllThreeSectionsInJSON) {
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 15,
-            "epsilon": 1e-4,
-            "lambda": 0.05
+            "min_denominator": 1e-4,
+            "signal_to_noise": 0.05
         },
         "psf_configs": [
             {
