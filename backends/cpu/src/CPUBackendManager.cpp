@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/fmt/fmt.h>
 #include <filesystem>
 #include <fstream>
+#include <thread>
 
 namespace fs = std::filesystem;
 
@@ -65,6 +66,11 @@ IBackend& CPUBackendManager::createBackendSharedMemoryForCurrentThread(IBackend&
 
 int CPUBackendManager::getNumberDevices() const {
     return 1;
+}
+
+uint32_t CPUBackendManager::getMaxNumberThreads() const {
+    const unsigned count = std::thread::hardware_concurrency();
+    return count != 0 ? count : 1;
 }
 
 void CPUBackendManager::setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads, BackendConfig& ioconfig, BackendConfig& workerConfig) {

@@ -207,7 +207,7 @@ CPUBackendMemoryManager::~CPUBackendMemoryManager() {
 }
 
 
-size_t CPUBackendMemoryManager::staticGetAvailableMemory() {
+size_t CPUBackendMemoryManager::staticMaxGetAvailableMemory() {
     // For CPU backend, return available system memory
     size_t memory = 0;
 #ifdef __linux__
@@ -236,6 +236,7 @@ size_t CPUBackendMemoryManager::staticGetAvailableMemory() {
     }
     return memory;
 }
+
 void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
     auto access = memory.getAccess();
     access.data.maxMemorySize = maxMemorySize;
@@ -385,7 +386,7 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
 
 size_t CPUBackendMemoryManager::getAvailableMemory() const {
     try {
-        return staticGetAvailableMemory();
+        return staticMaxGetAvailableMemory();
     }
     catch (const std::exception& e) {
         log(fmt::format("Exception in getAvailableMemory: {}", e.what()), LogLevel::LOG_ERROR);

@@ -80,7 +80,7 @@ public:
     ~CPUBackendMemoryManager();
 
 
-    static size_t staticGetAvailableMemory();
+    static size_t staticMaxGetAvailableMemory();
     // Override device type method
     std::string getDeviceString() const noexcept override {
         return "cpu";
