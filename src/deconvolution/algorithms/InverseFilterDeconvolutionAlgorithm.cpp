@@ -17,7 +17,7 @@ See the LICENSE file provided with the code for the full license.
 
 void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
-    epsilon = config.epsilon;
+    min_denominator = config.min_denominator;
 }
 
 void InverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
@@ -48,7 +48,7 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealD
     backend->getComputeManager().forwardFFT(g, g_complex);
 
     // Complex division in frequency domain
-    backend->getComputeManager().complexDivision(g_complex, H, f_complex, static_cast<real_t>(epsilon));
+    backend->getComputeManager().complexDivision(g_complex, H, f_complex, static_cast<real_t>(min_denominator));
 
     // Backward FFT: ComplexData -> RealData
     backend->getComputeManager().backwardFFT(f_complex, f);
@@ -57,7 +57,7 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealD
 std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::cloneSpecific() const {
     auto copy = std::make_unique<InverseFilterDeconvolutionAlgorithm>();
     // Copy all relevant state
-    copy->epsilon = this->epsilon;
+    copy->min_denominator = this->min_denominator;
     copy->initialized = false; // Clone needs to be re-initialized
     // Don't copy backend - each thread needs its own
     return copy;

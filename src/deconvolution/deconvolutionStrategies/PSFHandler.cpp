@@ -12,160 +12,190 @@ See the LICENSE file provided with the code for the full license.
 */
 #include "dolphin/deconvolution/deconvolutionStrategies/PSFHandler.h"
 #include "dolphin/PSFCreator.h"
-#include "dolphin/psf/PSFGeneratorFactory.h"
+#include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin_image/ImagePadding.h"
+#include <cstdint>
 #include <spdlog/spdlog.h>
+#include <stdexcept>
+#include <sys/types.h>
 
 
-CuboidShape PSFHandler::getPSFPadding(const PSF& psf, PaddingStrategyType paddingType, float paddingRelativeMax) const {
-    CuboidShape padding;
-    switch(paddingType){
-    case(PARENT):
-        padding = PaddingStrategy::parentPadding(psf, paddingRelativeMax);
-        break;
-    case(FULL_PSF):
-        padding = PaddingStrategy::fullPSFPadding(psf);
-        break;
-    default:
-        padding = CuboidShape{0, 0, 0};
-        break;
+std::string PSFHandler::paddingStrategyName(PaddingStrategyType type) {
+    switch(type){
+        case(DEFAULT): return "DEFAULT";
+        case(NONE): return "NONE";
+        case(LOW): return "LOW";
+        case(MEDIUM): return "MEDIUM";
+        case(MAX): return "MAX";
+        default: return "UNKNOWN";
     }
-    return padding;
-
 }
 
-
-
-CuboidShape PSFHandler::getPaddingFromConfig(std::shared_ptr<PSFConfig> config, PaddingStrategyType paddingStrategy) const {
-    PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
-    std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(config);
-    return psfGenerator->getPadding(paddingStrategy);
+CuboidShape PSFHandler::getManualCubePadding(const std::array<int64_t, 3>& cubePadding) {
+    return CuboidShape{
+        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[0])),
+        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[1])),
+        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[2]))
+    };
 }
 
+CuboidShape PSFHandler::getManualRelativeMaxPadding(const PSF& psf, float paddingRelativeMax) const {
+    return psf.getRegionLargerThreshold(paddingRelativeMax * psf.getMax());
+}
+
+CuboidShape PSFHandler::getPresetPadding(const PSF& psf, PaddingStrategyType paddingType) const {
+    switch(paddingType){
+        case(DEFAULT):
+            [[fallthrough]];
+        case(MEDIUM):
+            return psf.getRegionLargerThreshold(1e-4f * psf.getMax());
+        case(LOW):
+            return psf.getRegionLargerThreshold(1e-3f * psf.getMax());
+        case(MAX):
+            return psf.getRegionLargerThreshold(1e-20f); // basically only zeroes are not included in padding
+        case(NONE):
+            return CuboidShape{0,0,0};
+        default:
+            assert(false);
+            return CuboidShape{0,0,0};
+    }
+}
 
 void PSFHandler::loadConfigsFromSetup(const SetupConfig& setupConfig) {
     if (configsLoaded) return;
     configsLoaded = true;
 
-    if (hasInlineConfigs()) {
-        psfConfigs = inlinePsfConfigs;
-    }
+    psfConfigs = setupConfig.psfConfigs;
 
     if (!setupConfig.psfFilePaths.empty()) {
-        filePSFs = PSFCreator::readPSFsFromFilePath(setupConfig.psfFilePaths);
+        std::vector<PSF> filePSFs = PSFCreator::readPSFsFromFilePath(setupConfig.psfFilePaths);
+        for (auto& psf : filePSFs){
+            psfs.push_back(std::make_shared<PSF>(psf));
+        }
     }
 }
 
 
-Result<Padding> PSFHandler::getPadding(
-    const SetupConfig& setupConfig,
-    const DeconvolutionConfig& deconvConfig)
-{
-    Padding padding;
+float PSFHandler::generationCutoffThreshold(const DeconvolutionConfig& deconvConfig) {
+    // The PSF is generated two orders of magnitude below the trim threshold so
+    // the later trim (padding) keeps a margin instead of cutting into signal.
+    if (deconvConfig.paddingRelativeMax > 0.0f)
+        return deconvConfig.paddingRelativeMax * 1e-2f;
 
-    switch(deconvConfig.paddingStrategyType){
-        case NONE:{
-            padding = Padding{CuboidShape{0,0,0}, CuboidShape{0,0,0}};
-            break;
-        }
-        case MANUAL:{
-            CuboidShape manualPadding{
-                static_cast<size_t>(std::max(0, deconvConfig.cubePadding[0])),
-                static_cast<size_t>(std::max(0, deconvConfig.cubePadding[1])),
-                static_cast<size_t>(std::max(0, deconvConfig.cubePadding[2]))
-            };
-            padding = Padding{manualPadding / 2, manualPadding - manualPadding / 2};
-            break;
-        }
-
-        default:{
-            loadConfigsFromSetup(setupConfig);
-
-            std::vector<CuboidShape> psfPaddings;
-
-            for (const auto& config : psfConfigs){
-                CuboidShape paddingSize = getPaddingFromConfig(config, deconvConfig.paddingStrategyType);
-                psfPaddings.push_back(paddingSize);
-            }
-
-            for (auto& psf : filePSFs){
-                CuboidShape paddingSize = getPSFPadding(psf, deconvConfig.paddingStrategyType, deconvConfig.paddingRelativeMax);
-                psfPaddings.push_back(paddingSize);
-            }
-
-            CuboidShape result = getLargestShape(psfPaddings);
-            padding = Padding{result / 2, result - result / 2};
-        }
+    switch (deconvConfig.paddingStrategyType) {
+        case(LOW):
+            return 1e-5f;
+        case(MAX):
+            return 1e-9f; // full support; the size cap bounds the cost
+        case(DEFAULT):
+            [[fallthrough]];
+        case(NONE):
+            [[fallthrough]];
+        case(MEDIUM):
+            return 1e-6f;
+        default:
+            return 1e-6f;
     }
-
-    if (padding.before < CuboidShape{0,0,0} ||
-        padding.after  < CuboidShape{0,0,0})
-    {
-        return Result<Padding>::fail(
-            "Padding for cubes is smaller than zero");
-    }
-
-
-    return Result<Padding>::ok(std::move(padding));
 }
 
-
-
-
-Result<CuboidShape> PSFHandler::getMaxShape(
+void PSFHandler::generatePSFs(
     const SetupConfig& setupConfig,
-    const DeconvolutionConfig& deconvConfig)
+    const DeconvolutionConfig& deconvConfig,
+    const CuboidShape& maxSize)
 {
     loadConfigsFromSetup(setupConfig);
 
-    std::vector<CuboidShape> psfShapes;
-
     for (const auto& config : psfConfigs){
-        psfShapes.push_back(config->getShape());
+        if (config->sizeX == 0) config->sizeX = maxSize.width;
+        if (config->sizeY == 0) config->sizeY = maxSize.height;
+        if (config->sizeZ == 0) config->sizeZ = maxSize.depth;
+        config->autoSize = true;
+        if (config->cutoffThreshold <= 0.0f)
+            config->cutoffThreshold = generationCutoffThreshold(deconvConfig);
+        auto psf = std::make_shared<PSF>(PSFCreator::generatePSFFromPSFConfig(config, threadpool, progressFn));
+        psfs.push_back(psf);
     }
 
-    for (auto& psf : filePSFs){
-        psfShapes.push_back(psf.getShape());
+    psfsGenerated = true;
+}
+
+
+Result<PaddingScheme> PSFHandler::getPadding(
+    const DeconvolutionConfig& deconvConfig) const
+{
+    const bool cubePaddingSet = deconvConfig.cubePadding[0] >= 0 && deconvConfig.cubePadding[1] >= 0 && deconvConfig.cubePadding[2] >= 0;
+    const bool relativeMaxSet = deconvConfig.paddingRelativeMax > 0.0f;
+
+    // precedence: padding_relative_max > cube_padding > preset; log the decision once here
+    if (relativeMaxSet) {
+        if (cubePaddingSet) spdlog::get("deconvolution")->info("padding_relative_max {} and cube_padding both provided, using padding_relative_max", deconvConfig.paddingRelativeMax);
+        if (deconvConfig.paddingStrategyType != PaddingStrategyType::DEFAULT) spdlog::get("deconvolution")->info("using padding_relative_max {} instead of preset {}", deconvConfig.paddingRelativeMax, paddingStrategyName(deconvConfig.paddingStrategyType));
+        if (psfs.empty()) return Result<PaddingScheme>::fail("padding_relative_max requires at least one PSF");
+        std::vector<CuboidShape> psfPaddings;
+        for (const auto& psf : psfs) psfPaddings.push_back(getManualRelativeMaxPadding(*psf, deconvConfig.paddingRelativeMax));
+        return makePaddingScheme(getLargestShape(psfPaddings));
+    }
+
+    if (cubePaddingSet) {
+        if (deconvConfig.paddingStrategyType != PaddingStrategyType::DEFAULT) spdlog::get("deconvolution")->info("using cube_padding [{} {} {}] instead of preset {}", deconvConfig.cubePadding[0], deconvConfig.cubePadding[1], deconvConfig.cubePadding[2], paddingStrategyName(deconvConfig.paddingStrategyType));
+        return makePaddingScheme(getManualCubePadding(deconvConfig.cubePadding));
+    }
+
+    if (deconvConfig.paddingStrategyType == PaddingStrategyType::DEFAULT){
+        spdlog::get("deconvolution")->info("No padding_strategy provided, using preset MEDIUM");
+    }
+    if (deconvConfig.cubePadding[0] >= 0 || deconvConfig.cubePadding[1] >= 0 || deconvConfig.cubePadding[2] >= 0){
+        spdlog::get("deconvolution")->warn("cube_padding partially provided [{} {} {}], ignoring, falling back to preset {}", deconvConfig.cubePadding[0], deconvConfig.cubePadding[1], deconvConfig.cubePadding[2], paddingStrategyName(deconvConfig.paddingStrategyType));
+    }
+    if (psfs.empty()){
+        return Result<PaddingScheme>::fail("No PSFs available, cannot determine padding");
+    }
+    std::vector<CuboidShape> psfPaddings;
+    for (const auto& psf : psfs){
+        psfPaddings.push_back(getPresetPadding(*psf, deconvConfig.paddingStrategyType));
+    }
+    return makePaddingScheme(getLargestShape(psfPaddings));
+}
+
+
+Result<PaddingScheme> PSFHandler::makePaddingScheme(CuboidShape totalPadding) const {
+    Padding padding{totalPadding / 2, totalPadding - totalPadding / 2};
+
+    PaddingScheme scheme;
+    scheme.insidePadding = padding;
+    //TODO which imagepadding, which cubepadding
+    scheme.imagePadding.before = scheme.insidePadding.before; /// 2;
+    scheme.imagePadding.after = scheme.insidePadding.after; /// 2;
+
+    spdlog::get("deconvolution")->debug("PSFHandler reported the following necessary padding: inside {} before, {} after; image {} before, {} after",
+        scheme.insidePadding.before.print(), scheme.insidePadding.after.print(),
+        scheme.imagePadding.before.print(), scheme.imagePadding.after.print());
+
+    assert(scheme.insidePadding.before >= scheme.imagePadding.before); // currently needed by imagesplit
+    return Result<PaddingScheme>::ok(std::move(scheme));
+}
+
+
+CuboidShape PSFHandler::getMaxShape() const
+{
+    std::vector<CuboidShape> psfShapes;
+
+    for (const auto& psf : psfs){
+        psfShapes.push_back(psf->getShape());
     }
 
     CuboidShape largestPSF = getLargestShape(psfShapes);
 
-    if (largestPSF < CuboidShape{0,0,0})
-    {
-        return Result<Padding>::fail(
-            "Padding for cubes is smaller than zero");
-    }
-
-
-    return Result<CuboidShape>::ok(std::move(largestPSF));
+    return largestPSF;
 }
 
-std::vector<std::shared_ptr<PSF>> PSFHandler::createPSFs(
-    const CuboidShape& psfShape)
-{
-
-    std::vector<std::shared_ptr<PSF>> psfs;
-
-    for (auto& config : psfConfigs){
-        config->sizeX = psfShape.width;
-        config->sizeY = psfShape.height;
-        config->sizeZ = psfShape.depth;
-        std::shared_ptr<PSF> psf = std::make_shared<PSF>(PSFCreator::generatePSFFromPSFConfig(config, threadpool, progressFn));
-        auto logger = spdlog::get("config");
-        logger->debug("Using the following PSF from config");
-        config->printValues();
-        psfs.emplace_back(psf);
-
-    }
-
-    for (auto& psf : filePSFs){
-        psfs.emplace_back(std::make_shared<PSF>(std::move(psf)));
-    }
-
-    if (psfs.size() <= 0){
-        throw std::runtime_error("No PSFs supplied as either a PSF Config or as a file");
+std::vector<std::shared_ptr<PSF>>& PSFHandler::getPSFs(const CuboidShape& shape){
+    for (std::shared_ptr<PSF> psf: psfs){
+        ImagePadding::fitToShape(*psf, shape, PaddingFillType::ZERO);
     }
     return psfs;
 }
+
 
 std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
 
@@ -177,8 +207,8 @@ std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
         {
             auto logger = spdlog::get("deconvolution");
             logger->debug("Preprocessing PSF...");
+            if (targetShape != inputPSF->getShape()) throw std::runtime_error("PSF Preprocessor: PSF in shape " + inputPSF->getShape().print() + " but should be in shape " + targetShape.print());
 
-            ImagePadding::padToShape(*inputPSF, targetShape, PaddingFillType::ZERO);
             RealData h = Preprocessor::convertImageToRealData(*inputPSF);
             RealData h_device = backend.getMemoryManager().copyDataToDevice(h);
 
