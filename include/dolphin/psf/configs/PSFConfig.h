@@ -47,10 +47,15 @@ public:
 
     std::string psfModelName;
     std::string ID;
+    bool autoSize = false;
 
-    size_t sizeX = 20;
-    size_t sizeY = 20;
-    size_t sizeZ = 10;
+    size_t sizeX = 0;
+    size_t sizeY = 0;
+    size_t sizeZ = 0;
+    /** Relative intensity cutoff for the auto-size PSF support.
+     *  0 (default): derive the cutoff from the deconvolution padding strategy
+     *  (see PSFHandler). >0: explicit cutoff used as-is. */
+    float cutoffThreshold = 0.0f;
 
 protected:
     void registerAllParameters();

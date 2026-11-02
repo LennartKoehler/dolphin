@@ -20,6 +20,17 @@ dolphin_add_test(imageSplit_test
     INCLUDES ${TEST_INCLUDES}
 )
 
+# Exhaustive geometric-contract tests (thousands of splits).
+# Labeled "exhaustive" so regular CI can skip them:
+#   ctest -LE exhaustive                # skip exhaustive
+#   ctest -L exhaustive --output-on-failure  # run only exhaustive
+dolphin_add_test(imageSplit_contract_test
+    SOURCES imageSplit_contract_test.cpp
+    LIBS dolphin
+    INCLUDES ${TEST_INCLUDES}
+    LABELS exhaustive
+)
+
 dolphin_add_test(getLabelGroups_test
     SOURCES getLabelGroups_test.cpp
     LIBS dolphin

@@ -17,7 +17,7 @@ See the LICENSE file provided with the code for the full license.
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
-    lambda = config.lambda;
+    signal_to_noise = config.signal_to_noise;
 }
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
@@ -46,7 +46,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     const IComputeBackend& deconvolution = backend->getComputeManager();
 
-    complex_t lambdacomplex = {static_cast<real_t>(lambda), 0};
+    complex_t signalToNoiseComplex = {static_cast<real_t>(signal_to_noise), 0};
 
     // Verify inputs are on device
     assert(memory.isOnDevice(H.getData()) && "PSF is not on device");
@@ -67,7 +67,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     assert(false); //laplacian not implemented
     // deconvolution.calculateLaplacianOfPSF(H, L);
     deconvolution.complexMultiplication(L, L, L2);
-    deconvolution.scalarMultiplication(L2, lambdacomplex, L2);
+    deconvolution.scalarMultiplication(L2, signalToNoiseComplex, L2);
 
     deconvolution.complexAddition(H2, L2, FA);
     deconvolution.complexDivisionStabilized(H, FA, FP, static_cast<real_t>(complexDivisionEpsilon));
@@ -81,7 +81,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
 std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlgorithm::cloneSpecific() const {
     auto copy = std::make_unique<RegularizedInverseFilterDeconvolutionAlgorithm>();
     // Copy all relevant state
-    copy->lambda = this->lambda;
+    copy->signal_to_noise = this->signal_to_noise;
     copy->initialized = false; // Clone needs to be re-initialized
     // Don't copy backend - each thread needs its own
     return copy;
