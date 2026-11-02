@@ -20,6 +20,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphinbackend/ComplexData.h"
 #include "dolphinbackend/CuboidShape.h"
+#include "dolphinbackend/Exceptions.h"
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IBackendManager.h"
 #include "dolphinbackend/IBackendMemoryManager.h"
@@ -334,8 +335,66 @@ TEST_F(CUDAMemoryManagerTest, IsOnDevice) {
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
     CuboidShape shape(8, 8, 4);
     RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
-    EXPECT_TRUE(memMgr.isOnDevice(data.getData()));
-    EXPECT_FALSE(memMgr.isOnDevice(nullptr));
+    // Pointer-level queries are backend-internal; users query handles.
+    EXPECT_TRUE(memMgr.isOnDevice(data));
+}
+
+TEST_F(CUDAMemoryManagerTest, IsOnDeviceHandleOverload) {
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+    RealData data = memMgr.allocateMemoryOnDeviceReal(shape);
+    EXPECT_TRUE(memMgr.isOnDevice(data));
+
+    // A host pointer is not on the CUDA device.
+    std::vector<real_t> host(shape.getVolume(), 0.0f);
+    RealData hostHandle;
+    hostHandle.setData(host.data());
+    hostHandle.setBackend(nullptr);
+    EXPECT_FALSE(memMgr.isOnDevice(hostHandle));
+
+    // Handle with no buffer is not on device.
+    RealData empty;
+    EXPECT_FALSE(memMgr.isOnDevice(empty));
+}
+
+TEST_F(CUDAMemoryManagerTest, ReinterpretViewCarriesProvenance) {
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 8, 4);
+    RealData realData = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+
+    DataView<complex_t> complexView = memMgr.reinterpret(realData);
+    // The view carries the allocating backend as provenance...
+    EXPECT_EQ(complexView.getBackend(), &memMgr);
+    // ...so handle-level isOnDevice works on it.
+    EXPECT_TRUE(memMgr.isOnDevice(complexView));
+    // The view never owns: destroying it must not free the source buffer.
+    {
+        DataView<complex_t> scoped = memMgr.reinterpret(realData);
+        EXPECT_TRUE(scoped.isValid());
+    }
+    EXPECT_TRUE(memMgr.isOnDevice(realData));
+}
+
+TEST_F(CUDAMemoryManagerTest, TransferOwnership) {
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(16, 8, 4);
+    RealData realData = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+
+    // Validated transfer returns an owning handle over the SAME buffer; the
+    // source is detached without freeing (the device buffer is freed exactly
+    // once, by the owner, on scope exit).
+    DataView<complex_t> view = memMgr.reinterpret(realData);
+    ComplexData owner = memMgr.transferOwnership(realData, view);
+    EXPECT_FALSE(realData.isValid());
+    EXPECT_TRUE(owner.isValid());
+    EXPECT_EQ(owner.getBackend(), &memMgr);
+    EXPECT_EQ(owner.getData(), view.getData());
+
+    // Detached source cannot transfer again (it no longer owns).
+    RealData other = memMgr.allocateMemoryOnDeviceReal(shape);
+    DataView<complex_t> otherView = memMgr.reinterpret(other);
+    EXPECT_THROW(memMgr.transferOwnership(realData, otherView), dolphin::backend::BackendException);
+    EXPECT_TRUE(other.isValid());
 }
 
 TEST_F(CUDAMemoryManagerTest, GetAllocatedMemory) {

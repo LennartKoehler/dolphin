@@ -23,7 +23,6 @@ namespace CUBE_MAT {
     cudaError_t complexElementwiseMatDivStabilized(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon, cudaStream_t stream = 0);
     cudaError_t complexScalarMul(size_t Nx, size_t Ny, size_t Nz, complex_t* A, real_t scalarReal, real_t scalarImag, complex_t* C, cudaStream_t stream = 0);
     cudaError_t complexAddition(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream = 0);
-    cudaError_t complexAddition(complex_t** data, complex_t* sums, size_t nImages, size_t imageVolume, cudaStream_t stream = 0);
 
     cudaError_t elementwiseMatDiv(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t* C, real_t epsilon, cudaStream_t stream = 0);
     cudaError_t scalarMul(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scalar , real_t* C, cudaStream_t stream = 0);
@@ -31,7 +30,7 @@ namespace CUBE_MAT {
 
     cudaError_t sum(size_t Nx, size_t Ny, size_t Nz, complex_t* data, complex_t* result, cudaStream_t stream = 0);
     cudaError_t meanSquareError(size_t Nx, size_t Ny, size_t Nz, complex_t* a, complex_t* b, real_t* result, cudaStream_t stream = 0);
-    cudaError_t sumToOne(real_t** data, size_t nImages, size_t imageVolume, cudaStream_t stream = 0);
+    cudaError_t sumToOne(size_t Nx, size_t Ny, size_t Nz, size_t stride, size_t sliceStride, real_t** d_data, size_t nImages, cudaStream_t stream = 0);
 }
 
 namespace CUBE_REG {
