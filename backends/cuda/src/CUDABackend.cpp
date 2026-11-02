@@ -271,10 +271,19 @@ CUDAComputeBackend::~CUDAComputeBackend() {
 }
 
 void CUDAComputeBackend::initializePlan(const FFTPlanDescription& description) {
-    getPlan(description);
+    // Pre-warming only (the interface carries no buffer), so the real padding is
+    // assumed: in-place real plans use the padded in-place layout, everything
+    // else is unpadded.
+    size_t realPadding = 0;
+    if (description.type == PlanType::REAL && description.inPlace) {
+        size_t width = description.shape.width;
+        realPadding = 2 * (width / 2 + 1) - width;
+    }
+    CUDAFFTPlanDescription cudaDescription(description.direction, description.type, description.shape, description.inPlace, realPadding);
+    getPlan(cudaDescription);
 }
 
-cufftHandle CUDAComputeBackend::getPlan(const FFTPlanDescription& description) {
+cufftHandle CUDAComputeBackend::getPlan(const CUDAFFTPlanDescription& description) {
 
     for (cuFFTPlan& plan : cuFFTPlans){
         if (plan.description == description){
@@ -288,12 +297,12 @@ cufftHandle CUDAComputeBackend::getPlan(const FFTPlanDescription& description) {
     return newPlan;  // Return reference to the stored plan
 }
 
-void CUDAComputeBackend::addPlan(const FFTPlanDescription& description, cufftHandle handle){
+void CUDAComputeBackend::addPlan(const CUDAFFTPlanDescription& description, cufftHandle handle){
     cuFFTPlan plan{ handle, description };
     cuFFTPlans.push_back(std::move(plan));
 }
 
-void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPlanDescription& description) const {
+void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description) const {
     int rank = 3;
     long long int Nx = static_cast<long long int>(description.shape.width);
     long long int Ny = static_cast<long long int>(description.shape.height);
@@ -301,24 +310,26 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
 
     long long int n[3] = {Nz, Ny, Nx};
 
-    // For out-of-place: real input is unpadded, inembed matches logical dimensions.
-    // For in-place: real input must be padded on the last dimension to 2*(Nx/2+1)
-    //              to accommodate the complex output, so inembed reflects the padded size.
-    // onembed is always {Nz, Ny, Nx/2+1} (complex output has halved last dimension).
-    long long int inembed[3];
-    long long int onembed[3] = {Nz, Ny, Nx/2+1};
+    // The real input layout is taken from description.realPadding (the actual row
+    // padding of the real buffer the caller passes in), so unpadded out-of-place
+    // real data and padded in-place real data both get correct plans.
+    long long int complexWidth = Nx/2+1;
+    // Physical row length of the real buffer in real_t elements (logical width + padding).
+    long long int realStride = Nx + static_cast<long long int>(description.realPadding);
+
+    if (description.inPlace) {
+        BACKEND_CHECK(realStride == 2 * complexWidth, "In-place r2c plan requires the real buffer to be padded to width 2*(width/2+1)", "CUDA", "createPlanRealToComplex - in-place layout", buildCudaContext(config));
+    }
+
+    long long int inembed[3] = {Nz, Ny, realStride};
+    long long int onembed[3] = {Nz, Ny, complexWidth};
 
     long long int istride = 1;
     long long int ostride = 1;
 
-    long long int idist;
-    long long int odist = Nz * Ny * (Nx/2+1);
-
-    inembed[0] = Nz;
-    inembed[1] = Ny;
-    inembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
-    idist = Nz * Ny * 2*(Nx/2+1);
-    size_t worksize = idist * sizeof(real_t);
+    long long int idist = Nz * Ny * realStride;
+    long long int odist = Nz * Ny * complexWidth;
+    size_t worksize = static_cast<size_t>(idist) * sizeof(real_t);
 
     try {
 
@@ -351,7 +362,7 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const FFTPla
     }
 }
 
-void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPlanDescription& description) const {
+void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const CUDAFFTPlanDescription& description) const {
     int rank = 3;
     long long int Nx = static_cast<long long int>(description.shape.width);
     long long int Ny = static_cast<long long int>(description.shape.height);
@@ -359,24 +370,26 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPla
 
     long long int n[3] = {Nz, Ny, Nx};
 
-    // For out-of-place: real input is unpadded, inembed matches logical dimensions.
-    // For in-place: real input must be padded on the last dimension to 2*(Nx/2+1)
-    //              to accommodate the complex output, so inembed reflects the padded size.
-    // onembed is always {Nz, Ny, Nx/2+1} (complex output has halved last dimension).
-    long long int onembed[3];
-    long long int inembed[3] = {Nz, Ny, Nx/2+1};
+    // The real output layout is taken from description.realPadding (the actual row
+    // padding of the real buffer the caller passes in), so unpadded out-of-place
+    // real data and padded in-place real data both get correct plans.
+    long long int complexWidth = Nx/2+1;
+    // Physical row length of the real buffer in real_t elements (logical width + padding).
+    long long int realStride = Nx + static_cast<long long int>(description.realPadding);
+
+    if (description.inPlace) {
+        BACKEND_CHECK(realStride == 2 * complexWidth, "In-place c2r plan requires the real buffer to be padded to width 2*(width/2+1)", "CUDA", "createPlanComplexToReal - in-place layout", buildCudaContext(config));
+    }
+
+    long long int inembed[3] = {Nz, Ny, complexWidth};
+    long long int onembed[3] = {Nz, Ny, realStride};
 
     long long int istride = 1;
     long long int ostride = 1;
 
-    long long int odist;
-    long long int idist = Nz * Ny * (Nx/2+1);
-
-    onembed[0] = Nz;
-    onembed[1] = Ny;
-    onembed[2] = 2*(Nx/2+1);  // padded last dimension (in real_t units)
-    odist = Nz * Ny * 2*(Nx/2+1);
-    size_t worksize = odist * sizeof(real_t);
+    long long int idist = Nz * Ny * complexWidth;
+    long long int odist = Nz * Ny * realStride;
+    size_t worksize = static_cast<size_t>(odist) * sizeof(real_t);
 
     try {
 
@@ -409,13 +422,13 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const FFTPla
     }
 }
 
-void CUDAComputeBackend::createPlanComplex(cufftHandle& plan, const FFTPlanDescription& description) const {
+void CUDAComputeBackend::createPlanComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description) const {
     size_t tempSize = sizeof(complex_t) * description.shape.getVolume();
     CUFFT_RUNTIME_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2C, &tempSize), "getPlan - C2C plan setup", buildCudaContext(config));
 }
 
 
-cufftHandle CUDAComputeBackend::initializePlan_(const FFTPlanDescription& description){
+cufftHandle CUDAComputeBackend::initializePlan_(const CUDAFFTPlanDescription& description){
     ensureDevice();
     // Plan not found, create a new one
     CuboidShape shape = description.shape;
@@ -475,7 +488,8 @@ void CUDAComputeBackend::forwardFFT(const ComplexData& in, ComplexData& out) con
     BACKEND_CHECK(in.getSize().getVolume() == out.getSize().getVolume(), "Size mismatch in forwardFFT", "CUDA", "forwardFFT", buildCudaContext(config));
 
     // Get or create the forward FFT plan
-    FFTPlanDescription desc(PlanDirection::FORWARD, PlanType::COMPLEX, in.getSize(), true);
+    bool inPlace = in.getData() == out.getData();
+    CUDAFFTPlanDescription desc(PlanDirection::FORWARD, PlanType::COMPLEX, in.getSize(), inPlace);
     cufftHandle forwardPlan = const_cast<CUDAComputeBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
@@ -494,7 +508,8 @@ void CUDAComputeBackend::backwardFFT(const ComplexData& in, ComplexData& out) co
     BACKEND_CHECK(in.getSize().getVolume() == out.getSize().getVolume(), "Size mismatch in backwardFFT", "CUDA", "backwardFFT", buildCudaContext(config));
 
     // Get or create the backward FFT plan
-    FFTPlanDescription desc(PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize(), true);
+    bool inPlace = in.getData() == out.getData();
+    CUDAFFTPlanDescription desc(PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize(), inPlace);
     cufftHandle backwardPlan = const_cast<CUDAComputeBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
@@ -513,8 +528,18 @@ void CUDAComputeBackend::forwardFFT(const RealData& in, ComplexData& out) const 
     BACKEND_CHECK(in.getSize().getVolume() > 0, "Invalid input data size for forwardFFTReal", "CUDA", "forwardFFTReal", buildCudaContext(config));
     BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for forwardFFTReal", "CUDA", "forwardFFTReal", buildCudaContext(config));
 
+    size_t complexWidth = in.getSize().width / 2 + 1;
+    BACKEND_CHECK(out.getSize().width == complexWidth, "r2c output must have half-width complex layout (width/2+1)", "CUDA", "forwardFFTReal - output layout", buildCudaContext(config));
+    BACKEND_CHECK(out.getPadding() == 0, "r2c output must not have padding", "CUDA", "forwardFFTReal - output layout", buildCudaContext(config));
+
+    bool inPlace = in.getData() == (real_t*)out.getData();
+    if (inPlace) {
+        size_t paddedWidth = 2 * complexWidth;
+        BACKEND_CHECK(in.getSize().width + in.getPadding() == paddedWidth, "In-place r2c requires the real buffer to be padded to width 2*(width/2+1)", "CUDA", "forwardFFTReal - in-place layout", buildCudaContext(config));
+    }
+
     // Get or create the forward FFT plan
-    FFTPlanDescription desc(PlanDirection::FORWARD, PlanType::REAL, in.getSize(), true);
+    CUDAFFTPlanDescription desc(PlanDirection::FORWARD, PlanType::REAL, in.getSize(), inPlace, in.getPadding());
     cufftHandle forwardPlan = const_cast<CUDAComputeBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan
@@ -530,8 +555,18 @@ void CUDAComputeBackend::backwardFFT(const ComplexData& in, RealData& out) const
     BACKEND_CHECK(in.getSize().getVolume() > 0, "Invalid input data size for backwardFFTReal", "CUDA", "backwardFFTReal", buildCudaContext(config));
     BACKEND_CHECK(out.getSize().getVolume() > 0, "Invalid output data size for backwardFFTReal", "CUDA", "backwardFFTReal", buildCudaContext(config));
 
+    BACKEND_CHECK(in.getSize().width == out.getSize().width / 2 + 1, "c2r input must have half-width complex layout (width/2+1)", "CUDA", "backwardFFTReal - input layout", buildCudaContext(config));
+    BACKEND_CHECK(in.getPadding() == 0, "c2r input must not have padding", "CUDA", "backwardFFTReal - input layout", buildCudaContext(config));
+
+    bool inPlace = in.getData() == (complex_t*)out.getData();
+    if (inPlace) {
+        size_t complexWidth = out.getSize().width / 2 + 1;
+        size_t paddedWidth = 2 * complexWidth;
+        BACKEND_CHECK(out.getSize().width + out.getPadding() == paddedWidth, "In-place c2r requires the real buffer to be padded to width 2*(width/2+1)", "CUDA", "backwardFFTReal - in-place layout", buildCudaContext(config));
+    }
+
     // Get or create the backward FFT plan
-    FFTPlanDescription desc(PlanDirection::BACKWARD, PlanType::REAL, out.getSize(), true);
+    CUDAFFTPlanDescription desc(PlanDirection::BACKWARD, PlanType::REAL, out.getSize(), inPlace, out.getPadding());
     cufftHandle backwardPlan = const_cast<CUDAComputeBackend*>(this)->getPlan(desc);
 
     // Validate FFT plan

@@ -107,7 +107,7 @@ else()
 endif()
 
 # GoogleTest — fetched only when tests are enabled
-option(ENABLE_TESTS "Enable tests" OFF)
+option(ENABLE_TESTS "Enable tests" ON)
 option(ENABLE_BENCHMARKS "Build benchmark executables" OFF)
 # Individual per-file test executables (debugging aid); the combined
 # dolphin_all_tests binary is always built when ENABLE_TESTS=ON.
@@ -380,7 +380,7 @@ if(ENABLE_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif()
 
-option(BUILD_CLI "Build the CLI frontend" OFF)
+option(BUILD_CLI "Build the CLI frontend" ON)
 if(BUILD_CLI)
     add_subdirectory(frontends/cli)
 endif()
