@@ -56,7 +56,7 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
     maxMemHost_gb = other.maxMemHost_gb;
     maxMemDevice_gb = other.maxMemDevice_gb;
     outputPath = other.outputPath;
-    numReaderThreads = other.numReaderThreads;
+    nReaderThreads = other.nReaderThreads;
     outputCompression = other.outputCompression;
     outputCompressionLevel = other.outputCompressionLevel;
     tileWidth = other.tileWidth;
@@ -75,7 +75,7 @@ SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
         maxMemHost_gb = other.maxMemHost_gb;
         maxMemDevice_gb = other.maxMemDevice_gb;
         outputPath = other.outputPath;
-        numReaderThreads = other.numReaderThreads;
+        nReaderThreads = other.nReaderThreads;
         outputCompression = other.outputCompression;
         outputCompressionLevel = other.outputCompressionLevel;
         tileWidth = other.tileWidth;
@@ -183,7 +183,7 @@ void SetupConfig::registerAllParameters(){
     parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
-    parameters.push_back({ParameterType::Int, &numReaderThreads, "Number of Reader Threads", true, "n_reader_threads", "--n_reader_threads", "Number of TIFF reader threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Int, &nReaderThreads, "Number of Reader Threads", true, "n_reader_threads", "--n_reader_threads", "Number of TIFF reader threads", false, true, 0.0, 100.0, nullptr});
     const void* outputCompressionMap_p = static_cast<const void*>(&outputCompressionTypeMap);
     parameters.push_back({ParameterType::Map, &outputCompression, "Output Compression", true, "output_compression", "--output_compression", "TIFF compression scheme", false, false, 0.0, 0.0, outputCompressionMap_p});
     parameters.push_back({ParameterType::Int, &outputCompressionLevel, "Output Compression Level", true, "output_compression_level", "--output_compression_level", "Compression level", false, true, -1.0, 9.0, nullptr});

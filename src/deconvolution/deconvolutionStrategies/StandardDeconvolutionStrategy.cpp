@@ -38,11 +38,29 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     Memory memory = resolveMemory(setupConfig);
 
+    size_t totalThreads = setupConfig.nThreads;
+    size_t ioThreads = setupConfig.nIOThreads;
+    size_t workerThreads = setupConfig.nWorkerThreads;
+    size_t nReaderThreads = setupConfig.nReaderThreads;
+    int nDevices = setupConfig.nDevices;
+    // these are necessary as the cpu can have actual seperate threads for each task or use multiple threads for one task
+    BackendConfig workerConfig; // these are configured by the backend so that when its given a task it know what to do
+    BackendConfig ioConfig;
+
+
+    resolveThreadsAndDevices(
+    BackendFactory::getBackendManagerStatic(setupConfig.backend),
+        nDevices,
+        workerThreads,
+        ioThreads,
+        totalThreads,
+        workerConfig,
+        ioConfig);
+
+
     // set up reader and writer
     ReaderConfig readerConfig;
-    readerConfig.numReaderThreads = setupConfig.numReaderThreads > 0
-        ? static_cast<size_t>(setupConfig.numReaderThreads)
-        : setupConfig.nIOThreads;
+    readerConfig.numReaderThreads = nReaderThreads;
     readerConfig.readerMemory_byte = memory.hostMem_byte;
     int readerChannel = 0; //TODO unused
     reader->configure(readerChannel, readerConfig);
@@ -82,23 +100,6 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     setupConfig.printValues();
 
 
-    size_t totalThreads = setupConfig.nThreads;
-    size_t ioThreads = setupConfig.nIOThreads;
-    size_t workerThreads = setupConfig.nWorkerThreads;
-    int nDevices = setupConfig.nDevices;
-    // these are necessary as the cpu can have actual seperate threads for each task or use multiple threads for one task
-    BackendConfig workerConfig; // these are configured by the backend so that when its given a task it know what to do
-    BackendConfig ioConfig;
-
-
-    resolveThreadsAndDevices(
-        BackendFactory::getBackendManagerStatic(setupConfig.backend),
-		nDevices,
-		workerThreads,
-		ioThreads,
-		totalThreads,
-        workerConfig,
-        ioConfig);
 
 
     std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = getCubes(
@@ -362,27 +363,30 @@ size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
 Memory StandardDeconvolutionStrategy::resolveMemory(const SetupConfig& config) const{
 
     Memory memory;
-    size_t maxMemDevice_byte = static_cast<size_t>(config.maxMemDevice_gb * 1024 * 1024 * 1024);
-    size_t maxMemHost_byte = static_cast<size_t>(config.maxMemHost_gb * 1024 * 1024 * 1024);
     //memDevice is also synonym for memory on backend, in the case where device == host the deconvstrategy will use maxMemDevice to set up the deconvolutionstrategy
-    if (config.backend == HOST_BACKEND){
-        size_t totalMemoryOnHost = std::max(maxMemDevice_byte, maxMemHost_byte);
-        totalMemoryOnHost = std::max(totalMemoryOnHost, maxMemDevice_byte + maxMemHost_byte);
-        totalMemoryOnHost = std::min(totalMemoryOnHost, BackendFactory::getHostBackendMemoryManagerStatic().getAvailableMemory());
-        totalMemoryOnHost = totalMemoryOnHost <= 0 ? BackendFactory::getHostBackendMemoryManagerStatic().getAvailableMemory() : totalMemoryOnHost;
-        memory.hostMem_byte = 1/3.5 * totalMemoryOnHost; // need a bit for the io copy operations, dont use everything
-        memory.deviceMem_byte = 2/3.5 * totalMemoryOnHost;
 
-
+    size_t totalMemoryOnHost;
+    size_t maxMemoryOnHost = std::min(totalMemoryOnHost, BackendFactory::getHostBackendMemoryManagerStatic().getAvailableMemory());
+    if (config.maxMemDevice_gb == -1 && config.maxMemHost_gb == -1){
+        totalMemoryOnHost = maxMemoryOnHost;
     }
     else{
+
+        size_t totalMemoryOnHost_gb = std::max(config.maxMemDevice_gb, config.maxMemHost_gb);
+        totalMemoryOnHost = static_cast<size_t>(totalMemoryOnHost_gb * 1024 * 1024 * 1024);
+        totalMemoryOnHost = std::max(maxMemoryOnHost, totalMemoryOnHost);
+    }
+    memory.hostMem_byte = 1/3.5 * totalMemoryOnHost; // need a bit for the io copy operations, dont use everything
+    memory.deviceMem_byte = 2/3.5 * totalMemoryOnHost;
+
+
+    if (config.backend != HOST_BACKEND){
         // on device and host use everything under the limit for device and host
         // assumption is that if a cube fits on the device (e.g. gpu) then it will also fit on RAM
         const IBackendMemoryManager& deviceManager = BackendFactory::getBackendManagerStatic(config.backend).createBackendForCurrentThread(BackendConfig()).getMemoryManager();
-        memory.deviceMem_byte = maxMemDevice_byte <= 0 ? deviceManager.getAvailableMemory() : maxMemDevice_byte;
+        memory.deviceMem_byte = config.maxMemDevice_gb == -1 ? deviceManager.getAvailableMemory() : static_cast<size_t>(config.maxMemHost_gb * 1024 * 1024 * 1024);
         memory.deviceMem_byte = std::min(memory.deviceMem_byte, deviceManager.getAvailableMemory());
-        memory.hostMem_byte = maxMemHost_byte <= 0 ? BackendFactory::getHostBackendMemoryManagerStatic().getAvailableMemory() : maxMemHost_byte;
-        memory.hostMem_byte = std::min(memory.hostMem_byte, BackendFactory::getHostBackendMemoryManagerStatic().getAvailableMemory());
+        memory.hostMem_byte = totalMemoryOnHost;
     }
 
     return memory;

@@ -92,6 +92,7 @@ protected:
         size_t& nWorkerThreads,
         size_t& nIOThreads,
         size_t& totalThreads,
+        size_t& nReaderThreads,
         BackendConfig& ioConfig,
         BackendConfig& workerConfig
     ) const;

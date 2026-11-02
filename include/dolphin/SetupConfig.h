@@ -43,7 +43,7 @@ public:
     int nThreads = -1;
     int nIOThreads = -1;
     int nWorkerThreads = -1;
-    int numReaderThreads = -1;
+    int nReaderThreads = -1;
 
     int nDevices = -1;
 
