@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IComputeBackend.h"
 #include <algorithm>
+#include <limits>
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 #include <cmath>
@@ -878,6 +879,38 @@ void CPUComputeBackend::realStats(const RealData& a, real_t* minOut, real_t* max
         *minOut = *maxOut = *meanOut = std::numeric_limits<real_t>::quiet_NaN();
     }
     *nonFiniteOut = nonfinite;
+}
+
+real_t CPUComputeBackend::getMin(const RealData& a) const {
+    BACKEND_CHECK(a.getData() != nullptr, "Input data pointer is null", "CPU", "getMin - input data", buildCpuContext());
+
+    real_t mn = std::numeric_limits<real_t>::max();
+    bool finite = false;
+    stridedIteration(a, [&](auto* rowA, size_t w) {
+        for (size_t x = 0; x < w; ++x) {
+            real_t v = rowA[x];
+            if (!std::isfinite(v)) continue;
+            if (v < mn) mn = v;
+            finite = true;
+        }
+    });
+    return finite ? mn : std::numeric_limits<real_t>::quiet_NaN();
+}
+
+real_t CPUComputeBackend::getMax(const RealData& a) const {
+    BACKEND_CHECK(a.getData() != nullptr, "Input data pointer is null", "CPU", "getMax - input data", buildCpuContext());
+
+    real_t mx = std::numeric_limits<real_t>::lowest();
+    bool finite = false;
+    stridedIteration(a, [&](auto* rowA, size_t w) {
+        for (size_t x = 0; x < w; ++x) {
+            real_t v = rowA[x];
+            if (!std::isfinite(v)) continue;
+            if (v > mx) mx = v;
+            finite = true;
+        }
+    });
+    return finite ? mx : std::numeric_limits<real_t>::quiet_NaN();
 }
 
 void CPUComputeBackend::poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,

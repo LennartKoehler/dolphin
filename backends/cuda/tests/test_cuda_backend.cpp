@@ -12,6 +12,7 @@ See the LICENSE file provided with the code for the full license.
 */
 #include <gtest/gtest.h>
 #include <memory>
+#include <algorithm>
 #include <cmath>
 #include <vector>
 #include <thread>
@@ -593,6 +594,75 @@ TEST_F(CUDAComputeBackendTest, RealSum) {
     backend->sync();
 
     EXPECT_NEAR(result, expected, 0.05f) << "realSum should match host double sum";
+}
+
+TEST_F(CUDAComputeBackendTest, RealMin) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume());
+    float expectedMin = hostA.empty() ? 0.0f : hostA[0];
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        hostA[i] = static_cast<real_t>((i * 3) % 7 + 1);
+        expectedMin = std::min(expectedMin, hostA[i]);
+    }
+    writeRealToDevice(a, hostA);
+
+    real_t result = deconv.getMin(a);
+    backend->sync();
+
+    EXPECT_NEAR(result, expectedMin, 1e-6f) << "getMin should match host min";
+}
+
+TEST_F(CUDAComputeBackendTest, RealMax) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume());
+    float expectedMax = hostA.empty() ? 0.0f : hostA[0];
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        hostA[i] = static_cast<real_t>((i * 3) % 7 + 1);
+        expectedMax = std::max(expectedMax, hostA[i]);
+    }
+    writeRealToDevice(a, hostA);
+
+    real_t result = deconv.getMax(a);
+    backend->sync();
+
+    EXPECT_NEAR(result, expectedMax, 1e-6f) << "getMax should match host max";
+}
+
+TEST_F(CUDAComputeBackendTest, RealMinMaxSkipsNonFinite) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(4, 4, 2);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume());
+    hostA[0] = std::numeric_limits<real_t>::quiet_NaN();
+    hostA[1] = std::numeric_limits<real_t>::infinity();
+    hostA[2] = -std::numeric_limits<real_t>::infinity();
+    float expectedMin = std::numeric_limits<real_t>::max();
+    float expectedMax = std::numeric_limits<real_t>::lowest();
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        if (i >= 3) hostA[i] = static_cast<real_t>((i - 3) * 2);
+        if (std::isfinite(hostA[i])) {
+            expectedMin = std::min(expectedMin, hostA[i]);
+            expectedMax = std::max(expectedMax, hostA[i]);
+        }
+    }
+    writeRealToDevice(a, hostA);
+
+    real_t resultMin = deconv.getMin(a);
+    real_t resultMax = deconv.getMax(a);
+    backend->sync();
+
+    EXPECT_NEAR(resultMin, expectedMin, 1e-6f) << "getMin should skip NaN/Inf";
+    EXPECT_NEAR(resultMax, expectedMax, 1e-6f) << "getMax should skip NaN/Inf";
 }
 
 TEST_F(CUDAComputeBackendTest, RealAffine) {

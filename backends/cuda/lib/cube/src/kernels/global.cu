@@ -797,6 +797,34 @@ void realSumGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, do
     }
 }
 
+// Min/max over finite elements only. `result` is pre-initialized by the caller to
+// +FLT_MAX (min) or -FLT_MAX (max); the caller detects "no finite element" if the
+// value is unchanged after the reduction. atomicMin/atomicMax on float require
+// compute capability >= 5.0 (project targets 75/80/90).
+__global__
+void realMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, float* result) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idx = detail::indexStrided(x, y, z, stride, Ny);
+        float v = (float)a[idx];
+        if (isfinite(v)) atomicMin(result, v);
+    }
+}
+
+__global__
+void realMaxGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, float* result) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idx = detail::indexStrided(x, y, z, stride, Ny);
+        float v = (float)a[idx];
+        if (isfinite(v)) atomicMax(result, v);
+    }
+}
+
 __global__
 void realAffineGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scalar, real_t add, real_t* C) {
     size_t x = detail::tx();

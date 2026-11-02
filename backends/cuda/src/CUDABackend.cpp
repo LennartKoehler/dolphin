@@ -14,6 +14,9 @@ See the LICENSE file provided with the code for the full license.
 #include "cuda_backend/CUDABackend.h"
 #include "cuda_backend/CUDABackendManager.h"
 #include <cassert>
+#include <cfloat>
+#include <cmath>
+#include <limits>
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
@@ -852,6 +855,64 @@ void CUDAComputeBackend::realSum(const RealData& a, real_t* result) const {
     CUDA_CHECK(err, "realSum - cudaStreamSynchronize", buildCudaContext(config));
 
     *result = static_cast<real_t>(hostVal);
+}
+
+real_t CUDAComputeBackend::getMin(const RealData& a) const {
+    ensureDevice();
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "getMin - input a", buildCudaContext(config));
+
+    const float init = FLT_MAX;
+    size_t Nx = a.getSize().width;
+    size_t stride = Nx + a.getPadding();
+
+    float* d_result;
+    cudaError_t err = cudaMallocAsync(&d_result, sizeof(float), config.stream);
+    CUDA_CHECK(err, "getMin - cudaMallocAsync", buildCudaContext(config));
+
+    float initHost = init;
+    err = cudaMemcpyAsync(d_result, &initHost, sizeof(float), cudaMemcpyHostToDevice, config.stream);
+    CUDA_CHECK(err, "getMin - cudaMemcpyAsync (init)", buildCudaContext(config));
+
+    run("getMin", CUBE_MLE::realMin(Nx, a.getSize().height, a.getSize().depth, stride, a.getData(), d_result, config.stream));
+
+    float hostVal = init;
+    err = cudaMemcpyAsync(&hostVal, d_result, sizeof(float), cudaMemcpyDeviceToHost, config.stream);
+    cudaFreeAsync(d_result, config.stream);
+    CUDA_CHECK(err, "getMin - cudaMemcpyAsync (readback)", buildCudaContext(config));
+
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "getMin - cudaStreamSynchronize", buildCudaContext(config));
+
+    return (std::isfinite(hostVal) && hostVal != init) ? hostVal : std::numeric_limits<real_t>::quiet_NaN();
+}
+
+real_t CUDAComputeBackend::getMax(const RealData& a) const {
+    ensureDevice();
+    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "getMax - input a", buildCudaContext(config));
+
+    const float init = -FLT_MAX;
+    size_t Nx = a.getSize().width;
+    size_t stride = Nx + a.getPadding();
+
+    float* d_result;
+    cudaError_t err = cudaMallocAsync(&d_result, sizeof(float), config.stream);
+    CUDA_CHECK(err, "getMax - cudaMallocAsync", buildCudaContext(config));
+
+    float initHost = init;
+    err = cudaMemcpyAsync(d_result, &initHost, sizeof(float), cudaMemcpyHostToDevice, config.stream);
+    CUDA_CHECK(err, "getMax - cudaMemcpyAsync (init)", buildCudaContext(config));
+
+    run("getMax", CUBE_MLE::realMax(Nx, a.getSize().height, a.getSize().depth, stride, a.getData(), d_result, config.stream));
+
+    float hostVal = init;
+    err = cudaMemcpyAsync(&hostVal, d_result, sizeof(float), cudaMemcpyDeviceToHost, config.stream);
+    cudaFreeAsync(d_result, config.stream);
+    CUDA_CHECK(err, "getMax - cudaMemcpyAsync (readback)", buildCudaContext(config));
+
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "getMax - cudaStreamSynchronize", buildCudaContext(config));
+
+    return (std::isfinite(hostVal) && hostVal != init) ? hostVal : std::numeric_limits<real_t>::quiet_NaN();
 }
 
 void CUDAComputeBackend::realLinearCombination(const RealData& a, real_t sa, const RealData& b, real_t sb, RealData& result) const {

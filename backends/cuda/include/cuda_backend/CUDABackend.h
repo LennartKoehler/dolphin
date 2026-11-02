@@ -220,6 +220,8 @@ public:
 
     //poissonMLE functions
     void realSum(const RealData& a, real_t* result) const override;
+    real_t getMin(const RealData& a) const override;
+    real_t getMax(const RealData& a) const override;
     void realLinearCombination(const RealData& a, real_t sa, const RealData& b, real_t sb, RealData& result) const override;
     void realAffine(const RealData& a, real_t scalar, real_t add, RealData& result) const override;
     void realSqrtAffine(const RealData& a, real_t scale, real_t add, real_t lambda, RealData& result) const override;

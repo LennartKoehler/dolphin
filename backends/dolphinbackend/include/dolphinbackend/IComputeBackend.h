@@ -219,6 +219,18 @@ public:
         COMPUTE_NOT_IMPLEMENTED(realStats);
     }
 
+    // Minimum over all finite elements (NaN and Inf are skipped).
+    // Returns quiet_NaN() if the data contains no finite element.
+    virtual real_t getMin(const RealData& a) const {
+        COMPUTE_NOT_IMPLEMENTED(getMin);
+    }
+
+    // Maximum over all finite elements (NaN and Inf are skipped).
+    // Returns quiet_NaN() if the data contains no finite element.
+    virtual real_t getMax(const RealData& a) const {
+        COMPUTE_NOT_IMPLEMENTED(getMax);
+    }
+
     // One-pass evaluation, at a given step length alpha, of the I-divergence (Poisson NLL
     // up to a constant) and its first two alpha-derivatives along the line m(alpha) = m + alpha*hd:
     //   J(alpha)    = sum_i [ g_i*ln(g_i/m_i) - g_i + m_i ]

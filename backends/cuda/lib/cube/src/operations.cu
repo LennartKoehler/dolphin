@@ -327,6 +327,22 @@ namespace CUBE_MLE {
         return launchSync([=] { realSumGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, stride, a, result); }, stream);
     }
 
+    cudaError_t realMin(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, float* result, cudaStream_t stream){
+        if (!a || !result) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realMinGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, stride, a, result); }, stream);
+    }
+
+    cudaError_t realMax(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, float* result, cudaStream_t stream){
+        if (!a || !result) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realMaxGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, stride, a, result); }, stream);
+    }
+
     cudaError_t realAffine(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scalar, real_t add, real_t* C, cudaStream_t stream){
         if (!A || !C) {
             return cudaErrorInvalidValue;

@@ -72,7 +72,11 @@ namespace CUBE_MLE {
     // Poisson-likelihood (PoissonMLE) real-valued elementwise / reduction ops.
     // `result` must be a device double* sized >= 1 (realSum) or >= 3 (poissonLineSearchEval: {J, dJ, d2J}),
     // pre-zeroed by the caller.
+    // realMin/realMax: `result` is a device float* sized >= 1, pre-initialized to +FLT_MAX (min)
+    // or -FLT_MAX (max) by the caller; reduces over finite elements only.
     cudaError_t realSum(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, double* result, cudaStream_t stream = 0);
+    cudaError_t realMin(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, float* result, cudaStream_t stream = 0);
+    cudaError_t realMax(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, float* result, cudaStream_t stream = 0);
     cudaError_t realAffine(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scalar, real_t add, real_t* C, cudaStream_t stream = 0);
     cudaError_t realLinearCombination(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t sa, real_t* B, real_t sb, real_t* C, cudaStream_t stream = 0);
     cudaError_t realSqrtAffine(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scale, real_t add, real_t lambda, real_t* C, cudaStream_t stream = 0);
