@@ -23,8 +23,8 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     : Config(),
     algorithmName(other.algorithmName),
     iterations(other.iterations),
-    epsilon(other.epsilon),
-    lambda(other.lambda),
+    min_denominator(other.min_denominator),
+    signal_to_noise(other.signal_to_noise),
     paddingFillType(other.paddingFillType),
     paddingStrategyType(other.paddingStrategyType),
     paddingRelativeMax(other.paddingRelativeMax),
@@ -46,8 +46,8 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(const DeconvolutionConfig& o
     if (this != &other) {
         algorithmName = other.algorithmName;
         iterations = other.iterations;
-        epsilon = other.epsilon;
-        lambda = other.lambda;
+        min_denominator = other.min_denominator;
+        signal_to_noise = other.signal_to_noise;
         paddingFillType = other.paddingFillType;
         paddingStrategyType = other.paddingStrategyType;
         paddingRelativeMax = other.paddingRelativeMax;
@@ -70,8 +70,8 @@ DeconvolutionConfig::DeconvolutionConfig(DeconvolutionConfig&& other) noexcept
     : Config(),
     algorithmName(std::move(other.algorithmName)),
     iterations(other.iterations),
-    epsilon(other.epsilon),
-    lambda(other.lambda),
+    min_denominator(other.min_denominator),
+    signal_to_noise(other.signal_to_noise),
     paddingFillType(other.paddingFillType),
     paddingStrategyType(other.paddingStrategyType),
     paddingRelativeMax(other.paddingRelativeMax),
@@ -93,8 +93,8 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(DeconvolutionConfig&& other)
     if (this != &other) {
         algorithmName = std::move(other.algorithmName);
         iterations = other.iterations;
-        epsilon = other.epsilon;
-        lambda = other.lambda;
+        min_denominator = other.min_denominator;
+        signal_to_noise = other.signal_to_noise;
         paddingFillType = other.paddingFillType;
         paddingStrategyType = other.paddingStrategyType;
         paddingRelativeMax = other.paddingRelativeMax;
@@ -144,10 +144,11 @@ ConfigMap paddingFillTypeMap{{
 
 
 ConfigMap paddingStrategyTypeMap{{
+    {"default", PaddingStrategyType::DEFAULT},
     {"none", PaddingStrategyType::NONE},
-    {"parent", PaddingStrategyType::PARENT},
-    {"full_psf", PaddingStrategyType::FULL_PSF},
-    {"manual", PaddingStrategyType::MANUAL},
+    {"low", PaddingStrategyType::LOW},
+    {"medium", PaddingStrategyType::MEDIUM},
+    {"max", PaddingStrategyType::MAX}
 }};
 
 
@@ -161,12 +162,13 @@ void DeconvolutionConfig::registerAllParameters() {
     // Register each parameter as a ConfigParameter struct
     parameters.push_back({ParameterType::StringSelection, &algorithmName, "Algorithm Name", true, "algorithm_name", "--algorithm_name", "Algorithm selection", false, false, 0.0, 0.0, algorithmOptionsVoid});
     parameters.push_back({ParameterType::Int, &iterations, "Iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
-    parameters.push_back({ParameterType::Float, &epsilon, "Epsilon", true, "epsilon", "--epsilon", "Epsilon", false, true, 1e-12, 1e-3, nullptr});
-    parameters.push_back({ParameterType::Float, &lambda, "Lambda", true, "lambda", "--lambda", "Lambda regularization", false, false, 0.0, 1.0, nullptr});
+    parameters.push_back({ParameterType::Float, &min_denominator, "Min Denominator", true, "min_denominator", "--min_denominator", "Min denominator", false, true, 1e-12, 1e-3, nullptr});
+    parameters.push_back({ParameterType::Float, &signal_to_noise, "Signal to Noise", true, "signal_to_noise", "--signal_to_noise", "Signal to noise ratio", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Map, &paddingFillType, "Padding Fill", true, "padding_fill", "--padding_fill", "Type of fill method for the image padding", false, true, 0.0, 5.0, paddingFillMap_p});
-    parameters.push_back({ParameterType::Map, &paddingStrategyType, "Padding Strategy", true, "padding_strategy", "--padding_strategy", "paddingStrategy", false, true, 0.0, 5, paddingStrategyMap_p});
+    parameters.push_back({ParameterType::Map, &paddingStrategyType, "Padding Strategy", true, "padding_strategy", "--padding_strategy",
+        "Preset PSF padding threshold: none, low, medium, max. Overridden if cube_padding or padding_relative_max is set", false, true, 0.0, 4, paddingStrategyMap_p});
     parameters.push_back({ParameterType::Float, &paddingRelativeMax, "Padding Relative Max", true, "padding_relative_max", "--padding_relative_max",
-        "Pad the image up until the PSF is below this Value * Max value of PSF", false, false, 0.0, 1.0, nullptr});
+        "Pad until PSF is below this fraction of its max value (0-1). > 0 overrides padding_strategy", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Int, &featheringRadius, "Feathering Radius", true, "feathering_radius", "--feathering_radius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
     parameters.push_back({ParameterType::IntArray3, &cubeSize, "Cube Size", true, "cube_size", "--cube_size", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::IntArray3, &cubePadding, "Cube Padding", true, "cube_padding", "--cube_padding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
@@ -177,6 +179,7 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::Bool, &poissonSieve, "Poisson Sieve", true, "poisson_sieve", "--poisson_sieve", "Enable annealed anisotropic Gaussian smoothing (sieve) in PoissonMLE", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Bool, &poissonPrior, "Poisson Prior", true, "poisson_prior", "--poisson_prior", "Enable lambda-shrinkage + flux conservation prior step in PoissonMLE", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Int, &poissonSievePasses, "Poisson Sieve Passes", true, "poisson_sieve_passes", "--poisson_sieve_passes", "Number of sieve smoothing passes per iteration in PoissonMLE", false, true, 0.0, 64.0, nullptr});
+    parameters.push_back({ParameterType::Bool, &sliceAllDimensions, "Slice all dimensions", true, "slice_all_dimensions", "--slice_all_dimensions", "Slice all dimensions not only Z dimension", false, false, 0.0, 0.0, nullptr});
     // its labeled if the labeled image is given
     // parameters.push_back({ParameterType::String, &deconvolutionType, "Deconvolution Type", true, "deconvolution_type", "--deconvolution_type", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
 

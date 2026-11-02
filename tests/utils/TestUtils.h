@@ -155,12 +155,12 @@ inline std::string gibsonLanniPSFConfigJSON() {
     return R"({
         "model_name": "GibsonLanni",
         "id": "test_gl",
-        "size_x": 64,
-        "size_y": 64,
-        "size_z": 32,
+        "size_x": 0,
+        "size_y": 0,
+        "size_z": 0,
         "NA": 1.4,
-        "lambda_nm": 450.0,
-        "accuracy": 32,
+                "wavelength_nm": 450.0,
+                "integration_accuracy": 5,
         "working_distance_design_nm": 150000.0,
         "working_distance_experimental_nm": 150000.0,
         "immersion_ri_design": 1.515,
@@ -180,10 +180,10 @@ inline std::string defaultDeconvConfigJSON() {
     return R"({
         "algorithm_name": "RichardsonLucy",
         "iterations": 10,
-        "epsilon": 1e-6,
-        "lambda": 0.001,
+        "min_denominator": 1e-6,
+        "signal_to_noise": 0.001,
         "padding_fill": "mirror",
-        "padding_strategy": "parent"
+        "padding_strategy": "max"
     })";
 }
 
@@ -192,8 +192,8 @@ inline std::string defaultDeconvConfigJSON() {
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 5,
-            "epsilon": 1e-6,
-            "lambda": 0.001,
+            "min_denominator": 1e-6,
+            "signal_to_noise": 0.001,
             "padding_fill": "mirror"
         },
         "psf_file_paths": [],
@@ -240,10 +240,10 @@ inline std::string defaultDeconvConfigJSON() {
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 20,
-            "epsilon": 1e-5,
-            "lambda": 0.02,
+            "min_denominator": 1e-5,
+            "signal_to_noise": 0.02,
             "padding_fill": "mirror",
-            "padding_strategy": "parent"
+            "padding_strategy": "max"
         }
     })";
     }
@@ -264,10 +264,10 @@ inline std::string combinedWithInlinePSFJSON() {
         "deconvolution_config": {
             "algorithm_name": "RichardsonLucy",
             "iterations": 10,
-            "epsilon": 1e-6,
-            "lambda": 0.001,
+            "min_denominator": 1e-6,
+            "signal_to_noise": 0.001,
             "padding_fill": "mirror",
-            "padding_strategy": "parent"
+            "padding_strategy": "max"
         },
         "psf_configs": [
             {
@@ -304,8 +304,8 @@ inline std::string combinedWithInlinePSFJSON() {
                 "size_y": 64,
                 "size_z": 32,
                 "NA": 1.4,
-                "lambda_nm": 450.0,
-                "accuracy": 32,
+        "wavelength_nm": 450.0,
+        "integration_accuracy": 5,
                 "working_distance_design_nm": 150000.0,
                 "working_distance_experimental_nm": 150000.0,
                 "immersion_ri_design": 1.515,
@@ -341,10 +341,10 @@ inline std::string combinedWithInlinePSFJSON() {
         return R"({
             "algorithm_name": "RegularizedInverseFilter",
             "iterations": 30,
-            "epsilon": 1e-8,
-            "lambda": 0.01,
+            "min_denominator": 1e-8,
+            "signal_to_noise": 0.01,
             "padding_fill": "mirror",
-            "padding_strategy": "parent"
+            "padding_strategy": "max"
         })";
     }
 
@@ -396,10 +396,10 @@ inline std::string combinedWithInlinePSFJSON() {
             "deconvolution_config": {
                 "algorithm_name": "Convolution",
                 "iterations": 1,
-                "epsilon": 1e-6,
-                "lambda": 0.001,
+                "min_denominator": 1e-6,
+                "signal_to_noise": 0.001,
                 "padding_fill": "mirror",
-                "padding_strategy": "parent"
+                "padding_strategy": "max"
             }
         })";
     }

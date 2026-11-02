@@ -200,10 +200,6 @@ public:
     void setDeconvolutionConfig(std::shared_ptr<DeconvolutionConfig> config) { deconv_config_ = config; }
     std::shared_ptr<DeconvolutionConfig> getDeconvolutionConfig() const { return deconv_config_; }
 
-    void setInlinePSFConfigs(std::vector<std::shared_ptr<PSFConfig>> configs) { inline_psf_configs_ = std::move(configs); }
-    const std::vector<std::shared_ptr<PSFConfig>>& getInlinePSFConfigs() const { return inline_psf_configs_; }
-    bool hasInlinePSFConfigs() const { return !inline_psf_configs_.empty(); }
-
     void setProgressCallback(progressCallbackFn fn) {this->progressCallback = fn;}
     progressCallbackFn getProgressCallback() const {return progressCallback;}
 
@@ -214,7 +210,6 @@ public:
 private:
     progressCallbackFn progressCallback;
     Logging::LogCallback frontendLogging;
-    std::vector<std::shared_ptr<PSFConfig>> inline_psf_configs_;
     std::shared_ptr<SetupConfig> setup_config_;
     std::shared_ptr<DeconvolutionConfig> deconv_config_;
 

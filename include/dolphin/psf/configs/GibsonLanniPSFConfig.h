@@ -23,9 +23,16 @@ public:
 	GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other);
 
 
-    float OVER_SAMPLING = 4.0f;
-    float lambda_nm = 520.0f;
-    int accuracy = 32;
+    float oversampling_factor = 4.0f;
+    float wavelength_nm = 520.0f;
+    /** Convergence strictness for the Simpson integrator (1..10).
+     *  Maps directly to the number of consecutive sub-interval refinements
+     *  that must meet the tolerance. Higher = stricter convergence, slower.
+     *  Values outside [1,10] are clamped to that range.
+     *  Note: this is NOT compatible with the BIG PSFGenerator's accuracy
+     *  semantics (0=Good, 1=Better, 2=Best). Legacy configs using 0/1/2
+     *  now mean strictness 1/2. */
+    int integration_accuracy = 5;
 
     /** Numerical aperture of the objective. */
     float NA = 1.0f;
@@ -66,7 +73,6 @@ public:
     /** Pixel size in lateral direction. */
     float pixelSizeLateral_nm = 100.0f;
 
-    
 private:
     void registerAllParameters();
 

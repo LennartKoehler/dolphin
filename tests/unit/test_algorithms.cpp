@@ -43,10 +43,8 @@ protected:
         DeconvolutionConfig config;
         config.algorithmName = name;
         config.iterations = 5;
-        config.epsilon = 1e-6f;
-        config.lambda = 0.001f;
-        // High SNR: the "clean data" scenario. For PoissonMLE this makes the
-        // SNR-driven shrinkage/sieve weak so the core likelihood step is validated.
+        config.min_denominator = 1e-6f;
+        config.signal_to_noise = 0.001f;
         config.poissonSnr = 100.0f;
         auto& factory = DeconvolutionAlgorithmFactory::getInstance();
         return factory.createShared(config);

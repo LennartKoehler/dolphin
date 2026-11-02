@@ -16,7 +16,11 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin_image/Image3D.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include <cstddef>
+
 typedef std::string PSFID;
+
+
 class PSF : public Image3D{
 public:
 
@@ -25,6 +29,7 @@ public:
 
     void readFromTiffFile(const std::string& path);
     void writeToTiffFile(const std::string& path);
+
 
     std::string ID;
 };

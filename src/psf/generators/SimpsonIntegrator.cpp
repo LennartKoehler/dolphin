@@ -21,11 +21,9 @@ SimpsonIntegrator::SimpsonIntegrator(int maxIterations)
 }
 
 int SimpsonIntegrator::getK(int accuracy){
-    int K;
-    if (accuracy == 0) K = 4;
-    else if (accuracy == 1) K = 5;
-    else if (accuracy == 2) K = 6;
-    else K = 3;
+    int K = accuracy;
+    if (K < 1) K = 1;
+    if (K > 10) K = 10;
     return K;
 }
 
