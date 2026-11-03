@@ -213,6 +213,7 @@ std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
             backend.getComputeManager().octantFourierShift(h_device); // align psf peak at 0,0,0
 
             backend.getComputeManager().forwardFFT(h_device, *h_result_device);
+            backend.getComputeManager().normalizePsfUnitSum(*h_result_device, 1e-9f);
 
             h_result_device->setBackend(h_device.getBackend());
             h_device.setBackend(nullptr);

@@ -52,7 +52,6 @@ private:
     ComplexView modelC;   // complex view of `model` (FFT work buffer)
     ComplexView directionC; // complex view of `direction`
     ComplexView hdC;      // complex view of `hd`
-    ComplexData hNorm;    // PSF OTF scaled to unit sum (DC = 1)
     ComplexData sieveOTF; // annealed anisotropic Gaussian low-pass kernel
 
     int iterations;

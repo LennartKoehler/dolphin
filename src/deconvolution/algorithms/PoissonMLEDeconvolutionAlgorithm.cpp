@@ -177,7 +177,6 @@ void PoissonMLEDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     directionC = memory.reinterpret(direction);
     hd = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize);        // H*d for the line search
     hdC = memory.reinterpret(hd);
-    hNorm = memory.allocateMemoryOnDeviceComplex(dataSize);            // unit-sum PSF OTF
     sieveOTF = memory.allocateMemoryOnDeviceComplex(dataSize);         // half-complex Gaussian low-pass
 
     // Pre-register the real r2c/c2r plans (in-place); others are created lazily.
@@ -206,21 +205,13 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     assert(memory.isOnDevice(f.getData()) && "f is not on device");
     assert(memory.isOnDevice(g.getData()) && "g is not on device");
 
-    // ---- PSF normalization: unit sum. ----
-    // The forward model m = Hf + bg (and the photon flux bookkeeping) is only
-    // physically correct when the OTF's DC term (= sum of the PSF) equals 1.
-    // RichardsonLucy is scale-invariant and never needed this; the I-divergence
-    // is not. The backend reads the DC bin per its memory model and scales the
-    // buffer so its DC term is 1.
-    memory.memCopy(H, hNorm);
-    compute.normalizePsfUnitSum(hNorm, 1e-9f);
 
     // ---- Initial estimate: the data, optionally prefiltered. ----
     memory.memCopy(g, f);
 
     // ---- Physical parameters, estimated per brick. ----
     real_t sigX = 1.0f, sigY = 1.0f, sigZ = 1.0f;
-    estimatePsfSigmas(compute, memory, hNorm, shape, modelC, model, sigX, sigY, sigZ);
+    estimatePsfSigmas(compute, memory, H, shape, modelC, model, sigX, sigY, sigZ);
     const real_t psfLat = 0.5f * (sigX + sigY);
     const real_t psfAx = sigZ;
 
@@ -277,7 +268,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
         // m = Hf + bg  (spatial result in `model`)
         memory.memCopy(f, model);                     // model <- f
         compute.forwardFFT(model, modelC);            // in-place r2c -> modelC = FFT(f)
-        compute.complexMultiplication(modelC, hNorm, modelC);
+        compute.complexMultiplication(modelC, H, modelC);
         compute.backwardFFT(modelC, model);           // in-place c2r -> model = Hf
         compute.realAffine(model, 1.0f, bg, model);   // model = Hf + bg = m
         // Physical floor of the model. With f >= 0 and the (non-negative, unit-sum)
@@ -292,7 +283,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
         // ratio R = H^T(g / m)  (spatial result in `direction`)
         compute.division(g, model, direction, 1e-9f); // direction = g/m
         compute.forwardFFT(direction, directionC);    // in-place r2c -> directionC
-        compute.complexMultiplicationWithConjugate(directionC, hNorm, directionC);
+        compute.complexMultiplicationWithConjugate(directionC, H, directionC);
         compute.backwardFFT(directionC, direction);   // in-place c2r -> direction = R
 
         // search direction d = -f * (1 - R)  (in `direction`)
@@ -303,25 +294,25 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
         // hd = H*d  (spatial result in `hd`)
         memory.memCopy(direction, hd);               // hd <- d
         compute.forwardFFT(hd, hdC);                 // in-place r2c -> hdC = FFT(d)
-        compute.complexMultiplication(hdC, hNorm, hdC);
+        compute.complexMultiplication(hdC, H, hdC);
         compute.backwardFFT(hdC, hd);                // in-place c2r -> hd = H*d
 
         // current objective and optimal step
-        // real_t Jcur = 0, dJ = 0, d2J = 0;
-        // compute.poissonLineSearchEval(g, model, hd, 0.0f, &Jcur, &dJ, &d2J);
-        // const real_t alpha = newtonLineSearch(compute, g, model, hd);
-        // real_t Jnew = 0;
-        // compute.poissonLineSearchEval(g, model, hd, alpha, &Jnew, &dJ, &d2J);
-        //
-        // // ---- GUARD: if the likelihood worsened, damp the update power. ----
-        // if (Jnew > Jcur && pwr > 0.25f) {
-        //     pwr *= 0.5f;
-        // }
+        real_t Jcur = 0, dJ = 0, d2J = 0;
+        compute.poissonLineSearchEval(g, model, hd, 0.0f, &Jcur, &dJ, &d2J);
+        const real_t alpha = newtonLineSearch(compute, g, model, hd);
+        real_t Jnew = 0;
+        compute.poissonLineSearchEval(g, model, hd, alpha, &Jnew, &dJ, &d2J);
+
+        // ---- GUARD: if the likelihood worsened, damp the update power. ----
+        if (Jnew > Jcur && pwr > 0.25f) {
+            pwr *= 0.5f;
+        }
 
         // ---- Additive update f <- f + alpha*pwr*d, clipped at zero. ----
         // f is the object above the background; keep it non-negative so the
         // background converges to 0 and the model m = Hf + bg matches g there.
-        compute.realLinearCombination(f, 1.0f, direction, 1, f);
+        compute.realLinearCombination(f, 1.0f, direction, alpha * pwr, f);
         compute.realClampMin(f, 0.0f, f);
 
         // ---- PRIOR STEP: lambda-shrinkage with flux conservation. ----
@@ -395,5 +386,5 @@ std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneS
 }
 
 size_t PoissonMLEDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 5; // model, direction, hd (real, each a complex buffer's real view) + hNorm + sieveOTF (half-complex)
+    return 4; // model, direction, hd (real, each a complex buffer's real view) + sieveOTF (half-complex)
 }
