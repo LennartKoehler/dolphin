@@ -238,9 +238,19 @@ public:
     // normalizeTV for real-valued gradients
     void normalizeTV(RealData& gradX, RealData& gradY, RealData& gradZ, real_t epsilon) const override;
 
-    // Layer and visualization functions
+    //poissonMLE functions
+    void realSum(const RealData& a, real_t* result) const override;
+    real_t getMin(const RealData& a) const override;
+    real_t getMax(const RealData& a) const override;
+    void realLinearCombination(const RealData& a, real_t sa, const RealData& b, real_t sb, RealData& result) const override;
+    void realAffine(const RealData& a, real_t scalar, real_t add, RealData& result) const override;
+    void realSqrtAffine(const RealData& a, real_t scale, real_t add, real_t lambda, RealData& result) const override;
+    void realClampMin(const RealData& a, real_t lo, RealData& result) const override;
+    void poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
+                               real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const override;
+    void fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const override;
+    void normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const override;
 
-    // Conversion functions
    void hasNAN(const ComplexData& data) const override;
 
 

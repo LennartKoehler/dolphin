@@ -1219,6 +1219,52 @@ TEST_F(CPUComputeBackendTest, HasNANDoesNotThrow) {
     EXPECT_NO_THROW(deconv.hasNAN(data));
 }
 
+TEST_F(CPUComputeBackendTest, GetMinGetMax) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(4, 4, 4);
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    const real_t mn = -3.5f, mx = 7.25f;
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        a[i] = (i == 0) ? mn : (i == shape.getVolume() - 1 ? mx : 1.0f);
+
+    EXPECT_FLOAT_EQ(deconv.getMin(a), mn);
+    EXPECT_FLOAT_EQ(deconv.getMax(a), mx);
+}
+
+TEST_F(CPUComputeBackendTest, GetMinGetMaxSkipsNonFinite) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(2, 2, 2);
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    a[0] = std::numeric_limits<real_t>::quiet_NaN();
+    a[1] = std::numeric_limits<real_t>::infinity();
+    a[2] = -std::numeric_limits<real_t>::infinity();
+    a[3] = 2.0f;
+    a[4] = -1.0f;
+    a[5] = std::numeric_limits<real_t>::quiet_NaN();
+    a[6] = 0.5f;
+    a[7] = std::numeric_limits<real_t>::infinity();
+
+    EXPECT_FLOAT_EQ(deconv.getMin(a), -1.0f);
+    EXPECT_FLOAT_EQ(deconv.getMax(a), 2.0f);
+}
+
+TEST_F(CPUComputeBackendTest, GetMinGetMaxAllNonFinite) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(2, 2, 2);
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+
+    const real_t nan = std::numeric_limits<real_t>::quiet_NaN();
+    for (size_t i = 0; i < shape.getVolume(); ++i) a[i] = (i % 2 == 0) ? nan : std::numeric_limits<real_t>::infinity();
+
+    EXPECT_TRUE(std::isnan(deconv.getMin(a)));
+    EXPECT_TRUE(std::isnan(deconv.getMax(a)));
+}
+
 // ============================================================================
 // Ownership tests
 // ============================================================================

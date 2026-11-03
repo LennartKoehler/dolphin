@@ -57,6 +57,7 @@ set(ALL_TEST_SOURCES
     unit/test_algorithm_factory.cpp
     unit/test_algorithms.cpp
     unit/test_backend_factory.cpp
+    unit/test_cpu_cuda_fftparity.cpp
     unit/test_psf_generator.cpp
     unit/test_threadpool.cpp
     unit/test_image_padding.cpp
