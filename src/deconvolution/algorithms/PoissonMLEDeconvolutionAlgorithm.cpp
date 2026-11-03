@@ -129,7 +129,8 @@ void estimatePsfSigmas(const IComputeBackend& compute,
 }
 
 // Background = mean of the dimmest decile of the (host-copied) image.
-real_t estimateBackground(const RealData& g, const IBackendMemoryManager& mem) {
+// TODO this needs to be computed beforehand on the entire image, it shouldnt be a local background for this tile
+real_t estimateBackgroundDimmestTile(const RealData& g, const IBackendMemoryManager& mem) {
     const IBackendMemoryManager& hostMem = BackendFactory::getInstance().getHostBackendMemoryManager();
     RealData gcopy = mem.copyDataToDevice(g);
     RealData ghost = mem.moveDataFromDevice(gcopy, hostMem);
@@ -147,16 +148,21 @@ real_t estimateBackground(const RealData& g, const IBackendMemoryManager& mem) {
     return static_cast<real_t>(mean / lo);
 }
 
+
+
 } // namespace
 
 void PoissonMLEDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     iterations = config.iterations;
-    snr = config.poissonSnr;
+    snr = config.signalToNoise;
     lambdaOverride = config.poissonLambda;
     backgroundOverride = config.poissonBackground;
+    usePrefilter = config.poissonPrefilter;
+    prefilterScale = config.poissonPrefilterScale;
     useSieve = config.poissonSieve;
     usePrior = config.poissonPrior;
     sievePasses = config.poissonSievePasses;
+    sieveScale = config.poissonSieveScale;
 }
 
 void PoissonMLEDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
@@ -209,7 +215,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     memory.memCopy(H, hNorm);
     compute.normalizePsfUnitSum(hNorm, 1e-9f);
 
-    // ---- Initial estimate: the data itself. ----
+    // ---- Initial estimate: the data, optionally prefiltered. ----
     memory.memCopy(g, f);
 
     // ---- Physical parameters, estimated per brick. ----
@@ -218,7 +224,33 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     const real_t psfLat = 0.5f * (sigX + sigY);
     const real_t psfAx = sigZ;
 
-    const real_t bg = (backgroundOverride > -1.0f) ? backgroundOverride : estimateBackground(g, memory);
+    // ---- Prefilter: a single mild anisotropic Gaussian low-pass of the raw data. ----
+    // sigma_axis = prefilterScale * PSF sigma_axis (0.3 * PSF width reproduces the
+    // reference "sigmas of initial filt"). It gives the MLE a smooth, positive
+    // starting object f0 (instead of raw photon-noise spikes) and, for the auto
+    // background, its minimum (the min of a smoothed field ~= the true flat bg,
+    // where the min of raw data is a single unstable noise dip).
+    // f is already in the real-FFT in-place layout (allocated RealFFTInPlace by the
+    // executor), so the in-place FFT low-pass can run on it directly.
+    if (usePrefilter && prefilterScale > 0.0f) {
+        applySieve(compute, f, sieveOTF,
+                   prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
+        compute.realClampMin(f, 0.0f, f);
+        spdlog::get("deconvolution")->debug(
+            "PoissonMLE prefilter: sigmas of initial filt: {:.3f} {:.3f} {:.3f}",
+            prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
+    }
+
+    // Background: an explicit override wins; otherwise the min of the prefiltered
+    // estimate (when prefiltering) or the dimmest-decile mean of the raw data.
+    real_t bg;
+    if (backgroundOverride > -1.0f) {
+        bg = backgroundOverride;
+    } else if (usePrefilter) {
+        bg = compute.getMin(f);
+    } else {
+        bg = estimateBackgroundDimmestTile(g, memory);
+    }
 
     // SNR -> shrinkage strength lambda. 0 = derive from SNR (lambda = base/snr:
     // higher SNR -> weaker prior, closer to the pure MLE).
@@ -275,21 +307,21 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
         compute.backwardFFT(hdC, hd);                // in-place c2r -> hd = H*d
 
         // current objective and optimal step
-        real_t Jcur = 0, dJ = 0, d2J = 0;
-        compute.poissonLineSearchEval(g, model, hd, 0.0f, &Jcur, &dJ, &d2J);
-        const real_t alpha = newtonLineSearch(compute, g, model, hd);
-        real_t Jnew = 0;
-        compute.poissonLineSearchEval(g, model, hd, alpha, &Jnew, &dJ, &d2J);
-
-        // ---- GUARD: if the likelihood worsened, damp the update power. ----
-        if (Jnew > Jcur && pwr > 0.25f) {
-            pwr *= 0.5f;
-        }
+        // real_t Jcur = 0, dJ = 0, d2J = 0;
+        // compute.poissonLineSearchEval(g, model, hd, 0.0f, &Jcur, &dJ, &d2J);
+        // const real_t alpha = newtonLineSearch(compute, g, model, hd);
+        // real_t Jnew = 0;
+        // compute.poissonLineSearchEval(g, model, hd, alpha, &Jnew, &dJ, &d2J);
+        //
+        // // ---- GUARD: if the likelihood worsened, damp the update power. ----
+        // if (Jnew > Jcur && pwr > 0.25f) {
+        //     pwr *= 0.5f;
+        // }
 
         // ---- Additive update f <- f + alpha*pwr*d, clipped at zero. ----
         // f is the object above the background; keep it non-negative so the
         // background converges to 0 and the model m = Hf + bg matches g there.
-        compute.realLinearCombination(f, 1.0f, direction, alpha * pwr, f);
+        compute.realLinearCombination(f, 1.0f, direction, 1, f);
         compute.realClampMin(f, 0.0f, f);
 
         // ---- PRIOR STEP: lambda-shrinkage with flux conservation. ----
@@ -306,32 +338,44 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
         }
 
         // ---- SIEVE: annealed anisotropic Gaussian smoothing. ----
-        if (useSieve) {
+        // The smoothing width carries two independent dials: the SNR (how much
+        // regularizing the data warrants) and the annealing schedule (rough early,
+        // fine late). The prior strength is lambda = base/snr; the sieve mirrors
+        // this so signal_to_noise stays the master dial for BOTH regularizers:
+        // effective scale = poissonSieveScale / snr, i.e. the sieve is as wide as
+        // poissonSieveScale at SNR=1 and fades toward the identity as SNR -> inf
+        // (the pure-MLE limit), while at low SNR it blurs strongly to suppress the
+        // noise the MLE would otherwise amplify.
+        const real_t sieveSnrScale = sieveScale / std::max(1e-6f, snr);
+        if (useSieve && sieveSnrScale > 1e-6f) {
             const real_t t = std::max(0.0f, 1.0f - static_cast<real_t>(k) / kLast);
-            const real_t sl = 0.5f * psfLat * t;
-            const real_t sa = 0.5f * psfAx * t;
+            const real_t sl = sieveSnrScale * psfLat * t;
+            const real_t sa = sieveSnrScale * psfAx * t;
             for (int p = 0; p < sievePasses; ++p) {
                 applySieve(compute, f, sieveOTF, sl, sl, sa);
             }
         }
 
+        compute.realClampMin(f, 0.0f, f);
         backend->sync();
         if (progressFunction) progressFunction(maxIter);
     }
 
-    // ---- FINAL: remove the residual flat floor. ----
+    // ---- FINAL: remove the residual flat pedestal. ----
     // m = Hf + bg cannot distinguish a uniform offset in f from bg itself (H
-    // preserves constants), so the MLE splits the difference: it absorbs a flat
-    // residual equal to (background mean of g) - bg into f. The dimmest decile
-    // estimate of bg is below the background mean, so the output background
-    // settles at that difference instead of 0. The floor is uniform, so one
-    // global subtraction (the dimmest decile of the result, i.e. the background)
-    // removes it and leaves the object on a zero background.
-    const real_t floor = estimateBackground(f, memory);
-    if (floor > 0.0f) {
-        compute.realAffine(f, 1.0f, -floor, f); // f -= floor
-        compute.realClampMin(f, 0.0f, f);
-    }
+    // preserves constants), so the MLE absorbs (flat background of g) - bg into
+    // f as a uniform floor. This vanishes only when bg equals the data's true
+    // flat background g_bg; the prefilter's min (or any dimmest-decile estimate)
+    // sits below g_bg, leaving a pedestal (g_bg - bg) on the output. Subtract the
+    // flat level (measured as the mode of the estimate, where the mostly-
+    // background image settles) so the object is reported on a zero background;
+    // the subtraction is uniform, so it does not change the object contrast.
+    // const real_t pedestal = estimateFlatPedestal(f, memory);
+    // if (pedestal > 0.0f) {
+    //     spdlog::get("deconvolution")->debug("PoissonMLE final: removing output pedestal {:.6f}", pedestal);
+    //     compute.realAffine(f, 1.0f, -pedestal, f); // f -= pedestal
+    //     compute.realClampMin(f, 0.0f, f);
+    // }
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneSpecific() const {
@@ -340,9 +384,12 @@ std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneS
     copy->snr = snr;
     copy->lambdaOverride = lambdaOverride;
     copy->backgroundOverride = backgroundOverride;
+    copy->usePrefilter = usePrefilter;
+    copy->prefilterScale = prefilterScale;
     copy->useSieve = useSieve;
     copy->usePrior = usePrior;
     copy->sievePasses = sievePasses;
+    copy->sieveScale = sieveScale;
     copy->initialized = false;
     return copy;
 }

@@ -100,8 +100,8 @@ TEST_F(ConfigMergeTest, DeconvConfigFromSubObject) {
     auto config = DeconvolutionConfig::createFromJSONFile(path);
     EXPECT_EQ(config.algorithmName, "RichardsonLucy");
     EXPECT_EQ(config.iterations, 20);
-    EXPECT_FLOAT_EQ(config.min_denominator, 1e-5f);
-    EXPECT_FLOAT_EQ(config.signal_to_noise, 0.02f);
+    EXPECT_FLOAT_EQ(config.minDenominator, 1e-5f);
+    EXPECT_FLOAT_EQ(config.signalToNoise, 0.02f);
 }
 
 TEST_F(ConfigMergeTest, DeconvConfigSliceAllDimensions) {

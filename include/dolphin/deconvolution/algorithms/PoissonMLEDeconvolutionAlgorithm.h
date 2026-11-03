@@ -19,6 +19,9 @@ See the LICENSE file provided with the code for the full license.
 // Poisson / I-divergence (photon-counting) likelihood deconvolution: an alternating
 // data/prior scheme on the objective
 //     J(f) = sum [ g ln(g/m) - g + m ],   m = Hf + bg,   f >= bg.
+// Before the loop, an optional prefilter (a single mild anisotropic Gaussian
+// low-pass of the raw data, sigma = prefilterScale * PSF sigma) sets the initial
+// estimate f0; when the background is auto it is then taken as min(f0).
 // Each iteration:
 //   DATA STEP  - gradient H^T(1 - g/m), direction d = -f*(1 - ratio), exact Newton
 //                line search along f + alpha*d, additive update clipped at bg.
@@ -56,9 +59,12 @@ private:
     float snr;
     float lambdaOverride;
     float backgroundOverride;
+    bool usePrefilter;
+    float prefilterScale;
     bool useSieve;
     bool usePrior;
     int sievePasses;
+    float sieveScale;
 
     bool initialized = false;
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;

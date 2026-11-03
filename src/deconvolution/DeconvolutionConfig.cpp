@@ -23,20 +23,22 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     : Config(),
     algorithmName(other.algorithmName),
     iterations(other.iterations),
-    min_denominator(other.min_denominator),
-    signal_to_noise(other.signal_to_noise),
+    minDenominator(other.minDenominator),
+    signalToNoise(other.signalToNoise),
     paddingFillType(other.paddingFillType),
     paddingStrategyType(other.paddingStrategyType),
     paddingRelativeMax(other.paddingRelativeMax),
     featheringRadius(other.featheringRadius),
     cubeSize(other.cubeSize),
     cubePadding(other.cubePadding),
-    poissonSnr(other.poissonSnr),
     poissonLambda(other.poissonLambda),
     poissonBackground(other.poissonBackground),
+    poissonPrefilter(other.poissonPrefilter),
+    poissonPrefilterScale(other.poissonPrefilterScale),
     poissonSieve(other.poissonSieve),
     poissonPrior(other.poissonPrior),
-    poissonSievePasses(other.poissonSievePasses)
+    poissonSievePasses(other.poissonSievePasses),
+    poissonSieveScale(other.poissonSieveScale)
     {
         parameters.clear();
         registerAllParameters();
@@ -46,20 +48,22 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(const DeconvolutionConfig& o
     if (this != &other) {
         algorithmName = other.algorithmName;
         iterations = other.iterations;
-        min_denominator = other.min_denominator;
-        signal_to_noise = other.signal_to_noise;
+        minDenominator = other.minDenominator;
+        signalToNoise = other.signalToNoise;
         paddingFillType = other.paddingFillType;
         paddingStrategyType = other.paddingStrategyType;
         paddingRelativeMax = other.paddingRelativeMax;
         featheringRadius = other.featheringRadius;
         cubeSize = other.cubeSize;
         cubePadding = other.cubePadding;
-        poissonSnr = other.poissonSnr;
         poissonLambda = other.poissonLambda;
         poissonBackground = other.poissonBackground;
+        poissonPrefilter = other.poissonPrefilter;
+        poissonPrefilterScale = other.poissonPrefilterScale;
         poissonSieve = other.poissonSieve;
         poissonPrior = other.poissonPrior;
         poissonSievePasses = other.poissonSievePasses;
+        poissonSieveScale = other.poissonSieveScale;
         parameters.clear();
         registerAllParameters();
     }
@@ -70,20 +74,22 @@ DeconvolutionConfig::DeconvolutionConfig(DeconvolutionConfig&& other) noexcept
     : Config(),
     algorithmName(std::move(other.algorithmName)),
     iterations(other.iterations),
-    min_denominator(other.min_denominator),
-    signal_to_noise(other.signal_to_noise),
+    minDenominator(other.minDenominator),
+    signalToNoise(other.signalToNoise),
     paddingFillType(other.paddingFillType),
     paddingStrategyType(other.paddingStrategyType),
     paddingRelativeMax(other.paddingRelativeMax),
     featheringRadius(other.featheringRadius),
     cubeSize(other.cubeSize),
     cubePadding(other.cubePadding),
-    poissonSnr(other.poissonSnr),
     poissonLambda(other.poissonLambda),
     poissonBackground(other.poissonBackground),
+    poissonPrefilter(other.poissonPrefilter),
+    poissonPrefilterScale(other.poissonPrefilterScale),
     poissonSieve(other.poissonSieve),
     poissonPrior(other.poissonPrior),
-    poissonSievePasses(other.poissonSievePasses)
+    poissonSievePasses(other.poissonSievePasses),
+    poissonSieveScale(other.poissonSieveScale)
     {
         parameters.clear();
         registerAllParameters();
@@ -93,20 +99,22 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(DeconvolutionConfig&& other)
     if (this != &other) {
         algorithmName = std::move(other.algorithmName);
         iterations = other.iterations;
-        min_denominator = other.min_denominator;
-        signal_to_noise = other.signal_to_noise;
+        minDenominator = other.minDenominator;
+        signalToNoise = other.signalToNoise;
         paddingFillType = other.paddingFillType;
         paddingStrategyType = other.paddingStrategyType;
         paddingRelativeMax = other.paddingRelativeMax;
         featheringRadius = other.featheringRadius;
         cubeSize = other.cubeSize;
         cubePadding = other.cubePadding;
-        poissonSnr = other.poissonSnr;
         poissonLambda = other.poissonLambda;
         poissonBackground = other.poissonBackground;
+        poissonPrefilter = other.poissonPrefilter;
+        poissonPrefilterScale = other.poissonPrefilterScale;
         poissonSieve = other.poissonSieve;
         poissonPrior = other.poissonPrior;
         poissonSievePasses = other.poissonSievePasses;
+        poissonSieveScale = other.poissonSieveScale;
         parameters.clear();
         registerAllParameters();
     }
@@ -162,8 +170,8 @@ void DeconvolutionConfig::registerAllParameters() {
     // Register each parameter as a ConfigParameter struct
     parameters.push_back({ParameterType::StringSelection, &algorithmName, "Algorithm Name", true, "algorithm_name", "--algorithm_name", "Algorithm selection", false, false, 0.0, 0.0, algorithmOptionsVoid});
     parameters.push_back({ParameterType::Int, &iterations, "Iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
-    parameters.push_back({ParameterType::Float, &min_denominator, "Min Denominator", true, "min_denominator", "--min_denominator", "Min denominator", false, true, 1e-12, 1e-3, nullptr});
-    parameters.push_back({ParameterType::Float, &signal_to_noise, "Signal to Noise", true, "signal_to_noise", "--signal_to_noise", "Signal to noise ratio", false, false, 0.0, 1.0, nullptr});
+    parameters.push_back({ParameterType::Float, &minDenominator, "Min Denominator", true, "min_denominator", "--min_denominator", "Min denominator", false, true, 1e-12, 1e-3, nullptr});
+    parameters.push_back({ParameterType::Float, &signalToNoise, "Signal to Noise", true, "signal_to_noise", "--signal_to_noise", "Signal to noise ratio", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Map, &paddingFillType, "Padding Fill", true, "padding_fill", "--padding_fill", "Type of fill method for the image padding", false, true, 0.0, 5.0, paddingFillMap_p});
     parameters.push_back({ParameterType::Map, &paddingStrategyType, "Padding Strategy", true, "padding_strategy", "--padding_strategy",
         "Preset PSF padding threshold: none, low, medium, max. Overridden if cube_padding or padding_relative_max is set", false, true, 0.0, 4, paddingStrategyMap_p});
@@ -173,12 +181,14 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::IntArray3, &cubeSize, "Cube Size", true, "cube_size", "--cube_size", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::IntArray3, &cubePadding, "Cube Padding", true, "cube_padding", "--cube_padding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     // PoissonMLE (Poisson / I-divergence likelihood) specific parameters
-    parameters.push_back({ParameterType::Float, &poissonSnr, "Poisson SNR", true, "poisson_snr", "--poisson_snr", "Effective SNR / acuity master dial for PoissonMLE", false, true, 1e-3, 1e5, nullptr});
     parameters.push_back({ParameterType::Float, &poissonLambda, "Poisson Lambda", true, "poisson_lambda", "--poisson_lambda", "Shrinkage strength for PoissonMLE prior step (0 = derive from SNR)", false, true, 0.0, 1e4, nullptr});
-    parameters.push_back({ParameterType::Float, &poissonBackground, "Poisson Background", true, "poisson_background", "--poisson_background", "Background level for PoissonMLE (0 = estimate from data)", false, true, 0.0, 1e8, nullptr});
+    parameters.push_back({ParameterType::Float, &poissonBackground, "Poisson Background", true, "poisson_background", "--poisson_background", "Background level for PoissonMLE (<0 = estimate from data)", false, true, -1.0, 1e8, nullptr});
+    parameters.push_back({ParameterType::Bool, &poissonPrefilter, "Poisson Prefilter", true, "poisson_prefilter", "--poisson_prefilter", "Enable prefilter: mild anisotropic Gaussian low-pass of the data used as the initial estimate f0 (auto background = min of f0)", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Float, &poissonPrefilterScale, "Poisson Prefilter Scale", true, "poisson_prefilter_scale", "--poisson_prefilter_scale", "Prefilter width: per-axis sigma = scale * PSF sigma (0.3 reproduces the reference; 0 disables the blur)", false, true, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Bool, &poissonSieve, "Poisson Sieve", true, "poisson_sieve", "--poisson_sieve", "Enable annealed anisotropic Gaussian smoothing (sieve) in PoissonMLE", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Bool, &poissonPrior, "Poisson Prior", true, "poisson_prior", "--poisson_prior", "Enable lambda-shrinkage + flux conservation prior step in PoissonMLE", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Int, &poissonSievePasses, "Poisson Sieve Passes", true, "poisson_sieve_passes", "--poisson_sieve_passes", "Number of sieve smoothing passes per iteration in PoissonMLE", false, true, 0.0, 64.0, nullptr});
+    parameters.push_back({ParameterType::Float, &poissonSieveScale, "Poisson Sieve Scale", true, "poisson_sieve_scale", "--poisson_sieve_scale", "Sieve peak width as a fraction of the PSF at SNR=1 (effective = scale/SNR); 0.25 default, lower = sharper / more contrast, 0 disables", false, true, 0.0, 100.0, nullptr});
     parameters.push_back({ParameterType::Bool, &sliceAllDimensions, "Slice all dimensions", true, "slice_all_dimensions", "--slice_all_dimensions", "Slice all dimensions not only Z dimension", false, false, 0.0, 0.0, nullptr});
     // its labeled if the labeled image is given
     // parameters.push_back({ParameterType::String, &deconvolutionType, "Deconvolution Type", true, "deconvolution_type", "--deconvolution_type", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});

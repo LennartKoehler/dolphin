@@ -17,7 +17,7 @@ See the LICENSE file provided with the code for the full license.
 
 void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
-    min_denominator = config.min_denominator;
+    min_denominator = config.minDenominator;
 }
 
 void InverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {

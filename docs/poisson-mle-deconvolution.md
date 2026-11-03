@@ -162,10 +162,11 @@ regularizes *spatially*: it applies a gentle, low-pass smoothing so that the
 object does not oscillate from voxel to voxel.
 
 - **A Gaussian blur matched to the optics.** In the frequency domain this is
-  multiplication by a Gaussian low-pass filter whose width is set by the PSF
-  widths estimated in Step 0. Smoothing at the scale of the actual optical blur —
-  not finer, not coarser — is a natural choice: it removes detail the optics
-  could not have produced in the first place.
+  multiplication by a Gaussian low-pass filter whose width is `poissonSieveScale`
+  (default 0.25) times the PSF widths estimated in Step 0. Smoothing at the scale
+  of the actual optical blur — not finer, not coarser — is a natural choice: it
+  removes detail the optics could not have produced in the first place. A lower
+  `poissonSieveScale` keeps more high-frequency contrast; `0` turns the sieve off.
 - **Annealing: smooth early, refine later.** The strength of the smoothing
   "cools" over the iterations (it is proportional to $1 - k/k_{\text{last}}$).
   In the first iterations the object is rough and far from the solution, so
@@ -205,11 +206,12 @@ zero background.
 
 | Parameter | Default | What it controls, physically |
 |-----------|---------|------------------------------|
-| `poissonSnr` | 10 | The effective signal-to-noise ratio / sharpness dial. High → trust the data, little regularization, closer to the pure MLE. Low → stronger shrinkage + smoothing. |
+| `signal_to_noise` | 10 | The effective signal-to-noise ratio / sharpness dial. High → trust the data, little regularization, closer to the pure MLE. Low → stronger shrinkage + smoothing. |
 | `poissonBackground` | −1 (auto) | The flat background level $b$ in the forward model. If unset (−1), it is estimated from the dimmest decile of the data. |
 | `poissonLambda` | 0 (auto) | The shrinkage strength $\lambda$ of the prior. If unset (0), it is derived as $1/\mathrm{SNR}$. |
 | `poissonSieve` | true | Whether the annealed anisotropic Gaussian smoothing (roughness regularizer) is applied. |
 | `poissonSievePasses` | 2 | How many smoothing passes per iteration (deeper low-pass, same bandwidth). |
+| `poissonSieveScale` | 0.25 | Sieve peak width as a fraction of the PSF width. 0.5 = original behavior; lower = sharper / more contrast; 0 disables the sieve. |
 | `iterations` | 10 | Number of data/prior/sieve cycles. Stopping is by count, not by a quality test. |
 
 ## Summary

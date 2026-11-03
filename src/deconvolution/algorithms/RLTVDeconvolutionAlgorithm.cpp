@@ -16,10 +16,15 @@ See the LICENSE file provided with the code for the full license.
 #include <cassert>
 #include <spdlog/spdlog.h>
 
+
+// Shrinkage base: lambda = kLambdaBase / snr (0 = derive from SNR). Higher SNR
+// -> smaller lambda -> weaker prior (closer to the pure MLE).
+const real_t kLambdaBase = 1.0f;
+
 void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
     iterations = config.iterations;
-    signal_to_noise = config.signal_to_noise;
+    signal_to_noise = config.signalToNoise;
 }
 
 
@@ -118,5 +123,8 @@ void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
 
     deconvolution.divergence(gx, gy, gz, tv);
 
-    deconvolution.computeTV(static_cast<real_t>(signal_to_noise), tv, tv); // in-place: tv is both div input and tv output
+    // SNR -> shrinkage strength lambda. 0 = derive from SNR (lambda = base/snr:
+    // higher SNR -> weaker prior, closer to the pure MLE).
+    const real_t lambda = kLambdaBase / std::max(1e-6f, signal_to_noise);
+    deconvolution.computeTV(static_cast<real_t>(lambda), tv, tv); // in-place: tv is both div input and tv output
 }

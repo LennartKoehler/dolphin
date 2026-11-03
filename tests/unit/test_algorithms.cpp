@@ -27,6 +27,7 @@ See the LICENSE file provided with the code for the full license.
 #include <array>
 #include <cmath>
 #include <vector>
+#include <stdexcept>
 
 class AlgorithmTestBase : public ::testing::Test {
 protected:
@@ -43,9 +44,9 @@ protected:
         DeconvolutionConfig config;
         config.algorithmName = name;
         config.iterations = 5;
-        config.min_denominator = 1e-6f;
-        config.signal_to_noise = 0.001f;
-        config.poissonSnr = 100.0f;
+        config.minDenominator = 1e-6f;
+        config.signalToNoise = 0.001f;
+        config.signalToNoise = 100.0f;
         auto& factory = DeconvolutionAlgorithmFactory::getInstance();
         return factory.createShared(config);
     }
@@ -396,7 +397,7 @@ TEST_F(AlgorithmTestBase, PoissonMLEGaussianPSFRoundTrip) {
     DeconvolutionConfig config;
     config.algorithmName = "PoissonMLE";
     config.iterations = 30;
-    config.poissonSnr = 20.0f;
+    config.signalToNoise = 20.0f;
     config.poissonBackground = bg;
     config.poissonSieve = true;
     config.poissonPrior = true;
@@ -419,6 +420,301 @@ TEST_F(AlgorithmTestBase, PoissonMLEGaussianPSFRoundTrip) {
     EXPECT_GT(corr, 0.8f) << "Gaussian-PSF round-trip correlation with ground truth was " << corr;
 }
 
+
+// Regression: poissonSieveScale flows config -> algorithm, and turning the sieve off
+// (scale 0 = identity) is at least as faithful to and at least as sharp as the default
+// (scale 0.5). The sieve is a DC-preserving low-pass, so smoothing can only redistribute
+// peak energy into the background (lower max, lower correlation) — it cannot recover
+// detail. This guards the knob and the contrast behavior.
+TEST_F(AlgorithmTestBase, PoissonMLESieveScaleKnob) {
+    const float bg = 0.01f;
+    const float psfScale = 7.3f; // deliberately not unit sum
+    const float sigma = 1.5f;
+    const size_t S = 16, C = 8;
+
+    // Same structured ground truth as PoissonMLEGaussianPSFRoundTrip.
+    struct Blob { size_t cx, cy, cz; float amp, rad; };
+    const std::vector<Blob> blobs = {
+        {4, 4, 4, 1.0f, 2.0f}, {11, 5, 9, 0.8f, 2.0f}, {8, 12, 4, 0.6f, 1.5f}, {3, 11, 12, 0.9f, 2.0f},
+    };
+    Image3D truth(CuboidShape(S, S, S), 0.05f);
+    for (size_t z = 0; z < S; ++z)
+        for (size_t y = 0; y < S; ++y)
+            for (size_t x = 0; x < S; ++x) {
+                float v = 0.05f;
+                for (const auto& b : blobs) {
+                    double dx = (double)x - b.cx, dy = (double)y - b.cy, dz = (double)z - b.cz;
+                    v += b.amp * std::exp(-0.5 * (dx * dx + dy * dy + dz * dz) / (b.rad * b.rad));
+                }
+                truth.setPixel(x, y, z, v);
+            }
+
+    Image3D psfImg(dataSize, 0.0f);
+    Image3D unitImg(dataSize, 0.0f);
+    double psfSum = 0.0;
+    std::vector<float> vals(S * S * S);
+    for (size_t z = 0; z < S; ++z)
+        for (size_t y = 0; y < S; ++y)
+            for (size_t x = 0; x < S; ++x) {
+                double dx = (double)x - C, dy = (double)y - C, dz = (double)z - C;
+                float v = (float)(psfScale * std::exp(-0.5 * (dx * dx + dy * dy + dz * dz) / (sigma * sigma)));
+                vals[z * S * S + y * S + x] = v;
+                psfSum += v;
+            }
+    for (size_t z = 0; z < S; ++z)
+        for (size_t y = 0; y < S; ++y)
+            for (size_t x = 0; x < S; ++x) {
+                float v = vals[z * S * S + y * S + x];
+                psfImg.setPixel(x, y, z, v);
+                unitImg.setPixel(x, y, z, v / (float)psfSum);
+            }
+
+    const auto& mem = backend->getMemoryManager();
+    const auto& compute = backend->getComputeManager();
+    RealData g = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+    {
+        RealData truthDev = imageToDevice(truth);
+        RealData work = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+        ComplexView workC = mem.reinterpret(work);
+        mem.memCopy(truthDev, work);
+        compute.forwardFFT(work, workC);
+        compute.complexMultiplication(workC, *preprocessPSF(std::make_shared<PSF>(std::move(unitImg), "gaussian_unit"), dataSize), workC);
+        compute.backwardFFT(workC, work);
+        compute.realAffine(work, 1.0f, bg, g);
+        backend->sync();
+    }
+    auto Hmis = preprocessPSF(std::make_shared<PSF>(std::move(psfImg), "gaussian"), dataSize);
+
+    // Returns Image3D by value (copy-elided, like the round-trip test above).
+    // snr=1 so poissonSieveScale maps 1:1 to its literal meaning (effective sieve
+    // scale = poissonSieveScale / snr); the flow-through check stays unambiguous.
+    auto run = [this, &mem, &bg, &g, &Hmis](float sieveScale) -> Image3D {
+        DeconvolutionConfig config;
+        config.algorithmName = "PoissonMLE";
+        config.iterations = 30;
+        config.signalToNoise = 1.0f;
+        config.poissonBackground = bg;
+        config.poissonSieve = true;
+        config.poissonPrior = true;
+        config.poissonSievePasses = 2;
+        config.poissonSieveScale = sieveScale;
+        auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(config);
+        if (!algo) return Image3D(dataSize, 0.0f);
+        algo->setBackend(*backend);
+        algo->init(dataSize);
+        RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+        algo->deconvolve(*Hmis, g, f);
+        backend->sync();
+        return deviceToImage(f);
+    };
+
+    Image3D resOff = run(0.0f);    // sieve disabled (identity)
+    Image3D resDef = run(0.5f);    // original sieve strength
+
+    // 1) Stability: the solver must stay finite with the sieve turned off.
+    EXPECT_FALSE(TestUtils::hasNaN(resOff));
+    EXPECT_FALSE(TestUtils::hasInf(resOff));
+
+    // 2) Fidelity: with the sieve off the objects are still recovered well.
+    const float corrOff = TestUtils::correlation(resOff, truth);
+    EXPECT_GT(corrOff, 0.8f) << "sieve off (scale 0) correlation with ground truth was " << corrOff;
+
+    // 3) Flow-through: if poissonSieveScale were not wired config -> algorithm the
+    //    two runs would be identical. They must differ (the sieve changes the result).
+    float maxDiff = 0.0f;
+    const size_t vol = resOff.getShape().getVolume();
+    for (size_t i = 0; i < vol; ++i) maxDiff = std::max(maxDiff, std::fabs(resOff[i] - resDef[i]));
+    EXPECT_GT(maxDiff, 1e-4f)
+        << "poissonSieveScale had no effect: sieve-off and sieve-on results are identical";
+}
+
+
+// Regression: the prefilter init step. With an AUTO background (poissonBackground = -1)
+// and prefilter ON, the initial estimate f0 is a mild anisotropic Gaussian low-pass of
+// the data and the background is min(f0); with prefilter OFF it falls back to the raw
+// data and the dimmest-decile mean. Both must reconstruct the objects and stay finite,
+// and the prefilter must not degrade the result.
+TEST_F(AlgorithmTestBase, PoissonMLEPrefilterAutoBackground) {
+    const float bg = 0.01f;
+    const float sigma = 1.5f;
+    const size_t S = 16, C = 8;
+
+    struct Blob { size_t cx, cy, cz; float amp, rad; };
+    const std::vector<Blob> blobs = {
+        {4, 4, 4, 1.0f, 2.0f}, {11, 5, 9, 0.8f, 2.0f}, {8, 12, 4, 0.6f, 1.5f}, {3, 11, 12, 0.9f, 2.0f},
+    };
+    Image3D truth(CuboidShape(S, S, S), 0.05f);
+    for (size_t z = 0; z < S; ++z)
+        for (size_t y = 0; y < S; ++y)
+            for (size_t x = 0; x < S; ++x) {
+                float v = 0.05f;
+                for (const auto& b : blobs) {
+                    double dx = (double)x - b.cx, dy = (double)y - b.cy, dz = (double)z - b.cz;
+                    v += b.amp * std::exp(-0.5 * (dx * dx + dy * dy + dz * dz) / (b.rad * b.rad));
+                }
+                truth.setPixel(x, y, z, v);
+            }
+
+    Image3D psfImg(dataSize, 0.0f);
+    double psfSum = 0.0;
+    std::vector<float> vals(S * S * S);
+    for (size_t z = 0; z < S; ++z)
+        for (size_t y = 0; y < S; ++y)
+            for (size_t x = 0; x < S; ++x) {
+                double dx = (double)x - C, dy = (double)y - C, dz = (double)z - C;
+                float v = (float)std::exp(-0.5 * (dx * dx + dy * dy + dz * dz) / (sigma * sigma));
+                vals[z * S * S + y * S + x] = v;
+                psfSum += v;
+            }
+    for (size_t z = 0; z < S; ++z)
+        for (size_t y = 0; y < S; ++y)
+            for (size_t x = 0; x < S; ++x)
+                psfImg.setPixel(x, y, z, vals[z * S * S + y * S + x] / (float)psfSum);
+    auto H = preprocessPSF(std::make_shared<PSF>(std::move(psfImg), "gaussian_unit"), dataSize);
+
+    const auto& mem = backend->getMemoryManager();
+    const auto& compute = backend->getComputeManager();
+    RealData truthDev = imageToDevice(truth);
+    RealData g = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+    RealData work = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+    ComplexView workC = mem.reinterpret(work);
+    mem.memCopy(truthDev, work);
+    compute.forwardFFT(work, workC);
+    compute.complexMultiplication(workC, *H, workC);
+    compute.backwardFFT(workC, work);
+    compute.realAffine(work, 1.0f, bg, g);
+    backend->sync();
+
+    auto run = [&](bool prefilter) -> Image3D {
+        DeconvolutionConfig config;
+        config.algorithmName = "PoissonMLE";
+        config.iterations = 30;
+        config.signalToNoise = 20.0f;
+        config.poissonBackground = -1.0f; // auto
+        config.poissonPrefilter = prefilter;
+        config.poissonPrefilterScale = 0.3f;
+        config.poissonSieve = true;
+        config.poissonPrior = true;
+        config.poissonSievePasses = 2;
+        auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(config);
+        if (!algo) throw std::runtime_error("PoissonMLE algorithm not created");
+        algo->setBackend(*backend);
+        algo->init(dataSize);
+        RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+        algo->deconvolve(*H, g, f);
+        backend->sync();
+        return deviceToImage(f);
+    };
+
+    Image3D withPrefilter = run(true);
+    EXPECT_FALSE(TestUtils::hasNaN(withPrefilter));
+    EXPECT_FALSE(TestUtils::hasInf(withPrefilter));
+    const float corrOn = TestUtils::correlation(withPrefilter, truth);
+    EXPECT_GT(corrOn, 0.7f) << "prefilter (auto bg) correlation with ground truth was " << corrOn;
+
+    Image3D withoutPrefilter = run(false);
+    EXPECT_FALSE(TestUtils::hasNaN(withoutPrefilter));
+    const float corrOff = TestUtils::correlation(withoutPrefilter, truth);
+    EXPECT_GT(corrOff, 0.7f) << "no-prefilter (auto bg) correlation with ground truth was " << corrOff;
+
+    // The prefilter gives a better start, so it must not hurt reconstruction.
+    EXPECT_GE(corrOn, corrOff - 0.05f)
+        << "prefilter-on corr " << corrOn << " < prefilter-off corr " << corrOff;
+}
+
+// Regression: the output must be reported on a ~zero background. With an auto
+// background the MLE absorbs (flat background of g) - bg into f as a uniform
+// pedestal unless it is explicitly removed. Ground truth here has OBJECT
+// background 0 on a flat data background bg, so the correct output background is
+// ~0; this asserts the final pedestal removal leaves the mostly-background voxels
+// near zero (the earlier symptom was a leftover floor ~= bg).
+TEST_F(AlgorithmTestBase, PoissonMLERemovesOutputPedestal) {
+    const float bg = 0.02f;              // measured (data) background
+    const float sigma = 2.0f;
+    const size_t S = 16, C = 8;
+
+    // Sparse bright objects on a ZERO object background -> most voxels are flat bg.
+    struct Blob { size_t cx, cy, cz; float amp, rad; };
+    const std::vector<Blob> blobs = {
+        {4, 4, 4, 5.0f, 1.0f}, {12, 5, 11, 5.0f, 1.0f}, {8, 12, 3, 5.0f, 1.0f},
+    };
+    Image3D truth(CuboidShape(S, S, S), 0.0f);
+    for (size_t z = 0; z < S; ++z)
+        for (size_t y = 0; y < S; ++y)
+            for (size_t x = 0; x < S; ++x) {
+                float v = 0.0f;
+                for (const auto& b : blobs) {
+                    double dx = (double)x - b.cx, dy = (double)y - b.cy, dz = (double)z - b.cz;
+                    v += b.amp * std::exp(-0.5 * (dx * dx + dy * dy + dz * dz) / (b.rad * b.rad));
+                }
+                truth.setPixel(x, y, z, v);
+            }
+
+    Image3D psfImg(dataSize, 0.0f);
+    double psfSum = 0.0;
+    std::vector<float> vals(S * S * S);
+    for (size_t z = 0; z < S; ++z)
+        for (size_t y = 0; y < S; ++y)
+            for (size_t x = 0; x < S; ++x) {
+                double dx = (double)x - C, dy = (double)y - C, dz = (double)z - C;
+                float v = (float)std::exp(-0.5 * (dx * dx + dy * dy + dz * dz) / (sigma * sigma));
+                vals[z * S * S + y * S + x] = v;
+                psfSum += v;
+            }
+    for (size_t z = 0; z < S; ++z)
+        for (size_t y = 0; y < S; ++y)
+            for (size_t x = 0; x < S; ++x)
+                psfImg.setPixel(x, y, z, vals[z * S * S + y * S + x] / (float)psfSum);
+    auto H = preprocessPSF(std::make_shared<PSF>(std::move(psfImg), "gaussian_unit"), dataSize);
+
+    const auto& mem = backend->getMemoryManager();
+    const auto& compute = backend->getComputeManager();
+    RealData truthDev = imageToDevice(truth);
+    RealData g = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+    RealData work = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+    ComplexView workC = mem.reinterpret(work);
+    mem.memCopy(truthDev, work);
+    compute.forwardFFT(work, workC);
+    compute.complexMultiplication(workC, *H, workC);
+    compute.backwardFFT(workC, work);
+    compute.realAffine(work, 1.0f, bg, g);
+    backend->sync();
+
+    DeconvolutionConfig config;
+    config.algorithmName = "PoissonMLE";
+    config.iterations = 30;
+    config.signalToNoise = 20.0f;
+    config.poissonBackground = -1.0f; // auto
+    config.poissonPrefilter = true;
+    config.poissonPrefilterScale = 0.3f;
+    config.poissonSieve = true;
+    config.poissonPrior = true;
+    config.poissonSievePasses = 2;
+    auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(config);
+    ASSERT_NE(algo, nullptr);
+    algo->setBackend(*backend);
+    algo->init(dataSize);
+
+    RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+    algo->deconvolve(*H, g, f);
+    backend->sync();
+
+    Image3D result = deviceToImage(f);
+    EXPECT_FALSE(TestUtils::hasNaN(result));
+
+    // The lower quartile of a mostly-background image is its flat background; it
+    // must sit near zero (well below bg), not on a leftover pedestal ~= bg.
+    std::vector<float> vals2;
+    vals2.reserve(result.getShape().getVolume());
+    for (const auto& it : result) vals2.push_back((float)it);
+    std::sort(vals2.begin(), vals2.end());
+    const float q25 = vals2[vals2.size() / 4];
+    const float q50 = vals2[vals2.size() / 2];
+    EXPECT_LT(q25, 0.03f * bg) << "output lower-quartile background " << q25 << " close to data bg " << bg;
+    EXPECT_LT(q50, 0.08f * bg) << "output median background " << q50 << " close to data bg " << bg;
+    // Objects still present.
+    EXPECT_GT(vals2.back(), 1.0f) << "objects were removed by the pedestal subtraction";
+}
 
 // Robustness: a PSF with negative lobes (negative DC after centering) must not
 // drive the estimate to NaN/Inf. Exercises the model-floor + line-search guards.
@@ -449,7 +745,7 @@ TEST_F(AlgorithmTestBase, PoissonMLENegativePSFNoNaN) {
     DeconvolutionConfig config;
     config.algorithmName = "PoissonMLE";
     config.iterations = 2;
-    config.poissonSnr = 10.0f;
+    config.signalToNoise = 10.0f;
     config.poissonSieve = false;
     config.poissonPrior = false;
     auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(config);
@@ -516,7 +812,7 @@ TEST_F(AlgorithmTestBase, PoissonMLEWidePSFSharpPeaksNoNaN) {
     DeconvolutionConfig config;
     config.algorithmName = "PoissonMLE";
     config.iterations = 6;
-    config.poissonSnr = 10.0f;      // lambda = 0.1
+    config.signalToNoise = 10.0f;      // lambda = 0.1
     config.poissonBackground = bg;
     config.poissonSieve = true;
     config.poissonPrior = true;

@@ -45,29 +45,40 @@ public:
     // Use the struct for parameters
     std::string algorithmName = "RichardsonLucy";
     int iterations = 10;
-    float min_denominator = 1e-6f;
-    float signal_to_noise = 0.1f;
+    float minDenominator = 1e-6f;
+    float signalToNoise = 10.0f;
     PaddingFillType paddingFillType = PaddingFillType::ZERO;
     PaddingStrategyType paddingStrategyType = PaddingStrategyType::DEFAULT;
     float paddingRelativeMax = 0.0f; // > 0: fraction of PSF max to pad to; 0 = use preset
     int featheringRadius = 0;
     std::array<size_t, 3> cubeSize{0, 0, 0}; // currently unused
-    std::array<int64_t, 3> cubePadding{-1, -1, -1}; // this padding is later doubled
+    std::optional<std::array<size_t, 3>> cubePadding = std::nullopt;
     bool sliceAllDimensions = false;
 
     // --- PoissonMLE (Poisson / I-divergence likelihood) specific parameters ---
-    // Master dial: effective SNR (acuity). Drives shrinkage, sieve and photon scale.
-    float poissonSnr = 10.0f;
-    // Shrinkage strength lambda for the prior step. 0 => derive from poissonSnr.
+    // Shrinkage strength lambda for the prior step. 0 => derive from signal_to_noise.
     float poissonLambda = 0.0f;
-    // Background level bg. 0 => estimate from the data (mean of dimmest decile).
+    // Background level bg. <0 => estimate from the data (min of the prefiltered
+    // estimate when the prefilter is on, else the mean of the dimmest decile).
     float poissonBackground = -1.0f;
+    // Enable the prefilter: a single mild anisotropic Gaussian low-pass of the raw
+    // data g, used as the MLE's initial estimate f0.
+    bool poissonPrefilter = true;
+    // Prefilter width scale: per-axis sigma = poissonPrefilterScale * PSF sigma.
+    // 0.3 reproduces the reference ("sigma ~= 0.3 * PSF width"); 0 disables the blur.
+    float poissonPrefilterScale = 0.3f;
     // Enable the annealed anisotropic Gaussian roughness ("sieve") step.
     bool poissonSieve = true;
     // Enable the lambda-shrinkage + flux-conservation prior step.
     bool poissonPrior = true;
     // Number of sieve smoothing passes per iteration.
     int poissonSievePasses = 2;
+    // Sieve peak width as a fraction of the PSF width (per-axis) at SNR=1, annealed
+    // to 0 over the run. It is coupled to SNR like the prior: effective scale =
+    // poissonSieveScale / snr, so the sieve is as wide as this fraction at snr=1 and
+    // fades to the identity (pure MLE) as snr -> inf. Lower base = sharper / more
+    // contrast; 0 disables the sieve.
+    float poissonSieveScale = 0.1f;
 
 private:
     virtual void registerAllParameters();

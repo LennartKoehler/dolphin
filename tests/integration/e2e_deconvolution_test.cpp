@@ -123,8 +123,8 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
     DeconvolutionConfig deconvConfig;
     deconvConfig.algorithmName = "RichardsonLucy";
     deconvConfig.iterations = 5;
-    deconvConfig.min_denominator = 1e-6f;
-    deconvConfig.signal_to_noise = 0.001f;
+    deconvConfig.minDenominator = 1e-6f;
+    deconvConfig.signalToNoise = 0.001f;
     deconvConfig.paddingFillType = PaddingFillType::MIRROR;
     deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
 

@@ -1017,7 +1017,7 @@ void CUDAComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t
     const real_t ax = twoPiSq * sigmaX * sigmaX;
     const real_t ay = twoPiSq * sigmaY * sigmaY;
     const real_t az = twoPiSq * sigmaZ * sigmaZ;
-    run("fillGaussianOTF", CUBE_MLE::fillGaussianOTF(Nx, out.getSize().height, out.getSize().depth, strideGradX,  out.getData(), twoPiSq, ax, ay, az, config.stream));
+    run("fillGaussianOTF", CUBE_MLE::fillGaussianOTF(Nx, out.getRealSize().width, out.getSize().height, out.getSize().depth, strideGradX,  out.getData(), twoPiSq, ax, ay, az, config.stream));
 }
 
 void CUDAComputeBackend::normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const {

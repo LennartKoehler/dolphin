@@ -357,11 +357,14 @@ a blur in the spatial domain.
 the PSF widths estimated in Step 0 (§0/prepare). Specifically the lateral
 standard deviations $\sigma_x,\sigma_y$ and axial $\sigma_z$ are scaled by the
 PSF's lateral half-width $\tfrac12(\mathrm{sig}_x+\mathrm{sig}_y)$ and axial
-width $\mathrm{sig}_z$ respectively (each multiplied by $\tfrac12$ as a base
-fraction). Low-passing at the *optical* scale removes detail the PSF could not
+width $\mathrm{sig}_z$ respectively, each multiplied by the configurable base
+fraction `poissonSieveScale` (default $\tfrac14$; the original value was
+$\tfrac12$). Low-passing at the *optical* scale removes detail the PSF could not
 have resolved in the first place — a physically-motivated band-limit, not an
 arbitrary one. The lateral/axial split captures the usual
-axially-elongated (spheroidal) optical PSF.
+axially-elongated (spheroidal) optical PSF. A lower `poissonSieveScale` narrows
+the band and keeps more high-frequency contrast; `0` disables the sieve
+(identity).
 
 **Annealing.** The smoothing strength is multiplied by a cooling schedule
 
@@ -370,10 +373,17 @@ t(k) \;=\; \max\bigl(0,\; 1 - k/k_{\text{last}}\bigr),
 \qquad k_{\text{last}} = \max\bigl(1,\;0.8\,K\bigr),
 $$
 
-with $K$ the total iteration count and $k$ the current (0-based) iteration. So
-the effective sigmas are $\sigma(k)=\tfrac12\,\mathrm{psf}\,\cdot t(k)$: they are
-largest (up to $\tfrac12$ the PSF width) in the early iterations and **decay
-linearly to zero** by $k\approx 0.8K$. This is the *sieve* (a.k.a. annealed)
+with $K$ the total iteration count and $k$ the current (0-based) iteration. The
+width is **also coupled to the SNR** exactly like the prior: the effective sigmas
+are
+$$
+\sigma(k)=\frac{\mathrm{poissonSieveScale}}{\mathrm{SNR}}\;\cdot\;\mathrm{psf}\;\cdot\; t(k),
+$$
+so the sieve is as wide as `poissonSieveScale` times the PSF at SNR $=1$ and
+**fades toward the identity as SNR $\to\infty$** (the pure-MLE limit), while at
+low SNR it blurs strongly to suppress the noise the likelihood would amplify.
+Across iterations the width is largest early and **decays linearly to zero** by
+$k\approx 0.8K$; the SNR factor sets the *peak* width, the schedule the *timing*. This is the *sieve* (a.k.a. annealed)
 strategy: heavy smoothing while the estimate is rough and far from the solution
 (stabilizes, prevents noise chasing), tapering to the **identity** in the final
 $\sim 20\%$ of iterations so the last steps are a near-pure likelihood fit that
@@ -435,20 +445,24 @@ The run is a **fixed number of iterations** $K$ (`iterations`); there is no
 quality-factor / convergence test. The behavior across $K$ is shaped by the
 sieve annealing schedule (§6) rather than by a stopping criterion.
 
-**`poissonSnr` is the master dial.** It sets $\lambda = 1/\mathrm{SNR}$ and hence
-the strength of *both* regularizers (the prior directly; the sieve implicitly,
-since the PSF widths it uses are data-derived). The limits:
+**`signal_to_noise` is the master dial.** It sets the prior strength
+$\lambda = 1/\mathrm{SNR}$ and the sieve peak width `poissonSieveScale`/SNR, so it
+scales *both* regularizers directly. The limits:
 
-- **SNR $\to\infty$**: $\lambda\to0$ (prior off), and the scheme reduces toward
-  the **pure maximum-likelihood fit** of the Poisson model (a guarded, exact-line-
-  search, non-negatively-constrained I-divergence minimizer).
-- **SNR small**: $\lambda$ large → strong shrinkage + strong early smoothing,
-  biasing the estimate toward smoothness in exchange for stability — the usual
-  bias/variance tradeoff of a regularized inverse problem.
+- **SNR $\to\infty$**: $\lambda\to0$ (prior off) **and** the sieve width $\to 0$
+  (identity), so the scheme reduces toward the **pure maximum-likelihood fit**
+  of the Poisson model (a guarded, exact-line-search, non-negatively-constrained
+  I-divergence minimizer) with no smoothing at all.
+- **SNR small**: $\lambda$ large (strong shrinkage) **and** the sieve wide
+  (strong early smoothing), biasing the estimate toward smoothness in exchange
+  for stability — the usual bias/variance tradeoff of a regularized inverse
+  problem.
 
 The other knobs are local overrides: `poissonBackground` fixes $b$ instead of the
 dimmest-decile estimate; `poissonLambda` fixes $\lambda$ instead of $1/\mathrm{SNR}$;
-`poissonSieve`/`poissonSievePasses` toggle/deepen the spatial smoother.
+`poissonSieve`/`poissonSievePasses` toggle/deepen the spatial smoother; and
+`poissonSieveScale` sets its peak width as a fraction of the PSF (lower = sharper,
+`0` = off).
 
 ---
 
@@ -471,5 +485,5 @@ dimmest-decile estimate; `poissonLambda` fixes $\lambda$ instead of $1/\mathrm{S
 | $\lambda=1/\mathrm{SNR}$ | prior shrinkage strength |
 | $\phi_\lambda(u)=(\sqrt{2\lambda u+1}-1)/\lambda$ | concave, sub-linear shrinkage map (flux-preserving after rescale) |
 | $\mathrm{OTF}(\mathbf k)=\exp[-2\pi^2(\sigma_x^2 f_x^2+\sigma_y^2 f_y^2+\sigma_z^2 f_z^2)]$ | sieve Gaussian low-pass |
-| $\sigma(k)=\tfrac12\,\mathrm{psf}\,(1-k/k_{\text{last}})$ | annealed sieve width (→ 0 at the end) |
+| $\sigma(k)=\texttt{poissonSieveScale}\,\mathrm{psf}\,(1-k/k_{\text{last}})$ | annealed sieve width (→ 0 at the end) |
 | $\text{floor}$ | dimmest-decile mean of the result; subtracted at the end |

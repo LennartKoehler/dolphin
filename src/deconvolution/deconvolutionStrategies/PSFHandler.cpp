@@ -31,11 +31,11 @@ std::string PSFHandler::paddingStrategyName(PaddingStrategyType type) {
     }
 }
 
-CuboidShape PSFHandler::getManualCubePadding(const std::array<int64_t, 3>& cubePadding) {
+CuboidShape PSFHandler::getManualCubePadding(const std::array<size_t, 3>& cubePadding) {
     return CuboidShape{
-        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[0])),
-        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[1])),
-        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[2]))
+        std::max<size_t>(0, cubePadding[0]),
+        std::max<size_t>(0, cubePadding[1]),
+        std::max<size_t>(0, cubePadding[2])
     };
 }
 
@@ -123,7 +123,7 @@ void PSFHandler::generatePSFs(
 Result<PaddingScheme> PSFHandler::getPadding(
     const DeconvolutionConfig& deconvConfig) const
 {
-    const bool cubePaddingSet = deconvConfig.cubePadding[0] >= 0 && deconvConfig.cubePadding[1] >= 0 && deconvConfig.cubePadding[2] >= 0;
+    const bool cubePaddingSet = deconvConfig.cubePadding.has_value();
     const bool relativeMaxSet = deconvConfig.paddingRelativeMax > 0.0f;
 
     // precedence: padding_relative_max > cube_padding > preset; log the decision once here
@@ -137,15 +137,12 @@ Result<PaddingScheme> PSFHandler::getPadding(
     }
 
     if (cubePaddingSet) {
-        if (deconvConfig.paddingStrategyType != PaddingStrategyType::DEFAULT) spdlog::get("deconvolution")->info("using cube_padding [{} {} {}] instead of preset {}", deconvConfig.cubePadding[0], deconvConfig.cubePadding[1], deconvConfig.cubePadding[2], paddingStrategyName(deconvConfig.paddingStrategyType));
-        return makePaddingScheme(getManualCubePadding(deconvConfig.cubePadding));
+        if (deconvConfig.paddingStrategyType != PaddingStrategyType::DEFAULT) spdlog::get("deconvolution")->info("using cube_padding [{} {} {}] instead of preset {}", deconvConfig.cubePadding.value()[0], deconvConfig.cubePadding.value()[1], deconvConfig.cubePadding.value()[2], paddingStrategyName(deconvConfig.paddingStrategyType));
+        return makePaddingScheme(getManualCubePadding(deconvConfig.cubePadding.value()));
     }
 
     if (deconvConfig.paddingStrategyType == PaddingStrategyType::DEFAULT){
         spdlog::get("deconvolution")->info("No padding_strategy provided, using preset MEDIUM");
-    }
-    if (deconvConfig.cubePadding[0] >= 0 || deconvConfig.cubePadding[1] >= 0 || deconvConfig.cubePadding[2] >= 0){
-        spdlog::get("deconvolution")->warn("cube_padding partially provided [{} {} {}], ignoring, falling back to preset {}", deconvConfig.cubePadding[0], deconvConfig.cubePadding[1], deconvConfig.cubePadding[2], paddingStrategyName(deconvConfig.paddingStrategyType));
     }
     if (psfs.empty()){
         return Result<PaddingScheme>::fail("No PSFs available, cannot determine padding");

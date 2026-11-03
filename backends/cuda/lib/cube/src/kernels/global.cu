@@ -946,21 +946,26 @@ void poissonLineSearchEvalGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideG
 }
 
 __global__
-void fillGaussianOTFGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, complex_t* out, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az) {
-    size_t sliceStride = stride * Ny;
+void fillGaussianOTFGlobal(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t stride, complex_t* out, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az) {
     size_t x = detail::tx();
     size_t y = detail::ty();
     size_t z = detail::tz();
+    if (!detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        return; // guard against the block grid overshooting a non-multiple dimension
+    }
 
     // Frequency bins are in cycles per SAMPLE: kx = x/W, ky = y/H (wrapped), kz = z/D (wrapped).
     // (sigmaX/Y/Z are in voxels; exp(-2*pi^2 * sigma^2 * f^2) is the Fourier transform of a
     //  Gaussian with std-dev `sigma` samples.) Using raw bin indices here would make the
     //  kernel ~delta for sigma < N/2pi, i.e. keep only DC and flatten the image.
+    // For a real (r2c) buffer the x-frequency must be normalized by the REAL width
+    // (`realW`), not the half-complex loop width `Nx` (= realW/2 + 1); otherwise kx is
+    // ~2x too large and the x filter is far too strong. realW is passed explicitly.
     const real_t kz = (z <= Nz / 2 ? real_t(z) : -real_t(Nz - z)) / real_t(Nz);
     real_t gz = expf(-az * kz * kz);
     const real_t ky = (y <= Ny / 2 ? real_t(y) : -real_t(Ny - y)) / real_t(Ny);
     real_t gy = expf(-ay * ky * ky) * gz;
-    real_t kx = (real_t)x / (real_t)Nx;
-    out[z * sliceStride + y * stride + x][0] = std::exp(-ax * kx * kx) * gy;
-    out[z * sliceStride + y * stride + x][1] = 0.0f;
+    const real_t kx = (real_t)x / (real_t)realW;
+    out[z * stride * Ny + y * stride + x][0] = std::exp(-ax * kx * kx) * gy;
+    out[z * stride * Ny + y * stride + x][1] = 0.0f;
 }

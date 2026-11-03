@@ -17,7 +17,7 @@ See the LICENSE file provided with the code for the full license.
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Call base class configure to set up common parameters
-    signal_to_noise = config.signal_to_noise;
+    signal_to_noise = config.signalToNoise;
 }
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
