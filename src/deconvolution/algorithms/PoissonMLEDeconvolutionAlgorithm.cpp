@@ -258,7 +258,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
 
     const int maxIter = iterations;
     const real_t kLast = std::max(1.0f, 0.8f * static_cast<real_t>(maxIter));
-    real_t pwr = 1.0f;
+    pwr = 1.0f; // reset step damping for this deconvolution
 
     for (int k = 0; k < maxIter; ++k) {
         // ---- DATA STEP: Poisson likelihood, gradient + exact Newton line search. ----
@@ -291,29 +291,8 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
         compute.multiplication(f, direction, direction);       // f*(1-R)
         compute.realAffine(direction, -1.0f, 0.0f, direction); // -f*(1-R) = d
 
-        // hd = H*d  (spatial result in `hd`)
-        memory.memCopy(direction, hd);               // hd <- d
-        compute.forwardFFT(hd, hdC);                 // in-place r2c -> hdC = FFT(d)
-        compute.complexMultiplication(hdC, H, hdC);
-        compute.backwardFFT(hdC, hd);                // in-place c2r -> hd = H*d
-
-        // current objective and optimal step
-        real_t Jcur = 0, dJ = 0, d2J = 0;
-        compute.poissonLineSearchEval(g, model, hd, 0.0f, &Jcur, &dJ, &d2J);
-        const real_t alpha = newtonLineSearch(compute, g, model, hd);
-        real_t Jnew = 0;
-        compute.poissonLineSearchEval(g, model, hd, alpha, &Jnew, &dJ, &d2J);
-
-        // ---- GUARD: if the likelihood worsened, damp the update power. ----
-        if (Jnew > Jcur && pwr > 0.25f) {
-            pwr *= 0.5f;
-        }
-
-        // ---- Additive update f <- f + alpha*pwr*d, clipped at zero. ----
-        // f is the object above the background; keep it non-negative so the
-        // background converges to 0 and the model m = Hf + bg matches g there.
-        compute.realLinearCombination(f, 1.0f, direction, alpha * pwr, f);
-        compute.realClampMin(f, 0.0f, f);
+        // ---- DATA STEP: choose the step and move f (variant-specific). ----
+        applyDataStep(compute, H, g, model, direction, f);
 
         // ---- PRIOR STEP: lambda-shrinkage with flux conservation. ----
         if (usePrior && lambda > 1e-6f) {
@@ -367,6 +346,33 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     //     compute.realAffine(f, 1.0f, -pedestal, f); // f -= pedestal
     //     compute.realClampMin(f, 0.0f, f);
     // }
+}
+
+void PoissonMLEDeconvolutionAlgorithm::applyDataStep(
+    const IComputeBackend& compute, const ComplexData& H, const RealData& g,
+    const RealData& model, RealData& direction, RealData& f) {
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
+    // hd = H*d  (spatial result in `hd`)
+    memory.memCopy(direction, hd);               // hd <- d
+    compute.forwardFFT(hd, hdC);                 // in-place r2c -> hdC = FFT(d)
+    compute.complexMultiplication(hdC, H, hdC);
+    compute.backwardFFT(hdC, hd);                // in-place c2r -> hd = H*d
+
+    // current objective and optimal step
+    real_t Jcur = 0, dJ = 0, d2J = 0;
+    compute.poissonLineSearchEval(g, model, hd, 0.0f, &Jcur, &dJ, &d2J);
+    const real_t alpha = newtonLineSearch(compute, g, model, hd);
+    real_t Jnew = 0;
+    compute.poissonLineSearchEval(g, model, hd, alpha, &Jnew, &dJ, &d2J);
+
+    // ---- GUARD: if the likelihood worsened, damp the update power. ----
+    if (Jnew > Jcur && pwr > 0.25f) {
+        pwr *= 0.5f;
+    }
+
+    // ---- Additive update f <- f + alpha*pwr*d, clipped at zero. ----
+    compute.realLinearCombination(f, 1.0f, direction, alpha * pwr, f);
+    compute.realClampMin(f, 0.0f, f);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneSpecific() const {
