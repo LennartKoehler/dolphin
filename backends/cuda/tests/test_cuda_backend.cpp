@@ -603,7 +603,7 @@ TEST_F(CUDAComputeBackendTest, RealMin) {
 
     RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
     std::vector<real_t> hostA(shape.getVolume());
-    float expectedMin = hostA.empty() ? 0.0f : hostA[0];
+    float expectedMin = hostA.empty() ? 0.0f : std::numeric_limits<real_t>::max();
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostA[i] = static_cast<real_t>((i * 3) % 7 + 1);
         expectedMin = std::min(expectedMin, hostA[i]);
@@ -623,7 +623,7 @@ TEST_F(CUDAComputeBackendTest, RealMax) {
 
     RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
     std::vector<real_t> hostA(shape.getVolume());
-    float expectedMax = hostA.empty() ? 0.0f : hostA[0];
+    float expectedMax = hostA.empty() ? 0.0f : std::numeric_limits<real_t>::lowest();
     for (size_t i = 0; i < shape.getVolume(); ++i) {
         hostA[i] = static_cast<real_t>((i * 3) % 7 + 1);
         expectedMax = std::max(expectedMax, hostA[i]);

@@ -799,8 +799,47 @@ void realSumGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, do
 
 // Min/max over finite elements only. `result` is pre-initialized by the caller to
 // +FLT_MAX (min) or -FLT_MAX (max); the caller detects "no finite element" if the
-// value is unchanged after the reduction. atomicMin/atomicMax on float require
-// compute capability >= 5.0 (project targets 75/80/90).
+// value is unchanged after the reduction.
+//
+// CUDA 13.0 removed the device float overloads of atomicMin/atomicMax (only the
+// _block/_system forms remain), so these are implemented as a CAS loop. Portable
+// across CUDA 12/13 and any compute capability.
+//
+// A naive int-bit comparison of floats is only order-preserving for the non-negative
+// half. To keep full-range (negative) semantics identical to the removed builtins,
+// compare via an IEEE-754 total-order key (non-negative floats -> bits as-is;
+// negative floats -> bits with the magnitude flipped, which makes their order
+// increasing while the value is decreasing). The key is monotonic, so
+// key(v) < key(f)  <=>  v < f  for all finite values.
+__device__ __forceinline__ int floatOrderKey(float f) {
+    int i = __float_as_int(f);
+    return (i < 0) ? (i ^ 0x7FFFFFFF) : i;
+}
+
+__device__ inline void atomicMinFloat(float* addr, float v) {
+    int* a = reinterpret_cast<int*>(addr);
+    int old = *a, assumed;
+    do {
+        assumed = old;
+        if (floatOrderKey(v) < floatOrderKey(__int_as_float(assumed)))
+            old = atomicCAS(a, assumed, __float_as_int(v));
+        else
+            old = assumed;
+    } while (old != assumed);
+}
+
+__device__ inline void atomicMaxFloat(float* addr, float v) {
+    int* a = reinterpret_cast<int*>(addr);
+    int old = *a, assumed;
+    do {
+        assumed = old;
+        if (floatOrderKey(v) > floatOrderKey(__int_as_float(assumed)))
+            old = atomicCAS(a, assumed, __float_as_int(v));
+        else
+            old = assumed;
+    } while (old != assumed);
+}
+
 __global__
 void realMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, float* result) {
     size_t x = detail::tx();
@@ -809,7 +848,7 @@ void realMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, fl
     if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
         size_t idx = detail::indexStrided(x, y, z, stride, Ny);
         float v = (float)a[idx];
-        if (isfinite(v)) atomicMin(result, v);
+        if (isfinite(v)) atomicMinFloat(result, v);
     }
 }
 
@@ -821,7 +860,7 @@ void realMaxGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, fl
     if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
         size_t idx = detail::indexStrided(x, y, z, stride, Ny);
         float v = (float)a[idx];
-        if (isfinite(v)) atomicMax(result, v);
+        if (isfinite(v)) atomicMaxFloat(result, v);
     }
 }
 
