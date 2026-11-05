@@ -52,9 +52,13 @@ public:
     IBackend& createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config) override;
 
 
-    void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads, BackendConfig& ioconfig, BackendConfig& workerConfig) override;
+    void setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) override;
 
-    int getNumberDevices() const override;
+    size_t getNumberDevices() const override;
+
+    // The GPU does the heavy work; a handful of host threads is enough to keep
+    // every device fed with reads, copies and writes.
+    size_t getMaxNumberThreads() const override;
 protected:
 
     std::vector<CUDADevice> devices;

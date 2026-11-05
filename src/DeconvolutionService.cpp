@@ -11,9 +11,11 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <thread>
 #include <spdlog/spdlog.h>
 
 #include "dolphin/DeconvolutionService.h"
@@ -92,7 +94,8 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::shared_ptr<SetupConfig> setupConfig = request.getConfig();
         std::shared_ptr<DeconvolutionConfig> deconvConfig = request.getDeconvolutionConfig();
 
-        std::shared_ptr<ThreadPool> localThreadPool = std::make_shared<ThreadPool>(setupConfig->nThreads);
+        size_t psfThreads = setupConfig->threadConfig.resolvePSFThreadCount();
+        std::shared_ptr<ThreadPool> localThreadPool = std::make_shared<ThreadPool>(psfThreads);
 
         progressCallbackFn progressCallback = request.getProgressCallback();
 
@@ -184,7 +187,15 @@ bool DeconvolutionService::validateAlgorithmConfig(const std::string& algorithm)
 }
 
 bool DeconvolutionService::validateDeconvolutionRequest(const DeconvolutionRequest& request) const{
-    return validateAlgorithmConfig(request.getDeconvolutionConfig()->algorithmName);
+    if (!validateAlgorithmConfig(request.getDeconvolutionConfig()->algorithmName)) {
+        return false;
+    }
+    std::string threadError;
+    if (!request.getConfig()->threadConfig.validate(threadError)) {
+        logger_->error("Invalid thread configuration: {}", threadError);
+        return false;
+    }
+    return true;
 }
 
 void DeconvolutionService::logPlan(const DeconvolutionPlan& plan) const {

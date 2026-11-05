@@ -24,6 +24,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
 #include "dolphinbackend/IBackendManager.h"
 #include <functional>
+#include <utility>
 
 
 
@@ -77,7 +78,7 @@ protected:
         const size_t& ioThreads,
         const size_t& workerThreads,
         const size_t& maxMemDevice_gb,
-        const int& nDevices,
+        const size_t& nDevices,
         std::shared_ptr<DeconvolutionAlgorithm> algorithm,
         PSFHandler& psfHandler,
         const DeconvolutionConfig& deconvConfig,
@@ -86,21 +87,18 @@ protected:
         const PaddingScheme& paddingScheme
     ) const;
 
-    void resolveThreadsAndDevices(
+    std::pair<ThreadConfig, size_t> resolveThreadsAndDevices(
         IBackendManager& manager,
-        int& configNDevices,
-        size_t& nWorkerThreads,
-        size_t& nIOThreads,
-        size_t& totalThreads,
-        size_t& nReaderThreads,
-        BackendConfig& ioConfig,
-        BackendConfig& workerConfig
+        const size_t& nDevices,
+        const ThreadConfig& threadConfig,
+        BackendConfig& workerConfig,
+        BackendConfig& ioConfig
     ) const;
 
     virtual size_t estimateMemoryUsage(
         const CuboidShape& cubeSize,
         const DeconvolutionAlgorithm* algorithm,
-        const SetupConfig& config
+        const ThreadConfig& config
     );
 
     Memory resolveMemory(const SetupConfig& config) const;

@@ -14,8 +14,10 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include <vector>
 #include <memory>
+#include <string>
 #include "dolphin/Config.h"
 #include <array>
+#include "dolphinbackend/ThreadConfig.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/Logging.h"
 
@@ -40,12 +42,9 @@ public:
     std::string outputPath;
     std::string backend = "cpu";
 
-    int nThreads = -1;
-    int nIOThreads = -1;
-    int nWorkerThreads = -1;
-    int nReaderThreads = -1;
+    ThreadConfig threadConfig;
 
-    int nDevices = -1;
+    size_t nDevices = 0;
 
     float maxMemHost_gb = -1;
     float maxMemDevice_gb = -1;

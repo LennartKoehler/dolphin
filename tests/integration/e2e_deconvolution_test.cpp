@@ -112,9 +112,8 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
     setupConfig.imagePath = imagePath;
     setupConfig.outputPath = outputPath;
     setupConfig.backend = "cpu";
-    setupConfig.nThreads = 1;
-    setupConfig.nIOThreads = 1;
-    setupConfig.nWorkerThreads = 1;
+    setupConfig.threadConfig.nIOThreads = 1;
+    setupConfig.threadConfig.nWorkerThreads = 1;
     setupConfig.nDevices = 1;
     setupConfig.maxMemHost_gb = 8;
     setupConfig.maxMemDevice_gb = 8;

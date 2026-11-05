@@ -95,12 +95,35 @@ CUDABackendManager::CUDABackendManager(){
 
 };
 
-int CUDABackendManager::getNumberDevices() const {
+size_t CUDABackendManager::getNumberDevices() const {
     return nDevices;
 }
 
-void CUDABackendManager::setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads, BackendConfig& ioconfig, BackendConfig& workerConfig){
+size_t CUDABackendManager::getMaxNumberThreads() const {
+    return 1;
+}
 
+void CUDABackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) {
+    // The GPU does the heavy compute; host threads only feed and drain devices.
+    ioconfig.nThreads = 1;
+    workerConfig.nThreads = 1;
+
+    switch (inputThreadConfig.getMode()) {
+        case ThreadMode::Auto:
+            inputThreadConfig.nIOThreads = 1;
+            inputThreadConfig.nWorkerThreads = 1;
+            inputThreadConfig.nReaderThreads = getMaxNumberThreads();
+            break;
+        case ThreadMode::Total:
+            inputThreadConfig.nIOThreads = 1;
+            inputThreadConfig.nWorkerThreads = 1;
+            inputThreadConfig.nReaderThreads = inputThreadConfig.nThreads;
+            break;
+        case ThreadMode::Full:
+        default:
+            // Pools explicitly configured by the user; leave them untouched.
+            break;
+    }
 }
 
 IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig& config) {

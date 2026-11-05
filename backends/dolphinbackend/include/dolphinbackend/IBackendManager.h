@@ -15,7 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "IBackendMemoryManager.h"
 #include "IComputeBackend.h"
 #include "IBackend.h"
-
+#include "ThreadConfig.h"
 
 
 
@@ -32,13 +32,23 @@ public:
 
     virtual IBackend& createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config) = 0;
 
-    virtual int getNumberDevices() const = 0;
+    virtual size_t getNumberDevices() const = 0;
 
-    // input is the number of threads given through the config
-    // the backend may decide that for example it uses omp backends,
-    // so it will set the number of omp threads to workerThreads and set workerThreads to 1
-    // the returned number of ioThreads and workerThreads is the number of actual std::threads used in the threadpool
-    // of the deconvolution executor
-    // the backendconfigs is what this manager will later recieve to init backends
-    virtual void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads, BackendConfig& ioconfig, BackendConfig& workerConfig) = 0;
+    // Upper bound on useful hardware threads for this backend. Used to resolve
+    // "auto" (0) thread counts. Device backends usually return a small number
+    // since the host only needs to keep the device fed.
+    virtual size_t getMaxNumberThreads() const { return 1; }
+
+    // The backend owns all thread configuration. It receives the user's thread
+    // intent (Auto / Total / Full, derived from the values) and resolves it:
+    //  - writes the concrete executor pool sizes back into threadConfig
+    //    (nIOThreads / nWorkerThreads = the number of std::threads in the io /
+    //    worker pool the deconvolution executor runs, nReaderThreads = the
+    //    reader pool size), and
+    //  - fills ioconfig / workerConfig with the per-op parallelism that backends
+    //    of this type use to run a task (e.g. OMP threads per worker op), which
+    //    the strategy later hands back to this manager to init backends.
+    // The strategy does no thread math of its own; it just reads the resolved
+    // values back.
+    virtual void setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) = 0;
 };

@@ -38,24 +38,20 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     Memory memory = resolveMemory(setupConfig);
 
-    size_t totalThreads = setupConfig.nThreads;
-    size_t ioThreads = setupConfig.nIOThreads;
-    size_t workerThreads = setupConfig.nWorkerThreads;
-    size_t nReaderThreads = setupConfig.nReaderThreads;
-    int nDevices = setupConfig.nDevices;
     // these are necessary as the cpu can have actual seperate threads for each task or use multiple threads for one task
     BackendConfig workerConfig; // these are configured by the backend so that when its given a task it know what to do
     BackendConfig ioConfig;
 
-
-    resolveThreadsAndDevices(
-    BackendFactory::getBackendManagerStatic(setupConfig.backend),
-        nDevices,
-        workerThreads,
-        ioThreads,
-        totalThreads,
+    auto [resolvedThreads, nDevices] = resolveThreadsAndDevices(
+        BackendFactory::getBackendManagerStatic(setupConfig.backend),
+        setupConfig.nDevices,
+        setupConfig.threadConfig,
         workerConfig,
         ioConfig);
+
+    size_t ioThreads = resolvedThreads.nIOThreads;
+    size_t workerThreads = resolvedThreads.nWorkerThreads;
+    size_t nReaderThreads = resolvedThreads.resolveReaderThreads();
 
 
     // set up reader and writer
@@ -118,9 +114,9 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     std::vector<std::shared_ptr<TaskContext>> contexts = createContexts(
         BackendFactory::getBackendManagerStatic(setupConfig.backend),
         psfHandler,
-		setupConfig.nDevices,
-		workerThreads,
-		ioThreads,
+        nDevices,
+        workerThreads,
+        ioThreads,
         ioConfig,
         workerConfig);
 
@@ -137,7 +133,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     // psfHandler.fitPSFsToShape(paddedShape); // the psfpreprocessor does this
     std::vector<std::shared_ptr<PSF>>& psfs = psfHandler.getPSFs(paddedShape);
 
-    size_t memoryPerTask = estimateMemoryUsage(workShape.getPaddedBox().dimensions, algorithm.get(), setupConfig);
+    size_t memoryPerTask = estimateMemoryUsage(workShape.getPaddedBox().dimensions, algorithm.get(), resolvedThreads);
 
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     tasks.reserve(cubeCoordinatesWithPadding.size());
@@ -183,7 +179,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
     const size_t& ioThreads,
     const size_t& workerThreads,
     const size_t& maxMemDevice_byte,
-    const int& nDevices,
+    const size_t& nDevices,
     std::shared_ptr<DeconvolutionAlgorithm> algorithm,
     PSFHandler& psfHandler,
     const DeconvolutionConfig& deconvConfig,
@@ -238,27 +234,25 @@ throw std::runtime_error("Error while splitting image: " + cubeCoordinatesWithPa
 }
 
 
-void StandardDeconvolutionStrategy::resolveThreadsAndDevices(
+std::pair<ThreadConfig, size_t> StandardDeconvolutionStrategy::resolveThreadsAndDevices(
     IBackendManager& manager,
-    int& configNDevices,
-    size_t& nWorkerThreads,
-    size_t& nIOThreads,
-    size_t& totalThreads,
+    const size_t& nDevices,
+    const ThreadConfig& threadConfig,
     BackendConfig& workerconfig,
     BackendConfig& ioconfig
 ) const{
-        int numberDevices = manager.getNumberDevices();
-        numberDevices = std::min(numberDevices, configNDevices);
-        numberDevices = numberDevices < 1 ? 1 : numberDevices;
+    ThreadConfig resolvedConfig = threadConfig;
 
-        // TODO the backendmanager knows best the ratio between workers and io, however this is not really a responsibility of the backend
-        // so this is like a question to backend: How would you use these number of io and worker threads
-        // and then this implicitly can also impact the number of threadpools used in the execution as the total number of threads shouldnt be larger than what is in the context
-        // then the backendconfig which got incluenced by the manager is passed to the taskcontext, where it is later used for the same manager
-        // to init new backends
-        // so nIOThreads and nWorkerThreads are the number of threads in the respective threadpool
-        // while the backendconfigs might e.g. the number of ompbackends
-        manager.setThreadDistribution(totalThreads, nIOThreads, nWorkerThreads, ioconfig, workerconfig);
+    size_t numberDevices = nDevices == 0 ? manager.getNumberDevices() : std::min(nDevices, manager.getNumberDevices());
+
+    // The backend owns the thread configuration: it resolves the user's intent
+    // (Auto/Total/Full) into concrete executor pool sizes (written back into
+    // resolvedConfig) and fills ioconfig/workerconfig with the per-op
+    // parallelism (e.g. OMP threads per worker). The strategy just reads the
+    // resolved values back.
+    manager.setThreadDistribution(resolvedConfig, ioconfig, workerconfig);
+
+    return std::pair<ThreadConfig, size_t>{resolvedConfig, numberDevices};
 }
 
 std::vector<std::shared_ptr<TaskContext>> StandardDeconvolutionStrategy::createContexts(
@@ -351,7 +345,7 @@ size_t StandardDeconvolutionStrategy::computeMaxMemoryPerCube(
 size_t StandardDeconvolutionStrategy::estimateMemoryUsage(
     const CuboidShape& cubeSize,
     const DeconvolutionAlgorithm* algorithm,
-    const SetupConfig& config
+    const ThreadConfig& config
 ){
     int ioCopies = 3; //image, psf, result
     size_t ioAllocations = config.nIOThreads * cubeSize.getVolume() * ioCopies * sizeof(real_t);

@@ -96,10 +96,10 @@ public:
     // IBackend& clone(IBackend& backend, const BackendConfig& config) override ;
     IBackend& createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config) override;
 
-    void setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads, BackendConfig& ioconfig, BackendConfig& workerConfig) override;
+    void setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) override;
 
-    int getNumberDevices() const override;
-    uint32_t getMaxNumberThreads() const;
+    size_t getNumberDevices() const override;
+    size_t getMaxNumberThreads() const override;
 
 protected:
 
