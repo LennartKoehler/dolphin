@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "CPUBackend.h"
 #include "dolphinbackend/IBackendManager.h"
+#include "dolphinbackend/MemoryComponent.h"
 #include <fftw3.h>
 #include <atomic>
 #include <mutex>
@@ -83,11 +84,41 @@ private:
 
 
 
+class CPUBackendManager;
+
+/**
+ * @brief MemoryComponent for the CPU manager's FFT planning memory.
+ *
+ * FFTW plan creation (FFTW_MEASURE) transiently allocates one padded real
+ * buffer plus one half-width complex buffer per planned transform, freed
+ * afterwards; execution transforms in the caller-provided buffers. Plans and
+ * planning are centralized in the manager's shared FFTWManager
+ * (lock-serialized, plan cache shared by all worker backends), so the peak
+ * occurs once system-wide. Reports and caps the HOST plane only.
+ */
+class CPUFFTWorkspaceComponent : public MemoryComponent {
+public:
+    explicit CPUFFTWorkspaceComponent(CPUBackendManager& manager) : manager(manager) {}
+
+    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+        return MemoryRequirement{0,0};
+    }
+
+    // Facade for the manager's shared host-RAM cap.
+    void setMemoryLimit(const MemoryRequirement& limit) override;
+
+    std::string name() const override { return "fft workspace"; }
+
+private:
+    CPUBackendManager& manager;
+};
+
+
 //manage all cpu backends, currently should be used as a singleton
 class CPUBackendManager : public IBackendManager{
 public:
 
-    CPUBackendManager() = default;
+    CPUBackendManager() : fftComponent(*this) {}
     ~CPUBackendManager() override = default;
     void init(LogCallback fn) override;
 
@@ -107,6 +138,8 @@ public:
     size_t getAvailableMemoryPerDevice() const override;
     void setMemoryLimit(size_t maxMemoryPerDevice_byte) override;
 
+    MemoryComponent& getMemoryComponent() override;
+
 protected:
 
     CPUBackendConfig configToConfig(const BackendConfig& config) const;
@@ -121,5 +154,12 @@ protected:
     MemoryTracking memory;
     std::unique_ptr<FFTWManager> fftwManager;
 
+    CPUFFTWorkspaceComponent fftComponent;
+
     std::mutex mutex_;
 };
+
+// Defined after CPUBackendManager (it calls into it).
+inline void CPUFFTWorkspaceComponent::setMemoryLimit(const MemoryRequirement& limit) {
+    manager.setMemoryLimit(limit.hostBytes);
+}

@@ -78,55 +78,12 @@ public:
         NOT_IMPLEMENTED(setMemoryLimit);
     }
 
-    // FFT workspace estimate for a candidate cube, in units of one cube volume
-    // of real_t. Both current backends use a constant ~2 copies; override when
-    // a backend's FFT library has different (e.g. shape-dependent) overhead.
-    virtual float estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
-        return 2;
-    }
+    // MemoryComponent describing this backend's FFT memory. Each manager
+    // implements its own component so it reports and caps the plane it
+    // actually allocates on: the CPU manager reports/limits host memory
+    // (FFTW planning transients live in host RAM), the CUDA manager
+    // reports/limits device memory (cuFFT work areas live in VRAM). The
+    // component is owned by the manager.
+    virtual MemoryComponent& getMemoryComponent() = 0;
 
-    // MemoryComponent describing this backend's FFT workspace demand. The
-    // component is owned by the manager and configured on first call.
-    MemoryComponent& getMemoryComponent();
-
-private:
-    std::unique_ptr<MemoryComponent> memoryComponent;
 };
-
-/**
- * @brief MemoryComponent for the backend manager's memory.
- *
- * Lives on the backend manager because the FFT workspace depends on the
- * backend's FFT library (cuFFT/FFTW) and must be queryable before any backend
- * is constructed. Reports the workspace in units of one cube volume of real_t.
- * Also acts as the facade for the manager's runtime allocation cap
- * (setMemoryLimit): accelerator managers cap per-device VRAM (device plane),
- * the CPU manager caps its shared host-RAM tracker (host plane).
- * Defined after IBackendManager (it calls into it).
- */
-class FFTWorkspaceComponent : public MemoryComponent {
-public:
-    explicit FFTWorkspaceComponent(IBackendManager& manager) : manager(manager) {}
-
-    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
-        const float copies = manager.estimateFFTWorkspaceCopies(cubeShape);
-        return MemoryRequirement{0, static_cast<size_t>(copies * cubeShape.getVolume() * sizeof(real_t))};
-    }
-
-    void setMemoryLimit(const MemoryRequirement& limit) override {
-        // The strategy passes exactly the plane this manager owns.
-        manager.setMemoryLimit(limit.deviceBytes > 0 ? limit.deviceBytes : limit.hostBytes);
-    }
-
-    std::string name() const override { return "fft workspace"; }
-
-private:
-    IBackendManager& manager;
-};
-
-inline MemoryComponent& IBackendManager::getMemoryComponent() {
-    if (!memoryComponent) {
-        memoryComponent = std::make_unique<FFTWorkspaceComponent>(*this);
-    }
-    return *memoryComponent;
-}

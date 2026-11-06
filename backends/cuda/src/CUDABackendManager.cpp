@@ -93,7 +93,7 @@ extern "C" IBackendManager* createBackendManager() {
 
 
 
-CUDABackendManager::CUDABackendManager(){
+CUDABackendManager::CUDABackendManager() : fftComponent(*this){
 
 };
 
@@ -146,6 +146,11 @@ IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig&
     CUDABackendConfig cudaconfig = configToConfig(config);
     CUDABackend& backend = createNewBackend(cudaconfig);
     return backend;
+}
+
+
+MemoryComponent& CUDABackendManager::getMemoryComponent() {
+    return fftComponent;
 }
 
 CUDABackendConfig CUDABackendManager::configToConfig(const BackendConfig& config) {

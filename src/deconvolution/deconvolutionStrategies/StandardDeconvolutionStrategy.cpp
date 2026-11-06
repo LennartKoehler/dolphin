@@ -108,6 +108,8 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     PaddingPeakMemoryComponent paddingPeak(paddingScheme.insidePadding);
     AlgorithmWorkingSetMemoryComponent algorithmWorkingSet(*algorithm, !budget.deviceIsHost);
     MemoryComponent& readerComponent = reader->getMemoryComponent(nReaderThreads);
+    // Each manager reports and caps the plane it allocates on (CPU: host,
+    // CUDA: device) via its own memory component.
     MemoryComponent& backendComponent = backendManager.getMemoryComponent();
     MemoryFootprint footprint;
     // Each component reports ONE instance; the count is the number of
@@ -377,7 +379,10 @@ void StandardDeconvolutionStrategy::applyBackendMemoryLimits(
         backendComponent.setMemoryLimit(MemoryRequirement{budget.backendHost_byte, 0});
     } else {
         // Host-side staging runs through the host backend manager; the compute
-        // backend (already resolved by the caller) gets the device cap.
+        // backend (already resolved by the caller) gets the device cap. The
+        // Host-side staging runs through the host backend manager; the compute
+        // backend (already resolved by the caller) gets the device cap. The
+        // host manager is always the CPU manager, which caps the host plane.
         BackendFactory::getBackendManagerStatic(HOST_BACKEND).getMemoryComponent()
             .setMemoryLimit(MemoryRequirement{budget.backendHost_byte, 0});
         backendComponent.setMemoryLimit(MemoryRequirement{0, budget.deviceTotal_byte});

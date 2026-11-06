@@ -31,6 +31,42 @@ See the LICENSE file provided with the code for the full license.
 class CUDABackendMemoryManager;
 class CUDAComputeBackend;
 class CUDABackend;
+class CUDABackendManager;
+
+/**
+ * @brief MemoryComponent for the CUDA manager's cuFFT work areas.
+ *
+ * Every backend instance creates an r2c and a c2r cuFFT plan per cube shape
+ * (the pipeline always passes distinct in/out buffers, so no in-place
+ * variants); with cuFFT's default auto-allocation each cached plan keeps its
+ * work area allocated for the plan's lifetime, per instance.
+ * cufftEstimate3d queries the work-area size without creating a plan (pure
+ * host-side arithmetic, no CUDA context required). Reports and caps the
+ * DEVICE plane only.
+ */
+class CUDAFFTWorkspaceComponent : public MemoryComponent {
+public:
+    explicit CUDAFFTWorkspaceComponent(CUDABackendManager& manager) : manager(manager) {}
+
+    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+        size_t workR2C = 0;
+        size_t workC2R = 0;
+        if (cufftEstimate3d(cubeShape.depth, cubeShape.height, cubeShape.width, CUFFT_R2C, &workR2C) != CUFFT_SUCCESS
+            || cufftEstimate3d(cubeShape.depth, cubeShape.height, cubeShape.width, CUFFT_C2R, &workC2R) != CUFFT_SUCCESS) {
+            // Conservative fallback matching the old heuristic (2 cube volumes).
+            return MemoryRequirement{0, 2 * cubeShape.getVolume() * sizeof(real_t)};
+        }
+        return MemoryRequirement{0, workR2C + workC2R};
+    }
+
+    // Facade for the manager's per-device VRAM cap.
+    void setMemoryLimit(const MemoryRequirement& limit) override;
+
+    std::string name() const override { return "fft workspace"; }
+
+private:
+    CUDABackendManager& manager;
+};
 
 
 /**
@@ -66,6 +102,8 @@ public:
     // Applies the same allocation cap to every managed device (via each
     // device's MemoryTracking, the same state its memory manager enforces).
     void setMemoryLimit(size_t maxMemoryPerDevice_byte) override;
+
+    MemoryComponent& getMemoryComponent() override;
 protected:
 
     std::vector<CUDADevice> devices;
@@ -82,6 +120,8 @@ protected:
     int nDevices = 0;
     std::atomic<int> usedDeviceCounter{0};
 
+    CUDAFFTWorkspaceComponent fftComponent;
+
     CUDABackendConfig configToConfig(const BackendConfig& config);
     CUDABackend& createNewBackend(CUDABackendConfig config);
     cudaStream_t createStream() const ;
@@ -89,3 +129,8 @@ protected:
     virtual std::unique_ptr<CUDAComputeBackend> createComputeBackend(CUDABackendConfig config);
     virtual std::unique_ptr<CUDABackendMemoryManager> createMemoryManager(CUDABackendConfig config);
 };
+
+// Defined after CUDABackendManager (it calls into it).
+inline void CUDAFFTWorkspaceComponent::setMemoryLimit(const MemoryRequirement& limit) {
+    manager.setMemoryLimit(limit.deviceBytes);
+}

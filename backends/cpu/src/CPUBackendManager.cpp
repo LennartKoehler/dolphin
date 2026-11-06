@@ -83,6 +83,10 @@ void CPUBackendManager::setMemoryLimit(size_t maxMemoryPerDevice_byte) {
     memory.setMaxMemory(maxMemoryPerDevice_byte);
 }
 
+MemoryComponent& CPUBackendManager::getMemoryComponent() {
+    return fftComponent;
+}
+
 void CPUBackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) {
     ioconfig.nThreads = 1;
 
