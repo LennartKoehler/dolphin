@@ -208,7 +208,7 @@ public:
     void setNumReaderThreads(size_t count) { numReaderThreads = count; }
 
     MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
-        return MemoryRequirement{reader.getRequiredMemory(cubeShape) * numReaderThreads, 0};
+        return MemoryRequirement{reader.getRequiredMemory(cubeShape), 0};
     }
 
     // Facade for the reader's cache cap (in-flight + buffered reads). The
