@@ -49,8 +49,6 @@ private:
         const std::string& message,
         std::chrono::duration<double> duration);
 
-    void resolveMemory(SetupConfig& config) const;
-
     bool validateAlgorithmConfig(const std::string& algorithm) const;
     bool validateDeconvolutionRequest(const DeconvolutionRequest& request) const;
 

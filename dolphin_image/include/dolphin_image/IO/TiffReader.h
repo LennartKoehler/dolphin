@@ -141,8 +141,16 @@ public:
     static std::optional<ImageMetaData> readMetadata(const std::string& filename);
 
     Image3D getSubimage(const BoxCoord& box) const override;
-    size_t getRequiredMemory(const CuboidShape& subimageSize) const override;
+
     const ImageMetaData& getMetaData() const override;
+
+    size_t getRequiredMemory(const CuboidShape& subimageSize) const override;
+    MemoryComponent& getMemoryComponent(size_t nReaderThreads) override;
+
+    // Apply the cache cap (in-flight + buffered reads) after configure().
+    // Updates the config and the tracker; the reader enforces it with
+    // backpressure (waits for in-flight reads to finish).
+    void setMemoryLimit(size_t bytes);
 
 private:
     static size_t sizeOf(std::type_index type);
@@ -189,3 +197,31 @@ private:
 
     static int countTiffDirectories(TIFF* tif);
 };
+
+
+class TiffReaderMemoryComponent : public MemoryComponent {
+public:
+    explicit TiffReaderMemoryComponent(TiffReader& reader) : reader(reader) {}
+
+    // Configured with the number of concurrently reading threads; each can
+    // stage a different region that must be held simultaneously.
+    void setNumReaderThreads(size_t count) { numReaderThreads = count; }
+
+    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+        return MemoryRequirement{reader.getRequiredMemory(cubeShape) * numReaderThreads, 0};
+    }
+
+    // Facade for the reader's cache cap (in-flight + buffered reads). The
+    // reader enforces it with backpressure.
+    void setMemoryLimit(const MemoryRequirement& limit) override {
+        reader.setMemoryLimit(limit.hostBytes);
+    }
+
+    std::string name() const override { return "tiffreader"; }
+
+private:
+    TiffReader& reader;
+    size_t numReaderThreads = 1;
+};
+
+

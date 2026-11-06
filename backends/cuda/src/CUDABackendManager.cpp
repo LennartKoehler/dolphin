@@ -13,6 +13,8 @@ See the LICENSE file provided with the code for the full license.
 
 #include "cuda_backend/CUDABackendManager.h"
 #include <stdexcept>
+#include <algorithm>
+#include <cstdint>
 #include "cuda_backend/CUDABackend.h"
 #include "dolphinbackend/Exceptions.h"
 #include <spdlog/fmt/fmt.h>
@@ -101,6 +103,20 @@ size_t CUDABackendManager::getNumberDevices() const {
 
 size_t CUDABackendManager::getMaxNumberThreads() const {
     return 1;
+}
+
+size_t CUDABackendManager::getAvailableMemoryPerDevice() const {
+    size_t minFree = SIZE_MAX;
+    for (const CUDADevice& device : devices) {
+        minFree = std::min(minFree, CUDABackendMemoryManager::staticGetAvailableMemory(device.id));
+    }
+    return devices.empty() ? 0 : minFree;
+}
+
+void CUDABackendManager::setMemoryLimit(size_t maxMemoryPerDevice_byte) {
+    for (const CUDADevice& device : devices) {
+        device.memory->setMaxMemory(maxMemoryPerDevice_byte);
+    }
 }
 
 void CUDABackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) {

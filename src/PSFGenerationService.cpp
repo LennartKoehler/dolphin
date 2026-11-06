@@ -19,11 +19,9 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
 #include "dolphin/ThreadPool.h"
-#include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <memory>
-#include <thread>
 #include <spdlog/spdlog.h>
 
 PSFGenerationService::PSFGenerationService()
@@ -85,6 +83,13 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         if (!setupConfig->threadConfig.validate(threadError)) {
             logger_->error("Invalid thread configuration: {}", threadError);
             return createResult(false, "Invalid thread configuration: " + threadError,
+                                std::chrono::duration<double>::zero());
+        }
+
+        std::string memoryError;
+        if (!setupConfig->validateMemoryConfig(memoryError)) {
+            logger_->error("Invalid memory configuration: {}", memoryError);
+            return createResult(false, "Invalid memory configuration: " + memoryError,
                                 std::chrono::duration<double>::zero());
         }
 

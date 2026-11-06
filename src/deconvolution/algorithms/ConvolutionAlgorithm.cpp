@@ -40,7 +40,6 @@ void ConvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealDat
     const IComputeBackend& deconv = backend->getComputeManager();
 
     ComplexData f_complex = memory.allocateMemoryOnDeviceComplex(f.getSize());
-    RealData c_real = memory.allocateMemoryOnDeviceReal(f.getSize());
     deconv.forwardFFT(g, f_complex);
     deconv.complexMultiplication(f_complex, H, f_complex);
     deconv.backwardFFT(f_complex, f);
@@ -55,6 +54,6 @@ std::unique_ptr<DeconvolutionAlgorithm> ConvolutionAlgorithm::cloneSpecific() co
     return copy;
 }
 
-size_t ConvolutionAlgorithm::getMemoryMultiplier() const {
+size_t ConvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
     return 0; // No additional memory allocation needed
 }

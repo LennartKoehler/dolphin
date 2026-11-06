@@ -14,6 +14,8 @@ See the LICENSE file provided with the code for the full license.
 #include <optional>
 #include <future>
 #include <vector>
+#include <memory>
+#include "dolphinbackend/MemoryComponent.h"
 #include "dolphin_image/Image3D.h"
 #include "dolphin_image/ImageMetaData.h"
 #include "dolphin_image/ImagePadding.h"
@@ -24,6 +26,7 @@ struct ReaderConfig {
     size_t readerMemory_byte = 0;
 };
 
+
 class ImageReader{
 public:
     virtual ~ImageReader() = default;
@@ -31,7 +34,12 @@ public:
     virtual Image3D getSubimage(const BoxCoord& box) const = 0;
     virtual void prefetch(const std::vector<BoxCoord>& boxes) const {}
     virtual const ImageMetaData& getMetaData() const = 0;
-    virtual size_t getRequiredMemory(const CuboidShape& subimageSize) const { return 0; }
+    virtual size_t getRequiredMemory(const CuboidShape& subimageSize) const = 0;
+
+    // MemoryComponent of this reader, for ONE region. Owned by the reader,
+    // borrowed by the caller; the footprint applies the thread count.
+    virtual MemoryComponent& getMemoryComponent(size_t nReaderThreads) = 0;
+
     static std::string getFilename(const std::string& path) {
         size_t pos = path.find_last_of("/\\");
         if (pos == std::string::npos) {
@@ -39,7 +47,11 @@ public:
         }
         return path.substr(pos + 1);
     }
+
+protected:
+    std::unique_ptr<MemoryComponent> memoryComponent;
 };
+
 
 class ImageWriter {
 public:

@@ -11,11 +11,9 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
-#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <memory>
-#include <thread>
 #include <spdlog/spdlog.h>
 
 #include "dolphin/DeconvolutionService.h"
@@ -195,6 +193,11 @@ bool DeconvolutionService::validateDeconvolutionRequest(const DeconvolutionReque
         logger_->error("Invalid thread configuration: {}", threadError);
         return false;
     }
+    std::string memoryError;
+    if (!request.getConfig()->validateMemoryConfig(memoryError)) {
+        logger_->error("Invalid memory configuration: {}", memoryError);
+        return false;
+    }
     return true;
 }
 
@@ -204,17 +207,21 @@ void DeconvolutionService::logPlan(const DeconvolutionPlan& plan) const {
         return;
     }
 
-    size_t totalEstimatedMemory_byte = 0;
+    MemoryRequirement totalEstimatedMemory;
     for (const auto& task : plan.tasks) {
-        totalEstimatedMemory_byte += task->sharedDescriptor->estimatedMemoryUsage;
+        totalEstimatedMemory += task->sharedDescriptor->estimatedMemoryUsage;
     }
+    const MemoryRequirement& perTask = plan.tasks[0]->sharedDescriptor->estimatedMemoryUsage;
     constexpr double bytesPerMiB = 1024.0 * 1024.0;
     logger_->debug(
-        "Deconvolution plan: {} tasks (totalTasks: {}), estimated memory: {} bytes ({:.2f} MiB) total, {} bytes ({:.2f} MiB) per task",
+        "Deconvolution plan: {} tasks (totalTasks: {}), estimated memory: {} B host / {} B device ({:.2f} / {:.2f} MiB) total, {} B host / {} B device ({:.2f} / {:.2f} MiB) per task",
         plan.tasks.size(), plan.totalTasks,
-        totalEstimatedMemory_byte, static_cast<double>(totalEstimatedMemory_byte) / bytesPerMiB,
-        plan.tasks[0]->sharedDescriptor->estimatedMemoryUsage,
-        static_cast<double>(plan.tasks[0]->sharedDescriptor->estimatedMemoryUsage) / bytesPerMiB);
+        totalEstimatedMemory.hostBytes, totalEstimatedMemory.deviceBytes,
+        static_cast<double>(totalEstimatedMemory.hostBytes) / bytesPerMiB,
+        static_cast<double>(totalEstimatedMemory.deviceBytes) / bytesPerMiB,
+        perTask.hostBytes, perTask.deviceBytes,
+        static_cast<double>(perTask.hostBytes) / bytesPerMiB,
+        static_cast<double>(perTask.deviceBytes) / bytesPerMiB);
 
     const CubeTaskSharedDescriptor& shared = *plan.tasks[0]->sharedDescriptor;
     const ImageMetaData& metadata = shared.reader->getMetaData();

@@ -59,6 +59,13 @@ public:
     // The GPU does the heavy work; a handful of host threads is enough to keep
     // every device fed with reads, copies and writes.
     size_t getMaxNumberThreads() const override;
+
+    // Free VRAM on the least capable managed device, queried through the
+    // shared CUDABackendMemoryManager::staticGetAvailableMemory primitive.
+    size_t getAvailableMemoryPerDevice() const override;
+    // Applies the same allocation cap to every managed device (via each
+    // device's MemoryTracking, the same state its memory manager enforces).
+    void setMemoryLimit(size_t maxMemoryPerDevice_byte) override;
 protected:
 
     std::vector<CUDADevice> devices;

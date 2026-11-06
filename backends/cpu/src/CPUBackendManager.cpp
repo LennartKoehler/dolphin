@@ -73,6 +73,16 @@ size_t CPUBackendManager::getMaxNumberThreads() const {
     return count != 0 ? count : 1;
 }
 
+// All CPU backends share one MemoryTracking pool that represents host RAM,
+// so "per device" is simply the currently free host memory.
+size_t CPUBackendManager::getAvailableMemoryPerDevice() const {
+    return CPUBackendMemoryManager::staticMaxGetAvailableMemory();
+}
+
+void CPUBackendManager::setMemoryLimit(size_t maxMemoryPerDevice_byte) {
+    memory.setMaxMemory(maxMemoryPerDevice_byte);
+}
+
 void CPUBackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) {
     ioconfig.nThreads = 1;
 

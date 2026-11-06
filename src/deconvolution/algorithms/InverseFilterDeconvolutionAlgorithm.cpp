@@ -63,6 +63,6 @@ std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::clo
     return copy;
 }
 
-size_t InverseFilterDeconvolutionAlgorithm::getMemoryMultiplier() const {
+size_t InverseFilterDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
     return 0; // No additional memory allocation needed
 }

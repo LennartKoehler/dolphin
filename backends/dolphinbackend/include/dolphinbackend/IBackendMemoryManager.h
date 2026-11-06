@@ -38,7 +38,7 @@ struct MemoryData {
 struct MemoryTracking {
 private:
     MemoryData data;
-    std::mutex memoryMutex;
+    mutable std::mutex memoryMutex;
 
     struct LockedAccess {
         std::unique_lock<std::mutex> lock;
@@ -55,6 +55,17 @@ public:
         : data(maxMemory) {}
     LockedAccess getAccess() {
         return LockedAccess(memoryMutex, data);
+    }
+
+    // Single mutation path for the cap; managers and memory managers of the
+    // same device both go through this.
+    void setMaxMemory(size_t maxMemory) {
+        std::lock_guard<std::mutex> lock(memoryMutex);
+        data.maxMemorySize = maxMemory;
+    }
+    size_t maxMemory() const {
+        std::lock_guard<std::mutex> lock(memoryMutex);
+        return data.maxMemorySize;
     }
     bool isAvailable(size_t amount){
         LockedAccess memory = LockedAccess(memoryMutex, data);
@@ -255,17 +266,5 @@ public:
     virtual size_t getAllocatedMemory() const {
         NOT_IMPLEMENTED(getAllocatedMemory);
     }
-
-    /**
-     * Estimate the FFT library's internal workspace memory for the given shape.
-     * This accounts for memory allocated by the FFT library (e.g. cuFFT) during
-     * plan creation, separate from user-allocated data buffers.
-     * @param shape The shape of the data to be transformed
-     * @return Estimated workspace in bytes (0 if the backend has no FFT workspace overhead)
-     */
-    virtual float estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
-        return 0;
-    }
-
 
 };

@@ -101,6 +101,12 @@ public:
     size_t getNumberDevices() const override;
     size_t getMaxNumberThreads() const override;
 
+    // All CPU backends share one MemoryTracking pool that represents host RAM.
+    // The manager delegates to the same primitives the per-device memory
+    // managers use; it only aggregates (here: a single shared pool).
+    size_t getAvailableMemoryPerDevice() const override;
+    void setMemoryLimit(size_t maxMemoryPerDevice_byte) override;
+
 protected:
 
     CPUBackendConfig configToConfig(const BackendConfig& config) const;

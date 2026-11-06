@@ -102,6 +102,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::cloneSpecifi
     return copy;
 }
 
-size_t RLADDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 1; // Allocates 1 additional array of input size
+size_t RLADDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
+    // Allocates 1 additional complex array of input size
+    return dataSize.getVolume() * sizeof(complex_t);
 }

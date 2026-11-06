@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphinbackend/CuboidShape.h"
+#include "dolphinbackend/MemoryFootprint.h"
 #include <algorithm>
 #include <numeric>
 #include <string>
@@ -127,7 +128,9 @@ std::array<size_t, 3> sortDimensionsBySizeDesc(const CuboidShape& shape) {
 
 bool decreaseSize(CuboidShape& size, int dimension, const CuboidShape& minSize){
     size_t newSize = previousSmooth(size.at(dimension));
-    if (newSize >= minSize.at(dimension)){
+    // Strictly decrease: at the floor (previousSmooth == current) there is no
+    // progress, and returning true would loop forever.
+    if (newSize >= minSize.at(dimension) && newSize < size.at(dimension)){
         size.at(dimension) = newSize;
         return true;
     }
@@ -138,7 +141,7 @@ bool decreaseLargestDim(CuboidShape& size, const CuboidShape& minSize){
     std::array<size_t, 3> sortedIndices = sortDimensionsBySizeDesc(size);
     for (const auto dimIndex : sortedIndices){
         size_t newSize = previousSmooth(size.at(dimIndex));
-        if (newSize >= minSize.at(dimIndex)){
+        if (newSize >= minSize.at(dimIndex) && newSize < size.at(dimIndex)){
             size.at(dimIndex) = newSize;
             return true;
         }
@@ -203,11 +206,16 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
 //
 // imagePadding is the padding which the cubes should have at the edge of the image facing outwards, this might be less than cubePadding,
 //      which is the padding cubes have on the inside of the image (so the overlap between neighboring cubes)
+// The candidate cube sizes are validated against the real memory demand: for each
+// candidate the MemoryFootprint asks every memory-owning system (reader, io
+// staging, algorithm, fft, psf cache, padding) how much it needs for exactly
+// that size, and the size is accepted only if the demand fits the MemoryBudget.
 Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const Padding& cubePadding,
     const Padding& imagePadding,
     const CuboidShape& imageOriginalShape,
-    const size_t& maxVolumePerCube,
+    const MemoryBudget& budget,
+    const MemoryFootprint& footprint,
     const size_t& minNumberCubes,
     const CuboidShape& minSize,
     bool sliceAllDimensions
@@ -222,10 +230,6 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
 
     // get next smooth size for faster fftw
     currentMaxSize.transform([](size_t& d){ d = nextSmooth(d); });
-    if (minSize.getVolume() > maxVolumePerCube){
-        return Result<std::vector<BoxCoordWithPadding>>::fail(
-            "ImageSplit: minimum cube size: " + minSize.print() + " is too large for maximum volume: " + std::to_string(maxVolumePerCube));
-    }
     std::vector<BoxCoordWithPadding> cubePositions;
 
     while (true){
@@ -234,12 +238,16 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
 
         CuboidShape cubeSizeToUse = currentMaxSize - imagePadding.before - imagePadding.after;
 
-
         BoxCoord startCube{
             BoxCoord{CuboidShape(0,0,0), cubeSizeToUse}
         };
 
-        if (currentMaxSize.getVolume() < maxVolumePerCube){
+        // Every cube produced for this candidate has padded shape ==
+        // currentMaxSize (adjustCubeToBoundaries sizes the cores so that
+        // box + padding = currentMaxSize: edge cubes get imagePadding, interior
+        // cubes cubePadding). So the memory demand of the candidate is the
+        // footprint of currentMaxSize itself.
+        if (budget.fits(footprint.total(currentMaxSize))){
             try{
                 addCubeRecursion(
                     cubePositions,
@@ -264,7 +272,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
         }
         else {
             size_t newSize = previousSmooth(currentMaxSize.at(Z_DIM));
-            if (newSize >= minSize.at(Z_DIM)){
+            if (newSize >= minSize.at(Z_DIM) && newSize < currentMaxSize.at(Z_DIM)){
                 currentMaxSize.at(Z_DIM) = newSize;
                 success = true;
             }
@@ -273,8 +281,8 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
         if (!success)
         {
             return Result<std::vector<BoxCoordWithPadding>>::fail(
-                // "Not enough memory to fit the smallest possible cube: " + minSize.print());
-                "ImageSplit: minimum cube size: " + minSize.print() + " is too large for maximum volume: " + std::to_string(maxVolumePerCube));
+                "ImageSplit: no cube size fits the memory budget. Last candidate (padded) "
+                + currentMaxSize.print() + " needs: " + footprint.breakdown(currentMaxSize));
         }
     }
     size_t targetCubeCount = cubePositions.size();

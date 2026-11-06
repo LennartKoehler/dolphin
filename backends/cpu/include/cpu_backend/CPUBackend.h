@@ -99,7 +99,6 @@ public:
     bool isOnDevice(const void* data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
-    float estimateFFTWorkspaceCopies(const CuboidShape& shape) const override;
 
 
 

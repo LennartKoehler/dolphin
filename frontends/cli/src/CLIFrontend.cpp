@@ -336,6 +336,12 @@ bool CLIFrontend::handleDeconvolution(const ConfigBundle& bundle) {
         return false;
     }
 
+    std::string memoryError;
+    if (!bundle.setupConfig.validateMemoryConfig(memoryError)) {
+        spdlog::error("Invalid memory configuration: {}", memoryError);
+        return false;
+    }
+
     return true;
 }
 

@@ -49,6 +49,10 @@ public:
     float maxMemHost_gb = -1;
     float maxMemDevice_gb = -1;
 
+    // Memory limits are upper bounds in GB. -1 and 0 both mean "auto" (use
+    // ~90% of the currently available memory). Anything below -1 is invalid.
+    bool validateMemoryConfig(std::string& error) const;
+
 
     OutputCompressionType outputCompression = OUTPUT_COMPRESSION_NONE;
     int outputCompressionLevel = -1;

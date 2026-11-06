@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/ComplexData.h"
 #include "dolphinbackend/IBackend.h"
 #include <functional>
+#include <memory>
 
 class DeconvolutionAlgorithm{
     using prFunction = std::function<void(int)>;
@@ -32,6 +33,13 @@ public:
     // it is assumed that the input of convolve is already located on the backend device
     virtual void deconvolve(const ComplexData& H, RealData& g, RealData& f) = 0;
 
+    // Peak bytes this algorithm additionally holds for a cube of the given
+    // (padded) shape: every scratch array allocated in init() or during
+    // deconvolve(), beyond the input/output buffers passed in. Purely the
+    // SIZE; where those bytes live (host or device) is decided by the
+    // strategy, see AlgorithmWorkingSetMemoryComponent.
+    virtual size_t getWorkingSetBytes(const CuboidShape& dataSize) const = 0;
+
     void setBackend(IBackend& backend){this->backend = &backend;}
 
     inline std::unique_ptr<DeconvolutionAlgorithm> clone() const{
@@ -41,7 +49,6 @@ public:
         return clone;
     }
 
-    virtual size_t getMemoryMultiplier() const = 0;
     void setProgressTracker(prFunction progressFunction){ this->progressFunction = progressFunction; }
 protected:
     virtual std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const = 0;
