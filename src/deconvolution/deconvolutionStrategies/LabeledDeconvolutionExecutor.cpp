@@ -35,9 +35,7 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn){
     int channel = 0;
     ReaderConfig readerConfig;
-    readerConfig.numReaderThreads = setupConfig.numReaderThreads > 0
-        ? static_cast<size_t>(setupConfig.numReaderThreads)
-        : static_cast<size_t>(std::max(1, setupConfig.nIOThreads));
+    readerConfig.numReaderThreads = setupConfig.threadConfig.resolveReaderThreads();
     auto labelImageReader = std::make_unique<TiffReader>(setupConfig.labeledImage);
     labelImageReader->configure(channel, readerConfig);
     this->labelReader = std::make_unique<ReaderHandler>(std::move(labelImageReader), PaddingFillType::MIRROR);

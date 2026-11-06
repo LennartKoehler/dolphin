@@ -28,6 +28,42 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/IO/TiffWriter.h"
 #include "dolphin_image/IO/TiffReader.h"
 #include "dolphin/ServiceAbstractions.h"
+#include "dolphinbackend/MemoryComponent.h"
+
+class MemoryFootprint; // composite of all MemoryComponents, see dolphinbackend/MemoryFootprint.h
+
+/**
+ * @brief Resolved memory budgets for one deconvolution run, in bytes.
+ *
+ * All totals are hard upper bounds, enforced at runtime where possible
+ * (reader prefetch backpressure, backend allocation guards).
+ */
+struct MemoryBudget{
+    /// Cap for all host-RAM consumers of the run (reader cache + io staging,
+    /// and for the CPU backend also all "device" allocations).
+    size_t hostTotal_byte = 0;
+    /// Cap for accelerator consumers per device (device buffers, worker
+    /// working sets, FFT workspace, PSF cache). For the CPU backend device ==
+    /// host, so this equals hostTotal.
+    size_t deviceTotal_byte = 0;
+    /// Whether the compute "device" is host RAM (CPU backend): one shared pool.
+    bool deviceIsHost = true;
+
+    // Derived caps, set once the actual cube size is known:
+    /// Reader in-flight + cache cap (own tracker with backpressure).
+    size_t readerCache_byte = 0;
+    /// Host cap for backend allocations (io staging etc.) = hostTotal - readerCache.
+    size_t backendHost_byte = 0;
+
+    /// Whether a demand fits this budget. For backends where device == host
+    /// both demands draw from the single host pool.
+    bool fits(const MemoryRequirement& need) const {
+        const size_t hostNeed = need.hostBytes + (deviceIsHost ? need.deviceBytes : 0);
+        if (hostNeed > hostTotal_byte) return false;
+        if (!deviceIsHost && need.deviceBytes > deviceTotal_byte) return false;
+        return true;
+    }
+};
 
 
 /*
@@ -73,7 +109,7 @@ struct CubeTaskSharedDescriptor{
 
     CubeTaskSharedDescriptor(
                     const std::shared_ptr<DeconvolutionAlgorithm>& algorithm,
-                    size_t estimatedMemoryUsage,
+                    const MemoryRequirement& estimatedMemoryUsage,
                     const std::vector<std::shared_ptr<PSF>>& psfs,
                     const std::shared_ptr<ReaderHandler> reader,
                     const std::shared_ptr<WriterHandler> writer)
@@ -84,7 +120,7 @@ struct CubeTaskSharedDescriptor{
       writer(writer)
     {}
     const std::shared_ptr<DeconvolutionAlgorithm> prototypeAlgorithm;
-    const size_t estimatedMemoryUsage;
+    const MemoryRequirement estimatedMemoryUsage;
     const std::vector<std::shared_ptr<PSF>> psfs;
     const std::shared_ptr<ReaderHandler> reader;
     const std::shared_ptr<WriterHandler> writer;
@@ -172,9 +208,10 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const Padding& cubePadding,
     const Padding& imagePadding,
     const CuboidShape& imageOriginalShape,
-    const size_t& maxVolumePerCube,
+    const MemoryBudget& budget,
+    const MemoryFootprint& footprint,
     const size_t& minNumberCubes,
-    const CuboidShape& minShape,
+    const CuboidShape& minSize,
     bool sliceAllDimensions);
 
 Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneousFixedSize(

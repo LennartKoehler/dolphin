@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/fmt/fmt.h>
 #include <filesystem>
 #include <fstream>
+#include <thread>
 
 namespace fs = std::filesystem;
 
@@ -63,17 +64,56 @@ IBackend& CPUBackendManager::createBackendSharedMemoryForCurrentThread(IBackend&
     return createBackendForCurrentThread(config);
 }
 
-int CPUBackendManager::getNumberDevices() const {
+size_t CPUBackendManager::getNumberDevices() const {
     return 1;
 }
 
-void CPUBackendManager::setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads, BackendConfig& ioconfig, BackendConfig& workerConfig) {
-    ioconfig.nThreads = 1;
-    workerConfig.nThreads = workerThreads == 0 ? static_cast<size_t>(2*totalThreads/3) : workerThreads;
-    workerConfig.nThreads = workerConfig.nThreads == 0 ? 1 : workerConfig.nThreads;
+size_t CPUBackendManager::getMaxNumberThreads() const {
+    const size_t count = static_cast<size_t>(std::thread::hardware_concurrency());
+    return count != 0 ? count : 1;
+}
 
-    ioThreads = ioThreads == 0 ? totalThreads : ioThreads;
-    workerThreads = 1; //TESTVALUE
+// All CPU backends share one MemoryTracking pool that represents host RAM,
+// so "per device" is simply the currently free host memory.
+size_t CPUBackendManager::getAvailableMemoryPerDevice() const {
+    return CPUBackendMemoryManager::staticMaxGetAvailableMemory();
+}
+
+void CPUBackendManager::setMemoryLimit(size_t maxMemoryPerDevice_byte) {
+    memory.setMaxMemory(maxMemoryPerDevice_byte);
+}
+
+MemoryComponent& CPUBackendManager::getMemoryComponent() {
+    return fftComponent;
+}
+
+void CPUBackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) {
+    ioconfig.nThreads = 1;
+
+    switch (inputThreadConfig.getMode()) {
+        case ThreadMode::Auto:
+            // Nothing specified: a single io and worker pool thread each; the
+            // worker op parallelizes across all host threads via OMP.
+            inputThreadConfig.nIOThreads = 1;
+            inputThreadConfig.nWorkerThreads = 1;
+            inputThreadConfig.nReaderThreads = getMaxNumberThreads();
+            workerConfig.nThreads = getMaxNumberThreads();
+            break;
+        case ThreadMode::Total:
+            // Only a total budget given: one io thread; the worker op uses the
+            // full budget via OMP.
+            inputThreadConfig.nIOThreads = 1;
+            inputThreadConfig.nWorkerThreads = 1;
+            inputThreadConfig.nReaderThreads = inputThreadConfig.nThreads;
+            workerConfig.nThreads = inputThreadConfig.nThreads;
+            break;
+        case ThreadMode::Full:
+        default:
+            // Pools explicitly configured by the user; each pool op runs
+            // single-threaded so the pool sizes define the parallelism.
+            workerConfig.nThreads = 1;
+            break;
+    }
 }
 
 

@@ -195,10 +195,10 @@ void log(const std::string& message, LogLevel level) {
 CPUBackendMemoryManager::CPUBackendMemoryManager(CPUBackendConfig config, MemoryTracking& memory)
     : memory(memory){
 
-    // Initialize memory tracking using getAccess()
-    auto access = memory.getAccess();
-    if (access.data.maxMemorySize == 0) {
-        access.data.maxMemorySize = getAvailableMemory();
+    // Initialize memory tracking: if no limit was configured yet, use all
+    // currently available host memory.
+    if (memory.maxMemory() == 0) {
+        memory.setMaxMemory(getAvailableMemory());
     }
 }
 
@@ -207,7 +207,7 @@ CPUBackendMemoryManager::~CPUBackendMemoryManager() {
 }
 
 
-size_t CPUBackendMemoryManager::staticGetAvailableMemory() {
+size_t CPUBackendMemoryManager::staticMaxGetAvailableMemory() {
     // For CPU backend, return available system memory
     size_t memory = 0;
 #ifdef __linux__
@@ -236,9 +236,9 @@ size_t CPUBackendMemoryManager::staticGetAvailableMemory() {
     }
     return memory;
 }
+
 void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
-    auto access = memory.getAccess();
-    access.data.maxMemorySize = maxMemorySize;
+    memory.setMaxMemory(maxMemorySize);
 }
 
 void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
@@ -384,7 +384,7 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
 
 size_t CPUBackendMemoryManager::getAvailableMemory() const {
     try {
-        return staticGetAvailableMemory();
+        return staticMaxGetAvailableMemory();
     }
     catch (const std::exception& e) {
         log(fmt::format("Exception in getAvailableMemory: {}", e.what()), LogLevel::LOG_ERROR);
@@ -396,10 +396,6 @@ size_t CPUBackendMemoryManager::getAllocatedMemory() const {
     auto access = memory.getAccess();
     log(fmt::format("getAllocatedMemory: {:.2f} MB currently allocated", access.data.totalUsedMemory / 1e6), LogLevel::LOG_DEBUG);
     return access.data.totalUsedMemory;
-}
-
-float CPUBackendMemoryManager::estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
-    return 2;
 }
 
 

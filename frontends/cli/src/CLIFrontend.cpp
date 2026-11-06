@@ -199,6 +199,12 @@ bool CLIFrontend::handlePSFGeneration(const PSFConfigBundle& bundle) {
         return false;
     }
 
+    std::string threadError;
+    if (!bundle.setupConfig.threadConfig.validate(threadError)) {
+        spdlog::error("Invalid thread configuration: {}", threadError);
+        return false;
+    }
+
     return true;
 }
 
@@ -321,6 +327,18 @@ bool CLIFrontend::handleDeconvolution(const ConfigBundle& bundle) {
     if (!bundle.hasPSF && bundle.setupConfig.psfFilePaths.empty()) {
         spdlog::error("PSF has to be provided either as json config or as a tiff file");
         spdlog::info("{}", deconvolutionCLI->help());
+        return false;
+    }
+
+    std::string threadError;
+    if (!bundle.setupConfig.threadConfig.validate(threadError)) {
+        spdlog::error("Invalid thread configuration: {}", threadError);
+        return false;
+    }
+
+    std::string memoryError;
+    if (!bundle.setupConfig.validateMemoryConfig(memoryError)) {
+        spdlog::error("Invalid memory configuration: {}", memoryError);
         return false;
     }
 

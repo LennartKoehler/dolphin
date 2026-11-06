@@ -24,7 +24,7 @@ using json = nlohmann::json;
 using ordered_json = nlohmann::ordered_json;
 
 enum class ParameterType{
- Float, Int, String, VectorInt, Bool, VectorString, FilePath, RangeMap, IntArray3, Map, StringSelection
+ Float, Int, SizeT, String, VectorInt, Bool, VectorString, FilePath, RangeMap, IntArray3, Map, StringSelection
 };
 
 class ParameterIDGenerator {
@@ -161,6 +161,9 @@ protected:
             switch (param.type) {
                 case ParameterType::Int:
                     visitor.template operator()<int>(*reinterpret_cast<int*>(param.value), param);
+                    break;
+                case ParameterType::SizeT:
+                    visitor.template operator()<size_t>(*reinterpret_cast<size_t*>(param.value), param);
                     break;
                 case ParameterType::Float:
                     visitor.template operator()<float>(*reinterpret_cast<float*>(param.value), param);

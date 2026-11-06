@@ -85,7 +85,7 @@ public:
     ~CPUBackendMemoryManager();
 
 
-    static size_t staticGetAvailableMemory();
+    static size_t staticMaxGetAvailableMemory();
     // Override device type method
     std::string getDeviceString() const noexcept override {
         return "cpu";
@@ -104,7 +104,6 @@ public:
     bool isOnDevice(const void* data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
-    float estimateFFTWorkspaceCopies(const CuboidShape& shape) const override;
 
 
 

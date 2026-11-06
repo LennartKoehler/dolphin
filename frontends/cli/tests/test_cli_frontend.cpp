@@ -82,20 +82,20 @@ TEST_F(CLIFrontendTest, MergeBundles_JSONSetupWinsOverCLI) {
     ConfigBundle jsonBundle;
     jsonBundle.setupConfig.imagePath = "json_image.tif";
     jsonBundle.setupConfig.backend = "cpu";
-    jsonBundle.setupConfig.nThreads = 4;
+    jsonBundle.setupConfig.threadConfig.nThreads = 4;
     jsonBundle.hasSetup = true;
 
     ConfigBundle cliBundle;
     cliBundle.setupConfig.imagePath = "cli_image.tif";
     cliBundle.setupConfig.backend = "cuda";
-    cliBundle.setupConfig.nThreads = 8;
+    cliBundle.setupConfig.threadConfig.nThreads = 8;
     cliBundle.hasSetup = true;
 
     ConfigBundle merged = fe.mergeBundles(jsonBundle, cliBundle);
 
     EXPECT_EQ(merged.setupConfig.imagePath, "json_image.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.setupConfig.nThreads, 4);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nThreads, 4);
 }
 
 TEST_F(CLIFrontendTest, MergeBundles_NoJSON_CLIUsed) {
@@ -104,14 +104,14 @@ TEST_F(CLIFrontendTest, MergeBundles_NoJSON_CLIUsed) {
     ConfigBundle cliBundle;
     cliBundle.setupConfig.imagePath = "cli_image.tif";
     cliBundle.setupConfig.backend = "cuda";
-    cliBundle.setupConfig.nThreads = 8;
+    cliBundle.setupConfig.threadConfig.nThreads = 8;
     cliBundle.hasSetup = true;
 
     ConfigBundle merged = fe.mergeBundles(ConfigBundle{}, cliBundle);
 
     EXPECT_EQ(merged.setupConfig.imagePath, "cli_image.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cuda");
-    EXPECT_EQ(merged.setupConfig.nThreads, 8);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nThreads, 8);
 }
 
 TEST_F(CLIFrontendTest, MergeBundles_JSONDeconvWinsOverCLI) {
@@ -179,7 +179,7 @@ TEST_F(CLIFrontendTest, GenerateDeconvRequest_WiresAllConfigs) {
     ConfigBundle bundle;
     bundle.setupConfig.imagePath = "test_image.tif";
     bundle.setupConfig.backend = "cpu";
-    bundle.setupConfig.nThreads = 4;
+    bundle.setupConfig.threadConfig.nThreads = 4;
     bundle.setupConfig.outputPath = "test_output.tif";
     bundle.hasSetup = true;
 
@@ -196,7 +196,7 @@ TEST_F(CLIFrontendTest, GenerateDeconvRequest_WiresAllConfigs) {
 
     EXPECT_EQ(request.getConfig()->imagePath, "test_image.tif");
     EXPECT_EQ(request.getConfig()->backend, "cpu");
-    EXPECT_EQ(request.getConfig()->nThreads, 4);
+    EXPECT_EQ(request.getConfig()->threadConfig.nThreads, 4);
     EXPECT_EQ(request.getConfig()->outputPath, "test_output.tif");
 
     EXPECT_EQ(request.getDeconvolutionConfig()->algorithmName, "RichardsonLucy");
@@ -224,18 +224,18 @@ TEST_F(CLIFrontendTest, GenerateDeconvRequest_SetupConfigValues) {
     auto fe = makeFrontend();
 
     ConfigBundle bundle;
-    bundle.setupConfig.nThreads = 12;
-    bundle.setupConfig.nIOThreads = 3;
-    bundle.setupConfig.nWorkerThreads = 7;
+    bundle.setupConfig.threadConfig.nThreads = 12;
+    bundle.setupConfig.threadConfig.nIOThreads = 3;
+    bundle.setupConfig.threadConfig.nWorkerThreads = 7;
     bundle.setupConfig.backend = "cuda";
     bundle.hasSetup = true;
     bundle.hasDeconv = true;
 
     DeconvolutionRequest request = fe.generateDeconvRequest(bundle);
 
-    EXPECT_EQ(request.getConfig()->nThreads, 12);
-    EXPECT_EQ(request.getConfig()->nIOThreads, 3);
-    EXPECT_EQ(request.getConfig()->nWorkerThreads, 7);
+    EXPECT_EQ(request.getConfig()->threadConfig.nThreads, 12);
+    EXPECT_EQ(request.getConfig()->threadConfig.nIOThreads, 3);
+    EXPECT_EQ(request.getConfig()->threadConfig.nWorkerThreads, 7);
     EXPECT_EQ(request.getConfig()->backend, "cuda");
 }
 
@@ -339,7 +339,7 @@ TEST_F(CLIFrontendTest, LoadJSONBundle_SetupInDeconvSubObject) {
 
     EXPECT_EQ(jsonBundle.setupConfig.imagePath, "root_image.tif");
     EXPECT_EQ(jsonBundle.setupConfig.backend, "cpu");
-    EXPECT_EQ(jsonBundle.setupConfig.nIOThreads, 8);
+    EXPECT_EQ(jsonBundle.setupConfig.threadConfig.nIOThreads, 8);
     EXPECT_EQ(jsonBundle.deconvConfig.algorithmName, "RichardsonLucy");
     EXPECT_EQ(jsonBundle.deconvConfig.iterations, 25);
 }
@@ -412,20 +412,20 @@ TEST_F(CLIFrontendTest, MergePSFBundles_JSONSetupWinsOverCLI) {
     PSFConfigBundle jsonBundle;
     jsonBundle.setupConfig.outputPath = "json_output.tif";
     jsonBundle.setupConfig.backend = "cpu";
-    jsonBundle.setupConfig.nThreads = 4;
+    jsonBundle.setupConfig.threadConfig.nThreads = 4;
     jsonBundle.hasSetup = true;
 
     PSFConfigBundle cliBundle;
     cliBundle.setupConfig.outputPath = "cli_output.tif";
     cliBundle.setupConfig.backend = "cuda";
-    cliBundle.setupConfig.nThreads = 8;
+    cliBundle.setupConfig.threadConfig.nThreads = 8;
     cliBundle.hasSetup = true;
 
     PSFConfigBundle merged = fe.mergePSFBundles(jsonBundle, cliBundle);
 
     EXPECT_EQ(merged.setupConfig.outputPath, "json_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.setupConfig.nThreads, 4);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nThreads, 4);
 }
 
 TEST_F(CLIFrontendTest, MergePSFBundles_NoJSON_CLIUsed) {
@@ -434,14 +434,14 @@ TEST_F(CLIFrontendTest, MergePSFBundles_NoJSON_CLIUsed) {
     PSFConfigBundle cliBundle;
     cliBundle.setupConfig.outputPath = "cli_output.tif";
     cliBundle.setupConfig.backend = "cuda";
-    cliBundle.setupConfig.nThreads = 8;
+    cliBundle.setupConfig.threadConfig.nThreads = 8;
     cliBundle.hasSetup = true;
 
     PSFConfigBundle merged = fe.mergePSFBundles(PSFConfigBundle{}, cliBundle);
 
     EXPECT_EQ(merged.setupConfig.outputPath, "cli_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cuda");
-    EXPECT_EQ(merged.setupConfig.nThreads, 8);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nThreads, 8);
 }
 
 TEST_F(CLIFrontendTest, MergePSFBundles_PSFOnlyFromJSON) {
@@ -493,7 +493,7 @@ TEST_F(CLIFrontendTest, GeneratePSFRequest_WiresSetupAndInlinePSF) {
     PSFConfigBundle bundle;
     bundle.setupConfig.outputPath = "psf_output.tif";
     bundle.setupConfig.backend = "cpu";
-    bundle.setupConfig.nThreads = 4;
+    bundle.setupConfig.threadConfig.nThreads = 4;
     bundle.psfConfigs = {psfConfig};
     bundle.hasPSF = true;
     bundle.hasSetup = true;
@@ -502,7 +502,7 @@ TEST_F(CLIFrontendTest, GeneratePSFRequest_WiresSetupAndInlinePSF) {
 
     EXPECT_EQ(request.getConfig()->outputPath, "psf_output.tif");
     EXPECT_EQ(request.getConfig()->backend, "cpu");
-    EXPECT_EQ(request.getConfig()->nThreads, 4);
+    EXPECT_EQ(request.getConfig()->threadConfig.nThreads, 4);
 
     EXPECT_TRUE(request.hasInlinePSFConfigs());
     ASSERT_EQ(request.getInlinePSFConfigs().size(), 1);
@@ -527,16 +527,16 @@ TEST_F(CLIFrontendTest, GeneratePSFRequest_ThreadCountFromSetup) {
     auto fe = makeFrontend();
 
     PSFConfigBundle bundle;
-    bundle.setupConfig.nThreads = 16;
-    bundle.setupConfig.nIOThreads = 2;
-    bundle.setupConfig.nWorkerThreads = 8;
+    bundle.setupConfig.threadConfig.nThreads = 16;
+    bundle.setupConfig.threadConfig.nIOThreads = 2;
+    bundle.setupConfig.threadConfig.nWorkerThreads = 8;
     bundle.hasSetup = true;
 
     PSFGenerationRequest request = fe.generatePSFRequest(bundle);
 
-    EXPECT_EQ(request.getConfig()->nThreads, 16);
-    EXPECT_EQ(request.getConfig()->nIOThreads, 2);
-    EXPECT_EQ(request.getConfig()->nWorkerThreads, 8);
+    EXPECT_EQ(request.getConfig()->threadConfig.nThreads, 16);
+    EXPECT_EQ(request.getConfig()->threadConfig.nIOThreads, 2);
+    EXPECT_EQ(request.getConfig()->threadConfig.nWorkerThreads, 8);
 }
 
 TEST_F(CLIFrontendTest, GeneratePSFRequest_MultipleInlinePSFs) {
@@ -641,7 +641,7 @@ TEST_F(CLIFrontendTest, LoadPSFJSONBundle_SubObjectFormat) {
 
     EXPECT_EQ(bundle.setupConfig.outputPath, "psf_output.tif");
     EXPECT_EQ(bundle.setupConfig.backend, "cpu");
-    EXPECT_EQ(bundle.setupConfig.nThreads, 4);
+    EXPECT_EQ(bundle.setupConfig.threadConfig.nThreads, 4);
     ASSERT_EQ(bundle.psfConfigs.size(), 1);
     EXPECT_EQ(bundle.psfConfigs[0]->getModelName(), "Gaussian");
     EXPECT_EQ(bundle.psfConfigs[0]->ID, "inline_gauss");
@@ -669,7 +669,7 @@ TEST_F(CLIFrontendTest, LoadPSFJSONBundle_RootLevelSetup) {
 
     EXPECT_EQ(bundle.setupConfig.outputPath, "root_output.tif");
     EXPECT_EQ(bundle.setupConfig.backend, "cpu");
-    EXPECT_EQ(bundle.setupConfig.nThreads, 6);
+    EXPECT_EQ(bundle.setupConfig.threadConfig.nThreads, 6);
     ASSERT_EQ(bundle.psfConfigs.size(), 1);
     EXPECT_EQ(bundle.psfConfigs[0]->ID, "root_psf");
 }
@@ -734,15 +734,15 @@ TEST_F(CLIFrontendTest, LoadAndMergePSF_JSONSetupAndPSF_CLIOverwritten) {
 
     fe.cliPsfBundleRef().setupConfig.outputPath = "cli_output.tif";
     fe.cliPsfBundleRef().setupConfig.backend = "cuda";
-    fe.cliPsfBundleRef().setupConfig.nThreads = 8;
+    fe.cliPsfBundleRef().setupConfig.threadConfig.nThreads = 8;
     fe.cliPsfBundleRef().hasSetup = true;
 
     PSFConfigBundle merged = fe.mergePSFBundles(fe.jsonPsfBundleRef(), fe.cliPsfBundleRef());
 
     EXPECT_EQ(merged.setupConfig.outputPath, "json_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.setupConfig.nThreads, 2);
-    EXPECT_EQ(merged.setupConfig.nIOThreads, 3);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nThreads, 2);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nIOThreads, 3);
     ASSERT_EQ(merged.psfConfigs.size(), 1);
     EXPECT_EQ(merged.psfConfigs[0]->getModelName(), "Gaussian");
     EXPECT_EQ(merged.psfConfigs[0]->ID, "inline_gauss");
@@ -753,14 +753,14 @@ TEST_F(CLIFrontendTest, LoadAndMergePSF_NoJSON_CLIUsed) {
 
     fe.cliPsfBundleRef().setupConfig.outputPath = "cli_output.tif";
     fe.cliPsfBundleRef().setupConfig.backend = "cuda";
-    fe.cliPsfBundleRef().setupConfig.nThreads = 8;
+    fe.cliPsfBundleRef().setupConfig.threadConfig.nThreads = 8;
     fe.cliPsfBundleRef().hasSetup = true;
 
     PSFConfigBundle merged = fe.mergePSFBundles(fe.jsonPsfBundleRef(), fe.cliPsfBundleRef());
 
     EXPECT_EQ(merged.setupConfig.outputPath, "cli_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cuda");
-    EXPECT_EQ(merged.setupConfig.nThreads, 8);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nThreads, 8);
     EXPECT_FALSE(merged.hasPSF);
 }
 
@@ -816,7 +816,7 @@ TEST_F(CLIFrontendTest, LoadAndGeneratePSF_InlinePSFFromJSON) {
 
     EXPECT_EQ(request.getConfig()->outputPath, "psf_output.tif");
     EXPECT_EQ(request.getConfig()->backend, "cpu");
-    EXPECT_EQ(request.getConfig()->nThreads, 6);
+    EXPECT_EQ(request.getConfig()->threadConfig.nThreads, 6);
 
     EXPECT_TRUE(request.hasInlinePSFConfigs());
     ASSERT_EQ(request.getInlinePSFConfigs().size(), 1);
@@ -837,8 +837,8 @@ TEST_F(CLIFrontendTest, LoadSetupConfigFile_RootLevelFormat) {
 
     EXPECT_EQ(config.outputPath, "standalone_output.tif");
     EXPECT_EQ(config.backend, "cuda");
-    EXPECT_EQ(config.nIOThreads, 2);
-    EXPECT_EQ(config.nWorkerThreads, 4);
+    EXPECT_EQ(config.threadConfig.nIOThreads, 2);
+    EXPECT_EQ(config.threadConfig.nWorkerThreads, 4);
 }
 
 TEST_F(CLIFrontendTest, LoadSetupConfigFile_SubObjectFormat) {
@@ -850,7 +850,7 @@ TEST_F(CLIFrontendTest, LoadSetupConfigFile_SubObjectFormat) {
 
     EXPECT_EQ(config.outputPath, "wrapped_output.tif");
     EXPECT_EQ(config.backend, "cpu");
-    EXPECT_EQ(config.nIOThreads, 1);
+    EXPECT_EQ(config.threadConfig.nIOThreads, 1);
 }
 
 // =============================================================
