@@ -89,12 +89,16 @@ jobs:
           path: ~/Library/Caches/Homebrew
           key: ${{ steps.brew-cache.outputs.cache-primary-key }}
 
+      - name: Record Xcode version
+        id: xcode-version
+        run: echo "major=$(xcodebuild -version | awk 'NR==1{print $2}' | cut -d. -f1)" >> "$GITHUB_OUTPUT"
+
       - name: Restore ITK cache
         id: cache-itk
         uses: actions/cache/restore@v4
         with:
           path: ~/itk-install
-          key: itk-5.4.5-notiff-static-${{ runner.os }}-${{ runner.arch }}
+          key: itk-5.4.5-notiff-static-${{ runner.os }}-${{ runner.arch }}-xcode${{ steps.xcode-version.outputs.major }}
 
       - name: Build ITK from source
         if: steps.cache-itk.outputs.cache-hit != 'true'
@@ -124,9 +128,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          key: ccache-${{ runner.os }}-${{ runner.arch }}-xcode${{ steps.xcode-version.outputs.major }}-${{ github.sha }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ runner.arch }}-
+            ccache-${{ runner.os }}-${{ runner.arch }}-xcode${{ steps.xcode-version.outputs.major }}-
 
       - name: Configure
         run: |
