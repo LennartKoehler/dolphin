@@ -27,7 +27,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.cpu
+          file: .github/docker/Dockerfile.cpu
           push: false
           load: true
           tags: dolphin-cpu:latest
@@ -51,7 +51,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: .github/docker/Dockerfile
           push: false
           load: true
           tags: dolphin-cuda:latest
@@ -64,7 +64,7 @@ jobs:
   macos:
     strategy:
       fail-fast: false
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -75,11 +75,12 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/Library/Caches/Homebrew
-          key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache
+          key: brew-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/Brewfile') }}
+          restore-keys: |
+            brew-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install dependencies via Homebrew
-        run: |
-          brew install libtiff fftw libomp ccache
+        run: brew bundle --file=.github/Brewfile
 
       - name: Save Homebrew cache
         if: steps.brew-cache.outputs.cache-hit != 'true'
