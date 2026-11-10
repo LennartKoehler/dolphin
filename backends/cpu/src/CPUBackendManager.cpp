@@ -95,7 +95,6 @@ void CPUBackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, B
             // Nothing specified: a single io and worker pool thread each; the
             // worker op parallelizes across all host threads via OMP.
             inputThreadConfig.nIOThreads = 1;
-            inputThreadConfig.nWorkerThreads = 1;
             inputThreadConfig.nReaderThreads = getMaxNumberThreads();
             workerConfig.nThreads = getMaxNumberThreads();
             break;
@@ -103,7 +102,6 @@ void CPUBackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, B
             // Only a total budget given: one io thread; the worker op uses the
             // full budget via OMP.
             inputThreadConfig.nIOThreads = 1;
-            inputThreadConfig.nWorkerThreads = 1;
             inputThreadConfig.nReaderThreads = inputThreadConfig.nThreads;
             workerConfig.nThreads = inputThreadConfig.nThreads;
             break;
@@ -111,9 +109,10 @@ void CPUBackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, B
         default:
             // Pools explicitly configured by the user; each pool op runs
             // single-threaded so the pool sizes define the parallelism.
-            workerConfig.nThreads = 1;
+            workerConfig.nThreads = inputThreadConfig.nWorkerThreads;
             break;
     }
+    inputThreadConfig.nWorkerThreads = 1;
 }
 
 

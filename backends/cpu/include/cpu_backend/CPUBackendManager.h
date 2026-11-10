@@ -101,7 +101,16 @@ public:
     explicit CPUFFTWorkspaceComponent(CPUBackendManager& manager) : manager(manager) {}
 
     MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
-        return MemoryRequirement{0,0};
+        // Peak transient of FFTW plan creation (FFTW_MEASURE): one padded
+        // real buffer and one half-width complex buffer are allocated
+        // together while the planner runs, freed afterwards. Execution
+        // transforms in the caller-provided buffers. Plans and planning are
+        // centralized in the manager's shared FFTWManager (lock-serialized,
+        // plan cache shared by all worker backends), so the peak occurs once
+        // system-wide.
+        const size_t rows = cubeShape.height * cubeShape.depth;
+        const size_t complexWidth = cubeShape.width / 2 + 1;
+        return MemoryRequirement{rows * complexWidth * (2 * sizeof(real_t) + sizeof(complex_t)), 0};
     }
 
     // Facade for the manager's shared host-RAM cap.
