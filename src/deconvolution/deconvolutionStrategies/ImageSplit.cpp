@@ -72,6 +72,7 @@ BoxCoordWithPadding adjustCubeToBoundaries(
     return paddedCube;
 }
 
+
 // add new cube recursively
 void addCubeRecursion(
     std::vector<BoxCoordWithPadding>& cubePositions,
@@ -110,7 +111,7 @@ void addCubeRecursion(
     cubePositions.push_back(cubeToPush);
 
     if (cubePositions.size() > 100){
-        throw std::runtime_error("Maximum number of cubes (100) reached. Stopping imageSplit recursion");
+        throw DolphinImageSplitException("Maximum number of cubes (100) reached. Stopping imageSplit recursion");
     }
     // next cube (column) — advance by nominal (unmutated) cube size
     currentCube.width += cubeToPush.box.dimensions.width;
@@ -178,14 +179,17 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
             };
 
             std::vector<BoxCoordWithPadding> newCubes;
-            addCubeRecursion(
-                newCubes,
-                startCube.position,
-                startCube,
-                imageOriginalShape,
-                cubePadding,
-                imagePadding,
-                currentMaxSize);
+            try{
+                addCubeRecursion(
+                    newCubes,
+                    startCube.position,
+                    startCube,
+                    imageOriginalShape,
+                    cubePadding,
+                    imagePadding,
+                    currentMaxSize);
+            }
+            catch(DolphinImageSplitException& e){}// this can happen and should not abort the program, rather try something else, since this part was already reached its clear that its possible to get a valid configuration
 
             if (newCubes.size() > targetCubeCount) {
                 currentMaxSize = saved; // max size is the previous max size as the most recent size reduction caused the number of cubes to go up (unwanted)
@@ -247,6 +251,10 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
         // box + padding = currentMaxSize: edge cubes get imagePadding, interior
         // cubes cubePadding). So the memory demand of the candidate is the
         // footprint of currentMaxSize itself.
+        //
+        // TODO actually memory footprint would also need a function for all memorycomponents that need the padded size and all that need the unpadded size
+        // e.g. tiffreader will overestimate how much memory it will need as it doesnt actually need the padded size. But this will always
+        // ask about the footprint given the padded size (which is accurate for e.g. the algorithms or backend allocations in general
         if (budget.fits(footprint.total(currentMaxSize))){
             try{
                 addCubeRecursion(
