@@ -278,3 +278,70 @@ TEST_F(ReadWriteTest, SetSubimageWithPadding) {
     EXPECT_EQ(readOpt->getShape(), original.getShape());
     EXPECT_TRUE(readOpt->isEqual(original, 0.001f));
 }
+
+// --- TiffWriterMemoryComponent: reports the writer's PEAK held at once --------
+
+TEST_F(ReadWriteTest, WriterMemoryComponentTwoTilesPlusWriteBuffers) {
+    const CuboidShape shape(16, 8, 4);
+    std::string path = testDir + "/rw_mem_component.tif";
+
+    TiffWriter writer(path, shape);
+    MemoryComponent& component = writer.getMemoryComponent();
+    EXPECT_EQ(component.name(), "tiffwriter");
+
+    // At most two tiles buffered at once, each full width/height x one write
+    // depth, plus the transient write path (one strip buffer per written
+    // slice + libtiff's internal encode buffer; stripped mode = one full
+    // slice each).
+    const CuboidShape writeShape(4, 4, 2);
+    const size_t tileBytes = shape.width * shape.height * writeShape.depth * sizeof(float);
+    const size_t sliceBytes = shape.width * shape.height * sizeof(float);
+    const MemoryRequirement need = component.footprint(writeShape);
+    EXPECT_EQ(need.hostBytes, 2 * tileBytes + 2 * sliceBytes);
+    EXPECT_EQ(need.deviceBytes, 0u);
+}
+
+TEST_F(ReadWriteTest, WriterMemoryComponentScalesWithWriteDepth) {
+    const CuboidShape shape(16, 8, 4);
+    std::string path = testDir + "/rw_mem_component_shape.tif";
+
+    TiffWriter writer(path, shape);
+    MemoryComponent& component = writer.getMemoryComponent();
+
+    // The tile backlog depends on the candidate write depth: deeper writes
+    // buffer more, equal-depth candidates report the same demand.
+    const size_t shallow = component.footprint(CuboidShape(4, 4, 2)).hostBytes;
+    const size_t deep = component.footprint(CuboidShape(16, 8, 4)).hostBytes;
+    EXPECT_GT(deep, shallow);
+    EXPECT_EQ(component.footprint(CuboidShape(64, 64, 2)).hostBytes, shallow);
+}
+
+TEST_F(ReadWriteTest, WriterMemoryComponentTiledWriteBuffer) {
+    const CuboidShape shape(16, 8, 4);
+    std::string path = testDir + "/rw_mem_component_tiled.tif";
+
+    TiffWriter writer(path, shape);
+    WriterCompressionConfig compression;
+    WriterConfig config;
+    config.tileWidth = 4;
+    config.tileLength = 4;
+    writer.configure(compression, config);
+
+    // Tiled mode: the transient write path buffers one tile per written
+    // slice instead of one full slice; the two-tile backlog term is
+    // unchanged.
+    const CuboidShape writeShape(4, 4, 2);
+    const size_t tileBytes = shape.width * shape.height * writeShape.depth * sizeof(float);
+    const size_t writeBufferBytes = 4 * 4 * sizeof(float);
+    const MemoryRequirement need = writer.getMemoryComponent().footprint(writeShape);
+    EXPECT_EQ(need.hostBytes, 2 * tileBytes + 2 * writeBufferBytes);
+}
+
+TEST_F(ReadWriteTest, WriterMemoryComponentIsStableInstance) {
+    std::string path = testDir + "/rw_mem_component_instance.tif";
+    TiffWriter writer(path, CuboidShape(8, 8, 4));
+
+    MemoryComponent& first = writer.getMemoryComponent();
+    MemoryComponent& second = writer.getMemoryComponent();
+    EXPECT_EQ(&first, &second);
+}
