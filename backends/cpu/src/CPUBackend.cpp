@@ -492,14 +492,14 @@ void CPUComputeBackend::backwardFFT(const ComplexData& in, RealData& out) const 
     BACKEND_CHECK(in.getSize().width == out.getSize().width / 2 + 1, "c2r input must have half-width complex layout (width/2+1)", "CPU", "backwardFFT - input layout", buildCpuContext());
     BACKEND_CHECK(in.getPadding() == 0, "c2r input must not have padding", "CPU", "backwardFFT - input layout", buildCpuContext());
 
-    bool inPlace = in.getData() == (complex_t*)out.getData();
+    bool inPlace = rawData(in) == (complex_t*)rawData(out);
     if (inPlace) {
         size_t complexWidth = out.getSize().width / 2 + 1;
         size_t paddedWidth = 2 * complexWidth;
         BACKEND_CHECK(out.getSize().width + out.getPadding() == paddedWidth, "In-place c2r requires the real buffer to be padded to width 2*(width/2+1)", "CPU", "backwardFFT - in-place layout", buildCpuContext());
     }
     FFTWPlanDescription description(config.ompThreads, PlanDirection::BACKWARD, PlanType::REAL ,out.getSize(), inPlace, out.getPadding());
-    fftwManager.executeBackwardFFTReal(description, reinterpret_cast<fftwf_complex*>(in.getData()), reinterpret_cast<real_t*>(out.getData()));
+    fftwManager.executeBackwardFFTReal(description, reinterpret_cast<fftwf_complex*>(rawData(in)), reinterpret_cast<real_t*>(rawData(out)));
 
     real_t normFactor{1.0f / out.getSize().getVolume()};
     scalarMultiplication(out, normFactor, out); // Add normalization

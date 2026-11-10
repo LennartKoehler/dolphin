@@ -488,7 +488,7 @@ void CUDAComputeBackend::forwardFFT(const ComplexData& in, ComplexData& out) con
     BACKEND_CHECK(in.getSize().getVolume() == out.getSize().getVolume(), "Size mismatch in forwardFFT", "CUDA", "forwardFFT", buildCudaContext(config));
 
     // Get or create the forward FFT plan
-    bool inPlace = in.getData() == out.getData();
+    bool inPlace = rawData(in) == rawData(out);
     CUDAFFTPlanDescription desc(PlanDirection::FORWARD, PlanType::COMPLEX, in.getSize(), inPlace);
     cufftHandle forwardPlan = const_cast<CUDAComputeBackend*>(this)->getPlan(desc);
 
@@ -508,7 +508,7 @@ void CUDAComputeBackend::backwardFFT(const ComplexData& in, ComplexData& out) co
     BACKEND_CHECK(in.getSize().getVolume() == out.getSize().getVolume(), "Size mismatch in backwardFFT", "CUDA", "backwardFFT", buildCudaContext(config));
 
     // Get or create the backward FFT plan
-    bool inPlace = in.getData() == out.getData();
+    bool inPlace = rawData(in) == rawData(out);
     CUDAFFTPlanDescription desc(PlanDirection::BACKWARD, PlanType::COMPLEX, in.getSize(), inPlace);
     cufftHandle backwardPlan = const_cast<CUDAComputeBackend*>(this)->getPlan(desc);
 
@@ -532,7 +532,7 @@ void CUDAComputeBackend::forwardFFT(const RealData& in, ComplexData& out) const 
     BACKEND_CHECK(out.getSize().width == complexWidth, "r2c output must have half-width complex layout (width/2+1)", "CUDA", "forwardFFTReal - output layout", buildCudaContext(config));
     BACKEND_CHECK(out.getPadding() == 0, "r2c output must not have padding", "CUDA", "forwardFFTReal - output layout", buildCudaContext(config));
 
-    bool inPlace = in.getData() == (real_t*)out.getData();
+    bool inPlace = rawData(in) == (real_t*)rawData(out);
     if (inPlace) {
         size_t paddedWidth = 2 * complexWidth;
         BACKEND_CHECK(in.getSize().width + in.getPadding() == paddedWidth, "In-place r2c requires the real buffer to be padded to width 2*(width/2+1)", "CUDA", "forwardFFTReal - in-place layout", buildCudaContext(config));
@@ -558,7 +558,7 @@ void CUDAComputeBackend::backwardFFT(const ComplexData& in, RealData& out) const
     BACKEND_CHECK(in.getSize().width == out.getSize().width / 2 + 1, "c2r input must have half-width complex layout (width/2+1)", "CUDA", "backwardFFTReal - input layout", buildCudaContext(config));
     BACKEND_CHECK(in.getPadding() == 0, "c2r input must not have padding", "CUDA", "backwardFFTReal - input layout", buildCudaContext(config));
 
-    bool inPlace = in.getData() == (complex_t*)out.getData();
+    bool inPlace = rawData(in) == (complex_t*)rawData(out);
     if (inPlace) {
         size_t complexWidth = out.getSize().width / 2 + 1;
         size_t paddedWidth = 2 * complexWidth;
