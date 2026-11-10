@@ -20,6 +20,9 @@ See the LICENSE file provided with the code for the full license.
 #include <cmath>
 #include <cstring>
 #include <cassert>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 #ifdef __linux__
 #include <unistd.h>
@@ -211,10 +214,18 @@ size_t CPUBackendMemoryManager::staticMaxGetAvailableMemory() {
     // For CPU backend, return available system memory
     size_t memory = 0;
 #ifdef __linux__
-    long pagesize = sysconf(_SC_PAGESIZE);
-    long pages = sysconf(_SC_AVPHYS_PAGES);
-    if (pagesize > 0 && pages > 0) {
-        memory = static_cast<size_t>(pagesize) * static_cast<size_t>(pages);
+    std::ifstream meminfo("/proc/meminfo");
+    std::string line;
+
+    while (std::getline(meminfo, line)) {
+        std::istringstream fields(line);
+        std::string key;
+        size_t valueKiB;
+
+        if (fields >> key >> valueKiB && key == "MemAvailable:") {
+            memory = valueKiB * size_t{1024}; // Reported kB means KiB here
+            break;
+        }
     }
 #elif __APPLE__
     vm_statistics64_data_t vm_stats;
