@@ -133,8 +133,9 @@ void FFTWManager::executeBackwardFFTReal(const FFTWPlanDescription& description,
 
 
 
-// WARNING this expects the input (realdata) to be allocated as if it will be used for inplacefft
-// even if it wont be in place
+// The real input layout is taken from description.realPadding (the actual row
+// padding of the real buffer the caller passes in), so unpadded out-of-place
+// real data and padded in-place real data both get correct plans.
 fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& description) {
     //has to be holding lock
 
@@ -152,33 +153,32 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
 
     int n[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(Nx)};
 
-    // For out-of-place: real input is unpadded, inembed matches logical dimensions.
-    // For in-place: real input must be padded on the last dimension to 2*(Nx/2+1)
-    //              to accommodate the complex output, so inembed reflects the padded size.
-    // onembed is always {Nz, Ny, Nx/2+1} (complex output has halved last dimension).
-    int inembed[3];
-    int onembed[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(Nx/2+1)};
+    size_t complexWidth = Nx / 2 + 1;
+    // Physical row length of the real buffer in real_t elements (logical width + padding).
+    size_t realStride = Nx + description.realPadding;
+
+    if (description.inPlace) {
+        BACKEND_CHECK(realStride == 2 * complexWidth, "In-place r2c plan requires the real buffer to be padded to width 2*(width/2+1)", "CPU", "initializePlanRealToComplex - in-place layout", buildCpuContext());
+    }
+
+    int inembed[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(realStride)};
+    int onembed[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(complexWidth)};
 
     int istride = 1;
     int ostride = 1;
 
-    int idist;
-    int odist = static_cast<int>(Nz * Ny * (Nx/2+1));
-
-    inembed[0] = static_cast<int>(Nz);
-    inembed[1] = static_cast<int>(Ny);
-    inembed[2] = static_cast<int>(2*(Nx/2+1));  // padded last dimension (in real_t units)
-    idist = static_cast<int>(Nz * Ny * 2*(Nx/2+1));
+    int idist = static_cast<int>(Nz * Ny * realStride);
+    int odist = static_cast<int>(Nz * Ny * complexWidth);
 
     try {
-        out = (complex_t*)fftwf_malloc(sizeof(complex_t) * Nz * Ny * (Nx/2+1));
-        FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(complex_t) * Nz * Ny * (Nx/2+1), "initializePlanRealToComplex", buildCpuContext());
+        out = (complex_t*)fftwf_malloc(sizeof(complex_t) * Nz * Ny * complexWidth);
+        FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(complex_t) * Nz * Ny * complexWidth, "initializePlanRealToComplex", buildCpuContext());
 
         if (description.inPlace) {
             in = (real_t*)out;  // shared buffer: out provides the padded storage
         } else {
-            in = (real_t*)fftwf_malloc(sizeof(real_t) * 2 * Nz * Ny * (Nx/2+1));
-            FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(real_t) * 2 * Nz * Ny * (Nx/2+1), "initializePlanRealToComplex", buildCpuContext());
+            in = (real_t*)fftwf_malloc(sizeof(real_t) * idist);
+            FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(real_t) * idist, "initializePlanRealToComplex", buildCpuContext());
         }
 
         // Create FFT plan using advanced r2c interface
@@ -217,8 +217,9 @@ fftwf_plan FFTWManager::initializePlanRealToComplex(const FFTWPlanDescription& d
 }
 
 
-// WARNING this expects the output (realdata) to be allocated as if it will be used for inplacefft
-// even if it wont be in place
+// The real output layout is taken from description.realPadding (the actual row
+// padding of the real buffer the caller passes in), so unpadded out-of-place
+// real data and padded in-place real data both get correct plans.
 fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& description) {
     //has to be holding lock
 
@@ -236,33 +237,32 @@ fftwf_plan FFTWManager::initializePlanComplexToReal(const FFTWPlanDescription& d
 
     int n[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(Nx)};
 
-    // Complex input always has halved last dimension.
-    // For out-of-place: real output is unpadded, onembed matches logical dimensions.
-    // For in-place: real output must be padded on the last dimension to 2*(Nx/2+1)
-    //              to match the complex input buffer, so onembed reflects the padded size.
-    int inembed[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(Nx/2+1)};
-    int onembed[3];
+    size_t complexWidth = Nx / 2 + 1;
+    // Physical row length of the real buffer in real_t elements (logical width + padding).
+    size_t realStride = Nx + description.realPadding;
+
+    if (description.inPlace) {
+        BACKEND_CHECK(realStride == 2 * complexWidth, "In-place c2r plan requires the real buffer to be padded to width 2*(width/2+1)", "CPU", "initializePlanComplexToReal - in-place layout", buildCpuContext());
+    }
+
+    int inembed[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(complexWidth)};
+    int onembed[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(realStride)};
 
     int istride = 1;
     int ostride = 1;
 
-    int idist = static_cast<int>(Nz * Ny * (Nx/2+1));
-    int odist;
-
-    onembed[0] = static_cast<int>(Nz);
-    onembed[1] = static_cast<int>(Ny);
-    onembed[2] = static_cast<int>(2*(Nx/2+1));  // padded last dimension (in real_t units)
-    odist = static_cast<int>(Nz * Ny * 2*(Nx/2+1));
+    int idist = static_cast<int>(Nz * Ny * complexWidth);
+    int odist = static_cast<int>(Nz * Ny * realStride);
 
     try {
-        in = (complex_t*)fftwf_malloc(sizeof(complex_t) * Nz * Ny * (Nx/2+1));
-        FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(complex_t) * Nz * Ny * (Nx/2+1), "initializePlanComplexToReal", buildCpuContext());
+        in = (complex_t*)fftwf_malloc(sizeof(complex_t) * Nz * Ny * complexWidth);
+        FFTW_MALLOC_UNIFIED_CHECK(in, sizeof(complex_t) * Nz * Ny * complexWidth, "initializePlanComplexToReal", buildCpuContext());
 
         if (description.inPlace) {
             out = (real_t*)in;  // shared buffer: in provides the padded storage
         } else {
-            out = (real_t*)fftwf_malloc(sizeof(real_t) * 2 * Nz * Ny * (Nx/2+1));
-            FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(real_t) * 2 * Nz * Ny * (Nx/2+1), "initializePlanComplexToReal", buildCpuContext());
+            out = (real_t*)fftwf_malloc(sizeof(real_t) * odist);
+            FFTW_MALLOC_UNIFIED_CHECK(out, sizeof(real_t) * odist, "initializePlanComplexToReal", buildCpuContext());
         }
 
         // Create FFT plan using advanced c2r interface
