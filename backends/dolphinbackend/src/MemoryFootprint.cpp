@@ -17,7 +17,11 @@ See the LICENSE file provided with the code for the full license.
 #include <iomanip>
 
 void MemoryFootprint::add(const MemoryComponent& component, size_t count) {
-    entries.push_back(Entry{&component, count});
+    entries.push_back(Entry{&component, count, nullptr});
+}
+
+void MemoryFootprint::add(std::unique_ptr<const MemoryComponent> component, size_t count) {
+    entries.push_back(Entry{component.get(), count, std::move(component)});
 }
 
 MemoryRequirement MemoryFootprint::total(const CuboidShape& cubeShape) const {

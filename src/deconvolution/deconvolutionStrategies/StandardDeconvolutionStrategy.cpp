@@ -99,27 +99,25 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     const size_t nPSFs = psfHandler.getPSFCount();
 
-    // Memory footprint: every memory-owning system reports its own demand for
-    // a candidate cube shape; the splitter compares it against the budget.
-    // The strategy-local components cover the ownerless terms (io staging,
-    // padding peak) and the algorithm placement (device vs host), which is a
-    // strategy decision, not the algorithm's.
-    IOStagingMemoryComponent ioStaging;
-    PaddingPeakMemoryComponent paddingPeak(paddingScheme.insidePadding);
-    AlgorithmWorkingSetMemoryComponent algorithmWorkingSet(*algorithm, !budget.deviceIsHost);
     MemoryComponent& readerComponent = reader->getMemoryComponent(nReaderThreads);
+    MemoryComponent& writerComponent = writer->getMemoryComponent();
     // Each manager reports and caps the plane it allocates on (CPU: host,
     // CUDA: device) via its own memory component.
     MemoryComponent& backendComponent = backendManager.getMemoryComponent();
-    MemoryFootprint footprint;
-    // Each component reports ONE instance; the count is the number of
-    // concurrent instances of that system (the scheduling lives here).
-    footprint.add(readerComponent);
-    footprint.add(ioStaging, ioThreads);
-    footprint.add(algorithmWorkingSet, workerThreads);
-    footprint.add(backendComponent);
-    footprint.add(psfHandler.getMemoryComponent(nPSFs, nDevices));
-    footprint.add(paddingPeak);
+    MemoryComponent& psfComponent = psfHandler.getMemoryComponent(nPSFs, nDevices);
+
+    // Memory footprint: every memory-owning system reports its own demand for
+    // a candidate cube shape; the splitter compares it against the budget.
+    MemoryFootprint footprint = buildMemoryFootprint(
+        readerComponent,
+        writerComponent,
+        backendComponent,
+        psfComponent,
+        *algorithm,
+        paddingScheme,
+        ioThreads,
+        workerThreads,
+        !budget.deviceIsHost);
 
     std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = getCubes(
         budget,
@@ -148,12 +146,14 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     // Derive the runtime caps from the same footprint that sized the cubes:
     // the reader gets what it reported for the final shape (enforced with
-    // backpressure), the backend gets the rest of the host pool and the
-    // device pool (enforced with a clear error).
+    // backpressure), the writer's peak is reserved (it has no cap mechanism),
+    // and the backend gets the rest of the host pool and the device pool
+    // (enforced with a clear error).
     const CuboidShape paddedShape = workShape.getPaddedShape();
     MemoryRequirement cubeNeed = footprint.total(paddedShape);
     budget.readerCache_byte = readerComponent.footprint(paddedShape).hostBytes;
-    budget.backendHost_byte = budget.hostTotal_byte - budget.readerCache_byte;
+    budget.writerReserve_byte = writerComponent.footprint(paddedShape).hostBytes;
+    budget.backendHost_byte = budget.hostTotal_byte - budget.readerCache_byte - budget.writerReserve_byte;
 
     // set up reader and writer handlers; the reader's cache cap is applied
     // through its memory component (facade)
@@ -206,8 +206,8 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         ->debug("Memory footprint per cube ({}): {}", paddedShape.print(), footprint.breakdown(paddedShape));
 
     spdlog::get("deconvolution")
-        ->debug("Memory budgets: host {:.2f} GiB (reader cache {:.2f} GiB, backend allocations {:.2f} GiB), device {:.2f} GiB per device ({} device(s)); estimated demand per cube: {:.2f} MiB host, {:.2f} MiB device",
-        budget.hostTotal_byte / 1073741824.0, budget.readerCache_byte / 1073741824.0, budget.backendHost_byte / 1073741824.0,
+        ->debug("Memory budgets: host {:.2f} GiB (reader cache {:.2f} GiB, writer reserve {:.2f} GiB, backend allocations {:.2f} GiB), device {:.2f} GiB per device ({} device(s)); estimated demand per cube: {:.2f} MiB host, {:.2f} MiB device",
+        budget.hostTotal_byte / 1073741824.0, budget.readerCache_byte / 1073741824.0, budget.writerReserve_byte / 1073741824.0, budget.backendHost_byte / 1073741824.0,
         budget.deviceTotal_byte / 1073741824.0, nDevices,
         cubeNeed.hostBytes / 1048576.0, cubeNeed.deviceBytes / 1048576.0);
 
@@ -216,6 +216,32 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         totalTasks
     };
     return std::move(Result<DeconvolutionPlan>::ok(std::move(plan)));
+}
+
+
+MemoryFootprint StandardDeconvolutionStrategy::buildMemoryFootprint(
+    const MemoryComponent& readerComponent,
+    const MemoryComponent& writerComponent,
+    const MemoryComponent& backendComponent,
+    const MemoryComponent& psfComponent,
+    const DeconvolutionAlgorithm& algorithm,
+    const PaddingScheme& paddingScheme,
+    size_t ioThreads,
+    size_t workerThreads,
+    bool algorithmOnDevice) {
+    // The strategy-owned terms have no owner class: the footprint creates and
+    // keeps them alive so the result can be returned by value. Each component
+    // reports ONE instance; the count is the number of concurrent instances
+    // of that system (the scheduling lives here).
+    MemoryFootprint footprint;
+    footprint.add(readerComponent);
+    footprint.add(writerComponent);
+    footprint.add(std::make_unique<const IOStagingMemoryComponent>(), ioThreads);
+    footprint.add(std::make_unique<const AlgorithmWorkingSetMemoryComponent>(algorithm, algorithmOnDevice), workerThreads);
+    footprint.add(backendComponent);
+    footprint.add(psfComponent);
+    footprint.add(std::make_unique<const PaddingPeakMemoryComponent>(paddingScheme.insidePadding));
+    return footprint;
 }
 
 

@@ -23,6 +23,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
 #include "dolphinbackend/IBackendManager.h"
+#include "dolphinbackend/MemoryFootprint.h"
 #include <functional>
 #include <utility>
 
@@ -121,6 +122,24 @@ protected:
     /// what is currently available), >0 = explicit GB upper bound, always
     /// clamped down to what actually exists. Never raises a limit.
     static size_t resolveMemoryLimit(float limit_gb, size_t available_byte);
+
+    /// How much memory the application thinks one run needs: composes the
+    /// footprint of every memory-owning system for the scheduling of this
+    /// run. The externally-owned components (reader, writer, backend FFT,
+    /// psf cache) are borrowed; the strategy-owned terms (io staging per io
+    /// thread, algorithm working set per worker thread with its placement,
+    /// padding peak) are created and kept alive by the returned footprint.
+    /// Used by createPlan and by tests to inspect the modeled demand.
+    static MemoryFootprint buildMemoryFootprint(
+        const MemoryComponent& readerComponent,
+        const MemoryComponent& writerComponent,
+        const MemoryComponent& backendComponent,
+        const MemoryComponent& psfComponent,
+        const DeconvolutionAlgorithm& algorithm,
+        const PaddingScheme& paddingScheme,
+        size_t ioThreads,
+        size_t workerThreads,
+        bool algorithmOnDevice);
 
     /// Query available memory from the managers and clamp the user limits
     /// (see resolveMemoryLimit). Constructs no backends.
