@@ -58,23 +58,16 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     std::shared_ptr<WriterHandler> writer = task.sharedDescriptor->writer;
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
-    spdlog::get("deconvolution")->debug("[Task {}] Work shape (with padding): {}", task.taskId, workShape.print());
 
-
-    RealData g_host;
-
+    RealData g_device;
+    RealData f_host;
     {
-        spdlog::get("deconvolution")->debug("[Task {}] Reading subimage from input", task.taskId);
         PaddedImage cubeImage = reader->getSubimage(task.paddedBox);
-        spdlog::get("deconvolution")->debug("[Task {}] Converting input image to real data", task.taskId);
-        g_host = Preprocessor::convertImageToRealData(cubeImage.image);
+        RealData g_host = Preprocessor::convertImageToRealData(cubeImage.image);
+        RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
+        BackendFactory::getInstance().getHostBackendMemoryManager().freeMemoryOnDevice(g_host);
     }
 
-    spdlog::get("deconvolution")->debug("[Task {}] Copying input data to device", task.taskId);
-    RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
-    BackendFactory::getInstance().getHostBackendMemoryManager().freeMemoryOnDevice(g_host);
-    spdlog::get("deconvolution")->debug("[Task {}] Allocating output buffer on device", task.taskId);
-    RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
 
     using progressFunction = std::function<void(int)>;
     progressFunction tracker = [this, numPsfs = task.sharedDescriptor->psfs.size()](int max){
@@ -82,28 +75,27 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         this->loadingBar.add(iteration);
     };
 
-    spdlog::get("deconvolution")->debug("[Task {}] Starting deconvolution with {} PSF(s)", task.taskId, task.sharedDescriptor->psfs.size());
-    std::future<void> resultDone = context->processor.deconvolveSingleCube(
-        workerbackend,
-        task.sharedDescriptor->prototypeAlgorithm,
-        workShape,
-        task.sharedDescriptor->psfs,
-        g_device,
-        f_device,
-        *context->psfpreprocessor.get(),
-        tracker);
+    {
+        RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
+        std::future<void> resultDone = context->processor.deconvolveSingleCube(
+            workerbackend,
+            task.sharedDescriptor->prototypeAlgorithm,
+            workShape,
+            task.sharedDescriptor->psfs,
+            g_device,
+            f_device,
+            *context->psfpreprocessor.get(),
+            tracker);
 
-    resultDone.get(); //wait for result
-    spdlog::get("deconvolution")->debug("[Task {}] Deconvolution finished, syncing backend", task.taskId);
-    iobackend.sync();
+        resultDone.get();
+        iobackend.sync();
+        f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getHostBackendMemoryManager());
+    }
 
-    spdlog::get("deconvolution")->debug("[Task {}] Moving result data from device to host", task.taskId);
-    RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getHostBackendMemoryManager());
 
-    spdlog::get("deconvolution")->debug("[Task {}] Converting result to image", task.taskId);
+
     Image3D resultImage = Preprocessor::convertRealDataToImage(f_host);
 
-    spdlog::get("deconvolution")->debug("[Task {}] Writing result subimage", task.taskId);
     writer->setSubimage(resultImage, task.paddedBox);
     spdlog::get("deconvolution")->debug("[Task {}] Done", task.taskId);
 }

@@ -208,6 +208,8 @@ public:
     void setNumReaderThreads(size_t count) { numReaderThreads = count; }
 
     MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+        // One region is read at a time; all reader threads split z-slices of
+        // that single shared buffer, so the demand is one region's worth.
         return MemoryRequirement{reader.getRequiredMemory(cubeShape), 0};
     }
 

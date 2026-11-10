@@ -255,7 +255,6 @@ bool CPUBackendMemoryManager::isOnDevice(const void* ptr) const {
     return ptr != nullptr;
 }
 
-
 RealData CPUBackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
     log(fmt::format("allocateMemoryOnDeviceRealFFTInPlace for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     CuboidShape shapeForInplaceFFT = shape;
@@ -270,6 +269,7 @@ RealData CPUBackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const Cub
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
+
 RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const {
     log(fmt::format("allocateMemoryOnDeviceReal for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     std::size_t bytes = shape.getVolume() * sizeof(real_t);
@@ -278,7 +278,6 @@ RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& 
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
-
 
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
     log(fmt::format("allocateMemoryOnDeviceComplex for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
@@ -291,12 +290,14 @@ ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidS
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
+
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
     log(fmt::format("allocateMemoryOnDeviceComplexFull for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
+
 DataView<real_t> CPUBackendMemoryManager::reinterpret(ComplexData& data) const{
     CuboidShape realShape = data.getRealSize();
     CuboidShape shapeForInplaceFFT = realShape;
@@ -329,8 +330,6 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 
 }
 
-
-
  void* CPUBackendMemoryManager::copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
     log(fmt::format("copyDataToDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
     BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data", buildCpuContext());
@@ -353,9 +352,6 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
         return destBackend.copyDataToDevice(src, size, shape);
     }
 }
-
-
-
 
 void CPUBackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
     log(fmt::format("memCopy: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
@@ -380,8 +376,6 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
     ptr = nullptr;
     log(fmt::format("Deallocated {:.2f} MB", size / 1e6), LogLevel::LOG_DEBUG);
 }
-
-
 
 size_t CPUBackendMemoryManager::getAvailableMemory() const {
     try {
