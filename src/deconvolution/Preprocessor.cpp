@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
 #include <cmath>
+#include <cstring>
 #include <itkConstantPadImageFilter.h>
 #include <itkMirrorPadImageFilter.h>
 #include <itkRegionOfInterestImageFilter.h>
@@ -36,6 +37,21 @@ ComplexData Preprocessor::convertImageToComplexData(
 
     return result;
 }
+
+void Preprocessor::convertImageToRealData(
+    const Image3D& input,
+    RealData& allocatedBuffer) {
+
+    size_t index = 0;
+
+    assert (allocatedBuffer.isValid() && allocatedBuffer.getPaddedSize() >= input.getShape());
+
+    for (const auto& it : input) {
+        allocatedBuffer[index] = static_cast<real_t>(it);
+        index ++;
+    }
+}
+
 RealData Preprocessor::convertImageToRealData(
     const Image3D& input) {
 
@@ -88,6 +104,43 @@ Image3D Preprocessor::convertRealDataToImage(
     }
 
     return output;
+}
+
+void Preprocessor::convertImageToRealDataPadded(
+        Image3D&& interior, const Padding& padding, PaddingFillType fill, RealData& allocatedOutBuffer){
+
+    const CuboidShape interiorShape = interior.getShape();
+    const CuboidShape workShape = interiorShape + padding.before + padding.after;
+
+    assert (allocatedOutBuffer.isValid() && allocatedOutBuffer.getSize() == workShape);
+
+    if (fill != PaddingFillType::ZERO) {
+        // Non-zero fills need the ITK pad filters: pad the interior image and
+        // convert the padded result. The padded image is freed on return.
+        Image3D padded = std::move(interior);
+        ImagePadding::padImage(padded, padding, fill);
+        convertImageToRealData(padded, allocatedOutBuffer);
+        return;
+    }
+
+    // Zero everything (row padding included), then copy the interior once.
+    std::memset(allocatedOutBuffer.getData(), 0, allocatedOutBuffer.getDataBytes());
+
+    const size_t workWidth = workShape.width;
+    const size_t workHeight = workShape.height;
+    const size_t beforeWidth = padding.before.width;
+    const size_t beforeHeight = padding.before.height;
+    const size_t beforeDepth = padding.before.depth;
+
+    for (size_t z = 0; z < interiorShape.depth; ++z) {
+        for (size_t y = 0; y < interiorShape.height; ++y) {
+            const size_t srcBase = (z * interiorShape.height + y) * interiorShape.width;
+            const size_t dstBase = ((z + beforeDepth) * workHeight + (y + beforeHeight)) * workWidth + beforeWidth;
+            for (size_t x = 0; x < interiorShape.width; ++x) {
+                allocatedOutBuffer[dstBase + x] = interior[srcBase + x];
+            }
+        }
+    }
 }
 
 

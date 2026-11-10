@@ -79,9 +79,9 @@ public:
 
         spdlog::get("deconvolution")->debug("PSF cache miss (shape: {}, psf: {}, device: {})", shape.print(), psf->ID, backend.getDeviceString());
 
-        // PSF not found - create it
-        std::shared_ptr<PSF> psfCopy = std::make_shared<PSF>(*psf);
-        std::unique_ptr<ComplexData> preprocessedPSF = preprocessingFunction(shape, psfCopy, backend);
+        // PSF not found - create it. The preprocessing function only reads the
+        // PSF, so no defensive copy is needed here.
+        std::unique_ptr<ComplexData> preprocessedPSF = preprocessingFunction(shape, psf, backend);
 
         // Insert into map
         // psfBackends.push_back(backend); // hold on to backends until the psfs are also deleted
@@ -107,8 +107,23 @@ namespace Preprocessor{
     ComplexData convertImageToComplexData(const Image3D& image);
     Image3D convertComplexDataToImage(const ComplexData& data);
 
+    void convertImageToRealData(
+        const Image3D& input,
+        RealData& allocatedBuffer);
+
     RealData convertImageToRealData(const Image3D& image);
+    // Fills an existing FFT-in-place RealData buffer (already allocated to the
+    // image shape) with the image pixels - no new allocation.
+    void convertImageToRealData(const Image3D& image, RealData& out);
     Image3D convertRealDataToImage(const RealData& data);
+
+    // Fills `out` with `interior` placed at `padding` offset inside the padded
+    // (interior + padding) cube, in the FFT-in-place real layout, so the result
+    // can go straight to the device. `out` must already be allocated to the
+    // padded shape; it is filled, not allocated. ZERO fill zeroes the buffer
+    // and copies the interior once - no intermediate padded Image3D. Other fill
+    // types pad an Image3D via the ITK filters and convert it into `out`.
+    void convertImageToRealDataPadded(Image3D&& interior, const Padding& padding, PaddingFillType fill, RealData& out);
 
 }
 // namespace PaddingStrategy {

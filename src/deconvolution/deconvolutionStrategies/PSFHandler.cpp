@@ -199,7 +199,7 @@ std::vector<std::shared_ptr<PSF>>& PSFHandler::getPSFs(const CuboidShape& shape)
 
 std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
 
-    std::function<std::unique_ptr<ComplexData>(const CuboidShape, std::shared_ptr<PSF>, IBackend&)> psfPreprocessFunction = [&](
+    std::function<std::unique_ptr<ComplexData>(const CuboidShape, std::shared_ptr<PSF>, IBackend&)> psfPreprocessFunction = [=](
         const CuboidShape targetShape,
         std::shared_ptr<PSF> inputPSF,
         IBackend& backend

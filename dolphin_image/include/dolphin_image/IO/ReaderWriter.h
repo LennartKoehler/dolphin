@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include <vector>
 #include <memory>
 #include "dolphinbackend/MemoryComponent.h"
+#include "dolphinbackend/ComplexData.h"
 #include "dolphin_image/Image3D.h"
 #include "dolphin_image/ImageMetaData.h"
 #include "dolphin_image/ImagePadding.h"
@@ -58,6 +59,13 @@ public:
     virtual ~ImageWriter() = default;
     virtual bool setSubimage(const Image3D& image, const BoxCoord& coord,
                              const CuboidPosition& sourceOffset = CuboidPosition{0, 0, 0}) const = 0;
+    // Write a host RealData (FFT-in-place real layout) directly into the
+    // writer's buffers, no intermediate Image3D. Default: unsupported.
+    virtual bool setSubimageReal(const RealData& data, const BoxCoord& coord,
+                                 const CuboidPosition& sourceOffset = CuboidPosition{0, 0, 0}) const {
+        (void)data; (void)coord; (void)sourceOffset;
+        return false;
+    }
     virtual void configure(WriterCompressionConfig compressionConfig, WriterConfig writerConfig = {}) = 0;
 
     // MemoryComponent of this writer. Owned by the writer, borrowed by the
@@ -70,18 +78,33 @@ protected:
 
 
 
+// Unpadded sub-cube plus the effective padding to apply (may be smaller than
+// requested where the padded box is cropped at the image border).
+struct UnpaddedCube {
+    Image3D image;
+    Padding padding;
+};
+
 // handles the padding offset and calls padding
 class ReaderHandler{
 public:
     explicit ReaderHandler(std::shared_ptr<ImageReader> r, PaddingFillType paddingFillStrategy) : reader(r), paddingFillStrategy(paddingFillStrategy){}
     const ImageMetaData& getMetaData() const { return reader->getMetaData(); }
+    PaddingFillType getPaddingFillType() const { return paddingFillStrategy; }
 
     virtual PaddedImage getSubimage(const BoxCoordWithPadding& box) const{
+        UnpaddedCube cube = getSubimageForPadding(box);
+        ImagePadding::padImage(cube.image, cube.padding, paddingFillStrategy);
+        return PaddedImage{std::move(cube.image), box.padding};
+    }
+
+    // Reads the sub-cube WITHOUT padding, together with the effective padding.
+    // Callers that pad straight into their own buffer (e.g. the FFT-layout
+    // host staging) use this to avoid the intermediate padded Image3D.
+    virtual UnpaddedCube getSubimageForPadding(const BoxCoordWithPadding& box) const{
         BoxCoordWithPadding translatedRegion = translateRegion(box, reader->getMetaData().getShape());
         Image3D image = reader->getSubimage(translatedRegion.box);
-        ImagePadding::padImage(image, translatedRegion.padding, paddingFillStrategy);
-        PaddedImage result = PaddedImage{std::move(image), box.padding};
-        return result;
+        return UnpaddedCube{std::move(image), translatedRegion.padding};
     }
 
 protected:
@@ -103,6 +126,12 @@ public:
 
     bool setSubimage(const Image3D& image, const BoxCoordWithPadding& coord) const {
         return writer->setSubimage(image, coord.box, coord.padding.before);
+    }
+
+    // Strips the padding and forwards the host RealData (FFT-in-place layout)
+    // straight into the writer buffers, avoiding the intermediate Image3D.
+    bool setSubimageReal(const RealData& data, const BoxCoordWithPadding& coord) const {
+        return writer->setSubimageReal(data, coord.box, coord.padding.before);
     }
 
     void configure(WriterCompressionConfig compressionConfig, WriterConfig writerConfig = {}) {

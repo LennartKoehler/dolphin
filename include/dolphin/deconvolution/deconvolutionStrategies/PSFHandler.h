@@ -46,8 +46,9 @@ public:
 
     MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
         // Padded complex PSFs: 2 x real_t per element.
-        const size_t bytesPerPsf = cubeShape.getVolume() * sizeof(complex_t);
-        return MemoryRequirement{0, nPSFs * nDevices * bytesPerPsf};
+        // allthough psfs are stored as complex the memory is the same as storing as real values
+        const size_t bytesPerPsf = cubeShape.getVolume() * sizeof(real_t);
+        return MemoryRequirement{nPSFs * bytesPerPsf, nPSFs * nDevices * bytesPerPsf};
     }
 
     std::string name() const override { return "psf cache"; }

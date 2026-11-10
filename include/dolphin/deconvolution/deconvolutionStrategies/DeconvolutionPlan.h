@@ -209,6 +209,10 @@ static size_t previousSmooth(size_t dim){
     return dim;
 };
 
+class DolphinImageSplitException : public std::runtime_error{
+    using std::runtime_error::runtime_error;
+};
+
 Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
     const Padding& cubePadding,
     const Padding& imagePadding,

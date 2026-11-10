@@ -37,16 +37,17 @@ static constexpr float AUTO_MEMORY_SAFETY_FACTOR = 0.9f;
 /**
  * @brief MemoryComponent for the io pool staging (no owning class exists).
  *
- * One io task in flight: host staging for input conversion, output conversion
- * and the write buffer (3 cube volumes of real_t), plus the input/output
- * device buffers (in-place real layout, ~2 cube volumes of real_t on the
- * device). The footprint applies the number of io threads.
+ * Each io thread holds a fixed set of reused scratch buffers (allocated once,
+ * reused for every cube): the padded input conversion buffer and the output
+ * conversion buffer on the host (2 cube volumes of real_t), plus the input
+ * and output device buffers (in-place real layout, ~2 cube volumes of real_t
+ * on the device). The footprint applies the number of io threads.
  */
 class IOStagingMemoryComponent : public MemoryComponent {
 public:
     MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
         const size_t volumeBytes = cubeShape.getVolume() * sizeof(real_t);
-        return MemoryRequirement{3 * volumeBytes, 2 * volumeBytes};
+        return MemoryRequirement{1 * volumeBytes, 2 * volumeBytes};
     }
 
     std::string name() const override { return "io staging"; }
@@ -55,8 +56,9 @@ public:
 /**
  * @brief MemoryComponent for the padding transient (no owning class exists).
  *
- * While a cube is padded to its work shape, the unpadded source and the
- * padded result are held simultaneously on the host.
+ * While a cube is padded straight into the io staging input buffer, the
+ * unpadded source cube is held alongside it (the padded target IS the staging
+ * buffer, accounted by the io staging component).
  */
 class PaddingPeakMemoryComponent : public MemoryComponent {
 public:
@@ -67,7 +69,7 @@ public:
         const size_t unpaddedVolume = paddedCube.getVolume() > paddingVolume
             ? paddedCube.getVolume() - paddingVolume
             : paddedCube.getVolume();
-        const size_t bytes = (paddedCube.getVolume() + unpaddedVolume) * sizeof(real_t);
+        const size_t bytes = unpaddedVolume * sizeof(real_t);
         return MemoryRequirement{bytes, 0};
     }
 

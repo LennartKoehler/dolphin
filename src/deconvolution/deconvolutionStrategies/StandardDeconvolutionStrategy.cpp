@@ -240,7 +240,9 @@ MemoryFootprint StandardDeconvolutionStrategy::buildMemoryFootprint(
     footprint.add(std::make_unique<const AlgorithmWorkingSetMemoryComponent>(algorithm, algorithmOnDevice), workerThreads);
     footprint.add(backendComponent);
     footprint.add(psfComponent);
-    footprint.add(std::make_unique<const PaddingPeakMemoryComponent>(paddingScheme.insidePadding));
+    // Padding runs per io thread: each concurrently filling thread holds its
+    // unpadded source cube next to the staging buffer it fills.
+    footprint.add(std::make_unique<const PaddingPeakMemoryComponent>(paddingScheme.insidePadding), ioThreads);
     return footprint;
 }
 

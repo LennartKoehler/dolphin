@@ -22,6 +22,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/IO/ReaderWriter.h"
 #include "dolphin_image/IO/TiffExceptions.h"
 #include "dolphin_image/ImageMetaData.h"
+#include "dolphinbackend/ComplexData.h"
 
 
 class ITiffRegionWriter {
@@ -55,6 +56,13 @@ public:
     bool setSubimage(const Image3D& image, const BoxCoord& coord,
                      const CuboidPosition& sourceOffset = CuboidPosition{0, 0, 0}) const override;
 
+    // Write a host RealData (FFT-in-place real layout, x-strided with per-row
+    // padding) directly into the tile buffers, stripping `sourceOffset`, with
+    // no intermediate Image3D. The source region must be full width/height of
+    // the output image (the writer tiles span the full width/height).
+    bool setSubimageReal(const RealData& data, const BoxCoord& coord,
+                         const CuboidPosition& sourceOffset = CuboidPosition{0, 0, 0}) const;
+
     static bool writeToFile(const std::string& filename, const Image3D& image,
                             WriterCompressionConfig compressionConfig = {},
                             WriterConfig writerConfig = {});
@@ -87,6 +95,10 @@ private:
     void createNewTile(const BoxCoord& coord) const;
     bool isTileFull(const ImageBuffer& strip) const;
     void copyToTile(const Image3D& image, const BoxCoord& coord, const CuboidPosition& sourceOffset, int index) const;
+    // Strided copy of the RealData region (source region of `coord` dimensions
+    // located at `sourceOffset`) into the tile at `srcBox`, skipping the
+    // FFT-in-place per-row padding of the source.
+    void copyRealToTile(const RealData& data, const BoxCoord& coord, const CuboidPosition& sourceOffset, int index) const;
     int getStripIndex(const BoxCoord& coord) const;
     void processReadyToWriteQueue() const;
     void writeTile(const ImageBuffer& tile) const;

@@ -437,12 +437,12 @@ TEST_F(PeakMemoryTest, StrategyFootprintMatchesIndependentSum) {
 
     // Independent recompute of the strategy's documented per-term demand.
     const size_t volumeBytes = vol * sizeof(real_t);
-    const size_t ioHost = 3 * volumeBytes * ioThreads;   // input/output conversion + write buffer
-    const size_t ioDev  = 2 * volumeBytes * ioThreads;   // in/out device buffers
+    const size_t ioHost = 2 * volumeBytes * ioThreads;   // reused input/output staging per io thread
+    const size_t ioDev  = 2 * volumeBytes * ioThreads;   // in/out device buffers (reused)
     const size_t algoHost = vol * sizeof(complex_t) * workerThreads; // RL, host placement
     const size_t paddingVolume = inside.getTotalPadding().getVolume();
     const size_t unpadded = vol > paddingVolume ? vol - paddingVolume : vol;
-    const size_t paddingHost = (vol + unpadded) * sizeof(real_t);
+    const size_t paddingHost = unpadded * sizeof(real_t) * ioThreads; // unpadded source per io thread
 
     const MemoryFootprint foot = FootprintTestableStrategy::buildMemoryFootprint(
         reader, writer, backend, psf, *algorithm, scheme, ioThreads, workerThreads, /*onDevice=*/false);
