@@ -59,6 +59,16 @@ public:
                             WriterCompressionConfig compressionConfig = {},
                             WriterConfig writerConfig = {});
 
+    // Peak memory this writer can hold at once: at most two tiles buffered
+    // simultaneously (in-progress + ready), each spanning the full output
+    // width/height and one write depth, plus the transient write path (one
+    // slice/tile buffer and libtiff's internal encode buffer). The write
+    // depth upper-bounds the actual per-tile depth (footprint() is asked
+    // with the padded candidate cube shape).
+    size_t getRequiredMemory(const CuboidShape& shapeToWrite) const;
+
+    MemoryComponent& getMemoryComponent() override;
+
 
 private:
     mutable std::mutex writerMutex;
@@ -93,4 +103,28 @@ private:
                                            std::vector<uint8_t>& targetData,
                                            size_t width, size_t height,
                                            const ImageMetaData& metadata);
+
+    // Bytes of one transient write-path buffer (stripped: one full-slice
+    // strip, tiled: one tile) - allocated per written slice plus libtiff's
+    // internal encode buffer of the same order.
+    size_t writeBufferBytes() const;
+};
+
+
+class TiffWriterMemoryComponent : public MemoryComponent {
+public:
+    explicit TiffWriterMemoryComponent(TiffWriter& writer) : writer(writer) {}
+
+    // Reports the writer's PEAK held at once for a candidate cube shape:
+    // at most two tiles buffered (each full width/height x one write depth)
+    // plus the transient write path. The write depth upper-bounds the actual
+    // per-tile depth (cubeShape is the padded candidate shape).
+    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+        return MemoryRequirement{writer.getRequiredMemory(cubeShape), 0};
+    }
+
+    std::string name() const override { return "tiffwriter"; }
+
+private:
+    TiffWriter& writer;
 };

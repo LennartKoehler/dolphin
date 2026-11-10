@@ -52,7 +52,12 @@ struct MemoryBudget{
     // Derived caps, set once the actual cube size is known:
     /// Reader in-flight + cache cap (own tracker with backpressure).
     size_t readerCache_byte = 0;
-    /// Host cap for backend allocations (io staging etc.) = hostTotal - readerCache.
+    /// Writer peak reserve (tiles buffered + write path, no cap mechanism -
+    /// the writer reports its true maximum, the rest of the system must stay
+    /// below the remainder).
+    size_t writerReserve_byte = 0;
+    /// Host cap for backend allocations (io staging etc.)
+    /// = hostTotal - readerCache - writerReserve.
     size_t backendHost_byte = 0;
 
     /// Whether a demand fits this budget. For backends where device == host

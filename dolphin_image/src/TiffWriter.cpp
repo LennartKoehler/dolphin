@@ -169,6 +169,38 @@ void TiffWriter::configure(WriterCompressionConfig compressionConfig, WriterConf
 }
 
 
+MemoryComponent& TiffWriter::getMemoryComponent() {
+    if (!memoryComponent) {
+        memoryComponent = std::make_unique<TiffWriterMemoryComponent>(*this);
+    }
+    return *memoryComponent;
+}
+
+
+size_t TiffWriter::writeBufferBytes() const {
+    // Output is always float32, samplesPerPixel 1: the strip buffer holds one
+    // full slice (rowsPerStrip = imageLength, set in setTiffFields), the tile
+    // buffer one tile.
+    const size_t sliceBytes = static_cast<size_t>(imageShape.width) * imageShape.height * sizeof(float);
+    if (writerConfig_.useTiles()) {
+        return static_cast<size_t>(writerConfig_.tileWidth) * writerConfig_.tileLength * sizeof(float);
+    }
+    return sliceBytes;
+}
+
+
+size_t TiffWriter::getRequiredMemory(const CuboidShape& shapeToWrite) const {
+    // Bounded backlog: at most two tiles buffered at once (in-progress +
+    // ready), each spanning the full output width/height and one write depth.
+    // On top: one buffer per written slice plus libtiff's internal encode
+    // buffer of the same order (the write path is mutex-serialized).
+    // shapeToWrite.depth (the padded candidate cube shape) upper-bounds the
+    // actual per-tile depth (the written box depth).
+    assert(imageShape.width != 0 && imageShape.height !=0);
+    return shapeToWrite.depth * imageShape.width * imageShape.height * sizeof(float) * 2 + 2 * writeBufferBytes();
+}
+
+
 TiffWriter::~TiffWriter() {
     assert(tileBuffer.size() == 0 && readyTiles_.empty() && "Buffers not empty but done writing, should not happen");
     if (tif) {

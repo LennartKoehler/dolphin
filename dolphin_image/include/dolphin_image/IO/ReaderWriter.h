@@ -59,6 +59,13 @@ public:
     virtual bool setSubimage(const Image3D& image, const BoxCoord& coord,
                              const CuboidPosition& sourceOffset = CuboidPosition{0, 0, 0}) const = 0;
     virtual void configure(WriterCompressionConfig compressionConfig, WriterConfig writerConfig = {}) = 0;
+
+    // MemoryComponent of this writer. Owned by the writer, borrowed by the
+    // caller; the footprint applies the count.
+    virtual MemoryComponent& getMemoryComponent() = 0;
+
+protected:
+    std::unique_ptr<MemoryComponent> memoryComponent;
 };
 
 
