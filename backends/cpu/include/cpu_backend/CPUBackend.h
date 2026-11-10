@@ -27,6 +27,10 @@ struct FFTWPlanDescription : public FFTPlanDescription{
 
     size_t ompThreads;
 
+    FFTWPlanDescription(const FFTPlanDescription& plan, size_t ompThreads):
+        FFTPlanDescription(plan),
+        ompThreads(ompThreads){}
+
     FFTWPlanDescription(
         size_t ompThreads,
         PlanDirection direction,

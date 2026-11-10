@@ -413,7 +413,7 @@ CPUComputeBackend::~CPUComputeBackend() {
 
 
 void CPUComputeBackend::initializePlan(const FFTPlanDescription& description) {
-
+    fftwManager.assureInitializedPlan(FFTWPlanDescription(description, config.ompThreads));
 }
 
 

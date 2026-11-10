@@ -435,6 +435,30 @@ const fftwf_plan* FFTWManager::findPlan(const FFTWPlanDescription& description) 
         buildCpuContext()
     );
 }
+void FFTWManager::assureInitializedPlan(const FFTWPlanDescription& description){
+    init();
+
+    // Fast path: shared lock for read-only lookup
+    {
+        std::shared_lock<std::shared_mutex> lock(mutex_);
+        for (const FFTWPlan& plan : fftwPlans){
+            if (plan.description == description){
+                return;
+            }
+        }
+    }
+
+    // Slow path: exclusive lock for double-check + plan creation
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    for (const FFTWPlan& plan : fftwPlans){
+        if (plan.description == description){
+            return;
+        }
+    }
+
+    // Create new plan and store it
+    initializePlan(description);
+}
 
 void FFTWManager::addPlan(fftwf_plan& handle, const FFTWPlanDescription& description){
     FFTWPlan plan{ handle, description };

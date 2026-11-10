@@ -58,6 +58,7 @@ public:
     ~FFTWManager();
 
     void init();
+    void assureInitializedPlan(const FFTWPlanDescription& description);
 
     void executeForwardFFT(const FFTWPlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
     void executeBackwardFFT(const FFTWPlanDescription& description, fftwf_complex* indata, fftwf_complex* outdata);
@@ -66,8 +67,8 @@ public:
     void destroyFFTPlans();
 private:
 
-    void addPlan(fftwf_plan& handle, const FFTWPlanDescription& description);
     void initializePlan(const FFTWPlanDescription& description);
+    void addPlan(fftwf_plan& handle, const FFTWPlanDescription& description);
     fftwf_plan initializePlanComplex(const FFTWPlanDescription& description);
     fftwf_plan initializePlanComplexToReal(const FFTWPlanDescription& description);
     fftwf_plan initializePlanRealToComplex(const FFTWPlanDescription& description);
