@@ -157,7 +157,7 @@ TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
         ASSERT_NE(algo, nullptr) << "Failed for algorithm: " << spec.name;
         const CuboidShape testShape(4, 4, 4);
         EXPECT_EQ(algo->getWorkingSetBytes(testShape),
-                  spec.expectedComplexArrays * testShape.getVolume() * sizeof(complex_t))
+                  spec.expectedComplexArrays * testShape.getVolume() * sizeof(real_t))
             << "Wrong working set size for: " << spec.name;
     }
 }

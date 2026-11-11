@@ -382,7 +382,7 @@ TEST_F(PeakMemoryTest, StrategyFootprintAppliesCountsAndPlacement) {
     const size_t ioThreads = 2;
     const size_t workerThreads = 3;
     // RL holds 1 extra complex array of cube size (sizeof(complex_t)==2*real_t).
-    const size_t rlWorkingSet = vol * sizeof(complex_t);
+    const size_t rlWorkingSet = vol * sizeof(real_t);
     const size_t algoBytes = rlWorkingSet * workerThreads;
 
     const MemoryFootprint onHost = FootprintTestableStrategy::buildMemoryFootprint(
