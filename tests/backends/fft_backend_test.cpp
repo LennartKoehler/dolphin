@@ -39,7 +39,7 @@ TEST_F(FFTBackendTest, FFTRoundTripPreservesData) {
     auto& memMgr = backend.getMemoryManager();
 
     RealData realData = Preprocessor::convertImageToRealData(inputImg);
-    ComplexData complexData = memMgr.allocateMemoryOnDeviceComplexFull(shape);
+    ComplexData complexData = memMgr.allocateMemoryOnDeviceComplex(shape);
 
     compute.forwardFFT(realData, complexData);
     compute.backwardFFT(complexData, realData);

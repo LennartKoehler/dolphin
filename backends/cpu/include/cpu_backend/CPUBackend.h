@@ -26,6 +26,9 @@ class FFTWManager;
 struct FFTWPlanDescription : public FFTPlanDescription{
 
     size_t ompThreads;
+    // Row padding (in real_t elements) of the real buffer this plan addresses.
+    // 0 for unpadded real data and for complex->complex plans.
+    size_t realPadding;
 
     FFTWPlanDescription(const FFTPlanDescription& plan, size_t ompThreads):
         FFTPlanDescription(plan),
@@ -36,13 +39,15 @@ struct FFTWPlanDescription : public FFTPlanDescription{
         PlanDirection direction,
         PlanType type,
         CuboidShape shape,
-        bool inPlace
+        bool inPlace,
+        size_t realPadding = 0
     ):
         ompThreads(ompThreads),
+        realPadding(realPadding),
         FFTPlanDescription(direction, type, shape, inPlace){}
 
     bool operator==(const FFTWPlanDescription& other) const {
-        return (FFTPlanDescription::operator==(other) && ompThreads == other.ompThreads);
+        return (FFTPlanDescription::operator==(other) && ompThreads == other.ompThreads && realPadding == other.realPadding);
     }
 };
 
