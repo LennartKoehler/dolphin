@@ -49,9 +49,9 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     complex_t signalToNoiseComplex = {static_cast<real_t>(signal_to_noise), 0};
 
     // Verify inputs are on device
-    assert(memory.isOnDevice(H.getData()) && "PSF is not on device");
-    assert(memory.isOnDevice(g.getData()) && "Input image is not on device");
-    assert(memory.isOnDevice(f.getData()) && "Output buffer is not on device");
+    assert(memory.isOnDevice(H) && "PSF is not on device");
+    assert(memory.isOnDevice(g) && "Input image is not on device");
+    assert(memory.isOnDevice(f) && "Output buffer is not on device");
 
     // Copy input to output buffer
     memory.memCopy(g, f);

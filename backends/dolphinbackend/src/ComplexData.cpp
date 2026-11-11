@@ -15,14 +15,10 @@ See the LICENSE file provided with the code for the full license.
 #include "IBackendMemoryManager.h"
 
 template<typename T>
-ManagedData<T>::ManagedData(IBackendMemoryManager const* b, T* d, CuboidShape s, CuboidShape rs, std::size_t bytes, std::size_t padding)
-    : backend(b), data(d), size(s), realSize(rs), bytes(bytes), padding(padding) {}
-
-template<typename T>
 ManagedData<T>::~ManagedData() {
     if (data) {
         try {
-            if (backend) {
+            if (ownsMemory && backend) {
                 backend->freeMemoryOnDevice(*this);
             }
         } catch(...) {}
@@ -31,10 +27,19 @@ ManagedData<T>::~ManagedData() {
 
 template<typename T>
 ManagedData<T>::ManagedData(const ManagedData& other)
-    : backend(other.backend), size(other.size), realSize(other.realSize), padding(other.padding) {
+    : backend(other.backend), size(other.size), realSize(other.realSize), padding(other.padding), ownsMemory(false) {
+    // Copying an empty/backend-less handle yields an empty handle (guard: the
+    // old code dereferenced a null backend here).
+    if (backend == nullptr || other.data == nullptr) {
+        this->backend = nullptr;
+        this->data = nullptr;
+        this->bytes = 0;
+        return;
+    }
     ManagedData copy = backend->createCopy(other);
-    this->bytes = other.getDataBytes();
+    this->bytes = copy.bytes;
     this->data = copy.data;
+    this->ownsMemory = true; // copy ctor steals the buffer from the temporary `copy`
     copy.data = nullptr; // Prevent copy's destructor from freeing the data
 }
 
@@ -44,10 +49,23 @@ ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
         // Free existing data
         if (data) {
             try {
-                if (backend) {
+                if (ownsMemory && backend) {
                     backend->freeMemoryOnDevice(*this);
                 }
             } catch(...){}
+        }
+
+        // Assigning an empty/backend-less handle leaves this handle empty
+        // (guard: the old code dereferenced a null backend here).
+        if (other.backend == nullptr || other.data == nullptr) {
+            data = nullptr;
+            backend = nullptr;
+            size = other.size;
+            realSize = other.realSize;
+            bytes = 0;
+            padding = other.padding;
+            ownsMemory = false;
+            return *this;
         }
 
         // Copy from other
@@ -57,7 +75,8 @@ ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
         padding = other.padding;
         ManagedData copy = backend->createCopy(other);
         data = copy.data;
-        bytes = other.getDataBytes();
+        bytes = copy.bytes;
+        ownsMemory = true; // copy-assign steals the buffer from the temporary `copy`
         copy.data = nullptr; // Prevent copy's destructor from freeing the data
     }
     return *this;
@@ -66,13 +85,14 @@ ManagedData<T>& ManagedData<T>::operator=(const ManagedData& other) {
 template<typename T>
 ManagedData<T>::ManagedData(ManagedData&& other) noexcept
     : data(other.data), backend(other.backend), size(other.size), realSize(other.realSize), bytes(other.bytes),
-      padding(other.padding) {
+      padding(other.padding), ownsMemory(other.ownsMemory) {
     other.data = nullptr;
     other.backend = nullptr;
     other.size = CuboidShape{};
     other.realSize = CuboidShape{};
     other.bytes = 0;
     other.padding = 0;
+    other.ownsMemory = false;
 }
 
 template<typename T>
@@ -81,7 +101,7 @@ ManagedData<T>& ManagedData<T>::operator=(ManagedData&& other) noexcept {
         // Free existing data if any
         if (data) {
             try {
-                if (backend) {
+                if (ownsMemory && backend) {
                     backend->freeMemoryOnDevice(*this);
                 }
             } catch(...){}
@@ -92,8 +112,9 @@ ManagedData<T>& ManagedData<T>::operator=(ManagedData&& other) noexcept {
         backend = other.backend;
         size = other.size;
         realSize = other.realSize;
-        bytes = other.getDataBytes();
+        bytes = other.bytes;
         padding = other.padding;
+        ownsMemory = other.ownsMemory;
 
         // Leave other in a valid state
         other.data = nullptr;
@@ -102,6 +123,7 @@ ManagedData<T>& ManagedData<T>::operator=(ManagedData&& other) noexcept {
         other.realSize = CuboidShape{};
         other.bytes = 0;
         other.padding = 0;
+        other.ownsMemory = false;
     }
     return *this;
 }

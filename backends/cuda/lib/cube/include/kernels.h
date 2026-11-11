@@ -31,7 +31,6 @@ __global__ void complexElementwiseMatDivGlobal(size_t Nx, size_t Ny, size_t Nz, 
 __global__ void complexElementwiseMatDivStabilizedGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, real_t epsilon);
 __global__ void complexAdditionGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C);
 __global__ void complexElementwiseMatMulGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C);
-__global__ void complexAdditionGlobal(complex_t** data, complex_t* sums, size_t nImages, size_t imageVolume);
 
 __global__ void elementwiseMatMulGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t* C);
 __global__ void scalarMulGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t B, real_t* C);
@@ -39,7 +38,7 @@ __global__ void elementwiseMatDivGlobal(size_t Nx, size_t Ny, size_t Nz, size_t 
 
 __global__ void sumGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* data, complex_t* result);
 __global__ void meanSquareErrorGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* a, complex_t* b, real_t* result);
-__global__ void sumToOneGlobal(real_t** data, size_t nImages, size_t imageVolume);
+__global__ void sumToOneGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, size_t sliceStride, real_t** data, size_t nImages);
 
 // Regularization
 __global__ void calculateLaplacianGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* Afft, complex_t* laplacianfft);

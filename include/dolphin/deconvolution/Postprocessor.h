@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
+#include <span>
 #include <vector>
 #include "dolphinbackend/ComplexData.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
@@ -49,7 +50,7 @@ namespace Postprocessor{
 
 
     void createWeightMasks(
-        std::vector<RealData*>& masks,
+        std::span<RealData*> masks,
         const ComplexData& frequencyFeatheringKernel,
         IBackend& backend);
 

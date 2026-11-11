@@ -59,7 +59,7 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, Rea
     assert(initialized && "Richardson-Lucy algorithm not initialized. Call init() first.");
 
     // Use pre-allocated memory for intermediate arrays
-    assert(memory.isOnDevice(f.getData()) && "PSF is not on device");
+    assert(memory.isOnDevice(f) && "Output buffer is not on device");
 
     memory.memCopy(g, f);
     RealView c_real = memory.reinterpret(c_complex);
