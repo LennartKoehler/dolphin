@@ -1,0 +1,7 @@
+# Shared Homebrew dependencies for CI (ci-main.yml) and release (release.yml).
+# Brew cache keys use hashFiles('.github/Brewfile') - changing this file refreshes the cache.
+brew "libtiff"
+brew "fftw"
+brew "libomp"
+brew "ccache"
+brew "dylibbundler"
