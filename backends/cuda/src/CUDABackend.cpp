@@ -284,10 +284,12 @@ CUDAComputeBackend::~CUDAComputeBackend() {
 
 void CUDAComputeBackend::initializePlan(const FFTPlanDescription& description) {
     // Pre-warming only (the interface carries no buffer), so the real padding is
-    // assumed: in-place real plans use the padded in-place layout, everything
-    // else is unpadded.
+    // assumed: real plans use the padded in-place layout 2*(width/2+1), which is
+    // the canonical working buffer layout (allocateMemoryOnDeviceRealFFTInPlace),
+    // complex plans are unpadded. A mismatch with the actual buffer only misses
+    // the plan cache and falls back to lazy creation with the buffer's padding.
     size_t realPadding = 0;
-    if (description.type == PlanType::REAL && description.inPlace) {
+    if (description.type == PlanType::REAL) {
         size_t width = description.shape.width;
         realPadding = 2 * (width / 2 + 1) - width;
     }

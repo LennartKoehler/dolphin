@@ -30,9 +30,10 @@ struct FFTWPlanDescription : public FFTPlanDescription{
     // 0 for unpadded real data and for complex->complex plans.
     size_t realPadding;
 
-    FFTWPlanDescription(const FFTPlanDescription& plan, size_t ompThreads):
+    FFTWPlanDescription(const FFTPlanDescription& plan, size_t ompThreads, size_t realPadding = 0):
         FFTPlanDescription(plan),
-        ompThreads(ompThreads){}
+        ompThreads(ompThreads),
+        realPadding(realPadding){}
 
     FFTWPlanDescription(
         size_t ompThreads,

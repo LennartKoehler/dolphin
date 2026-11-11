@@ -423,7 +423,17 @@ CPUComputeBackend::~CPUComputeBackend() {
 
 
 void CPUComputeBackend::initializePlan(const FFTPlanDescription& description) {
-    fftwManager.assureInitializedPlan(FFTWPlanDescription(description, config.ompThreads));
+    // Pre-warming only (the interface carries no buffer), so the real padding is
+    // assumed: real plans use the padded in-place layout 2*(width/2+1), which is
+    // the canonical working buffer layout (allocateMemoryOnDeviceRealFFTInPlace),
+    // complex plans are unpadded. A mismatch with the actual buffer only misses
+    // the plan cache and falls back to lazy creation with the buffer's padding.
+    size_t realPadding = 0;
+    if (description.type == PlanType::REAL) {
+        size_t width = description.shape.width;
+        realPadding = 2 * (width / 2 + 1) - width;
+    }
+    fftwManager.assureInitializedPlan(FFTWPlanDescription(description, config.ompThreads, realPadding));
 }
 
 
