@@ -104,8 +104,9 @@ std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecifi
     return copy;
 }
 
-size_t RLTVDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 5; // Allocates 5 additional arrays of input size (c, tv, gx, gy, gz)
+size_t RLTVDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
+    // Allocates 5 additional complex arrays of input size (c, tv, gx, gy, gz)
+    return 5 * dataSize.getVolume() * sizeof(real_t);
 }
 
 void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){

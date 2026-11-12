@@ -31,6 +31,11 @@ struct FFTWPlanDescription : public FFTPlanDescription{
     // 0 for unpadded real data and for complex->complex plans.
     size_t realPadding;
 
+    FFTWPlanDescription(const FFTPlanDescription& plan, size_t ompThreads, size_t realPadding = 0):
+        FFTPlanDescription(plan),
+        ompThreads(ompThreads),
+        realPadding(realPadding){}
+
     FFTWPlanDescription(
         size_t ompThreads,
         PlanDirection direction,
@@ -86,7 +91,7 @@ public:
     ~CPUBackendMemoryManager();
 
 
-    static size_t staticGetAvailableMemory();
+    static size_t staticMaxGetAvailableMemory();
     // Override device type method
     std::string getDeviceString() const noexcept override {
         return "cpu";
@@ -111,7 +116,6 @@ public:
     // managing backend (host backends share one address space).
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
-    float estimateFFTWorkspaceCopies(const CuboidShape& shape) const override;
 
 
 
@@ -147,6 +151,14 @@ public:
      * @param shape Shape of the data
      */
     void memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const override;
+
+    /**
+     * Zero a raw buffer (byte-level fill with 0)
+     * @param dest Pointer to the data
+     * @param size Size in bytes
+     * @param shape Shape of the data
+     */
+    void zeroFill(void* dest, size_t size, const CuboidShape& shape) const override;
 
 
     /**

@@ -32,6 +32,17 @@ namespace Postprocessor{
     inline void cropToOriginalSize(Image3D& image, const CuboidShape& originalSize) { ImageOperations::cropToOriginalSize(image, originalSize); }
     inline void postprocessChannel(Image3D& image) { ImageOperations::normalizeChannel(image); }
 
+    // Element-wise sum of `cube` into the full-cube `image` accumulator, both
+    // in the FFT-in-place real layout (x-strided with per-row padding; the
+    // padding cells are skipped by the index conversion and are zeroed by the
+    // caller each cube).
+    inline void addCubeToImage(const RealData& cube, RealData& image) {
+        const size_t volume = cube.getSize().getVolume();
+        for (size_t idx = 0; idx < volume; ++idx) {
+            image[idx] += cube[idx];
+        }
+    }
+
 
     using IteratorType = itk::ImageRegionIterator<ImageType>;
     struct ImageHelper {

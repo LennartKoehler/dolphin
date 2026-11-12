@@ -103,10 +103,11 @@ TEST_F(ConfigTest, DeconvolutionConfigMissingFile) {
 TEST_F(ConfigTest, SetupConfigDefaults) {
     SetupConfig config;
     EXPECT_EQ(config.backend, "cpu");
-    EXPECT_EQ(config.nThreads, 1);
-    EXPECT_EQ(config.nIOThreads, 1);
-    EXPECT_EQ(config.nWorkerThreads, 1);
-    EXPECT_EQ(config.nDevices, 1);
+    // 0 means "auto": resolved by the deconvolution strategy / backend manager.
+    EXPECT_EQ(config.threadConfig.nThreads, 0u);
+    EXPECT_EQ(config.threadConfig.nIOThreads, 0u);
+    EXPECT_EQ(config.threadConfig.nWorkerThreads, 0u);
+    EXPECT_EQ(config.nDevices, 0u);
     EXPECT_EQ(config.savePsf, false);
 }
 
@@ -116,8 +117,8 @@ TEST_F(ConfigTest, SetupConfigLoadFromJSON) {
     SetupConfig config;
     ASSERT_TRUE(config.loadFromJSON(j));
     EXPECT_EQ(config.backend, "cpu");
-    EXPECT_EQ(config.nIOThreads, 1);
-    EXPECT_EQ(config.nWorkerThreads, 1);
+    EXPECT_EQ(config.threadConfig.nIOThreads, 1);
+    EXPECT_EQ(config.threadConfig.nWorkerThreads, 1);
     EXPECT_EQ(config.imagePath, "test_input.tif");
 }
 
@@ -152,18 +153,18 @@ TEST_F(ConfigTest, SetupConfigMissingFile) {
 TEST_F(ConfigTest, SetupConfigCopyConstructor) {
     SetupConfig config1;
     config1.backend = "cuda";
-    config1.nThreads = 8;
+    config1.threadConfig.nThreads = 8;
     SetupConfig config2(config1);
     EXPECT_EQ(config2.backend, "cuda");
-    EXPECT_EQ(config2.nThreads, 8);
+    EXPECT_EQ(config2.threadConfig.nThreads, 8);
 }
 
 TEST_F(ConfigTest, SetupConfigAssignment) {
     SetupConfig config1;
-    config1.nIOThreads = 5;
+    config1.threadConfig.nIOThreads = 5;
     SetupConfig config2;
     config2 = config1;
-    EXPECT_EQ(config2.nIOThreads, 5);
+    EXPECT_EQ(config2.threadConfig.nIOThreads, 5);
 }
 
 TEST_F(ConfigTest, GaussianPSFConfigDefaults) {

@@ -128,10 +128,10 @@ TEST_F(CPUBackendManagerTest, CloneSharedMemoryReturnsSeparateBackend) {
 }
 
 TEST_F(CPUBackendManagerTest, SetThreadDistribution) {
-    size_t ioThreads = 0, workerThreads = 0;
+    ThreadConfig config; // Auto: backend resolves all pool sizes
     BackendConfig ioConfig, workerConfig;
-    getManager().setThreadDistribution(4, ioThreads, workerThreads, ioConfig, workerConfig);
-    EXPECT_GE(ioThreads + workerThreads, 1u);
+    getManager().setThreadDistribution(config, ioConfig, workerConfig);
+    EXPECT_GE(config.nIOThreads + config.nWorkerThreads, 1u);
 }
 
 TEST_F(CPUBackendManagerTest, DifferentThreadConfigsProduceSameResults) {

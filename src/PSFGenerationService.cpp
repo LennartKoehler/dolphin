@@ -79,7 +79,22 @@ std::unique_ptr<PSFGenerationResult> PSFGenerationService::generatePSF(const PSF
         std::shared_ptr<PSF> psf;
         std::shared_ptr<SetupConfigPSF> setupConfig = request.getConfig();
 
-        std::shared_ptr<ThreadPool> localThreadPool = std::make_shared<ThreadPool>(std::max(setupConfig->nThreads, setupConfig->nWorkerThreads));
+        std::string threadError;
+        if (!setupConfig->threadConfig.validate(threadError)) {
+            logger_->error("Invalid thread configuration: {}", threadError);
+            return createResult(false, "Invalid thread configuration: " + threadError,
+                                std::chrono::duration<double>::zero());
+        }
+
+        std::string memoryError;
+        if (!setupConfig->validateMemoryConfig(memoryError)) {
+            logger_->error("Invalid memory configuration: {}", memoryError);
+            return createResult(false, "Invalid memory configuration: " + memoryError,
+                                std::chrono::duration<double>::zero());
+        }
+
+        size_t psfThreads = setupConfig->threadConfig.resolvePSFThreadCount();
+        std::shared_ptr<ThreadPool> localThreadPool = std::make_shared<ThreadPool>(psfThreads);
 
         if (request.getInlinePSFConfigs().size() > 1){
             logger_->warn("PSFGenerator service only generates one PSF per run");

@@ -25,11 +25,11 @@ void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
 
 void RLADDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Richardson-Lucy with Adaptive Damping algorithm initialization");\
-    
+
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     c = std::move(memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize));
     c_complex = c.reinterpret();
-    
+
     initialized = true;
 }
 
@@ -39,9 +39,9 @@ bool RLADDeconvolutionAlgorithm::isInitialized() const {
 
 void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
     assert(backend && "No backend available for Richardson-Lucy with Adaptive Damping algorithm");\
-    
+
     assert(initialized && "Richardson-Lucy with Adaptive Damping algorithm not initialized. Call init() first.");\
-    
+
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     const IComputeBackend& deconvolution = backend->getComputeManager();
 
@@ -102,6 +102,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::cloneSpecifi
     return copy;
 }
 
-size_t RLADDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 1; // Allocates 1 additional array of input size
+size_t RLADDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
+    // Allocates 1 additional complex array of input size
+    return dataSize.getVolume() * sizeof(real_t);
 }

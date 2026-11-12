@@ -23,17 +23,85 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
 #include "dolphinbackend/IBackendManager.h"
+#include "dolphinbackend/MemoryFootprint.h"
 #include <functional>
+#include <utility>
 
 
 
-/// Type of the FFT-workspace estimator supplied by a backend.
-/// Takes a candidate cube shape and returns the estimated workspace in bytes.
-using FFTWorkspaceCopiesEstimator= std::function<float(const CuboidShape&)>;
+/// Fraction of the currently available memory used when the user has not set
+/// an explicit limit (maxMemHost_gb / maxMemDevice_gb <= 0). Leaves headroom
+/// for fragmentation, other processes and model inaccuracies.
+static constexpr float AUTO_MEMORY_SAFETY_FACTOR = 0.9f;
 
-struct Memory{
-    size_t hostMem_byte;
-    size_t deviceMem_byte;
+/**
+ * @brief MemoryComponent for the io pool staging (no owning class exists).
+ *
+ * Each io thread holds a fixed set of reused scratch buffers (allocated once,
+ * reused for every cube): the padded input conversion buffer and the output
+ * conversion buffer on the host (2 cube volumes of real_t), plus the input
+ * and output device buffers (in-place real layout, ~2 cube volumes of real_t
+ * on the device). The footprint applies the number of io threads.
+ */
+class IOStagingMemoryComponent : public MemoryComponent {
+public:
+    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+        const size_t volumeBytes = cubeShape.getVolume() * sizeof(real_t);
+        return MemoryRequirement{1 * volumeBytes, 2 * volumeBytes};
+    }
+
+    std::string name() const override { return "io staging"; }
+};
+
+/**
+ * @brief MemoryComponent for the padding transient (no owning class exists).
+ *
+ * While a cube is padded straight into the io staging input buffer, the
+ * unpadded source cube is held alongside it (the padded target IS the staging
+ * buffer, accounted by the io staging component).
+ */
+class PaddingPeakMemoryComponent : public MemoryComponent {
+public:
+    explicit PaddingPeakMemoryComponent(const Padding& cubePadding) : cubePadding(cubePadding) {}
+
+    MemoryRequirement footprint(const CuboidShape& paddedCube) const override {
+        const size_t paddingVolume = cubePadding.getTotalPadding().getVolume();
+        const size_t unpaddedVolume = paddedCube.getVolume() > paddingVolume
+            ? paddedCube.getVolume() - paddingVolume
+            : paddedCube.getVolume();
+        const size_t bytes = unpaddedVolume * sizeof(real_t);
+        return MemoryRequirement{bytes, 0};
+    }
+
+    std::string name() const override { return "padding"; }
+
+private:
+    Padding cubePadding;
+};
+
+/**
+ * @brief MemoryComponent for the algorithm working sets.
+ *
+ * The algorithm only reports how many bytes its scratch arrays need
+ * (DeconvolutionAlgorithm::getWorkingSetBytes); the strategy owns the
+ * placement decision: the bytes live on the compute device, or in host RAM
+ * when the backend is the CPU (device == host).
+ */
+class AlgorithmWorkingSetMemoryComponent : public MemoryComponent {
+public:
+    AlgorithmWorkingSetMemoryComponent(const DeconvolutionAlgorithm& algorithm, bool onDevice)
+        : algorithm(algorithm), onDevice(onDevice) {}
+
+    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+        const size_t bytes = algorithm.getWorkingSetBytes(cubeShape);
+        return onDevice ? MemoryRequirement{0, bytes} : MemoryRequirement{bytes, 0};
+    }
+
+    std::string name() const override { return "algorithm working set"; }
+
+private:
+    const DeconvolutionAlgorithm& algorithm;
+    bool onDevice;
 };
 
 class StandardDeconvolutionStrategy : public IDeconvolutionStrategy {
@@ -52,57 +120,58 @@ public:
 
 protected:
 
-    /// Pure memory-budget calculation with no backend dependency.
-    /// Given the device's available memory (already minus any safety buffer the
-    /// caller wishes to apply) and a function to estimate the FFT workspace for
-    /// a candidate cube, returns the maximum bytes usable for a single cube.
-    static size_t computeMaxMemoryPerCube(
-        size_t availableMemory,
+    /// Resolve the raw user limits into byte budgets: -1/0 = auto (use ~90% of
+    /// what is currently available), >0 = explicit GB upper bound, always
+    /// clamped down to what actually exists. Never raises a limit.
+    static size_t resolveMemoryLimit(float limit_gb, size_t available_byte);
+
+    /// How much memory the application thinks one run needs: composes the
+    /// footprint of every memory-owning system for the scheduling of this
+    /// run. The externally-owned components (reader, writer, backend FFT,
+    /// psf cache) are borrowed; the strategy-owned terms (io staging per io
+    /// thread, algorithm working set per worker thread with its placement,
+    /// padding peak) are created and kept alive by the returned footprint.
+    /// Used by createPlan and by tests to inspect the modeled demand.
+    static MemoryFootprint buildMemoryFootprint(
+        const MemoryComponent& readerComponent,
+        const MemoryComponent& writerComponent,
+        const MemoryComponent& backendComponent,
+        const MemoryComponent& psfComponent,
+        const DeconvolutionAlgorithm& algorithm,
+        const PaddingScheme& paddingScheme,
         size_t ioThreads,
         size_t workerThreads,
-        size_t algorithmMemoryMultiplier,
-        const FFTWorkspaceCopiesEstimator& estimateFFTWorkspace);
+        bool algorithmOnDevice);
+
+    /// Query available memory from the managers and clamp the user limits
+    /// (see resolveMemoryLimit). Constructs no backends.
+    MemoryBudget resolveMemoryBudget(
+        const SetupConfig& config,
+        IBackendManager& backendManager) const;
+
+    /// Apply the resolved caps to the backend trackers so allocations beyond
+    /// the budget fail with a clear MemoryException. backendComponent is the
+    /// memory component of the compute backend (CPU or device).
+    void applyBackendMemoryLimits(MemoryComponent& backendComponent, const MemoryBudget& budget) const;
 
     std::shared_ptr<DeconvolutionAlgorithm> getAlgorithm(const DeconvolutionConfig& config);
 
-    size_t getMaxMemoryPerCube(
-        size_t ioThreads,
-        size_t workerThreads,
-        size_t maxMemory,
-        const IBackendMemoryManager& backend,
-        std::shared_ptr<DeconvolutionAlgorithm> algorithm) const;
-
-
     std::vector<BoxCoordWithPadding> getCubes(
-        const size_t& ioThreads,
-        const size_t& workerThreads,
-        const size_t& maxMemDevice_gb,
-        const int& nDevices,
-        std::shared_ptr<DeconvolutionAlgorithm> algorithm,
-        PSFHandler& psfHandler,
+        const MemoryBudget& budget,
+        const MemoryFootprint& footprint,
+        const size_t& minNumberCubes,
         const DeconvolutionConfig& deconvConfig,
-        const SetupConfig& setupConfig,
         const CuboidShape& imageSize,
         const PaddingScheme& paddingScheme
     ) const;
 
-    void resolveThreadsAndDevices(
+    std::pair<ThreadConfig, size_t> resolveThreadsAndDevices(
         IBackendManager& manager,
-        int& configNDevices,
-        size_t& nWorkerThreads,
-        size_t& nIOThreads,
-        size_t& totalThreads,
-        BackendConfig& ioConfig,
-        BackendConfig& workerConfig
+        const size_t& nDevices,
+        const ThreadConfig& threadConfig,
+        BackendConfig& workerConfig,
+        BackendConfig& ioConfig
     ) const;
-
-    virtual size_t estimateMemoryUsage(
-        const CuboidShape& cubeSize,
-        const DeconvolutionAlgorithm* algorithm,
-        const SetupConfig& config
-    );
-
-    Memory resolveMemory(const SetupConfig& config) const;
 
 
     virtual std::vector<std::shared_ptr<TaskContext>> createContexts(

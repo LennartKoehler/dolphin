@@ -39,7 +39,7 @@ struct MemoryData {
 struct MemoryTracking {
 private:
     MemoryData data;
-    std::mutex memoryMutex;
+    mutable std::mutex memoryMutex;
 
     struct LockedAccess {
         std::unique_lock<std::mutex> lock;
@@ -56,6 +56,17 @@ public:
         : data(maxMemory) {}
     LockedAccess getAccess() {
         return LockedAccess(memoryMutex, data);
+    }
+
+    // Single mutation path for the cap; managers and memory managers of the
+    // same device both go through this.
+    void setMaxMemory(size_t maxMemory) {
+        std::lock_guard<std::mutex> lock(memoryMutex);
+        data.maxMemorySize = maxMemory;
+    }
+    size_t maxMemory() const {
+        std::lock_guard<std::mutex> lock(memoryMutex);
+        return data.maxMemorySize;
     }
     bool isAvailable(size_t amount){
         LockedAccess memory = LockedAccess(memoryMutex, data);
@@ -296,6 +307,27 @@ public:
         memCopy(srcdata.getData(), destdata.getData(), byteSize, srcdata.getSize());
     }
 
+    /**
+     * Zero a raw buffer (byte-level fill with 0)
+     * @param dest Pointer to the data
+     * @param size Size in bytes
+     * @param shape Shape of the data
+     */
+    virtual void zeroFill(void* dest, size_t size, const CuboidShape& shape) const {
+        NOT_IMPLEMENTED(zeroFill);
+    }
+
+    /**
+     * Zero the entire physical buffer of a managed handle (valid region and
+     * per-row padding). Dispatches to this backend's raw zeroFill, which picks
+     * the device-appropriate primitive (host memset / cudaMemset).
+     */
+    template<typename T>
+    void zeroFill(ManagedData<T>& data) const {
+        assert(data.getData() != nullptr);
+        zeroFill(data.getData(), data.getDataBytes(), data.getSize());
+    }
+
     virtual void freeMemoryOnDevice(void* ptr, size_t size) const {
         NOT_IMPLEMENTED(freeMemoryOnDevice);
     }
@@ -342,17 +374,5 @@ public:
     virtual size_t getAllocatedMemory() const {
         NOT_IMPLEMENTED(getAllocatedMemory);
     }
-
-    /**
-     * Estimate the FFT library's internal workspace memory for the given shape.
-     * This accounts for memory allocated by the FFT library (e.g. cuFFT) during
-     * plan creation, separate from user-allocated data buffers.
-     * @param shape The shape of the data to be transformed
-     * @return Estimated workspace in bytes (0 if the backend has no FFT workspace overhead)
-     */
-    virtual float estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
-        return 0;
-    }
-
 
 };

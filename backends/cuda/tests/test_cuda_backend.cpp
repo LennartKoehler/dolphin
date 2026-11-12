@@ -334,9 +334,9 @@ TEST_F(CUDABackendManagerTest, CloneSharedMemoryReturnsSeparateBackend) {
 }
 
 TEST_F(CUDABackendManagerTest, SetThreadDistribution) {
-    size_t ioThreads = 0, workerThreads = 0;
+    ThreadConfig config; // Auto: backend resolves all pool sizes
     BackendConfig ioConfig, workerConfig;
-    getManager().setThreadDistribution(4, ioThreads, workerThreads, ioConfig, workerConfig);
+    getManager().setThreadDistribution(config, ioConfig, workerConfig);
 }
 
 

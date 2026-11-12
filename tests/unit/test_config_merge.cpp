@@ -50,8 +50,8 @@ TEST_F(ConfigMergeTest, SetupConfigFromSubObject) {
     auto path = writeTempJSON(TestUtils::subObjectSetupConfigJSON(), "setup_sub.json");
     auto config = SetupConfig::createFromJSONFile(path);
     EXPECT_EQ(config.backend, "cuda");
-    EXPECT_EQ(config.nIOThreads, 3);
-    EXPECT_EQ(config.nWorkerThreads, 7);
+    EXPECT_EQ(config.threadConfig.nIOThreads, 3);
+    EXPECT_EQ(config.threadConfig.nWorkerThreads, 7);
     EXPECT_EQ(config.nDevices, 2);
     EXPECT_EQ(config.imagePath, "sub_input.tif");
     EXPECT_EQ(config.outputPath, "sub_output.tif");
@@ -67,7 +67,7 @@ TEST_F(ConfigMergeTest, SetupConfigRootLevelFallback) {
     auto path = writeTempJSON(jsonStr, "setup_root.json");
     auto config = SetupConfig::createFromJSONFile(path);
     EXPECT_EQ(config.backend, "cpu");
-    EXPECT_EQ(config.nIOThreads, 5);
+    EXPECT_EQ(config.threadConfig.nIOThreads, 5);
     EXPECT_EQ(config.imagePath, "root_input.tif");
     EXPECT_EQ(config.outputPath, "root_output.tif");
 }
@@ -135,7 +135,7 @@ TEST_F(ConfigMergeTest, CombinedJSONBothConfigs) {
     auto deconvConfig = DeconvolutionConfig::createFromJSONFile(path);
 
     EXPECT_EQ(setupConfig.imagePath, "combined_input.tif");
-    EXPECT_EQ(setupConfig.nWorkerThreads, 4);
+    EXPECT_EQ(setupConfig.threadConfig.nWorkerThreads, 4);
     EXPECT_EQ(deconvConfig.algorithmName, "RichardsonLucy");
     EXPECT_EQ(deconvConfig.iterations, 20);
 }
@@ -502,7 +502,7 @@ TEST_F(ConfigMergeTest, CLISim_RootLevelTreatedAsSetup) {
 
     EXPECT_EQ(merged.setupConfig.imagePath, "root_image.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.setupConfig.nIOThreads, 8);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nIOThreads, 8);
     EXPECT_EQ(merged.deconvConfig.iterations, 50);
 }
 
@@ -557,7 +557,7 @@ TEST_F(ConfigMergeTest, CLISim_AllThreeSectionsInJSON) {
 
     EXPECT_EQ(merged.setupConfig.imagePath, "json_image.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.setupConfig.nIOThreads, 3);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nIOThreads, 3);
     EXPECT_EQ(merged.deconvConfig.iterations, 15);
     EXPECT_EQ(merged.deconvConfig.algorithmName, "RichardsonLucy");
     ASSERT_EQ(merged.psfConfigs.size(), 1);
@@ -584,7 +584,7 @@ TEST_F(ConfigMergeTest, CLISim_OldFormat_RootSetupPlusDeconvSubObject) {
 
     EXPECT_EQ(merged.setupConfig.imagePath, "old_image.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.setupConfig.nIOThreads, 6);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nIOThreads, 6);
     EXPECT_EQ(merged.deconvConfig.iterations, 25);
 }
 
@@ -701,7 +701,7 @@ static PSFConfigBundle makePSFCLIBundle(const std::string& outputPath, const std
     PSFConfigBundle cli;
     cli.setupConfig.outputPath = outputPath;
     cli.setupConfig.backend = backend;
-    cli.setupConfig.nThreads = nThreads;
+    cli.setupConfig.threadConfig.nThreads = nThreads;
     cli.hasSetup = true;
     return cli;
 }
@@ -725,7 +725,7 @@ TEST_F(ConfigMergeTest, PSFSim_BothFromJSON_CLIOverwritten) {
 
     EXPECT_EQ(merged.setupConfig.outputPath, "json_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.setupConfig.nThreads, 4);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nThreads, 4);
     EXPECT_FALSE(merged.hasPSF);
 }
 
@@ -739,7 +739,7 @@ TEST_F(ConfigMergeTest, PSFSim_OnlyPSFInJSON_SetupKeepsCLI) {
 
     EXPECT_EQ(merged.setupConfig.outputPath, "cli_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cuda");
-    EXPECT_EQ(merged.setupConfig.nThreads, 8);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nThreads, 8);
     ASSERT_EQ(merged.psfConfigs.size(), 1);
     EXPECT_EQ(merged.psfConfigs[0]->getModelName(), "Gaussian");
     EXPECT_EQ(merged.psfConfigs[0]->ID, "inline_gauss");
@@ -776,8 +776,8 @@ TEST_F(ConfigMergeTest, PSFSim_SetupAndPSFInJSON_CLIOverwritten) {
 
     EXPECT_EQ(merged.setupConfig.outputPath, "json_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.setupConfig.nThreads, 2);
-    EXPECT_EQ(merged.setupConfig.nIOThreads, 3);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nThreads, 2);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nIOThreads, 3);
     ASSERT_EQ(merged.psfConfigs.size(), 1);
     EXPECT_EQ(merged.psfConfigs[0]->getModelName(), "Gaussian");
     EXPECT_EQ(merged.psfConfigs[0]->ID, "inline_gauss");
@@ -790,7 +790,7 @@ TEST_F(ConfigMergeTest, PSFSim_NoJSON_AllFromCLI) {
 
     EXPECT_EQ(merged.setupConfig.outputPath, "cli_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cuda");
-    EXPECT_EQ(merged.setupConfig.nThreads, 8);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nThreads, 8);
     EXPECT_FALSE(merged.hasPSF);
 }
 
@@ -810,7 +810,7 @@ TEST_F(ConfigMergeTest, PSFSim_RootLevelTreatedAsSetup) {
 
     EXPECT_EQ(merged.setupConfig.outputPath, "root_output.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.setupConfig.nThreads, 6);
+    EXPECT_EQ(merged.setupConfig.threadConfig.nThreads, 6);
     EXPECT_FALSE(merged.hasPSF);
 }
 

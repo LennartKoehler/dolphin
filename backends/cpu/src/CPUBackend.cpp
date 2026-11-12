@@ -21,6 +21,9 @@ See the LICENSE file provided with the code for the full license.
 #include <cmath>
 #include <cstring>
 #include <cassert>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 #ifdef __linux__
 #include <unistd.h>
@@ -121,10 +124,10 @@ void log(const std::string& message, LogLevel level) {
 CPUBackendMemoryManager::CPUBackendMemoryManager(CPUBackendConfig config, MemoryTracking& memory)
     : memory(memory){
 
-    // Initialize memory tracking using getAccess()
-    auto access = memory.getAccess();
-    if (access.data.maxMemorySize == 0) {
-        access.data.maxMemorySize = getAvailableMemory();
+    // Initialize memory tracking: if no limit was configured yet, use all
+    // currently available host memory.
+    if (memory.maxMemory() == 0) {
+        memory.setMaxMemory(getAvailableMemory());
     }
 }
 
@@ -133,14 +136,22 @@ CPUBackendMemoryManager::~CPUBackendMemoryManager() {
 }
 
 
-size_t CPUBackendMemoryManager::staticGetAvailableMemory() {
+size_t CPUBackendMemoryManager::staticMaxGetAvailableMemory() {
     // For CPU backend, return available system memory
     size_t memory = 0;
 #ifdef __linux__
-    long pagesize = sysconf(_SC_PAGESIZE);
-    long pages = sysconf(_SC_AVPHYS_PAGES);
-    if (pagesize > 0 && pages > 0) {
-        memory = static_cast<size_t>(pagesize) * static_cast<size_t>(pages);
+    std::ifstream meminfo("/proc/meminfo");
+    std::string line;
+
+    while (std::getline(meminfo, line)) {
+        std::istringstream fields(line);
+        std::string key;
+        size_t valueKiB;
+
+        if (fields >> key >> valueKiB && key == "MemAvailable:") {
+            memory = valueKiB * size_t{1024}; // Reported kB means KiB here
+            break;
+        }
     }
 #elif __APPLE__
     vm_statistics64_data_t vm_stats;
@@ -162,9 +173,9 @@ size_t CPUBackendMemoryManager::staticGetAvailableMemory() {
     }
     return memory;
 }
+
 void CPUBackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
-    auto access = memory.getAccess();
-    access.data.maxMemorySize = maxMemorySize;
+    memory.setMaxMemory(maxMemorySize);
 }
 
 void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
@@ -181,7 +192,6 @@ void CPUBackendMemoryManager::waitForMemory(size_t requiredSize) const {
 // the host — e.g. CUDA device pointers). Use the handle-level
 // isOnDevice(ManagedData<T>), which checks the data's managing backend instead.
 
-
 RealData CPUBackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const CuboidShape& shape) const{
     log(fmt::format("allocateMemoryOnDeviceRealFFTInPlace for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     CuboidShape shapeForInplaceFFT = shape;
@@ -196,6 +206,7 @@ RealData CPUBackendMemoryManager::allocateMemoryOnDeviceRealFFTInPlace(const Cub
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
+
 RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& shape) const {
     log(fmt::format("allocateMemoryOnDeviceReal for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     std::size_t bytes = shape.getVolume() * sizeof(real_t);
@@ -204,7 +215,6 @@ RealData CPUBackendMemoryManager::allocateMemoryOnDeviceReal(const CuboidShape& 
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
-
 
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidShape& shape) const{
     log(fmt::format("allocateMemoryOnDeviceComplex for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
@@ -216,12 +226,14 @@ ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplex(const CuboidS
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
+
 ComplexData CPUBackendMemoryManager::allocateMemoryOnDeviceComplexFull(const CuboidShape& shape) const{
     log(fmt::format("allocateMemoryOnDeviceComplexFull for shape: {}", shape.print()), LogLevel::LOG_DEBUG);
     ComplexData result{ this, nullptr, shape, shape, shape.getVolume() * sizeof(complex_t), 0};
     IBackendMemoryManager::allocateMemoryOnDevice(result);
     return result;
 }
+
 DataView<real_t> CPUBackendMemoryManager::reinterpret(ComplexData& data) const{
     CuboidShape realShape = data.getRealSize();
     // Reinterpret the complex buffer as real_t for the in-place real FFT. A complex
@@ -263,8 +275,6 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
 
 }
 
-
-
  void* CPUBackendMemoryManager::copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const {
     log(fmt::format("copyDataToDevice: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
     BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "copyDataToDevice - source data", buildCpuContext());
@@ -288,14 +298,17 @@ void* CPUBackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) con
     }
 }
 
-
-
-
 void CPUBackendMemoryManager::memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const {
     log(fmt::format("memCopy: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
     BACKEND_CHECK(src != nullptr, "Source data pointer is null", "CPU", "memCopy - source data", buildCpuContext());
     BACKEND_CHECK(dest != nullptr, "Destination data pointer is null", "CPU", "memCopy - destination data", buildCpuContext());
     std::memcpy(dest, src, size);
+}
+
+void CPUBackendMemoryManager::zeroFill(void* dest, size_t size, const CuboidShape& shape) const {
+    log(fmt::format("zeroFill: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
+    BACKEND_CHECK(dest != nullptr, "Destination data pointer is null", "CPU", "zeroFill - destination data", buildCpuContext());
+    std::memset(dest, 0, size);
 }
 
 void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
@@ -315,11 +328,9 @@ void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
     log(fmt::format("Deallocated {:.2f} MB", size / 1e6), LogLevel::LOG_DEBUG);
 }
 
-
-
 size_t CPUBackendMemoryManager::getAvailableMemory() const {
     try {
-        return staticGetAvailableMemory();
+        return staticMaxGetAvailableMemory();
     }
     catch (const std::exception& e) {
         log(fmt::format("Exception in getAvailableMemory: {}", e.what()), LogLevel::LOG_ERROR);
@@ -331,10 +342,6 @@ size_t CPUBackendMemoryManager::getAllocatedMemory() const {
     auto access = memory.getAccess();
     log(fmt::format("getAllocatedMemory: {:.2f} MB currently allocated", access.data.totalUsedMemory / 1e6), LogLevel::LOG_DEBUG);
     return access.data.totalUsedMemory;
-}
-
-float CPUBackendMemoryManager::estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
-    return 2;
 }
 
 
@@ -442,7 +449,17 @@ void CPUComputeBackend::stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& fu
 }
 
 void CPUComputeBackend::initializePlan(const FFTPlanDescription& description) {
-
+    // Pre-warming only (the interface carries no buffer), so the real padding is
+    // assumed: real plans use the padded in-place layout 2*(width/2+1), which is
+    // the canonical working buffer layout (allocateMemoryOnDeviceRealFFTInPlace),
+    // complex plans are unpadded. A mismatch with the actual buffer only misses
+    // the plan cache and falls back to lazy creation with the buffer's padding.
+    size_t realPadding = 0;
+    if (description.type == PlanType::REAL) {
+        size_t width = description.shape.width;
+        realPadding = 2 * (width / 2 + 1) - width;
+    }
+    fftwManager.assureInitializedPlan(FFTWPlanDescription(description, config.ompThreads, realPadding));
 }
 
 

@@ -278,5 +278,6 @@ TEST_F(AlgorithmTestBase, AlgorithmClonePreservesConfig) {
     auto algo = factory.createShared(config);
     auto clone = algo->clone();
     ASSERT_NE(clone, nullptr);
-    EXPECT_EQ(clone->getMemoryMultiplier(), algo->getMemoryMultiplier());
+    const CuboidShape testShape(4, 4, 4);
+    EXPECT_EQ(clone->getWorkingSetBytes(testShape), algo->getWorkingSetBytes(testShape));
 }

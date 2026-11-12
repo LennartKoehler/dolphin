@@ -139,7 +139,7 @@ TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
 
     struct AlgoSpec {
         std::string name;
-        size_t expectedMemoryMultiplier;
+        size_t expectedComplexArrays; // additional complex arrays of cube size
     };
 
     std::vector<AlgoSpec> specs = {
@@ -155,8 +155,10 @@ TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
         config.algorithmName = spec.name;
         auto algo = factory.createShared(config);
         ASSERT_NE(algo, nullptr) << "Failed for algorithm: " << spec.name;
-        EXPECT_EQ(algo->getMemoryMultiplier(), spec.expectedMemoryMultiplier)
-            << "Wrong memory multiplier for: " << spec.name;
+        const CuboidShape testShape(4, 4, 4);
+        EXPECT_EQ(algo->getWorkingSetBytes(testShape),
+                  spec.expectedComplexArrays * testShape.getVolume() * sizeof(real_t))
+            << "Wrong working set size for: " << spec.name;
     }
 }
 
@@ -169,7 +171,8 @@ TEST_F(AlgorithmFactoryTest, AlgorithmClone) {
 
     auto clone = algo->clone();
     ASSERT_NE(clone, nullptr);
-    EXPECT_EQ(clone->getMemoryMultiplier(), algo->getMemoryMultiplier());
+    const CuboidShape testShape(4, 4, 4);
+    EXPECT_EQ(clone->getWorkingSetBytes(testShape), algo->getWorkingSetBytes(testShape));
 }
 
 TEST_F(AlgorithmFactoryTest, AlgorithmIsNotInitializedByDefault) {

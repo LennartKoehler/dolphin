@@ -18,6 +18,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/IO/TiffWriter.h"
 #include "dolphin_image/Types/BoxCoord.h"
 #include "dolphin_image/ImagePadding.h"
+#include "dolphin/deconvolution/Preprocessor.h"
+#include "dolphin/backend/BackendFactory.h"
 #include "TestUtils.h"
 #include <filesystem>
 #include <tiffio.h>
@@ -276,5 +278,146 @@ TEST_F(ReadWriteTest, SetSubimageWithPadding) {
     auto readOpt = TiffReader::readTiffFile(path, 0);
     ASSERT_TRUE(readOpt.has_value());
     EXPECT_EQ(readOpt->getShape(), original.getShape());
+    EXPECT_TRUE(readOpt->isEqual(original, 0.001f));
+}
+
+// --- TiffWriterMemoryComponent: reports the writer's PEAK held at once --------
+
+TEST_F(ReadWriteTest, WriterMemoryComponentTwoTilesPlusWriteBuffers) {
+    const CuboidShape shape(16, 8, 4);
+    std::string path = testDir + "/rw_mem_component.tif";
+
+    TiffWriter writer(path, shape);
+    MemoryComponent& component = writer.getMemoryComponent();
+    EXPECT_EQ(component.name(), "tiffwriter");
+
+    // At most two tiles buffered at once, each full width/height x one write
+    // depth, plus the transient write path (one strip buffer per written
+    // slice + libtiff's internal encode buffer; stripped mode = one full
+    // slice each).
+    const CuboidShape writeShape(4, 4, 2);
+    const size_t tileBytes = shape.width * shape.height * writeShape.depth * sizeof(float);
+    const size_t sliceBytes = shape.width * shape.height * sizeof(float);
+    const MemoryRequirement need = component.footprint(writeShape);
+    EXPECT_EQ(need.hostBytes, 2 * tileBytes + 2 * sliceBytes);
+    EXPECT_EQ(need.deviceBytes, 0u);
+}
+
+TEST_F(ReadWriteTest, WriterMemoryComponentScalesWithWriteDepth) {
+    const CuboidShape shape(16, 8, 4);
+    std::string path = testDir + "/rw_mem_component_shape.tif";
+
+    TiffWriter writer(path, shape);
+    MemoryComponent& component = writer.getMemoryComponent();
+
+    // The tile backlog depends on the candidate write depth: deeper writes
+    // buffer more, equal-depth candidates report the same demand.
+    const size_t shallow = component.footprint(CuboidShape(4, 4, 2)).hostBytes;
+    const size_t deep = component.footprint(CuboidShape(16, 8, 4)).hostBytes;
+    EXPECT_GT(deep, shallow);
+    EXPECT_EQ(component.footprint(CuboidShape(64, 64, 2)).hostBytes, shallow);
+}
+
+TEST_F(ReadWriteTest, WriterMemoryComponentTiledWriteBuffer) {
+    const CuboidShape shape(16, 8, 4);
+    std::string path = testDir + "/rw_mem_component_tiled.tif";
+
+    TiffWriter writer(path, shape);
+    WriterCompressionConfig compression;
+    WriterConfig config;
+    config.tileWidth = 4;
+    config.tileLength = 4;
+    writer.configure(compression, config);
+
+    // Tiled mode: the transient write path buffers one tile per written
+    // slice instead of one full slice; the two-tile backlog term is
+    // unchanged.
+    const CuboidShape writeShape(4, 4, 2);
+    const size_t tileBytes = shape.width * shape.height * writeShape.depth * sizeof(float);
+    const size_t writeBufferBytes = 4 * 4 * sizeof(float);
+    const MemoryRequirement need = writer.getMemoryComponent().footprint(writeShape);
+    EXPECT_EQ(need.hostBytes, 2 * tileBytes + 2 * writeBufferBytes);
+}
+
+TEST_F(ReadWriteTest, WriterMemoryComponentIsStableInstance) {
+    std::string path = testDir + "/rw_mem_component_instance.tif";
+    TiffWriter writer(path, CuboidShape(8, 8, 4));
+
+    MemoryComponent& first = writer.getMemoryComponent();
+    MemoryComponent& second = writer.getMemoryComponent();
+    EXPECT_EQ(&first, &second);
+}
+
+// Pads `interior` (at the origin) into a FFT-in-place host RealData with
+// `padding`, exactly as the deconvolution executor stages a cube.
+static RealData chunkToReal(const Image3D& interior, const CuboidShape& interiorShape, const Padding& padding) {
+    const CuboidShape workShape = interiorShape + padding.before + padding.after;
+    RealData out = BackendFactory::getInstance().getHostBackendMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
+    Preprocessor::convertImageToRealDataPadded(Image3D(interior), padding, PaddingFillType::ZERO, out);
+    return out;
+}
+
+// setSubimageReal writes the host RealData (FFT-in-place layout, x-strided)
+// straight into the writer. Covering the whole image in z-chunks, the result
+// must be identical to writing each chunk through the Image3D path (validates
+// the strided FFT-row copy).
+TEST_F(ReadWriteTest, SetSubimageRealFullWidthRoundTrip) {
+    const CuboidShape fullShape(16, 16, 8);
+    const Image3D original = TestUtils::createGradientImage(16, 16, 8);
+    const size_t chunkDepth = 4;
+    const Padding padding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
+    std::string path = testDir + "/rw_setsubimage_real.tif";
+
+    {
+        WriterHandler handler(std::make_shared<TiffWriter>(path, fullShape));
+        for (size_t z = 0; z < fullShape.depth; z += chunkDepth) {
+            BoxCoord subBox{CuboidPosition(0, 0, static_cast<int64_t>(z)),
+                            CuboidShape(fullShape.width, fullShape.height, chunkDepth)};
+            Image3D interior = original.getSubimageCopy(subBox);
+            BoxCoordWithPadding coord;
+            coord.box = subBox;
+            coord.padding = padding;
+            RealData real = chunkToReal(interior, subBox.dimensions, padding);
+            ASSERT_TRUE(handler.setSubimageReal(real, coord));
+        }
+    }
+
+    auto readOpt = TiffReader::readTiffFile(path, 0);
+    ASSERT_TRUE(readOpt.has_value());
+    EXPECT_EQ(readOpt->getShape(), fullShape);
+    EXPECT_TRUE(readOpt->isEqual(original, 0.001f));
+}
+
+// Spatial (partial width/height/depth) blocks with user padding, covering the
+// whole image: exercises the strided x copy AND the sourceOffset strip (the
+// padding is stripped before writing).
+TEST_F(ReadWriteTest, SetSubimageRealSpatialCubeRoundTrip) {
+    const CuboidShape fullShape(16, 16, 8);
+    const Image3D original = TestUtils::createGradientImage(16, 16, 8);
+    const size_t blockW = 8, blockH = 8, blockD = 4;
+    const Padding padding{CuboidShape(1, 1, 1), CuboidShape(1, 1, 1)};
+    std::string path = testDir + "/rw_setsubimage_real_spatial.tif";
+
+    {
+        WriterHandler handler(std::make_shared<TiffWriter>(path, fullShape));
+        for (size_t zOff = 0; zOff < fullShape.depth; zOff += blockD) {
+            for (size_t yOff = 0; yOff < fullShape.height; yOff += blockH) {
+                for (size_t xOff = 0; xOff < fullShape.width; xOff += blockW) {
+                    BoxCoord subBox{CuboidPosition(static_cast<int64_t>(xOff), static_cast<int64_t>(yOff), static_cast<int64_t>(zOff)),
+                                    CuboidShape(blockW, blockH, blockD)};
+                    Image3D interior = original.getSubimageCopy(subBox);
+                    BoxCoordWithPadding coord;
+                    coord.box = subBox;
+                    coord.padding = padding;
+                    RealData real = chunkToReal(interior, subBox.dimensions, padding);
+                    ASSERT_TRUE(handler.setSubimageReal(real, coord));
+                }
+            }
+        }
+    }
+
+    auto readOpt = TiffReader::readTiffFile(path, 0);
+    ASSERT_TRUE(readOpt.has_value());
+    EXPECT_EQ(readOpt->getShape(), fullShape);
     EXPECT_TRUE(readOpt->isEqual(original, 0.001f));
 }

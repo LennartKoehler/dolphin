@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include <functional>
 #include <itkImageRegionIterator.h>
 #include <stdexcept>
+#include <cstring>
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
@@ -35,9 +36,7 @@ LabeledDeconvolutionExecutor::LabeledDeconvolutionExecutor(){
 void LabeledDeconvolutionExecutor::configure(const SetupConfig& setupConfig, const DeconvolutionConfig& deconvConfig, progressCallbackFn fn){
     int channel = 0;
     ReaderConfig readerConfig;
-    readerConfig.numReaderThreads = setupConfig.numReaderThreads > 0
-        ? static_cast<size_t>(setupConfig.numReaderThreads)
-        : static_cast<size_t>(std::max(1, setupConfig.nIOThreads));
+    readerConfig.numReaderThreads = setupConfig.threadConfig.resolveReaderThreads();
     auto labelImageReader = std::make_unique<TiffReader>(setupConfig.labeledImage);
     labelImageReader->configure(channel, readerConfig);
     this->labelReader = std::make_unique<ReaderHandler>(std::move(labelImageReader), PaddingFillType::MIRROR);
@@ -75,15 +74,44 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
+    // Per-io-thread scratch buffers: allocated on first use, reused for every
+    // following cube of the same (run-constant) padded shape, and freed when
+    // the thread exits.
+    thread_local RealData g_device;
+    thread_local RealData g_label;
+    thread_local RealData f_device;
+    thread_local RealData f_host;
+    thread_local RealData result;
 
-    PaddedImage cubeImage = reader->getSubimage(task.paddedBox);
+    // Per-io-thread scratch buffers: allocated once (run-constant padded shape),
+    // reused for every cube, freed when the thread exits. f_host doubles as the
+    // input staging buffer and the per-label output transfer buffer.
+    const auto& hostMgr = BackendFactory::getInstance().getHostBackendMemoryManager();
+    if (!g_device.isValid() || g_device.getSize() != workShape) {
+        g_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
+        g_label  = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
+        f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
+    }
+    if (!f_host.isValid() || f_host.getSize() != workShape) {
+        f_host = hostMgr.allocateMemoryOnDeviceRealFFTInPlace(workShape);
+    }
+    if (!result.isValid() || result.getSize() != workShape) {
+        result = hostMgr.allocateMemoryOnDeviceRealFFTInPlace(workShape);
+    }
+    // Per-cube accumulator: zero the valid region (FFT row padding stays zero).
+    result.zeroFill();
+
+    {
+        // Pad straight into the reused FFT-layout host buffer - no
+        // intermediate padded Image3D, no allocation.
+        UnpaddedCube cube = reader->getSubimageForPadding(task.paddedBox);
+        Preprocessor::convertImageToRealDataPadded(std::move(cube.image), cube.padding,
+                                                   reader->getPaddingFillType(), f_host);
+        // host -> device into the reused input buffer (direction inferred)
+        iobackend.getMemoryManager().memCopy(f_host, g_device);
+    }
+
     PaddedImage labelImage = labelReader->getSubimage(task.paddedBox);
-
-    RealData g_host = Preprocessor::convertImageToRealData(cubeImage.image);
-
-    RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
-
-    BackendFactory::getInstance().getHostBackendMemoryManager().freeMemoryOnDevice(g_host);
 
     std::vector<Label<Image3D>> tasklabels = getLabelGroups(
         task.sharedDescriptor->psfs,
@@ -91,14 +119,11 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         psfLabelMap
     );
 
-    Image3D result(workShape, 0.0f);
-
     std::shared_ptr<PSF> gaussianKernel = createGaussianKernel(featheringRadius);
 
     // make the memory and preprocessing of this kernel which is used for the masks be maanged by the psfpreprocessor
     const ComplexData* preprocessedGaussianKernel = context->psfpreprocessor->getPreprocessedPSF(workShape, gaussianKernel, workerbackend);
     std::vector<Label<RealData>> preprocessedTaskLabels = makeMasksWeighted(tasklabels, labelImage.image, *preprocessedGaussianKernel, iobackend);
-
 
     for (const Label<RealData>& labelgroup : preprocessedTaskLabels){
         std::vector<std::shared_ptr<PSF>> psfs = labelgroup.getPSFs();
@@ -110,15 +135,15 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         };
 
         if (psfs.size() != 0){
-            RealData local_g_device = iobackend.getMemoryManager().createCopy(g_device);
-            RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
+            // per-label working copy of the input, copied into the reused buffer
+            iobackend.getMemoryManager().memCopy(g_device, g_label);
 
             std::future<void> resultDone = context->processor.deconvolveSingleCube(
                 workerbackend,
                 task.sharedDescriptor->prototypeAlgorithm,
                 workShape,
                 psfs,
-                local_g_device,
+                g_label,
                 f_device,
                 *context->psfpreprocessor.get(),
                 tracker);
@@ -129,13 +154,17 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
             // TiffWriter::writeToFile("/home/lennart-k-hler/data/dolphin_results/image.tif", Preprocessor::convertComplexDataToImage(f_device));
 
             iobackend.getComputeManager().multiplication(f_device, *labelgroup.getMask(), f_device); // multiply with weighted mask to get weighted values
-            RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getHostBackendMemoryManager());
 
-            Postprocessor::addCubeToImage(Preprocessor::convertRealDataToImage(f_host), result);
+            // device -> host into the reused output buffer (direction inferred)
+            iobackend.getMemoryManager().memCopy(f_device, f_host);
+
+            // accumulate the (masked) label result into the cube accumulator
+            Postprocessor::addCubeToImage(f_host, result);
 
         }
     }
-    writer->setSubimage(result, task.paddedBox);
+    // Write straight from the accumulator into the writer - no resultImage.
+    writer->setSubimageReal(result, task.paddedBox);
 }
 
 std::shared_ptr<PSF> LabeledDeconvolutionExecutor::createGaussianKernel(size_t featheringRadius){

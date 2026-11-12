@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "cuda_backend/CUDABackend.h"
 #include "cuda_backend/CUDABackendManager.h"
+#include "dolphinbackend/Exceptions.h"
 #include <cassert>
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
@@ -41,8 +42,16 @@ CUDABackendMemoryManager::~CUDABackendMemoryManager() {
 }
 
 void CUDABackendMemoryManager::setMemoryLimit(size_t maxMemorySize) {
+    getMemoryTracking()->setMaxMemory(maxMemorySize);
+}
+
+void CUDABackendMemoryManager::waitForMemory(size_t requestedSize) const {
     auto access = getMemoryTracking()->getAccess();
-    access.data.maxMemorySize = maxMemorySize;
+    if (access.data.totalUsedMemory + requestedSize > access.data.maxMemorySize) {
+        throw dolphin::backend::MemoryException(
+            "Exceeded set memory limit", "CUDA", requestedSize, "Memory Allocation",
+            buildCudaContext(config));
+    }
 }
 
 
@@ -141,8 +150,9 @@ DataView<complex_t> CUDABackendMemoryManager::reinterpret(RealData& data) const{
 
 void* CUDABackendMemoryManager::allocateMemoryOnDevice(size_t requested_size) const {
     ensureDevice();
-    // Wait for memory if max memory limit is set
-    // waitForMemory(requested_size);
+    // Enforce the configured memory cap with a clear error instead of letting
+    // the allocation fail (or the machine run out) further down the line.
+    waitForMemory(requested_size);
 
     void* devicePtr = nullptr;
     cudaError_t err = cudaMallocAsync(&devicePtr, requested_size, config.stream);
@@ -204,6 +214,15 @@ void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const
     CUDA_CHECK(err, "memCopy - cudaStreamSynchronize", buildCudaContext(config));
 }
 
+void CUDABackendMemoryManager::zeroFill(void* dest, size_t size, const CuboidShape& shape) const {
+    ensureDevice();
+    logWithContext(fmt::format("zeroFill: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
+    cudaError_t err = cudaMemsetAsync(dest, 0, size, config.stream);
+    CUDA_CHECK(err, "zeroFill - cudaMemsetAsync", buildCudaContext(config));
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "zeroFill - cudaStreamSynchronize", buildCudaContext(config));
+}
+
 void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const {
     ensureDevice();
     BACKEND_CHECK(ptr != nullptr, "Attempting to free null pointer", "CUDA", "freeMemoryOnDevice", buildCudaContext(config));
@@ -229,32 +248,34 @@ void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const 
 }
 
 
+size_t CUDABackendMemoryManager::staticGetAvailableMemory(int deviceId) {
+    cudaError_t err = cudaSetDevice(deviceId);
+    CUDA_CHECK(err, "staticGetAvailableMemory - cudaSetDevice",
+               "cuda" + std::to_string(deviceId) + ":static");
+
+    size_t freeMem = 0, totalMem = 0;
+    err = cudaMemGetInfo(&freeMem, &totalMem);
+    CUDA_CHECK(err, "staticGetAvailableMemory - cudaMemGetInfo",
+               "cuda" + std::to_string(deviceId) + ":static");
+
+    if (freeMem > totalMem) {
+        return 0; // inconsistent driver report
+    }
+    return freeMem;
+}
+
 size_t CUDABackendMemoryManager::getAvailableMemory() const {
     ensureDevice();
     cudaError_t sync_err = cudaStreamSynchronize(config.stream);
     CUDA_CHECK(sync_err, "getAvailableMemory - sync", buildCudaContext(config));
 
-    size_t freeMem, totalMem;
-    cudaError_t err = cudaMemGetInfo(&freeMem, &totalMem);
-    CUDA_CHECK(err, "getAvailableMemory - cudaMemGetInfo", buildCudaContext(config));
-
-    if (freeMem > totalMem) {
-        logWithContext(fmt::format("Available memory ({}) exceeds total memory ({})", freeMem, totalMem), LogLevel::LOG_WARN);
-        return 0; // Return 0 to indicate error condition
-    }
-
-    return freeMem;
+    return staticGetAvailableMemory(config.device.id);
 }
 
 size_t CUDABackendMemoryManager::getAllocatedMemory() const {
     auto access = getMemoryTracking()->getAccess();
     logWithContext(fmt::format("getAllocatedMemory: {:.2f} MB currently allocated", access.data.totalUsedMemory / 1e6), LogLevel::LOG_DEBUG);
     return access.data.totalUsedMemory;
-}
-
-// estimation not provided for large sizes (>32bit range)
-float CUDABackendMemoryManager::estimateFFTWorkspaceCopies(const CuboidShape& shape) const {
-    return 2;
 }
 
 
@@ -272,10 +293,12 @@ CUDAComputeBackend::~CUDAComputeBackend() {
 
 void CUDAComputeBackend::initializePlan(const FFTPlanDescription& description) {
     // Pre-warming only (the interface carries no buffer), so the real padding is
-    // assumed: in-place real plans use the padded in-place layout, everything
-    // else is unpadded.
+    // assumed: real plans use the padded in-place layout 2*(width/2+1), which is
+    // the canonical working buffer layout (allocateMemoryOnDeviceRealFFTInPlace),
+    // complex plans are unpadded. A mismatch with the actual buffer only misses
+    // the plan cache and falls back to lazy creation with the buffer's padding.
     size_t realPadding = 0;
-    if (description.type == PlanType::REAL && description.inPlace) {
+    if (description.type == PlanType::REAL) {
         size_t width = description.shape.width;
         realPadding = 2 * (width / 2 + 1) - width;
     }

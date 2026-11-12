@@ -147,23 +147,29 @@ public:
     RealView reinterpret(ComplexData& data) const override;
     ComplexView reinterpret(RealData& data) const override;
 
-    static size_t staticGetAvailableMemory();
+    // Single cudaMemGetInfo primitive for a device. Both this memory manager
+    // and the CUDABackendManager (which aggregates over all devices) query
+    // free VRAM through it.
+    static size_t staticGetAvailableMemory(int deviceId);
 
     bool isOnDevice(const void* data) const override;
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
-    float estimateFFTWorkspaceCopies(const CuboidShape& shape) const override;
 
     void* copyDataToDevice(void* src, size_t size, const CuboidShape& shape) const override;
     void* moveDataFromDevice(void* src, size_t size, const CuboidShape& shape,
                               const IBackendMemoryManager& destBackend) const override;
     void memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const override;
+    void zeroFill(void* dest, size_t size, const CuboidShape& shape) const override;
     void freeMemoryOnDevice(void* ptr, size_t size) const override;
 
 private:
 
     void logWithContext(const std::string& msg, LogLevel level) const;
     void ensureDevice() const { cudaSetDevice(config.device.id); }
+
+    // Throws a MemoryException if the allocation would exceed the device cap.
+    void waitForMemory(size_t requestedSize) const;
 
     // CUDA stream for memory operations
     CUDABackendConfig config;

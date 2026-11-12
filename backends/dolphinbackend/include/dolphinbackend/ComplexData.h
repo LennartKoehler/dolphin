@@ -12,6 +12,9 @@ See the LICENSE file provided with the code for the full license.
 */
 
 #pragma once
+#include <cstddef>
+#include <span>
+#include <iterator>
 #include "CuboidShape.h"
 
 class IBackendMemoryManager;
@@ -77,6 +80,7 @@ public:
     ManagedData(ManagedData&& other) noexcept;
     ManagedData& operator=(ManagedData&& other) noexcept;
 
+
     class Iterator{
     public:
         using iterator_category = std::forward_iterator_tag;
@@ -128,6 +132,57 @@ public:
         bool m_atEnd;
     };
 
+    // Iterates over the lines (rows) of the data, one span per line, skipping the
+    // per-row padding. Unlike Iterator (element-wise) and ContiguousMemoryIterator
+    // (memory-wise, includes padding), each step yields exactly `size.width` valid
+    // elements and jumps by the full memory row length (width + padding).
+    // Total number of lines is height * depth.
+    class RowIterator{
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using difference_type   = std::ptrdiff_t;
+        using value_type        = T;
+        using reference         = std::span<T>;  // one line without padding
+
+        RowIterator(const ManagedData<T>& owner, std::size_t row = 0, bool atEnd = false)
+            : m_owner(&owner), m_row(row), m_atEnd(atEnd) {}
+
+        reference operator*() const {
+            const std::size_t stride = m_owner->size.width + m_owner->padding;
+            return std::span<T>{m_owner->data + m_row * stride, m_owner->size.width};
+        }
+
+        RowIterator& operator++() {
+            ++m_row;
+            return *this;
+        }
+
+        RowIterator operator++(int) {
+            RowIterator tmp = *this;
+            ++(*this);
+            return tmp;
+        }
+
+        // Compare by owner + row (not raw pointer!)
+        friend bool operator==(const RowIterator& a, const RowIterator& b) {
+            return a.m_owner == b.m_owner && a.m_row == b.m_row && a.m_atEnd == b.m_atEnd;
+        }
+
+        friend bool operator!=(const RowIterator& a, const RowIterator& b) {
+            return !(a == b);
+        }
+
+        std::size_t getRow() const { return m_row; }
+        void setRow(std::size_t row) { m_row = row; }
+
+    private:
+        const ManagedData<T>* m_owner;
+        std::size_t m_row;
+        bool m_atEnd;
+    };
+
+    RowIterator row_begin() const { return RowIterator(*this, 0); }
+    RowIterator row_end() const   { return RowIterator(*this, size.height * size.depth); }
 
     T& access(std::size_t linearIndex);
     const T& access(std::size_t linearIndex) const;
@@ -195,6 +250,11 @@ public:
 
     T& operator[](size_t index){return access(index);}
     const T& operator[](size_t index) const {return access(index);}
+
+    // Zero the entire physical buffer (valid region and per-row padding).
+    // Dispatches to the managing backend, which picks the device-appropriate
+    // primitive (host memset / cudaMemset). Requires a valid backend handle.
+    void zeroFill();
 protected:
     size_t convertIndex(size_t linearIndex) const;
 

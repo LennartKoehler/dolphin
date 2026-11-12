@@ -169,6 +169,38 @@ void TiffWriter::configure(WriterCompressionConfig compressionConfig, WriterConf
 }
 
 
+MemoryComponent& TiffWriter::getMemoryComponent() {
+    if (!memoryComponent) {
+        memoryComponent = std::make_unique<TiffWriterMemoryComponent>(*this);
+    }
+    return *memoryComponent;
+}
+
+
+size_t TiffWriter::writeBufferBytes() const {
+    // Output is always float32, samplesPerPixel 1: the strip buffer holds one
+    // full slice (rowsPerStrip = imageLength, set in setTiffFields), the tile
+    // buffer one tile.
+    const size_t sliceBytes = static_cast<size_t>(imageShape.width) * imageShape.height * sizeof(float);
+    if (writerConfig_.useTiles()) {
+        return static_cast<size_t>(writerConfig_.tileWidth) * writerConfig_.tileLength * sizeof(float);
+    }
+    return sliceBytes;
+}
+
+
+size_t TiffWriter::getRequiredMemory(const CuboidShape& shapeToWrite) const {
+    // Bounded backlog: at most two tiles buffered at once (in-progress +
+    // ready), each spanning the full output width/height and one write depth.
+    // On top: one buffer per written slice plus libtiff's internal encode
+    // buffer of the same order (the write path is mutex-serialized).
+    // shapeToWrite.depth (the padded candidate cube shape) upper-bounds the
+    // actual per-tile depth (the written box depth).
+    assert(imageShape.width != 0 && imageShape.height !=0);
+    return shapeToWrite.depth * imageShape.width * imageShape.height * sizeof(float) * 2 + 2 * writeBufferBytes();
+}
+
+
 TiffWriter::~TiffWriter() {
     assert(tileBuffer.size() == 0 && readyTiles_.empty() && "Buffers not empty but done writing, should not happen");
     if (tif) {
@@ -208,6 +240,97 @@ bool TiffWriter::setSubimage(const Image3D& image, const BoxCoord& coord,
         return false;
     }
 
+}
+
+
+bool TiffWriter::setSubimageReal(const RealData& data, const BoxCoord& coord,
+                                 const CuboidPosition& sourceOffset) const {
+    CuboidShape imgShape = data.getSize();
+    assert(imgShape.depth != 0 && imgShape.width != 0 && imgShape.height != 0 && "Cannot set subimage: RealData has invalid dimensions");
+
+    std::unique_lock<std::mutex> lock(writerMutex);
+
+    int bufferIndex = getStripIndex(coord);
+    try{
+        if (bufferIndex != -1){
+            copyRealToTile(data, coord, sourceOffset, bufferIndex);
+        }
+        else{
+            createNewTile(coord);
+
+            bufferIndex = getStripIndex(coord);
+            copyRealToTile(data, coord, sourceOffset, bufferIndex);
+        }
+        return true;
+    } catch (const TiffException& e) {
+        spdlog::get("writer")->error("TIFF error in setSubimageReal {}", e.what());
+        return false;
+    } catch (const std::exception& e) {
+        spdlog::get("writer")->error("Exception in setSubimageReal {}", e.what());
+        return false;
+    } catch (...) {
+        spdlog::get("writer")->error("Unknown exception in setSubimageReal");
+        return false;
+    }
+}
+
+
+void TiffWriter::copyRealToTile(const RealData& data, const BoxCoord& coord, const CuboidPosition& sourceOffset, int index) const {
+    ImageBuffer& tile = tileBuffer.find(index);
+    BoxCoord srcBox = coord;
+    srcBox.position = srcBox.position - tile.source.position;
+
+    const CuboidShape ds = data.getSize(); // the padded cube (workShape)
+    const size_t dsW = ds.width;
+    const size_t dsH = ds.height;
+
+    float* dest = tile.image.getItkImage()->GetBufferPointer();
+
+    const size_t dZ = static_cast<size_t>(srcBox.position.depth);
+    const size_t dY = static_cast<size_t>(srcBox.position.height);
+    const size_t dX = static_cast<size_t>(srcBox.position.width);
+    const size_t sZ = static_cast<size_t>(sourceOffset.depth);
+    const size_t sY = static_cast<size_t>(sourceOffset.height);
+    const size_t sX = static_cast<size_t>(sourceOffset.width);
+
+    const size_t w = coord.dimensions.width;
+    const size_t h = coord.dimensions.height;
+    const size_t d = coord.dimensions.depth;
+
+    // Strided copy of the inner region (coord.dimensions at sourceOffset) from
+    // the FFT-in-place source (width dsW, per-row padding) into the tile
+    // (full imageShape width/height, contiguous). operator[] maps logical
+    // indices onto the padded memory layout, so no raw buffer access is needed.
+    for (size_t z = 0; z < d; ++z) {
+        for (size_t y = 0; y < h; ++y) {
+            const size_t sz = sZ + z;
+            const size_t sy = sY + y;
+            const size_t base = sz * (dsH * dsW) + sy * dsW + sX;
+            float* destLine = dest + (dZ + z) * (imageShape.width * imageShape.height) + (dY + y) * imageShape.width + dX;
+            for (size_t x = 0; x < w; ++x) {
+                destLine[x] = data[base + x];
+            }
+        }
+    }
+
+    std::vector<BoxCoord> newRemaining;
+    newRemaining.reserve(tile.remainingRegions.size() * 6);
+    for (const auto& region : tile.remainingRegions) {
+        auto fragments = subtractBox(region, coord);
+        for (auto& frag : fragments) {
+            if (frag.dimensions.getVolume() > 0)
+                newRemaining.push_back(std::move(frag));
+        }
+    }
+    tile.remainingRegions = std::move(newRemaining);
+
+    if (isTileFull(tile)) {
+        int64_t zPos = tile.source.position.depth;
+        ImageBuffer tileToMove = std::move(tile);
+        tileBuffer.deleteIndex(index);
+        readyTiles_[zPos] = std::move(tileToMove);
+        processReadyToWriteQueue();
+    }
 }
 
 

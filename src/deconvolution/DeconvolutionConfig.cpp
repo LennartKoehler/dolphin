@@ -30,7 +30,8 @@ DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
     paddingRelativeMax(other.paddingRelativeMax),
     featheringRadius(other.featheringRadius),
     cubeSize(other.cubeSize),
-    cubePadding(other.cubePadding)
+    cubePadding(other.cubePadding),
+    sliceAllDimensions(other.sliceAllDimensions)
     {
         parameters.clear();
         registerAllParameters();
@@ -48,6 +49,7 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(const DeconvolutionConfig& o
         featheringRadius = other.featheringRadius;
         cubeSize = other.cubeSize;
         cubePadding = other.cubePadding;
+        sliceAllDimensions = other.sliceAllDimensions;
         parameters.clear();
         registerAllParameters();
     }
@@ -65,6 +67,7 @@ DeconvolutionConfig::DeconvolutionConfig(DeconvolutionConfig&& other) noexcept
     paddingRelativeMax(other.paddingRelativeMax),
     featheringRadius(other.featheringRadius),
     cubeSize(other.cubeSize),
+    sliceAllDimensions(other.sliceAllDimensions),
     cubePadding(other.cubePadding)
     {
         parameters.clear();
@@ -82,6 +85,7 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(DeconvolutionConfig&& other)
         paddingRelativeMax = other.paddingRelativeMax;
         featheringRadius = other.featheringRadius;
         cubeSize = other.cubeSize;
+        sliceAllDimensions = other.sliceAllDimensions;
         cubePadding = other.cubePadding;
         parameters.clear();
         registerAllParameters();
