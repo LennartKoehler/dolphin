@@ -24,19 +24,20 @@ class GibsonLanniPSFConfig;
  * sizes are the size of the IMAGE the PSF is produced for, not the PSF size.
  * Model (all physical terms in nm, converted to voxels by the pitch):
  *
- *   dTan       = |tan(asin(clamp(NA/ni))) - tan(asin(clamp(NA/ns)))|  (clamp 0.99)
+ *   tilt       = max(tan(asin(clamp(NA/ni))), tan(asin(clamp(NA/ns))))  (clamp 0.99)
  *   zMax_nm    = max(focusIdx, sizeZ-1-focusIdx) * pixelSizeAxial_nm
  *                (focus assumed mid-stack; worst-case distance to the rim)
  *   halfLat_nm = RING_FACTOR * resolution.lateral_nm
- *                + CONE_MARGIN * dTan * zMax_nm
- *   halfAx_nm  = zMax_nm + AXIAL_TAIL_FACTOR * resolution.axial_nm
- *   lateral    = max(ceil(halfLat_nm / pixelLat), ceil(RING_FACTOR * resLat / pixelLat))
- *   axial      = max(ceil(halfAx_nm  / pixelAx),  ceil(AXIAL_TAIL_FACTOR * resAx / pixelAx))
+ *                + CONE_MARGIN * tilt * zMax_nm
+ *   lateral    = min(max(ceil(halfLat_nm / pixelLat), ceil(RING_FACTOR * resLat / pixelLat)), MAX_LAT_HALF_WIDTH)
+ *   axial      = ceil(max(zMax_nm, AXIAL_FLOOR_FACTOR * resolution.axial_nm) / pixelAx)
  *
- * Lateral: RING_FACTOR Airy/resolution rings plus the RI-mismatch cone spread
- * over the defocus range. Axial: the full imaged defocus range plus a tail of
- * AXIAL_TAIL_FACTOR axial resolutions. The box is never clamped by the image
- * size: a PSF support may legitimately exceed the imaged volume.
+ * Lateral: RING_FACTOR Airy/resolution rings plus the geometric defocus cone
+ * (zMax * tan(marginal-ray tilt)) over the defocus range, capped at
+ * MAX_LAT_HALF_WIDTH so very deep stacks do not explode the box. Axial: the
+ * imaged defocus range (zMax) with a floor of AXIAL_FLOOR_FACTOR axial
+ * resolutions for shallow stacks. The box is not clamped to the image size in
+ * the vertical sense: the PSF support may exceed the imaged volume.
  *
  * The returned values are half-widths (in voxels) of a symmetric box.
  */
@@ -54,11 +55,11 @@ struct BoxHalfExtent {
 
 // Covers 2 full rings; PSF ~1e-4 at the edge. Raise to 4.5 for hard deconv.
 constexpr double RING_FACTOR          = 3.5;
-// Lateral cone margin on the RI-mismatch term.
+// Lateral cone margin on the geometric defocus term.
 constexpr double CONE_MARGIN          = 1.1;
-// Axial tail = this many axial FWHM beyond the stack. 8 widefield, ~12 confocal.
-constexpr double AXIAL_TAIL_FACTOR    = 8.0;
-
+// Axial half-extent floor, in axial-resolution units, for shallow stacks where
+// zMax alone would be too small to hold the defocused blur.
+constexpr double AXIAL_FLOOR_FACTOR   = 2.0;
 /**
  * Approximate optical resolution (nm) from NA, wavelength and sample RI for the
  * given criterion (see PSFConfig::ResolutionCriterion).

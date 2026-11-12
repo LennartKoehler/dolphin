@@ -78,10 +78,16 @@ BoxHalfExtent computeBoxHalfExtent(const ApproxResolution& resolution,
 {
     BoxHalfExtent box;
 
-    // --- RI-mismatch cone (0 when matched) ----------------------------------
+    // --- geometric defocus cone ---------------------------------------------
+    // The defocused PSF spreads laterally by zMax * tan(ray tilt). The relevant
+    // tilt is the absolute marginal-ray angle in the propagating media (large
+    // sample-side tilt for immersion objectives), NOT just the RI-mismatch
+    // differential: even a matched objective opens a cone of zMax*tan(alpha).
+    // Taking the max of the sample/immersion tilts is a conservative bound on
+    // the footprint regardless of which side is wider.
     const double alpha_i = asin_clamped(config.NA / config.ni);
     const double alpha_s = asin_clamped(config.NA / config.ns);
-    const double dTan    = std::abs(std::tan(alpha_i) - std::tan(alpha_s));
+    const double tilt    = std::max(std::tan(alpha_i), std::tan(alpha_s));
 
     // --- farthest slice from the focal plane, in nm -------------------------
     // Focus plane unknown here -> assume mid-stack (worst case <= half depth).
@@ -91,30 +97,28 @@ BoxHalfExtent computeBoxHalfExtent(const ApproxResolution& resolution,
                                     static_cast<double>(config.sizeZ) - 1.0 - focusIdx)
                            * config.pixelSizeAxial_nm;
 
-    // --- half extents (physical) -------------------------------------------
+    // --- half extents (physical, lateral) / (voxel, axial) -----------------
     const double halfLat_nm = RING_FACTOR * resolution.lateral_nm
-                            + CONE_MARGIN * dTan * zMax_nm;
-    const double halfAx_nm  = zMax_nm
-                            + AXIAL_TAIL_FACTOR * resolution.axial_nm;
+                            + CONE_MARGIN * tilt * zMax_nm;
 
     // --- to voxels ----------------------------------------------------------
-    box.lateral = config.pixelSizeLateral_nm > 0.0
-        ? static_cast<size_t>(std::ceil(halfLat_nm / config.pixelSizeLateral_nm))
-        : 0;
-    box.axial = config.pixelSizeAxial_nm > 0.0
-        ? static_cast<size_t>(std::ceil(halfAx_nm / config.pixelSizeAxial_nm))
-        : 0;
+    if (config.pixelSizeLateral_nm > 0.0) {
+        const size_t full = static_cast<size_t>(std::ceil(halfLat_nm / config.pixelSizeLateral_nm));
+        const size_t ringFloor = static_cast<size_t>(
+            std::ceil(RING_FACTOR * resolution.lateral_nm / config.pixelSizeLateral_nm));
+        box.lateral = std::max(full, ringFloor);
+    } else {
+        box.lateral = 0;
+    }
 
-    // Always hold the in-focus core, whatever the cone says.
-    const size_t minLat = (config.pixelSizeLateral_nm > 0.0)
-        ? static_cast<size_t>(std::ceil(RING_FACTOR * resolution.lateral_nm / config.pixelSizeLateral_nm))
-        : 0;
-    const size_t minAx = (config.pixelSizeAxial_nm > 0.0)
-        ? static_cast<size_t>(std::ceil(AXIAL_TAIL_FACTOR * resolution.axial_nm / config.pixelSizeAxial_nm))
-        : 0;
-
-    box.lateral = std::max(box.lateral, minLat);
-    box.axial   = std::max(box.axial,   minAx);
+    // Axial: span the imaged defocus range, with a floor of a few axial
+    // resolutions so shallow stacks still hold the defocused blur.
+    if (config.pixelSizeAxial_nm > 0.0) {
+        const double axialHalf_nm = std::max(zMax_nm, AXIAL_FLOOR_FACTOR * resolution.axial_nm);
+        box.axial = static_cast<size_t>(std::ceil(axialHalf_nm / config.pixelSizeAxial_nm));
+    } else {
+        box.axial = 0;
+    }
 
     return box;
 }
