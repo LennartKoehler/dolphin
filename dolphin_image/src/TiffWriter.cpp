@@ -283,10 +283,8 @@ void TiffWriter::copyRealToTile(const RealData& data, const BoxCoord& coord, con
     const CuboidShape ds = data.getSize(); // the padded cube (workShape)
     const size_t dsW = ds.width;
     const size_t dsH = ds.height;
-    const size_t pad = data.getPadding();  // FFT-in-place per-row padding
 
     float* dest = tile.image.getItkImage()->GetBufferPointer();
-    const float* src = data.getData();
 
     const size_t dZ = static_cast<size_t>(srcBox.position.depth);
     const size_t dY = static_cast<size_t>(srcBox.position.height);
@@ -300,18 +298,18 @@ void TiffWriter::copyRealToTile(const RealData& data, const BoxCoord& coord, con
     const size_t d = coord.dimensions.depth;
 
     // Strided copy of the inner region (coord.dimensions at sourceOffset) from
-    // the FFT-in-place source (width dsW, per-row padding `pad`) into the tile
-    // (full imageShape width/height, contiguous). For a source row starting at
-    // linear index `base`, the real offset is base + (base/dsW)*pad; with
-    // sX < dsW, base/dsW == sz*dsH + sy (constant across the row).
+    // the FFT-in-place source (width dsW, per-row padding) into the tile
+    // (full imageShape width/height, contiguous). operator[] maps logical
+    // indices onto the padded memory layout, so no raw buffer access is needed.
     for (size_t z = 0; z < d; ++z) {
         for (size_t y = 0; y < h; ++y) {
             const size_t sz = sZ + z;
             const size_t sy = sY + y;
             const size_t base = sz * (dsH * dsW) + sy * dsW + sX;
-            const float* srcLine = src + base + (sz * dsH + sy) * pad;
             float* destLine = dest + (dZ + z) * (imageShape.width * imageShape.height) + (dY + y) * imageShape.width + dX;
-            std::memcpy(destLine, srcLine, w * sizeof(float));
+            for (size_t x = 0; x < w; ++x) {
+                destLine[x] = data[base + x];
+            }
         }
     }
 

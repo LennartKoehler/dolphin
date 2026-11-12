@@ -152,6 +152,14 @@ public:
      */
     void memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const override;
 
+    /**
+     * Zero a raw buffer (byte-level fill with 0)
+     * @param dest Pointer to the data
+     * @param size Size in bytes
+     * @param shape Shape of the data
+     */
+    void zeroFill(void* dest, size_t size, const CuboidShape& shape) const override;
+
 
     /**
      * Free memory on device

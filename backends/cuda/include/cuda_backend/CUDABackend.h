@@ -160,6 +160,7 @@ public:
     void* moveDataFromDevice(void* src, size_t size, const CuboidShape& shape,
                               const IBackendMemoryManager& destBackend) const override;
     void memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const override;
+    void zeroFill(void* dest, size_t size, const CuboidShape& shape) const override;
     void freeMemoryOnDevice(void* ptr, size_t size) const override;
 
 private:

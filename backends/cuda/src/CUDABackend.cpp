@@ -214,6 +214,15 @@ void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const
     CUDA_CHECK(err, "memCopy - cudaStreamSynchronize", buildCudaContext(config));
 }
 
+void CUDABackendMemoryManager::zeroFill(void* dest, size_t size, const CuboidShape& shape) const {
+    ensureDevice();
+    logWithContext(fmt::format("zeroFill: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
+    cudaError_t err = cudaMemsetAsync(dest, 0, size, config.stream);
+    CUDA_CHECK(err, "zeroFill - cudaMemsetAsync", buildCudaContext(config));
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "zeroFill - cudaStreamSynchronize", buildCudaContext(config));
+}
+
 void CUDABackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const {
     ensureDevice();
     BACKEND_CHECK(ptr != nullptr, "Attempting to free null pointer", "CUDA", "freeMemoryOnDevice", buildCudaContext(config));

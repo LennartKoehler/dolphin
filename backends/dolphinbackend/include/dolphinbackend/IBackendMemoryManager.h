@@ -307,6 +307,27 @@ public:
         memCopy(srcdata.getData(), destdata.getData(), byteSize, srcdata.getSize());
     }
 
+    /**
+     * Zero a raw buffer (byte-level fill with 0)
+     * @param dest Pointer to the data
+     * @param size Size in bytes
+     * @param shape Shape of the data
+     */
+    virtual void zeroFill(void* dest, size_t size, const CuboidShape& shape) const {
+        NOT_IMPLEMENTED(zeroFill);
+    }
+
+    /**
+     * Zero the entire physical buffer of a managed handle (valid region and
+     * per-row padding). Dispatches to this backend's raw zeroFill, which picks
+     * the device-appropriate primitive (host memset / cudaMemset).
+     */
+    template<typename T>
+    void zeroFill(ManagedData<T>& data) const {
+        assert(data.getData() != nullptr);
+        zeroFill(data.getData(), data.getDataBytes(), data.getSize());
+    }
+
     virtual void freeMemoryOnDevice(void* ptr, size_t size) const {
         NOT_IMPLEMENTED(freeMemoryOnDevice);
     }

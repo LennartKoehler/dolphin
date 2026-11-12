@@ -124,7 +124,7 @@ void Preprocessor::convertImageToRealDataPadded(
     }
 
     // Zero everything (row padding included), then copy the interior once.
-    std::memset(allocatedOutBuffer.getData(), 0, allocatedOutBuffer.getDataBytes());
+    // allocatedOutBuffer.zeroFill();
 
     const size_t workWidth = workShape.width;
     const size_t workHeight = workShape.height;

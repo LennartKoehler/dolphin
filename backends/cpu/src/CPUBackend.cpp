@@ -305,6 +305,12 @@ void CPUBackendMemoryManager::memCopy(void* src, void* dest, size_t size, const 
     std::memcpy(dest, src, size);
 }
 
+void CPUBackendMemoryManager::zeroFill(void* dest, size_t size, const CuboidShape& shape) const {
+    log(fmt::format("zeroFill: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
+    BACKEND_CHECK(dest != nullptr, "Destination data pointer is null", "CPU", "zeroFill - destination data", buildCpuContext());
+    std::memset(dest, 0, size);
+}
+
 void CPUBackendMemoryManager::freeMemoryOnDevice(void* ptr, size_t size) const{
     BACKEND_CHECK(ptr != nullptr, "Data pointer is null", "CPU", "freeMemoryOnDevice - data pointer", buildCpuContext());
     fftwf_free(ptr);

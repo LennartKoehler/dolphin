@@ -99,7 +99,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         result = hostMgr.allocateMemoryOnDeviceRealFFTInPlace(workShape);
     }
     // Per-cube accumulator: zero the valid region (FFT row padding stays zero).
-    std::memset(result.getData(), 0, result.getDataBytes());
+    result.zeroFill();
 
     {
         // Pad straight into the reused FFT-layout host buffer - no

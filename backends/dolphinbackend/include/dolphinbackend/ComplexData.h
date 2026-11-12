@@ -195,6 +195,11 @@ public:
 
     T& operator[](size_t index){return access(index);}
     const T& operator[](size_t index) const {return access(index);}
+
+    // Zero the entire physical buffer (valid region and per-row padding).
+    // Dispatches to the managing backend, which picks the device-appropriate
+    // primitive (host memset / cudaMemset). Requires a valid backend handle.
+    void zeroFill();
 protected:
     size_t convertIndex(size_t linearIndex) const;
 

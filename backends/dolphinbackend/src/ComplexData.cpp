@@ -144,6 +144,12 @@ const T& ManagedData<T>::access(std::size_t linearIndex) const{
 }
 
 template<typename T>
+void ManagedData<T>::zeroFill() {
+    assert(backend != nullptr && "zeroFill requires a managing backend (device-aware memset)");
+    backend->zeroFill(*this);
+}
+
+template<typename T>
 size_t ManagedData<T>::convertIndex(size_t linearIndex) const {
     return linearIndex + (linearIndex / size.width) * padding;
 }
