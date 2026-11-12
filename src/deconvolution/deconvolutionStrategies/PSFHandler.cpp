@@ -217,11 +217,14 @@ std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
 
             backend.getComputeManager().forwardFFT(h_device, *h_result_device);
 
-            h_result_device->setBackend(h_device.getBackend());
-            h_device.setBackend(nullptr);
-
+            // The PSF result must outlive h_device, so buffer ownership moves to
+            // an owning handle (validated: same backend, source owns, same
+            // buffer). h_device is detached without freeing; the non-owning view
+            // alias is dropped and the owning handle is returned.
             backend.sync();
-            return std::move(h_result_device);
+            ComplexData owningPSF = backend.getMemoryManager().transferOwnership(h_device, *h_result_device);
+            h_result_device.reset();
+            return std::make_unique<ComplexData>(std::move(owningPSF));
         };
 
     std::unique_ptr<PSFPreprocessor> preprocessor = std::make_unique<PSFPreprocessor>();

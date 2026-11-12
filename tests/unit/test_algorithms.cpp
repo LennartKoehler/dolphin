@@ -60,10 +60,13 @@ protected:
         std::unique_ptr<ComplexView> h_result = std::make_unique<ComplexView>(std::move(backend->getMemoryManager().reinterpret(h_device)));
         backend->getComputeManager().octantFourierShift(h_device);
         backend->getComputeManager().forwardFFT(h_device, *h_result);
-        h_result->setBackend(h_device.getBackend());
-        h_device.setBackend(nullptr);
+        // The returned view outlives h_device, so buffer ownership moves to an
+        // owning handle via the validated transfer; h_device is detached (no
+        // free), the non-owning view alias is dropped, the owner is returned.
         backend->sync();
-        return std::move(h_result);
+        auto owningPSF = backend->getMemoryManager().transferOwnership(h_device, *h_result);
+        h_result.reset();
+        return std::make_unique<ComplexData>(std::move(owningPSF));
     }
 
     RealData imageToDevice(const Image3D& img) {
