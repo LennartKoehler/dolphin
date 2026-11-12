@@ -176,6 +176,7 @@ bool DeconvolutionService::validateAlgorithmConfig(const std::string& algorithm)
     std::vector<std::string> supported_algorithms_ = fact.getAvailableAlgorithms();
     auto it = std::find(supported_algorithms_.begin(), supported_algorithms_.end(), algorithm);
     if (it == supported_algorithms_.end()) {
+        logger_->error("Invalid deconvolution algorithm name: '{}'" , algorithm);
         return false;
     }
 
