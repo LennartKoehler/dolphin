@@ -22,9 +22,22 @@ public:
 	GibsonLanniPSFConfig();
 	GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other);
 
-
     float oversampling_factor = 4.0f;
-    float wavelength_nm = 520.0f;
+    /** Emission wavelength. JSON tag remains "wavelength_nm" for backwards
+     *  compatibility. In confocal mode (microscopeModality == CONFOCAL) the
+     *  excitation integral uses excitationWavelength_nm instead. */
+    float emissionWavelength_nm = 520.0f;
+
+    /** Excitation wavelength for confocal mode (Stokes shift:
+     *  excitationWavelength_nm < emissionWavelength_nm). Only used when
+     *  microscopeModality == CONFOCAL; values <= 0 fall back to
+     *  emissionWavelength_nm. */
+    float excitationWavelength_nm = 488.0f;
+
+    /** Pinhole radius at the sample plane in nm. 0 = point pinhole (the
+     *  detection PSF is used directly in the confocal product); > 0 = finite
+     *  pinhole, averaging the detection PSF over the pinhole disc. */
+    float pinholeRadius_nm = 0.0f;
     /** Convergence strictness for the Simpson integrator (1..10).
      *  Maps directly to the number of consecutive sub-interval refinements
      *  that must meet the tolerance. Higher = stricter convergence, slower.

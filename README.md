@@ -348,6 +348,10 @@ A physically-based PSF model accounting for microscope optical design and experi
 | `pixel_size_lateral_nm` | float | `100.0` | Pixel size in lateral direction in nm |
 | `oversampling_factor` | float | `4.0` | Oversampling factor for PSF computation |
 | `integration_accuracy` | int | `5` | Simpson integrator convergence strictness (1..10, clamped); higher is slower. Not compatible with the BIG PSFGenerator's `accuracy` (0=Good, 1=Better, 2=Best); legacy 0/1/2 configs now mean strictness 1/2 |
+| `excitation_wavelength_nm` | float | `488.0` | Excitation wavelength in nm (confocal only); values `<= 0` fall back to `wavelength_nm` |
+| `pinhole_radius_nm` | float | `0.0` | Pinhole radius at the sample plane in nm. `0` = point pinhole (Airy-unit product model). `> 0` = finite pinhole: the detection PSF is averaged over the pinhole disc before the confocal product, which broadens the PSF toward the widefield one |
+
+Every PSF config also accepts a `microscope_modality` field (`"widefield"` or `"confocal"`, default `widefield`). For a confocal PSF the Gibson-Lanni generator computes the voxel-wise product of the excitation integral (at `excitation_wavelength_nm`) and the detection integral (at `wavelength_nm`). With `pinhole_radius_nm > 0` the detection PSF is first convolved with the pinhole disc (finite pinhole), otherwise it is the point-pinhole / Airy-unit product model. All PSFs used in one deconvolution must share the same modality. See `configs_template/gibson_lanni_confocal_config.json` for a complete confocal example.
 
 ## License
 

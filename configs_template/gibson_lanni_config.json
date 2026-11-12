@@ -23,6 +23,7 @@
       "res_lateral_nm": 100,
       "res_axial_nm": 100,
       "wavelength_nm": 520.0,
+      "microscope_modality": "widefield",
       "working_distance_design_nm": 150000.0,
       "working_distance_experimental_nm": 150000.0,
       "immersion_ri_design": 1.515,

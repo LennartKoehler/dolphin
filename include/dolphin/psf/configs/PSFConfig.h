@@ -27,6 +27,11 @@ public:
 
     PSFConfig(const PSFConfig& other);
 
+    enum class MicroscopeModality {
+        WIDEFIELD = 0,
+        CONFOCAL = 1,
+    };
+
     std::string getName() const override{
         return std::string("PSFConfig " + getModelName());
     }
@@ -34,6 +39,11 @@ public:
     std::string getModelName() const {
         return psfModelName;
     }
+
+    /** True if this PSF models confocal image formation. A property of the
+     *  PSF itself (it changes the image-formation model, e.g. the product of
+     *  excitation and emission PSFs in Gibson-Lanni). */
+    bool isConfocalPSF() const { return microscopeModality == MicroscopeModality::CONFOCAL; }
 
     CuboidShape getShape() const {
         return CuboidShape{sizeX, sizeY, sizeZ};
@@ -48,6 +58,10 @@ public:
     std::string psfModelName;
     std::string ID;
     bool autoSize = false;
+
+    /** Modality of the image-formation model this PSF describes. Selects the
+     *  PSF physics (e.g. Gibson-Lanni computes a widefield or a confocal PSF). */
+    MicroscopeModality microscopeModality = MicroscopeModality::WIDEFIELD;
 
     size_t sizeX = 0;
     size_t sizeY = 0;

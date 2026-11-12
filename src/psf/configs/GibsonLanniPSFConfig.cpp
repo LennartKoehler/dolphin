@@ -36,7 +36,9 @@ void GibsonLanniPSFConfig::registerAllParameters(){
     getParameters().push_back({ParameterType::Float, &tg_nm, "Coverslip Thickness Experimental (nm)", false, "coverslip_thickness_experimental_nm", "--coverslip_thickness_experimental_nm", "Coverslip thickness experimental", false, true, 0.0, 5000.0, nullptr});
     getParameters().push_back({ParameterType::Float, &ns, "Sample RI", false, "sample_ri", "--sample_ri", "Sample RI", false, true, 1.0, 2.0, nullptr});
     getParameters().push_back({ParameterType::Float, &particleAxialPosition_nm, "Particle Axial Position (nm)", false, "particle_axial_position_nm", "--particle_axial_position_nm", "Particle axial position", false, true, -5000.0, 5000.0, nullptr});
-    getParameters().push_back({ParameterType::Float, &wavelength_nm, "Wavelength (nm)", false, "wavelength_nm", "--wavelength_nm", "Wavelength", false, true, 200.0, 700.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &emissionWavelength_nm, "Wavelength (nm)", false, "wavelength_nm", "--wavelength_nm", "Wavelength", false, true, 200.0, 700.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &excitationWavelength_nm, "Excitation Wavelength (nm)", true, "excitation_wavelength_nm", "--excitation_wavelength_nm", "Excitation wavelength (confocal)", false, true, 200.0, 700.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &pinholeRadius_nm, "Pinhole Radius (nm)", true, "pinhole_radius_nm", "--pinhole_radius_nm", "Pinhole radius at the sample plane (reporting only)", false, true, 0.0, 10000.0, nullptr});
     getParameters().push_back({ParameterType::Int, &integration_accuracy, "Integration Accuracy", false, "integration_accuracy", "--integration_accuracy", "Integration accuracy", false, true, 1, 10, nullptr});
     getParameters().push_back({ParameterType::Float, &oversampling_factor, "Oversampling Factor", false, "oversampling_factor", "--oversampling_factor", "Oversampling factor", false, true, 1.0, 10.0, nullptr});
     getParameters().push_back({ParameterType::Float, &pixelSizeAxial_nm, "Pixel Size Axial (nm)", false, "pixel_size_axial_nm", "--pixel_size_axial_nm", "Pixel size axial", false, true, 1.0, 1000.0, nullptr});
@@ -55,7 +57,9 @@ GibsonLanniPSFConfig::GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other)
     tg_nm = other.tg_nm;
     ns = other.ns;
     particleAxialPosition_nm = other.particleAxialPosition_nm;
-    wavelength_nm = other.wavelength_nm;
+    emissionWavelength_nm = other.emissionWavelength_nm;
+    excitationWavelength_nm = other.excitationWavelength_nm;
+    pinholeRadius_nm = other.pinholeRadius_nm;
     integration_accuracy = other.integration_accuracy;
     oversampling_factor = other.oversampling_factor;
     pixelSizeAxial_nm = other.pixelSizeAxial_nm;

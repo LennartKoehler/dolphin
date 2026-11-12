@@ -42,7 +42,7 @@ double rayleighToFwhmAxial(double rayleighAxial) {
 
 
 ApproxResolution approximateResolution(const GibsonLanniPSFConfig& config, int criterion) {
-    const double lambda = static_cast<double>(config.wavelength_nm);
+    const double lambda = static_cast<double>(config.emissionWavelength_nm);
     const double NA = static_cast<double>(config.NA);
     const double n = static_cast<double>(config.ns);
 

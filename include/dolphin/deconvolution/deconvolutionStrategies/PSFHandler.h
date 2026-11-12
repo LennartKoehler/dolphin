@@ -51,6 +51,7 @@ private:
     Result<PaddingScheme> makePaddingScheme(CuboidShape totalPadding) const;
 
     void loadConfigsFromSetup(const SetupConfig& setupConfig);
+    void validateModality() const;
 
     std::shared_ptr<ThreadPool> threadpool;
     progressCallbackFn progressFn;

@@ -21,6 +21,11 @@ ConfigMap resolutionCriterionMap{{
     {"sigma", static_cast<int>(PSFConfig::ResolutionCriterion::SIGMA)},
 }};
 
+ConfigMap microscopeModalityMap{{
+    {"widefield", static_cast<int>(PSFConfig::MicroscopeModality::WIDEFIELD)},
+    {"confocal", static_cast<int>(PSFConfig::MicroscopeModality::CONFOCAL)},
+}};
+
 PSFConfig::PSFConfig(){
     registerAllParameters();
 }
@@ -37,6 +42,7 @@ PSFConfig::PSFConfig(const PSFConfig& other)
     sizeZ = other.sizeZ;
     cutoffThreshold = other.cutoffThreshold;
     resolutionCriterion = other.resolutionCriterion;
+    microscopeModality = other.microscopeModality;
     normalizePSF = other.normalizePSF;
     registerAllParameters();
 
@@ -90,6 +96,8 @@ void PSFConfig::registerAllParameters(){
     parameters.push_back({ParameterType::Int, &sizeZ, "Size Z", false, "size_z", "--size_z", "PSF size Z (0 = auto)", false, true, 0, 512, nullptr});
     parameters.push_back({ParameterType::String, &ID, "ID", true, "id", "--id", "PSF identifier", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &psfModelName, "Model Name", true, "model_name", "--model_name", "PSF model name", false, false, 0.0, 0.0, nullptr});
+    const void* microscopeModalityMap_p = static_cast<const void*>(&microscopeModalityMap);
+    parameters.push_back({ParameterType::Map, &microscopeModality, "Microscope Modality", true, "microscope_modality", "--microscope_modality", "Image-formation model of the PSF: widefield, confocal", false, false, 0.0, 0.0, microscopeModalityMap_p});
     parameters.push_back({ParameterType::Float, &cutoffThreshold, "Cutoff Threshold", true, "cutoff_threshold", "--cutoff_threshold", "Relative intensity cutoff for auto-size PSF (0 = derive from padding strategy)", false, true, 0.0, 1.0, nullptr});
     const void* resolutionCriterionMap_p = static_cast<const void*>(&resolutionCriterionMap);
     parameters.push_back({ParameterType::Map, &resolutionCriterion, "Resolution Criterion", true, "resolution_criterion", "--resolution_criterion", "Optical-resolution criterion used to size the auto-size PSF box: rayleigh, fwhm, sigma", false, true, 0.0, 2.0, resolutionCriterionMap_p});

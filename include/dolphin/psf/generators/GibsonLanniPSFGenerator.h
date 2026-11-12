@@ -38,12 +38,53 @@ public:
 		size_t lateralCutoff;
 	};
 	SliceData singlePlanePSF(const GibsonLanniPSFConfig& config, size_t forcedCutoff = 0) const;
+	/** Confocal slice: voxel-wise product of the excitation profile and the
+	 *  detection profile. With a finite pinhole (pinholeRadius_nm > 0) the
+	 *  detection profile is first convolved with the pinhole disc at the
+	 *  sample plane; otherwise it is a point-pinhole (Airy-unit) product. */
+	SliceData confocalPlanePSF(const GibsonLanniPSFConfig& config, size_t forcedCutoff) const;
 
 private:
 	void initBesselHelper(size_t sizeX, size_t sizeY) const;
 	PSF generateFixedSizePSF() const;
 	PSF generateAutoSizePSF() const;
+
 	static double integrationUpperBound(const GibsonLanniPSFConfig& cfg);
+
+	/** Radial |integral|^2 profile of one wavelength, tabulated at
+	 *  samplesPerPixel samples per lateral pixel out to maxLateralPixels.
+	 *  Cached per (ti_nm, lambda_nm, samplesPerPixel). */
+	std::vector<double> computeRadialProfile(const GibsonLanniPSFConfig& sliceCfg,
+	                                         double lambda_nm,
+	                                         size_t samplesPerPixel,
+	                                         size_t maxLateralPixels,
+	                                         size_t forcedCutoff) const;
+
+	/** Sample the radial profile onto the (2*cutoff+1)^2 slice grid. */
+	static SliceData blitRadialProfile(const std::vector<double>& h,
+	                                   size_t samplesPerPixel,
+	                                   size_t cutoffPixels);
+
+	/** Wavelength actually used for the excitation integral in confocal mode. */
+	static double excitationLambda(const GibsonLanniPSFConfig& cfg);
+
+	/** Linear interpolation of a radial profile h at physical radius r_nm.
+	 *  Zero beyond the tabulated support. */
+	static double sampleRadialProfile(const std::vector<double>& h,
+	                                  double samplesPerPixel,
+	                                  double pixelSizeLateral_nm,
+	                                  double r_nm);
+
+	/** Replace a radial intensity profile by its finite-pinhole average:
+	 *  I_pin(r) = (1/(pi R^2)) \int_{disc R} I(|r - s|) d^2s, evaluated in
+	 *  polar coordinates. R is the pinhole radius at the sample plane in nm.
+	 *  Normalised by the pinhole area so the point-pinhole limit (R -> 0)
+	 *  preserves the profile amplitude. Returns a profile on the same radial
+	 *  grid as the input. */
+	static std::vector<double> convolveRadialWithPinhole(const std::vector<double>& h,
+	                                                     double samplesPerPixel,
+	                                                     double pixelSizeLateral_nm,
+	                                                     double pinholeRadius_nm);
 
 	// Scale the PSF so its total integral is 1 (unit flux). No-op if the sum is 0.
 	static void normalizeUnitFlux(PSF& psf);
@@ -52,7 +93,7 @@ private:
     std::shared_ptr<GibsonLanniPSFConfig> config;
     mutable BesselHelper besselHelper;
 
-	mutable std::map<double, std::vector<double>> cachedRadialProfiles;
+	mutable std::map<std::pair<double, double>, std::vector<double>> cachedRadialProfiles;
 	mutable std::mutex cacheMutex;
 };
 

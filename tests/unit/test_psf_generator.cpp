@@ -402,7 +402,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniBoxHalfExtentModel) {
     cfg.ni = 1.33f;
     cfg.ni0 = 1.33f;
     cfg.ns = 1.33f;
-    cfg.wavelength_nm = 520.0f;
+    cfg.emissionWavelength_nm = 520.0f;
     cfg.pixelSizeLateral_nm = 100.0f;
     cfg.pixelSizeAxial_nm = 100.0f;
     cfg.sizeZ = 64;
@@ -431,7 +431,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniApproximateResolutionAxial) {
     GibsonLanniPSFConfig cfg;
     cfg.NA = 1.4f;
     cfg.ns = 1.33f;
-    cfg.wavelength_nm = 450.0f;
+    cfg.emissionWavelength_nm = 450.0f;
 
     auto rayleigh = PSFBoxSizing::approximateResolution(cfg, PSFConfig::ResolutionCriterion::RAYLEIGH);
     auto fwhm = PSFBoxSizing::approximateResolution(cfg, PSFConfig::ResolutionCriterion::FWHM);
@@ -488,7 +488,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxSizeCatalog) {
         cfg.ns = c.ns;
         cfg.ng = 1.5f;
         cfg.ng0 = 1.5f;
-        cfg.wavelength_nm = c.lambda_nm;
+        cfg.emissionWavelength_nm = c.lambda_nm;
         cfg.pixelSizeLateral_nm = c.pxLat_nm;
         cfg.pixelSizeAxial_nm = c.pxAx_nm;
         cfg.sizeZ = c.sizeZ;
@@ -780,4 +780,327 @@ TEST_F(PSFGeneratorTest, PSFHandlerDerivesCutoffFromPaddingStrategy) {
     EXPECT_GT(derived.width, loose.width);
     EXPECT_GT(derived.depth, loose.depth);
     EXPECT_LE(derived.width, 128u);
+}
+
+// ---------------------------------------------------------------------------
+// Confocal Gibson-Lanni (product of excitation and emission integrals)
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// Auto-size confocal-capable config with pitch fine enough to resolve FWHM.
+inline json confocalGlJSON(bool confocal, double pinholeRadius_nm = 280.0) {
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["NA"] = 0.7;
+    j["immersion_ri_design"] = 1.515;
+    j["immersion_ri_experimental"] = 1.515;
+    j["sample_ri"] = 1.338;
+    j["pixel_size_axial_nm"] = 100.0;
+    j["pixel_size_lateral_nm"] = 100.0;
+    j["integration_accuracy"] = 4;
+    j["wavelength_nm"] = 520.0;
+    j["microscope_modality"] = confocal ? "confocal" : "widefield";
+    j["excitation_wavelength_nm"] = 488.0;
+    j["pinhole_radius_nm"] = pinholeRadius_nm;
+    return j;
+}
+
+double fwhmAlongAxis(const PSF& psf, int axis, double pitch_nm) {
+    CuboidShape shape = psf.getShape();
+    const size_t dims[3] = {shape.width, shape.height, shape.depth};
+
+    // Global peak voxel.
+    float peak = 0.0f;
+    size_t at[3] = {0, 0, 0};
+    for (size_t z = 0; z < shape.depth; z++)
+        for (size_t y = 0; y < shape.height; y++)
+            for (size_t x = 0; x < shape.width; x++) {
+                float v = psf.getPixel(x, y, z);
+                if (v > peak) { peak = v; at[0] = x; at[1] = y; at[2] = z; }
+            }
+
+    // Profile through the peak along the requested axis.
+    std::vector<double> profile(dims[axis]);
+    for (size_t i = 0; i < dims[axis]; i++) {
+        size_t p[3] = {at[0], at[1], at[2]};
+        p[axis] = i;
+        profile[i] = psf.getPixel(p[0], p[1], p[2]);
+    }
+
+    const double half = profile[at[axis]] / 2.0;
+    auto crossing = [&](long start, long step) -> double {
+        for (long i = start; i >= 0 && i < static_cast<long>(dims[axis]) - 1; i += step) {
+            if (profile[i] < half) {
+                // a = last value above half, b = first below; walk from a
+                // toward b by the fractional half-max position (step-signed).
+                const double a = profile[i - step];
+                const double b = profile[i];
+                const double t = (a - half) / (a - b);
+                return static_cast<double>(i - step) + static_cast<double>(step) * t;
+            }
+        }
+        return step > 0 ? static_cast<double>(dims[axis] - 1) : 0.0;
+    };
+
+    const double right = crossing(static_cast<long>(at[axis]), 1);
+    const double left = crossing(static_cast<long>(at[axis]), -1);
+    return (right - left) * pitch_nm;
+}
+
+struct ConfocalMetrics {
+    double lateralFWHM_nm;
+    double axialFWHM_nm;
+    double central3Fraction;  // energy in the 3 slices around the focal plane
+    double peak;
+};
+
+ConfocalMetrics measureMetrics(const PSF& psf, double pitchLateral_nm, double pitchAxial_nm) {
+    ConfocalMetrics m;
+    m.lateralFWHM_nm = fwhmAlongAxis(psf, 0, pitchLateral_nm);
+    m.axialFWHM_nm = fwhmAlongAxis(psf, 2, pitchAxial_nm);
+    m.peak = psf.getMax();
+
+    double total = 0.0;
+    for (auto it = psf.cbegin(); it != psf.cend(); ++it)
+        total += *it;
+
+    CuboidShape shape = psf.getShape();
+    // Focal plane proxy: the peak slice (tests allow +-2 slices off center).
+    size_t peakZ = 0;
+    double peakSliceSum = -1.0;
+    for (size_t z = 0; z < shape.depth; z++) {
+        double s = 0.0;
+        for (size_t y = 0; y < shape.height; y++)
+            for (size_t x = 0; x < shape.width; x++)
+                s += psf.getPixel(x, y, z);
+        if (s > peakSliceSum) { peakSliceSum = s; peakZ = z; }
+    }
+    double central3 = 0.0;
+    if (peakZ >= 1) for (size_t y = 0; y < shape.height; y++)
+        for (size_t x = 0; x < shape.width; x++)
+            central3 += psf.getPixel(x, y, peakZ - 1);
+    for (size_t y = 0; y < shape.height; y++)
+        for (size_t x = 0; x < shape.width; x++)
+            central3 += psf.getPixel(x, y, peakZ);
+    if (peakZ + 1 < shape.depth) for (size_t y = 0; y < shape.height; y++)
+        for (size_t x = 0; x < shape.width; x++)
+            central3 += psf.getPixel(x, y, peakZ + 1);
+
+    m.central3Fraction = total > 0.0 ? central3 / total : 0.0;
+    return m;
+}
+
+} // namespace
+
+TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+
+    auto config = factory.createConfig(confocalGlJSON(true));
+    auto* gl = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
+    ASSERT_NE(gl, nullptr);
+    EXPECT_TRUE(gl->isConfocalPSF());
+    EXPECT_FLOAT_EQ(gl->excitationWavelength_nm, 488.0f);
+    EXPECT_FLOAT_EQ(gl->pinholeRadius_nm, 280.0f);
+    EXPECT_FLOAT_EQ(gl->emissionWavelength_nm, 520.0f);
+
+    // Copy semantics carry the confocal fields (setConfig copies the config).
+    GibsonLanniPSFConfig copied = *gl;
+    EXPECT_TRUE(copied.isConfocalPSF());
+    EXPECT_FLOAT_EQ(copied.excitationWavelength_nm, 488.0f);
+    EXPECT_FLOAT_EQ(copied.pinholeRadius_nm, 280.0f);
+
+    // Config without a modality -> widefield default, and the legacy
+    // "wavelength_nm" JSON key still lands on the emission wavelength.
+    auto legacy = factory.createConfig(json::parse(TestUtils::gibsonLanniPSFConfigJSON()));
+    auto* glLegacy = dynamic_cast<GibsonLanniPSFConfig*>(legacy.get());
+    ASSERT_NE(glLegacy, nullptr);
+    EXPECT_FALSE(glLegacy->isConfocalPSF());
+    EXPECT_FLOAT_EQ(glLegacy->emissionWavelength_nm, 450.0f);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniConfocalNarrowerThanWidefield) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+
+    auto widefieldConfig = factory.createConfig(confocalGlJSON(false));
+    PSF widefield = factory.createGenerator(widefieldConfig)->generatePSF();
+    auto confocalConfig = factory.createConfig(confocalGlJSON(true));
+    PSF confocal = factory.createGenerator(confocalConfig)->generatePSF();
+
+    EXPECT_EQ(widefield.getShape(), confocal.getShape());
+
+    ConfocalMetrics wf = measureMetrics(widefield, 100.0, 100.0);
+    ConfocalMetrics cf = measureMetrics(confocal, 100.0, 100.0);
+
+    // Unit flux for both: the confocal PSF concentrates the same energy.
+    double sumWf = 0.0, sumCf = 0.0;
+    for (auto it = widefield.cbegin(); it != widefield.cend(); ++it) sumWf += *it;
+    for (auto it = confocal.cbegin(); it != confocal.cend(); ++it) sumCf += *it;
+    EXPECT_NEAR(sumWf, 1.0, 1e-4);
+    EXPECT_NEAR(sumCf, 1.0, 1e-4);
+
+    // Confocal: narrower laterally and axially, higher peak, more in-focus energy.
+    EXPECT_LT(cf.lateralFWHM_nm, wf.lateralFWHM_nm);
+    EXPECT_LT(cf.axialFWHM_nm, wf.axialFWHM_nm);
+    EXPECT_GT(cf.peak, 3.0 * wf.peak);
+    EXPECT_GT(cf.central3Fraction, wf.central3Fraction);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniConfocalFixedSize) {
+    // The fixed-size generator branches on confocal too; both paths must
+    // produce a centered, finite confocal slice stack.
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = confocalGlJSON(true);
+    j["size_x"] = 33;
+    j["size_y"] = 33;
+    j["size_z"] = 21;
+    auto config = factory.createConfig(j);
+    PSF psf = factory.createGenerator(config)->generatePSF();
+
+    CuboidShape shape = psf.getShape();
+    EXPECT_EQ(shape, CuboidShape(33, 33, 21));
+
+    float peak = psf.getMax();
+    EXPECT_GT(peak, 0.0f);
+    size_t cx = shape.width / 2, cy = shape.height / 2, cz = shape.depth / 2;
+    float center = psf.getPixel(cx, cy, cz);
+    EXPECT_GT(center, 0.5f * peak);  // peak on the central voxel region
+
+    for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
+        EXPECT_FALSE(std::isnan(*it));
+        EXPECT_FALSE(std::isinf(*it));
+    }
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniConfocalCacheInvalidation) {
+    // Profiles are cached per (ti_nm, lambda): two confocal configs that share
+    // ti_nm but differ only in the excitation wavelength must produce
+    // different PSFs on the same generator instance.
+    auto& factory = PSFGeneratorFactory::getInstance();
+    auto buildConfig = [&factory](double excitation_nm) {
+        json j = confocalGlJSON(true);
+        j["excitation_wavelength_nm"] = excitation_nm;
+        return factory.createConfig(j);
+    };
+
+    auto gen = std::make_shared<GibsonLanniPSFGenerator>();
+    gen->configure(std::make_shared<ThreadPool>(), nullptr);
+
+    gen->setConfig(buildConfig(488.0));
+    PSF first = gen->generatePSF();
+
+    gen->setConfig(buildConfig(505.0));
+    PSF second = gen->generatePSF();
+
+    EXPECT_EQ(first.getShape(), second.getShape());
+    EXPECT_FALSE(first.isEqual(second, 1e-4f));
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniConfocalMetrics) {
+    // User's confocal setup: NA 0.55 glycerol immersion (1.43) on water sample
+    // (1.338), 488 excitation / 520 emission. Sanity ratios are asserted;
+    // absolute values are printed for manual comparison against the Huygens
+    // confocal_psf reference (measured: lateral 386 nm, axial 3067 nm,
+    // central-3-slice energy 32%). Note: central3Fraction depends on the
+    // axial pitch (100 nm here) - compare against Huygens only at matched
+    // pitch. Expected product-model values at this pitch: lateral ~338 nm,
+    // axial ~2900 nm.
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = confocalGlJSON(true);
+    j["NA"] = 0.55;
+    j["immersion_ri_design"] = 1.43;
+    j["immersion_ri_experimental"] = 1.43;
+    j["coverslip_thickness_design_nm"] = 170000.0;
+    j["coverslip_thickness_experimental_nm"] = 170000.0;
+    j["working_distance_design_nm"] = 0.0;
+    j["working_distance_experimental_nm"] = 0.0;
+    j["size_z"] = 32;  // imaged defocus range driving the auto-size box
+    auto confocalConfig = factory.createConfig(j);
+    PSF confocal = factory.createGenerator(confocalConfig)->generatePSF();
+
+    j["microscope_modality"] = "widefield";
+    auto widefieldConfig = factory.createConfig(j);
+    PSF widefield = factory.createGenerator(widefieldConfig)->generatePSF();
+
+    ConfocalMetrics wf = measureMetrics(widefield, 100.0, 100.0);
+    ConfocalMetrics cf = measureMetrics(confocal, 100.0, 100.0);
+
+    std::cout << "[ConfocalMetrics] widefield: lateralFWHM=" << wf.lateralFWHM_nm
+              << "nm axialFWHM=" << wf.axialFWHM_nm
+              << "nm central3=" << wf.central3Fraction * 100.0 << "%"
+              << " peak=" << wf.peak << std::endl;
+    std::cout << "[ConfocalMetrics] confocal:  lateralFWHM=" << cf.lateralFWHM_nm
+              << "nm axialFWHM=" << cf.axialFWHM_nm
+              << "nm central3=" << cf.central3Fraction * 100.0 << "%"
+              << " peak=" << cf.peak
+              << " peakRatio=" << cf.peak / wf.peak << std::endl;
+
+    EXPECT_GT(cf.peak, 3.0 * wf.peak);
+    EXPECT_LT(cf.lateralFWHM_nm, wf.lateralFWHM_nm);
+    EXPECT_LT(cf.axialFWHM_nm, wf.axialFWHM_nm);
+    EXPECT_GT(cf.lateralFWHM_nm / wf.lateralFWHM_nm, 0.55);
+    EXPECT_LT(cf.lateralFWHM_nm / wf.lateralFWHM_nm, 0.95);
+    EXPECT_GT(cf.axialFWHM_nm / wf.axialFWHM_nm, 0.55);
+    EXPECT_LT(cf.axialFWHM_nm / wf.axialFWHM_nm, 0.95);
+    EXPECT_GT(cf.central3Fraction, wf.central3Fraction);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniPinholeZeroIsPointPinhole) {
+    // pinhole_radius_nm == 0 must leave the detection profile untouched, i.e.
+    // the point-pinhole product model. This is the reference the finite
+    // pinhole convolution is compared against.
+    auto& factory = PSFGeneratorFactory::getInstance();
+
+    json j = confocalGlJSON(true, 0.0);
+    j["size_x"] = 41;
+    j["size_y"] = 41;
+    j["size_z"] = 9;
+    j["pixel_size_axial_nm"] = 300.0;
+    auto config = factory.createConfig(j);
+    PSF psf = factory.createGenerator(config)->generatePSF();
+
+    for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
+        EXPECT_FALSE(std::isnan(*it));
+        EXPECT_GE(*it, 0.0f);
+    }
+    EXPECT_GT(psf.getMax(), 0.0f);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniFinitePinholeBroadensDetection) {
+    // A finite pinhole convolves the detection PSF with the pinhole disc,
+    // which can only broaden the confocal PSF laterally relative to the
+    // point-pinhole limit, while staying narrower than the widefield PSF.
+    auto& factory = PSFGeneratorFactory::getInstance();
+
+    auto build = [&](double pinhole_nm) {
+        json j = confocalGlJSON(true, pinhole_nm);
+        j["size_x"] = 41;
+        j["size_y"] = 41;
+        j["size_z"] = 9;
+        j["pixel_size_lateral_nm"] = 50.0;
+        j["pixel_size_axial_nm"] = 300.0;
+        return factory.createConfig(j);
+    };
+
+    PSF point = factory.createGenerator(build(0.0))->generatePSF();
+    PSF finite = factory.createGenerator(build(300.0))->generatePSF();
+
+    ConfocalMetrics pointM = measureMetrics(point, 50.0, 300.0);
+    ConfocalMetrics finiteM = measureMetrics(finite, 50.0, 300.0);
+
+    std::cout << "[Pinhole] point lateralFWHM=" << pointM.lateralFWHM_nm
+              << "nm peak=" << pointM.peak << std::endl;
+    std::cout << "[Pinhole] finite(r=300nm) lateralFWHM=" << finiteM.lateralFWHM_nm
+              << "nm peak=" << finiteM.peak << std::endl;
+
+    // Finite pinhole: broader than point pinhole, lower peak.
+    EXPECT_GT(finiteM.lateralFWHM_nm, pointM.lateralFWHM_nm);
+    EXPECT_LT(finiteM.peak, pointM.peak);
+
+    // The convolution redistributes energy without creating/destroying it:
+    // the integrated detection signal is preserved up to the pinhole truncation
+    // at the box edge, so both stacks must be finite and non-negative.
+    for (auto it = finite.cbegin(); it != finite.cend(); ++it) {
+        EXPECT_FALSE(std::isnan(*it));
+        EXPECT_GE(*it, 0.0f);
+    }
 }

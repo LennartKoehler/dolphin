@@ -107,6 +107,15 @@ PSF GibsonLanniPSFGenerator::generatePSF() const {
         spdlog::warn("GibsonLanni: NA*rho/ns > 1 within the integration domain (ns={}, NA={}, rho_max={})",
                      config->ns, config->NA, rhoMax);
 
+    if (config->isConfocalPSF()) {
+        const double airyRadius_nm = 0.61 * config->emissionWavelength_nm / config->NA;
+        const double pinholeAU = config->pinholeRadius_nm / airyRadius_nm;
+        spdlog::debug("GibsonLanni confocal PSF: excitation {:.1f} nm, emission {:.1f} nm, pinhole radius {:.1f} nm = {:.2f} AU ({})",
+                     excitationLambda(*config), config->emissionWavelength_nm,
+                     config->pinholeRadius_nm, pinholeAU,
+                     config->pinholeRadius_nm > 0.0f ? "finite-pinhole convolution" : "point pinhole");
+    }
+
     if (config->autoSize || config->sizeX == 0 || config->sizeY == 0 || config->sizeZ == 0) {
         // Auto-size sizes the Bessel table itself to the computed box.
         return generateAutoSizePSF();
@@ -156,7 +165,7 @@ PSF GibsonLanniPSFGenerator::generateFixedSizePSF() const {
     sliceFutures.reserve(sizeZ);
     for (size_t z = 0; z < sizeZ; z++) {
         sliceFutures.emplace_back(threadPool->enqueue([this, cfg = makeSliceCfg(z), lateralHalf]() {
-            return singlePlanePSF(cfg, lateralHalf);
+            return config->isConfocalPSF() ? confocalPlanePSF(cfg, lateralHalf) : singlePlanePSF(cfg, lateralHalf);
         }));
     }
 
@@ -219,7 +228,7 @@ PSF GibsonLanniPSFGenerator::generateAutoSizePSF() const
     sliceFutures.reserve(psfD);
     for (long offset = -axialHalf; offset <= axialHalf; ++offset) {
         sliceFutures.emplace_back(threadPool->enqueue([this, cfg = makeCfg(offset), lateralHalf]() {
-            return singlePlanePSF(cfg, lateralHalf);
+            return config->isConfocalPSF() ? confocalPlanePSF(cfg, lateralHalf) : singlePlanePSF(cfg, lateralHalf);
         }));
     }
 
@@ -282,7 +291,14 @@ void GibsonLanniPSFGenerator::initBesselHelper(size_t sizeX, size_t sizeY) const
     double x0 = (nx - 1) / 2.0;
     double y0 = (ny - 1) / 2.0;
 
-    double k0 = 2.0 * M_PI / config->wavelength_nm;
+    // One shared J0 table serves both integrals: it must cover the largest
+    // argument k0*NA*r*rho, which grows as the wavelength shrinks. In
+    // confocal mode size it for the shorter of the two wavelengths.
+    double lambda_nm = config->emissionWavelength_nm;
+    if (config->isConfocalPSF())
+        lambda_nm = std::min(lambda_nm, excitationLambda(*config));
+
+    double k0 = 2.0 * M_PI / lambda_nm;
     size_t maxRadius = static_cast<size_t>(std::round(std::sqrt((nx - x0) * (nx - x0) + (ny - y0) * (ny - y0)))) + 1;
 
     double max_k0NAr = k0 * config->NA * maxRadius * config->pixelSizeLateral_nm;
@@ -321,55 +337,202 @@ bool cachedProfileComplete(const std::vector<double>& h, size_t forcedCutoff, si
 } // namespace
 
 GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const GibsonLanniPSFConfig& config, size_t forcedCutoff) const {
-    int oversampling_factor = config.oversampling_factor;
-    double NA = config.NA;
-    double pixelSizeLateral_nm = config.pixelSizeLateral_nm;
-    double threshold = static_cast<double>(config.cutoffThreshold);
+    const size_t samplesPerPixel = static_cast<size_t>(config.oversampling_factor);
+    const size_t maxLateral = forcedCutoff > 0 ? forcedCutoff : (std::min(config.sizeX, config.sizeY) / 2);
 
-    size_t maxLateral = forcedCutoff > 0 ? forcedCutoff : (std::min(config.sizeX, config.sizeY) / 2);
-    size_t maxSamples = maxLateral * oversampling_factor;
+    const double lambda_nm = static_cast<double>(config.emissionWavelength_nm);
+    const std::vector<double> h = computeRadialProfile(config, lambda_nm, samplesPerPixel, maxLateral, forcedCutoff);
+
+    const size_t cutoff = forcedCutoff > 0 ? forcedCutoff
+        : static_cast<size_t>(std::ceil(static_cast<double>(h.size() - 1) / static_cast<double>(samplesPerPixel)));
+    progressTracker.add(1);
+
+    return blitRadialProfile(h, samplesPerPixel, cutoff);
+}
+
+GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::confocalPlanePSF(const GibsonLanniPSFConfig& config, size_t forcedCutoff) const {
+    // The product of two oscillatory profiles interleaves their zero sets, so
+    // its finest features are at half the period of either factor: double the
+    // radial sampling density to resolve it.
+    const size_t samplesPerPixel = 2 * static_cast<size_t>(config.oversampling_factor);
+    const size_t maxLateral = forcedCutoff > 0 ? forcedCutoff : (std::min(config.sizeX, config.sizeY) / 2);
+
+    const std::vector<double> hExc = computeRadialProfile(config, excitationLambda(config), samplesPerPixel, maxLateral, forcedCutoff);
+    std::vector<double> hEm = computeRadialProfile(config, static_cast<double>(config.emissionWavelength_nm), samplesPerPixel, maxLateral, forcedCutoff);
+
+    // Finite pinhole: average the detection PSF over the pinhole disc at the
+    // sample plane. A zero radius is the point-pinhole limit and leaves hEm
+    // untouched.
+    if (config.pinholeRadius_nm > 0.0f)
+        hEm = convolveRadialWithPinhole(hEm, static_cast<double>(samplesPerPixel),
+                                        static_cast<double>(config.pixelSizeLateral_nm),
+                                        static_cast<double>(config.pinholeRadius_nm));
+
+    // Per-profile early stops (forcedCutoff == 0) can end the profiles at
+    // different radii; the product is only defined on the common support, and
+    // beyond a threshold-stopped factor it is negligible anyway. The pinhole
+    // convolution deliberately does not extend the detection support, so the
+    // common support still covers the product.
+    const size_t len = std::min(hExc.size(), hEm.size());
+    std::vector<double> h(len);
+    for (size_t i = 0; i < len; ++i)
+        h[i] = hExc[i] * hEm[i];
+
+    const size_t cutoff = forcedCutoff > 0 ? forcedCutoff
+        : static_cast<size_t>(std::ceil(static_cast<double>(len - 1) / static_cast<double>(samplesPerPixel)));
+    progressTracker.add(1);
+
+    return blitRadialProfile(h, samplesPerPixel, cutoff);
+}
+
+std::vector<double> GibsonLanniPSFGenerator::computeRadialProfile(
+        const GibsonLanniPSFConfig& sliceCfg, double lambda_nm,
+        size_t samplesPerPixel, size_t maxLateralPixels, size_t forcedCutoff) const {
+    const double threshold = static_cast<double>(sliceCfg.cutoffThreshold);
+    const size_t maxSamples = maxLateralPixels * samplesPerPixel;
+    const std::pair<double, double> cacheKey(sliceCfg.ti_nm, lambda_nm);
 
     std::vector<double> h;
     {
         std::lock_guard<std::mutex> lock(cacheMutex);
-        auto it = cachedRadialProfiles.find(config.ti_nm);
+        auto it = cachedRadialProfiles.find(cacheKey);
         if (it != cachedRadialProfiles.end())
             h = it->second;
     }
 
-    const double k0 = 2.0 * M_PI / config.wavelength_nm;
-
     if (!cachedProfileComplete(h, forcedCutoff, maxSamples, threshold)) {
         // Fixed-node quadrature: phase tabulated once, then one MAC per radius.
-        const size_t maxRadiusSamples = forcedCutoff > 0
-            ? maxSamples
-            : maxSamples; // the per-radius break below stops early anyway
+        // The integrand is fully determined by (k0, geometry); route the
+        // wavelength through a config copy so Quadrature/Integrand stay
+        // parameter-free.
+        GibsonLanniPSFConfig cfg = sliceCfg;
+        cfg.emissionWavelength_nm = static_cast<float>(lambda_nm);
 
+        const double k0 = 2.0 * M_PI / lambda_nm;
         GibsonLanniQuadrature quadrature;
-        const double b = integrationUpperBound(config);
-        const double maxR_nm = (static_cast<double>(maxRadiusSamples) / oversampling_factor) * pixelSizeLateral_nm;
-        const double maxArg = k0 * NA * maxR_nm * b;
-        quadrature.init(config, b, GibsonLanniQuadrature::nodeCount(maxArg, config.integration_accuracy));
+        const double b = integrationUpperBound(cfg);
+        const double maxR_nm = (static_cast<double>(maxSamples) / static_cast<double>(samplesPerPixel)) * cfg.pixelSizeLateral_nm;
+        const double maxArg = k0 * cfg.NA * maxR_nm * b;
+        quadrature.init(cfg, b, GibsonLanniQuadrature::nodeCount(maxArg, cfg.integration_accuracy));
 
         h.clear();
         h.push_back(quadrature.evaluateSquared(0.0, besselHelper));
-        for (size_t n = 1; n <= maxRadiusSamples; ++n) {
-            double r_px = static_cast<double>(n) / static_cast<double>(oversampling_factor);
-            double k0NAr = k0 * NA * r_px * pixelSizeLateral_nm;
+        for (size_t n = 1; n <= maxSamples; ++n) {
+            double r_px = static_cast<double>(n) / static_cast<double>(samplesPerPixel);
+            double k0NAr = k0 * cfg.NA * r_px * cfg.pixelSizeLateral_nm;
             double val = quadrature.evaluateSquared(k0NAr, besselHelper);
             h.push_back(val);
             if (forcedCutoff == 0 && val < threshold * h[0]) break;
         }
-    }
 
-    {
         std::lock_guard<std::mutex> lock(cacheMutex);
-        cachedRadialProfiles[config.ti_nm] = h;
+        cachedRadialProfiles[cacheKey] = h;
     }
 
-    size_t cutoff = forcedCutoff > 0 ? forcedCutoff
-        : static_cast<size_t>(std::ceil(static_cast<double>(h.size() - 1) / oversampling_factor));
-    size_t gridSize = 2 * cutoff + 1;
+    return h;
+}
+
+double GibsonLanniPSFGenerator::sampleRadialProfile(const std::vector<double>& h,
+                                                    double samplesPerPixel,
+                                                    double pixelSizeLateral_nm,
+                                                    double r_nm) {
+    if (h.empty()) return 0.0;
+    // Profile sample index for a physical radius r_nm:
+    //   r_nm = (index / samplesPerPixel) * pixelSizeLateral_nm
+    const double t = (r_nm / pixelSizeLateral_nm) * samplesPerPixel;
+    if (t < 0.0) return h[0];
+    const size_t i = static_cast<size_t>(t);
+    if (i + 1 >= h.size())
+        return 0.0;  // beyond tabulated support
+    const double f = t - static_cast<double>(i);
+    return h[i] + (h[i + 1] - h[i]) * f;
+}
+
+std::vector<double> GibsonLanniPSFGenerator::convolveRadialWithPinhole(
+        const std::vector<double>& h,
+        double samplesPerPixel,
+        double pixelSizeLateral_nm,
+        double pinholeRadius_nm) {
+    // Average I_det over the pinhole disc in the sample plane:
+    //   I_pin(r) = (1 / (pi R^2)) * \int_0^R s ds \int_0^{2pi} I_det(|r - s|) dtheta
+    // The disc is circular, so only the radial distance from the output point
+    // to each source point matters. For an output point at radius r and a
+    // source point at radius s offset by angle theta, that distance is
+    //   d = sqrt(r^2 + s^2 - 2 r s cos(theta)).
+    //
+    // Quadrature: s in [0, R] (Simpson, fine enough for the detection PSF's
+    // lateral variation over the disc), theta in [0, pi] doubled by symmetry.
+    // The result is normalised by the disc area so the R -> 0 limit returns
+    // the input amplitude.
+    if (pinholeRadius_nm <= 0.0 || h.empty())
+        return h;
+
+    const double rPinhole = pinholeRadius_nm;  // nm, sample plane
+
+    // Resolve the pinhole diameter radially and its circumference
+    // azimuthally. The detection PSF's finest lateral feature is ~ the
+    // sampling step, so a handful of samples per pinhole radius plus a fixed
+    // azimuthal count is plenty; the pinhole is small (a few hundred nm).
+    const double samplesPerNm = samplesPerPixel / pixelSizeLateral_nm;
+    // The intensity profile varies smoothly over a sub-Airy pinhole; a few
+    // hundred radial samples and a modest azimuthal ring resolve the disc.
+    const size_t nS = std::clamp<size_t>(
+        static_cast<size_t>(std::ceil(rPinhole * samplesPerNm)), 32, 256) & ~size_t(1);
+    constexpr size_t nTheta = 64;
+
+    // Simpson nodes on [0, R] (plus the r=0 endpoint handled analytically).
+    const double ds = rPinhole / static_cast<double>(nS);
+    std::vector<double> sNode(nS + 1), sWeight(nS + 1);
+    for (size_t i = 0; i <= nS; ++i) {
+        sNode[i] = static_cast<double>(i) * ds;
+        // composite Simpson weights (0 and nS are half-weighted by /3 rule)
+        double w;
+        if (i == 0 || i == nS) w = 1.0;
+        else w = (i % 2 == 1) ? 4.0 : 2.0;
+        sWeight[i] = w * ds / 3.0;
+    }
+
+    const double dTheta = M_PI / static_cast<double>(nTheta);  // [0, pi], doubled
+    std::vector<double> thetaNode(nTheta + 1), thetaWeight(nTheta + 1);
+    for (size_t j = 0; j <= nTheta; ++j) {
+        thetaNode[j] = static_cast<double>(j) * dTheta;
+        double w;
+        if (j == 0 || j == nTheta) w = 1.0;
+        else w = (j % 2 == 1) ? 4.0 : 2.0;
+        thetaWeight[j] = w * dTheta / 3.0;
+    }
+
+    // Radial output grid identical to the input (r = sample / samplesPerPixel,
+    // expressed in nm).
+    const size_t nR = h.size();
+    std::vector<double> out(nR);
+
+    const double area = M_PI * rPinhole * rPinhole;
+
+    for (size_t ir = 0; ir < nR; ++ir) {
+        const double r_nm = (static_cast<double>(ir) / samplesPerPixel) * pixelSizeLateral_nm;
+        double acc = 0.0;
+        for (size_t i = 0; i <= nS; ++i) {
+            const double s = sNode[i];
+            double inner = 0.0;
+            for (size_t j = 0; j <= nTheta; ++j) {
+                const double th = thetaNode[j];
+                const double d2 = r_nm * r_nm + s * s - 2.0 * r_nm * s * std::cos(th);
+                const double d = std::sqrt(std::max(0.0, d2));
+                inner += thetaWeight[j] * sampleRadialProfile(h, samplesPerPixel,
+                                                              pixelSizeLateral_nm, d);
+            }
+            // theta integral over [0, 2*pi] = 2 * [0, pi].
+            acc += sWeight[i] * s * 2.0 * inner;
+        }
+        out[ir] = acc / area;
+    }
+
+    return out;
+}
+
+GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::blitRadialProfile(const std::vector<double>& h, size_t samplesPerPixel, size_t cutoff) {
+    const size_t gridSize = 2 * cutoff + 1;
     std::vector<float> sliceData(gridSize * gridSize, 0.0f);
 
     for (size_t y = 0; y < gridSize; y++) {
@@ -377,12 +540,12 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const
             double dx = static_cast<double>(x) - static_cast<double>(cutoff);
             double dy = static_cast<double>(y) - static_cast<double>(cutoff);
             double rPixel = std::sqrt(dx * dx + dy * dy);
-            size_t index = static_cast<size_t>(std::floor(rPixel * oversampling_factor));
+            size_t index = static_cast<size_t>(std::floor(rPixel * static_cast<double>(samplesPerPixel)));
 
             double value = 0.0;
             if (index + 1 < h.size()) {
-                double r0 = static_cast<double>(index) / static_cast<double>(oversampling_factor);
-                value = h[index] + (h[index + 1] - h[index]) * (rPixel - r0) * oversampling_factor;
+                double r0 = static_cast<double>(index) / static_cast<double>(samplesPerPixel);
+                value = h[index] + (h[index + 1] - h[index]) * (rPixel - r0) * static_cast<double>(samplesPerPixel);
             } else if (index < h.size()) {
                 value = h[index];
             }
@@ -390,15 +553,23 @@ GibsonLanniPSFGenerator::SliceData GibsonLanniPSFGenerator::singlePlanePSF(const
             sliceData[y * gridSize + x] = static_cast<float>(value);
         }
     }
-    progressTracker.add(1);
 
     return {std::move(sliceData), cutoff};
+}
+
+double GibsonLanniPSFGenerator::excitationLambda(const GibsonLanniPSFConfig& cfg) {
+    // Widefield configs carry no excitation wavelength; falling back to the
+    // emission wavelength keeps the confocal path a strict product of two
+    // identical integrals in that (degenerate) case.
+    if (cfg.excitationWavelength_nm <= 0.0f)
+        return static_cast<double>(cfg.emissionWavelength_nm);
+    return static_cast<double>(cfg.excitationWavelength_nm);
 }
 
 
 GibsonLanniIntegrand::GibsonLanniIntegrand(const GibsonLanniPSFConfig& config, double r, const BesselHelper& besselHelper)
     : config(config), r(r), besselHelper(besselHelper) {
-        k0 = 2.0 * M_PI / config.wavelength_nm;
+        k0 = 2.0 * M_PI / config.emissionWavelength_nm;
         k0NAr = k0 * config.NA * r;
     }
 
@@ -451,7 +622,7 @@ size_t GibsonLanniQuadrature::nodeCount(double maxArgument, int accuracy) {
 void GibsonLanniQuadrature::init(const GibsonLanniPSFConfig& config, double upperBound, size_t n) {
     if (n < 2) n = 2;
     const double del = upperBound / static_cast<double>(n);
-    const double k0 = 2.0 * M_PI / config.wavelength_nm;
+    const double k0 = 2.0 * M_PI / config.emissionWavelength_nm;
 
     rho.resize(n);
     cosW.resize(n);

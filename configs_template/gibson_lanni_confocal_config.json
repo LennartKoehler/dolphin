@@ -1,0 +1,66 @@
+{
+  "deconvolution_config": {
+    "algorithm_name": "RichardsonLucy",
+    "iterations": 30,
+    "min_denominator": 1e-6,
+    "signal_to_noise": 0.015,
+    "padding_fill": "mirror",
+    "padding_strategy": "max",
+    "padding_relative_max": 0.0,
+    "feathering_radius": 0,
+    "cube_size": [0, 0, 0],
+    "cube_padding": [-1, -1, -1]
+  },
+
+  "psf_configs": [
+    {
+      "model_name": "GibsonLanni",
+      "id": "GL_Confocal_PSF",
+      "size_x": 0,
+      "size_y": 0,
+      "size_z": 0,
+      "NA": 0.55,
+      "microscope_modality": "confocal",
+      "excitation_wavelength_nm": 488.0,
+      "pinhole_radius_nm": 280.0,
+      "wavelength_nm": 520.0,
+      "working_distance_design_nm": 150000.0,
+      "working_distance_experimental_nm": 150000.0,
+      "immersion_ri_design": 1.43,
+      "immersion_ri_experimental": 1.43,
+      "coverslip_thickness_design_nm": 170000.0,
+      "coverslip_thickness_experimental_nm": 170000.0,
+      "coverslip_ri_design": 1.5,
+      "coverslip_ri_experimental": 1.5,
+      "sample_ri": 1.338,
+      "particle_axial_position_nm": 0.0,
+      "pixel_size_axial_nm": 100.0,
+      "pixel_size_lateral_nm": 100.0,
+      "oversampling_factor": 4.0,
+      "integration_accuracy": 5,
+      "resolution_criterion": "rayleigh",
+      "normalize_psf": true
+    }
+  ],
+
+  "setup_config": {
+    "image_path": "<path/to/input.tif>",
+    "output": "<path/to/output.tif>",
+    "backend": "cpu",
+    "n_threads": 1,
+    "n_worker_threads": 11,
+    "n_io_threads": 2,
+    "n_devices": 1,
+    "n_reader_threads": 0,
+    "max_mem_host_gb": 64,
+    "max_mem_device_gb": 8,
+    "psf_file_paths": [],
+    "save_psf": true,
+    "labeled_image": "",
+    "label_psf_map": "",
+    "output_compression": "none",
+    "output_compression_level": -1,
+    "tile_width": 0,
+    "tile_length": 0
+  }
+}

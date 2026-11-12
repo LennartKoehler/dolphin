@@ -205,7 +205,43 @@ TEST_F(ConfigTest, GibsonLanniPSFConfigLoadFromJSON) {
     auto* glConfig = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
     ASSERT_NE(glConfig, nullptr);
     EXPECT_FLOAT_EQ(glConfig->NA, 1.4f);
-    EXPECT_FLOAT_EQ(glConfig->wavelength_nm, 450.0f);
+    EXPECT_FLOAT_EQ(glConfig->emissionWavelength_nm, 450.0f);
+}
+
+TEST_F(ConfigTest, PSFConfigMicroscopeModalityDefaultsWidefield) {
+    auto config = PSFConfig::createFromJSON(json::parse(TestUtils::gibsonLanniPSFConfigJSON()));
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->microscopeModality, PSFConfig::MicroscopeModality::WIDEFIELD);
+    EXPECT_FALSE(config->isConfocalPSF());
+}
+
+TEST_F(ConfigTest, PSFConfigMicroscopeModalityFromJSON) {
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["microscope_modality"] = "confocal";
+    auto config = PSFConfig::createFromJSON(j);
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->microscopeModality, PSFConfig::MicroscopeModality::CONFOCAL);
+    EXPECT_TRUE(config->isConfocalPSF());
+
+    j["microscope_modality"] = "widefield";
+    EXPECT_FALSE(PSFConfig::createFromJSON(j)->isConfocalPSF());
+}
+
+TEST_F(ConfigTest, PSFConfigMicroscopeModalityInvalidFallsBack) {
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["microscope_modality"] = "lightfield";
+    auto config = PSFConfig::createFromJSON(j);
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->microscopeModality, PSFConfig::MicroscopeModality::WIDEFIELD);
+}
+
+TEST_F(ConfigTest, PSFConfigMicroscopeModalityCopies) {
+    auto config = std::make_shared<GibsonLanniPSFConfig>();
+    config->microscopeModality = PSFConfig::MicroscopeModality::CONFOCAL;
+    // The generator copies the config via the GibsonLanni copy constructor;
+    // the modality must survive the copy.
+    GibsonLanniPSFConfig copied(*config);
+    EXPECT_TRUE(copied.isConfocalPSF());
 }
 
 TEST_F(ConfigTest, PSFConfigInvalidModel) {
