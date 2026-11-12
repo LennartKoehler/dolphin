@@ -15,6 +15,12 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/PSFGeneratorFactory.h"
 #include <spdlog/spdlog.h>
 
+ConfigMap resolutionCriterionMap{{
+    {"rayleigh", static_cast<int>(PSFConfig::ResolutionCriterion::RAYLEIGH)},
+    {"fwhm", static_cast<int>(PSFConfig::ResolutionCriterion::FWHM)},
+    {"sigma", static_cast<int>(PSFConfig::ResolutionCriterion::SIGMA)},
+}};
+
 PSFConfig::PSFConfig(){
     registerAllParameters();
 }
@@ -30,6 +36,8 @@ PSFConfig::PSFConfig(const PSFConfig& other)
     sizeY = other.sizeY;
     sizeZ = other.sizeZ;
     cutoffThreshold = other.cutoffThreshold;
+    resolutionCriterion = other.resolutionCriterion;
+    normalizePSF = other.normalizePSF;
     registerAllParameters();
 
     // Copy any other members
@@ -83,4 +91,7 @@ void PSFConfig::registerAllParameters(){
     parameters.push_back({ParameterType::String, &ID, "ID", true, "id", "--id", "PSF identifier", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &psfModelName, "Model Name", true, "model_name", "--model_name", "PSF model name", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Float, &cutoffThreshold, "Cutoff Threshold", true, "cutoff_threshold", "--cutoff_threshold", "Relative intensity cutoff for auto-size PSF (0 = derive from padding strategy)", false, true, 0.0, 1.0, nullptr});
+    const void* resolutionCriterionMap_p = static_cast<const void*>(&resolutionCriterionMap);
+    parameters.push_back({ParameterType::Map, &resolutionCriterion, "Resolution Criterion", true, "resolution_criterion", "--resolution_criterion", "Optical-resolution criterion used to size the auto-size PSF box: rayleigh, fwhm, sigma", false, true, 0.0, 2.0, resolutionCriterionMap_p});
+    parameters.push_back({ParameterType::Bool, &normalizePSF, "Normalize PSF", true, "normalize_psf", "--normalize_psf", "Normalise the generated PSF to unit integral flux", false, false, 0.0, 0.0, nullptr});
 }

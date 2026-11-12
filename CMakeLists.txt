@@ -174,6 +174,7 @@ set(DOLPHIN_SOURCES
     src/psf/PSF.cpp
     src/psf/generators/GaussianPSFGenerator.cpp
     src/psf/generators/GibsonLanniPSFGenerator.cpp
+    src/psf/generators/PSFBoxSizing.cpp
     src/psf/generators/SimpsonIntegrator.cpp
     src/psf/configs/PSFConfig.cpp
     src/psf/configs/GibsonLanniPSFConfig.cpp

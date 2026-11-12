@@ -44,7 +44,9 @@ private:
 	PSF generateFixedSizePSF() const;
 	PSF generateAutoSizePSF() const;
 	static double integrationUpperBound(const GibsonLanniPSFConfig& cfg);
-	double centerValue(const GibsonLanniPSFConfig& config) const;
+
+	// Scale the PSF so its total integral is 1 (unit flux). No-op if the sum is 0.
+	static void normalizeUnitFlux(PSF& psf);
 
 	std::unique_ptr<NumericalIntegrator> numericalIntegrator;
     std::shared_ptr<GibsonLanniPSFConfig> config;

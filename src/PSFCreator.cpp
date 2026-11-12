@@ -85,7 +85,6 @@ std::vector<PSF> PSFCreator::readPSFsFromFilePath(const std::vector<std::string>
         if (ext == "tif" || ext == "tiff" || ext == "ometif") {
             psf.readFromTiffFile(psffilepath);
         }
-
         psfs.push_back(std::move(psf));
     }
     return psfs;

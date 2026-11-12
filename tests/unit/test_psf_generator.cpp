@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
 #include "dolphin/psf/generators/GibsonLanniPSFGenerator.h"
+#include "dolphin/psf/generators/PSFBoxSizing.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/psf/generators/SimpsonIntegrator.h"
 #include "dolphin/psf/PSF.h"
@@ -318,105 +319,219 @@ TEST_F(PSFGeneratorTest, GibsonLanniFixedSize) {
     }
 }
 
-// --- Threshold-based PSF cutoff tests ---
 
-TEST_F(PSFGeneratorTest, GibsonLanniThresholdCutoff) {
+TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeExactShape) {
+    // Final model, fastGlJSON (NA=1.4, ni=1.515, ns=1.33, lambda=450, pitch
+    // 500/500, sizeZ=48 -> zMax = 24*500 = 12000nm):
+    //   dTan = |tan(asin(1.4/1.515)) - tan(asin(clamp(1.4/1.33, 0.99)))| = 4.5999
+    //   halfLat = 3.5*196.07 + 1.1*4.5999*12000 = 61405nm -> ceil(122.8) = 123
+    //   halfAx  = 12000 + 8*610.71 = 16886nm  -> ceil(33.8)  = 34
+    //   -> box 247 x 247 x 69
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = fastGlJSON();
     auto config = factory.createConfig(j);
     config->autoSize = true;
-    config->cutoffThreshold = 0.05f;
     auto generator = factory.createGenerator(config);
 
     PSF psf = generator->generatePSF();
     CuboidShape shape = psf.getShape();
 
-    // The cutoff should shrink the PSF well below the full auto-size domain.
-    EXPECT_LT(shape.width, 64u);
-    EXPECT_LT(shape.height, 64u);
-    EXPECT_LT(shape.depth, 32u);
-
-    float maxVal = psf.getMax();
-
-    // The axial crop keeps every slice whose on-axis intensity is at or above the
-    // cutoff threshold and stops at the first slice below it. So the on-axis edge is
-    // the last *significant* slice: it sits at/above the threshold, not below it.
-    float centerEdgeZ = psf.getPixel(shape.width / 2, shape.height / 2, 0);
-    EXPECT_GE(centerEdgeZ, maxVal * 5e-2f);
-
-    // The corner lies beyond the lateral cutoff and must be negligible.
-    float edgeVal = psf.getPixel(0, 0, 0);
-    EXPECT_LT(edgeVal, maxVal * 5e-2f);
+    EXPECT_EQ(shape.width, 247u);
+    EXPECT_EQ(shape.height, 247u);
+    EXPECT_EQ(shape.depth, 69u);
 }
 
-// --- Cutoff policy and quadrature tests ---
-
-TEST_F(PSFGeneratorTest, GibsonLanniZeroCutoffFallsBack) {
-    // cutoffThreshold = 0 (not set) must not produce an infinite PSF:
-    // the generator falls back to 1e-6 and the size cap bounds the support
-    // (the cap is expected to bind for this config; the warning is the
-    // diagnostic).
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    // Keep 100nm pixels so the cap genuinely binds, but bound the domain:
-    // with effZ = 96 the axial scan is only 97 slices (still capped).
-    j["size_x"] = 96;
-    j["size_y"] = 96;
-    j["size_z"] = 96;
-    auto config = factory.createConfig(j);
-    config->cutoffThreshold = 0.0f;
-    auto generator = factory.createGenerator(config);
-
-    PSF psf = generator->generatePSF();
-    CuboidShape shape = psf.getShape();
-
-    // Default auto-size domain cap: 256 px per dimension -> 257 with center.
-    EXPECT_LE(shape.width, 257u);
-    EXPECT_LE(shape.depth, 257u);
-    for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
-        EXPECT_FALSE(std::isnan(*it));
-        EXPECT_FALSE(std::isinf(*it));
-    }
-}
-
-TEST_F(PSFGeneratorTest, GibsonLanniCutoffThresholdFromJSON) {
-    // cutoff_threshold is a registered optional parameter and survives the
-    // config round trip.
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
-    j["cutoff_threshold"] = 0.05f;
-    auto config = factory.createConfig(j);
-    EXPECT_FLOAT_EQ(config->cutoffThreshold, 0.05f);
-}
-
-TEST_F(PSFGeneratorTest, GibsonLanniExtentShrinksWithStricterCutoff) {
+TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeGrowsWithImageDepth) {
+    // A deeper imaged volume defocuses farther -> larger cone spread and
+    // longer axial stack. sizeZ 48 -> 96 doubles zMax:
+    //   48: zMax=12000 -> 247x247x69;  96: zMax=24000 -> 491x491x117
     auto& factory = PSFGeneratorFactory::getInstance();
 
-    auto generate = [&](float cutoff) {
+    auto shapeFor = [&](int sizeZ) {
         json j = fastGlJSON();
+        j["size_z"] = sizeZ;
         auto config = factory.createConfig(j);
         config->autoSize = true;
-        config->cutoffThreshold = cutoff;
+        auto generator = factory.createGenerator(config);
+        return generator->generatePSF().getShape();
+    };
+
+    CuboidShape shallow = shapeFor(48);
+    CuboidShape deep = shapeFor(96);
+
+    EXPECT_EQ(shallow.width, 247u);
+    EXPECT_EQ(shallow.depth, 69u);
+    EXPECT_EQ(deep.width, 491u);
+    EXPECT_EQ(deep.depth, 117u);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeIgnoresSizeXY) {
+    // sizeX/sizeY are the IMAGE size, not the PSF size: changing them must not
+    // alter the autosized box shape or values in any way.
+    auto& factory = PSFGeneratorFactory::getInstance();
+
+    auto generate = [&](int sizeXY) {
+        json j = fastGlJSON();
+        j["size_x"] = sizeXY;
+        j["size_y"] = sizeXY;
+        auto config = factory.createConfig(j);
+        config->autoSize = true;
         auto generator = factory.createGenerator(config);
         return generator->generatePSF();
     };
 
-    PSF loose = generate(0.1f);
-    PSF tight = generate(1e-5f);
+    PSF small = generate(16);
+    PSF large = generate(600);
 
-    // A stricter cutoff keeps strictly more of the support.
-    EXPECT_GE(tight.getShape().width, loose.getShape().width);
-    EXPECT_GE(tight.getShape().depth, loose.getShape().depth);
+    EXPECT_EQ(small.getShape(), CuboidShape(247, 247, 69));
+    EXPECT_EQ(large.getShape(), small.getShape());
+    EXPECT_TRUE(large.isEqual(small, 1e-4f));
 }
 
-TEST_F(PSFGeneratorTest, GibsonLanniTwoPassMatchesCenteredPeak) {
-    // The two-pass axial scan anchors the PSF on the reference slice and the
+TEST_F(PSFGeneratorTest, GibsonLanniBoxHalfExtentModel) {
+    // Direct unit test of the sizing function.
+    // Matched immersion/sample (dTan = 0): lateral is exactly the ring floor.
+    // NA=1.3, ni=ns=1.33, lambda=520, pitch 100/100, sizeZ=64 (zMax=3200nm):
+    //   resLat = 244nm -> minLat = ceil(3.5*244/100) = 9  -> W = 19
+    //   resAx  = 819.2nm -> halfAx = 3200 + 8*819.2 = 9753.7 -> ax = 98 -> D = 197
+    GibsonLanniPSFConfig cfg;
+    cfg.NA = 1.3f;
+    cfg.ni = 1.33f;
+    cfg.ni0 = 1.33f;
+    cfg.ns = 1.33f;
+    cfg.wavelength_nm = 520.0f;
+    cfg.pixelSizeLateral_nm = 100.0f;
+    cfg.pixelSizeAxial_nm = 100.0f;
+    cfg.sizeZ = 64;
+
+    auto res = PSFBoxSizing::approximateResolution(cfg, cfg.resolutionCriterion);
+    auto box = PSFBoxSizing::computeBoxHalfExtent(res, cfg);
+    EXPECT_EQ(box.lateral, 9u);
+    EXPECT_EQ(box.axial, 98u);
+
+    // TIR regime (NA >= ns): asin clamp keeps everything finite and positive.
+    GibsonLanniPSFConfig tir = cfg;
+    tir.NA = 1.4f;
+    tir.ni = 1.515f;
+    tir.sizeZ = 48;
+    auto resTir = PSFBoxSizing::approximateResolution(tir, tir.resolutionCriterion);
+    auto boxTir = PSFBoxSizing::computeBoxHalfExtent(resTir, tir);
+    EXPECT_GT(boxTir.lateral, 0u);
+    EXPECT_GT(boxTir.axial, 0u);
+    EXPECT_LT(boxTir.lateral, 10000u);
+    EXPECT_LT(boxTir.axial, 10000u);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniApproximateResolutionAxial) {
+    // Axial resolution ordering is monotonic at the resolution level:
+    // RAYLEIGH (610.7) > SIGMA (431.8) > FWHM (314.7) for NA=1.4, ns=1.33.
+    GibsonLanniPSFConfig cfg;
+    cfg.NA = 1.4f;
+    cfg.ns = 1.33f;
+    cfg.wavelength_nm = 450.0f;
+
+    auto rayleigh = PSFBoxSizing::approximateResolution(cfg, PSFConfig::ResolutionCriterion::RAYLEIGH);
+    auto fwhm = PSFBoxSizing::approximateResolution(cfg, PSFConfig::ResolutionCriterion::FWHM);
+    auto sigma = PSFBoxSizing::approximateResolution(cfg, PSFConfig::ResolutionCriterion::SIGMA);
+
+    EXPECT_NEAR(rayleigh.axial_nm, 610.71, 0.1);
+    EXPECT_NEAR(sigma.axial_nm, 431.84, 0.1);
+    EXPECT_NEAR(fwhm.axial_nm, 314.66, 0.1);
+    EXPECT_GT(rayleigh.lateral_nm, fwhm.lateral_nm);
+    EXPECT_GT(fwhm.lateral_nm, sigma.lateral_nm);
+}
+TEST_F(PSFGeneratorTest, GibsonLanniAnalyticBoxIsSymmetric) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = fastGlJSON();
+    auto config = factory.createConfig(j);
+    config->autoSize = true;
+    auto generator = factory.createGenerator(config);
+
+    PSF psf = generator->generatePSF();
+    CuboidShape shape = psf.getShape();
+
+    EXPECT_EQ(shape.width, shape.height);
+    EXPECT_EQ(shape.depth % 2, 1u);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniBoxAllValuesComputed) {
+    // Every voxel inside the box must be a real integrated value (no zero
+    // placeholder from per-slice disk shrinking). With a unit-flux normalised
+    // PSF the far in-box corner is small but strictly positive.
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = fastGlJSON();
+    auto config = factory.createConfig(j);
+    config->autoSize = true;
+    config->normalizePSF = false;
+    auto generator = factory.createGenerator(config);
+
+    PSF psf = generator->generatePSF();
+    CuboidShape shape = psf.getShape();
+
+    // The lateral edge midpoint sits at exactly the box half-width (radius =
+    // half), the outermost computed sample of each slice. It must hold a real
+    // integrated value, proving slices are integrated to the global half-width
+    // rather than shrunk to a per-slice disk.
+    // (Box corners lie at radius sqrt(2)*half, beyond the radial support, and
+    // are legitimately zero.)
+    float lateralEdge = psf.getPixel(0, shape.height / 2, shape.depth / 2);
+    EXPECT_GT(lateralEdge, 0.0f);
+}
+
+
+TEST_F(PSFGeneratorTest, GibsonLanniPeakNearCenter) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = fastGlJSON();
+    auto config = factory.createConfig(j);
+    config->autoSize = true;
+    auto generator = factory.createGenerator(config);
+    PSF psf = generator->generatePSF();
+
+    CuboidShape shape = psf.getShape();
+    size_t cx = shape.width / 2;
+    size_t cy = shape.height / 2;
+
+    float maxVal = 0.0f;
+    size_t maxZ = 0;
+    for (size_t z = 0; z < shape.depth; z++) {
+        float val = psf.getPixel(cx, cy, z);
+        if (val > maxVal) { maxVal = val; maxZ = z; }
+    }
+
+    EXPECT_LE(std::abs(static_cast<long>(maxZ) - static_cast<long>(shape.depth / 2)), 2);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniUnitFluxNormalization) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = fastGlJSON();
+    auto config = factory.createConfig(j);
+    config->autoSize = true;
+    config->normalizePSF = true;
+    auto generator = factory.createGenerator(config);
+    PSF psf = generator->generatePSF();
+
+    double sum = 0.0;
+    for (auto it = psf.cbegin(); it != psf.cend(); ++it)
+        sum += *it;
+
+    EXPECT_NEAR(sum, 1.0, 1e-4);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniResolutionCriterionFromJSON) {
+    auto& factory = PSFGeneratorFactory::getInstance();
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["resolution_criterion"] = "fwhm";
+    auto config = factory.createConfig(j);
+    EXPECT_EQ(config->resolutionCriterion, PSFConfig::ResolutionCriterion::FWHM);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniCenteredPeak) {
+    // The symmetric analytic box anchors the PSF on the reference slice; the
     // on-axis peak must stay within a couple of slices of the center.
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = fastGlJSON();
     auto config = factory.createConfig(j);
     config->autoSize = true;
-    config->cutoffThreshold = 0.05f;
     auto generator = factory.createGenerator(config);
     PSF psf = generator->generatePSF();
 
