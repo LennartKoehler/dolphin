@@ -16,10 +16,13 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
-#include "dolphin/psf/generators/GibsonLanniPSFGenerator.h"
+#include "dolphin/psf/configs/ModalityConfig.h"
+#include "dolphin/psf/generators/GibsonLanniModel.h"
 #include "dolphin/psf/generators/PSFBoxSizing.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/psf/generators/SimpsonIntegrator.h"
+#include "dolphin/psf/modality/ModalityStrategy.h"
+#include "dolphin/psf/modality/PSFModel.h"
 #include "dolphin/psf/PSF.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
@@ -31,6 +34,26 @@ See the LICENSE file provided with the code for the full license.
 #include <iostream>
 
 using json = nlohmann::json;
+
+namespace {
+// One shared worker pool for all tests.
+std::shared_ptr<ThreadPool> testPool() {
+    static const std::shared_ptr<ThreadPool> pool = std::make_shared<ThreadPool>(4);
+    return pool;
+}
+
+// The factory assembles a generator for the config; the pool is given via
+// configure(), then the generator runs.
+PSF generateTestPSF(std::shared_ptr<PSFConfig> config) {
+    auto generator = PSFGeneratorFactory::getInstance().createGenerator(std::move(config));
+    generator->configure(testPool(), nullptr);
+    return generator->generatePSF();
+}
+
+PSF generateTestPSF(const json& j) {
+    return generateTestPSF(PSFGeneratorFactory::getInstance().createConfig(j));
+}
+} // namespace
 
 class PSFGeneratorTest : public ::testing::Test {
 protected:
@@ -67,9 +90,10 @@ TEST_F(PSFGeneratorTest, SimpsonAccuracyMapsToK) {
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniConfigChangeInvalidatesCache) {
-    // Two configs that share the same ti_nm (the cache key) but differ in NA.
-    // Without cache invalidation in setConfig(), the second generation would
-    // reuse the stale radial profile and produce an identical PSF.
+    // Two configs that share the same ti_nm (the cache key) but differ in NA
+    // must produce different PSFs: each generation gets a fresh model over
+    // its own config, so no stale radial profile can leak between them.
+    auto& factory = PSFGeneratorFactory::getInstance();
     auto buildConfig = [](float na) {
         auto& factory = PSFGeneratorFactory::getInstance();
         json j = fastGlJSON();
@@ -80,14 +104,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfigChangeInvalidatesCache) {
         return factory.createConfig(j);
     };
 
-    auto gen = std::make_shared<GibsonLanniPSFGenerator>();
-    gen->configure(std::make_shared<ThreadPool>(), nullptr);
-
-    gen->setConfig(buildConfig(1.4f));
-    PSF first = gen->generatePSF();
-
-    gen->setConfig(buildConfig(1.0f));
-    PSF second = gen->generatePSF();
+    PSF first = generateTestPSF(buildConfig(1.4f));
+    PSF second = generateTestPSF(buildConfig(1.0f));
 
     EXPECT_EQ(first.getShape(), second.getShape());
     EXPECT_FALSE(first.isEqual(second, 1e-4f));
@@ -95,23 +113,22 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfigChangeInvalidatesCache) {
 
 TEST_F(PSFGeneratorTest, GibsonLanniNoThreadPoolThrows) {
     auto& factory = PSFGeneratorFactory::getInstance();
-    auto makeGen = [&](int sizeX, int sizeY, int sizeZ) {
+    auto makeConfig = [&](int sizeX, int sizeY, int sizeZ) {
         json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
         j["size_x"] = sizeX;
         j["size_y"] = sizeY;
         j["size_z"] = sizeZ;
         auto config = factory.createConfig(j);
         config->cutoffThreshold = 0.05f;
-        auto gen = std::make_shared<GibsonLanniPSFGenerator>();
-        gen->setConfig(config);
-        // no configure() call -> threadPool stays null
-        return gen;
+        return config;
     };
 
-    // Auto-size path used to dereference threadPool unguarded (segfault).
-    EXPECT_THROW(makeGen(0, 0, 0)->generatePSF(), std::runtime_error);
-    // Fixed-size path used to throw only deep inside the slice loop.
-    EXPECT_THROW(makeGen(33, 33, 5)->generatePSF(), std::runtime_error);
+    // Generation without a thread pool is rejected up front by the generator,
+    // for both the auto-size and the fixed-size path.
+    auto autoSizeGen = factory.createGenerator(makeConfig(0, 0, 0));
+    EXPECT_THROW(autoSizeGen->generatePSF(), std::runtime_error);  // no configure() -> pool stays null
+    auto fixedSizeGen = factory.createGenerator(makeConfig(33, 33, 5));
+    EXPECT_THROW(fixedSizeGen->generatePSF(), std::runtime_error);
 }
 
 TEST_F(PSFGeneratorTest, FactoryGetAvailableModels) {
@@ -172,11 +189,9 @@ TEST_F(PSFGeneratorTest, CreateConfigMissingModelName) {
 TEST_F(PSFGeneratorTest, GaussianPSFGeneration) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gaussianPSFConfigJSON());
-    auto generator = factory.createGenerator("Gaussian", j);
-    ASSERT_NE(generator, nullptr);
-    EXPECT_TRUE(generator->hasConfig());
+    PSF generator = generateTestPSF(j);
 
-    PSF psf = generator->generatePSF();
+    PSF psf = generator;
     EXPECT_EQ(psf.getShape(), CuboidShape(32, 32, 16));
     EXPECT_FALSE(psf.ID.empty());
 }
@@ -184,8 +199,8 @@ TEST_F(PSFGeneratorTest, GaussianPSFGeneration) {
 TEST_F(PSFGeneratorTest, GaussianPSFIsCentered) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gaussianPSFConfigJSON());
-    auto generator = factory.createGenerator("Gaussian", j);
-    PSF psf = generator->generatePSF();
+    PSF generator = generateTestPSF(j);
+    PSF psf = generator;
 
     float maxVal = psf.getMax();
     float centerVal = psf.getPixel(32 / 2, 32 / 2, 16 / 2);
@@ -195,8 +210,8 @@ TEST_F(PSFGeneratorTest, GaussianPSFIsCentered) {
 TEST_F(PSFGeneratorTest, GaussianPSFSymmetric) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gaussianPSFConfigJSON());
-    auto generator = factory.createGenerator("Gaussian", j);
-    PSF psf = generator->generatePSF();
+    PSF generator = generateTestPSF(j);
+    PSF psf = generator;
 
     int cx = 32 / 2;
     int cy = 32 / 2;
@@ -216,8 +231,8 @@ TEST_F(PSFGeneratorTest, GaussianPSFSymmetric) {
 TEST_F(PSFGeneratorTest, GaussianPSFNoNaN) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gaussianPSFConfigJSON());
-    auto generator = factory.createGenerator("Gaussian", j);
-    PSF psf = generator->generatePSF();
+    PSF generator = generateTestPSF(j);
+    PSF psf = generator;
 
     for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
         EXPECT_FALSE(std::isnan(*it));
@@ -229,11 +244,9 @@ TEST_F(PSFGeneratorTest, GaussianPSFCreateFromConfig) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gaussianPSFConfigJSON());
     auto config = factory.createConfig(j);
-    auto generator = factory.createGenerator(config);
-    ASSERT_NE(generator, nullptr);
-    EXPECT_TRUE(generator->hasConfig());
+    PSF generator = generateTestPSF(config);
 
-    PSF psf = generator->generatePSF();
+    PSF psf = generator;
     EXPECT_EQ(psf.getShape(), CuboidShape(32, 32, 16));
 }
 
@@ -243,11 +256,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniPSFGeneration) {
     auto config = factory.createConfig(j);
     config->autoSize = true;
     config->cutoffThreshold = 0.05f;
-    auto generator = factory.createGenerator(config);
-    ASSERT_NE(generator, nullptr);
-    EXPECT_TRUE(generator->hasConfig());
+    PSF generator = generateTestPSF(config);
 
-    PSF psf = generator->generatePSF();
+    PSF psf = generator;
     CuboidShape shape = psf.getShape();
     EXPECT_GT(shape.width, 0u);
     EXPECT_GT(shape.height, 0u);
@@ -265,8 +276,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniPSFCentered) {
     auto config = factory.createConfig(j);
     config->autoSize = true;
     config->cutoffThreshold = 0.05f;
-    auto generator = factory.createGenerator(config);
-    PSF psf = generator->generatePSF();
+    PSF generator = generateTestPSF(config);
+    PSF psf = generator;
 
     CuboidShape shape = psf.getShape();
     float maxVal = psf.getMax();
@@ -277,8 +288,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniPSFCentered) {
 TEST_F(PSFGeneratorTest, PSFWriteAndReadTiff) {
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(TestUtils::gaussianPSFConfigJSON());
-    auto generator = factory.createGenerator("Gaussian", j);
-    PSF psf = generator->generatePSF();
+    PSF generator = generateTestPSF(j);
+    PSF psf = generator;
 
     auto path = TestUtils::outputPath() + "/psf_test.tif";
     psf.writeToTiffFile(path);
@@ -305,9 +316,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniFixedSize) {
     j["size_x"] = 21;
     j["size_y"] = 21;
     j["size_z"] = 5;
-    auto generator = factory.createGenerator("GibsonLanni", j);
+    PSF generator = generateTestPSF(j);
 
-    PSF psf = generator->generatePSF();
+    PSF psf = generator;
     CuboidShape shape = psf.getShape();
 
     EXPECT_EQ(shape.width, 21u);
@@ -332,9 +343,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeExactShape) {
     json j = fastGlJSON();
     auto config = factory.createConfig(j);
     config->autoSize = true;
-    auto generator = factory.createGenerator(config);
+    PSF generator = generateTestPSF(config);
 
-    PSF psf = generator->generatePSF();
+    PSF psf = generator;
     CuboidShape shape = psf.getShape();
 
     EXPECT_EQ(shape.width, 301u);
@@ -353,8 +364,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeGrowsWithImageDepth) {
         j["size_z"] = sizeZ;
         auto config = factory.createConfig(j);
         config->autoSize = true;
-        auto generator = factory.createGenerator(config);
-        return generator->generatePSF().getShape();
+        PSF generator = generateTestPSF(config);
+        return generator.getShape();
     };
 
     CuboidShape shallow = shapeFor(48);
@@ -377,8 +388,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeIgnoresSizeXY) {
         j["size_y"] = sizeXY;
         auto config = factory.createConfig(j);
         config->autoSize = true;
-        auto generator = factory.createGenerator(config);
-        return generator->generatePSF();
+        PSF generator = generateTestPSF(config);
+        return generator;
     };
 
     PSF small = generate(16);
@@ -402,12 +413,12 @@ TEST_F(PSFGeneratorTest, GibsonLanniBoxHalfExtentModel) {
     cfg.ni = 1.33f;
     cfg.ni0 = 1.33f;
     cfg.ns = 1.33f;
-    cfg.emissionWavelength_nm = 520.0f;
+    cfg.wavelength_nm = 520.0f;
     cfg.pixelSizeLateral_nm = 100.0f;
     cfg.pixelSizeAxial_nm = 100.0f;
     cfg.sizeZ = 64;
 
-    auto res = PSFBoxSizing::approximateResolution(cfg, cfg.resolutionCriterion);
+    auto res = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, cfg.resolutionCriterion);
     auto box = PSFBoxSizing::computeBoxHalfExtent(res, cfg);
     EXPECT_EQ(box.lateral, 150u);
     EXPECT_EQ(box.axial, 32u);
@@ -417,7 +428,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniBoxHalfExtentModel) {
     tir.NA = 1.4f;
     tir.ni = 1.515f;
     tir.sizeZ = 48;
-    auto resTir = PSFBoxSizing::approximateResolution(tir, tir.resolutionCriterion);
+    auto resTir = PSFBoxSizing::approximateResolution(tir, tir.wavelength_nm, tir.resolutionCriterion);
     auto boxTir = PSFBoxSizing::computeBoxHalfExtent(resTir, tir);
     EXPECT_GT(boxTir.lateral, 0u);
     EXPECT_GT(boxTir.axial, 0u);
@@ -431,11 +442,11 @@ TEST_F(PSFGeneratorTest, GibsonLanniApproximateResolutionAxial) {
     GibsonLanniPSFConfig cfg;
     cfg.NA = 1.4f;
     cfg.ns = 1.33f;
-    cfg.emissionWavelength_nm = 450.0f;
+    cfg.wavelength_nm = 450.0f;
 
-    auto rayleigh = PSFBoxSizing::approximateResolution(cfg, PSFConfig::ResolutionCriterion::RAYLEIGH);
-    auto fwhm = PSFBoxSizing::approximateResolution(cfg, PSFConfig::ResolutionCriterion::FWHM);
-    auto sigma = PSFBoxSizing::approximateResolution(cfg, PSFConfig::ResolutionCriterion::SIGMA);
+    auto rayleigh = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, PSFConfig::ResolutionCriterion::RAYLEIGH);
+    auto fwhm = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, PSFConfig::ResolutionCriterion::FWHM);
+    auto sigma = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, PSFConfig::ResolutionCriterion::SIGMA);
 
     EXPECT_NEAR(rayleigh.axial_nm, 610.71, 0.1);
     EXPECT_NEAR(sigma.axial_nm, 431.84, 0.1);
@@ -488,12 +499,12 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxSizeCatalog) {
         cfg.ns = c.ns;
         cfg.ng = 1.5f;
         cfg.ng0 = 1.5f;
-        cfg.emissionWavelength_nm = c.lambda_nm;
+        cfg.wavelength_nm = c.lambda_nm;
         cfg.pixelSizeLateral_nm = c.pxLat_nm;
         cfg.pixelSizeAxial_nm = c.pxAx_nm;
         cfg.sizeZ = c.sizeZ;
 
-        auto res = PSFBoxSizing::approximateResolution(cfg, c.criterion);
+        auto res = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, c.criterion);
         auto box = PSFBoxSizing::computeBoxHalfExtent(res, cfg);
 
         std::cout << "[AutoBox] " << c.name
@@ -529,9 +540,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxEndToEndOilConfocal) {
     j["pixel_size_lateral_nm"] = 100.0;
     auto config = factory.createConfig(j);
     config->autoSize = true;
-    auto generator = factory.createGenerator(config);
+    PSF generator = generateTestPSF(config);
 
-    PSF psf = generator->generatePSF();
+    PSF psf = generator;
     EXPECT_EQ(psf.getShape(), CuboidShape(301, 301, 65));
 }
 
@@ -571,9 +582,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxEndToEndDefaultConfig) {
     })");
     auto config = factory.createConfig(j);
     config->autoSize = true;  // PSFHandler forces this in production
-    auto generator = factory.createGenerator(config);
+    PSF generator = generateTestPSF(config);
 
-    PSF psf = generator->generatePSF();
+    PSF psf = generator;
     CuboidShape shape = psf.getShape();
 
     EXPECT_EQ(shape.width, 291u);
@@ -591,9 +602,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniAnalyticBoxIsSymmetric) {
     json j = fastGlJSON();
     auto config = factory.createConfig(j);
     config->autoSize = true;
-    auto generator = factory.createGenerator(config);
+    PSF generator = generateTestPSF(config);
 
-    PSF psf = generator->generatePSF();
+    PSF psf = generator;
     CuboidShape shape = psf.getShape();
 
     EXPECT_EQ(shape.width, shape.height);
@@ -609,9 +620,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniBoxAllValuesComputed) {
     auto config = factory.createConfig(j);
     config->autoSize = true;
     config->normalizePSF = false;
-    auto generator = factory.createGenerator(config);
+    PSF generator = generateTestPSF(config);
 
-    PSF psf = generator->generatePSF();
+    PSF psf = generator;
     CuboidShape shape = psf.getShape();
 
     // The lateral edge midpoint sits at exactly the box half-width (radius =
@@ -630,8 +641,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniPeakNearCenter) {
     json j = fastGlJSON();
     auto config = factory.createConfig(j);
     config->autoSize = true;
-    auto generator = factory.createGenerator(config);
-    PSF psf = generator->generatePSF();
+    PSF generator = generateTestPSF(config);
+    PSF psf = generator;
 
     CuboidShape shape = psf.getShape();
     size_t cx = shape.width / 2;
@@ -653,8 +664,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniUnitFluxNormalization) {
     auto config = factory.createConfig(j);
     config->autoSize = true;
     config->normalizePSF = true;
-    auto generator = factory.createGenerator(config);
-    PSF psf = generator->generatePSF();
+    PSF generator = generateTestPSF(config);
+    PSF psf = generator;
 
     double sum = 0.0;
     for (auto it = psf.cbegin(); it != psf.cend(); ++it)
@@ -678,8 +689,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniCenteredPeak) {
     json j = fastGlJSON();
     auto config = factory.createConfig(j);
     config->autoSize = true;
-    auto generator = factory.createGenerator(config);
-    PSF psf = generator->generatePSF();
+    PSF generator = generateTestPSF(config);
+    PSF psf = generator;
 
     CuboidShape shape = psf.getShape();
     size_t cx = shape.width / 2;
@@ -708,23 +719,13 @@ TEST_F(PSFGeneratorTest, GibsonLanniQuadratureMatchesAdaptiveSimpson) {
     j["oversampling_factor"] = 2;
     auto config = factory.createConfig(j);
 
-    auto threadPool = std::make_shared<ThreadPool>(1);
+    // The fixed-node quadrature is the only radial integration path; assert
+    // it is deterministic and numerically clean across generations.
+    PSF quadraturePSF = generateTestPSF(config);
+    PSF regeneratedPSF = generateTestPSF(config);
 
-    auto quadratureGen = std::make_shared<GibsonLanniPSFGenerator>();
-    quadratureGen->configure(threadPool, nullptr);
-    quadratureGen->setConfig(config);
-    PSF quadraturePSF = quadratureGen->generatePSF();
-
-    auto adaptiveGen = std::make_shared<GibsonLanniPSFGenerator>(
-        std::make_unique<SimpsonIntegrator>());
-    // Force the adaptive path: the quadrature is used in singlePlanePSF, so
-    // compare the full auto-size PSF of both integrators instead.
-    adaptiveGen->configure(threadPool, nullptr);
-    adaptiveGen->setConfig(config);
-    PSF adaptivePSF = adaptiveGen->generatePSF();
-
-    // Both use the same code path now; assert they are identical and valid.
-    EXPECT_EQ(quadraturePSF.getShape(), adaptivePSF.getShape());
+    EXPECT_EQ(quadraturePSF.getShape(), regeneratedPSF.getShape());
+    EXPECT_TRUE(quadraturePSF.isEqual(regeneratedPSF, 1e-6f));
     for (auto it = quadraturePSF.cbegin(); it != quadraturePSF.cend(); ++it) {
         EXPECT_FALSE(std::isnan(*it));
     }
@@ -800,8 +801,14 @@ inline json confocalGlJSON(bool confocal, double pinholeRadius_nm = 280.0) {
     j["integration_accuracy"] = 4;
     j["wavelength_nm"] = 520.0;
     j["microscope_modality"] = confocal ? "confocal" : "widefield";
-    j["excitation_wavelength_nm"] = 488.0;
-    j["pinhole_radius_nm"] = pinholeRadius_nm;
+    if (confocal) {
+        // The confocal wavelengths and pinhole belong to the modality config;
+        // widefield configs do not know these keys.
+        j["emission_wavelength_nm"] = j["wavelength_nm"];
+        j.erase("wavelength_nm");
+        j["excitation_wavelength_nm"] = 488.0;
+        j["pinhole_radius_nm"] = pinholeRadius_nm;
+    }
     return j;
 }
 
@@ -892,6 +899,78 @@ ConfocalMetrics measureMetrics(const PSF& psf, double pitchLateral_nm, double pi
 
 } // namespace
 
+TEST_F(PSFGeneratorTest, ModalityStrategySelection) {
+    // The generator delegates PSF assembly to the modality strategy selected
+    // from the config; each modality must resolve to its singleton.
+    GibsonLanniPSFConfig widefield;
+    EXPECT_EQ(&ModalityStrategy::forConfig(widefield), &WidefieldModality::instance());
+
+    GibsonLanniPSFConfig confocal;
+    confocal.selectModality(MicroscopeModality::CONFOCAL);
+    EXPECT_EQ(&ModalityStrategy::forConfig(confocal), &ConfocalModality::instance());
+
+    // Confocal identity: the typed modality config carries the parameters,
+    // excitation wavelength resolution falls back to the emission wavelength.
+    ConfocalModalityConfig* modalityCfg = dynamic_cast<ConfocalModalityConfig*>(confocal.modalityConfig.get());
+    ASSERT_NE(modalityCfg, nullptr);
+    modalityCfg->excitationWavelength_nm = 488.0f;
+    modalityCfg->emissionWavelength_nm = 520.0f;
+    EXPECT_DOUBLE_EQ(ConfocalModality::excitationLambda(confocal), 488.0);
+    modalityCfg->excitationWavelength_nm = 0.0f;
+    EXPECT_DOUBLE_EQ(ConfocalModality::excitationLambda(confocal), 520.0);
+}
+
+namespace {
+
+// Non-radially-symmetric stub model: every slice is an explicit FullSlice
+// with a bright column at x=1 and zeros elsewhere. Proves the modality layer
+// composes full slabs without radial assumptions.
+class AsymmetricStubModel : public PSFModel {
+public:
+    void init(const GibsonLanniPSFConfig&, size_t, size_t, double) const override {}
+
+    ModelSlice intensitySlice(const GibsonLanniPSFConfig&, double, size_t,
+                              size_t maxLateralPixels, size_t forcedCutoff) const override {
+        const size_t cutoff = forcedCutoff > 0 ? forcedCutoff : maxLateralPixels;
+        const size_t width = 2 * cutoff + 1;
+        FullSlice slice;
+        slice.width = width;
+        slice.height = width;
+        slice.data.assign(width * width, 0.0f);
+        for (size_t y = 0; y < width; ++y)
+            slice.data[y * width + 1] = 1.0f;
+        return slice;
+    }
+};
+
+} // namespace
+
+TEST_F(PSFGeneratorTest, WidefieldModalityComposesFullSlabWithoutRadialAssumptions) {
+    // A non-symmetric model must flow through the widefield modality
+    // unchanged: the bright column stays off-center (asymmetry preserved).
+    GibsonLanniPSFConfig cfg;
+    cfg.sizeX = 5;
+    cfg.sizeY = 5;
+    cfg.sizeZ = 3;
+    cfg.normalizePSF = false;
+
+    AsymmetricStubModel model;
+    ThreadPool threadPool(2);
+    ProgressTracking progress;
+
+    PSF psf = WidefieldModality::instance().generate(model, cfg, threadPool, progress);
+
+    CuboidShape shape = psf.getShape();
+    EXPECT_EQ(shape, CuboidShape(5, 5, 3));
+    for (size_t z = 0; z < shape.depth; ++z) {
+        for (size_t y = 0; y < shape.height; ++y) {
+            EXPECT_GT(psf.getPixel(1, y, z), 0.0f);   // bright column
+            EXPECT_EQ(psf.getPixel(0, y, z), 0.0f);   // asymmetric: left dark
+            EXPECT_EQ(psf.getPixel(3, y, z), 0.0f);   // asymmetric: right dark
+        }
+    }
+}
+
 TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
     auto& factory = PSFGeneratorFactory::getInstance();
 
@@ -899,15 +978,22 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
     auto* gl = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
     ASSERT_NE(gl, nullptr);
     EXPECT_TRUE(gl->isConfocalPSF());
-    EXPECT_FLOAT_EQ(gl->excitationWavelength_nm, 488.0f);
-    EXPECT_FLOAT_EQ(gl->pinholeRadius_nm, 280.0f);
-    EXPECT_FLOAT_EQ(gl->emissionWavelength_nm, 520.0f);
+    // The confocal parameters live on the modality config object.
+    const ConfocalModalityConfig* modalityCfg = gl->modality<ConfocalModalityConfig>();
+    ASSERT_NE(modalityCfg, nullptr);
+    EXPECT_FLOAT_EQ(modalityCfg->excitationWavelength_nm, 488.0f);
+    EXPECT_FLOAT_EQ(modalityCfg->pinholeRadius_nm, 280.0f);
+    EXPECT_FLOAT_EQ(modalityCfg->emissionWavelength_nm, 520.0f);
 
-    // Copy semantics carry the confocal fields (setConfig copies the config).
+    // Copy semantics carry the modality config (setConfig copies the config).
     GibsonLanniPSFConfig copied = *gl;
     EXPECT_TRUE(copied.isConfocalPSF());
-    EXPECT_FLOAT_EQ(copied.excitationWavelength_nm, 488.0f);
-    EXPECT_FLOAT_EQ(copied.pinholeRadius_nm, 280.0f);
+    const ConfocalModalityConfig* copiedModalityCfg = copied.modality<ConfocalModalityConfig>();
+    ASSERT_NE(copiedModalityCfg, nullptr);
+    EXPECT_FLOAT_EQ(copiedModalityCfg->excitationWavelength_nm, 488.0f);
+    EXPECT_FLOAT_EQ(copiedModalityCfg->pinholeRadius_nm, 280.0f);
+    // The copy must own its modality config, not share the pointer.
+    EXPECT_NE(copiedModalityCfg, modalityCfg);
 
     // Config without a modality -> widefield default, and the legacy
     // "wavelength_nm" JSON key still lands on the emission wavelength.
@@ -915,16 +1001,16 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
     auto* glLegacy = dynamic_cast<GibsonLanniPSFConfig*>(legacy.get());
     ASSERT_NE(glLegacy, nullptr);
     EXPECT_FALSE(glLegacy->isConfocalPSF());
-    EXPECT_FLOAT_EQ(glLegacy->emissionWavelength_nm, 450.0f);
+    EXPECT_FLOAT_EQ(glLegacy->wavelength_nm, 450.0f);
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniConfocalNarrowerThanWidefield) {
     auto& factory = PSFGeneratorFactory::getInstance();
 
     auto widefieldConfig = factory.createConfig(confocalGlJSON(false));
-    PSF widefield = factory.createGenerator(widefieldConfig)->generatePSF();
+    PSF widefield = generateTestPSF(widefieldConfig);
     auto confocalConfig = factory.createConfig(confocalGlJSON(true));
-    PSF confocal = factory.createGenerator(confocalConfig)->generatePSF();
+    PSF confocal = generateTestPSF(confocalConfig);
 
     EXPECT_EQ(widefield.getShape(), confocal.getShape());
 
@@ -954,7 +1040,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalFixedSize) {
     j["size_y"] = 33;
     j["size_z"] = 21;
     auto config = factory.createConfig(j);
-    PSF psf = factory.createGenerator(config)->generatePSF();
+    PSF psf = generateTestPSF(config);
 
     CuboidShape shape = psf.getShape();
     EXPECT_EQ(shape, CuboidShape(33, 33, 21));
@@ -972,9 +1058,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalFixedSize) {
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniConfocalCacheInvalidation) {
-    // Profiles are cached per (ti_nm, lambda): two confocal configs that share
-    // ti_nm but differ only in the excitation wavelength must produce
-    // different PSFs on the same generator instance.
+    // Profiles are cached per (ti_nm, lambda): two confocal configs that
+    // share ti_nm but differ only in the excitation wavelength must produce
+    // different PSFs.
     auto& factory = PSFGeneratorFactory::getInstance();
     auto buildConfig = [&factory](double excitation_nm) {
         json j = confocalGlJSON(true);
@@ -982,14 +1068,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalCacheInvalidation) {
         return factory.createConfig(j);
     };
 
-    auto gen = std::make_shared<GibsonLanniPSFGenerator>();
-    gen->configure(std::make_shared<ThreadPool>(), nullptr);
-
-    gen->setConfig(buildConfig(488.0));
-    PSF first = gen->generatePSF();
-
-    gen->setConfig(buildConfig(505.0));
-    PSF second = gen->generatePSF();
+    PSF first = generateTestPSF(buildConfig(488.0));
+    PSF second = generateTestPSF(buildConfig(505.0));
 
     EXPECT_EQ(first.getShape(), second.getShape());
     EXPECT_FALSE(first.isEqual(second, 1e-4f));
@@ -1015,11 +1095,11 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalMetrics) {
     j["working_distance_experimental_nm"] = 0.0;
     j["size_z"] = 32;  // imaged defocus range driving the auto-size box
     auto confocalConfig = factory.createConfig(j);
-    PSF confocal = factory.createGenerator(confocalConfig)->generatePSF();
+    PSF confocal = generateTestPSF(confocalConfig);
 
     j["microscope_modality"] = "widefield";
     auto widefieldConfig = factory.createConfig(j);
-    PSF widefield = factory.createGenerator(widefieldConfig)->generatePSF();
+    PSF widefield = generateTestPSF(widefieldConfig);
 
     ConfocalMetrics wf = measureMetrics(widefield, 100.0, 100.0);
     ConfocalMetrics cf = measureMetrics(confocal, 100.0, 100.0);
@@ -1056,7 +1136,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniPinholeZeroIsPointPinhole) {
     j["size_z"] = 9;
     j["pixel_size_axial_nm"] = 300.0;
     auto config = factory.createConfig(j);
-    PSF psf = factory.createGenerator(config)->generatePSF();
+    PSF psf = generateTestPSF(config);
 
     for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
         EXPECT_FALSE(std::isnan(*it));
@@ -1081,8 +1161,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniFinitePinholeBroadensDetection) {
         return factory.createConfig(j);
     };
 
-    PSF point = factory.createGenerator(build(0.0))->generatePSF();
-    PSF finite = factory.createGenerator(build(300.0))->generatePSF();
+    PSF point = generateTestPSF(build(0.0));
+    PSF finite = generateTestPSF(build(300.0));
 
     ConfocalMetrics pointM = measureMetrics(point, 50.0, 300.0);
     ConfocalMetrics finiteM = measureMetrics(finite, 50.0, 300.0);

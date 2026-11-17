@@ -20,19 +20,26 @@ See the LICENSE file provided with the code for the full license.
 #include <stdexcept>
 
 #include "dolphin/psf/generators/GaussianPSFGenerator.h"
-#include "dolphin/psf/generators/GibsonLanniPSFGenerator.h"
+#include "dolphin/psf/generators/GibsonLanniModel.h"
+#include "dolphin/psf/generators/PSFGenerator.h"
+#include "dolphin/psf/modality/ModalityStrategy.h"
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
-#include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/psf/configs/PSFConfig.h"
+#include "dolphin/psf/PSF.h"
 #include "dolphin/ThreadPool.h"
 
 
-// factory singleton which creates either PSFConfigs or PSFGenerators, usually using the string name
+// Factory singleton which creates PSFConfigs and minimal PSF generators,
+// keyed by the model name. The factory never generates a PSF itself: it
+// assembles a generator that already holds everything needed to generate - a
+// modality strategy (the orchestrator) and a PSF model, both derived from the
+// config, plus the config. The caller provides the thread pool via
+// configure() and runs generatePSF().
 class PSFGeneratorFactory {
 public:
-    using GeneratorCreator = std::function<std::shared_ptr<BasePSFGenerator>()>;
     using ConfigCreator = std::function<std::shared_ptr<PSFConfig>()>;
+    using GeneratorCreator = std::function<std::shared_ptr<BasePSFGenerator>(std::shared_ptr<PSFConfig>)>;
 
     static PSFGeneratorFactory& getInstance() {
         static PSFGeneratorFactory instance;
@@ -40,52 +47,13 @@ public:
     }
 
     void registerPSFType(const std::string& name,
-                         GeneratorCreator generatorCreator,
-                         ConfigCreator configCreator) {
-        generators_[name] = generatorCreator;
-        configs_[name] = configCreator;
+                         ConfigCreator configCreator,
+                         GeneratorCreator generatorCreator) {
+        generators_[name] = std::move(generatorCreator);
+        configs_[name] = std::move(configCreator);
     }
 
-    std::shared_ptr<BasePSFGenerator> createGenerator(
-        const std::string& name,
-        const json& configData
-    ) {
-        auto genIt = generators_.find(name);
-        auto confIt = configs_.find(name);
-
-        if (genIt == generators_.end() || confIt == configs_.end()) {
-            throw std::runtime_error("Unknown PSF model: " + name);
-        }
-
-        // Create config and load data
-        auto config = confIt->second();
-        if (!config->loadFromJSON(configData)) {
-            throw std::runtime_error("Failed to load PSF config for: " + name);
-        }
-        config->printValues();
-
-        // Create generator and set config
-        auto generator = genIt->second();
-        generator->setConfig(std::move(config));
-        generator->configure(std::make_shared<ThreadPool>(), nullptr);
-
-        return generator;
-    }
-
-    std::shared_ptr<BasePSFGenerator> createGenerator(std::shared_ptr<PSFConfig> config) {
-        std::string modelName = config->getModelName();
-
-        auto it = generators_.find(modelName);
-        if (it == generators_.end()) {
-            throw std::runtime_error("Unknown PSF model: " + modelName);
-        }
-
-        auto generator = it->second();
-        generator->setConfig(std::move(config));
-        generator->configure(std::make_shared<ThreadPool>(), nullptr);
-        return generator;
-    }
-
+    /** Loads a PSF config from JSON (model selection + modality selection). */
     std::shared_ptr<PSFConfig> createConfig(const json& configJson) {
         std::string psfModel;
         if (!configJson.is_object()) {
@@ -120,6 +88,24 @@ public:
         return config;
     }
 
+    /** Assembles a generator for an already-loaded config: the modality
+     *  strategy and PSF model are derived from it here, once. */
+    std::shared_ptr<BasePSFGenerator> createGenerator(std::shared_ptr<PSFConfig> config) {
+        if (!config)
+            throw std::runtime_error("PSFGeneratorFactory: no PSF config given");
+
+        auto it = generators_.find(config->getModelName());
+        if (it == generators_.end()) {
+            throw std::runtime_error("Unknown PSF model: " + config->getModelName());
+        }
+        return it->second(std::move(config));
+    }
+
+    /** Assembles a generator from a JSON config (see createConfig). */
+    std::shared_ptr<BasePSFGenerator> createGenerator(const json& configJson) {
+        return createGenerator(createConfig(configJson));
+    }
+
     std::vector<std::string> getAvailablePSFModels() const {
         std::vector<std::string> names;
         for (const auto& pair : generators_) {
@@ -131,13 +117,26 @@ private:
     PSFGeneratorFactory() {
         // Register PSF types
         registerPSFType("Gaussian",
-            []() { return std::make_unique<GaussianPSFGenerator>(); },
-            []() { return std::make_unique<GaussianPSFConfig>(); }
+            []() { return std::make_shared<GaussianPSFConfig>(); },
+            [](std::shared_ptr<PSFConfig> config) {
+                // The analytic Gaussian model is self-contained: no modality
+                // layer, the generator drives the model directly.
+                auto generator = std::make_shared<GaussianPSFGenerator>();
+                generator->setConfig(std::move(config));
+                return generator;
+            }
         );
 
         registerPSFType("GibsonLanni",
-            []() { return std::make_unique<GibsonLanniPSFGenerator>(); },
-            []() { return std::make_unique<GibsonLanniPSFConfig>(); }
+            []() { return std::make_shared<GibsonLanniPSFConfig>(); },
+            [](std::shared_ptr<PSFConfig> config) {
+                auto* glConfig = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
+                if (!glConfig)
+                    throw std::runtime_error("Wrong config type for GibsonLanni model");
+                return std::make_shared<PSFGenerator>(std::move(config),
+                                                      ModalityStrategy::forConfig(*glConfig),
+                                                      std::make_shared<GibsonLanniModel>());
+            }
         );
     }
 

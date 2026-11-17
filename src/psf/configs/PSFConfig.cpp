@@ -22,8 +22,8 @@ ConfigMap resolutionCriterionMap{{
 }};
 
 ConfigMap microscopeModalityMap{{
-    {"widefield", static_cast<int>(PSFConfig::MicroscopeModality::WIDEFIELD)},
-    {"confocal", static_cast<int>(PSFConfig::MicroscopeModality::CONFOCAL)},
+    {"widefield", static_cast<int>(MicroscopeModality::WIDEFIELD)},
+    {"confocal", static_cast<int>(MicroscopeModality::CONFOCAL)},
 }};
 
 PSFConfig::PSFConfig(){
@@ -33,6 +33,11 @@ PSFConfig::PSFConfig(){
 PSFConfig::PSFConfig(const PSFConfig& other)
     : Config()  // Delegate to default constructor first (registers parameters)
 {
+    // Clone the modality config BEFORE registering: the forwarded parameter
+    // entries point into this instance's modality object.
+    modalityConfig = other.modalityConfig
+        ? std::shared_ptr<ModalityConfig>(other.modalityConfig->clone())
+        : nullptr;
     // Then copy the values
     autoSize = other.autoSize;
     ID = other.ID;
@@ -47,6 +52,42 @@ PSFConfig::PSFConfig(const PSFConfig& other)
     registerAllParameters();
 
     // Copy any other members
+}
+
+void PSFConfig::selectModality(MicroscopeModality modality){
+    if (modalityConfig && modalityConfig->modality() == modality)
+        return;
+    modalityConfig = makeModalityConfig(modality);
+    microscopeModality = modality;
+    rebuildParameters();
+}
+
+void PSFConfig::rebuildParameters(){
+    parameters.clear();
+    // Virtual call: rebuilds the whole chain (base + forwarded modality
+    // parameters + derived model parameters).
+    registerAllParameters();
+}
+
+bool PSFConfig::loadFromJSON(const json& jsonData){
+    // Select the modality config object before the generic pass: its
+    // parameters are forwarded into this registry and must exist when the
+    // pass loads them. Invalid tags keep the current modality; the
+    // microscope_modality map warns about them during the pass.
+    const auto it = jsonData.find("microscope_modality");
+    if (it != jsonData.end() && it->is_string()) {
+        const std::string modality = it->get<std::string>();
+        if (modality == "confocal") {
+            selectModality(MicroscopeModality::CONFOCAL);
+            // The optical model's wavelength is unused in confocal mode; the
+            // emission/excitation wavelengths live on the modality config.
+            if (jsonData.contains("wavelength_nm"))
+                spdlog::warn("({}) 'wavelength_nm' is unused for confocal PSFs; set 'emission_wavelength_nm' instead", getName());
+        }
+        else if (modality == "widefield")
+            selectModality(MicroscopeModality::WIDEFIELD);
+    }
+    return Config::loadFromJSON(jsonData);
 }
 
 
@@ -89,6 +130,7 @@ std::shared_ptr<PSFConfig> PSFConfig::createFromJSON(const json& jsonData){
 }
 
 void PSFConfig::registerAllParameters(){
+    parameters.clear();
     // Base PSF parameters
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
     parameters.push_back({ParameterType::Int, &sizeX, "Size X", false, "size_x", "--size_x", "PSF size X (0 = auto)", false, true, 0, 1024, nullptr});
@@ -102,4 +144,15 @@ void PSFConfig::registerAllParameters(){
     const void* resolutionCriterionMap_p = static_cast<const void*>(&resolutionCriterionMap);
     parameters.push_back({ParameterType::Map, &resolutionCriterion, "Resolution Criterion", true, "resolution_criterion", "--resolution_criterion", "Optical-resolution criterion used to size the auto-size PSF box: rayleigh, fwhm, sigma", false, true, 0.0, 2.0, resolutionCriterionMap_p});
     parameters.push_back({ParameterType::Bool, &normalizePSF, "Normalize PSF", true, "normalize_psf", "--normalize_psf", "Normalise the generated PSF to unit integral flux", false, false, 0.0, 0.0, nullptr});
+    forwardModalityParameters();
+}
+
+void PSFConfig::forwardModalityParameters(){
+    if (!modalityConfig)
+        return;
+    // The entries point into the modality config object, which is stable
+    // until selectModality() replaces it (and triggers a registry rebuild).
+    modalityConfig->visitParams([this](auto& value, ConfigParameter& param) {
+        parameters.push_back(param);
+    });
 }

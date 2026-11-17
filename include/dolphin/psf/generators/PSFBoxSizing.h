@@ -68,7 +68,11 @@ constexpr double AXIAL_FLOOR_FACTOR   = 2.0;
  *   SIGMA:    lateral 0.408*lambda/NA, axial Rayleigh axial converted to FWHM
  *             (standard rayleigh -> fwhm axial factor)
  */
-ApproxResolution approximateResolution(const GibsonLanniPSFConfig& config, int criterion);
+/** Approximate optical resolution (nm) from NA, wavelength and sample RI for the
+ *  given criterion. lambda_nm is supplied by the caller (the modality's
+ *  detection wavelength), not read from the config: in confocal mode the
+ *  emission wavelength lives on the modality config. */
+ApproxResolution approximateResolution(const GibsonLanniPSFConfig& config, double lambda_nm, int criterion);
 
 /**
  * Half-extents (voxels) of the symmetric PSF box from the optics and the

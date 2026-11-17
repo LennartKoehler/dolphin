@@ -93,12 +93,15 @@ std::vector<PSF> PSFCreator::readPSFsFromFilePath(const std::vector<std::string>
 
 PSF PSFCreator::generatePSFFromPSFConfig(std::shared_ptr<PSFConfig> psfConfig, std::shared_ptr<ThreadPool> threadPool, progressCallbackFn fn){
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
+    const std::string modelName = psfConfig->getModelName();
+    spdlog::info("Generating PSF of type {} with ID: {}", modelName, psfConfig->ID);
+    // The factory assembles a generator holding modality + model; the thread
+    // pool and progress callback are provided here, on the call.
     std::shared_ptr<BasePSFGenerator> psfGenerator = factory.createGenerator(psfConfig);
-    psfGenerator->configure(threadPool, fn);
-    spdlog::info("Generating PSF of type {} with ID: {}", psfConfig->getModelName(), psfConfig->ID);
+    psfGenerator->configure(std::move(threadPool), std::move(fn));
     PSF psf = psfGenerator->generatePSF();
     psf.ID = psfConfig->ID;
-    spdlog::info("Successfully created PSF of type {} with ID {} and size {}", psfConfig->getModelName(), psf.ID, psf.getShape().print());
+    spdlog::info("Successfully created PSF of type {} with ID {} and size {}", modelName, psf.ID, psf.getShape().print());
     return psf;
 }
 

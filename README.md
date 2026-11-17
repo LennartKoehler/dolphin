@@ -14,7 +14,7 @@ Deconvolution with Optimized Local PSFs for High-speed Image recoNstruction (DOL
 - **Point Spread Function (PSF) Input**: Allows users to provide a PSF as a file, a directory of slices, or generate a synthetic PSF.
 - **PSF Models**:
     - Gaussian — tunable sigma values and quality factor
-    - Gibson-Lanni — physically-based model with optical design/experimental parameters
+    - Gibson-Lanni — physically-based model with optical design/experimental parameters, widefield and confocal image formation (optional finite pinhole)
 - **Multiple Deconvolution Algorithms**:
     - Richardson-Lucy (RL)
     - Richardson-Lucy with Total Variation (RLTV)
@@ -333,7 +333,7 @@ A physically-based PSF model accounting for microscope optical design and experi
 | `NA` | float | `1.0` | Numerical aperture |
 | `res_lateral_nm` | float | `200.0` | Lateral resolution in nm |
 | `res_axial_nm` | float | `200.0` | Axial resolution in nm |
-| `wavelength_nm` | float | `520.0` | Emission wavelength in nm |
+| `wavelength_nm` | float | `520.0` | Wavelength of the optical model in nm. Used as the detection wavelength by the widefield modality; unused in confocal mode (which carries its own `emission_wavelength_nm`/`excitation_wavelength_nm` pair) |
 | `working_distance_design_nm` | float | `150000.0` | Design working distance (objective) in nm |
 | `working_distance_experimental_nm` | float | `150000.0` | Experimental working distance in nm |
 | `immersion_ri_design` | float | `1.515` | Design immersion medium refractive index |
@@ -348,10 +348,25 @@ A physically-based PSF model accounting for microscope optical design and experi
 | `pixel_size_lateral_nm` | float | `100.0` | Pixel size in lateral direction in nm |
 | `oversampling_factor` | float | `4.0` | Oversampling factor for PSF computation |
 | `integration_accuracy` | int | `5` | Simpson integrator convergence strictness (1..10, clamped); higher is slower. Not compatible with the BIG PSFGenerator's `accuracy` (0=Good, 1=Better, 2=Best); legacy 0/1/2 configs now mean strictness 1/2 |
+| `microscope_modality` | string | `widefield` | Image-formation model of the PSF: `widefield` or `confocal` |
 | `excitation_wavelength_nm` | float | `488.0` | Excitation wavelength in nm (confocal only); values `<= 0` fall back to `wavelength_nm` |
 | `pinhole_radius_nm` | float | `0.0` | Pinhole radius at the sample plane in nm. `0` = point pinhole (Airy-unit product model). `> 0` = finite pinhole: the detection PSF is averaged over the pinhole disc before the confocal product, which broadens the PSF toward the widefield one |
 
-Every PSF config also accepts a `microscope_modality` field (`"widefield"` or `"confocal"`, default `widefield`). For a confocal PSF the Gibson-Lanni generator computes the voxel-wise product of the excitation integral (at `excitation_wavelength_nm`) and the detection integral (at `wavelength_nm`). With `pinhole_radius_nm > 0` the detection PSF is first convolved with the pinhole disc (finite pinhole), otherwise it is the point-pinhole / Airy-unit product model. All PSFs used in one deconvolution must share the same modality. See `configs_template/gibson_lanni_confocal_config.json` for a complete confocal example.
+Every PSF config also accepts a `microscope_modality` field (`"widefield"` or `"confocal"`, default `widefield`), which selects the config object carrying that modality's parameters. For a confocal Gibson-Lanni PSF the generator computes the voxel-wise product of the excitation integral (at the modality's `excitation_wavelength_nm`) and the detection integral (at the modality's `emission_wavelength_nm`); the optical model's own `wavelength_nm` is unused in confocal mode. With `pinhole_radius_nm > 0` the detection PSF is first convolved with the pinhole disc (finite pinhole), otherwise it is the point-pinhole / Airy-unit product model. Confocal image formation is currently implemented by the Gibson-Lanni generator only; other models ignore the modality. All PSFs used in one deconvolution should share the same modality — DOLPHIN logs a warning if they mix, and a confocal config without `excitation_wavelength_nm` warns that the PSF degenerates toward the widefield model. See `configs_template/gibson_lanni_confocal_config.json` for a complete confocal example.
+
+Confocal example (relevant fields):
+
+```json
+{
+  "model_name": "GibsonLanni",
+  "id": "GL_Confocal_PSF",
+  "microscope_modality": "confocal",
+  "excitation_wavelength_nm": 488.0,
+  "emission_wavelength_nm": 520.0,
+  "pinhole_radius_nm": 280.0,
+  "NA": 0.55
+}
+```
 
 ## License
 

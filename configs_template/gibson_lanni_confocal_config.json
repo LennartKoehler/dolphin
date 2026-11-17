@@ -23,7 +23,7 @@
       "microscope_modality": "confocal",
       "excitation_wavelength_nm": 488.0,
       "pinhole_radius_nm": 280.0,
-      "wavelength_nm": 520.0,
+      "emission_wavelength_nm": 520.0,
       "working_distance_design_nm": 150000.0,
       "working_distance_experimental_nm": 150000.0,
       "immersion_ri_design": 1.43,

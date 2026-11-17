@@ -151,7 +151,10 @@ public:
 
 protected:
 
-
+    // Register this config's parameters into `parameters`. Virtual (empty
+    // here) so subclasses can rebuild their registry at runtime, e.g. when a
+    // nested parameter object like the modality config is swapped.
+    virtual void registerAllParameters() {}
 
     template<typename Visitor>
     bool visitParamValue(ConfigParameter& param, Visitor&& visitor, std::function<bool(ConfigParameter&)> specialVisitor) {
