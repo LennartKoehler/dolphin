@@ -26,7 +26,7 @@ void PoissonMLEUnitStepDeconvolutionAlgorithm::applyDataStep(
 std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEUnitStepDeconvolutionAlgorithm::cloneSpecific() const {
     auto copy = std::make_unique<PoissonMLEUnitStepDeconvolutionAlgorithm>();
     copy->iterations = iterations;
-    copy->snr = snr;
+    copy->signal_to_noise = signal_to_noise;
     copy->lambdaOverride = lambdaOverride;
     copy->backgroundOverride = backgroundOverride;
     copy->usePrefilter = usePrefilter;

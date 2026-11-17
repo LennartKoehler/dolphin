@@ -80,6 +80,7 @@ TEST_F(MainIntegrationTest, DeconvolutionConfigLoad) {
     file.close();
 
     auto config = DeconvolutionConfig::createFromJSONFile(configPath);
-    EXPECT_EQ(config.algorithmName, "RichardsonLucy");
-    EXPECT_EQ(config.iterations, 10);
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->algorithmName, "RichardsonLucy");
+    EXPECT_EQ(config->iterations, 10);
 }

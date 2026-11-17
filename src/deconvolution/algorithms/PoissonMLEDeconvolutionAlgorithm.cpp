@@ -153,8 +153,14 @@ real_t estimateBackgroundDimmestTile(const RealData& g, const IBackendMemoryMana
 } // namespace
 
 void PoissonMLEDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
+    // Accept both PoissonMLEConfig and PoissonMLEUnitStepConfig (the latter is
+    // derived from the former).
+    configure(asConfig<PoissonMLEConfig>(config, DeconvolutionAlgorithms::kPoissonMLE));
+}
+
+void PoissonMLEDeconvolutionAlgorithm::configure(const PoissonMLEConfig& config) {
     iterations = config.iterations;
-    snr = config.signalToNoise;
+    signal_to_noise = config.signalToNoise;
     lambdaOverride = config.poissonLambda;
     backgroundOverride = config.poissonBackground;
     usePrefilter = config.poissonPrefilter;
@@ -247,7 +253,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     // higher SNR -> weaker prior, closer to the pure MLE).
     const real_t lambda = (lambdaOverride > 0.0f)
                         ? lambdaOverride
-                        : kLambdaBase / std::max(1e-6f, snr);
+                        : kLambdaBase / std::max(1e-6f, signal_to_noise);
 
     // f is the object ABOVE the background (m = Hf + bg), so the physical
     // constraint is f >= 0 and the background of f converges to 0 (where the
@@ -316,7 +322,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
         // poissonSieveScale at SNR=1 and fades toward the identity as SNR -> inf
         // (the pure-MLE limit), while at low SNR it blurs strongly to suppress the
         // noise the MLE would otherwise amplify.
-        const real_t sieveSnrScale = sieveScale / std::max(1e-6f, snr);
+        const real_t sieveSnrScale = sieveScale / std::max(1e-6f, signal_to_noise);
         if (useSieve && sieveSnrScale > 1e-6f) {
             const real_t t = std::max(0.0f, 1.0f - static_cast<real_t>(k) / kLast);
             const real_t sl = sieveSnrScale * psfLat * t;
@@ -378,7 +384,7 @@ void PoissonMLEDeconvolutionAlgorithm::applyDataStep(
 std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneSpecific() const {
     auto copy = std::make_unique<PoissonMLEDeconvolutionAlgorithm>();
     copy->iterations = iterations;
-    copy->snr = snr;
+    copy->signal_to_noise = signal_to_noise;
     copy->lambdaOverride = lambdaOverride;
     copy->backgroundOverride = backgroundOverride;
     copy->usePrefilter = usePrefilter;

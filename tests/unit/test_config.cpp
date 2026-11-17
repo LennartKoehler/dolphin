@@ -18,6 +18,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
+#include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
+#include "dolphin/deconvolution/configs/PoissonMLEConfig.h"
 #include "dolphin/Logging.h"
 #include "TestUtils.h"
 #include "nlohmann/json.hpp"
@@ -31,57 +33,133 @@ protected:
     void SetUp() override {
         Logging::init();
     }
+
+    // Deconvolution configs are one class per algorithm; the factory builds the
+    // one registered for `algorithm`.
+    static std::shared_ptr<DeconvolutionConfig> makeDeconvConfig(const std::string& algorithm) {
+        return DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm(algorithm);
+    }
 };
 
 
 TEST_F(ConfigTest, DeconvolutionConfigLoadFromJSON) {
     auto jsonStr = TestUtils::defaultDeconvConfigJSON();
     json j = json::parse(jsonStr);
-    DeconvolutionConfig config;
-    ASSERT_TRUE(config.loadFromJSON(j));
-    EXPECT_EQ(config.algorithmName, "RichardsonLucy");
-    EXPECT_EQ(config.iterations, 10);
-    EXPECT_FLOAT_EQ(config.minDenominator, 1e-6f);
-    EXPECT_FLOAT_EQ(config.signalToNoise, 0.001f);
+    auto config = DeconvolutionConfig::createFromJSON(j);
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->algorithmName, "RichardsonLucy");
+    EXPECT_EQ(config->iterations, 10);
+    EXPECT_FLOAT_EQ(config->minDenominator, 1e-6f);
+    EXPECT_FLOAT_EQ(config->signalToNoise, 0.001f);
 }
 
 TEST_F(ConfigTest, DeconvolutionConfigWriteToJSON) {
-    DeconvolutionConfig config;
-    config.algorithmName = "InverseFilter";
-    config.iterations = 50;
-    json j = config.writeToJSON();
+    auto config = makeDeconvConfig("InverseFilter");
+    config->iterations = 50;
+    json j = config->writeToJSON();
     ASSERT_TRUE(j.contains("algorithm_name"));
     EXPECT_EQ(j["algorithm_name"], "InverseFilter");
     EXPECT_EQ(j["iterations"], 50);
 }
 
 TEST_F(ConfigTest, DeconvolutionConfigRoundTrip) {
-    DeconvolutionConfig config1;
-    config1.algorithmName = "RichardsonLucyTotalVariation";
-    config1.iterations = 25;
-    config1.signalToNoise = 0.05f;
-    json j = config1.writeToJSON();
+    auto config1 = makeDeconvConfig("RichardsonLucyTotalVariation");
+    config1->iterations = 25;
+    config1->signalToNoise = 0.05f;
+    json j = config1->writeToJSON();
 
-    DeconvolutionConfig config2;
-    ASSERT_TRUE(config2.loadFromJSON(j));
-    EXPECT_EQ(config2.algorithmName, "RichardsonLucyTotalVariation");
-    EXPECT_EQ(config2.iterations, 25);
-    EXPECT_FLOAT_EQ(config2.signalToNoise, 0.05f);
+    auto config2 = DeconvolutionConfig::createFromJSON(j);
+    ASSERT_NE(config2, nullptr);
+    EXPECT_EQ(config2->algorithmName, "RichardsonLucyTotalVariation");
+    EXPECT_EQ(config2->iterations, 25);
+    EXPECT_FLOAT_EQ(config2->signalToNoise, 0.05f);
+}
+
+TEST_F(ConfigTest, PoissonMLEConfigRoundTrip) {
+    auto config1 = makeDeconvConfig("PoissonMLE");
+    auto* poisson1 = dynamic_cast<PoissonMLEConfig*>(config1.get());
+    ASSERT_NE(poisson1, nullptr);
+    poisson1->iterations = 12;
+    poisson1->poissonSieve = false;
+    poisson1->poissonBackground = 4.5f;
+    poisson1->poissonSievePasses = 5;
+
+    json j = config1->writeToJSON();
+    ASSERT_TRUE(j.contains("poisson_sieve"));
+    ASSERT_TRUE(j.contains("poisson_background"));
+
+    auto config2 = DeconvolutionConfig::createFromJSON(j);
+    auto* poisson2 = dynamic_cast<PoissonMLEConfig*>(config2.get());
+    ASSERT_NE(poisson2, nullptr);
+    EXPECT_EQ(config2->algorithmName, "PoissonMLE");
+    EXPECT_EQ(poisson2->iterations, 12);
+    EXPECT_FALSE(poisson2->poissonSieve);
+    EXPECT_FLOAT_EQ(poisson2->poissonBackground, 4.5f);
+    EXPECT_EQ(poisson2->poissonSievePasses, 5);
+}
+
+TEST_F(ConfigTest, AlgorithmSpecificParametersOnlyRegisteredForTheirAlgorithm) {
+    auto rl = makeDeconvConfig("RichardsonLucy");
+    json rlJson = rl->writeToJSON();
+    EXPECT_FALSE(rlJson.contains("poisson_sieve"));
+    EXPECT_FALSE(rlJson.contains("poisson_background"));
+
+    auto poisson = makeDeconvConfig("PoissonMLE");
+    json poissonJson = poisson->writeToJSON();
+    EXPECT_TRUE(poissonJson.contains("poisson_sieve"));
+    EXPECT_TRUE(poissonJson.contains("poisson_background"));
+}
+
+TEST_F(ConfigTest, UnknownAlgorithmInJSONThrows) {
+    json j = {{"algorithm_name", "NonExistent"}};
+    EXPECT_THROW(DeconvolutionConfig::createFromJSON(j), std::runtime_error);
 }
 
 TEST_F(ConfigTest, DeconvolutionConfigCopyConstructor) {
-    DeconvolutionConfig config1;
-    config1.iterations = 42;
-    DeconvolutionConfig config2(config1);
-    EXPECT_EQ(config2.iterations, 42);
+    // Copies must re-register parameters: the void* in Config::parameters would
+    // dangle otherwise. Check both base and derived fields survive, independently.
+    auto original = std::make_shared<PoissonMLEConfig>();
+    original->iterations = 42;
+    original->paddingStrategyType = PaddingStrategyType::LOW;
+    original->poissonSievePasses = 9;
+
+    PoissonMLEConfig copy(*original);
+    EXPECT_EQ(copy.algorithmName, "PoissonMLE");
+    EXPECT_EQ(copy.iterations, 42);
+    EXPECT_EQ(copy.paddingStrategyType, PaddingStrategyType::LOW);
+    EXPECT_EQ(copy.poissonSievePasses, 9);
+
+    copy.iterations = 43;
+    copy.poissonSievePasses = 10;
+    EXPECT_EQ(original->iterations, 42);
+    EXPECT_EQ(original->poissonSievePasses, 9);
+
+    // The copy's registered parameters point at the copy, not the original.
+    json written = copy.writeToJSON();
+    EXPECT_EQ(written["iterations"], 43);
+    EXPECT_EQ(written["poisson_sieve_passes"], 10);
 }
 
 TEST_F(ConfigTest, DeconvolutionConfigAssignment) {
-    DeconvolutionConfig config1;
-    config1.iterations = 99;
-    DeconvolutionConfig config2;
-    config2 = config1;
-    EXPECT_EQ(config2.iterations, 99);
+    auto config1 = makeDeconvConfig("RichardsonLucy");
+    config1->iterations = 99;
+    auto config2 = config1;
+    EXPECT_EQ(config2->iterations, 99);
+}
+
+TEST_F(ConfigTest, PoissonMLEConfigCopyIsIndependent) {
+    auto original = makeDeconvConfig("PoissonMLE");
+    auto* poisson = dynamic_cast<PoissonMLEConfig*>(original.get());
+    ASSERT_NE(poisson, nullptr);
+    poisson->poissonSievePasses = 9;
+
+    auto copied = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("PoissonMLE");
+    *static_cast<PoissonMLEConfig*>(copied.get()) = *poisson;
+    auto* copiedPoisson = dynamic_cast<PoissonMLEConfig*>(copied.get());
+    ASSERT_NE(copiedPoisson, nullptr);
+    EXPECT_EQ(copiedPoisson->poissonSievePasses, 9);
+    copiedPoisson->poissonSievePasses = 1;
+    EXPECT_EQ(poisson->poissonSievePasses, 9);
 }
 
 TEST_F(ConfigTest, DeconvolutionConfigCreateFromJSONFile) {
@@ -92,8 +170,9 @@ TEST_F(ConfigTest, DeconvolutionConfigCreateFromJSONFile) {
     file.close();
 
     auto config = DeconvolutionConfig::createFromJSONFile(filePath);
-    EXPECT_EQ(config.algorithmName, "RichardsonLucy");
-    EXPECT_EQ(config.iterations, 10);
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->algorithmName, "RichardsonLucy");
+    EXPECT_EQ(config->iterations, 10);
 }
 
 TEST_F(ConfigTest, DeconvolutionConfigMissingFile) {
@@ -239,15 +318,14 @@ TEST_F(ConfigTest, GaussianPSFConfigCopyConstructor) {
 }
 
 TEST_F(ConfigTest, ConfigWriteToJSONRoundTrip) {
-    DeconvolutionConfig config1;
-    config1.algorithmName = "Convolution";
-    config1.iterations = 3;
-    config1.minDenominator = 1e-3f;
-    json j = config1.writeToJSON();
+    auto config1 = makeDeconvConfig("Convolution");
+    config1->iterations = 3;
+    config1->minDenominator = 1e-3f;
+    json j = config1->writeToJSON();
 
-    DeconvolutionConfig config2;
-    ASSERT_TRUE(config2.loadFromJSON(j));
-    EXPECT_EQ(config2.algorithmName, "Convolution");
-    EXPECT_EQ(config2.iterations, 3);
-    EXPECT_FLOAT_EQ(config2.minDenominator, 1e-3f);
+    auto config2 = DeconvolutionConfig::createFromJSON(j);
+    ASSERT_NE(config2, nullptr);
+    EXPECT_EQ(config2->algorithmName, "Convolution");
+    EXPECT_EQ(config2->iterations, 3);
+    EXPECT_FLOAT_EQ(config2->minDenominator, 1e-3f);
 }

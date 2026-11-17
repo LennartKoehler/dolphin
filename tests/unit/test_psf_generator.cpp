@@ -22,6 +22,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/PSF.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/PSFHandler.h"
 #include "dolphin/Logging.h"
 #include "TestUtils.h"
@@ -504,10 +505,10 @@ TEST_F(PSFGeneratorTest, PSFHandlerDerivesCutoffFromPaddingStrategy) {
         setupConfig.psfConfigs = {psfConfig};
         setupConfig.psfFilePaths = {};
 
-        DeconvolutionConfig deconvConfig;
-        deconvConfig.paddingStrategyType = PaddingStrategyType::MEDIUM;
+        auto deconvConfig = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("RichardsonLucy");
+        deconvConfig->paddingStrategyType = PaddingStrategyType::MEDIUM;
 
-        handler->generatePSFs(setupConfig, deconvConfig, CuboidShape{128, 128, 64});
+        handler->generatePSFs(setupConfig, *deconvConfig, CuboidShape{128, 128, 64});
         return handler->getMaxShape();
     };
 

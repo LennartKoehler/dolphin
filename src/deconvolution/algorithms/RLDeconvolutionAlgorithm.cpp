@@ -16,7 +16,10 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/spdlog.h>
 
 void RLDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Call base class configure to set up common parameters
+    configure(asConfig<RichardsonLucyConfig>(config, DeconvolutionAlgorithms::kRichardsonLucy));
+}
+
+void RLDeconvolutionAlgorithm::configure(const RichardsonLucyConfig& config) {
     iterations = config.iterations;
 }
 
@@ -77,7 +80,7 @@ void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, Rea
         // deconvolution.scalarMultiplication(c, 1.0 / g.size.getVolume(), c); // Add normalization
 
         // b) Calculation of the Correction Factor: c = g / fn\'
-        deconvolution.division(g, c_real, c_real, static_cast<real_t>(complexDivisionEpsilon));
+        deconvolution.division(g, c_real, c_real, static_cast<real_t>(min_denominator));
 
         // // c) Second transformation: C = FFT(c)
         deconvolution.forwardFFT(c_real, c_complex);

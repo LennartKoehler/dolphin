@@ -92,6 +92,14 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::shared_ptr<SetupConfig> setupConfig = request.getConfig();
         std::shared_ptr<DeconvolutionConfig> deconvConfig = request.getDeconvolutionConfig();
 
+        spdlog::get("deconvolution")->debug("Using the following deconvolution config");
+        deconvConfig->printValues();
+
+        spdlog::get("deconvolution")->debug("Using the following setup config");
+        setupConfig->printValues();
+
+
+
         std::shared_ptr<ThreadPool> localThreadPool = std::make_shared<ThreadPool>(setupConfig->nThreads);
 
         progressCallbackFn progressCallback = request.getProgressCallback();

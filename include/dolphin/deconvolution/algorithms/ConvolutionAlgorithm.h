@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/configs/ConvolutionConfig.h"
 #include <memory>
 
 class ConvolutionAlgorithm : public DeconvolutionAlgorithm {
@@ -22,6 +23,7 @@ public:
     ~ConvolutionAlgorithm() = default;
     
     void configure(const DeconvolutionConfig& config) override;
+    void configure(const ConvolutionConfig& config);
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;

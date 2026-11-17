@@ -17,6 +17,8 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
+#include "dolphin/deconvolution/AlgorithmNames.h"
+#include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/SetupConfig.h"
 
@@ -96,7 +98,9 @@ void PSFMainWindow::content(){
 DeconvolutionMainWindow::DeconvolutionMainWindow(GUIFrontend* guiFrontend, int width, int height, std::string name)
     : guiFrontend(guiFrontend),
     Window(width, height, name){
-        std::shared_ptr<DeconvolutionConfig> deconv = std::make_shared<DeconvolutionConfig>();
+        // One config class per algorithm; the factory builds the registered one.
+        std::shared_ptr<DeconvolutionConfig> deconv =
+            DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm(DeconvolutionAlgorithms::kRichardsonLucy);
         std::shared_ptr<ConfigContent> deconvwindow = std::make_shared<ConfigContent>("Deconvolution Config", deconv);
         deconvwindow->activate();
 

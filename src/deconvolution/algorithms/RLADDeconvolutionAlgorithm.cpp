@@ -16,20 +16,20 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/spdlog.h>
 
 void RLADDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Call base class configure to set up common parameters
+    configure(asConfig<RichardsonLucyADConfig>(config, DeconvolutionAlgorithms::kRichardsonLucyAdaptiveDamping));
+}
+
+void RLADDeconvolutionAlgorithm::configure(const RichardsonLucyADConfig& config) {
     iterations = config.iterations;
-    dampingDecrease = 0; // Fixed to exponential decay as in original
-    alpha = 0.9;         // Fixed as in original
-    beta = 0.01;         // Fixed as in original
 }
 
 void RLADDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Richardson-Lucy with Adaptive Damping algorithm initialization");\
-    
+
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     c = std::move(memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize));
     c_complex = c.reinterpret();
-    
+
     initialized = true;
 }
 
@@ -39,9 +39,9 @@ bool RLADDeconvolutionAlgorithm::isInitialized() const {
 
 void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
     assert(backend && "No backend available for Richardson-Lucy with Adaptive Damping algorithm");\
-    
+
     assert(initialized && "Richardson-Lucy with Adaptive Damping algorithm not initialized. Call init() first.");\
-    
+
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     const IComputeBackend& deconvolution = backend->getComputeManager();
 
@@ -68,7 +68,7 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         deconvolution.backwardFFT(c_complex, c);
 
         // b) Calculation of the Correction Factor: c = g / fn'
-        deconvolution.division(g, c, c, static_cast<real_t>(complexDivisionEpsilon));
+        deconvolution.division(g, c, c, static_cast<real_t>(min_denominator));
 
         // c) Second transformation: C = FFT(c)
         deconvolution.forwardFFT(c, c_complex);

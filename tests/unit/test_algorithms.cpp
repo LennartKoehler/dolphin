@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #include <gtest/gtest.h>
 #include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/deconvolution/configs/PoissonMLEConfig.h"
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/backend/BackendFactory.h"
@@ -40,15 +41,19 @@ protected:
         backend = &factory.getBackend<IBackend>(BackendConfig{1, "cpu"});
     }
 
-    std::shared_ptr<DeconvolutionAlgorithm> createAlgorithm(const std::string& name) {
-        DeconvolutionConfig config;
-        config.algorithmName = name;
-        config.iterations = 5;
-        config.minDenominator = 1e-6f;
-        config.signalToNoise = 0.001f;
-        config.signalToNoise = 100.0f;
+    // Config classes are one per algorithm; build the one registered for `name`.
+    std::shared_ptr<DeconvolutionConfig> makeConfig(const std::string& name) {
         auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-        return factory.createShared(config);
+        auto config = factory.createConfigForAlgorithm(name);
+        config->iterations = 5;
+        config->minDenominator = 1e-6f;
+        config->signalToNoise = 100.0f;
+        return config;
+    }
+
+    std::shared_ptr<DeconvolutionAlgorithm> createAlgorithm(const std::string& name) {
+        auto& factory = DeconvolutionAlgorithmFactory::getInstance();
+        return factory.createShared(*makeConfig(name));
     }
 
     std::shared_ptr<PSF> createImpulsePSF(CuboidShape shape) {
@@ -165,11 +170,10 @@ INSTANTIATE_TEST_SUITE_P(
 );
 
 TEST_F(AlgorithmTestBase, RLZeroIterationsReturnsInput) {
-    DeconvolutionConfig config;
-    config.algorithmName = "RichardsonLucy";
-    config.iterations = 0;
+    auto config = makeConfig("RichardsonLucy");
+    config->iterations = 0;
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto algo = factory.createShared(config);
+    auto algo = factory.createShared(*config);
     ASSERT_NE(algo, nullptr);
 
     algo->setBackend(*backend);
@@ -273,11 +277,10 @@ TEST_F(AlgorithmTestBase, AlgorithmSetProgressTracker) {
 }
 
 TEST_F(AlgorithmTestBase, AlgorithmClonePreservesConfig) {
-    DeconvolutionConfig config;
-    config.algorithmName = "RichardsonLucy";
-    config.iterations = 42;
+    auto config = makeConfig("RichardsonLucy");
+    config->iterations = 42;
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto algo = factory.createShared(config);
+    auto algo = factory.createShared(*config);
     auto clone = algo->clone();
     ASSERT_NE(clone, nullptr);
     EXPECT_EQ(clone->getMemoryMultiplier(), algo->getMemoryMultiplier());
@@ -394,15 +397,16 @@ TEST_F(AlgorithmTestBase, PoissonMLEGaussianPSFRoundTrip) {
     compute.realAffine(work, 1.0f, bg, g);
     backend->sync();
 
-    DeconvolutionConfig config;
-    config.algorithmName = "PoissonMLE";
+    auto configOwner = makeConfig("PoissonMLE");
+
+    auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
     config.iterations = 30;
     config.signalToNoise = 20.0f;
     config.poissonBackground = bg;
     config.poissonSieve = true;
     config.poissonPrior = true;
     config.poissonSievePasses = 2;
-    auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(config);
+    auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     ASSERT_NE(algo, nullptr);
     algo->setBackend(*backend);
     algo->init(dataSize);
@@ -489,8 +493,8 @@ TEST_F(AlgorithmTestBase, PoissonMLESieveScaleKnob) {
     // snr=1 so poissonSieveScale maps 1:1 to its literal meaning (effective sieve
     // scale = poissonSieveScale / snr); the flow-through check stays unambiguous.
     auto run = [this, &mem, &bg, &g, &Hmis](float sieveScale) -> Image3D {
-        DeconvolutionConfig config;
-        config.algorithmName = "PoissonMLE";
+        auto configOwner = makeConfig("PoissonMLE");
+        auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
         config.iterations = 30;
         config.signalToNoise = 1.0f;
         config.poissonBackground = bg;
@@ -498,7 +502,7 @@ TEST_F(AlgorithmTestBase, PoissonMLESieveScaleKnob) {
         config.poissonPrior = true;
         config.poissonSievePasses = 2;
         config.poissonSieveScale = sieveScale;
-        auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(config);
+        auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
         if (!algo) return Image3D(dataSize, 0.0f);
         algo->setBackend(*backend);
         algo->init(dataSize);
@@ -586,8 +590,8 @@ TEST_F(AlgorithmTestBase, PoissonMLEPrefilterAutoBackground) {
     backend->sync();
 
     auto run = [&](bool prefilter) -> Image3D {
-        DeconvolutionConfig config;
-        config.algorithmName = "PoissonMLE";
+        auto configOwner = makeConfig("PoissonMLE");
+        auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
         config.iterations = 30;
         config.signalToNoise = 20.0f;
         config.poissonBackground = -1.0f; // auto
@@ -596,7 +600,7 @@ TEST_F(AlgorithmTestBase, PoissonMLEPrefilterAutoBackground) {
         config.poissonSieve = true;
         config.poissonPrior = true;
         config.poissonSievePasses = 2;
-        auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(config);
+        auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
         if (!algo) throw std::runtime_error("PoissonMLE algorithm not created");
         algo->setBackend(*backend);
         algo->init(dataSize);
@@ -680,8 +684,9 @@ TEST_F(AlgorithmTestBase, PoissonMLERemovesOutputPedestal) {
     compute.realAffine(work, 1.0f, bg, g);
     backend->sync();
 
-    DeconvolutionConfig config;
-    config.algorithmName = "PoissonMLE";
+    auto configOwner = makeConfig("PoissonMLE");
+
+    auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
     config.iterations = 30;
     config.signalToNoise = 20.0f;
     config.poissonBackground = -1.0f; // auto
@@ -690,7 +695,7 @@ TEST_F(AlgorithmTestBase, PoissonMLERemovesOutputPedestal) {
     config.poissonSieve = true;
     config.poissonPrior = true;
     config.poissonSievePasses = 2;
-    auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(config);
+    auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     ASSERT_NE(algo, nullptr);
     algo->setBackend(*backend);
     algo->init(dataSize);
@@ -742,13 +747,14 @@ TEST_F(AlgorithmTestBase, PoissonMLENegativePSFNoNaN) {
     RealData g = imageToDevice(img);
     RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(shape);
 
-    DeconvolutionConfig config;
-    config.algorithmName = "PoissonMLE";
+    auto configOwner = makeConfig("PoissonMLE");
+
+    auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
     config.iterations = 2;
     config.signalToNoise = 10.0f;
     config.poissonSieve = false;
     config.poissonPrior = false;
-    auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(config);
+    auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     algo->setBackend(*backend);
     algo->init(shape);
     algo->deconvolve(*H, g, f);
@@ -809,15 +815,16 @@ TEST_F(AlgorithmTestBase, PoissonMLEWidePSFSharpPeaksNoNaN) {
                 psfImg.setPixel(x, y, z, vals[z * S * S + y * S + x] / (float)psfSum);
     auto H = preprocessPSF(std::make_shared<PSF>(std::move(psfImg), "wide"), shape);
 
-    DeconvolutionConfig config;
-    config.algorithmName = "PoissonMLE";
+    auto configOwner = makeConfig("PoissonMLE");
+
+    auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
     config.iterations = 6;
     config.signalToNoise = 10.0f;      // lambda = 0.1
     config.poissonBackground = bg;
     config.poissonSieve = true;
     config.poissonPrior = true;
     config.poissonSievePasses = 2;
-    auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(config);
+    auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     ASSERT_NE(algo, nullptr);
     algo->setBackend(*backend);
     algo->init(shape);

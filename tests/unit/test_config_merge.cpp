@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/Config.h"
 #include "dolphin/SetupConfig.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
@@ -98,10 +99,10 @@ TEST_F(ConfigMergeTest, SetupConfigIgnoresDeconvConfigKey) {
 TEST_F(ConfigMergeTest, DeconvConfigFromSubObject) {
     auto path = writeTempJSON(TestUtils::combinedSubObjectJSON(), "deconv_sub.json");
     auto config = DeconvolutionConfig::createFromJSONFile(path);
-    EXPECT_EQ(config.algorithmName, "RichardsonLucy");
-    EXPECT_EQ(config.iterations, 20);
-    EXPECT_FLOAT_EQ(config.minDenominator, 1e-5f);
-    EXPECT_FLOAT_EQ(config.signalToNoise, 0.02f);
+    EXPECT_EQ(config->algorithmName, "RichardsonLucy");
+    EXPECT_EQ(config->iterations, 20);
+    EXPECT_FLOAT_EQ(config->minDenominator, 1e-5f);
+    EXPECT_FLOAT_EQ(config->signalToNoise, 0.02f);
 }
 
 TEST_F(ConfigMergeTest, DeconvConfigSliceAllDimensions) {
@@ -110,10 +111,10 @@ TEST_F(ConfigMergeTest, DeconvConfigSliceAllDimensions) {
     })";
     auto path = writeTempJSON(jsonStr, "deconv_slice_dims.json");
     auto config = DeconvolutionConfig::createFromJSONFile(path);
-    EXPECT_TRUE(config.sliceAllDimensions);
+    EXPECT_TRUE(config->sliceAllDimensions);
 
-    DeconvolutionConfig defaultConfig;
-    EXPECT_FALSE(defaultConfig.sliceAllDimensions);
+    auto defaultConfig = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("RichardsonLucy");
+    EXPECT_FALSE(defaultConfig->sliceAllDimensions);
 }
 
 TEST_F(ConfigMergeTest, DeconvConfigFromRootLevel) {
@@ -125,8 +126,8 @@ TEST_F(ConfigMergeTest, DeconvConfigFromRootLevel) {
     })";
     auto path = writeTempJSON(jsonStr, "deconv_root.json");
     auto config = DeconvolutionConfig::createFromJSONFile(path);
-    EXPECT_EQ(config.algorithmName, "Convolution");
-    EXPECT_EQ(config.iterations, 3);
+    EXPECT_EQ(config->algorithmName, "Convolution");
+    EXPECT_EQ(config->iterations, 3);
 }
 
 TEST_F(ConfigMergeTest, CombinedJSONBothConfigs) {
@@ -136,8 +137,8 @@ TEST_F(ConfigMergeTest, CombinedJSONBothConfigs) {
 
     EXPECT_EQ(setupConfig.imagePath, "combined_input.tif");
     EXPECT_EQ(setupConfig.nWorkerThreads, 4);
-    EXPECT_EQ(deconvConfig.algorithmName, "RichardsonLucy");
-    EXPECT_EQ(deconvConfig.iterations, 20);
+    EXPECT_EQ(deconvConfig->algorithmName, "RichardsonLucy");
+    EXPECT_EQ(deconvConfig->iterations, 20);
 }
 
 TEST_F(ConfigMergeTest, JSONOnlyDeconvConfig) {
@@ -150,8 +151,8 @@ TEST_F(ConfigMergeTest, JSONOnlyDeconvConfig) {
     auto path = writeTempJSON(jsonStr, "only_deconv.json");
 
     auto deconvConfig = DeconvolutionConfig::createFromJSONFile(path);
-    EXPECT_EQ(deconvConfig.algorithmName, "InverseFilter");
-    EXPECT_EQ(deconvConfig.iterations, 15);
+    EXPECT_EQ(deconvConfig->algorithmName, "InverseFilter");
+    EXPECT_EQ(deconvConfig->iterations, 15);
 }
 
 TEST_F(ConfigMergeTest, JSONOnlySetupConfig) {
@@ -174,7 +175,7 @@ TEST_F(ConfigMergeTest, CombinedJSONWithInlinePSFSections) {
     auto deconvConfig = DeconvolutionConfig::createFromJSONFile(path);
 
     EXPECT_EQ(setupConfig.imagePath, "inline_input.tif");
-    EXPECT_EQ(deconvConfig.iterations, 10);
+    EXPECT_EQ(deconvConfig->iterations, 10);
 
     json jsonData = Config::loadJSONFile(path);
     ASSERT_TRUE(jsonData.contains("psf_configs"));
@@ -264,11 +265,11 @@ TEST_F(ConfigMergeTest, PSFHandlerSetupPSFConfigs) {
     setupConfig.psfConfigs = {psfConfig};
     setupConfig.psfFilePaths = {};
 
-    DeconvolutionConfig deconvConfig;
-    deconvConfig.paddingStrategyType = PaddingStrategyType::NONE;
+    auto deconvConfig = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("RichardsonLucy");
+    deconvConfig->paddingStrategyType = PaddingStrategyType::NONE;
 
-    psfHandler.generatePSFs(setupConfig, deconvConfig, CuboidShape{64, 64, 32});
-    auto paddingResult = psfHandler.getPadding(deconvConfig);
+    psfHandler.generatePSFs(setupConfig, *deconvConfig, CuboidShape{64, 64, 32});
+    auto paddingResult = psfHandler.getPadding(*deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 }
 
@@ -284,11 +285,11 @@ TEST_F(ConfigMergeTest, PSFHandlerDoubleLoadFix) {
     setupConfig.psfConfigs = {psfConfig};
     setupConfig.psfFilePaths = {};
 
-    DeconvolutionConfig deconvConfig;
-    deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
+    auto deconvConfig = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("RichardsonLucy");
+    deconvConfig->paddingStrategyType = PaddingStrategyType::LOW;
 
-    psfHandler.generatePSFs(setupConfig, deconvConfig, CuboidShape{32, 32, 16});
-    auto paddingResult = psfHandler.getPadding(deconvConfig);
+    psfHandler.generatePSFs(setupConfig, *deconvConfig, CuboidShape{32, 32, 16});
+    auto paddingResult = psfHandler.getPadding(*deconvConfig);
     ASSERT_TRUE(paddingResult.success);
 
     auto shapeResult = psfHandler.getMaxShape();
@@ -305,11 +306,11 @@ TEST_F(ConfigMergeTest, PSFHandlerNoConfigsFailsPadding) {
     SetupConfig setupConfig;
     setupConfig.psfFilePaths = {};
 
-    DeconvolutionConfig deconvConfig;
-    deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
+    auto deconvConfig = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("RichardsonLucy");
+    deconvConfig->paddingStrategyType = PaddingStrategyType::LOW;
 
-    psfHandler.generatePSFs(setupConfig, deconvConfig, CuboidShape{32, 32, 16});
-    auto paddingResult = psfHandler.getPadding(deconvConfig);
+    psfHandler.generatePSFs(setupConfig, *deconvConfig, CuboidShape{32, 32, 16});
+    auto paddingResult = psfHandler.getPadding(*deconvConfig);
     ASSERT_FALSE(paddingResult.success);
     EXPECT_EQ(psfHandler.getPSFs(CuboidShape{0,0,0}).size(), 0u);
 }
@@ -317,7 +318,8 @@ TEST_F(ConfigMergeTest, PSFHandlerNoConfigsFailsPadding) {
 
 struct ConfigBundle {
     SetupConfig setupConfig;
-    DeconvolutionConfig deconvConfig;
+    // Polymorphic: one config class per algorithm (see DeconvolutionAlgorithmFactory).
+    std::shared_ptr<DeconvolutionConfig> deconvConfig;
     std::vector<std::shared_ptr<PSFConfig>> psfConfigs;
 
     bool hasSetup = false;
@@ -332,7 +334,7 @@ static void loadJSONBundle(const json& jsonData, ConfigBundle& bundle) {
     }
 
     if (jsonData.contains("deconvolution_config")) {
-        bundle.deconvConfig.loadFromJSON(jsonData["deconvolution_config"]);
+        bundle.deconvConfig = DeconvolutionConfig::createFromJSON(jsonData["deconvolution_config"]);
         bundle.hasDeconv = true;
     }
 
@@ -375,8 +377,9 @@ static ConfigBundle makeCLIBundle(const std::string& imagePath, const std::strin
     ConfigBundle cli;
     cli.setupConfig.imagePath = imagePath;
     cli.setupConfig.backend = backend;
-    cli.deconvConfig.iterations = iterations;
-    cli.deconvConfig.algorithmName = algorithm;
+    // Config bundles hold the concrete config class of the algorithm.
+    cli.deconvConfig = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm(algorithm);
+    cli.deconvConfig->iterations = iterations;
     cli.hasSetup = true;
     cli.hasDeconv = true;
     return cli;
@@ -391,8 +394,8 @@ TEST_F(ConfigMergeTest, CLISim_BothFromJSON_CLIOverwritten) {
 
     EXPECT_EQ(merged.setupConfig.imagePath, "combined_input.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.deconvConfig.iterations, 20);
-    EXPECT_EQ(merged.deconvConfig.algorithmName, "RichardsonLucy");
+    EXPECT_EQ(merged.deconvConfig->iterations, 20);
+    EXPECT_EQ(merged.deconvConfig->algorithmName, "RichardsonLucy");
 }
 
 TEST_F(ConfigMergeTest, CLISim_OnlyDeconvInJSON_SetupKeepsCLI) {
@@ -413,8 +416,8 @@ TEST_F(ConfigMergeTest, CLISim_OnlyDeconvInJSON_SetupKeepsCLI) {
 
     EXPECT_EQ(merged.setupConfig.imagePath, "cli_image.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cuda");
-    EXPECT_EQ(merged.deconvConfig.iterations, 5);
-    EXPECT_EQ(merged.deconvConfig.algorithmName, "InverseFilter");
+    EXPECT_EQ(merged.deconvConfig->iterations, 5);
+    EXPECT_EQ(merged.deconvConfig->algorithmName, "InverseFilter");
 }
 
 TEST_F(ConfigMergeTest, CLISim_OnlySetupInJSON_DeconvKeepsCLI) {
@@ -427,8 +430,8 @@ TEST_F(ConfigMergeTest, CLISim_OnlySetupInJSON_DeconvKeepsCLI) {
 
     EXPECT_EQ(merged.setupConfig.imagePath, "sub_input.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cuda");
-    EXPECT_EQ(merged.deconvConfig.iterations, 42);
-    EXPECT_EQ(merged.deconvConfig.algorithmName, "Convolution");
+    EXPECT_EQ(merged.deconvConfig->iterations, 42);
+    EXPECT_EQ(merged.deconvConfig->algorithmName, "Convolution");
 }
 
 TEST_F(ConfigMergeTest, CLISim_OnlyPSFInJSON_BothConfigsKept) {
@@ -440,7 +443,7 @@ TEST_F(ConfigMergeTest, CLISim_OnlyPSFInJSON_BothConfigsKept) {
     ConfigBundle merged = mergeBundles(json, cli);
 
     EXPECT_EQ(merged.setupConfig.imagePath, "cli_image.tif");
-    EXPECT_EQ(merged.deconvConfig.iterations, 42);
+    EXPECT_EQ(merged.deconvConfig->iterations, 42);
     ASSERT_EQ(merged.psfConfigs.size(), 2);
     EXPECT_EQ(merged.psfConfigs[0]->getModelName(), "Gaussian");
     EXPECT_EQ(merged.psfConfigs[1]->getModelName(), "GibsonLanni");
@@ -479,8 +482,8 @@ TEST_F(ConfigMergeTest, CLISim_SetupAndPSFInJSON_DeconvKeepsCLI) {
     ConfigBundle merged = mergeBundles(json, cli);
 
     EXPECT_EQ(merged.setupConfig.imagePath, "inline_input.tif");
-    EXPECT_EQ(merged.deconvConfig.iterations, 77);
-    EXPECT_EQ(merged.deconvConfig.algorithmName, "Convolution");
+    EXPECT_EQ(merged.deconvConfig->iterations, 77);
+    EXPECT_EQ(merged.deconvConfig->algorithmName, "Convolution");
     ASSERT_EQ(merged.psfConfigs.size(), 1);
     EXPECT_EQ(merged.psfConfigs[0]->getModelName(), "Gaussian");
     EXPECT_EQ(merged.psfConfigs[0]->ID, "inline_gauss");
@@ -503,7 +506,7 @@ TEST_F(ConfigMergeTest, CLISim_RootLevelTreatedAsSetup) {
     EXPECT_EQ(merged.setupConfig.imagePath, "root_image.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
     EXPECT_EQ(merged.setupConfig.nIOThreads, 8);
-    EXPECT_EQ(merged.deconvConfig.iterations, 50);
+    EXPECT_EQ(merged.deconvConfig->iterations, 50);
 }
 
 TEST_F(ConfigMergeTest, CLISim_NoConfigSections_EmptyJSON) {
@@ -515,7 +518,7 @@ TEST_F(ConfigMergeTest, CLISim_NoConfigSections_EmptyJSON) {
     ConfigBundle merged = mergeBundles(json, cli);
 
     EXPECT_EQ(merged.setupConfig.imagePath, "cli_image.tif");
-    EXPECT_EQ(merged.deconvConfig.iterations, 50);
+    EXPECT_EQ(merged.deconvConfig->iterations, 50);
     EXPECT_FALSE(merged.hasPSF);
 }
 
@@ -558,8 +561,8 @@ TEST_F(ConfigMergeTest, CLISim_AllThreeSectionsInJSON) {
     EXPECT_EQ(merged.setupConfig.imagePath, "json_image.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
     EXPECT_EQ(merged.setupConfig.nIOThreads, 3);
-    EXPECT_EQ(merged.deconvConfig.iterations, 15);
-    EXPECT_EQ(merged.deconvConfig.algorithmName, "RichardsonLucy");
+    EXPECT_EQ(merged.deconvConfig->iterations, 15);
+    EXPECT_EQ(merged.deconvConfig->algorithmName, "RichardsonLucy");
     ASSERT_EQ(merged.psfConfigs.size(), 1);
     EXPECT_EQ(merged.psfConfigs[0]->ID, "inline1");
 }
@@ -585,7 +588,7 @@ TEST_F(ConfigMergeTest, CLISim_OldFormat_RootSetupPlusDeconvSubObject) {
     EXPECT_EQ(merged.setupConfig.imagePath, "old_image.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
     EXPECT_EQ(merged.setupConfig.nIOThreads, 6);
-    EXPECT_EQ(merged.deconvConfig.iterations, 25);
+    EXPECT_EQ(merged.deconvConfig->iterations, 25);
 }
 
 TEST_F(ConfigMergeTest, CLISim_OldFormat_RootSetupPlusDeconvPlusPSF) {
@@ -610,7 +613,7 @@ TEST_F(ConfigMergeTest, CLISim_OldFormat_RootSetupPlusDeconvPlusPSF) {
 
     EXPECT_EQ(merged.setupConfig.imagePath, "old_image.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.deconvConfig.iterations, 12);
+    EXPECT_EQ(merged.deconvConfig->iterations, 12);
     ASSERT_EQ(merged.psfConfigs.size(), 1);
     EXPECT_EQ(merged.psfConfigs[0]->ID, "old_psf");
 }
@@ -622,8 +625,8 @@ TEST_F(ConfigMergeTest, CLISim_NoJSON_AllFromCLI) {
 
     EXPECT_EQ(merged.setupConfig.imagePath, "cli_image.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cuda");
-    EXPECT_EQ(merged.deconvConfig.iterations, 42);
-    EXPECT_EQ(merged.deconvConfig.algorithmName, "Convolution");
+    EXPECT_EQ(merged.deconvConfig->iterations, 42);
+    EXPECT_EQ(merged.deconvConfig->algorithmName, "Convolution");
     EXPECT_FALSE(merged.hasPSF);
 }
 

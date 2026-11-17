@@ -14,7 +14,7 @@ result/tiles/*
 cmake-build-debug/*
 input/*
 lib/cube/build/*
-configs/
+/configs/
 **/debug.log
 
 # Generated artifacts

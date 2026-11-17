@@ -19,6 +19,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/Dolphin.h"
 #include "dolphin/SetupConfig.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "dolphin/Logging.h"
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/PSF.h"
@@ -120,18 +121,17 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
     setupConfig.maxMemDevice_gb = 8;
     setupConfig.savePsf = true;
 
-    DeconvolutionConfig deconvConfig;
-    deconvConfig.algorithmName = "RichardsonLucy";
-    deconvConfig.iterations = 5;
-    deconvConfig.minDenominator = 1e-6f;
-    deconvConfig.signalToNoise = 0.001f;
-    deconvConfig.paddingFillType = PaddingFillType::MIRROR;
-    deconvConfig.paddingStrategyType = PaddingStrategyType::LOW;
+    auto deconvConfig = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("RichardsonLucy");
+    deconvConfig->iterations = 5;
+    deconvConfig->minDenominator = 1e-6f;
+    deconvConfig->signalToNoise = 0.001f;
+    deconvConfig->paddingFillType = PaddingFillType::MIRROR;
+    deconvConfig->paddingStrategyType = PaddingStrategyType::LOW;
 
     std::string setupConfigPath = testDir + "/setup_config.json";
     {
         ordered_json setupJson = setupConfig.writeToJSON();
-        ordered_json deconvJson = deconvConfig.writeToJSON();
+        ordered_json deconvJson = deconvConfig->writeToJSON();
         setupJson["deconvolution_config"] = deconvJson;
 
         std::ofstream o(setupConfigPath);
@@ -140,7 +140,7 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
     }
 
     SetupConfig readSetupConfig;
-    DeconvolutionConfig readDeconvConfig;
+    std::shared_ptr<DeconvolutionConfig> readDeconvConfig;
     {
         readSetupConfig = SetupConfig::createFromJSONFile(setupConfigPath);
         readDeconvConfig = DeconvolutionConfig::createFromJSONFile(setupConfigPath);
@@ -152,10 +152,10 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
         EXPECT_FLOAT_EQ(readSetupConfig.maxMemHost_gb, 8.0f);
         EXPECT_FLOAT_EQ(readSetupConfig.maxMemDevice_gb, 8.0f);
 
-        EXPECT_EQ(readDeconvConfig.algorithmName, "RichardsonLucy");
-        EXPECT_EQ(readDeconvConfig.iterations, 5);
-        EXPECT_EQ(readDeconvConfig.paddingFillType, PaddingFillType::MIRROR);
-        EXPECT_EQ(readDeconvConfig.paddingStrategyType, PaddingStrategyType::LOW);
+        EXPECT_EQ(readDeconvConfig->algorithmName, "RichardsonLucy");
+        EXPECT_EQ(readDeconvConfig->iterations, 5);
+        EXPECT_EQ(readDeconvConfig->paddingFillType, PaddingFillType::MIRROR);
+        EXPECT_EQ(readDeconvConfig->paddingStrategyType, PaddingStrategyType::LOW);
     }
 
     // --- Step 4: Deconvolution ---
@@ -165,7 +165,7 @@ TEST_F(EndToEndTest, FullDeconvolutionPipeline) {
     setupConfigPtr->psfConfigs = {readPsfConfig};
     DeconvolutionRequest request(
         setupConfigPtr,
-        std::make_shared<DeconvolutionConfig>(readDeconvConfig),
+        readDeconvConfig,
         progressCallback);
 
     auto result = dolphin->deconvolve(request);

@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/configs/PoissonMLEConfig.h"
 #include <memory>
 
 // Poisson / I-divergence (photon-counting) likelihood deconvolution: an alternating
@@ -38,6 +39,7 @@ public:
     ~PoissonMLEDeconvolutionAlgorithm() = default;
 
     void configure(const DeconvolutionConfig& config) override;
+    virtual void configure(const PoissonMLEConfig& config);
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
@@ -57,10 +59,10 @@ protected:
     // Per-deconvolution step-damping state (line-search variant uses it).
     real_t pwr = 1.0f;
 
-    // Configuration mirrored from DeconvolutionConfig (protected so subclasses can
-    // copy them in their own cloneSpecific()).
-    int iterations;
-    float snr;
+    // Configuration mirrored from PoissonMLEConfig (protected so the UnitStep
+    // subclass can copy them in its own cloneSpecific()).
+    int iterations = 10;
+    float signal_to_noise = 10.0f;
     float lambdaOverride;
     float backgroundOverride;
     bool usePrefilter;

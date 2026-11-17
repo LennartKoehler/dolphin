@@ -18,8 +18,11 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/spdlog.h>
 
 void ConvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Call base class configure to set up common parameters
-    // No specific parameters for basic convolution
+    configure(asConfig<ConvolutionConfig>(config, DeconvolutionAlgorithms::kConvolution));
+}
+
+void ConvolutionAlgorithm::configure(const ConvolutionConfig& config) {
+    // Pure forward model: no parameters to configure.
 }
 
 void ConvolutionAlgorithm::init(const CuboidShape& dataSize) {

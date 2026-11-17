@@ -16,7 +16,10 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/spdlog.h>
 
 void InverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Call base class configure to set up common parameters
+    configure(asConfig<InverseFilterConfig>(config, DeconvolutionAlgorithms::kInverseFilter));
+}
+
+void InverseFilterDeconvolutionAlgorithm::configure(const InverseFilterConfig& config) {
     min_denominator = config.minDenominator;
 }
 

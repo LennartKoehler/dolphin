@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/configs/RegularizedInverseFilterConfig.h"
 #include <memory>
 
 class RegularizedInverseFilterDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
@@ -22,12 +23,14 @@ public:
     ~RegularizedInverseFilterDeconvolutionAlgorithm() = default;
     
     void configure(const DeconvolutionConfig& config) override;
+    void configure(const RegularizedInverseFilterConfig& config);
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
     size_t getMemoryMultiplier() const override;
 private:
-    double signal_to_noise;
+    // Configuration (set in configure()); cloned in cloneSpecific().
+    double signal_to_noise = 10.0;
     bool initialized = false;
     
     // Algorithm-specific data members for intermediate calculations (frequency domain)
