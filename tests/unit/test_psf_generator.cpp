@@ -922,14 +922,14 @@ TEST_F(PSFGeneratorTest, ModalityStrategySelection) {
 
 namespace {
 
-// Non-radially-symmetric stub model: every slice is an explicit FullSlice
-// with a bright column at x=1 and zeros elsewhere. Proves the modality layer
-// composes full slabs without radial assumptions.
+// Non-radially-symmetric, wavelength-less stub model: every slice is an
+// explicit FullSlice with a bright column at x=1 and zeros elsewhere. Proves
+// the modality layer composes full slabs without radial assumptions.
 class AsymmetricStubModel : public PSFModel {
 public:
-    void init(const GibsonLanniPSFConfig&, size_t, size_t, double) const override {}
+    void init(const PSFConfig&, size_t, size_t, std::optional<double>) const override {}
 
-    ModelSlice intensitySlice(const GibsonLanniPSFConfig&, double, size_t,
+    ModelSlice intensitySlice(const PSFConfig&, std::optional<double>, size_t,
                               size_t maxLateralPixels, size_t forcedCutoff) const override {
         const size_t cutoff = forcedCutoff > 0 ? forcedCutoff : maxLateralPixels;
         const size_t width = 2 * cutoff + 1;
@@ -941,13 +941,27 @@ public:
             slice.data[y * width + 1] = 1.0f;
         return slice;
     }
+
+    ModelBox autoBox(const PSFConfig&, std::optional<double>) const override {
+        throw std::logic_error("AsymmetricStubModel has no auto-size box");
+    }
+
+    std::shared_ptr<const PSFConfig> sliceConfig(const PSFConfig& config, long) const override {
+        // No defocus parameterization: every slice uses the same config.
+        return std::make_shared<const PSFConfig>(config);
+    }
+
+    std::optional<double> detectionLambda(const PSFConfig&) const override {
+        return std::nullopt;   // wavelength-less model
+    }
 };
 
 } // namespace
 
 TEST_F(PSFGeneratorTest, WidefieldModalityComposesFullSlabWithoutRadialAssumptions) {
-    // A non-symmetric model must flow through the widefield modality
-    // unchanged: the bright column stays off-center (asymmetry preserved).
+    // A non-symmetric, wavelength-less model must flow through the widefield
+    // modality unchanged: the bright column stays off-center (asymmetry
+    // preserved).
     GibsonLanniPSFConfig cfg;
     cfg.sizeX = 5;
     cfg.sizeY = 5;
@@ -971,13 +985,32 @@ TEST_F(PSFGeneratorTest, WidefieldModalityComposesFullSlabWithoutRadialAssumptio
     }
 }
 
+TEST_F(PSFGeneratorTest, ConfocalModalityRejectsWavelengthLessModel) {
+    // Confocal image formation needs two wavelengths; pairing it with a
+    // wavelength-less model must fail with a clear error instead of silently
+    // composing garbage.
+    GibsonLanniPSFConfig cfg;
+    cfg.sizeX = 5;
+    cfg.sizeY = 5;
+    cfg.sizeZ = 3;
+    cfg.normalizePSF = false;
+    cfg.selectModality(MicroscopeModality::CONFOCAL);
+
+    AsymmetricStubModel model;
+    ThreadPool threadPool(2);
+    ProgressTracking progress;
+
+    EXPECT_THROW(ConfocalModality::instance().generate(model, cfg, threadPool, progress),
+                 std::runtime_error);
+}
+
 TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
     auto& factory = PSFGeneratorFactory::getInstance();
 
     auto config = factory.createConfig(confocalGlJSON(true));
     auto* gl = dynamic_cast<GibsonLanniPSFConfig*>(config.get());
     ASSERT_NE(gl, nullptr);
-    EXPECT_TRUE(gl->isConfocalPSF());
+    EXPECT_EQ(gl->getModalityName(), "confocal");
     // The confocal parameters live on the modality config object.
     const ConfocalModalityConfig* modalityCfg = gl->modality<ConfocalModalityConfig>();
     ASSERT_NE(modalityCfg, nullptr);
@@ -987,7 +1020,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
 
     // Copy semantics carry the modality config (setConfig copies the config).
     GibsonLanniPSFConfig copied = *gl;
-    EXPECT_TRUE(copied.isConfocalPSF());
+    EXPECT_EQ(copied.getModalityName(), "confocal");
     const ConfocalModalityConfig* copiedModalityCfg = copied.modality<ConfocalModalityConfig>();
     ASSERT_NE(copiedModalityCfg, nullptr);
     EXPECT_FLOAT_EQ(copiedModalityCfg->excitationWavelength_nm, 488.0f);
@@ -996,11 +1029,11 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
     EXPECT_NE(copiedModalityCfg, modalityCfg);
 
     // Config without a modality -> widefield default, and the legacy
-    // "wavelength_nm" JSON key still lands on the emission wavelength.
+    // "wavelength_nm" JSON key still lands on the optical model wavelength.
     auto legacy = factory.createConfig(json::parse(TestUtils::gibsonLanniPSFConfigJSON()));
     auto* glLegacy = dynamic_cast<GibsonLanniPSFConfig*>(legacy.get());
     ASSERT_NE(glLegacy, nullptr);
-    EXPECT_FALSE(glLegacy->isConfocalPSF());
+    EXPECT_EQ(glLegacy->getModalityName(), "widefield");
     EXPECT_FLOAT_EQ(glLegacy->wavelength_nm, 450.0f);
 }
 

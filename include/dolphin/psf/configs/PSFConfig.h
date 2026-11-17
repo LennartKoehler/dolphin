@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 
 #include "dolphin/Config.h"
 #include "dolphin/psf/configs/ModalityConfig.h"
@@ -40,12 +41,12 @@ public:
         return psfModelName;
     }
 
-    /** True if this PSF models confocal image formation: a dynamic_cast on
-     *  the modality config object. A property of the PSF itself (it changes
-     *  the image-formation model, e.g. the product of excitation and emission
-     *  PSFs in Gibson-Lanni). */
-    bool isConfocalPSF() const {
-        return dynamic_cast<const ConfocalModalityConfig*>(modalityConfig.get()) != nullptr;
+    std::string getModalityName() const {
+        return modalityConfig->modalityName();
+    }
+
+    MicroscopeModality getModalityType() const{
+        return modalityConfig->modality();
     }
 
     /** Typed access to the modality config; dynamic_cast once, then read the
@@ -60,6 +61,12 @@ public:
      *  parameters). No-op when the modality is already active. */
     void selectModality(MicroscopeModality modality);
 
+    /** Modality tag of a JSON config, defaulting to widefield. Invalid tags
+     *  warn and fall back to widefield. Callers that load a config should
+     *  call selectModality() with this BEFORE visiting the parameter
+     *  registry: the modality config must exist for its parameters to load. */
+    static MicroscopeModality modalityFromJSON(const json& jsonData);
+
     CuboidShape getShape() const {
         return CuboidShape{sizeX, sizeY, sizeZ};
     }
@@ -68,6 +75,10 @@ public:
     static std::shared_ptr<PSFConfig> createFromJSON(const json& jsonData);
 
     bool loadFromJSON(const json& jsonData) override;
+
+    /** Registry-driven JSON plus the selected modality, so a round-trip
+     *  reproduces the config's modality. */
+    json writeToJSON() const override;
 
     bool compareDim(const PSFConfig &other);
 
@@ -80,13 +91,15 @@ public:
      *  selects the image-formation model (e.g. Gibson-Lanni computes a
      *  widefield or a confocal PSF) and carries that modality's parameters.
      *  The modality's parameters are forwarded into this config's flat
-     *  parameter registry, so they load/save exactly like other parameters. */
+     *  parameter registry, so they load/save exactly like other parameters.
+     *  This is the single source of truth for the modality: there is no
+     *  separate enum member to keep in sync. */
     std::shared_ptr<ModalityConfig> modalityConfig = std::make_shared<WidefieldModalityConfig>();
 
-    /** Serialized modality tag, kept in sync with modalityConfig on load and
-     *  selectModality. For modality checks prefer isConfocalPSF() /
-     *  modality<T>() - the config object is the source of truth. */
-    MicroscopeModality microscopeModality = MicroscopeModality::WIDEFIELD;
+    /** Base radial sampling density (samples per lateral pixel) for models
+     *  that subsample their slices. Modalities may request a multiple of it
+     *  when their composition needs finer sampling. */
+    float oversampling_factor = 4.0f;
 
     size_t sizeX = 0;
     size_t sizeY = 0;
@@ -124,6 +137,14 @@ private:
      *  The entries point into the modality object, which stays stable until
      *  the modality is switched. */
     void forwardModalityParameters();
+
+    /** Warn about JSON keys that belong to a modality other than the active
+     *  one: they are ignored, and the reason is made explicit instead of
+     *  surfacing as a bare unknown key. */
+    void warnOnForeignModalityKeys(const json& jsonData) const;
+
+    /** Union of every modality's JSON keys, used to recognise foreign keys. */
+    static const std::unordered_set<std::string>& foreignModalityKeys();
 
 };
 

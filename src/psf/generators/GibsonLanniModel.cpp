@@ -14,6 +14,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/generators/GibsonLanniModel.h"
 
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
+#include "dolphin/psf/configs/ModalityConfig.h"
+#include "dolphin/psf/generators/PSFBoxSizing.h"
 #include "dolphin/psf/modality/ModalityStrategy.h"
 
 #include <algorithm>
@@ -41,8 +43,18 @@ void GibsonLanniModel::invalidateCache() {
     besselInitialized = false;
 }
 
-void GibsonLanniModel::init(const GibsonLanniPSFConfig& config,
-                               size_t sliceWidth, size_t sliceHeight) const {
+const GibsonLanniPSFConfig& GibsonLanniModel::glConfig(const PSFConfig& config) {
+    const GibsonLanniPSFConfig* gl = dynamic_cast<const GibsonLanniPSFConfig*>(&config);
+    if (!gl)
+        throw std::runtime_error("GibsonLanniModel: the given config is not a Gibson-Lanni PSF config");
+    return *gl;
+}
+
+void GibsonLanniModel::init(const PSFConfig& baseConfig,
+                            size_t sliceWidth, size_t sliceHeight,
+                            std::optional<double> shortestLambda) const {
+    const GibsonLanniPSFConfig& config = glConfig(baseConfig);
+
     // Once-per-generation diagnostics.
     // The old per-evaluation "NA*rho/ns > 1" log fired on every integrand
     // evaluation (thousands of lines per slice). Emit it once per generation
@@ -53,7 +65,7 @@ void GibsonLanniModel::init(const GibsonLanniPSFConfig& config,
         spdlog::warn("GibsonLanni: NA*rho/ns > 1 within the integration domain (ns={}, NA={}, rho_max={})",
                      config.ns, config.NA, rhoMax);
 
-    if (config.isConfocalPSF()) {
+    if (config.getModalityType() == MicroscopeModality::CONFOCAL) {
         const ConfocalModalityConfig* modalityCfg = config.modality<ConfocalModalityConfig>();
         const float excitation_nm = modalityCfg ? modalityCfg->excitationWavelength_nm : 0.0f;
         const float pinholeRadius_nm = modalityCfg ? modalityCfg->pinholeRadius_nm : 0.0f;
@@ -71,23 +83,72 @@ void GibsonLanniModel::init(const GibsonLanniPSFConfig& config,
                      pinholeRadius_nm > 0.0f ? "finite-pinhole convolution" : "point pinhole");
     }
 
-    initBesselHelper(config, sliceWidth, sliceHeight);
+    initBesselHelper(config, sliceWidth, sliceHeight,
+                     shortestLambda ? *shortestLambda : 0.0);
 }
 
-ModelSlice GibsonLanniModel::intensitySlice(const GibsonLanniPSFConfig& sliceCfg,
-                                            double lambda_nm,
+ModelSlice GibsonLanniModel::intensitySlice(const PSFConfig& baseSliceCfg,                                            std::optional<double> lambda,
                                             size_t samplesPerPixel,
                                             size_t maxLateralPixels,
                                             size_t forcedCutoff) const {
     if (!besselInitialized)
-        throw std::runtime_error("GibsonLanniModel: prepare() must run before intensitySlice()");
+        throw std::runtime_error("GibsonLanniModel: init() must run before intensitySlice()");
+
+    const GibsonLanniPSFConfig& sliceCfg = glConfig(baseSliceCfg);
+    // std::nullopt means "the model's own detection wavelength".
+    const double lambda_nm = lambda.value_or(static_cast<double>(sliceCfg.wavelength_nm));
 
     std::vector<double> h = radialProfile(sliceCfg, lambda_nm, samplesPerPixel, maxLateralPixels, forcedCutoff);
-    return RadialSlice{std::move(h), samplesPerPixel};
+    return RadialSlice{std::move(h), samplesPerPixel, sliceCfg.pixelSizeLateral_nm};
+}
+
+ModelBox GibsonLanniModel::autoBox(const PSFConfig& baseConfig,
+                                   std::optional<double> detectionLambda) const {
+    const GibsonLanniPSFConfig& config = glConfig(baseConfig);
+    // Box sizing is resolution-based, so it needs the detection wavelength.
+    if (!detectionLambda)
+        throw std::runtime_error("GibsonLanniModel: auto-size box sizing requires a detection wavelength");
+
+    const double pixelLat = static_cast<double>(config.pixelSizeLateral_nm);
+    const double pixelAx = static_cast<double>(config.pixelSizeAxial_nm);
+
+    const PSFBoxSizing::ApproxResolution resolution =
+        PSFBoxSizing::approximateResolution(config, *detectionLambda, config.resolutionCriterion);
+    PSFBoxSizing::warnIfUndersampled(resolution, pixelLat, pixelAx);
+
+    const PSFBoxSizing::BoxHalfExtent boxHalf =
+        PSFBoxSizing::computeBoxHalfExtent(resolution, config);
+
+    ModelBox box;
+    box.lateralHalf = boxHalf.lateral;
+    box.width = 2 * box.lateralHalf + 1;
+    box.height = box.width;
+    const long axialHalf = static_cast<long>(boxHalf.axial);
+    box.depth = static_cast<size_t>(2 * axialHalf + 1);
+    box.firstOffset = -axialHalf;
+    return box;
+}
+
+std::shared_ptr<const PSFConfig> GibsonLanniModel::sliceConfig(const PSFConfig& baseConfig,
+                                                               long defocusOffset) const {
+    const GibsonLanniPSFConfig& config = glConfig(baseConfig);
+    // Defocus of a slice: ti_nm = ti0_nm + pitch * offset, offset 0 at the
+    // focal plane.
+    GibsonLanniPSFConfig sliceCfg = config;
+    sliceCfg.ti_nm = sliceCfg.ti0_nm
+        + static_cast<double>(config.pixelSizeAxial_nm) * static_cast<double>(defocusOffset);
+    return std::make_shared<const GibsonLanniPSFConfig>(std::move(sliceCfg));
+}
+
+std::optional<double> GibsonLanniModel::detectionLambda(const PSFConfig& baseConfig) const {
+    return static_cast<double>(glConfig(baseConfig).wavelength_nm);
 }
 
 void GibsonLanniModel::initBesselHelper(const GibsonLanniPSFConfig& config,
-                                        size_t sizeX, size_t sizeY) const {
+                                        size_t sizeX, size_t sizeY,
+                                        double shortestLambda_nm) const {
+    if (shortestLambda_nm <= 0.0)
+        throw std::runtime_error("GibsonLanniModel: init requires a shortest wavelength (the model is wavelength-capable)");
     double nx = static_cast<double>(sizeX);
     double ny = static_cast<double>(sizeY);
     // The center of the image in units of [pixels]
@@ -97,7 +158,7 @@ void GibsonLanniModel::initBesselHelper(const GibsonLanniPSFConfig& config,
     // One shared J0 table serves every requested wavelength: it must cover
     // the largest argument k0*NA*r*rho, which grows as the wavelength
     // shrinks - hence the caller passes the shortest requested lambda.
-    double k0 = 2.0 * M_PI / config.wavelength_nm;
+    double k0 = 2.0 * M_PI / shortestLambda_nm;
     size_t maxRadius = static_cast<size_t>(std::round(std::sqrt((nx - x0) * (nx - x0) + (ny - y0) * (ny - y0)))) + 1;
 
     double max_k0NAr = k0 * config.NA * maxRadius * config.pixelSizeLateral_nm;

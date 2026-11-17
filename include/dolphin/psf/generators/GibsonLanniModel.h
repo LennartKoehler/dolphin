@@ -16,6 +16,8 @@ See the LICENSE file provided with the code for the full license.
 #include <cstddef>
 #include <map>
 #include <mutex>
+#include <optional>
+#include <memory>
 #include <vector>
 
 #include "dolphin/psf/generators/BesselHelper.h"
@@ -65,10 +67,15 @@ private:
 
 /**
  * Gibson-Lanni diffraction model. Produces the |integral|^2 intensity of one
- * wavelength at one defocus (PSFModel contract). Radial symmetry about the
- * optical axis is an internal optimization: slices are computed as radial
- * profiles (fixed-node quadrature over a shared Bessel table) and returned as
- * RadialSlice for the modality layer to blit.
+ * wavelength at one defocus. Radial symmetry about the optical axis is an
+ * internal optimization: slices are computed as radial profiles (fixed-node
+ * quadrature over a shared Bessel table) and returned as RadialSlice for the
+ * modality layer to blit.
+ *
+ * Orchestration data (PSFModel facade):
+ *   - autoBox: the PSFBoxSizing defocus-cone math from NA, RI and pitch;
+ *   - sliceConfig: detunes the working distance ti_nm by pitch * offset;
+ *   - detectionLambda: the optical model's wavelength_nm.
  *
  * Stateless apart from transparent caches (radial profiles per
  * (ti_nm, lambda_nm), the Bessel table); invalidateCache() drops them when
@@ -76,15 +83,24 @@ private:
  */
 class GibsonLanniModel : public PSFModel {
 public:
-    void init(const GibsonLanniPSFConfig& config,
-                 size_t sliceWidth,
-                 size_t sliceHeight) const override;
+    void init(const PSFConfig& config,
+              size_t sliceWidth,
+              size_t sliceHeight,
+              std::optional<double> shortestLambda) const override;
 
-    ModelSlice intensitySlice(const GibsonLanniPSFConfig& config,
-                              double lambda_nm,
+    ModelSlice intensitySlice(const PSFConfig& sliceCfg,
+                              std::optional<double> lambda,
                               size_t samplesPerPixel,
                               size_t maxLateralPixels,
                               size_t forcedCutoff) const override;
+
+    ModelBox autoBox(const PSFConfig& config,
+                     std::optional<double> detectionLambda) const override;
+
+    std::shared_ptr<const PSFConfig> sliceConfig(const PSFConfig& config,
+                                                 long defocusOffset) const override;
+
+    std::optional<double> detectionLambda(const PSFConfig& config) const override;
 
     /** Pupil-domain integration upper bound (tightest rho limit across the
      *  media in the path). Public: used for the once-per-generation
@@ -95,6 +111,9 @@ public:
     void invalidateCache();
 
 private:
+    /** Typed view of a config handed to this model. */
+    static const GibsonLanniPSFConfig& glConfig(const PSFConfig& config);
+
     /** Radial |integral|^2 profile of one wavelength, cached per
      *  (ti_nm, lambda_nm). */
     std::vector<double> radialProfile(const GibsonLanniPSFConfig& sliceCfg,
@@ -104,7 +123,8 @@ private:
                                       size_t forcedCutoff) const;
 
     void initBesselHelper(const GibsonLanniPSFConfig& config,
-                          size_t sizeX, size_t sizeY) const;
+                          size_t sizeX, size_t sizeY,
+                          double shortestLambda_nm) const;
 
     mutable BesselHelper besselHelper;
     mutable bool besselInitialized = false;

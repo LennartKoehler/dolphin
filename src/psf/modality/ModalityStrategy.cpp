@@ -13,12 +13,10 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/psf/modality/ModalityStrategy.h"
 
-#include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
-#include "dolphin/psf/generators/GibsonLanniModel.h"
-#include "dolphin/psf/generators/PSFBoxSizing.h"
+#include "dolphin/psf/configs/ModalityConfig.h"
+#include "dolphin/psf/configs/PSFConfig.h"
 #include "dolphin/psf/modality/PSFModel.h"
 #include "dolphin/ThreadPool.h"
-#include "dolphinbackend/CuboidShape.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,7 +24,6 @@ See the LICENSE file provided with the code for the full license.
 #include <stdexcept>
 #include <variant>
 #include <vector>
-#include <spdlog/spdlog.h>
 
 #include <itkImage.h>
 #include <itkImageRegionIterator.h>
@@ -58,78 +55,51 @@ void normalizeUnitFlux(PSF& psf) {
 } // namespace
 
 const ModalityStrategy& ModalityStrategy::forConfig(const PSFConfig& config) {
-    if (config.isConfocalPSF())
-        return ConfocalModality::instance();
-    return WidefieldModality::instance();
+    switch (config.getModalityType()){
+        case MicroscopeModality::CONFOCAL:
+            return ConfocalModality::instance();
+        case MicroscopeModality::WIDEFIELD:
+        default:
+            return WidefieldModality::instance();
+    }
 }
 
 PSF ModalityStrategy::generate(const PSFModel& model,
-                               const PSFConfig& baseConfig,
+                               const PSFConfig& config,
                                ThreadPool& threadPool,
                                ProgressTracking& progressTracker) const {
-    // Strategies are currently scoped to Gibson-Lanni configs; one cast at
-    // the type-erased entry point, the typed config flows through the
-    // pipeline below.
-    const GibsonLanniPSFConfig* config = dynamic_cast<const GibsonLanniPSFConfig*>(&baseConfig);
-    if (!config)
-        throw std::runtime_error("ModalityStrategy: the given config is not a Gibson-Lanni PSF config");
-
-    const double pixelLat = static_cast<double>(config->pixelSizeLateral_nm);
-    const double pixelAx = static_cast<double>(config->pixelSizeAxial_nm);
-    const bool autoSize = config->autoSize || config->sizeX == 0 || config->sizeY == 0 || config->sizeZ == 0;
+    const bool autoSize = config.autoSize || config.sizeX == 0 || config.sizeY == 0 || config.sizeZ == 0;
 
     // Sized geometry of the PSF box. In auto-size mode config.sizeX/sizeZ are
     // the size of the IMAGE the PSF is produced for (sizeZ drives the imaged
-    // defocus range), not the PSF box; the box comes from the resolution
-    // criterion. In fixed mode the config sizes are the box.
-    size_t boxW = config->sizeX;
-    size_t boxH = config->sizeY;
-    size_t boxD = config->sizeZ;
-    size_t lateralHalf = (std::min(config->sizeX, config->sizeY) - 1) / 2;
-    long axialFirst = 0;
-
+    // defocus range), not the PSF box; the box comes from the model. In
+    // fixed mode the config sizes are the box and slices center on it.
+    ModelBox box;
     if (autoSize) {
-        const PSFBoxSizing::ApproxResolution resolution =
-            PSFBoxSizing::approximateResolution(*config, detectionLambda(*config), config->resolutionCriterion);
-        PSFBoxSizing::warnIfUndersampled(resolution, pixelLat, pixelAx);
-
-        const PSFBoxSizing::BoxHalfExtent box =
-            PSFBoxSizing::computeBoxHalfExtent(resolution, *config);
-
-        lateralHalf = box.lateral;
-        const long axialHalf = static_cast<long>(box.axial);
-        boxW = 2 * lateralHalf + 1;
-        boxH = boxW;
-        boxD = static_cast<size_t>(2 * axialHalf + 1);
-        axialFirst = -axialHalf;
+        box = model.autoBox(config, detectionLambda(model, config));
+    } else {
+        box.width = config.sizeX;
+        box.height = config.sizeY;
+        box.depth = config.sizeZ;
+        box.lateralHalf = (std::min(config.sizeX, config.sizeY) - 1) / 2;
+        // Center on the middle voxel like BIG ((nz-1)/2), not the floor
+        // division of sizeZ/2, which shifts the axial center by half a pixel
+        // for even sizeZ.
+        box.firstOffset = -(static_cast<long>((config.sizeZ - 1) / 2));
     }
 
-    // Defocus of slice k: ti_nm = ti0_nm + pitch * offset, offset 0 at the
-    // focal plane. Auto-size slices start at the -axialHalf end; fixed-size
-    // centers on (nz-1)/2 like BIG, not the floor division of sizeZ/2, which
-    // shifts the axial center by half a pixel for even sizeZ.
-    const long fixedAxialCenter = static_cast<long>((config->sizeZ - 1) / 2);
-    auto makeSliceCfg = [&](size_t k) {
-        GibsonLanniPSFConfig sliceCfg = *config;
-        const long offset = autoSize ? (axialFirst + static_cast<long>(k))
-                                     : (static_cast<long>(k) - fixedAxialCenter);
-        sliceCfg.ti_nm = sliceCfg.ti0_nm + pixelAx * static_cast<double>(offset);
-        return sliceCfg;
-    };
-    GibsonLanniPSFConfig configCopy = *config;
-    configCopy.wavelength_nm = shortestLambda(*config);
-
-    model.init(configCopy, boxW, boxH);
+    model.init(config, box.width, box.height, shortestLambda(model, config));
 
     // forcedCutoff > 0 disables the value-based early stop, so no voxel
     // inside the box is left as a zero placeholder.
-    progressTracker.setMax(static_cast<float>(boxD));
+    progressTracker.setMax(static_cast<float>(box.depth));
 
     std::vector<std::future<SliceData>> sliceFutures;
-    sliceFutures.reserve(boxD);
-    for (size_t k = 0; k < boxD; ++k) {
-        sliceFutures.emplace_back(threadPool.enqueue([this, &model, &progressTracker, cfg = makeSliceCfg(k), lateralHalf]() {
-            SliceData slice = composeSlice(model, cfg, lateralHalf);
+    sliceFutures.reserve(box.depth);
+    for (size_t k = 0; k < box.depth; ++k) {
+        std::shared_ptr<const PSFConfig> sliceCfg = model.sliceConfig(config, box.firstOffset + static_cast<long>(k));
+        sliceFutures.emplace_back(threadPool.enqueue([this, &model, &progressTracker, cfg = std::move(sliceCfg), lateralHalf = box.lateralHalf]() {
+            SliceData slice = composeSlice(model, *cfg, lateralHalf);
             progressTracker.add(1);
             return slice;
         }));
@@ -137,9 +107,9 @@ PSF ModalityStrategy::generate(const PSFModel& model,
 
     ImageType::Pointer itkImage = ImageType::New();
     ImageType::SizeType imgSize;
-    imgSize[0] = boxW;
-    imgSize[1] = boxH;
-    imgSize[2] = boxD;
+    imgSize[0] = box.width;
+    imgSize[1] = box.height;
+    imgSize[2] = box.depth;
     ImageType::IndexType start;
     start.Fill(0);
     ImageType::RegionType region;
@@ -151,14 +121,14 @@ PSF ModalityStrategy::generate(const PSFModel& model,
 
     // Fixed-size slices are centered on the image; auto-size slices already
     // span the full box, so the offset is zero.
-    const size_t offsetX = autoSize ? 0 : config->sizeX / 2 - lateralHalf;
-    const size_t offsetY = autoSize ? 0 : config->sizeY / 2 - lateralHalf;
+    const size_t offsetX = autoSize ? 0 : config.sizeX / 2 - box.lateralHalf;
+    const size_t offsetY = autoSize ? 0 : config.sizeY / 2 - box.lateralHalf;
 
-    for (size_t k = 0; k < boxD; ++k) {
+    for (size_t k = 0; k < box.depth; ++k) {
         SliceData slice = sliceFutures[k].get();
         const size_t sliceW = 2 * slice.lateralCutoff + 1;
-        for (size_t y = 0; y < sliceW && y < boxH; y++) {
-            for (size_t x = 0; x < sliceW && x < boxW; x++) {
+        for (size_t y = 0; y < sliceW && y < box.height; y++) {
+            for (size_t x = 0; x < sliceW && x < box.width; x++) {
                 itk::Index<3> idx;
                 idx[0] = static_cast<itk::IndexValueType>(x + offsetX);
                 idx[1] = static_cast<itk::IndexValueType>(y + offsetY);
@@ -168,8 +138,8 @@ PSF ModalityStrategy::generate(const PSFModel& model,
         }
     }
 
-    PSF psf(std::move(itkImage), config->ID);
-    if (autoSize && config->normalizePSF)
+    PSF psf(std::move(itkImage), config.ID);
+    if (autoSize && config.normalizePSF)
         normalizeUnitFlux(psf);
     return psf;
 }
@@ -209,25 +179,27 @@ const WidefieldModality& WidefieldModality::instance() {
     return strategy;
 }
 
-double WidefieldModality::detectionLambda(const GibsonLanniPSFConfig& config) const {
-    // The optical model's single wavelength is the widefield detection
-    // wavelength.
-    return static_cast<double>(config.wavelength_nm);
+std::optional<double> WidefieldModality::detectionLambda(const PSFModel& model, const PSFConfig& config) const {
+    // The model owns its detection wavelength; std::nullopt for
+    // wavelength-less models.
+    return model.detectionLambda(config);
 }
 
-double WidefieldModality::shortestLambda(const GibsonLanniPSFConfig& config) const {
-    return detectionLambda(config);
+std::optional<double> WidefieldModality::shortestLambda(const PSFModel& model, const PSFConfig& config) const {
+    return detectionLambda(model, config);
 }
 
 SliceData WidefieldModality::composeSlice(const PSFModel& model,
-                                          const GibsonLanniPSFConfig& sliceCfg,
+                                          const PSFConfig& sliceCfg,
                                           size_t forcedCutoff) const {
     const size_t samplesPerPixel = static_cast<size_t>(sliceCfg.oversampling_factor);
     const size_t maxLateral = forcedCutoff > 0 ? forcedCutoff : (std::min(sliceCfg.sizeX, sliceCfg.sizeY) / 2);
 
     // Widefield needs no two-factor sampling headroom; it also accepts a
-    // model that reports its slice as an explicit FullSlice.
-    const ModelSlice slice = model.intensitySlice(sliceCfg, detectionLambda(sliceCfg),
+    // model that reports its slice as an explicit FullSlice. The lambda is
+    // the model's own detection wavelength (nullopt for wavelength-less
+    // models, which then use whatever default they carry).
+    const ModelSlice slice = model.intensitySlice(sliceCfg, model.detectionLambda(sliceCfg),
                                                   samplesPerPixel, maxLateral, forcedCutoff);
     if (const auto* full = std::get_if<FullSlice>(&slice))
         return fullSliceToSliceData(*full);
@@ -247,36 +219,42 @@ const ConfocalModality& ConfocalModality::instance() {
     return strategy;
 }
 
-double ConfocalModality::excitationLambda(const GibsonLanniPSFConfig& cfg) {
+double ConfocalModality::excitationLambda(const PSFConfig& cfg) {
     // Configs without an excitation wavelength fall back to the emission
     // wavelength, keeping the confocal path a strict product of two identical
     // integrals in that (degenerate) case.
     const ConfocalModalityConfig* modalityCfg = cfg.modality<ConfocalModalityConfig>();
-    const float excitation_nm = modalityCfg ? modalityCfg->excitationWavelength_nm : 0.0f;
-    if (excitation_nm <= 0.0f)
-        return modalityCfg ? static_cast<double>(modalityCfg->emissionWavelength_nm)
-                           : static_cast<double>(cfg.wavelength_nm);
-    return static_cast<double>(excitation_nm);
+    if (!modalityCfg)
+        throw std::runtime_error("ConfocalModality: the PSF config does not carry a confocal modality config");
+    if (modalityCfg->excitationWavelength_nm <= 0.0f)
+        return static_cast<double>(modalityCfg->emissionWavelength_nm);
+    return static_cast<double>(modalityCfg->excitationWavelength_nm);
 }
 
-double ConfocalModality::detectionLambda(const GibsonLanniPSFConfig& config) const {
+std::optional<double> ConfocalModality::detectionLambda(const PSFModel& model, const PSFConfig& config) const {
     const ConfocalModalityConfig* modalityCfg = config.modality<ConfocalModalityConfig>();
-    return modalityCfg ? static_cast<double>(modalityCfg->emissionWavelength_nm)
-                       : static_cast<double>(config.wavelength_nm);
+    if (!modalityCfg)
+        throw std::runtime_error("ConfocalModality: the PSF config does not carry a confocal modality config");
+    return static_cast<double>(modalityCfg->emissionWavelength_nm);
 }
 
-double ConfocalModality::shortestLambda(const GibsonLanniPSFConfig& config) const {
-    return std::min(detectionLambda(config), excitationLambda(config));
+std::optional<double> ConfocalModality::shortestLambda(const PSFModel& model, const PSFConfig& config) const {
+    return std::min(*detectionLambda(model, config), excitationLambda(config));
 }
 
 SliceData ConfocalModality::composeSlice(const PSFModel& model,
-                                         const GibsonLanniPSFConfig& sliceCfg,
+                                         const PSFConfig& sliceCfg,
                                          size_t forcedCutoff) const {
     // One cast establishes the modality config for this slice; the confocal
     // parameters (emission, excitation, pinhole) live on it.
     const ConfocalModalityConfig* modalityCfg = sliceCfg.modality<ConfocalModalityConfig>();
     if (!modalityCfg)
         throw std::runtime_error("ConfocalModality: the PSF config does not carry a confocal modality config");
+
+    // The confocal product needs two wavelengths; a model without any
+    // wavelength concept cannot participate.
+    if (!model.detectionLambda(sliceCfg))
+        throw std::runtime_error("ConfocalModality: the model does not support wavelengths, which confocal image formation requires");
 
     // The product of two oscillatory profiles interleaves their zero sets, so
     // its finest features are at half the period of either factor: double the
@@ -305,7 +283,7 @@ SliceData ConfocalModality::composeSlice(const PSFModel& model,
 
     det.h = applyDetection(*modalityCfg, std::move(det.h),
                            static_cast<double>(det.samplesPerPixel),
-                           static_cast<double>(sliceCfg.pixelSizeLateral_nm));
+                           det.lateralPitchNm);
 
     // Per-profile early stops (forcedCutoff == 0) can end the profiles at
     // different radii; the product is only defined on the common support, and

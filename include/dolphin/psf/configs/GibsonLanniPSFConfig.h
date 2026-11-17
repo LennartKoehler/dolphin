@@ -22,7 +22,6 @@ public:
 	GibsonLanniPSFConfig();
 	GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other);
 
-    float oversampling_factor = 4.0f;
     /** Wavelength of the optical model in nm. The modality decides how it is
      *  used: the widefield modality detects at this wavelength; the confocal
      *  modality carries its own emission/excitation pair

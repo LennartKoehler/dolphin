@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 #include "dolphin/ProgressTracking.h"
@@ -22,7 +23,6 @@ See the LICENSE file provided with the code for the full license.
 
 class PSFConfig;
 class PSFModel;
-class GibsonLanniPSFConfig;
 class ThreadPool;
 
 /** Composed lateral slice grid of (2*lateralCutoff+1)^2 voxels, row-major,
@@ -45,11 +45,13 @@ struct SliceData {
  *   confocal   I = slice(excitation) * pinhole(slice(emission))
  *
  * generate() implements the shared pipeline (box sizing, model preparation,
- * parallel per-slice composition, progress, unit-flux normalization);
- * subclasses only provide composeSlice() and shortestLambda(). A new
- * modality is one subclass plus a case in forConfig() - no new PSF model or
- * generator. Modalities sharing the confocal image formation (spinning disk)
- * subclass ConfocalModality and override applyDetection().
+ * parallel per-slice composition, progress, unit-flux normalization) purely
+ * against the abstract PSFConfig and PSFModel interfaces - all model-specific
+ * knowledge (auto-size box, defocus parameterization, wavelengths) comes from
+ * the model; subclasses only provide composeSlice() and the wavelength
+ * policy. A new modality is one subclass plus a case in forConfig() - no new
+ * PSF model or generator. Modalities sharing the confocal image formation
+ * (spinning disk) subclass ConfocalModality and override applyDetection().
  *
  * Strategies are stateless singletons; adding one never invalidates the
  * others.
@@ -72,22 +74,21 @@ public:
     static const ModalityStrategy& forConfig(const PSFConfig& config);
 
 protected:
-    /** Detection wavelength this modality observes at; the model's one
-     *  wavelength parameter for widefield, the modality config's emission
-     *  wavelength for confocal. Drives box sizing and the detection model
-     *  call. */
-    virtual double detectionLambda(const GibsonLanniPSFConfig& config) const = 0;
+    /** Detection wavelength this modality observes at, and the shortest
+     *  wavelength it will request - std::nullopt for modalities over
+     *  wavelength-less models. Drives auto-size box resolution and the
+     *  model's init; the composition itself passes its own lambdas. */
+    virtual std::optional<double> detectionLambda(const PSFModel& model,
+                                                  const PSFConfig& config) const = 0;
+    virtual std::optional<double> shortestLambda(const PSFModel& model,
+                                                 const PSFConfig& config) const = 0;
 
-    /** Shortest wavelength this modality will request from the model; sizes
-     *  the model's shared Bessel table. */
-    virtual double shortestLambda(const GibsonLanniPSFConfig& config) const = 0;
-
-    /** Compose one lateral slice at the defocus carried by sliceCfg.ti_nm.
+    /** Compose one lateral slice at the defocus carried by the slice config.
      *  forcedCutoff > 0 pins the lateral half-width (the orchestrator passes
      *  the box half-extent); 0 falls back to the config-driven cutoff. Pure
      *  computation - progress accounting stays with the orchestrator. */
     virtual SliceData composeSlice(const PSFModel& model,
-                                   const GibsonLanniPSFConfig& sliceCfg,
+                                   const PSFConfig& sliceCfg,
                                    size_t forcedCutoff) const = 0;
 
     /** Samples a radial profile onto the (2*cutoff+1)^2 slice grid. */
@@ -104,10 +105,12 @@ public:
     static const WidefieldModality& instance();
 
 protected:
-    double detectionLambda(const GibsonLanniPSFConfig& config) const override;
-    double shortestLambda(const GibsonLanniPSFConfig& config) const override;
+    std::optional<double> detectionLambda(const PSFModel& model,
+                                          const PSFConfig& config) const override;
+    std::optional<double> shortestLambda(const PSFModel& model,
+                                         const PSFConfig& config) const override;
     SliceData composeSlice(const PSFModel& model,
-                           const GibsonLanniPSFConfig& sliceCfg,
+                           const PSFConfig& sliceCfg,
                            size_t forcedCutoff) const override;
 };
 
@@ -125,13 +128,15 @@ public:
     /** Wavelength actually used for the excitation integral. Configs without
      *  an excitation wavelength fall back to the emission wavelength,
      *  degenerating to a product of two identical integrals. */
-    static double excitationLambda(const GibsonLanniPSFConfig& cfg);
+    static double excitationLambda(const PSFConfig& cfg);
 
 protected:
-    double detectionLambda(const GibsonLanniPSFConfig& config) const override;
-    double shortestLambda(const GibsonLanniPSFConfig& config) const override;
+    std::optional<double> detectionLambda(const PSFModel& model,
+                                          const PSFConfig& config) const override;
+    std::optional<double> shortestLambda(const PSFModel& model,
+                                         const PSFConfig& config) const override;
     SliceData composeSlice(const PSFModel& model,
-                           const GibsonLanniPSFConfig& sliceCfg,
+                           const PSFConfig& sliceCfg,
                            size_t forcedCutoff) const override;
 
     /** Detection-profile modification hook. The default applies the finite

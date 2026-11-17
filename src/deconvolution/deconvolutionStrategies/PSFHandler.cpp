@@ -109,10 +109,10 @@ void PSFHandler::validateModality() const {
     const PSFConfig* first = nullptr;
     for (const auto& config : psfConfigs){
         if (!first) { first = config.get(); continue; }
-        if (config->microscopeModality != first->microscopeModality){
+        if (config->getModalityType() != first->getModalityType()){
             logger->warn("PSF configs mix microscope modalities ({} vs {}); all PSFs must share one image-formation model",
-                         first->isConfocalPSF() ? "confocal" : "widefield",
-                         config->isConfocalPSF() ? "confocal" : "widefield");
+                         first->getModalityName(),
+                         config->getModalityName());
             return;
         }
     }
