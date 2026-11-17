@@ -195,6 +195,7 @@ TEST_F(AlgorithmFactoryTest, CreateUnknownThrows) {
     EXPECT_THROW(factory.createConfigForAlgorithm("NonExistent"), std::runtime_error);
 }
 
+<<<<<<< HEAD
 // TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
 //     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
 //
@@ -221,6 +222,35 @@ TEST_F(AlgorithmFactoryTest, CreateUnknownThrows) {
 //             << "Wrong memory multiplier for: " << spec.name;
 //     }
 // }
+=======
+TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
+    auto& factory = DeconvolutionAlgorithmFactory::getInstance();
+
+    struct AlgoSpec {
+        std::string name;
+        size_t expectedComplexArrays; // additional complex arrays of cube size
+    };
+
+    std::vector<AlgoSpec> specs = {
+        {"RichardsonLucy", 1},
+        {"RichardsonLucyTotalVariation", 5},
+        {"InverseFilter", 0},
+        {"Convolution", 0},
+        {"RichardsonLucywithAdaptiveDamping", 1},
+    };
+
+    for (const auto& spec : specs) {
+        DeconvolutionConfig config;
+        config.algorithmName = spec.name;
+        auto algo = factory.createShared(config);
+        ASSERT_NE(algo, nullptr) << "Failed for algorithm: " << spec.name;
+        const CuboidShape testShape(4, 4, 4);
+        EXPECT_EQ(algo->getWorkingSetBytes(testShape),
+                  spec.expectedComplexArrays * testShape.getVolume() * sizeof(real_t))
+            << "Wrong working set size for: " << spec.name;
+    }
+}
+>>>>>>> origin/main
 
 TEST_F(AlgorithmFactoryTest, AlgorithmClone) {
     auto config = makeConfig("RichardsonLucy");
@@ -230,7 +260,8 @@ TEST_F(AlgorithmFactoryTest, AlgorithmClone) {
 
     auto clone = algo->clone();
     ASSERT_NE(clone, nullptr);
-    EXPECT_EQ(clone->getMemoryMultiplier(), algo->getMemoryMultiplier());
+    const CuboidShape testShape(4, 4, 4);
+    EXPECT_EQ(clone->getWorkingSetBytes(testShape), algo->getWorkingSetBytes(testShape));
 }
 
 TEST_F(AlgorithmFactoryTest, AlgorithmIsNotInitializedByDefault) {

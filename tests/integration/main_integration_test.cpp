@@ -44,9 +44,8 @@ TEST_F(MainIntegrationTest, DolphinGeneratePSF) {
 
     SetupConfigPSF setupConfig;
     setupConfig.backend = "cpu";
-    setupConfig.nThreads = 1;
-    setupConfig.nIOThreads = 1;
-    setupConfig.nWorkerThreads = 1;
+    setupConfig.threadConfig.nIOThreads = 1;
+    setupConfig.threadConfig.nWorkerThreads = 1;
     setupConfig.nDevices = 1;
     setupConfig.maxMemDevice_gb = 1;
     setupConfig.outputPath = testDir + "/generated_psf.tif";
@@ -70,7 +69,7 @@ TEST_F(MainIntegrationTest, SetupConfigLoadAndValidate) {
 
     auto setupConfig = SetupConfig::createFromJSONFile(configPath);
     EXPECT_EQ(setupConfig.backend, "cpu");
-    EXPECT_EQ(setupConfig.nIOThreads, 1);
+    EXPECT_EQ(setupConfig.threadConfig.nIOThreads, 1);
 }
 
 TEST_F(MainIntegrationTest, DeconvolutionConfigLoad) {

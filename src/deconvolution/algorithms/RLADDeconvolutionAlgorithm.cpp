@@ -46,7 +46,7 @@ void RLADDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
     const IComputeBackend& deconvolution = backend->getComputeManager();
 
     // Use pre-allocated memory for intermediate arrays
-    assert(memory.isOnDevice(f.getData()) && "PSF is not on device");
+    assert(memory.isOnDevice(f) && "Output buffer is not on device");
     memory.memCopy(g, f);
 
     for (int n = 0; n < iterations; ++n) {
@@ -102,6 +102,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::cloneSpecifi
     return copy;
 }
 
-size_t RLADDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 1; // Allocates 1 additional array of input size
+size_t RLADDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
+    // Allocates 1 additional complex array of input size
+    return dataSize.getVolume() * sizeof(real_t);
 }

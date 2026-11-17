@@ -26,6 +26,12 @@ dolphin_add_test(e2e_deconvolution_test
     INCLUDES ${TEST_INCLUDES}
 )
 
+dolphin_add_test(peak_memory_test
+    SOURCES peak_memory_test.cpp
+    LIBS dolphin
+    INCLUDES ${TEST_INCLUDES}
+)
+
 add_executable(main_test
     main_test.cpp)
 

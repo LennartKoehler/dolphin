@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/SetupConfig.h"
 #include <sys/stat.h>
+#include <utility>
 #include "dolphin/psf/PSFGeneratorFactory.h"
 #include "dolphin/backend/BackendFactory.h"
 
@@ -24,6 +25,23 @@ ConfigMap outputCompressionTypeMap{{
 
 SetupConfigPSF::SetupConfigPSF() {
     registerAllParameters();
+}
+
+bool SetupConfigPSF::validateMemoryConfig(std::string& error) const {
+    const std::pair<const char*, float> limits[] = {
+        {"max_mem_host_gb", maxMemHost_gb},
+        {"max_mem_device_gb", maxMemDevice_gb},
+    };
+    for (const auto& [name, value] : limits) {
+        // -1 (default) and 0 are both valid "auto" values; anything else
+        // below zero (including NaN) is a configuration mistake.
+        if (!(value == -1.0f || value >= 0.0f)) {
+            error = std::string(name) + " must be -1 or 0 (auto) or a positive number of gigabytes, got "
+                + std::to_string(value);
+            return false;
+        }
+    }
+    return true;
 }
 
 
@@ -49,14 +67,11 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
 {
     // Copy all values first, then register parameters (which point to our own members)
     backend = other.backend;
-    nThreads = other.nThreads;
-    nWorkerThreads = other.nWorkerThreads;
-    nIOThreads = other.nIOThreads;
+    threadConfig = other.threadConfig;
     nDevices = other.nDevices;
     maxMemHost_gb = other.maxMemHost_gb;
     maxMemDevice_gb = other.maxMemDevice_gb;
     outputPath = other.outputPath;
-    numReaderThreads = other.numReaderThreads;
     outputCompression = other.outputCompression;
     outputCompressionLevel = other.outputCompressionLevel;
     tileWidth = other.tileWidth;
@@ -68,14 +83,11 @@ SetupConfigPSF::SetupConfigPSF(const SetupConfigPSF& other)
 SetupConfigPSF& SetupConfigPSF::operator=(const SetupConfigPSF& other) {
     if (this != &other) {
         backend = other.backend;
-        nThreads = other.nThreads;
-        nWorkerThreads = other.nWorkerThreads;
-        nIOThreads = other.nIOThreads;
+        threadConfig = other.threadConfig;
         nDevices = other.nDevices;
         maxMemHost_gb = other.maxMemHost_gb;
         maxMemDevice_gb = other.maxMemDevice_gb;
         outputPath = other.outputPath;
-        numReaderThreads = other.numReaderThreads;
         outputCompression = other.outputCompression;
         outputCompressionLevel = other.outputCompressionLevel;
         tileWidth = other.tileWidth;
@@ -95,12 +107,12 @@ void SetupConfigPSF::registerAllParameters(){
     parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
 
     parameters.push_back({ParameterType::FilePath, &backend, "Backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nThreads, "Number of Threads", true, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nWorkerThreads, "Number of Worker Threads", true, "n_worker_threads", "--n_worker_threads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nIOThreads, "Number of IO Threads", true, "n_io_threads", "--n_io_threads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nDevices, "Number of Devices", true, "n_devices", "--n_devices", "Number of devices", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Float, &maxMemHost_gb, "Max Memory Host (GB)", true, "max_mem__host_gb", "--max_mem_host_gb", "Maximum memory usage on the host (GB)", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Float, &maxMemDevice_gb, "Max Memory Device (GB)", true, "max_mem__device_gb", "--max_mem_device_gb", "Maximum memory usage on the device (GB)", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::SizeT, &threadConfig.nThreads, "Number of Threads", true, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::SizeT, &threadConfig.nWorkerThreads, "Number of Worker Threads", true, "n_worker_threads", "--n_worker_threads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::SizeT, &threadConfig.nIOThreads, "Number of IO Threads", true, "n_io_threads", "--n_io_threads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::SizeT, &nDevices, "Number of Devices", true, "n_devices", "--n_devices", "Number of devices", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMemHost_gb, "Max Memory Host (GB)", true, "max_mem_host_gb", "--max_mem_host_gb", "Maximum memory usage on the host (GB), -1 or 0 = auto", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMemDevice_gb, "Max Memory Device (GB)", true, "max_mem_device_gb", "--max_mem_device_gb", "Maximum memory usage on the device (GB), -1 or 0 = auto", false, false, 0.0, 0.0, nullptr});
 }
 
 
@@ -172,18 +184,18 @@ void SetupConfig::registerAllParameters(){
     parameters.clear();
 
     parameters.push_back({ParameterType::FilePath, &backend, "Backend", true, "backend", "--backend", "Backend type", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nThreads, "Number of Threads", true, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nWorkerThreads, "Number of Worker Threads", true, "n_worker_threads", "--n_worker_threads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nIOThreads, "Number of IO Threads", true, "n_io_threads", "--n_io_threads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Int, &nDevices, "Number of Devices", true, "n_devices", "--n_devices", "Number of devices", false, true, 0.0, 100.0, nullptr});
-    parameters.push_back({ParameterType::Float, &maxMemHost_gb, "Max Memory Host (GB)", true, "max_mem_host_gb", "--max_mem_host_gb", "Maximum memory usage on the host (GB)", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Float, &maxMemDevice_gb, "Max Memory Device (GB)", true, "max_mem_device_gb", "--max_mem_device_gb", "Maximum memory usage on the device (GB)", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::SizeT, &threadConfig.nThreads, "Number of Threads", true, "n_threads", "--n_threads", "Number of threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::SizeT, &threadConfig.nWorkerThreads, "Number of Worker Threads", true, "n_worker_threads", "--n_worker_threads", "Number of worker threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::SizeT, &threadConfig.nIOThreads, "Number of IO Threads", true, "n_io_threads", "--n_io_threads", "Number of IO threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::SizeT, &nDevices, "Number of Devices", true, "n_devices", "--n_devices", "Number of devices", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMemHost_gb, "Max Memory Host (GB)", true, "max_mem_host_gb", "--max_mem_host_gb", "Maximum memory usage on the host (GB), -1 or 0 = auto", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Float, &maxMemDevice_gb, "Max Memory Device (GB)", true, "max_mem_device_gb", "--max_mem_device_gb", "Maximum memory usage on the device (GB), -1 or 0 = auto", false, false, 0.0, 0.0, nullptr});
 
     parameters.push_back({ParameterType::FilePath, &imagePath, "Image Path", false, "image_path", "-i,--image_path", "Input image path", true, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::FilePath, &outputPath, "Output Path", false, "output", "-o,--output", "Output Path", true, false, 0.0, 0.0, nullptr});
     // parameters.push_back({ParameterType::FilePath, &psfDirPath, "psf_dir_path", true, "psf_dir_path", "--psf_dir_path", "PSF directory path", false, false, 0.0, 0.0, nullptr});
 
-    parameters.push_back({ParameterType::Int, &numReaderThreads, "Number of Reader Threads", true, "n_reader_threads", "--n_reader_threads", "Number of TIFF reader threads", false, true, 0.0, 100.0, nullptr});
+    parameters.push_back({ParameterType::SizeT, &threadConfig.nReaderThreads, "Number of Reader Threads", true, "n_reader_threads", "--n_reader_threads", "Number of TIFF reader threads", false, true, 0.0, 100.0, nullptr});
     const void* outputCompressionMap_p = static_cast<const void*>(&outputCompressionTypeMap);
     parameters.push_back({ParameterType::Map, &outputCompression, "Output Compression", true, "output_compression", "--output_compression", "TIFF compression scheme", false, false, 0.0, 0.0, outputCompressionMap_p});
     parameters.push_back({ParameterType::Int, &outputCompressionLevel, "Output Compression Level", true, "output_compression_level", "--output_compression_level", "Compression level", false, true, -1.0, 9.0, nullptr});

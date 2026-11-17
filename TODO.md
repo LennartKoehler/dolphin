@@ -29,10 +29,6 @@ maxmemory management
 
 check everything including padding etc for uneven sizes
 
-check all the core math operations like addtoone if they correctly use stride
-
-the sumToOne uses raw pointer, this has no chance of using strides, if all are same stride then ok, but could be nicer
-
 recheck the blocking behavior of using openmp
 
 make some operations doable in the image (convert image to complexdata)transofrmation function which does pixelwise operation anyway. When looping over each pixel, may aswell already do an operation on it, both directions. Perhaps make the conversion part of the Image3D object and then directly access a vector of functions?

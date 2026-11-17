@@ -20,12 +20,14 @@ DeconvolutionConfig::DeconvolutionConfig() {
 
 DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other) {
     copyBaseFields(other);
+    paramters.clear();
     registerAllParameters();
 }
 
 DeconvolutionConfig& DeconvolutionConfig::operator=(const DeconvolutionConfig& other) {
     if (this != &other) {
         assignBase(other);
+        parameters.clear();
         registerAllParameters();
     }
     return *this;
@@ -33,12 +35,14 @@ DeconvolutionConfig& DeconvolutionConfig::operator=(const DeconvolutionConfig& o
 
 DeconvolutionConfig::DeconvolutionConfig(DeconvolutionConfig&& other) noexcept {
     moveBaseFields(other);
+    parameters.clear();
     registerAllParameters();
 }
 
 DeconvolutionConfig& DeconvolutionConfig::operator=(DeconvolutionConfig&& other) noexcept {
     if (this != &other) {
         moveBaseFields(other);
+        parameters.clear();
         registerAllParameters();
     }
     return *this;

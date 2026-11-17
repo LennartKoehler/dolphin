@@ -79,6 +79,23 @@ void TiffReader::configure(int channel, ReaderConfig config){
     this->memoryTracker = std::make_unique<MemoryTracking>(config.readerMemory_byte);
 }
 
+MemoryComponent& TiffReader::getMemoryComponent(size_t nReaderThreads){
+    if (!memoryComponent) {
+        memoryComponent = std::make_unique<TiffReaderMemoryComponent>(*this);
+    }
+    static_cast<TiffReaderMemoryComponent&>(*memoryComponent).setNumReaderThreads(nReaderThreads);
+    return *memoryComponent;
+}
+
+void TiffReader::setMemoryLimit(size_t bytes){
+    config_.readerMemory_byte = bytes;
+    if (!memoryTracker) {
+        memoryTracker = std::make_unique<MemoryTracking>(bytes);
+    } else {
+        memoryTracker->setMaxMemory(bytes);
+    }
+}
+
 
 std::optional<Image3D> TiffReader::readTiffFile(const std::string& filename, int channel) {
     try {
@@ -722,3 +739,4 @@ void TiffRegionReaderScanline::convertScanlineToFloat(const char* scanlineData, 
 void TiffRegionReaderTiled::convertTileRowToFloat(const char* tileRowData, std::vector<float>& rowData, size_t xOffset, size_t tilePixelWidth, const ImageMetaData& metaData, int channel) {
     convertTileRow<float>(tileRowData, rowData, xOffset, tilePixelWidth, metaData, channel);
 }
+

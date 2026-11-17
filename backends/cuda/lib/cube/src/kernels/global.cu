@@ -172,26 +172,6 @@ void complexScalarMulGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, real_
 
 
 __global__
-void complexAdditionGlobal(complex_t** data, complex_t* sums, size_t nImages, size_t imageVolume) {
-    size_t position = detail::tx();
-
-    complex_t sum{0,0};
-
-    if (position < imageVolume) {
-
-
-        for (size_t i = 0; i < nImages; ++i){
-            sum[0] += data[i][position][0];
-            sum[1] += data[i][position][1];
-        }
-
-        sums[position][0] = sum[0];
-        sums[position][1] = sum[1];
-    }
-
-}
-
-__global__
 void complexAdditionGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C) {
     detail::complexElementwiseBody(detail::tx(), detail::ty(), detail::tz(), Nx, Ny, Nz, A, B, C, detail::ComplexAddOp{});
 }
@@ -224,23 +204,27 @@ void meanSquareErrorGlobal(size_t Nx, size_t Ny, size_t Nz, complex_t* a, comple
 }
 
 __global__
-void sumToOneGlobal(real_t** data, size_t nImages, size_t imageVolume) {
-    size_t position = detail::tx();
+void sumToOneGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, size_t sliceStride, real_t** data, size_t nImages) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
 
-    real_t sum{0};
+    if (x < Nx && y < Ny && z < Nz) {
+        size_t offset = z * sliceStride + y * stride + x;
 
-    if (position < imageVolume) {
-
-
-        for (size_t i = 0; i < nImages; ++i){
-            sum += data[i][position];
+        real_t sum{0};
+        for (size_t i = 0; i < nImages; ++i) {
+            sum += data[i][offset];
         }
 
-        for (size_t i = 0; i < nImages; ++i){
-            data[i][position] /= sum;
+        for (size_t i = 0; i < nImages; ++i) {
+            if (sum == 0.0f) {
+                data[i][offset] = 0.0f;
+            } else {
+                data[i][offset] /= sum;
+            }
         }
     }
-
 }
 
 __global__

@@ -20,15 +20,12 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/ServiceAbstractions.h"
 #include "dolphin/SetupConfig.h"
 
-/// Type of the FFT-workspace estimator supplied by a backend.
-/// Takes a candidate cube shape and returns the estimated workspace in bytes.
-using FFTWorkspaceCopiesEstimator= std::function<float(const CuboidShape&)>;
-
 /*
 IDeconvolutionStrategy creates a plan for the deconvolution of an image. The IDeconvolutionExecutor then uses this plan to execute the deconvolution.
 The plan consists of many TaskDescriptions. These tell the executor what part of the image should be processed and how.
 The DeconvolutionStrategy also handles how the backends are supposed to be used by adding a Context to the TaskDescription.
 */
+
 class IDeconvolutionStrategy {
 public:
     virtual ~IDeconvolutionStrategy() = default;

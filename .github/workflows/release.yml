@@ -48,7 +48,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.cpu
+          file: .github/docker/Dockerfile.cpu
           push: false
           load: true
           tags: dolphin-release:latest
@@ -142,7 +142,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: .github/docker/Dockerfile
           push: false
           load: true
           tags: dolphin-release-cuda:latest
@@ -222,7 +222,7 @@ jobs:
   macos:
     strategy:
       fail-fast: false
-    runs-on: macos-14
+    runs-on: macos-latest
     needs: prepare
     env:
       ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-macos-arm64
@@ -236,11 +236,12 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/Library/Caches/Homebrew
-          key: brew-${{ runner.os }}-${{ runner.arch }}-libtiff-fftw-libomp-ccache-dylibbundler
+          key: brew-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/Brewfile') }}
+          restore-keys: |
+            brew-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install dependencies via Homebrew
-        run: |
-          brew install libtiff fftw libomp ccache dylibbundler
+        run: brew bundle --file=.github/Brewfile
 
       - name: Save Homebrew cache
         if: steps.brew-cache.outputs.cache-hit != 'true'
@@ -249,12 +250,16 @@ jobs:
           path: ~/Library/Caches/Homebrew
           key: ${{ steps.brew-cache.outputs.cache-primary-key }}
 
+      - name: Record Xcode version
+        id: xcode-version
+        run: echo "major=$(xcodebuild -version | awk 'NR==1{print $2}' | cut -d. -f1)" >> "$GITHUB_OUTPUT"
+
       - name: Restore ITK cache
         id: cache-itk
         uses: actions/cache/restore@v4
         with:
           path: ~/itk-install
-          key: itk-5.4.5-notiff-static-${{ runner.os }}-${{ runner.arch }}
+          key: itk-5.4.5-notiff-static-${{ runner.os }}-${{ runner.arch }}-xcode${{ steps.xcode-version.outputs.major }}
 
       - name: Build ITK from source
         if: steps.cache-itk.outputs.cache-hit != 'true'
@@ -320,7 +325,7 @@ jobs:
   macos-test:
     strategy:
       fail-fast: false
-    runs-on: macos-14
+    runs-on: macos-latest
     needs: [prepare, macos]
     env:
       ARTIFACT_NAME: dolphin-${{ needs.prepare.outputs.version }}-macos-arm64
@@ -353,7 +358,7 @@ jobs:
   macos-publish:
     strategy:
       fail-fast: false
-    runs-on: macos-14
+    runs-on: macos-latest
     needs: [prepare, macos-test]
     if: startsWith(github.ref, 'refs/tags/')
     env:

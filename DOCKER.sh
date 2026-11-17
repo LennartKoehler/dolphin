@@ -2,7 +2,7 @@
 set -e
 
 echo "Building project + CLI in container..."
-docker build -f Dockerfile -t dolphin_build .
+docker build -f .github/docker/Dockerfile -t dolphin_build .
 
 echo "Extracting build artifacts..."
 docker create --name tempcontainer dolphin_build

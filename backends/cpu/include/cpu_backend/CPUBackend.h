@@ -11,6 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 #pragma once
+#include <span>
 #include "dolphinbackend/IBackend.h"
 #include "dolphinbackend/IComputeBackend.h"
 
@@ -26,19 +27,29 @@ class FFTWManager;
 struct FFTWPlanDescription : public FFTPlanDescription{
 
     size_t ompThreads;
+    // Row padding (in real_t elements) of the real buffer this plan addresses.
+    // 0 for unpadded real data and for complex->complex plans.
+    size_t realPadding;
+
+    FFTWPlanDescription(const FFTPlanDescription& plan, size_t ompThreads, size_t realPadding = 0):
+        FFTPlanDescription(plan),
+        ompThreads(ompThreads),
+        realPadding(realPadding){}
 
     FFTWPlanDescription(
         size_t ompThreads,
         PlanDirection direction,
         PlanType type,
         CuboidShape shape,
-        bool inPlace
+        bool inPlace,
+        size_t realPadding = 0
     ):
         ompThreads(ompThreads),
+        realPadding(realPadding),
         FFTPlanDescription(direction, type, shape, inPlace){}
 
     bool operator==(const FFTWPlanDescription& other) const {
-        return (FFTPlanDescription::operator==(other) && ompThreads == other.ompThreads);
+        return (FFTPlanDescription::operator==(other) && ompThreads == other.ompThreads && realPadding == other.realPadding);
     }
 };
 
@@ -80,7 +91,7 @@ public:
     ~CPUBackendMemoryManager();
 
 
-    static size_t staticGetAvailableMemory();
+    static size_t staticMaxGetAvailableMemory();
     // Override device type method
     std::string getDeviceString() const noexcept override {
         return "cpu";
@@ -92,14 +103,19 @@ public:
     // Synchronization method - CPU implementation (no-op)
     void sync() override {}
 
+    // CPU memory is host-addressable.
+    bool isHostBackend() const override { return true; }
+
     // Memory management initialization
     void setMemoryLimit(size_t maxMemorySize = 0) override;
 
     // Data management
-    bool isOnDevice(const void* data) const override;
+    // NOTE: no raw isOnDevice(const void*) override — the CPU backend cannot
+    // verify an arbitrary pointer is host memory. Use the handle-level
+    // isOnDevice(ManagedData<T>) from the interface, which checks the data's
+    // managing backend (host backends share one address space).
     size_t getAvailableMemory() const override;
     size_t getAllocatedMemory() const override;
-    float estimateFFTWorkspaceCopies(const CuboidShape& shape) const override;
 
 
 
@@ -135,6 +151,14 @@ public:
      * @param shape Shape of the data
      */
     void memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const override;
+
+    /**
+     * Zero a raw buffer (byte-level fill with 0)
+     * @param dest Pointer to the data
+     * @param size Size in bytes
+     * @param shape Shape of the data
+     */
+    void zeroFill(void* dest, size_t size, const CuboidShape& shape) const override;
 
 
     /**
@@ -188,10 +212,9 @@ public:
     void complexDivision(const ComplexData& a, const ComplexData& b, ComplexData& result, real_t epsilon) const override;
     void division(const RealData& a, const RealData& b, RealData& result, real_t epsilon) const override;
     void complexAddition(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
-    void complexAddition(complex_t** data, ComplexData& sum, size_t nImages, size_t imageVolume) const override;
-    void sumToOne(real_t** data, size_t nImages, size_t imageVolume) const override;
-    void sum(const ComplexData& data, complex_t* result) const override;
-    void meanSquareError(const ComplexData& a, const ComplexData& b, real_t* result) const override;
+    void sumToOne(std::span<ManagedData<real_t>*> data) const override;
+    ComplexValue sum(const ComplexData& data) const override;
+    real_t meanSquareError(const ComplexData& a, const ComplexData& b) const override;
     void scalarMultiplication(const ComplexData& a, complex_t scalar, ComplexData& result) const override;
     void scalarMultiplication(const RealData& a, real_t scalar, RealData& result) const override;
     void complexMultiplicationWithConjugate(const ComplexData& a, const ComplexData& b, ComplexData& result) const override;
@@ -236,6 +259,21 @@ public:
     void normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const override;
 
 private:
+    // Strided iteration helpers (definitions in CPUBackend.cpp). Static members so
+    // they can reach the raw buffer through the inherited rawData() helper; the
+    // StrideInfo computation (getStrideInfo) only uses public accessors and stays a
+    // free function.
+    template<typename D1, typename Func>
+    static void stridedIteration(const D1& d1, Func&& func);
+    template<typename D1, typename DR, typename Func>
+    static void stridedIteration(const D1& d1, DR& result, Func&& func);
+    template<typename D1, typename D2, typename DR, typename Func>
+    static void stridedIteration(const D1& d1, const D2& d2, DR& result, Func&& func);
+    template<typename D1, typename D2, typename D3, typename DR, typename Func>
+    static void stridedIteration(const D1& d1, const D2& d2, const D3& d3, DR& result, Func&& func);
+    template<typename D1, typename D2, typename D3, typename Func>
+    static void stridedIterationMutate(D1& d1, D2& d2, D3& d3, Func&& func);
+
     FFTWManager& fftwManager;
     CPUBackendConfig config;
 };

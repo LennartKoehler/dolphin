@@ -58,31 +58,42 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     std::shared_ptr<WriterHandler> writer = task.sharedDescriptor->writer;
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
-    spdlog::get("deconvolution")->debug("[Task {}] Work shape (with padding): {}", task.taskId, workShape.print());
 
+    // Per-io-thread scratch buffers: allocated on first use, reused for every
+    // following cube of the same (run-constant) padded shape, and freed when
+    // the thread exits. This removes the per-cube allocation/free churn and
+    // the overlap of fresh input and output buffers.
+    thread_local RealData g_device;
+    thread_local RealData f_device;
 
-    RealData g_host;
+    // allocate the first time its ever used (per thread)
+    // in case the workshape changes then free memory and allocate new size
+    if (!g_device.isValid() || g_device.getSize() != workShape) {
+        iobackend.getMemoryManager().freeMemoryOnDevice(g_device);
+        iobackend.getMemoryManager().freeMemoryOnDevice(f_device);
+        g_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
+        f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
 
-    {
-        spdlog::get("deconvolution")->debug("[Task {}] Reading subimage from input", task.taskId);
-        PaddedImage cubeImage = reader->getSubimage(task.paddedBox);
-        spdlog::get("deconvolution")->debug("[Task {}] Converting input image to real data", task.taskId);
-        g_host = Preprocessor::convertImageToRealData(cubeImage.image);
     }
 
-    spdlog::get("deconvolution")->debug("[Task {}] Copying input data to device", task.taskId);
-    RealData g_device = iobackend.getMemoryManager().copyDataToDevice(g_host);
-    BackendFactory::getInstance().getHostBackendMemoryManager().freeMemoryOnDevice(g_host);
-    spdlog::get("deconvolution")->debug("[Task {}] Allocating output buffer on device", task.taskId);
-    RealData f_device = iobackend.getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
+    {
+        // allocate and deallocate host_scratch buffer so that it doesnt overlap with the deconvolution buffers (fft plan buffers)
+        RealData host_scratch_buffer = BackendFactory::getInstance().getHostBackendMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
+        // Read the unpadded sub-cube and pad it straight into the FFT-layout
+        // host buffer - no intermediate padded Image3D, no allocation.
+        UnpaddedCube cube = reader->getSubimageForPadding(task.paddedBox);
+        Preprocessor::convertImageToRealDataPadded(std::move(cube.image), cube.padding,
+                                                   reader->getPaddingFillType(), host_scratch_buffer);
 
+        // host -> device into the reused input buffer (direction inferred)
+        iobackend.getMemoryManager().memCopy(host_scratch_buffer, g_device);
+    }
     using progressFunction = std::function<void(int)>;
     progressFunction tracker = [this, numPsfs = task.sharedDescriptor->psfs.size()](int max){
         float iteration = 1.0 / (max * numPsfs);
         this->loadingBar.add(iteration);
     };
 
-    spdlog::get("deconvolution")->debug("[Task {}] Starting deconvolution with {} PSF(s)", task.taskId, task.sharedDescriptor->psfs.size());
     std::future<void> resultDone = context->processor.deconvolveSingleCube(
         workerbackend,
         task.sharedDescriptor->prototypeAlgorithm,
@@ -93,18 +104,17 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         *context->psfpreprocessor.get(),
         tracker);
 
-    resultDone.get(); //wait for result
-    spdlog::get("deconvolution")->debug("[Task {}] Deconvolution finished, syncing backend", task.taskId);
+    resultDone.get();
     iobackend.sync();
 
-    spdlog::get("deconvolution")->debug("[Task {}] Moving result data from device to host", task.taskId);
-    RealData f_host = iobackend.getMemoryManager().moveDataFromDevice(f_device, BackendFactory::getInstance().getHostBackendMemoryManager());
+    {
+        RealData host_scratch_buffer = BackendFactory::getInstance().getHostBackendMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(workShape);
+        // device -> host into the reused output buffer (direction inferred)
+        iobackend.getMemoryManager().memCopy(f_device, host_scratch_buffer);
 
-    spdlog::get("deconvolution")->debug("[Task {}] Converting result to image", task.taskId);
-    Image3D resultImage = Preprocessor::convertRealDataToImage(f_host);
-
-    spdlog::get("deconvolution")->debug("[Task {}] Writing result subimage", task.taskId);
-    writer->setSubimage(resultImage, task.paddedBox);
+        // Write straight from the host buffer into the writer - no resultImage.
+        writer->setSubimageReal(host_scratch_buffer, task.paddedBox);
+    }
     spdlog::get("deconvolution")->debug("[Task {}] Done", task.taskId);
 }
 

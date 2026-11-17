@@ -13,27 +13,38 @@ See the LICENSE file provided with the code for the full license.
 
 #include <gtest/gtest.h>
 #include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
+#include "dolphinbackend/MemoryComponent.h"
+#include "dolphinbackend/MemoryFootprint.h"
 #include "dolphinbackend/CuboidShape.h"
 #include "dolphin/Logging.h"
-#include <stdexcept>
+#include <algorithm>
+#include <string>
+#include <utility>
 
 namespace {
-// Convenience accessor for the protected static helper.
+// Convenience accessor for the protected static helpers.
 class TestableStrategy : public StandardDeconvolutionStrategy {
 public:
-    using StandardDeconvolutionStrategy::computeMaxMemoryPerCube;
+    using StandardDeconvolutionStrategy::resolveMemoryLimit;
 };
 
-// Returns the bytes available per cube when the FFT workspace is zero.
-// With fftWorkspace == 0 the convergence loop in computeMaxMemoryPerCube is
-// idempotent, so the result is just availableMemory / threadallocations.
-size_t expectedPerCubeNoFFT(size_t availableMemory,
-                            size_t ioThreads,
-                            size_t workerThreads,
-                            size_t multiplier) {
-    size_t threadallocations = ioThreads * 3 + workerThreads * multiplier;
-    return availableMemory / threadallocations;
+MemoryBudget makeBudget(size_t host, size_t device, bool deviceIsHost) {
+    MemoryBudget budget;
+    budget.hostTotal_byte = host;
+    budget.deviceTotal_byte = device;
+    budget.deviceIsHost = deviceIsHost;
+    return budget;
 }
+
+// Trivial component reporting fixed host/device bytes for any shape.
+class FixedComponent : public MemoryComponent {
+public:
+    FixedComponent(size_t host, size_t device) : req{host, device} {}
+    MemoryRequirement footprint(const CuboidShape&) const override { return req; }
+    std::string name() const override { return "fixed"; }
+private:
+    MemoryRequirement req;
+};
 } // namespace
 
 class MemoryTest : public ::testing::Test {
@@ -43,138 +54,124 @@ protected:
     }
 };
 
-// --- No FFT workspace overhead: result is a pure division -------------------
+// --- resolveMemoryLimit: auto means ~90% of available ------------------------
 
-TEST_F(MemoryTest, NoFFTWorkspaceSimpleDivision) {
-    const size_t available = 10ull * 1024 * 1024 * 1024; // 10 GB
-    const size_t ioThreads = 2;
-    const size_t workerThreads = 4;
-    const size_t multiplier = 2; // e.g. Richardson-Lucy
+TEST_F(MemoryTest, AutoLimitUsesSafetyFactor) {
+    const size_t available = 10ull * 1024 * 1024 * 1024;
+    const size_t expected = static_cast<size_t>(static_cast<double>(available) * AUTO_MEMORY_SAFETY_FACTOR);
 
-    auto estimator = [](const CuboidShape&) { return size_t(0); };
-
-    size_t result = TestableStrategy::computeMaxMemoryPerCube(
-        available, ioThreads, workerThreads, multiplier, estimator);
-
-    EXPECT_NEAR(result, expectedPerCubeNoFFT(available, ioThreads, workerThreads, multiplier), 100);
+    // -1 (default) and 0 are both "auto".
+    EXPECT_EQ(TestableStrategy::resolveMemoryLimit(-1.0f, available), expected);
+    EXPECT_EQ(TestableStrategy::resolveMemoryLimit(0.0f, available), expected);
+    EXPECT_LT(TestableStrategy::resolveMemoryLimit(-1.0f, available), available);
 }
 
-TEST_F(MemoryTest, SingleWorkerSingleIO) {
-    const size_t available = 8ull * 1024 * 1024 * 1024;
-    auto estimator = [](const CuboidShape&) { return size_t(0); };
-
-    size_t result = TestableStrategy::computeMaxMemoryPerCube(
-        available, /*ioThreads*/ 1, /*workerThreads*/ 1, /*multiplier*/ 1, estimator);
-
-    // threadallocations = 1*3 + 1*1 = 4
-    EXPECT_EQ(result, available / 4);
+TEST_F(MemoryTest, ExplicitLimitIsExactUpperBound) {
+    const size_t available = 10ull * 1024 * 1024 * 1024;
+    const float gb = 4.0f;
+    EXPECT_EQ(TestableStrategy::resolveMemoryLimit(gb, available), static_cast<size_t>(gb * 1024 * 1024 * 1024));
 }
 
-// --- Result is always strictly below the available memory ------------------
-
-TEST_F(MemoryTest, ResultDoesNotExceedAvailableMemory) {
+TEST_F(MemoryTest, ExplicitLimitNeverExceedsAvailable) {
     const size_t available = 4ull * 1024 * 1024 * 1024;
-    auto estimator = [](const CuboidShape& shape) {
-        return shape.getVolume() * sizeof(complex_t);
+    // Requesting more than exists must clamp DOWN, never raise the limit.
+    EXPECT_EQ(TestableStrategy::resolveMemoryLimit(64.0f, available), available);
+}
+
+// --- MemoryBudget::fits: pool accounting --------------------------------------
+
+TEST_F(MemoryTest, FitsChecksBothPoolsIndependently) {
+    MemoryBudget budget = makeBudget(100, 100, /*deviceIsHost*/ false);
+
+    EXPECT_TRUE(budget.fits(MemoryRequirement{100, 0}));
+    EXPECT_TRUE(budget.fits(MemoryRequirement{0, 100}));
+    EXPECT_TRUE(budget.fits(MemoryRequirement{50, 50}));
+    EXPECT_FALSE(budget.fits(MemoryRequirement{101, 0}));
+    EXPECT_FALSE(budget.fits(MemoryRequirement{0, 101}));
+}
+
+TEST_F(MemoryTest, CpuBackendMergesBothPoolsIntoHost) {
+    // CPU: device == host, so host + device demand must fit the host pool.
+    MemoryBudget budget = makeBudget(100, 100, /*deviceIsHost*/ true);
+
+    EXPECT_TRUE(budget.fits(MemoryRequirement{60, 40}));
+    EXPECT_FALSE(budget.fits(MemoryRequirement{60, 50})); // sum 110 > host pool
+    // The device pool value is irrelevant on the CPU path.
+    MemoryBudget hugeDevice = makeBudget(100, 1000000, true);
+    EXPECT_FALSE(hugeDevice.fits(MemoryRequirement{60, 50}));
+}
+
+// --- MemoryFootprint: sums the components -------------------------------------
+
+TEST_F(MemoryTest, FootprintSumsAllComponents) {
+    FixedComponent hostOnly(10, 0);
+    FixedComponent deviceOnly(0, 20);
+    FixedComponent mixed(1, 2);
+
+    MemoryFootprint footprint;
+    footprint.add(hostOnly);
+    footprint.add(deviceOnly);
+    footprint.add(mixed);
+
+    MemoryRequirement sum = footprint.total(CuboidShape(4, 4, 4));
+    EXPECT_EQ(sum.hostBytes, 11u);
+    EXPECT_EQ(sum.deviceBytes, 22u);
+}
+
+TEST_F(MemoryTest, FootprintWithBudgetRejectsOversizedShapes) {
+    MemoryBudget budget = makeBudget(1000, 1000, false);
+
+    // A component that scales with the shape: small fits, large does not.
+    class ScalingComponent : public MemoryComponent {
+    public:
+        MemoryRequirement footprint(const CuboidShape& s) const override {
+            return MemoryRequirement{0, s.getVolume() * sizeof(real_t)};
+        }
+        std::string name() const override { return "scaling"; }
+    };
+    ScalingComponent scaling;
+    MemoryFootprint scalingFootprint;
+    scalingFootprint.add(scaling);
+
+    EXPECT_TRUE(budget.fits(scalingFootprint.total(CuboidShape(5, 5, 5))));     // 125*4 = 500 bytes
+    EXPECT_FALSE(budget.fits(scalingFootprint.total(CuboidShape(32, 32, 32)))); // 32768*4 bytes
+}
+
+TEST_F(MemoryTest, FootprintBreakdownNamesComponentsAndSums) {
+    class NamedComponent : public MemoryComponent {
+    public:
+        NamedComponent(std::string n, MemoryRequirement r) : n(std::move(n)), r(r) {}
+        MemoryRequirement footprint(const CuboidShape&) const override { return r; }
+        std::string name() const override { return n; }
+    private:
+        std::string n;
+        MemoryRequirement r;
     };
 
-    size_t result = TestableStrategy::computeMaxMemoryPerCube(
-        available, 2, 4, 2, estimator);
+    NamedComponent alpha("alpha", MemoryRequirement{100, 0});
+    NamedComponent beta("beta", MemoryRequirement{0, 200});
+    MemoryFootprint footprint;
+    footprint.add(alpha, 2); // two concurrent instances
+    footprint.add(beta);
 
-    EXPECT_LT(result, available);
+    const std::string breakdown = footprint.breakdown(CuboidShape(1, 1, 1));
+    EXPECT_NE(breakdown.find("alpha"), std::string::npos) << breakdown;
+    EXPECT_NE(breakdown.find("(x2)"), std::string::npos) << breakdown;
+    EXPECT_NE(breakdown.find("beta"), std::string::npos) << breakdown;
+    EXPECT_NE(breakdown.find("total"), std::string::npos) << breakdown;
+
+    const MemoryRequirement sum = footprint.total(CuboidShape(1, 1, 1));
+    EXPECT_EQ(sum.hostBytes, 200u);
+    EXPECT_EQ(sum.deviceBytes, 200u);
 }
 
-TEST_F(MemoryTest, ResultIsPositiveForReasonableMemory) {
-    const size_t available = 16ull * 1024 * 1024 * 1024;
-    auto estimator = [](const CuboidShape&) { return size_t(0); };
-
-    size_t result = TestableStrategy::computeMaxMemoryPerCube(
-        available, 1, 1, 1, estimator);
-
-    EXPECT_GT(result, 0u);
-}
-
-TEST_F(MemoryTest, ResultDoesNotExceedAvailableMemoryStrict) {
-    const size_t available = 4ull * 1024 * 1024 * 1024;
-    auto estimator = [](const CuboidShape& shape) {
-        return shape.getVolume() * sizeof(complex_t);
+TEST_F(MemoryTest, SetMemoryLimitDefaultIsNoOp) {
+    // A component without its own tracking accepts any cap without effect.
+    class NoTrackingComponent : public MemoryComponent {
+    public:
+        MemoryRequirement footprint(const CuboidShape&) const override { return MemoryRequirement{1, 1}; }
+        std::string name() const override { return "no tracking"; }
     };
-
-    size_t workerThreads = 2;
-    size_t ioThreads = 3;
-    size_t algorithmMemoryMultiplier = 2;
-
-    size_t result = TestableStrategy::computeMaxMemoryPerCube(
-        available, ioThreads, workerThreads, algorithmMemoryMultiplier, estimator);
-
-    size_t workerAllocations = workerThreads * algorithmMemoryMultiplier;
-
-    int ioCopies = 3; //image, psf, result, but psf only allocated once in total
-    size_t ioAllocations = ioThreads * ioCopies;
-
-    size_t threadallocations = ioAllocations + workerAllocations;
-
-    EXPECT_LT(result * threadallocations, available);
-}
-
-// --- More threads => smaller per-cube budget --------------------------------
-
-TEST_F(MemoryTest, MoreThreadsYieldSmallerCube) {
-    const size_t available = 10ull * 1024 * 1024 * 1024;
-    auto estimator = [](const CuboidShape&) { return size_t(0); };
-
-    size_t few = TestableStrategy::computeMaxMemoryPerCube(
-        available, 1, 1, 1, estimator);
-    size_t many = TestableStrategy::computeMaxMemoryPerCube(
-        available, 4, 8, 2, estimator);
-
-    EXPECT_GT(few, many);
-}
-
-// --- Higher algorithm memory multiplier => smaller per-cube budget ----------
-
-TEST_F(MemoryTest, HigherMultiplierYieldsSmallerCube) {
-    const size_t available = 10ull * 1024 * 1024 * 1024;
-    auto estimator = [](const CuboidShape&) { return size_t(0); };
-
-    size_t lowMult = TestableStrategy::computeMaxMemoryPerCube(
-        available, 2, 4, 1, estimator);
-    size_t highMult = TestableStrategy::computeMaxMemoryPerCube(
-        available, 2, 4, 4, estimator);
-
-    EXPECT_GT(lowMult, highMult);
-}
-
-// --- FFT workspace reduces the per-cube budget ------------------------------
-
-TEST_F(MemoryTest, FFTWorkspaceReducesBudget) {
-    const size_t available = 10ull * 1024 * 1024 * 1024;
-    const size_t ioThreads = 2;
-    const size_t workerThreads = 4;
-    const size_t multiplier = 2;
-
-    auto noFFT = [](const CuboidShape&) { return size_t(0); };
-    auto withFFT = [workerThreads, available](const CuboidShape&) {
-        // A modest but non-zero workspace, well below the available memory.
-        return available / (workerThreads * 10);
-    };
-
-    size_t withoutFFT = TestableStrategy::computeMaxMemoryPerCube(
-        available, ioThreads, workerThreads, multiplier, noFFT);
-    size_t withFFTs = TestableStrategy::computeMaxMemoryPerCube(
-        available, ioThreads, workerThreads, multiplier, withFFT);
-
-    EXPECT_LT(withFFTs, withoutFFT);
-}
-
-// --- Zero available memory -------------------------------------------------
-
-TEST_F(MemoryTest, ZeroAvailableMemoryReturnsZero) {
-    auto estimator = [](const CuboidShape&) { return size_t(0); };
-
-    size_t result = TestableStrategy::computeMaxMemoryPerCube(
-        /*available*/ 0, 1, 1, 1, estimator);
-
-    // cubeVolume becomes 0 -> loop breaks immediately -> 0 / threadallocations
-    EXPECT_EQ(result, 0u);
+    NoTrackingComponent component;
+    EXPECT_NO_THROW(component.setMemoryLimit(MemoryRequirement{10, 10}));
 }

@@ -14,8 +14,10 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 #include <vector>
 #include <memory>
+#include <string>
 #include "dolphin/Config.h"
 #include <array>
+#include "dolphinbackend/ThreadConfig.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/Logging.h"
 
@@ -40,14 +42,17 @@ public:
     std::string outputPath;
     std::string backend = "cpu";
 
-    int nThreads = 1;
-    int nIOThreads = 1;
-    int nWorkerThreads = 1;
-    int nDevices = 1;
-    float maxMemHost_gb = 0;
-    float maxMemDevice_gb = 0;
+    ThreadConfig threadConfig;
 
-    int numReaderThreads = 0;
+    size_t nDevices = 0;
+
+    float maxMemHost_gb = -1;
+    float maxMemDevice_gb = -1;
+
+    // Memory limits are upper bounds in GB. -1 and 0 both mean "auto" (use
+    // ~90% of the currently available memory). Anything below -1 is invalid.
+    bool validateMemoryConfig(std::string& error) const;
+
 
     OutputCompressionType outputCompression = OUTPUT_COMPRESSION_NONE;
     int outputCompressionLevel = -1;

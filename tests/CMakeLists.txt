@@ -13,6 +13,7 @@ function(dolphin_add_test name)
     target_compile_definitions(${name} PRIVATE
         CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
         CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
+        DOLPHIN_TEST_RAW_ACCESS
     )
     if(TARGET cuda_backend)
         foreach(lib ${ARG_LIBS})
@@ -69,6 +70,7 @@ set(ALL_TEST_SOURCES
     integration/cubeShapeTest.cpp
     integration/main_integration_test.cpp
     integration/e2e_deconvolution_test.cpp
+    integration/peak_memory_test.cpp
     image/image_comparison_test.cpp
     deconvolution/feathering_test.cpp
     deconvolution/padding_test.cpp
@@ -130,6 +132,7 @@ endif()
 target_compile_definitions(dolphin_all_tests PRIVATE
     CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
     CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}"
+    DOLPHIN_TEST_RAW_ACCESS
 )
 if(TARGET cuda_backend)
     set_target_properties(dolphin_all_tests PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)

@@ -20,7 +20,6 @@ See the LICENSE file provided with the code for the full license.
 // Global CUDA kernel configuration
 // Global thread block configuration
 const dim3 GLOBAL_THREADS_PER_BLOCK(4, 8, 8);
-const int GLOBAL_THREADS_PER_BLOCK_1D = 256;
 
 // Helper function to compute blocks per grid
 inline dim3 computeBlocksPerGrid(size_t Nx, size_t Ny, size_t Nz) {
@@ -93,20 +92,16 @@ cudaError_t elementwiseMatMul(size_t Nx, size_t Ny, size_t Nz, size_t strideA, s
         return launchSync([=] { meanSquareErrorGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, a, b, result); }, stream);
     }
 
-    cudaError_t sumToOne(real_t** A, size_t nImages, size_t imageVolume, cudaStream_t stream){
-        if (!A ) {
+    // Sum a set of device buffers (pointed to by the device array d_data) element-wise
+    // into the first buffer, then normalize every buffer in place by the summed value
+    // (zero where the sum is zero). All buffers share the same stride layout.
+    cudaError_t sumToOne(size_t Nx, size_t Ny, size_t Nz, size_t stride, size_t sliceStride,
+                         real_t** d_data, size_t nImages, cudaStream_t stream){
+        if (!d_data || nImages == 0) {
             return cudaErrorInvalidValue;
         }
-        dim3 blocks = (imageVolume + GLOBAL_THREADS_PER_BLOCK_1D - 1) / GLOBAL_THREADS_PER_BLOCK_1D;
-        return launchSync([=] { sumToOneGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK_1D, 0, stream>>>(A, nImages, imageVolume); }, stream);
-    }
-
-    cudaError_t complexAddition(complex_t** A, complex_t* sums, size_t nImages, size_t imageVolume, cudaStream_t stream){
-        if (!A ) {
-            return cudaErrorInvalidValue;
-        }
-        dim3 blocks = (imageVolume + GLOBAL_THREADS_PER_BLOCK_1D - 1) / GLOBAL_THREADS_PER_BLOCK_1D;
-        return launchSync([=] { complexAdditionGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK_1D, 0, stream>>>(A, sums, nImages, imageVolume); }, stream);
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { sumToOneGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, stride, sliceStride, d_data, nImages); }, stream);
     }
 
     cudaError_t complexAddition(size_t Nx, size_t Ny, size_t Nz, complex_t* A, complex_t* B, complex_t* C, cudaStream_t stream){

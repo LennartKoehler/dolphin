@@ -52,9 +52,9 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     complex_t signalToNoiseComplex = {static_cast<real_t>(signal_to_noise), 0};
 
     // Verify inputs are on device
-    assert(memory.isOnDevice(H.getData()) && "PSF is not on device");
-    assert(memory.isOnDevice(g.getData()) && "Input image is not on device");
-    assert(memory.isOnDevice(f.getData()) && "Output buffer is not on device");
+    assert(memory.isOnDevice(H) && "PSF is not on device");
+    assert(memory.isOnDevice(g) && "Input image is not on device");
+    assert(memory.isOnDevice(f) && "Output buffer is not on device");
 
     // Copy input to output buffer
     memory.memCopy(g, f);
@@ -90,6 +90,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlg
     return copy;
 }
 
-size_t RegularizedInverseFilterDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 5; // Allocates 5 additional arrays of input size (H2, L, L2, FA, FP, f_complex - but FP can be reused)
+size_t RegularizedInverseFilterDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
+    // Allocates 5 additional complex arrays of input size (H2, L, L2, FA, FP, f_complex - but FP can be reused)
+    return 5 * dataSize.getVolume() * sizeof(real_t);
 }

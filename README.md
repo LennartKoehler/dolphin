@@ -226,8 +226,8 @@ A combined JSON config file contains three top-level sections: `setup_config`, `
 | `n_worker_threads` | int | no | `1` | Number of worker threads |
 | `n_io_threads` | int | no | `1` | Number of I/O threads |
 | `n_devices` | int | no | `1` | Number of GPU devices |
-| `max_mem_host_gb` | float | no | `0` | Maximum host memory in GB (0 = unlimited) |
-| `max_mem_device_gb` | float | no | `0` | Maximum device memory in GB (0 = unlimited) |
+| `max_mem_host_gb` | float | no | `-1` | Upper bound for host memory in GB. `-1` or `0` = auto (~90% of currently available memory). Allocations beyond the cap fail with a clear error |
+| `max_mem_device_gb` | float | no | `-1` | Upper bound for device (GPU) memory in GB per device. `-1` or `0` = auto (~90% of currently available VRAM). Drives the subcube sizing |
 | `psf_file_paths` | string[] | no | `[]` | Path(s) to pre-existing PSF file(s) |
 | `save_psf` | bool | no | `false` | Save the used PSF to disk |
 | `labeled_image` | string | no | — | Labeled image path for region-based PSF assignment |

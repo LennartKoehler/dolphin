@@ -16,8 +16,12 @@ See the LICENSE file provided with the code for the full license.
 
 ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc)
     : stop(false),
-    activeWorkers(std::atomic<int>(static_cast<int>(numThreads))) {
+    activeWorkers(std::atomic<int>(0)) {
     newTaskCondition = [](){return true;};
+    // A pool must always have at least one worker, otherwise enqueue() would
+    // block forever. "auto" (0) is resolved upstream but guard here as well.
+    if (numThreads == 0) numThreads = 1;
+    activeWorkers.store(static_cast<int>(numThreads));
     for(size_t i = 0; i < numThreads; ++i) {
         workers.emplace_back([this, threadInitFunc] {
             threadInitFunc();

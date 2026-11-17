@@ -180,7 +180,6 @@ Image3D Image3D::getInRange(float min, float max) const {
 Image3D Image3D::getSubimageCopy(const BoxCoord& coords) const {
     // Use ITK's RegionOfInterestImageFilter to extract a subregion
     using ROIFilterType = itk::RegionOfInterestImageFilter<ImageType, ImageType>;
-    using DuplicatorType = itk::ImageDuplicator<ImageType>;
     typename ROIFilterType::Pointer roiFilter = ROIFilterType::New();
     assert(!image.IsNull() && "Empty image");
     // Set up the region to extract
@@ -202,11 +201,10 @@ Image3D Image3D::getSubimageCopy(const BoxCoord& coords) const {
     roiFilter->SetInput(image);
     roiFilter->Update();
 
-    auto duplicator = DuplicatorType::New();
-    duplicator->SetInputImage(roiFilter->GetOutput());
-    duplicator->Update();
-
-    return Image3D(duplicator->GetOutput());
+    // The ROI filter allocates a fresh buffer for its output; holding the
+    // smart pointer keeps it alive after the filter is destroyed, so no
+    // second duplication is needed.
+    return Image3D(roiFilter->GetOutput());
 }
 
 // Iterator implementation

@@ -39,9 +39,9 @@ void InverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealD
     assert(initialized && "Inverse Filter algorithm not initialized. Call init() first.");\
 
     // Verify inputs are on device
-    assert(backend->getMemoryManager().isOnDevice(H.getData()) && "PSF is not on device");
-    assert(backend->getMemoryManager().isOnDevice(g.getData()) && "Input image is not on device");
-    assert(backend->getMemoryManager().isOnDevice(f.getData()) && "Output buffer is not on device");
+    assert(backend->getMemoryManager().isOnDevice(H) && "PSF is not on device");
+    assert(backend->getMemoryManager().isOnDevice(g) && "Input image is not on device");
+    assert(backend->getMemoryManager().isOnDevice(f) && "Output buffer is not on device");
 
     // Allocate complex data for frequency domain operations
     ComplexData g_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(g.getSize());
@@ -66,6 +66,6 @@ std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::clo
     return copy;
 }
 
-size_t InverseFilterDeconvolutionAlgorithm::getMemoryMultiplier() const {
+size_t InverseFilterDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
     return 0; // No additional memory allocation needed
 }

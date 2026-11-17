@@ -196,7 +196,7 @@ std::vector<std::shared_ptr<PSF>>& PSFHandler::getPSFs(const CuboidShape& shape)
 
 std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
 
-    std::function<std::unique_ptr<ComplexData>(const CuboidShape, std::shared_ptr<PSF>, IBackend&)> psfPreprocessFunction = [&](
+    std::function<std::unique_ptr<ComplexData>(const CuboidShape, std::shared_ptr<PSF>, IBackend&)> psfPreprocessFunction = [=](
         const CuboidShape targetShape,
         std::shared_ptr<PSF> inputPSF,
         IBackend& backend
@@ -215,11 +215,14 @@ std::unique_ptr<PSFPreprocessor> PSFHandler::createPSFPreprocessor() const {
             backend.getComputeManager().forwardFFT(h_device, *h_result_device);
             backend.getComputeManager().normalizePsfUnitSum(*h_result_device, 1e-9f);
 
-            h_result_device->setBackend(h_device.getBackend());
-            h_device.setBackend(nullptr);
-
+            // The PSF result must outlive h_device, so buffer ownership moves to
+            // an owning handle (validated: same backend, source owns, same
+            // buffer). h_device is detached without freeing; the non-owning view
+            // alias is dropped and the owning handle is returned.
             backend.sync();
-            return std::move(h_result_device);
+            ComplexData owningPSF = backend.getMemoryManager().transferOwnership(h_device, *h_result_device);
+            h_result_device.reset();
+            return std::make_unique<ComplexData>(std::move(owningPSF));
         };
 
     std::unique_ptr<PSFPreprocessor> preprocessor = std::make_unique<PSFPreprocessor>();

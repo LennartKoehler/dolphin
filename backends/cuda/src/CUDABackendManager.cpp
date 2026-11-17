@@ -13,6 +13,8 @@ See the LICENSE file provided with the code for the full license.
 
 #include "cuda_backend/CUDABackendManager.h"
 #include <stdexcept>
+#include <algorithm>
+#include <cstdint>
 #include "cuda_backend/CUDABackend.h"
 #include "dolphinbackend/Exceptions.h"
 #include <spdlog/fmt/fmt.h>
@@ -91,22 +93,64 @@ extern "C" IBackendManager* createBackendManager() {
 
 
 
-CUDABackendManager::CUDABackendManager(){
+CUDABackendManager::CUDABackendManager() : fftComponent(*this){
 
 };
 
-int CUDABackendManager::getNumberDevices() const {
+size_t CUDABackendManager::getNumberDevices() const {
     return nDevices;
 }
 
-void CUDABackendManager::setThreadDistribution(const size_t& totalThreads, size_t& ioThreads, size_t& workerThreads, BackendConfig& ioconfig, BackendConfig& workerConfig){
+size_t CUDABackendManager::getMaxNumberThreads() const {
+    return 1;
+}
 
+size_t CUDABackendManager::getAvailableMemoryPerDevice() const {
+    size_t minFree = SIZE_MAX;
+    for (const CUDADevice& device : devices) {
+        minFree = std::min(minFree, CUDABackendMemoryManager::staticGetAvailableMemory(device.id));
+    }
+    return devices.empty() ? 0 : minFree;
+}
+
+void CUDABackendManager::setMemoryLimit(size_t maxMemoryPerDevice_byte) {
+    for (const CUDADevice& device : devices) {
+        device.memory->setMaxMemory(maxMemoryPerDevice_byte);
+    }
+}
+
+void CUDABackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) {
+    // The GPU does the heavy compute; host threads only feed and drain devices.
+    ioconfig.nThreads = 1;
+    workerConfig.nThreads = 1;
+
+    switch (inputThreadConfig.getMode()) {
+        case ThreadMode::Auto:
+            inputThreadConfig.nIOThreads = 1;
+            inputThreadConfig.nWorkerThreads = 1;
+            inputThreadConfig.nReaderThreads = getMaxNumberThreads();
+            break;
+        case ThreadMode::Total:
+            inputThreadConfig.nIOThreads = 1;
+            inputThreadConfig.nWorkerThreads = 1;
+            inputThreadConfig.nReaderThreads = inputThreadConfig.nThreads;
+            break;
+        case ThreadMode::Full:
+        default:
+            // Pools explicitly configured by the user; leave them untouched.
+            break;
+    }
 }
 
 IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig& config) {
     CUDABackendConfig cudaconfig = configToConfig(config);
     CUDABackend& backend = createNewBackend(cudaconfig);
     return backend;
+}
+
+
+MemoryComponent& CUDABackendManager::getMemoryComponent() {
+    return fftComponent;
 }
 
 CUDABackendConfig CUDABackendManager::configToConfig(const BackendConfig& config) {

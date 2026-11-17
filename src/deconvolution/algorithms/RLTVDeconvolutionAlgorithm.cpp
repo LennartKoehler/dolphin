@@ -57,9 +57,9 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
 
     assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm");\
     assert(initialized && "Richardson-Lucy with TV regularization algorithm not initialized. Call init() first.");\
-    assert(memory.isOnDevice(H.getData()) && "PSF is not on device");
-    assert(memory.isOnDevice(g.getData()) && "Input image is not on device");
-    assert(memory.isOnDevice(f.getData()) && "Output buffer is not on device");
+    assert(memory.isOnDevice(H) && "PSF is not on device");
+    assert(memory.isOnDevice(g) && "Input image is not on device");
+    assert(memory.isOnDevice(f) && "Output buffer is not on device");
 
     // Initialize result with input data
     memory.memCopy(g, f);
@@ -112,8 +112,9 @@ std::unique_ptr<DeconvolutionAlgorithm> RLTVDeconvolutionAlgorithm::cloneSpecifi
     return copy;
 }
 
-size_t RLTVDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 5; // Allocates 5 additional arrays of input size (c, tv, gx, gy, gz)
+size_t RLTVDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
+    // Allocates 5 additional complex arrays of input size (c, tv, gx, gy, gz)
+    return 5 * dataSize.getVolume() * sizeof(real_t);
 }
 
 void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){

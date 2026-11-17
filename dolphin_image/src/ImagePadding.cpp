@@ -17,7 +17,6 @@ See the LICENSE file provided with the code for the full license.
 #include <itkConstantPadImageFilter.h>
 #include <itkMirrorPadImageFilter.h>
 #include <itkCropImageFilter.h>
-#include <itkImageDuplicator.h>
 
 
 

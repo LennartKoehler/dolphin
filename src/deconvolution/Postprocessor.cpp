@@ -29,7 +29,7 @@ See the LICENSE file provided with the code for the full license.
 // the feathering kernel is used for convolution with the binary mask. This creates a blue at the edge
 // then all masks are summed to one so that the total weight is one
 void Postprocessor::createWeightMasks(
-    std::vector<RealData*>& masks,
+    std::span<RealData*> masks,
     const ComplexData& frequencyFeatheringKernel,
     IBackend& backend
 ){
@@ -42,8 +42,7 @@ void Postprocessor::createWeightMasks(
         backend.getComputeManager().backwardFFT(maskComplex, mask);
     }
 
-    real_t** masksarray = backend.getMemoryManager().createDataArray(masks);
-    backend.getComputeManager().sumToOne(masksarray, masks.size(), masks[0]->getSize().getVolume());
+    backend.getComputeManager().sumToOne(masks);
 }
 
 

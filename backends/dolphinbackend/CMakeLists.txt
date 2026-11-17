@@ -1,6 +1,8 @@
 set(SOURCES
     src/ComplexData.cpp
     src/IBackendMemoryManager.cpp
+    src/ThreadConfig.cpp
+    src/MemoryFootprint.cpp
 )
 
 add_library(dolphinbackend STATIC ${SOURCES})
