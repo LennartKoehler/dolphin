@@ -14,9 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/generators/GibsonLanniModel.h"
 
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
-#include "dolphin/psf/configs/ModalityConfig.h"
 #include "dolphin/psf/generators/PSFBoxSizing.h"
-#include "dolphin/psf/modality/ModalityStrategy.h"
 
 #include <algorithm>
 #include <cmath>
@@ -65,29 +63,12 @@ void GibsonLanniModel::init(const PSFConfig& baseConfig,
         spdlog::warn("GibsonLanni: NA*rho/ns > 1 within the integration domain (ns={}, NA={}, rho_max={})",
                      config.ns, config.NA, rhoMax);
 
-    if (config.getModalityType() == MicroscopeModality::CONFOCAL) {
-        const ConfocalModalityConfig* modalityCfg = config.modality<ConfocalModalityConfig>();
-        const float excitation_nm = modalityCfg ? modalityCfg->excitationWavelength_nm : 0.0f;
-        const float pinholeRadius_nm = modalityCfg ? modalityCfg->pinholeRadius_nm : 0.0f;
-        const double emission_nm = modalityCfg ? static_cast<double>(modalityCfg->emissionWavelength_nm)
-                                               : static_cast<double>(config.wavelength_nm);
-        if (excitation_nm <= 0.0f) {
-            spdlog::warn("GibsonLanni confocal PSF: excitation_wavelength_nm not set (<= 0); falling back to the emission wavelength ({:.1f} nm). The product then degenerates toward the widefield model - set excitation_wavelength_nm for a true confocal PSF",
-                         emission_nm);
-        }
-        const double airyRadius_nm = 0.61 * emission_nm / config.NA;
-        const double pinholeAU = pinholeRadius_nm / airyRadius_nm;
-        spdlog::debug("GibsonLanni confocal PSF: excitation {:.1f} nm, emission {:.1f} nm, pinhole radius {:.1f} nm = {:.2f} AU ({})",
-                     ConfocalModality::excitationLambda(config), emission_nm,
-                     pinholeRadius_nm, pinholeAU,
-                     pinholeRadius_nm > 0.0f ? "finite-pinhole convolution" : "point pinhole");
-    }
-
     initBesselHelper(config, sliceWidth, sliceHeight,
                      shortestLambda ? *shortestLambda : 0.0);
 }
 
-ModelSlice GibsonLanniModel::intensitySlice(const PSFConfig& baseSliceCfg,                                            std::optional<double> lambda,
+ModelSlice GibsonLanniModel::intensitySlice(const PSFConfig& baseSliceCfg,
+                                            std::optional<double> lambda,
                                             size_t samplesPerPixel,
                                             size_t maxLateralPixels,
                                             size_t forcedCutoff) const {
@@ -188,7 +169,7 @@ std::vector<double> GibsonLanniModel::radialProfile(
         size_t samplesPerPixel, size_t maxLateralPixels, size_t forcedCutoff) const {
     const double threshold = static_cast<double>(sliceCfg.cutoffThreshold);
     const size_t maxSamples = maxLateralPixels * samplesPerPixel;
-    const std::pair<double, double> cacheKey(sliceCfg.ti_nm, lambda_nm);
+    const std::tuple<double, double, size_t> cacheKey(sliceCfg.ti_nm, lambda_nm, samplesPerPixel);
 
     std::vector<double> h;
     {

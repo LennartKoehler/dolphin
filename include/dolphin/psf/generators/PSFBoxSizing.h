@@ -60,6 +60,14 @@ constexpr double CONE_MARGIN          = 1.1;
 // Axial half-extent floor, in axial-resolution units, for shallow stacks where
 // zMax alone would be too small to hold the defocused blur.
 constexpr double AXIAL_FLOOR_FACTOR   = 2.0;
+// Soft cap for the lateral half-extent: computeBoxHalfExtent does NOT
+// truncate, but warns when the envelope exceeds this many voxels (box side
+// 2*threshold + 1). The defocus cone term grows without bound with
+// NA * stack depth (tilt ~7 at NA 1.4), so deep high-NA stacks can produce
+// very large PSF boxes; the warning flags the cost, the size stays exact.
+// Axial extent is never warned about or capped: it must span the imaged
+// defocus range.
+constexpr size_t SOFT_MAX_LATERAL_HALF_VOXELS = 150;
 /**
  * Approximate optical resolution (nm) from NA, wavelength and sample RI for the
  * given criterion (see PSFConfig::ResolutionCriterion).
@@ -78,6 +86,8 @@ ApproxResolution approximateResolution(const GibsonLanniPSFConfig& config, doubl
  * Half-extents (voxels) of the symmetric PSF box from the optics and the
  * imaged axial extent. `imageDepthPixels` is the depth of the volume the PSF
  * will deconvolve (cube or image depth in voxels), NOT a PSF size cap.
+ * Nothing is truncated; a warning is emitted when the lateral half-extent
+ * exceeds SOFT_MAX_LATERAL_HALF_VOXELS.
  */
 BoxHalfExtent computeBoxHalfExtent(const ApproxResolution& resolution,
                                    const GibsonLanniPSFConfig& config);

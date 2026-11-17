@@ -29,6 +29,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/PSF.h"
 #include "dolphin/ThreadPool.h"
 
+#include <spdlog/spdlog.h>
+
 
 // Factory singleton which creates PSFConfigs and minimal PSF generators,
 // keyed by the model name. The factory never generates a PSF itself: it
@@ -120,7 +122,11 @@ private:
             []() { return std::make_shared<GaussianPSFConfig>(); },
             [](std::shared_ptr<PSFConfig> config) {
                 // The analytic Gaussian model is self-contained: no modality
-                // layer, the generator drives the model directly.
+                // layer, the generator drives the model directly. A modality
+                // tag other than widefield would be silently ignored, so say so.
+                if (config->getModalityType() != MicroscopeModality::WIDEFIELD)
+                    spdlog::warn("Gaussian PSF model has no '{}' image formation; ignoring microscope_modality (widefield PSF will be generated)",
+                                 config->getModalityName());
                 auto generator = std::make_shared<GaussianPSFGenerator>();
                 generator->setConfig(std::move(config));
                 return generator;

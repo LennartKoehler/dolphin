@@ -25,6 +25,7 @@ See the LICENSE file provided with the code for the full license.
 #include <variant>
 #include <vector>
 
+#include <spdlog/spdlog.h>
 #include <itkImage.h>
 #include <itkImageRegionIterator.h>
 
@@ -217,6 +218,25 @@ SliceData WidefieldModality::composeSlice(const PSFModel& model,
 const ConfocalModality& ConfocalModality::instance() {
     static const ConfocalModality strategy;
     return strategy;
+}
+
+PSF ConfocalModality::generate(const PSFModel& model,
+                               const PSFConfig& config,
+                               ThreadPool& threadPool,
+                               ProgressTracking& progressTracker) const {
+    // Once-per-generation setup report: the modality's own parameters only.
+    // Model-numerics diagnostics (e.g. NA*rho/ns) belong to the model's init.
+    if (const ConfocalModalityConfig* modalityCfg = config.modality<ConfocalModalityConfig>()) {
+        if (modalityCfg->excitationWavelength_nm <= 0.0f)
+            spdlog::warn("Confocal PSF: excitation_wavelength_nm not set (<= 0); falling back to the emission wavelength ({:.1f} nm). The product then degenerates toward the widefield model - set excitation_wavelength_nm for a true confocal PSF",
+                         static_cast<double>(modalityCfg->emissionWavelength_nm));
+        spdlog::debug("Confocal PSF: excitation {:.1f} nm, emission {:.1f} nm, pinhole radius {:.1f} nm ({})",
+                      excitationLambda(config),
+                      static_cast<double>(modalityCfg->emissionWavelength_nm),
+                      static_cast<double>(modalityCfg->pinholeRadius_nm),
+                      modalityCfg->pinholeRadius_nm > 0.0f ? "finite-pinhole convolution" : "point pinhole");
+    }
+    return ModalityStrategy::generate(model, config, threadPool, progressTracker);
 }
 
 double ConfocalModality::excitationLambda(const PSFConfig& cfg) {

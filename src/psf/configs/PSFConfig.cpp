@@ -102,7 +102,13 @@ bool PSFConfig::loadFromJSON(const json& jsonData){
         spdlog::warn("({}) 'wavelength_nm' is unused for confocal PSFs; set 'emission_wavelength_nm' instead", getName());
 
     warnOnForeignModalityKeys(jsonData);
-    return Config::loadFromJSON(jsonData);
+
+    // The modality tag was consumed by the pre-select above; it is not a
+    // registry parameter, so the generic pass must not report it as an
+    // unknown key.
+    json registryJson = jsonData;
+    registryJson.erase("microscope_modality");
+    return Config::loadFromJSON(registryJson);
 }
 
 json PSFConfig::writeToJSON() const {

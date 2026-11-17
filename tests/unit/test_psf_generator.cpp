@@ -336,9 +336,10 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeExactShape) {
     // Final model, fastGlJSON (NA=1.4, ni=1.515, ns=1.33, lambda=450, pitch
     // 500/500, sizeZ=48 -> zMax = 24*500 = 12000nm):
     //   tilt = max(tan(asin(1.4/1.515)), tan(asin(clamp(1.4/1.33, 0.99)))) = 7.0179
-    //   halfLat = 3.5*196.07 + 1.1*7.0179*12000 = 94009nm -> ceil(188) -> cap 150
+    //   halfLat = 3.5*196.07 + 1.1*7.0179*12000 = 93322nm -> ceil(187) (above the
+    //   soft cap of 150, so a warning logs; nothing is truncated)
     //   axial   = ceil(max(12000, 2*610.71)/500) = 24
-    //   -> box 301 x 301 x 49
+    //   -> box 375 x 375 x 49
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = fastGlJSON();
     auto config = factory.createConfig(j);
@@ -348,15 +349,15 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeExactShape) {
     PSF psf = generator;
     CuboidShape shape = psf.getShape();
 
-    EXPECT_EQ(shape.width, 301u);
-    EXPECT_EQ(shape.height, 301u);
+    EXPECT_EQ(shape.width, 375u);
+    EXPECT_EQ(shape.height, 375u);
     EXPECT_EQ(shape.depth, 49u);
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeGrowsWithImageDepth) {
     // A deeper imaged volume defocuses farther -> larger cone spread and
     // longer axial stack. sizeZ 48 -> 96 doubles zMax:
-    //   48: zMax=12000 -> 301x301x49;  96: zMax=24000 -> 301x301x97 (lateral capped)
+    //   48: zMax=12000 -> 375x375x49;  96: zMax=24000 -> 745x745x97
     auto& factory = PSFGeneratorFactory::getInstance();
 
     auto shapeFor = [&](int sizeZ) {
@@ -371,9 +372,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeGrowsWithImageDepth) {
     CuboidShape shallow = shapeFor(48);
     CuboidShape deep = shapeFor(96);
 
-    EXPECT_EQ(shallow.width, 301u);
+    EXPECT_EQ(shallow.width, 375u);
     EXPECT_EQ(shallow.depth, 49u);
-    EXPECT_EQ(deep.width, 301u);
+    EXPECT_EQ(deep.width, 745u);
     EXPECT_EQ(deep.depth, 97u);
 }
 
@@ -395,7 +396,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeIgnoresSizeXY) {
     PSF small = generate(16);
     PSF large = generate(600);
 
-    EXPECT_EQ(small.getShape(), CuboidShape(301, 301, 49));
+    EXPECT_EQ(small.getShape(), CuboidShape(375, 375, 49));
     EXPECT_EQ(large.getShape(), small.getShape());
     EXPECT_TRUE(large.isEqual(small, 1e-4f));
 }
@@ -405,7 +406,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniBoxHalfExtentModel) {
     // NA=1.3, ni=ns=1.33, lambda=520, pitch 100/100, sizeZ=64 (zMax=3200nm).
     // The cone uses the absolute tilt, so it grows even when RI is matched:
     //   resLat = 244nm, tilt = tan(asin(1.3/1.33)) = 4.6281
-    //     halfLat = 3.5*244 + 1.1*4.6281*3200 = 17145nm -> ceil(172) -> cap 150
+    //     halfLat = 3.5*244 + 1.1*4.6281*3200 = 17144nm -> lat = 172
+    //     (above the soft cap of 150 -> warning logs, nothing truncated)
     //   resAx = 818.5nm
     //     halfAx = 3200 + 8*818.5 = 9747.7nm -> ax = 98
     GibsonLanniPSFConfig cfg;
@@ -420,7 +422,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniBoxHalfExtentModel) {
 
     auto res = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, cfg.resolutionCriterion);
     auto box = PSFBoxSizing::computeBoxHalfExtent(res, cfg);
-    EXPECT_EQ(box.lateral, 150u);
+    EXPECT_EQ(box.lateral, 172u);
     EXPECT_EQ(box.axial, 32u);
 
     // TIR regime (NA >= ns): asin clamp keeps everything finite and positive.
@@ -460,11 +462,13 @@ TEST_F(PSFGeneratorTest, GibsonLanniApproximateResolutionAxial) {
 // unless noted); run this test to see the full size table in the log.
 //
 // Formula (PSFBoxSizing):
-//   dTan     = |tan(asin(clamp(NA/ni))) - tan(asin(clamp(NA/ns)))|   (clamp 0.99)
+//   tilt     = max(tan(asin(clamp(NA/ni))), tan(asin(clamp(NA/ns)))) (clamp 0.99)
 //   zMax     = max(sizeZ/2, sizeZ-1-sizeZ/2) * dz
-//   halfLat  = 3.5*resLat + 1.1*dTan*zMax      (>= 3.5*resLat)
-//   halfAx   = zMax + 8*resAx                  (>= 8*resAx)
+//   halfLat  = 3.5*resLat + 1.1*tilt*zMax            (>= 3.5*resLat)
+//   halfAx   = max(zMax, 2*resAx)                    (voxel-ceil)
 //   box      = (2*ceil(halfLat/pxLat)+1) x (2*ceil(halfAx/pxAx)+1)
+// Nothing is truncated; configs whose envelope exceeds the soft cap
+// (SOFT_MAX_LATERAL_HALF_VOXELS) log a warning.
 TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxSizeCatalog) {
     struct AutoBoxCase {
         const char* name;
@@ -477,15 +481,15 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxSizeCatalog) {
 
     //          name                     NA    ni      ns     lam  pxLat pxAx depth criterion     W    D
     const std::vector<AutoBoxCase> cases = {
-        {"WidefieldDry_NA055",        0.55f, 1.0f,   1.338f, 520, 100, 500, 100, C::RAYLEIGH, 301, 101},
+        {"WidefieldDry_NA055",        0.55f, 1.0f,   1.338f, 520, 100, 500, 100, C::RAYLEIGH, 405, 101},
         {"DefaultGibsonLanniConfig",  0.55f, 1.43f,  1.338f, 520, 100, 500, 100, C::RAYLEIGH, 291, 101},
-        {"OilConfocal_NA14",          1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::RAYLEIGH, 301, 65},
-        {"MatchedRI_coneStillGrows",  1.30f, 1.33f,  1.33f,  520, 100, 100,  64, C::RAYLEIGH, 301, 65},
-        {"TIRclamp_NAaboveNs",        1.40f, 1.515f, 1.33f,  450, 100, 100,  64, C::RAYLEIGH, 301, 65},
-        {"OilConfocal_FWHM",          1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::FWHM,     301, 65},
-        {"OilConfocal_Sigma",         1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::SIGMA,    301, 65},
-        {"OilConfocal_coarsePitch",   1.40f, 1.515f, 1.33f,  520, 200, 200,  64, C::RAYLEIGH, 301, 65},
-        {"OilConfocal_depth128",      1.40f, 1.515f, 1.33f,  520, 100, 100, 128, C::RAYLEIGH, 301, 129},
+        {"OilConfocal_NA14",          1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::RAYLEIGH, 511, 65},
+        {"MatchedRI_coneStillGrows",  1.30f, 1.33f,  1.33f,  520, 100, 100,  64, C::RAYLEIGH, 345, 65},
+        {"TIRclamp_NAaboveNs",        1.40f, 1.515f, 1.33f,  450, 100, 100,  64, C::RAYLEIGH, 509, 65},
+        {"OilConfocal_FWHM",          1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::FWHM,     509, 65},
+        {"OilConfocal_Sigma",         1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::SIGMA,    507, 65},
+        {"OilConfocal_coarsePitch",   1.40f, 1.515f, 1.33f,  520, 200, 200,  64, C::RAYLEIGH, 503, 65},
+        {"OilConfocal_depth128",      1.40f, 1.515f, 1.33f,  520, 100, 100, 128, C::RAYLEIGH, 1005, 129},
         {"OilConfocal_depth16",       1.40f, 1.515f, 1.33f,  520, 100, 100,  16, C::RAYLEIGH, 141, 31},
     };
 
@@ -528,8 +532,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxEndToEndOilConfocal) {
     // Full generation must match the analytic catalog row "OilConfocal_NA14":
     // NA=1.4, ni=1.515, ns=1.33, lambda=520, pitch 100/100, depth 64 ->
     // zMax=3200nm, tilt=7.0179, halfLat=3.5*226.57+1.1*7.0179*3200=25496nm
-    // -> ceil(255) capped to 150; axial=ceil(max(3200,2*705.71)/100)=32
-    // -> box 301 x 301 x 65.
+    // -> ceil(255) (above the soft cap of 150 -> warning logs, nothing
+    // truncated); axial=ceil(max(3200,2*705.71)/100)=32
+    // -> box 511 x 511 x 65.
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = fastGlJSON();
     j["size_x"] = 64;
@@ -543,7 +548,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxEndToEndOilConfocal) {
     PSF generator = generateTestPSF(config);
 
     PSF psf = generator;
-    EXPECT_EQ(psf.getShape(), CuboidShape(301, 301, 65));
+    EXPECT_EQ(psf.getShape(), CuboidShape(511, 511, 65));
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxEndToEndDefaultConfig) {

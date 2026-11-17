@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include <mutex>
 #include <optional>
 #include <memory>
+#include <tuple>
 #include <vector>
 
 #include "dolphin/psf/generators/BesselHelper.h"
@@ -128,6 +129,10 @@ private:
 
     mutable BesselHelper besselHelper;
     mutable bool besselInitialized = false;
-    mutable std::map<std::pair<double, double>, std::vector<double>> cachedRadialProfiles;
+    /** Radial profiles per (ti_nm, lambda_nm, samplesPerPixel). The sampling
+     *  density is part of the key: it is baked into the profile's radial
+     *  geometry, so profiles tabulated at different densities must never be
+     *  served interchangeably. */
+    mutable std::map<std::tuple<double, double, size_t>, std::vector<double>> cachedRadialProfiles;
     mutable std::mutex cacheMutex;
 };

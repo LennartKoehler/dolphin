@@ -33,9 +33,9 @@ std::string PSFHandler::paddingStrategyName(PaddingStrategyType type) {
 
 CuboidShape PSFHandler::getManualCubePadding(const std::array<int64_t, 3>& cubePadding) {
     return CuboidShape{
-        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[0])),
-        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[1])),
-        static_cast<size_t>(std::max<uint64_t>(0, cubePadding[2]))
+        static_cast<size_t>(std::max<int64_t>(0, cubePadding[0])),
+        static_cast<size_t>(std::max<int64_t>(0, cubePadding[1])),
+        static_cast<size_t>(std::max<int64_t>(0, cubePadding[2]))
     };
 }
 

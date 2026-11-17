@@ -64,11 +64,13 @@ public:
      *  model preparation, parallel per-slice composition, image assembly and
      *  unit-flux normalization (auto-size path only, preserving the historic
      *  behavior of the fixed-size path). The config is type-erased here;
-     *  strategies are scoped to Gibson-Lanni configs and cast once. */
-    PSF generate(const PSFModel& model,
-                 const PSFConfig& config,
-                 ThreadPool& threadPool,
-                 ProgressTracking& progressTracker) const;
+     *  strategies are scoped to Gibson-Lanni configs and cast once. Modalities
+     *  with once-per-generation setup reporting of their own override this to
+     *  log and delegate (see ConfocalModality). */
+    virtual PSF generate(const PSFModel& model,
+                         const PSFConfig& config,
+                         ThreadPool& threadPool,
+                         ProgressTracking& progressTracker) const;
 
     /** Strategy implementing a config's microscope modality. */
     static const ModalityStrategy& forConfig(const PSFConfig& config);
@@ -129,6 +131,15 @@ public:
      *  an excitation wavelength fall back to the emission wavelength,
      *  degenerating to a product of two identical integrals. */
     static double excitationLambda(const PSFConfig& cfg);
+
+    /** One setup report per generation (wavelengths, pinhole), then the
+     *  shared assembly pipeline. The log uses only the modality's own
+     *  parameters, so it works for any confocal-capable model; model
+     *  numerics diagnostics stay in the model's init. */
+    PSF generate(const PSFModel& model,
+                 const PSFConfig& config,
+                 ThreadPool& threadPool,
+                 ProgressTracking& progressTracker) const override;
 
 protected:
     std::optional<double> detectionLambda(const PSFModel& model,

@@ -107,6 +107,10 @@ BoxHalfExtent computeBoxHalfExtent(const ApproxResolution& resolution,
         const size_t ringFloor = static_cast<size_t>(
             std::ceil(RING_FACTOR * resolution.lateral_nm / config.pixelSizeLateral_nm));
         box.lateral = std::max(full, ringFloor);
+        if (box.lateral > SOFT_MAX_LATERAL_HALF_VOXELS)
+            spdlog::warn("GibsonLanni: autosized PSF lateral half-extent {} voxels ({} nm) is above the soft cap of {} (box side {}); the PSF is generated at full size, but generation and deconvolution cost scale with it",
+                         box.lateral, static_cast<long>(halfLat_nm), SOFT_MAX_LATERAL_HALF_VOXELS,
+                         2 * box.lateral + 1);
     } else {
         box.lateral = 0;
     }
