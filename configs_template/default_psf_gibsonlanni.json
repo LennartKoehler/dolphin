@@ -18,5 +18,7 @@
   "sample_ri": 1.33,
   "particle_axial_position_nm": 0.0,
   "pixel_size_axial_nm": 100.0,
-  "pixel_size_lateral_nm": 100.0
+  "pixel_size_lateral_nm": 100.0,
+  "resolution_criterion": "rayleigh",
+  "normalize_psf": true
 }

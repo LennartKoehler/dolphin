@@ -22,9 +22,12 @@ public:
 	GibsonLanniPSFConfig();
 	GibsonLanniPSFConfig(const GibsonLanniPSFConfig& other);
 
-
-    float oversampling_factor = 4.0f;
+    /** Wavelength of the optical model in nm. The modality decides how it is
+     *  used: the widefield modality detects at this wavelength; the confocal
+     *  modality carries its own emission/excitation pair
+     *  (ConfocalModalityConfig) and ignores it. */
     float wavelength_nm = 520.0f;
+
     /** Convergence strictness for the Simpson integrator (1..10).
      *  Maps directly to the number of consecutive sub-interval refinements
      *  that must meet the tolerance. Higher = stricter convergence, slower.
