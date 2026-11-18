@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <string>
 #include <stdexcept>
+#include <typeinfo>
 #include <mutex>
 #include <vector>
 

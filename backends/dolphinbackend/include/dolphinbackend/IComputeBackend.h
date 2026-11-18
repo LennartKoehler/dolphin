@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include <span>
 #include <vector>
 #include <stdexcept>
+#include <typeinfo>
 #include "ComplexData.h"
 
 
