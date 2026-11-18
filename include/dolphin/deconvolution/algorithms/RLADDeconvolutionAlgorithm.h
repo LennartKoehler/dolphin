@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/configs/RichardsonLucyADConfig.h"
 #include <memory>
 
 class RLADDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
@@ -22,12 +23,14 @@ public:
     ~RLADDeconvolutionAlgorithm() = default;
     
     void configure(const DeconvolutionConfig& config) override;
+    void configure(const RichardsonLucyADConfig& config);
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
     size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
 private:
-    int iterations;
+    // Configuration (set in configure()); cloned in cloneSpecific().
+    int iterations = 10;
     int dampingDecrease; //0=exp, 1=lin
     double alpha;
     double beta;

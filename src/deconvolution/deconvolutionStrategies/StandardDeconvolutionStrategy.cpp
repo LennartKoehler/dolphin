@@ -88,13 +88,6 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     std::shared_ptr<DeconvolutionAlgorithm> algorithm = getAlgorithm(deconvConfig);
 
-    spdlog::get("deconvolution")->debug("Using the following deconvolution config");
-    deconvConfig.printValues();
-
-    spdlog::get("deconvolution")->debug("Using the following setup config");
-    setupConfig.printValues();
-
-
 
 
     const size_t nPSFs = psfHandler.getPSFCount();

@@ -92,6 +92,14 @@ std::unique_ptr<DeconvolutionResult> DeconvolutionService::deconvolve(const Deco
         std::shared_ptr<SetupConfig> setupConfig = request.getConfig();
         std::shared_ptr<DeconvolutionConfig> deconvConfig = request.getDeconvolutionConfig();
 
+        spdlog::get("deconvolution")->debug("Using the following deconvolution config");
+        deconvConfig->printValues();
+
+        spdlog::get("deconvolution")->debug("Using the following setup config");
+        setupConfig->printValues();
+
+
+
         size_t psfThreads = setupConfig->threadConfig.resolvePSFThreadCount();
         std::shared_ptr<ThreadPool> localThreadPool = std::make_shared<ThreadPool>(psfThreads);
 
@@ -177,6 +185,7 @@ bool DeconvolutionService::validateAlgorithmConfig(const std::string& algorithm)
     std::vector<std::string> supported_algorithms_ = fact.getAvailableAlgorithms();
     auto it = std::find(supported_algorithms_.begin(), supported_algorithms_.end(), algorithm);
     if (it == supported_algorithms_.end()) {
+        logger_->error("Invalid deconvolution algorithm name: '{}'" , algorithm);
         return false;
     }
 

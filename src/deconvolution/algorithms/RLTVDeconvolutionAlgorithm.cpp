@@ -16,10 +16,18 @@ See the LICENSE file provided with the code for the full license.
 #include <cassert>
 #include <spdlog/spdlog.h>
 
+
+// Shrinkage base: lambda = kLambdaBase / snr (0 = derive from SNR). Higher SNR
+// -> smaller lambda -> weaker prior (closer to the pure MLE).
+const real_t kLambdaBase = 1.0f;
+
 void RLTVDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Call base class configure to set up common parameters
+    configure(asConfig<RichardsonLucyTVConfig>(config, DeconvolutionAlgorithms::kRichardsonLucyTotalVariation));
+}
+
+void RLTVDeconvolutionAlgorithm::configure(const RichardsonLucyTVConfig& config) {
     iterations = config.iterations;
-    signal_to_noise = config.signal_to_noise;
+    signal_to_noise = config.signalToNoise;
 }
 
 
@@ -69,7 +77,7 @@ void RLTVDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, R
         deconvolution.backwardFFT(c_complex, c);
 
         // b) Calculation of the Correction Factor: c = g / fn'
-        deconvolution.division(g, c, c, static_cast<real_t>(complexDivisionEpsilon));
+        deconvolution.division(g, c, c, static_cast<real_t>(min_denominator));
 
         // c) Second transformation: C = FFT(c)
         deconvolution.forwardFFT(c, c_complex);
@@ -119,5 +127,8 @@ void RLTVDeconvolutionAlgorithm::computeTV(const RealData& g){
 
     deconvolution.divergence(gx, gy, gz, tv);
 
-    deconvolution.computeTV(static_cast<real_t>(signal_to_noise), tv, tv); // in-place: tv is both div input and tv output
+    // SNR -> shrinkage strength lambda. 0 = derive from SNR (lambda = base/snr:
+    // higher SNR -> weaker prior, closer to the pure MLE).
+    const real_t lambda = kLambdaBase / std::max(1e-6f, signal_to_noise);
+    deconvolution.computeTV(static_cast<real_t>(lambda), tv, tv); // in-place: tv is both div input and tv output
 }

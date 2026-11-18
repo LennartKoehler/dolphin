@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/frontend/IFrontend.h"
 #include "dolphin/SetupConfig.h"
 
+#include <dolphin/deconvolution/AlgorithmNames.h>
 #include <dolphin/deconvolution/DeconvolutionConfig.h>
 #include <dolphin/ServiceAbstractions.h>
 #include <dolphin/psf/PSFGeneratorFactory.h>
@@ -23,7 +24,9 @@ See the LICENSE file provided with the code for the full license.
 
 struct ConfigBundle {
     SetupConfig setupConfig;
-    DeconvolutionConfig deconvConfig;
+    // Deconvolution configs are polymorphic (one class per algorithm), so the
+    // bundle holds whichever concrete config was created for the run.
+    std::shared_ptr<DeconvolutionConfig> deconvConfig;
     std::vector<std::shared_ptr<PSFConfig>> psfConfigs;
 
     bool hasSetup = false;
@@ -68,8 +71,12 @@ protected:
     char** argv;
     std::string configPath;
 
+    // Set by --algorithm_name; decides the config class and its CLI options.
+    std::string cliAlgorithmName = DeconvolutionAlgorithms::kRichardsonLucy;
+
     std::string setupConfigPath;
     std::string deconvConfigPath;
+
     std::vector<std::string> psfConfigPaths;
 
 
@@ -80,6 +87,9 @@ protected:
     void readCLISetupConfigPath();
     void readSetupConfigParameters();
     void readCLIParametersDeconvolution();
+    void addAlgorithmSelectionOption();
+    static std::string prescanAlgorithmName(int argc, char** argv);
+    static std::string peekAlgorithmName(const std::string& path);
 
     void loadJSONBundle(const std::string& path);
     static ConfigBundle mergeBundles(const ConfigBundle& jsonBundle, const ConfigBundle& cliBundle);
@@ -97,11 +107,11 @@ protected:
     static std::shared_ptr<PSFConfig> loadPSFConfigFromPath(const std::string& path);
 
     static bool loadSetupConfigFromJSON(const json& jsonData, SetupConfigPSF& config);
-    static void loadDeconvConfigFromJSON(const json& jsonData, DeconvolutionConfig& config);
+    static void loadDeconvConfigFromJSON(const json& jsonData, std::shared_ptr<DeconvolutionConfig>& config);
     static std::vector<std::shared_ptr<PSFConfig>> loadPSFConfigsFromJSON(const json& jsonData);
 
     static void loadSetupConfigFromFile(const std::string& path, SetupConfigPSF& config);
-    static void loadDeconvConfigFromFile(const std::string& path, DeconvolutionConfig& config);
+    static void loadDeconvConfigFromFile(const std::string& path, std::shared_ptr<DeconvolutionConfig>& config);
     static std::vector<std::shared_ptr<PSFConfig>> loadPSFConfigsFromFile(const std::string& path);
 
     PSFGenerationRequest generatePSFRequest(const PSFConfigBundle& bundle);

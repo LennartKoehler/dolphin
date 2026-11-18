@@ -19,6 +19,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/GaussianPSFConfig.h"
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
 #include "dolphin/psf/PSFGeneratorFactory.h"
+#include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "dolphin/ServiceAbstractions.h"
 #include "dolphin/Logging.h"
 #include "TestUtils.h"
@@ -70,6 +71,11 @@ protected:
     TestableCLIFrontend makeFrontend() {
         return TestableCLIFrontend(nullptr, 0, nullptr);
     }
+
+    // Deconvolution configs are one class per algorithm; build the registered one.
+    static std::shared_ptr<DeconvolutionConfig> makeDeconvConfig(const std::string& algorithm) {
+        return DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm(algorithm);
+    }
 };
 
 // =============================================================
@@ -118,19 +124,21 @@ TEST_F(CLIFrontendTest, MergeBundles_JSONDeconvWinsOverCLI) {
     auto fe = makeFrontend();
 
     ConfigBundle jsonBundle;
-    jsonBundle.deconvConfig.algorithmName = "RichardsonLucy";
-    jsonBundle.deconvConfig.iterations = 20;
+    jsonBundle.deconvConfig = makeDeconvConfig("RichardsonLucy");
+    jsonBundle.deconvConfig->algorithmName = "RichardsonLucy";
+    jsonBundle.deconvConfig->iterations = 20;
     jsonBundle.hasDeconv = true;
 
     ConfigBundle cliBundle;
-    cliBundle.deconvConfig.algorithmName = "Convolution";
-    cliBundle.deconvConfig.iterations = 5;
+    cliBundle.deconvConfig = makeDeconvConfig("Convolution");
+    cliBundle.deconvConfig->algorithmName = "Convolution";
+    cliBundle.deconvConfig->iterations = 5;
     cliBundle.hasDeconv = true;
 
     ConfigBundle merged = fe.mergeBundles(jsonBundle, cliBundle);
 
-    EXPECT_EQ(merged.deconvConfig.algorithmName, "RichardsonLucy");
-    EXPECT_EQ(merged.deconvConfig.iterations, 20);
+    EXPECT_EQ(merged.deconvConfig->algorithmName, "RichardsonLucy");
+    EXPECT_EQ(merged.deconvConfig->iterations, 20);
 }
 
 TEST_F(CLIFrontendTest, MergeBundles_PSFOnlyFromJSON) {
@@ -183,8 +191,8 @@ TEST_F(CLIFrontendTest, GenerateDeconvRequest_WiresAllConfigs) {
     bundle.setupConfig.outputPath = "test_output.tif";
     bundle.hasSetup = true;
 
-    bundle.deconvConfig.algorithmName = "RichardsonLucy";
-    bundle.deconvConfig.iterations = 10;
+    bundle.deconvConfig = makeDeconvConfig("RichardsonLucy");
+    bundle.deconvConfig->iterations = 10;
     bundle.hasDeconv = true;
 
     PSFGeneratorFactory factory = PSFGeneratorFactory::getInstance();
@@ -307,8 +315,8 @@ TEST_F(CLIFrontendTest, LoadJSONBundle_SubObjectFormat) {
 
     EXPECT_EQ(jsonBundle.setupConfig.imagePath, "inline_input.tif");
     EXPECT_EQ(jsonBundle.setupConfig.backend, "cpu");
-    EXPECT_EQ(jsonBundle.deconvConfig.algorithmName, "RichardsonLucy");
-    EXPECT_EQ(jsonBundle.deconvConfig.iterations, 10);
+    EXPECT_EQ(jsonBundle.deconvConfig->algorithmName, "RichardsonLucy");
+    EXPECT_EQ(jsonBundle.deconvConfig->iterations, 10);
     ASSERT_EQ(jsonBundle.psfConfigs.size(), 1);
     EXPECT_EQ(jsonBundle.psfConfigs[0]->getModelName(), "Gaussian");
     EXPECT_EQ(jsonBundle.psfConfigs[0]->ID, "inline_gauss");
@@ -340,8 +348,8 @@ TEST_F(CLIFrontendTest, LoadJSONBundle_SetupInDeconvSubObject) {
     EXPECT_EQ(jsonBundle.setupConfig.imagePath, "root_image.tif");
     EXPECT_EQ(jsonBundle.setupConfig.backend, "cpu");
     EXPECT_EQ(jsonBundle.setupConfig.threadConfig.nIOThreads, 8);
-    EXPECT_EQ(jsonBundle.deconvConfig.algorithmName, "RichardsonLucy");
-    EXPECT_EQ(jsonBundle.deconvConfig.iterations, 25);
+    EXPECT_EQ(jsonBundle.deconvConfig->algorithmName, "RichardsonLucy");
+    EXPECT_EQ(jsonBundle.deconvConfig->iterations, 25);
 }
 
 TEST_F(CLIFrontendTest, LoadJSONBundle_OnlyDeconvConfig) {
@@ -361,8 +369,8 @@ TEST_F(CLIFrontendTest, LoadJSONBundle_OnlyDeconvConfig) {
     EXPECT_TRUE(jsonBundle.hasDeconv);
     EXPECT_FALSE(jsonBundle.hasPSF);
 
-    EXPECT_EQ(jsonBundle.deconvConfig.algorithmName, "InverseFilter");
-    EXPECT_EQ(jsonBundle.deconvConfig.iterations, 5);
+    EXPECT_EQ(jsonBundle.deconvConfig->algorithmName, "InverseFilter");
+    EXPECT_EQ(jsonBundle.deconvConfig->iterations, 5);
 }
 
 TEST_F(CLIFrontendTest, LoadJSONBundle_EmptyJSON) {
@@ -389,7 +397,8 @@ TEST_F(CLIFrontendTest, LoadAndMerge_JSONSetupDeconvPSF_CLIOverwritten) {
 
     fe.cliBundleRef().setupConfig.imagePath = "cli_image.tif";
     fe.cliBundleRef().setupConfig.backend = "cuda";
-    fe.cliBundleRef().deconvConfig.iterations = 99;
+    fe.cliBundleRef().deconvConfig = makeDeconvConfig("RichardsonLucy");
+    fe.cliBundleRef().deconvConfig->iterations = 99;
     fe.cliBundleRef().hasSetup = true;
     fe.cliBundleRef().hasDeconv = true;
 
@@ -397,7 +406,7 @@ TEST_F(CLIFrontendTest, LoadAndMerge_JSONSetupDeconvPSF_CLIOverwritten) {
 
     EXPECT_EQ(merged.setupConfig.imagePath, "inline_input.tif");
     EXPECT_EQ(merged.setupConfig.backend, "cpu");
-    EXPECT_EQ(merged.deconvConfig.iterations, 10);
+    EXPECT_EQ(merged.deconvConfig->iterations, 10);
     ASSERT_EQ(merged.psfConfigs.size(), 1);
     EXPECT_EQ(merged.psfConfigs[0]->ID, "inline_gauss");
 }
@@ -861,23 +870,23 @@ TEST_F(CLIFrontendTest, LoadDeconvConfigFile_RootLevelFormat) {
     auto fe = makeFrontend();
 
     auto path = writeTempJSON(TestUtils::standaloneDeconvConfigJSON(), "deconv_root.json");
-    DeconvolutionConfig config;
+    std::shared_ptr<DeconvolutionConfig> config;
     fe.loadDeconvConfigFromFile(path, config);
 
-    EXPECT_EQ(config.algorithmName, "RegularizedInverseFilter");
-    EXPECT_EQ(config.iterations, 30);
-    EXPECT_FLOAT_EQ(config.min_denominator, 1e-8f);
+    EXPECT_EQ(config->algorithmName, "RegularizedInverseFilter");
+    EXPECT_EQ(config->iterations, 30);
+    EXPECT_FLOAT_EQ(config->minDenominator, 1e-8f);
 }
 
 TEST_F(CLIFrontendTest, LoadDeconvConfigFile_SubObjectFormat) {
     auto fe = makeFrontend();
 
     auto path = writeTempJSON(TestUtils::deconvConfigSubObjectJSON(), "deconv_wrapped.json");
-    DeconvolutionConfig config;
+    std::shared_ptr<DeconvolutionConfig> config;
     fe.loadDeconvConfigFromFile(path, config);
 
-    EXPECT_EQ(config.algorithmName, "Convolution");
-    EXPECT_EQ(config.iterations, 1);
+    EXPECT_EQ(config->algorithmName, "Convolution");
+    EXPECT_EQ(config->iterations, 1);
 }
 
 // =============================================================
@@ -938,7 +947,7 @@ TEST_F(CLIFrontendTest, SeparateConfigs_SetupOverridesCombined) {
     EXPECT_EQ(jsonBundle.setupConfig.imagePath, "standalone_input.tif");
     EXPECT_EQ(jsonBundle.setupConfig.backend, "cuda");
     EXPECT_EQ(jsonBundle.setupConfig.outputPath, "standalone_output.tif");
-    EXPECT_EQ(jsonBundle.deconvConfig.algorithmName, "RichardsonLucy");
+    EXPECT_EQ(jsonBundle.deconvConfig->algorithmName, "RichardsonLucy");
     EXPECT_TRUE(jsonBundle.hasPSF);
 }
 
@@ -953,8 +962,8 @@ TEST_F(CLIFrontendTest, SeparateConfigs_DeconvOverridesCombined) {
 
     auto& jsonBundle = fe.jsonBundleRef();
     EXPECT_EQ(jsonBundle.setupConfig.imagePath, "inline_input.tif");
-    EXPECT_EQ(jsonBundle.deconvConfig.algorithmName, "RegularizedInverseFilter");
-    EXPECT_EQ(jsonBundle.deconvConfig.iterations, 30);
+    EXPECT_EQ(jsonBundle.deconvConfig->algorithmName, "RegularizedInverseFilter");
+    EXPECT_EQ(jsonBundle.deconvConfig->iterations, 30);
 }
 
 TEST_F(CLIFrontendTest, SeparateConfigs_PSFAdditiveWithCombined) {
@@ -995,7 +1004,7 @@ TEST_F(CLIFrontendTest, SeparateConfigs_AllSeparate_Deconvolution) {
 
     auto& jsonBundle = fe.jsonBundleRef();
     EXPECT_EQ(jsonBundle.setupConfig.imagePath, "standalone_input.tif");
-    EXPECT_EQ(jsonBundle.deconvConfig.algorithmName, "RegularizedInverseFilter");
+    EXPECT_EQ(jsonBundle.deconvConfig->algorithmName, "RegularizedInverseFilter");
     ASSERT_EQ(jsonBundle.psfConfigs.size(), 1);
     EXPECT_EQ(jsonBundle.psfConfigs[0]->ID, "standalone_gauss");
 
@@ -1004,7 +1013,7 @@ TEST_F(CLIFrontendTest, SeparateConfigs_AllSeparate_Deconvolution) {
 
     ConfigBundle merged = fe.mergeBundles(fe.jsonBundleRef(), fe.cliBundleRef());
     EXPECT_EQ(merged.setupConfig.imagePath, "standalone_input.tif");
-    EXPECT_EQ(merged.deconvConfig.algorithmName, "RegularizedInverseFilter");
+    EXPECT_EQ(merged.deconvConfig->algorithmName, "RegularizedInverseFilter");
     ASSERT_EQ(merged.psfConfigs.size(), 1);
 
     DeconvolutionRequest request = fe.generateDeconvRequest(merged);

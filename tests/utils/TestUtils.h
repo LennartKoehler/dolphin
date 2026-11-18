@@ -65,6 +65,25 @@ inline Image3D createRandomImage(size_t w, size_t h, size_t d, unsigned seed = 4
     return img;
 }
 
+// Pearson correlation between two same-size images (1.0 = identical shape).
+inline float correlation(const Image3D& a, const Image3D& b) {
+    if (a.getShape() != b.getShape()) return 0.0f;
+    double sa = 0, sb = 0, saa = 0, sbb = 0, sab = 0;
+    size_t n = 0;
+    auto itA = a.begin(), itB = b.begin();
+    for (; itA != a.end(); ++itA, ++itB, ++n) {
+        double x = *itA, y = *itB;
+        sa += x; sb += y;
+        saa += x * x; sbb += y * y; sab += x * y;
+    }
+    if (n == 0) return 0.0f;
+    double cov = sab - sa * sb / (double)n;
+    double va = saa - sa * sa / (double)n;
+    double vb = sbb - sb * sb / (double)n;
+    if (va <= 0.0 || vb <= 0.0) return 0.0f;
+    return (float)(cov / std::sqrt(va * vb));
+}
+
 
 inline Image3D createImpulseImage(size_t w, size_t h, size_t d) {
     Image3D img(CuboidShape(w, h, d), 0.0f);

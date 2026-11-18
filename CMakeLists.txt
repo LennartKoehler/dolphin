@@ -185,6 +185,14 @@ set(DOLPHIN_SOURCES
 
     src/deconvolution/DeconvolutionConfig.cpp
     src/deconvolution/DeconvolutionAlgorithmFactory.cpp
+    src/deconvolution/configs/RichardsonLucyConfig.cpp
+    src/deconvolution/configs/ConvolutionConfig.cpp
+    src/deconvolution/configs/InverseFilterConfig.cpp
+    src/deconvolution/configs/RegularizedInverseFilterConfig.cpp
+    src/deconvolution/configs/RichardsonLucyTVConfig.cpp
+    src/deconvolution/configs/RichardsonLucyADConfig.cpp
+    src/deconvolution/configs/PoissonMLEConfig.cpp
+    src/deconvolution/configs/PoissonMLEUnitStepConfig.cpp
     src/deconvolution/Preprocessor.cpp
     src/deconvolution/Postprocessor.cpp
     src/deconvolution/DeconvolutionProcessor.cpp
@@ -202,6 +210,8 @@ set(DOLPHIN_SOURCES
     src/deconvolution/algorithms/InverseFilterDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/PoissonMLEUnitStepDeconvolutionAlgorithm.cpp
 )
 
 

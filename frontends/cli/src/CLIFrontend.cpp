@@ -16,11 +16,14 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include <dolphin/Dolphin.h>
 #include <dolphin/PSFCreator.h>
+#include <dolphin/deconvolution/AlgorithmNames.h>
+#include <dolphin/deconvolution/DeconvolutionAlgorithmFactory.h>
 
 CLIFrontend::CLIFrontend(Dolphin* dolphin, int argc, char** argv)
     : IFrontend(dolphin){
         this->argc = argc;
         this->argv = argv;
+        cliAlgorithmName = prescanAlgorithmName(argc, argv);
         psfCLI = app.add_subcommand("psfgenerator", "Generate PSF file");
         deconvolutionCLI = app.add_subcommand("deconvolution", "Run deconvolution");
     }
@@ -311,7 +314,10 @@ PSFConfigBundle CLIFrontend::mergePSFBundles(const PSFConfigBundle& jsonBundle, 
 
 
 bool CLIFrontend::handleDeconvolution(const ConfigBundle& bundle) {
-    std::vector<std::string> missingParams = checkRequired(const_cast<DeconvolutionConfig&>(bundle.deconvConfig));
+    std::vector<std::string> missingParams;
+    if (bundle.hasDeconv && bundle.deconvConfig) {
+        missingParams = checkRequired(*bundle.deconvConfig);
+    }
     std::vector<std::string> missingParamsSetup = checkRequired(const_cast<SetupConfig&>(bundle.setupConfig));
     missingParams.insert(missingParams.end(), missingParamsSetup.begin(), missingParamsSetup.end());
 
@@ -355,9 +361,79 @@ void CLIFrontend::readSetupConfigParameters() {
 }
 
 void CLIFrontend::readCLIParametersDeconvolution() {
+    // cliAlgorithmName was resolved in the constructor's prescan: a config file
+    // (-c/-d) wins over --algorithm_name, matching mergeBundles(). The options
+    // below bind to the config class of that algorithm.
+    addAlgorithmSelectionOption();
+    cliBundle.deconvConfig = DeconvolutionAlgorithmFactory::getInstance()
+                                 .createConfigForAlgorithm(cliAlgorithmName);
     deconvCliGroup = deconvolutionCLI->add_option_group("Deconvolution CLI", "Deconvolution commandline options");
-    addParameters(cliBundle.deconvConfig, deconvCliGroup);
+    addParameters(*cliBundle.deconvConfig, deconvCliGroup);
     cliBundle.hasDeconv = true;
+}
+
+std::string CLIFrontend::prescanAlgorithmName(int argc, char** argv) {
+    // The deconvolution options bind to the config class of the selected
+    // algorithm, but the CLI is built before anything is parsed. Peek directly at
+    // argv so the option tree already matches the selection. A config file (-c/-d)
+    // wins over --algorithm_name, matching mergeBundles().
+    const std::string algorithmFlag = "--algorithm_name";
+    const std::vector<std::string> configFlags = {"-d", "--deconv_config", "-c", "--config"};
+
+    std::string algorithmFromCLI;
+    std::string algorithmFromFile;
+
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        const bool hasNext = i + 1 < argc;
+
+        if (arg == algorithmFlag && hasNext) {
+            algorithmFromCLI = argv[i + 1];
+        }
+        else if (arg.rfind(algorithmFlag + "=", 0) == 0) {
+            algorithmFromCLI = arg.substr(algorithmFlag.size() + 1);
+        }
+
+        for (const auto& flag : configFlags) {
+            const bool matches = (arg == flag && hasNext) || arg.rfind(flag + "=", 0) == 0;
+            if (!matches) continue;
+            const std::string path = (arg == flag) ? argv[i + 1] : arg.substr(flag.size() + 1);
+            algorithmFromFile = peekAlgorithmName(path);
+            break;
+        }
+    }
+
+    if (!algorithmFromFile.empty()) return algorithmFromFile;
+    if (!algorithmFromCLI.empty()) return algorithmFromCLI;
+    return DeconvolutionAlgorithms::kRichardsonLucy;
+}
+
+std::string CLIFrontend::peekAlgorithmName(const std::string& path) {
+    try {
+        json jsonData = Config::loadJSONFile(path);
+        const json& data = jsonData.contains("deconvolution_config")
+                               ? jsonData.at("deconvolution_config")
+                               : jsonData;
+        if (data.is_object() && data.contains("algorithm_name")) {
+            return data.at("algorithm_name").get<std::string>();
+        }
+    }
+    catch (const std::exception& e) {
+        // The real load reports the problem; fall back to the default here.
+        spdlog::debug("Could not read algorithm_name from {}: {}", path, e.what());
+    }
+    return {};
+}
+
+void CLIFrontend::addAlgorithmSelectionOption() {
+    // Bound to cliAlgorithmName (not to a config member): the config class is
+    // created after parsing, from the selected name (see generateDeconvRequest).
+    // Group names may not contain spaces (CLI11 construction rule).
+    auto* group = deconvolutionCLI->add_option_group("Algorithm", "Algorithm selection");
+    group->add_option("--algorithm_name", cliAlgorithmName,
+                      "Deconvolution algorithm; determines which options are available")
+        ->check(CLI::IsMember(DeconvolutionAlgorithms::names()))
+        ->configurable(false);
 }
 
 void CLIFrontend::readCLISetupConfigPath() {
@@ -376,6 +452,11 @@ void CLIFrontend::addParameters(Config& config, CLI::Option_group* group){
         if constexpr (std::is_same_v<T, std::array<int, 3>>){
             return;
         }
+        else if (std::string(param.cliFlag) == "--algorithm_name") {
+            // Already offered by addAlgorithmSelectionOption(); it decides the
+            // config class, so it cannot be bound to a config member.
+            return;
+        }
         else {
             if constexpr (std::is_same_v<T, bool>){
                 auto opt = group->add_flag(param.cliFlag, value, param.cliDesc);
@@ -386,7 +467,7 @@ void CLIFrontend::addParameters(Config& config, CLI::Option_group* group){
                 if (!psfPathGroup) {
                     psfPathGroup = group->add_option_group("PSF Path", "PSF file path options");
                 }
-                auto opt = psfPathGroup->add_option(param.cliFlag, value, param.cliDesc);
+                auto opt = group->add_option(param.cliFlag, value, param.cliDesc);
                 opt->configurable(false);
                 opt->ignore_case();
                 return;
@@ -449,11 +530,16 @@ bool CLIFrontend::loadSetupConfigFromJSON(const json& jsonData, SetupConfigPSF& 
     return false;
 }
 
-void CLIFrontend::loadDeconvConfigFromJSON(const json& jsonData, DeconvolutionConfig& config) {
-    if (jsonData.contains("deconvolution_config")) {
-        if (!config.loadFromJSON(jsonData["deconvolution_config"])) {
-            throw std::runtime_error("Failed to parse deconvolution config");
-        }
+void CLIFrontend::loadDeconvConfigFromJSON(const json& jsonData, std::shared_ptr<DeconvolutionConfig>& config) {
+    if (!jsonData.contains("deconvolution_config")) {
+        return;
+    }
+    try {
+        // Creates the config class matching the JSON's algorithm_name.
+        config = DeconvolutionConfig::createFromJSON(jsonData["deconvolution_config"]);
+    }
+    catch (const std::exception& e) {
+        throw std::runtime_error(std::string("Failed to parse deconvolution config: ") + e.what());
     }
 }
 
@@ -505,11 +591,14 @@ void CLIFrontend::loadSetupConfigFromFile(const std::string& path, SetupConfigPS
     }
 }
 
-void CLIFrontend::loadDeconvConfigFromFile(const std::string& path, DeconvolutionConfig& config) {
+void CLIFrontend::loadDeconvConfigFromFile(const std::string& path, std::shared_ptr<DeconvolutionConfig>& config) {
     json jsonData = Config::loadJSONFile(path);
-    const json& deconvData = jsonData.contains("deconvolution_config") ? jsonData["deconvolution_config"] : jsonData;
-    if (!config.loadFromJSON(deconvData)) {
-        throw std::runtime_error("Failed to parse deconvolution config file: " + path);
+    try {
+        config = DeconvolutionConfig::createFromJSON(jsonData);
+    }
+    catch (const std::exception& e) {
+        spdlog::error("Failed to parse deconvolution config file {}: {}", path, e.what());
+        throw;
     }
 }
 
@@ -570,7 +659,9 @@ DeconvolutionRequest CLIFrontend::generateDeconvRequest(const ConfigBundle& bund
     if (bundle.hasPSF) {
         setupConfig->psfConfigs = bundle.psfConfigs;
     }
-    auto deconvConfig = std::make_shared<DeconvolutionConfig>(bundle.deconvConfig);
-    DeconvolutionRequest request(setupConfig, deconvConfig, loggingCallback, progressVisualization);
+    std::shared_ptr<DeconvolutionConfig> deconvConfig = bundle.deconvConfig
+        ? bundle.deconvConfig
+        : DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm(cliAlgorithmName);
+    DeconvolutionRequest request(setupConfig, std::move(deconvConfig), loggingCallback, progressVisualization);
     return request;
 }

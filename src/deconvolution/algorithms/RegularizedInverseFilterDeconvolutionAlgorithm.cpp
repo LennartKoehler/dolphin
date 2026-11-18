@@ -16,8 +16,11 @@ See the LICENSE file provided with the code for the full license.
 #include <spdlog/spdlog.h>
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    // Call base class configure to set up common parameters
-    signal_to_noise = config.signal_to_noise;
+    configure(asConfig<RegularizedInverseFilterConfig>(config, DeconvolutionAlgorithms::kRegularizedInverseFilter));
+}
+
+void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const RegularizedInverseFilterConfig& config) {
+    signal_to_noise = config.signalToNoise;
 }
 
 void RegularizedInverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
@@ -70,7 +73,7 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::deconvolve(const ComplexDat
     deconvolution.scalarMultiplication(L2, signalToNoiseComplex, L2);
 
     deconvolution.complexAddition(H2, L2, FA);
-    deconvolution.complexDivisionStabilized(H, FA, FP, static_cast<real_t>(complexDivisionEpsilon));
+    deconvolution.complexDivisionStabilized(H, FA, FP, static_cast<real_t>(min_denominator));
     deconvolution.complexMultiplication(f_complex, FP, f_complex);
 
     // Inverse FFT: ComplexData -> RealData

@@ -14,6 +14,9 @@ See the LICENSE file provided with the code for the full license.
 #include <gtest/gtest.h>
 #include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
+#include "dolphin/deconvolution/configs/PoissonMLEConfig.h"
+#include "dolphin/deconvolution/configs/PoissonMLEUnitStepConfig.h"
+#include "dolphin/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphin/Logging.h"
 
@@ -22,7 +25,66 @@ protected:
     void SetUp() override {
         Logging::init();
     }
+
+    // Config classes are polymorphic: build the one registered for `algorithm`.
+    static std::shared_ptr<DeconvolutionConfig> makeConfig(const std::string& algorithm) {
+        return DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm(algorithm);
+    }
 };
+
+TEST_F(AlgorithmFactoryTest, CreateConfigForEachAlgorithm) {
+    auto& factory = DeconvolutionAlgorithmFactory::getInstance();
+    for (const auto& name : factory.getAvailableAlgorithms()) {
+        auto config = factory.createConfigForAlgorithm(name);
+        ASSERT_NE(config, nullptr) << "No config for " << name;
+        EXPECT_EQ(config->algorithmName, name);
+    }
+}
+
+TEST_F(AlgorithmFactoryTest, CreateConfigRejectsUnknownAlgorithm) {
+    auto& factory = DeconvolutionAlgorithmFactory::getInstance();
+    EXPECT_THROW(factory.createConfigForAlgorithm("NonExistent"), std::runtime_error);
+}
+
+TEST_F(AlgorithmFactoryTest, CreateConfigFromJSONSelectsAlgorithm) {
+    json data = {{"algorithm_name", "PoissonMLE"}, {"iterations", 7}, {"poisson_sieve", false}};
+    auto& factory = DeconvolutionAlgorithmFactory::getInstance();
+    auto config = factory.createConfigFromJSON(data);
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->algorithmName, "PoissonMLE");
+    EXPECT_EQ(config->iterations, 7);
+
+    auto* poisson = dynamic_cast<PoissonMLEConfig*>(config.get());
+    ASSERT_NE(poisson, nullptr);
+    EXPECT_FALSE(poisson->poissonSieve);
+}
+
+TEST_F(AlgorithmFactoryTest, CreateConfigForKnownAlgorithmReturnsFinishedConfig) {
+    // Mirrors PSFGeneratorFactory::createConfig: name + json -> fully loaded config.
+    json data = {{"iterations", 9}, {"poisson_lambda", 0.25f}};
+    auto& factory = DeconvolutionAlgorithmFactory::getInstance();
+
+    auto finished = factory.createConfigForAlgorithm("PoissonMLE", data);
+    ASSERT_NE(finished, nullptr);
+    EXPECT_EQ(finished->algorithmName, "PoissonMLE");
+    EXPECT_EQ(finished->iterations, 9);
+    auto* poisson = dynamic_cast<PoissonMLEConfig*>(finished.get());
+    ASSERT_NE(poisson, nullptr);
+    EXPECT_FLOAT_EQ(poisson->poissonLambda, 0.25f);
+
+    // The no-data overload stays empty (CLI binds values later).
+    auto empty = factory.createConfigForAlgorithm("PoissonMLE");
+    EXPECT_EQ(empty->iterations, 10); // default
+}
+
+TEST_F(AlgorithmFactoryTest, PoissonMLEConfigRejectsOtherAlgorithmConfig) {
+    auto& factory = DeconvolutionAlgorithmFactory::getInstance();
+    auto rlConfig = factory.createConfigForAlgorithm("RichardsonLucy");
+
+    // Bypass the factory's name lookup to exercise the type check.
+    PoissonMLEDeconvolutionAlgorithm algorithm;
+    EXPECT_THROW(algorithm.configure(*rlConfig), std::runtime_error);
+}
 
 TEST_F(AlgorithmFactoryTest, GetAvailableAlgorithms) {
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
@@ -72,66 +134,65 @@ TEST_F(AlgorithmFactoryTest, IsAlgorithmAvailableCaseSensitive) {
 }
 
 TEST_F(AlgorithmFactoryTest, CreateRichardsonLucy) {
-    DeconvolutionConfig config;
-    config.algorithmName = "RichardsonLucy";
+    auto config = makeConfig("RichardsonLucy");
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto algo = factory.createShared(config);
+    auto algo = factory.createShared(*config);
     ASSERT_NE(algo, nullptr);
 }
 
 TEST_F(AlgorithmFactoryTest, CreateRLTV) {
-    DeconvolutionConfig config;
-    config.algorithmName = "RichardsonLucyTotalVariation";
+    auto config = makeConfig("RichardsonLucyTotalVariation");
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto algo = factory.createShared(config);
+    auto algo = factory.createShared(*config);
     ASSERT_NE(algo, nullptr);
 }
 
 TEST_F(AlgorithmFactoryTest, CreateInverseFilter) {
-    DeconvolutionConfig config;
-    config.algorithmName = "InverseFilter";
+    auto config = makeConfig("InverseFilter");
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto algo = factory.createShared(config);
+    auto algo = factory.createShared(*config);
     ASSERT_NE(algo, nullptr);
 }
 
 TEST_F(AlgorithmFactoryTest, CreateConvolution) {
-    DeconvolutionConfig config;
-    config.algorithmName = "Convolution";
+    auto config = makeConfig("Convolution");
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto algo = factory.createShared(config);
+    auto algo = factory.createShared(*config);
     ASSERT_NE(algo, nullptr);
 }
 
 TEST_F(AlgorithmFactoryTest, CreateRLAD) {
-    DeconvolutionConfig config;
-    config.algorithmName = "RichardsonLucywithAdaptiveDamping";
+    auto config = makeConfig("RichardsonLucywithAdaptiveDamping");
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto algo = factory.createShared(config);
+    auto algo = factory.createShared(*config);
+    ASSERT_NE(algo, nullptr);
+}
+
+TEST_F(AlgorithmFactoryTest, CreatePoissonMLE) {
+    auto config = makeConfig("PoissonMLE");
+    auto& factory = DeconvolutionAlgorithmFactory::getInstance();
+    auto algo = factory.createShared(*config);
     ASSERT_NE(algo, nullptr);
 }
 
 TEST_F(AlgorithmFactoryTest, CreateUnique) {
-    DeconvolutionConfig config;
-    config.algorithmName = "RichardsonLucy";
+    auto config = makeConfig("RichardsonLucy");
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto algo = factory.createUnique(config);
+    auto algo = factory.createUnique(*config);
     ASSERT_NE(algo, nullptr);
 }
 
 TEST_F(AlgorithmFactoryTest, CreateRaw) {
-    DeconvolutionConfig config;
-    config.algorithmName = "RichardsonLucy";
+    auto config = makeConfig("RichardsonLucy");
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto algo = factory.create(config);
+    auto algo = factory.create(*config);
     ASSERT_NE(algo, nullptr);
 }
 
 TEST_F(AlgorithmFactoryTest, CreateUnknownThrows) {
-    DeconvolutionConfig config;
-    config.algorithmName = "NonExistent";
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    EXPECT_THROW(factory.createShared(config), std::runtime_error);
+    // No config can be built for an unknown algorithm, so no algorithm exists either.
+    EXPECT_THROW(factory.createConfigForAlgorithm("NonExistent"), std::runtime_error);
 }
 
 TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
@@ -151,9 +212,8 @@ TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
     };
 
     for (const auto& spec : specs) {
-        DeconvolutionConfig config;
-        config.algorithmName = spec.name;
-        auto algo = factory.createShared(config);
+        auto config = makeConfig(spec.name);
+        auto algo = factory.createShared(*config);
         ASSERT_NE(algo, nullptr) << "Failed for algorithm: " << spec.name;
         const CuboidShape testShape(4, 4, 4);
         EXPECT_EQ(algo->getWorkingSetBytes(testShape),
@@ -163,10 +223,9 @@ TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
 }
 
 TEST_F(AlgorithmFactoryTest, AlgorithmClone) {
-    DeconvolutionConfig config;
-    config.algorithmName = "RichardsonLucy";
+    auto config = makeConfig("RichardsonLucy");
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto algo = factory.createShared(config);
+    auto algo = factory.createShared(*config);
     ASSERT_NE(algo, nullptr);
 
     auto clone = algo->clone();
@@ -176,10 +235,55 @@ TEST_F(AlgorithmFactoryTest, AlgorithmClone) {
 }
 
 TEST_F(AlgorithmFactoryTest, AlgorithmIsNotInitializedByDefault) {
-    DeconvolutionConfig config;
-    config.algorithmName = "RichardsonLucy";
+    auto config = makeConfig("RichardsonLucy");
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-    auto algo = factory.createShared(config);
+    auto algo = factory.createShared(*config);
     ASSERT_NE(algo, nullptr);
     EXPECT_FALSE(algo->isInitialized());
+}
+
+// =============================================================
+// End-to-end: CLI values land in the algorithm's own config class
+// =============================================================
+
+TEST_F(AlgorithmFactoryTest, PoissonMLEConfigFromFullJSON) {
+    json data = {
+        {"algorithm_name", "PoissonMLE"},
+        {"iterations", 30},
+        {"signal_to_noise", 0.002f},
+        {"poisson_lambda", 0.5f},
+        {"poisson_background", 12.0f},
+        {"poisson_prefilter", false},
+        {"poisson_prefilter_scale", 0.4f},
+        {"poisson_sieve", false},
+        {"poisson_prior", true},
+        {"poisson_sieve_passes", 3},
+        {"poisson_sieve_scale", 0.2f},
+    };
+
+    auto config = DeconvolutionConfig::createFromJSON(data);
+    auto* poisson = dynamic_cast<PoissonMLEConfig*>(config.get());
+    ASSERT_NE(poisson, nullptr);
+    EXPECT_EQ(poisson->iterations, 30);
+    EXPECT_FLOAT_EQ(poisson->poissonLambda, 0.5f);
+    EXPECT_FLOAT_EQ(poisson->poissonBackground, 12.0f);
+    EXPECT_FALSE(poisson->poissonPrefilter);
+    EXPECT_FLOAT_EQ(poisson->poissonPrefilterScale, 0.4f);
+    EXPECT_FALSE(poisson->poissonSieve);
+    EXPECT_TRUE(poisson->poissonPrior);
+    EXPECT_EQ(poisson->poissonSievePasses, 3);
+    EXPECT_FLOAT_EQ(poisson->poissonSieveScale, 0.2f);
+
+    // The algorithm accepts exactly this config type.
+    auto algorithm = DeconvolutionAlgorithmFactory::getInstance().createShared(*config);
+    ASSERT_NE(algorithm, nullptr);
+}
+
+TEST_F(AlgorithmFactoryTest, UnitStepConfigIsAcceptedByPoissonMLEAlgorithm) {
+    auto config = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("PoissonMLEUnitStep");
+    auto* unitStep = dynamic_cast<PoissonMLEUnitStepConfig*>(config.get());
+    ASSERT_NE(unitStep, nullptr);
+    // UnitStep derives from PoissonMLE, so the base algorithm accepts it too.
+    PoissonMLEDeconvolutionAlgorithm algorithm;
+    EXPECT_NO_THROW(algorithm.configure(*config));
 }

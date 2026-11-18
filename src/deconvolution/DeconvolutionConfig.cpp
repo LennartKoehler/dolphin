@@ -13,104 +13,92 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
-#include <spdlog/spdlog.h>
 
 DeconvolutionConfig::DeconvolutionConfig() {
     registerAllParameters();
 }
 
-DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other)
-    : Config(),
-    algorithmName(other.algorithmName),
-    iterations(other.iterations),
-    min_denominator(other.min_denominator),
-    signal_to_noise(other.signal_to_noise),
-    paddingFillType(other.paddingFillType),
-    paddingStrategyType(other.paddingStrategyType),
-    paddingRelativeMax(other.paddingRelativeMax),
-    featheringRadius(other.featheringRadius),
-    cubeSize(other.cubeSize),
-    cubePadding(other.cubePadding),
-    sliceAllDimensions(other.sliceAllDimensions)
-    {
-        parameters.clear();
-        registerAllParameters();
-    }
+DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other) {
+    copyBaseFields(other);
+    parameters.clear();
+    registerAllParameters();
+}
 
 DeconvolutionConfig& DeconvolutionConfig::operator=(const DeconvolutionConfig& other) {
     if (this != &other) {
-        algorithmName = other.algorithmName;
-        iterations = other.iterations;
-        min_denominator = other.min_denominator;
-        signal_to_noise = other.signal_to_noise;
-        paddingFillType = other.paddingFillType;
-        paddingStrategyType = other.paddingStrategyType;
-        paddingRelativeMax = other.paddingRelativeMax;
-        featheringRadius = other.featheringRadius;
-        cubeSize = other.cubeSize;
-        cubePadding = other.cubePadding;
-        sliceAllDimensions = other.sliceAllDimensions;
+        assignBase(other);
         parameters.clear();
         registerAllParameters();
     }
     return *this;
 }
 
-DeconvolutionConfig::DeconvolutionConfig(DeconvolutionConfig&& other) noexcept
-    : Config(),
-    algorithmName(std::move(other.algorithmName)),
-    iterations(other.iterations),
-    min_denominator(other.min_denominator),
-    signal_to_noise(other.signal_to_noise),
-    paddingFillType(other.paddingFillType),
-    paddingStrategyType(other.paddingStrategyType),
-    paddingRelativeMax(other.paddingRelativeMax),
-    featheringRadius(other.featheringRadius),
-    cubeSize(other.cubeSize),
-    sliceAllDimensions(other.sliceAllDimensions),
-    cubePadding(other.cubePadding)
-    {
-        parameters.clear();
-        registerAllParameters();
-    }
+DeconvolutionConfig::DeconvolutionConfig(DeconvolutionConfig&& other) noexcept {
+    moveBaseFields(other);
+    parameters.clear();
+    registerAllParameters();
+}
 
 DeconvolutionConfig& DeconvolutionConfig::operator=(DeconvolutionConfig&& other) noexcept {
     if (this != &other) {
-        algorithmName = std::move(other.algorithmName);
-        iterations = other.iterations;
-        min_denominator = other.min_denominator;
-        signal_to_noise = other.signal_to_noise;
-        paddingFillType = other.paddingFillType;
-        paddingStrategyType = other.paddingStrategyType;
-        paddingRelativeMax = other.paddingRelativeMax;
-        featheringRadius = other.featheringRadius;
-        cubeSize = other.cubeSize;
-        sliceAllDimensions = other.sliceAllDimensions;
-        cubePadding = other.cubePadding;
+        moveBaseFields(other);
         parameters.clear();
         registerAllParameters();
     }
     return *this;
 }
 
+void DeconvolutionConfig::copyBaseFields(const DeconvolutionConfig& other) {
+    algorithmName = other.algorithmName;
+    iterations = other.iterations;
+    minDenominator = other.minDenominator;
+    signalToNoise = other.signalToNoise;
+    paddingFillType = other.paddingFillType;
+    paddingStrategyType = other.paddingStrategyType;
+    paddingRelativeMax = other.paddingRelativeMax;
+    featheringRadius = other.featheringRadius;
+    cubeSize = other.cubeSize;
+    cubePadding = other.cubePadding;
+    sliceAllDimensions = other.sliceAllDimensions;
+}
 
-DeconvolutionConfig DeconvolutionConfig::createFromJSONFile(const std::string& filePath) {
+void DeconvolutionConfig::moveBaseFields(DeconvolutionConfig& other) {
+    algorithmName = std::move(other.algorithmName);
+    iterations = other.iterations;
+    minDenominator = other.minDenominator;
+    signalToNoise = other.signalToNoise;
+    paddingFillType = other.paddingFillType;
+    paddingStrategyType = other.paddingStrategyType;
+    paddingRelativeMax = other.paddingRelativeMax;
+    featheringRadius = other.featheringRadius;
+    cubeSize = other.cubeSize;
+    cubePadding = other.cubePadding;
+    sliceAllDimensions = other.sliceAllDimensions;
+}
 
+void DeconvolutionConfig::assignBase(const DeconvolutionConfig& other) {
+    // Only copies fields: the caller re-registers its parameters afterwards
+    // (registerAllParameters() starts from an empty list).
+    copyBaseFields(other);
+}
+
+std::shared_ptr<DeconvolutionConfig> DeconvolutionConfig::createFromJSON(const json& fileData) {
+    // Either load from the "deconvolution_config" tag or from the entire file.
+    const json& data = fileData.contains("deconvolution_config")
+                           ? fileData.at("deconvolution_config")
+                           : fileData;
+    if (!data.is_object()) {
+        throw std::runtime_error("Deconvolution config must be a JSON object");
+    }
+
+    // The factory reads algorithm_name (default RichardsonLucy), creates the
+    // matching config class and loads the parameters into it.
+    return DeconvolutionAlgorithmFactory::getInstance().createConfigFromJSON(data);
+}
+
+std::shared_ptr<DeconvolutionConfig> DeconvolutionConfig::createFromJSONFile(const std::string& filePath) {
     json jsonData = loadJSONFile(filePath);
-    DeconvolutionConfig deconvConfig;
-
-    // either load from config tag
-    if (jsonData.contains("deconvolution_config")){
-        deconvConfig.loadFromJSON(jsonData["deconvolution_config"]);
-    }
-    // or from entire file
-    else{
-        if (!deconvConfig.loadFromJSON(jsonData)) {
-            throw std::runtime_error("Failed to parse config file: " + filePath);
-        }
-    }
-
-    return deconvConfig;
+    return createFromJSON(jsonData);
 }
 
 ConfigMap paddingFillTypeMap{{
@@ -133,8 +121,11 @@ ConfigMap paddingStrategyTypeMap{{
 
 
 void DeconvolutionConfig::registerAllParameters() {
-    static std::vector<std::string> algorithmOptions =
-        DeconvolutionAlgorithmFactory::getInstance().getAvailableAlgorithms();
+    // Derived constructors call this again after the base constructor registered
+    // the shared parameters; start from a clean list so nothing is added twice.
+    parameters.clear();
+
+    static std::vector<std::string> algorithmOptions = DeconvolutionAlgorithms::names();
     static void* algorithmOptionsVoid = static_cast<void*>(&algorithmOptions);
 
     const void* paddingFillMap_p = static_cast<const void*>(&paddingFillTypeMap);// oh boy
@@ -142,8 +133,8 @@ void DeconvolutionConfig::registerAllParameters() {
     // Register each parameter as a ConfigParameter struct
     parameters.push_back({ParameterType::StringSelection, &algorithmName, "Algorithm Name", true, "algorithm_name", "--algorithm_name", "Algorithm selection", false, false, 0.0, 0.0, algorithmOptionsVoid});
     parameters.push_back({ParameterType::Int, &iterations, "Iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
-    parameters.push_back({ParameterType::Float, &min_denominator, "Min Denominator", true, "min_denominator", "--min_denominator", "Min denominator", false, true, 1e-12, 1e-3, nullptr});
-    parameters.push_back({ParameterType::Float, &signal_to_noise, "Signal to Noise", true, "signal_to_noise", "--signal_to_noise", "Signal to noise ratio", false, false, 0.0, 1.0, nullptr});
+    parameters.push_back({ParameterType::Float, &minDenominator, "Min Denominator", true, "min_denominator", "--min_denominator", "Min denominator", false, true, 1e-12, 1e-3, nullptr});
+    parameters.push_back({ParameterType::Float, &signalToNoise, "Signal to Noise", true, "signal_to_noise", "--signal_to_noise", "Signal to noise ratio", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Map, &paddingFillType, "Padding Fill", true, "padding_fill", "--padding_fill", "Type of fill method for the image padding", false, true, 0.0, 5.0, paddingFillMap_p});
     parameters.push_back({ParameterType::Map, &paddingStrategyType, "Padding Strategy", true, "padding_strategy", "--padding_strategy",
         "Preset PSF padding threshold: none, low, medium, max. Overridden if cube_padding or padding_relative_max is set", false, true, 0.0, 4, paddingStrategyMap_p});
@@ -155,5 +146,4 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::Bool, &sliceAllDimensions, "Slice all dimensions", true, "slice_all_dimensions", "--slice_all_dimensions", "Slice all dimensions not only Z dimension", false, false, 0.0, 0.0, nullptr});
     // its labeled if the labeled image is given
     // parameters.push_back({ParameterType::String, &deconvolutionType, "Deconvolution Type", true, "deconvolution_type", "--deconvolution_type", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
-
 }
