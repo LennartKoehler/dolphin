@@ -20,7 +20,7 @@ DeconvolutionConfig::DeconvolutionConfig() {
 
 DeconvolutionConfig::DeconvolutionConfig(const DeconvolutionConfig& other) {
     copyBaseFields(other);
-    paramters.clear();
+    parameters.clear();
     registerAllParameters();
 }
 

@@ -217,11 +217,10 @@ protected:
         setupConfig->maxMemDevice_gb = maxMemHost_gb;
         setupConfig->psfConfigs = {psfConfig};
 
-        auto deconvConfig = std::make_shared<DeconvolutionConfig>();
-        deconvConfig->algorithmName = "RichardsonLucy";
+        auto deconvConfig = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("RichardsonLucy");
         deconvConfig->iterations = 5;
-        deconvConfig->min_denominator = 1e-6f;
-        deconvConfig->signal_to_noise = 0.001f;
+        deconvConfig->minDenominator = 1e-6f;
+        deconvConfig->signalToNoise = 0.001f;
         deconvConfig->paddingFillType = PaddingFillType::MIRROR;
         deconvConfig->paddingStrategyType = PaddingStrategyType::LOW;
         // Shrink cubes in all dimensions, so a small host budget forces real
@@ -356,9 +355,8 @@ public:
 };
 
 std::shared_ptr<DeconvolutionAlgorithm> makeRichardsLucy() {
-    DeconvolutionConfig config;
-    config.algorithmName = "RichardsonLucy";
-    return DeconvolutionAlgorithmFactory::getInstance().createShared(config);
+    auto config = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("RichardsonLucy");
+    return DeconvolutionAlgorithmFactory::getInstance().createShared(*config);
 }
 } // namespace
 

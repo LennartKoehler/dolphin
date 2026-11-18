@@ -83,27 +83,25 @@ void estimatePsfSigmas(const IComputeBackend& compute,
                        ComplexData& work, RealData& workReal,
                        real_t& sigX, real_t& sigY, real_t& sigZ) {
     // work = H (copy), then in-place c2r -> spatial PSF in workReal.
-    mem.memCopy(H.getData(), work.getData(), H.getDataBytes(), H.getSize());
+    mem.memCopy(H, work);
     compute.backwardFFT(work, workReal);
 
     const size_t W = shape.width, Hh = shape.height, D = shape.depth;
 
     // Copy the recovered (device) PSF to the host before the moment loop — the
     // host pointer must never be dereferenced while it still points at device
-    // memory (CUDA). Same copy-to-host idiom as estimateBackground; the host copy
-    // preserves the padded in-place layout, so the raw stride math below holds.
+    // memory (CUDA). Same copy-to-host idiom as estimateBackground; the host
+    // copy preserves the padded in-place layout, which access() maps back to
+    // logical indices (per-row padding is added by convertIndex).
     const IBackendMemoryManager& hostMem = BackendFactory::getInstance().getHostBackendMemoryManager();
     RealData psfCopy = mem.copyDataToDevice(workReal);
     RealData psfGhost = mem.moveDataFromDevice(psfCopy, hostMem);
-    const real_t* d = psfGhost.getData();
-    const size_t stride = 2 * (W / 2 + 1);
-    const size_t sliceStride = stride * Hh;
 
     double total = 0, mx = 0, my = 0, mz = 0, mx2 = 0, my2 = 0, mz2 = 0;
     for (size_t z = 0; z < D; ++z)
         for (size_t y = 0; y < Hh; ++y)
             for (size_t x = 0; x < W; ++x) {
-                real_t v = d[z * sliceStride + y * stride + x];
+                real_t v = psfGhost.access(z * W * Hh + y * W + x);
                 if (v > 0.0f) {
                     // The OTF comes from an octant-shifted PSF, so the recovered spatial
                     // PSF is corner-peaked with mass wrapping across all edges. Moments
@@ -208,8 +206,8 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     const IComputeBackend& compute = backend->getComputeManager();
     const CuboidShape shape = f.getSize();
 
-    assert(memory.isOnDevice(f.getData()) && "f is not on device");
-    assert(memory.isOnDevice(g.getData()) && "g is not on device");
+    assert(memory.isOnDevice(f) && "f is not on device");
+    assert(memory.isOnDevice(g) && "g is not on device");
 
 
     // ---- Initial estimate: the data, optionally prefiltered. ----
@@ -397,6 +395,8 @@ std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneS
     return copy;
 }
 
-size_t PoissonMLEDeconvolutionAlgorithm::getMemoryMultiplier() const {
-    return 4; // model, direction, hd (real, each a complex buffer's real view) + sieveOTF (half-complex)
+size_t PoissonMLEDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
+    // Allocates 4 additional arrays of input size
+    // (model, direction, hd as real in-place-FFT buffers + sieveOTF half-complex)
+    return 4 * dataSize.getVolume() * sizeof(real_t);
 }

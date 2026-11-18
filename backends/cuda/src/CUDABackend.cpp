@@ -912,7 +912,7 @@ void CUDAComputeBackend::normalizeTV(RealData& gradX, RealData& gradY, RealData&
 
 void CUDAComputeBackend::realSum(const RealData& a, real_t* result) const {
     ensureDevice();
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "realSum - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realSum - input a", buildCudaContext(config));
     BACKEND_CHECK(result != nullptr, "Result pointer is null", "CUDA", "realSum - result", buildCudaContext(config));
 
     size_t Nx = a.getSize().width;
@@ -925,7 +925,7 @@ void CUDAComputeBackend::realSum(const RealData& a, real_t* result) const {
     err = cudaMemsetAsync(d_result, 0, sizeof(double), config.stream);
     CUDA_CHECK(err, "realSum - cudaMemsetAsync", buildCudaContext(config));
 
-    run("realSum", CUBE_MLE::realSum(Nx, a.getSize().height, a.getSize().depth, stride, a.getData(), d_result, config.stream));
+    run("realSum", CUBE_MLE::realSum(Nx, a.getSize().height, a.getSize().depth, stride, rawData(a), d_result, config.stream));
 
     double hostVal = 0.0;
     err = cudaMemcpyAsync(&hostVal, d_result, sizeof(double), cudaMemcpyDeviceToHost, config.stream);
@@ -940,7 +940,7 @@ void CUDAComputeBackend::realSum(const RealData& a, real_t* result) const {
 
 real_t CUDAComputeBackend::getMin(const RealData& a) const {
     ensureDevice();
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "getMin - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "getMin - input a", buildCudaContext(config));
 
     const float init = FLT_MAX;
     size_t Nx = a.getSize().width;
@@ -954,7 +954,7 @@ real_t CUDAComputeBackend::getMin(const RealData& a) const {
     err = cudaMemcpyAsync(d_result, &initHost, sizeof(float), cudaMemcpyHostToDevice, config.stream);
     CUDA_CHECK(err, "getMin - cudaMemcpyAsync (init)", buildCudaContext(config));
 
-    run("getMin", CUBE_MLE::realMin(Nx, a.getSize().height, a.getSize().depth, stride, a.getData(), d_result, config.stream));
+    run("getMin", CUBE_MLE::realMin(Nx, a.getSize().height, a.getSize().depth, stride, rawData(a), d_result, config.stream));
 
     float hostVal = init;
     err = cudaMemcpyAsync(&hostVal, d_result, sizeof(float), cudaMemcpyDeviceToHost, config.stream);
@@ -969,7 +969,7 @@ real_t CUDAComputeBackend::getMin(const RealData& a) const {
 
 real_t CUDAComputeBackend::getMax(const RealData& a) const {
     ensureDevice();
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "getMax - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "getMax - input a", buildCudaContext(config));
 
     const float init = -FLT_MAX;
     size_t Nx = a.getSize().width;
@@ -983,7 +983,7 @@ real_t CUDAComputeBackend::getMax(const RealData& a) const {
     err = cudaMemcpyAsync(d_result, &initHost, sizeof(float), cudaMemcpyHostToDevice, config.stream);
     CUDA_CHECK(err, "getMax - cudaMemcpyAsync (init)", buildCudaContext(config));
 
-    run("getMax", CUBE_MLE::realMax(Nx, a.getSize().height, a.getSize().depth, stride, a.getData(), d_result, config.stream));
+    run("getMax", CUBE_MLE::realMax(Nx, a.getSize().height, a.getSize().depth, stride, rawData(a), d_result, config.stream));
 
     float hostVal = init;
     err = cudaMemcpyAsync(&hostVal, d_result, sizeof(float), cudaMemcpyDeviceToHost, config.stream);
@@ -998,9 +998,9 @@ real_t CUDAComputeBackend::getMax(const RealData& a) const {
 
 void CUDAComputeBackend::realLinearCombination(const RealData& a, real_t sa, const RealData& b, real_t sb, RealData& result) const {
     ensureDevice();
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "realLinearCombination - input a", buildCudaContext(config));
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CUDA", "realLinearCombination - input b", buildCudaContext(config));
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CUDA", "realLinearCombination - result", buildCudaContext(config));
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realLinearCombination - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CUDA", "realLinearCombination - input b", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realLinearCombination - result", buildCudaContext(config));
     BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realLinearCombination", "CUDA", "realLinearCombination", buildCudaContext(config));
 
     size_t Nx = a.getSize().width;
@@ -1008,54 +1008,54 @@ void CUDAComputeBackend::realLinearCombination(const RealData& a, real_t sa, con
     size_t strideB = b.getSize().width + b.getPadding();
     size_t strideC = result.getSize().width + result.getPadding();
 
-    run("realLinearCombination", CUBE_MLE::realLinearCombination(Nx, a.getSize().height, a.getSize().depth, strideA, strideB, strideC, a.getData(), sa, b.getData(), sb, result.getData(), config.stream));
+    run("realLinearCombination", CUBE_MLE::realLinearCombination(Nx, a.getSize().height, a.getSize().depth, strideA, strideB, strideC, rawData(a), sa, rawData(b), sb, rawData(result), config.stream));
 }
 
 void CUDAComputeBackend::realAffine(const RealData& a, real_t scalar, real_t add, RealData& result) const {
     ensureDevice();
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "realAffine - input a", buildCudaContext(config));
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CUDA", "realAffine - result", buildCudaContext(config));
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realAffine - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realAffine - result", buildCudaContext(config));
     BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realAffine", "CUDA", "realAffine", buildCudaContext(config));
 
     size_t Nx = a.getSize().width;
     size_t strideA = Nx + a.getPadding();
     size_t strideC = result.getSize().width + result.getPadding();
 
-    run("realAffine", CUBE_MLE::realAffine(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, a.getData(), scalar, add, result.getData(), config.stream));
+    run("realAffine", CUBE_MLE::realAffine(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, rawData(a), scalar, add, rawData(result), config.stream));
 }
 
 void CUDAComputeBackend::realSqrtAffine(const RealData& a, real_t scale, real_t add, real_t lambda, RealData& result) const {
     ensureDevice();
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "realSqrtAffine - input a", buildCudaContext(config));
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CUDA", "realSqrtAffine - result", buildCudaContext(config));
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realSqrtAffine - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realSqrtAffine - result", buildCudaContext(config));
     BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realSqrtAffine", "CUDA", "realSqrtAffine", buildCudaContext(config));
 
     size_t Nx = a.getSize().width;
     size_t strideA = Nx + a.getPadding();
     size_t strideC = result.getSize().width + result.getPadding();
 
-    run("realSqrtAffine", CUBE_MLE::realSqrtAffine(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, a.getData(), scale, add, lambda, result.getData(), config.stream));
+    run("realSqrtAffine", CUBE_MLE::realSqrtAffine(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, rawData(a), scale, add, lambda, rawData(result), config.stream));
 }
 
 void CUDAComputeBackend::realClampMin(const RealData& a, real_t lo, RealData& result) const {
     ensureDevice();
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CUDA", "realClampMin - input a", buildCudaContext(config));
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CUDA", "realClampMin - result", buildCudaContext(config));
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realClampMin - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realClampMin - result", buildCudaContext(config));
     BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realClampMin", "CUDA", "realClampMin", buildCudaContext(config));
 
     size_t Nx = a.getSize().width;
     size_t strideA = Nx + a.getPadding();
     size_t strideC = result.getSize().width + result.getPadding();
 
-    run("realClampMin", CUBE_MLE::realClampMin(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, a.getData(), lo, result.getData(), config.stream));
+    run("realClampMin", CUBE_MLE::realClampMin(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, rawData(a), lo, rawData(result), config.stream));
 }
 
 void CUDAComputeBackend::poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
                                                real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const {
     ensureDevice();
-    BACKEND_CHECK(g.getData() != nullptr, "Input g pointer is null", "CUDA", "poissonLineSearchEval - input g", buildCudaContext(config));
-    BACKEND_CHECK(m.getData() != nullptr, "Input m pointer is null", "CUDA", "poissonLineSearchEval - input m", buildCudaContext(config));
-    BACKEND_CHECK(hd.getData() != nullptr, "Input hd pointer is null", "CUDA", "poissonLineSearchEval - input hd", buildCudaContext(config));
+    BACKEND_CHECK(rawData(g) != nullptr, "Input g pointer is null", "CUDA", "poissonLineSearchEval - input g", buildCudaContext(config));
+    BACKEND_CHECK(rawData(m) != nullptr, "Input m pointer is null", "CUDA", "poissonLineSearchEval - input m", buildCudaContext(config));
+    BACKEND_CHECK(rawData(hd) != nullptr, "Input hd pointer is null", "CUDA", "poissonLineSearchEval - input hd", buildCudaContext(config));
     BACKEND_CHECK(J != nullptr && dJ != nullptr && d2J != nullptr, "Result pointers are null", "CUDA", "poissonLineSearchEval - result", buildCudaContext(config));
 
     size_t Nx = g.getSize().width;
@@ -1070,7 +1070,7 @@ void CUDAComputeBackend::poissonLineSearchEval(const RealData& g, const RealData
     err = cudaMemsetAsync(d_result, 0, 3 * sizeof(double), config.stream);
     CUDA_CHECK(err, "poissonLineSearchEval - cudaMemsetAsync", buildCudaContext(config));
 
-    run("poissonLineSearchEval", CUBE_MLE::poissonLineSearchEval(Nx, g.getSize().height, g.getSize().depth, strideG, strideM, strideHd, g.getData(), m.getData(), hd.getData(), alpha, d_result, config.stream));
+    run("poissonLineSearchEval", CUBE_MLE::poissonLineSearchEval(Nx, g.getSize().height, g.getSize().depth, strideG, strideM, strideHd, rawData(g), rawData(m), rawData(hd), alpha, d_result, config.stream));
 
     double hostResult[3] = {0.0, 0.0, 0.0};
     err = cudaMemcpyAsync(hostResult, d_result, 3 * sizeof(double), cudaMemcpyDeviceToHost, config.stream);
@@ -1098,17 +1098,17 @@ void CUDAComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t
     const real_t ax = twoPiSq * sigmaX * sigmaX;
     const real_t ay = twoPiSq * sigmaY * sigmaY;
     const real_t az = twoPiSq * sigmaZ * sigmaZ;
-    run("fillGaussianOTF", CUBE_MLE::fillGaussianOTF(Nx, out.getRealSize().width, out.getSize().height, out.getSize().depth, strideGradX,  out.getData(), twoPiSq, ax, ay, az, config.stream));
+    run("fillGaussianOTF", CUBE_MLE::fillGaussianOTF(Nx, out.getRealSize().width, out.getSize().height, out.getSize().depth, strideGradX,  rawData(out), twoPiSq, ax, ay, az, config.stream));
 }
 
 void CUDAComputeBackend::normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const {
     ensureDevice();
-    BACKEND_CHECK(psf.getData() != nullptr, "Input psf pointer is null", "CUDA", "normalizePsfUnitSum - input psf", buildCudaContext(config));
+    BACKEND_CHECK(rawData(psf) != nullptr, "Input psf pointer is null", "CUDA", "normalizePsfUnitSum - input psf", buildCudaContext(config));
 
     // The DC bin (element [0] of the half-complex buffer) is device memory, so read
     // back just the 8-byte DC element to the host before scaling.
     real_t hostDc[2] = {0.0f, 0.0f};
-    cudaError_t err = cudaMemcpyAsync(hostDc, psf.getData(), sizeof(hostDc), cudaMemcpyDeviceToHost, config.stream);
+    cudaError_t err = cudaMemcpyAsync(hostDc, rawData(psf), sizeof(hostDc), cudaMemcpyDeviceToHost, config.stream);
     CUDA_CHECK(err, "normalizePsfUnitSum - cudaMemcpyAsync", buildCudaContext(config));
 
     err = cudaStreamSynchronize(config.stream);

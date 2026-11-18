@@ -830,7 +830,7 @@ void CPUComputeBackend::complexDivisionStabilized(const ComplexData& a, const Co
 // ========================================================================
 
 void CPUComputeBackend::realSum(const RealData& a, real_t* result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realSum - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realSum - input a", buildCpuContext());
     BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "realSum - result", buildCpuContext());
 
     real_t sum = 0.0f;
@@ -841,9 +841,9 @@ void CPUComputeBackend::realSum(const RealData& a, real_t* result) const {
 }
 
 void CPUComputeBackend::realLinearCombination(const RealData& a, real_t sa, const RealData& b, real_t sb, RealData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realLinearCombination - input a", buildCpuContext());
-    BACKEND_CHECK(b.getData() != nullptr, "Input b pointer is null", "CPU", "realLinearCombination - input b", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "realLinearCombination - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realLinearCombination - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "realLinearCombination - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realLinearCombination - result", buildCpuContext());
 
     stridedIteration(a, b, result, [sa, sb](auto* rowA, auto* rowB, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) rowR[x] = rowA[x] * sa + rowB[x] * sb;
@@ -851,8 +851,8 @@ void CPUComputeBackend::realLinearCombination(const RealData& a, real_t sa, cons
 }
 
 void CPUComputeBackend::realAffine(const RealData& a, real_t scalar, real_t add, RealData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realAffine - input a", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "realAffine - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realAffine - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realAffine - result", buildCpuContext());
 
     stridedIteration(a, result, [scalar, add](auto* rowA, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) rowR[x] = rowA[x] * scalar + add;
@@ -860,7 +860,7 @@ void CPUComputeBackend::realAffine(const RealData& a, real_t scalar, real_t add,
 }
 
 void CPUComputeBackend::realFillConstant(RealData& a, real_t value) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realFillConstant - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realFillConstant - input a", buildCpuContext());
 
     stridedIteration(a, [&](auto* rowA, size_t w) {
         for (size_t x = 0; x < w; ++x) rowA[x] = value;
@@ -868,8 +868,8 @@ void CPUComputeBackend::realFillConstant(RealData& a, real_t value) const {
 }
 
 void CPUComputeBackend::realSqrtAffine(const RealData& a, real_t scale, real_t add, real_t lambda, RealData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realSqrtAffine - input a", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "realSqrtAffine - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realSqrtAffine - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realSqrtAffine - result", buildCpuContext());
 
     const real_t eps = 1e-12f;
     stridedIteration(a, result, [scale, add, lambda, eps](auto* rowA, auto* rowR, size_t w) {
@@ -883,8 +883,8 @@ void CPUComputeBackend::realSqrtAffine(const RealData& a, real_t scale, real_t a
 }
 
 void CPUComputeBackend::realClampMin(const RealData& a, real_t lo, RealData& result) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input a pointer is null", "CPU", "realClampMin - input a", buildCpuContext());
-    BACKEND_CHECK(result.getData() != nullptr, "Result pointer is null", "CPU", "realClampMin - result", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realClampMin - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realClampMin - result", buildCpuContext());
 
     stridedIteration(a, result, [lo](auto* rowA, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) rowR[x] = rowA[x] < lo ? lo : rowA[x];
@@ -892,7 +892,7 @@ void CPUComputeBackend::realClampMin(const RealData& a, real_t lo, RealData& res
 }
 
 void CPUComputeBackend::realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input data pointer is null", "CPU", "realStats - input data", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input data pointer is null", "CPU", "realStats - input data", buildCpuContext());
 
     real_t mn = std::numeric_limits<real_t>::max();
     real_t mx = std::numeric_limits<real_t>::lowest();
@@ -919,7 +919,7 @@ void CPUComputeBackend::realStats(const RealData& a, real_t* minOut, real_t* max
 }
 
 real_t CPUComputeBackend::getMin(const RealData& a) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input data pointer is null", "CPU", "getMin - input data", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input data pointer is null", "CPU", "getMin - input data", buildCpuContext());
 
     real_t mn = std::numeric_limits<real_t>::max();
     bool finite = false;
@@ -935,7 +935,7 @@ real_t CPUComputeBackend::getMin(const RealData& a) const {
 }
 
 real_t CPUComputeBackend::getMax(const RealData& a) const {
-    BACKEND_CHECK(a.getData() != nullptr, "Input data pointer is null", "CPU", "getMax - input data", buildCpuContext());
+    BACKEND_CHECK(rawData(a) != nullptr, "Input data pointer is null", "CPU", "getMax - input data", buildCpuContext());
 
     real_t mx = std::numeric_limits<real_t>::lowest();
     bool finite = false;
@@ -952,9 +952,9 @@ real_t CPUComputeBackend::getMax(const RealData& a) const {
 
 void CPUComputeBackend::poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
                                               real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const {
-    BACKEND_CHECK(g.getData() != nullptr, "Input g pointer is null", "CPU", "poissonLineSearchEval - input g", buildCpuContext());
-    BACKEND_CHECK(m.getData() != nullptr, "Input m pointer is null", "CPU", "poissonLineSearchEval - input m", buildCpuContext());
-    BACKEND_CHECK(hd.getData() != nullptr, "Input hd pointer is null", "CPU", "poissonLineSearchEval - input hd", buildCpuContext());
+    BACKEND_CHECK(rawData(g) != nullptr, "Input g pointer is null", "CPU", "poissonLineSearchEval - input g", buildCpuContext());
+    BACKEND_CHECK(rawData(m) != nullptr, "Input m pointer is null", "CPU", "poissonLineSearchEval - input m", buildCpuContext());
+    BACKEND_CHECK(rawData(hd) != nullptr, "Input hd pointer is null", "CPU", "poissonLineSearchEval - input hd", buildCpuContext());
     BACKEND_CHECK(J != nullptr && dJ != nullptr && d2J != nullptr, "Result pointers are null", "CPU", "poissonLineSearchEval - result", buildCpuContext());
 
     const real_t eps = 1e-12f;
@@ -982,11 +982,11 @@ void CPUComputeBackend::poissonLineSearchEval(const RealData& g, const RealData&
 }
 
 void CPUComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
-    BACKEND_CHECK(out.getData() != nullptr, "Result pointer is null", "CPU", "fillGaussianOTF - result", buildCpuContext());
+    BACKEND_CHECK(rawData(out) != nullptr, "Result pointer is null", "CPU", "fillGaussianOTF - result", buildCpuContext());
 
     const size_t W = out.getRealSize().width, H = out.getRealSize().height, D = out.getRealSize().depth;
     auto si = getStrideInfo(out);
-    complex_t* ptr = out.getData();
+    complex_t* ptr = rawData(out);
     // Gaussian OTF in cycles per sample: OTF(f) = exp(-2*pi^2 * sigma^2 * f^2),
     // i.e. the Fourier transform of a spatial Gaussian with std-dev `sigma` samples.
     // (Do NOT use 2*(2*pi)^2*sigma^2 = 8*pi^2*sigma^2: that is the angular-frequency
@@ -1016,10 +1016,10 @@ void CPUComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t 
 }
 
 void CPUComputeBackend::normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const {
-    BACKEND_CHECK(psf.getData() != nullptr, "Input psf pointer is null", "CPU", "normalizePsfUnitSum - input psf", buildCpuContext());
+    BACKEND_CHECK(rawData(psf) != nullptr, "Input psf pointer is null", "CPU", "normalizePsfUnitSum - input psf", buildCpuContext());
 
     // CPU data is host memory: read the DC bin (real part of element [0]) directly.
-    const real_t dc = psf.getData()[0][0];
+    const real_t dc = rawData(psf)[0][0];
     if (std::abs(dc) <= epsilon) return;
 
     // scalarMultiplication takes complex_t (real_t[2]) by value: pass a named

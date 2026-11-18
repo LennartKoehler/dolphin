@@ -195,34 +195,6 @@ TEST_F(AlgorithmFactoryTest, CreateUnknownThrows) {
     EXPECT_THROW(factory.createConfigForAlgorithm("NonExistent"), std::runtime_error);
 }
 
-<<<<<<< HEAD
-// TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
-//     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
-//
-//     struct AlgoSpec {
-//         std::string name;
-//         size_t expectedMemoryMultiplier;
-//     };
-//
-//     std::vector<AlgoSpec> specs = {
-//         {"RichardsonLucy", 1},
-//         {"RichardsonLucyTotalVariation", 5},
-//         {"InverseFilter", 0},
-//         {"Convolution", 0},
-//         {"RichardsonLucywithAdaptiveDamping", 1},
-//         {"PoissonMLE", 6},
-//     };
-//
-//     for (const auto& spec : specs) {
-//         DeconvolutionConfig config;
-//         config.algorithmName = spec.name;
-//         auto algo = factory.createShared(*config);
-//         ASSERT_NE(algo, nullptr) << "Failed for algorithm: " << spec.name;
-//         EXPECT_EQ(algo->getMemoryMultiplier(), spec.expectedMemoryMultiplier)
-//             << "Wrong memory multiplier for: " << spec.name;
-//     }
-// }
-=======
 TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
     auto& factory = DeconvolutionAlgorithmFactory::getInstance();
 
@@ -240,9 +212,8 @@ TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
     };
 
     for (const auto& spec : specs) {
-        DeconvolutionConfig config;
-        config.algorithmName = spec.name;
-        auto algo = factory.createShared(config);
+        auto config = makeConfig(spec.name);
+        auto algo = factory.createShared(*config);
         ASSERT_NE(algo, nullptr) << "Failed for algorithm: " << spec.name;
         const CuboidShape testShape(4, 4, 4);
         EXPECT_EQ(algo->getWorkingSetBytes(testShape),
@@ -250,7 +221,6 @@ TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
             << "Wrong working set size for: " << spec.name;
     }
 }
->>>>>>> origin/main
 
 TEST_F(AlgorithmFactoryTest, AlgorithmClone) {
     auto config = makeConfig("RichardsonLucy");

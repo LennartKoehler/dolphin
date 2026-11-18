@@ -43,7 +43,7 @@ public:
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
-    size_t getMemoryMultiplier() const override;
+    size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
 
 protected:
     // Apply one data step: given the search direction `d` (in `direction`) and the
