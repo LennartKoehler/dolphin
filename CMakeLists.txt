@@ -173,11 +173,15 @@ set(DOLPHIN_SOURCES
 
     src/psf/PSF.cpp
     src/psf/generators/GaussianPSFGenerator.cpp
-    src/psf/generators/GibsonLanniPSFGenerator.cpp
+    src/psf/generators/GibsonLanniModel.cpp
+    src/psf/generators/PSFGenerator.cpp
+    src/psf/generators/PSFBoxSizing.cpp
     src/psf/generators/SimpsonIntegrator.cpp
+    src/psf/modality/ModalityStrategy.cpp
     src/psf/configs/PSFConfig.cpp
     src/psf/configs/GibsonLanniPSFConfig.cpp
     src/psf/configs/GaussianPSFConfig.cpp
+    src/psf/configs/ModalityConfig.cpp
 
     src/deconvolution/DeconvolutionConfig.cpp
     src/deconvolution/DeconvolutionAlgorithmFactory.cpp

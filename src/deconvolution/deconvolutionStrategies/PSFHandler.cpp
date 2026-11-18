@@ -33,9 +33,9 @@ std::string PSFHandler::paddingStrategyName(PaddingStrategyType type) {
 
 CuboidShape PSFHandler::getManualCubePadding(const std::array<size_t, 3>& cubePadding) {
     return CuboidShape{
-        std::max<size_t>(0, cubePadding[0]),
-        std::max<size_t>(0, cubePadding[1]),
-        std::max<size_t>(0, cubePadding[2])
+        static_cast<size_t>(std::max<int64_t>(0, cubePadding[0])),
+        static_cast<size_t>(std::max<int64_t>(0, cubePadding[1])),
+        static_cast<size_t>(std::max<int64_t>(0, cubePadding[2]))
     };
 }
 
@@ -98,12 +98,33 @@ float PSFHandler::generationCutoffThreshold(const DeconvolutionConfig& deconvCon
     }
 }
 
+void PSFHandler::validateModality() const {
+    // Modality is a property of each PSF config, not the image. All generated
+    // PSFs must agree: mixing a confocal and a widefield PSF on one image
+    // (e.g. via label_psf_map) misrepresents the image formation model.
+    // PSFs loaded from TIFF files carry no modality metadata and are skipped.
+    auto logger = spdlog::get("deconvolution");
+    if (!logger) return;
+
+    const PSFConfig* first = nullptr;
+    for (const auto& config : psfConfigs){
+        if (!first) { first = config.get(); continue; }
+        if (config->getModalityType() != first->getModalityType()){
+            logger->warn("PSF configs mix microscope modalities ({} vs {}); all PSFs must share one image-formation model",
+                         first->getModalityName(),
+                         config->getModalityName());
+            return;
+        }
+    }
+}
+
 void PSFHandler::generatePSFs(
     const SetupConfig& setupConfig,
     const DeconvolutionConfig& deconvConfig,
     const CuboidShape& maxSize)
 {
     loadConfigsFromSetup(setupConfig);
+    validateModality();
 
     for (const auto& config : psfConfigs){
         if (config->sizeX == 0) config->sizeX = maxSize.width;

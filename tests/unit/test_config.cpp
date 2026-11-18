@@ -20,6 +20,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
 #include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "dolphin/deconvolution/configs/PoissonMLEConfig.h"
+#include "dolphin/psf/configs/ModalityConfig.h"
 #include "dolphin/Logging.h"
 #include "TestUtils.h"
 #include "nlohmann/json.hpp"
@@ -286,6 +287,144 @@ TEST_F(ConfigTest, GibsonLanniPSFConfigLoadFromJSON) {
     ASSERT_NE(glConfig, nullptr);
     EXPECT_FLOAT_EQ(glConfig->NA, 1.4f);
     EXPECT_FLOAT_EQ(glConfig->wavelength_nm, 450.0f);
+}
+
+TEST_F(ConfigTest, PSFConfigMicroscopeModalityDefaultsWidefield) {
+    auto config = PSFConfig::createFromJSON(json::parse(TestUtils::gibsonLanniPSFConfigJSON()));
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->getModalityType(), PSFConfig::MicroscopeModality::WIDEFIELD);
+    EXPECT_EQ(config->getModalityName(), "widefield");
+    // The modality config object is a widefield instance by default.
+    EXPECT_NE(config->modality<WidefieldModalityConfig>(), nullptr);
+    EXPECT_EQ(config->modality<ConfocalModalityConfig>(), nullptr);
+}
+
+TEST_F(ConfigTest, PSFConfigMicroscopeModalityFromJSON) {
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["microscope_modality"] = "confocal";
+    j["excitation_wavelength_nm"] = 488.0;
+    j["pinhole_radius_nm"] = 280.0;
+    auto config = PSFConfig::createFromJSON(j);
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->getModalityType(), PSFConfig::MicroscopeModality::CONFOCAL);
+    EXPECT_EQ(config->getModalityName(), "confocal");
+    // The modality config object carries the modality's parameters.
+    const ConfocalModalityConfig* modalityCfg = config->modality<ConfocalModalityConfig>();
+    ASSERT_NE(modalityCfg, nullptr);
+    EXPECT_FLOAT_EQ(modalityCfg->excitationWavelength_nm, 488.0f);
+    EXPECT_FLOAT_EQ(modalityCfg->pinholeRadius_nm, 280.0f);
+
+    j["microscope_modality"] = "widefield";
+    EXPECT_EQ(PSFConfig::createFromJSON(j)->getModalityName(), "widefield");
+}
+
+TEST_F(ConfigTest, PSFConfigMicroscopeModalityInvalidFallsBack) {
+    json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    j["microscope_modality"] = "lightfield";
+    auto config = PSFConfig::createFromJSON(j);
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->getModalityType(), PSFConfig::MicroscopeModality::WIDEFIELD);
+}
+
+TEST_F(ConfigTest, PSFConfigMicroscopeModalityCopies) {
+    auto config = std::make_shared<GibsonLanniPSFConfig>();
+    config->selectModality(MicroscopeModality::CONFOCAL);
+    // The generator copies the config via the GibsonLanni copy constructor;
+    // the modality config object must be cloned with it.
+    GibsonLanniPSFConfig copied(*config);
+    EXPECT_EQ(copied.getModalityName(), "confocal");
+    EXPECT_NE(copied.modalityConfig, config->modalityConfig);
+    // The modality config object (source of truth) is the confocal type.
+    EXPECT_EQ(copied.getModalityType(), MicroscopeModality::CONFOCAL);
+}
+
+TEST_F(ConfigTest, WavelengthKeysOwnedByTheirConfig) {
+    // Widefield: the optical model's "wavelength_nm" is the detection
+    // wavelength; the confocal keys do not exist on a widefield config.
+    json widefield = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    widefield["wavelength_nm"] = 540.0;
+    auto widefieldConfig = PSFConfig::createFromJSON(widefield);
+    auto* glWidefield = dynamic_cast<GibsonLanniPSFConfig*>(widefieldConfig.get());
+    ASSERT_NE(glWidefield, nullptr);
+    EXPECT_FLOAT_EQ(glWidefield->wavelength_nm, 540.0f);
+    EXPECT_EQ(glWidefield->modality<ConfocalModalityConfig>(), nullptr);
+
+    // Confocal: emission and excitation wavelengths live on the modality
+    // config, under their own keys.
+    json confocal = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    confocal["microscope_modality"] = "confocal";
+    confocal["emission_wavelength_nm"] = 530.0;
+    confocal["excitation_wavelength_nm"] = 488.0;
+    auto confocalConfig = PSFConfig::createFromJSON(confocal);
+    auto* gl = dynamic_cast<GibsonLanniPSFConfig*>(confocalConfig.get());
+    ASSERT_NE(gl, nullptr);
+    const ConfocalModalityConfig* modalityCfg = gl->modality<ConfocalModalityConfig>();
+    ASSERT_NE(modalityCfg, nullptr);
+    EXPECT_FLOAT_EQ(modalityCfg->emissionWavelength_nm, 530.0f);
+    EXPECT_FLOAT_EQ(modalityCfg->excitationWavelength_nm, 488.0f);
+
+    // Confocal: "wavelength_nm" fills the (unused) optical-model parameter
+    // but does not touch the confocal emission wavelength.
+    json stray = confocal;
+    stray["wavelength_nm"] = 560.0;
+    auto strayConfig = PSFConfig::createFromJSON(stray);
+    auto* glStray = dynamic_cast<GibsonLanniPSFConfig*>(strayConfig.get());
+    ASSERT_NE(glStray, nullptr);
+    EXPECT_FLOAT_EQ(glStray->wavelength_nm, 560.0f);
+    EXPECT_FLOAT_EQ(glStray->modality<ConfocalModalityConfig>()->emissionWavelength_nm, 530.0f);
+}
+
+TEST_F(ConfigTest, WavelengthRoundTrip) {
+    // Confocal configs save the confocal wavelengths under the modality's
+    // keys; widefield configs keep the optical model's "wavelength_nm".
+    json confocal = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
+    confocal["microscope_modality"] = "confocal";
+    confocal["emission_wavelength_nm"] = 530.0;
+    confocal["excitation_wavelength_nm"] = 488.0;
+    json confocalOut = PSFConfig::createFromJSON(confocal)->writeToJSON();
+    EXPECT_TRUE(confocalOut.contains("emission_wavelength_nm"));
+    EXPECT_TRUE(confocalOut.contains("excitation_wavelength_nm"));
+    EXPECT_FLOAT_EQ(confocalOut.at("emission_wavelength_nm").get<float>(), 530.0f);
+    // Round-trip: the saved config reloads with the same values.
+    auto reloaded = PSFConfig::createFromJSON(confocalOut);
+    auto* glReloaded = dynamic_cast<GibsonLanniPSFConfig*>(reloaded.get());
+    ASSERT_NE(glReloaded, nullptr);
+    ASSERT_NE(glReloaded, nullptr);
+    const ConfocalModalityConfig* modalityCfg = glReloaded->modality<ConfocalModalityConfig>();
+    ASSERT_NE(modalityCfg, nullptr);
+    EXPECT_FLOAT_EQ(modalityCfg->emissionWavelength_nm, 530.0f);
+    EXPECT_FLOAT_EQ(modalityCfg->excitationWavelength_nm, 488.0f);
+
+    json widefieldOut = PSFConfig::createFromJSON(json::parse(TestUtils::gibsonLanniPSFConfigJSON()))->writeToJSON();
+    EXPECT_TRUE(widefieldOut.contains("wavelength_nm"));
+    EXPECT_FALSE(widefieldOut.contains("emission_wavelength_nm"));
+    // The modality is written back from the config object itself: it is not a
+    // registry parameter, so it has to be added explicitly on save.
+    EXPECT_EQ(widefieldOut.at("microscope_modality").get<std::string>(), "widefield");
+    EXPECT_EQ(confocalOut.at("microscope_modality").get<std::string>(), "confocal");
+}
+
+TEST_F(ConfigTest, MicroscopeModalityTagRoundTripsWithoutShadowMember) {
+    // The modality config object is the only source of truth: there is no enum
+    // member to desync. Loading, switching in memory and saving must agree.
+    auto config = std::make_shared<GibsonLanniPSFConfig>();
+    EXPECT_EQ(config->getModalityName(), "widefield");
+
+    // In-memory switch (no JSON involved) is reflected on save.
+    config->selectModality(MicroscopeModality::CONFOCAL);
+    EXPECT_EQ(config->writeToJSON().at("microscope_modality").get<std::string>(), "confocal");
+
+    // A copy made from that state keeps the modality and its parameters.
+    GibsonLanniPSFConfig copied(*config);
+    EXPECT_EQ(copied.getModalityType(), MicroscopeModality::CONFOCAL);
+    const ConfocalModalityConfig* modalityCfg = copied.modality<ConfocalModalityConfig>();
+    ASSERT_NE(modalityCfg, nullptr);
+    EXPECT_EQ(copied.writeToJSON().at("microscope_modality").get<std::string>(), "confocal");
+
+    // Switching back is equally reflected.
+    config->selectModality(MicroscopeModality::WIDEFIELD);
+    EXPECT_EQ(config->modality<ConfocalModalityConfig>(), nullptr);
+    EXPECT_EQ(config->writeToJSON().at("microscope_modality").get<std::string>(), "widefield");
 }
 
 TEST_F(ConfigTest, PSFConfigInvalidModel) {
