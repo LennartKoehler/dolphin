@@ -56,7 +56,7 @@ public:
     DeconvolutionConfig(DeconvolutionConfig&& other) noexcept;
     DeconvolutionConfig& operator=(DeconvolutionConfig&& other) noexcept;
 
-    std::string getName() const override { return std::string("DeconvolutionConfig") + " " + algorithmName; };
+    std::string getName() const override { return std::string("DeconvolutionConfig") + std::string(" ") + algorithmName; };
 
     // Load a config from JSON: the algorithm is selected by the "algorithm_name"
     // field (default: RichardsonLucy) and the matching config class is created.

@@ -231,9 +231,10 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
         applySieve(compute, f, sieveOTF,
                    prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
         compute.realClampMin(f, 0.0f, f);
-        spdlog::get("deconvolution")->debug(
-            "PoissonMLE prefilter: sigmas of initial filt: {:.3f} {:.3f} {:.3f}",
-            prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
+        if (auto* logger = spdlog::get("deconvolution"))
+            logger->debug(
+                "PoissonMLE prefilter: sigmas of initial filt: {:.3f} {:.3f} {:.3f}",
+                prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
     }
 
     // Background: an explicit override wins; otherwise the min of the prefiltered
