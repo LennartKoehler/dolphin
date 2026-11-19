@@ -230,11 +230,11 @@ PSF ConfocalModality::generate(const PSFModel& model,
         if (modalityCfg->excitationWavelength_nm <= 0.0f)
             spdlog::warn("Confocal PSF: excitation_wavelength_nm not set (<= 0); falling back to the emission wavelength ({:.1f} nm). The product then degenerates toward the widefield model - set excitation_wavelength_nm for a true confocal PSF",
                          static_cast<double>(modalityCfg->emissionWavelength_nm));
-        spdlog::debug("Confocal PSF: excitation {:.1f} nm, emission {:.1f} nm, pinhole radius {:.1f} nm ({})",
+        spdlog::debug("Confocal PSF: excitation {:.1f} nm, emission {:.1f} nm, pinhole radius {:.2f} um ({})",
                       excitationLambda(config),
                       static_cast<double>(modalityCfg->emissionWavelength_nm),
-                      static_cast<double>(modalityCfg->pinholeRadius_nm),
-                      modalityCfg->pinholeRadius_nm > 0.0f ? "finite-pinhole convolution" : "point pinhole");
+                      static_cast<double>(modalityCfg->pinholeRadius_um),
+                      modalityCfg->pinholeRadius_um > 0.0f ? "finite-pinhole convolution" : "point pinhole");
     }
     return ModalityStrategy::generate(model, config, threadPool, progressTracker);
 }
@@ -327,10 +327,10 @@ std::vector<double> ConfocalModality::applyDetection(const ConfocalModalityConfi
     // Finite pinhole: average the detection PSF over the pinhole disc at the
     // sample plane. A zero radius is the point-pinhole limit and leaves the
     // profile untouched.
-    if (modalityConfig.pinholeRadius_nm > 0.0f)
+    if (modalityConfig.pinholeRadius_um > 0.0f)
         return convolveRadialWithPinhole(std::move(hDetection), samplesPerPixel,
                                          pixelSizeLateral_nm,
-                                         static_cast<double>(modalityConfig.pinholeRadius_nm));
+                                         static_cast<double>(modalityConfig.pinholeRadius_um));
     return hDetection;
 }
 
@@ -354,7 +354,7 @@ std::vector<double> ConfocalModality::convolveRadialWithPinhole(
         const std::vector<double>& h,
         double samplesPerPixel,
         double pixelSizeLateral_nm,
-        double pinholeRadius_nm) {
+        double pinholeRadius_um) {
     // Average I_det over the pinhole disc in the sample plane:
     //   I_pin(r) = (1 / (pi R^2)) * \int_0^R s ds \int_0^{2pi} I_det(|r - s|) dtheta
     // The disc is circular, so only the radial distance from the output point
@@ -366,10 +366,10 @@ std::vector<double> ConfocalModality::convolveRadialWithPinhole(
     // lateral variation over the disc), theta in [0, pi] doubled by symmetry.
     // The result is normalised by the disc area so the R -> 0 limit returns
     // the input amplitude.
-    if (pinholeRadius_nm <= 0.0 || h.empty())
+    if (pinholeRadius_um <= 0.0 || h.empty())
         return h;
 
-    const double rPinhole = pinholeRadius_nm;  // nm, sample plane
+    const double rPinhole_nm = pinholeRadius_um * 1000.0;  // um -> nm, sample plane
 
     // Resolve the pinhole diameter radially and its circumference
     // azimuthally. The detection PSF's finest lateral feature is ~ the
@@ -379,11 +379,11 @@ std::vector<double> ConfocalModality::convolveRadialWithPinhole(
     // The intensity profile varies smoothly over a sub-Airy pinhole; a few
     // hundred radial samples and a modest azimuthal ring resolve the disc.
     const size_t nS = std::clamp<size_t>(
-        static_cast<size_t>(std::ceil(rPinhole * samplesPerNm)), 32, 256) & ~size_t(1);
+        static_cast<size_t>(std::ceil(rPinhole_nm * samplesPerNm)), 32, 256) & ~size_t(1);
     constexpr size_t nTheta = 64;
 
     // Simpson nodes on [0, R] (plus the r=0 endpoint handled analytically).
-    const double ds = rPinhole / static_cast<double>(nS);
+    const double ds = rPinhole_nm / static_cast<double>(nS);
     std::vector<double> sNode(nS + 1), sWeight(nS + 1);
     for (size_t i = 0; i <= nS; ++i) {
         sNode[i] = static_cast<double>(i) * ds;
@@ -409,7 +409,7 @@ std::vector<double> ConfocalModality::convolveRadialWithPinhole(
     const size_t nR = h.size();
     std::vector<double> out(nR);
 
-    const double area = M_PI * rPinhole * rPinhole;
+    const double area = M_PI * rPinhole_nm * rPinhole_nm;
 
     for (size_t ir = 0; ir < nR; ++ir) {
         const double r_nm = (static_cast<double>(ir) / samplesPerPixel) * pixelSizeLateral_nm;

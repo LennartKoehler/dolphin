@@ -40,7 +40,7 @@ ConfocalModalityConfig::ConfocalModalityConfig(const ConfocalModalityConfig& oth
 void ConfocalModalityConfig::copyMembers(const ConfocalModalityConfig& other){
     emissionWavelength_nm = other.emissionWavelength_nm;
     excitationWavelength_nm = other.excitationWavelength_nm;
-    pinholeRadius_nm = other.pinholeRadius_nm;
+    pinholeRadius_um = other.pinholeRadius_um;
     registerAllParameters();
 }
 
@@ -49,7 +49,7 @@ void ConfocalModalityConfig::registerAllParameters(){
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
     getParameters().push_back({ParameterType::Float, &emissionWavelength_nm, "Emission Wavelength (nm)", true, "emission_wavelength_nm", "--emission_wavelength_nm", "Emission (detection) wavelength (confocal)", false, true, 200.0, 700.0, nullptr});
     getParameters().push_back({ParameterType::Float, &excitationWavelength_nm, "Excitation Wavelength (nm)", true, "excitation_wavelength_nm", "--excitation_wavelength_nm", "Excitation wavelength (confocal)", false, true, 200.0, 700.0, nullptr});
-    getParameters().push_back({ParameterType::Float, &pinholeRadius_nm, "Pinhole Radius (nm)", true, "pinhole_radius_nm", "--pinhole_radius_nm", "Pinhole radius at the sample plane (reporting only)", false, true, 0.0, 10000.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &pinholeRadius_um, "Pinhole Radius (um)", true, "pinhole_radius_um", "--pinhole_radius_um", "Pinhole radius at the sample plane in um (reporting only)", false, true, 0.0, 10.0, nullptr});
 }
 
 std::unique_ptr<ModalityConfig> makeModalityConfig(MicroscopeModality modality){

@@ -303,7 +303,7 @@ TEST_F(ConfigTest, PSFConfigMicroscopeModalityFromJSON) {
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
     j["microscope_modality"] = "confocal";
     j["excitation_wavelength_nm"] = 488.0;
-    j["pinhole_radius_nm"] = 280.0;
+    j["pinhole_radius_um"] = 0.28;
     auto config = PSFConfig::createFromJSON(j);
     ASSERT_NE(config, nullptr);
     EXPECT_EQ(config->getModalityType(), PSFConfig::MicroscopeModality::CONFOCAL);
@@ -312,7 +312,7 @@ TEST_F(ConfigTest, PSFConfigMicroscopeModalityFromJSON) {
     const ConfocalModalityConfig* modalityCfg = config->modality<ConfocalModalityConfig>();
     ASSERT_NE(modalityCfg, nullptr);
     EXPECT_FLOAT_EQ(modalityCfg->excitationWavelength_nm, 488.0f);
-    EXPECT_FLOAT_EQ(modalityCfg->pinholeRadius_nm, 280.0f);
+    EXPECT_FLOAT_EQ(modalityCfg->pinholeRadius_um, 0.28f);
 
     j["microscope_modality"] = "widefield";
     EXPECT_EQ(PSFConfig::createFromJSON(j)->getModalityName(), "widefield");

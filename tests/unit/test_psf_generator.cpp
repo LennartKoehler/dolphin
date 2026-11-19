@@ -796,7 +796,7 @@ TEST_F(PSFGeneratorTest, PSFHandlerDerivesCutoffFromPaddingStrategy) {
 namespace {
 
 // Auto-size confocal-capable config with pitch fine enough to resolve FWHM.
-inline json confocalGlJSON(bool confocal, double pinholeRadius_nm = 280.0) {
+inline json confocalGlJSON(bool confocal, double pinholeRadius_um = 0.28) {
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
     j["NA"] = 0.7;
     j["immersion_ri_design"] = 1.515;
@@ -813,7 +813,7 @@ inline json confocalGlJSON(bool confocal, double pinholeRadius_nm = 280.0) {
         j["emission_wavelength_nm"] = j["wavelength_nm"];
         j.erase("wavelength_nm");
         j["excitation_wavelength_nm"] = 488.0;
-        j["pinhole_radius_nm"] = pinholeRadius_nm;
+        j["pinhole_radius_um"] = pinholeRadius_um;
     }
     return j;
 }
@@ -1021,7 +1021,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
     const ConfocalModalityConfig* modalityCfg = gl->modality<ConfocalModalityConfig>();
     ASSERT_NE(modalityCfg, nullptr);
     EXPECT_FLOAT_EQ(modalityCfg->excitationWavelength_nm, 488.0f);
-    EXPECT_FLOAT_EQ(modalityCfg->pinholeRadius_nm, 280.0f);
+    EXPECT_FLOAT_EQ(modalityCfg->pinholeRadius_um, 0.28f);
     EXPECT_FLOAT_EQ(modalityCfg->emissionWavelength_nm, 520.0f);
 
     // Copy semantics carry the modality config (setConfig copies the config).
@@ -1030,7 +1030,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
     const ConfocalModalityConfig* copiedModalityCfg = copied.modality<ConfocalModalityConfig>();
     ASSERT_NE(copiedModalityCfg, nullptr);
     EXPECT_FLOAT_EQ(copiedModalityCfg->excitationWavelength_nm, 488.0f);
-    EXPECT_FLOAT_EQ(copiedModalityCfg->pinholeRadius_nm, 280.0f);
+    EXPECT_FLOAT_EQ(copiedModalityCfg->pinholeRadius_um, 0.28f);
     // The copy must own its modality config, not share the pointer.
     EXPECT_NE(copiedModalityCfg, modalityCfg);
 
@@ -1164,7 +1164,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalMetrics) {
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniPinholeZeroIsPointPinhole) {
-    // pinhole_radius_nm == 0 must leave the detection profile untouched, i.e.
+    // pinhole_radius_um == 0 must leave the detection profile untouched, i.e.
     // the point-pinhole product model. This is the reference the finite
     // pinhole convolution is compared against.
     auto& factory = PSFGeneratorFactory::getInstance();
@@ -1190,8 +1190,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniFinitePinholeBroadensDetection) {
     // point-pinhole limit, while staying narrower than the widefield PSF.
     auto& factory = PSFGeneratorFactory::getInstance();
 
-    auto build = [&](double pinhole_nm) {
-        json j = confocalGlJSON(true, pinhole_nm);
+    auto build = [&](double pinhole_um) {
+        json j = confocalGlJSON(true, pinhole_um);
         j["size_x"] = 41;
         j["size_y"] = 41;
         j["size_z"] = 9;
@@ -1201,14 +1201,14 @@ TEST_F(PSFGeneratorTest, GibsonLanniFinitePinholeBroadensDetection) {
     };
 
     PSF point = generateTestPSF(build(0.0));
-    PSF finite = generateTestPSF(build(300.0));
+    PSF finite = generateTestPSF(build(0.3));
 
     ConfocalMetrics pointM = measureMetrics(point, 50.0, 300.0);
     ConfocalMetrics finiteM = measureMetrics(finite, 50.0, 300.0);
 
     std::cout << "[Pinhole] point lateralFWHM=" << pointM.lateralFWHM_nm
               << "nm peak=" << pointM.peak << std::endl;
-    std::cout << "[Pinhole] finite(r=300nm) lateralFWHM=" << finiteM.lateralFWHM_nm
+    std::cout << "[Pinhole] finite(r=0.3um) lateralFWHM=" << finiteM.lateralFWHM_nm
               << "nm peak=" << finiteM.peak << std::endl;
 
     // Finite pinhole: broader than point pinhole, lower peak.
