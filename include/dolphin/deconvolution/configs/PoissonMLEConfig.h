@@ -33,7 +33,7 @@ public:
     PoissonMLEConfig(PoissonMLEConfig&& other) noexcept;
     // Move-assignment is not offered: it would have to re-register parameters.
 
-    static constexpr const char* kAlgorithmName = DeconvolutionAlgorithms::kPoissonMLE;
+    static constexpr const char* kAlgorithmName = DeconvolutionAlgorithms::kPoissonMLEAdaptiveStep;
 
     // Shrinkage strength lambda for the prior step. 0 => derive from signalToNoise.
     float poissonLambda = 0.0f;

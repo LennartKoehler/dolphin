@@ -125,7 +125,7 @@ TEST_F(ConfigTest, DeconvolutionConfigCopyConstructor) {
     original->poissonSievePasses = 9;
 
     PoissonMLEConfig copy(*original);
-    EXPECT_EQ(copy.algorithmName, "PoissonMLE");
+    EXPECT_EQ(copy.algorithmName, "PoissonMLEAdaptiveStep");
     EXPECT_EQ(copy.iterations, 42);
     EXPECT_EQ(copy.paddingStrategyType, PaddingStrategyType::LOW);
     EXPECT_EQ(copy.poissonSievePasses, 9);

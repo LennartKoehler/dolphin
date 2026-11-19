@@ -153,7 +153,7 @@ real_t estimateBackgroundDimmestTile(const RealData& g, const IBackendMemoryMana
 void PoissonMLEDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Accept both PoissonMLEConfig and PoissonMLEUnitStepConfig (the latter is
     // derived from the former).
-    configure(asConfig<PoissonMLEConfig>(config, DeconvolutionAlgorithms::kPoissonMLE));
+    configure(asConfig<PoissonMLEConfig>(config, DeconvolutionAlgorithms::kPoissonMLEAdaptiveStep));
 }
 
 void PoissonMLEDeconvolutionAlgorithm::configure(const PoissonMLEConfig& config) {

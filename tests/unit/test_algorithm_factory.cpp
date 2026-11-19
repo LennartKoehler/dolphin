@@ -280,7 +280,7 @@ TEST_F(AlgorithmFactoryTest, PoissonMLEConfigFromFullJSON) {
 }
 
 TEST_F(AlgorithmFactoryTest, UnitStepConfigIsAcceptedByPoissonMLEAlgorithm) {
-    auto config = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("PoissonMLEUnitStep");
+    auto config = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("PoissonMLE");
     auto* unitStep = dynamic_cast<PoissonMLEUnitStepConfig*>(config.get());
     ASSERT_NE(unitStep, nullptr);
     // UnitStep derives from PoissonMLE, so the base algorithm accepts it too.

@@ -31,7 +31,7 @@ PoissonMLEUnitStepConfig& PoissonMLEUnitStepConfig::operator=(const PoissonMLEUn
     return *this;
 }
 
-PoissonMLEUnitStepConfig::PoissonMLEUnitStepConfig(PoissonMLEUnitStepConfig&& other) noexcept
+PoissonMLEUnitStepConfig::PoissonMLEUnitStepConfig(PoissonMLEConfig&& other) noexcept
     : PoissonMLEConfig(std::move(other)) {
     algorithmName = kAlgorithmName;
 }
