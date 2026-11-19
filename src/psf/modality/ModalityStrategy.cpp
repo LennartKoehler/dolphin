@@ -65,10 +65,23 @@ const ModalityStrategy& ModalityStrategy::forConfig(const PSFConfig& config) {
     }
 }
 
+void ModalityStrategy::validateConfig(const PSFConfig& config) const {
+    // The radial profiles are tabulated at oversampling_factor samples per
+    // lateral pixel; a non-positive factor truncates to zero samples and
+    // divides by zero in the radial blit.
+    if (!(config.oversampling_factor > 0.0f))
+        throw std::runtime_error("ModalityStrategy: oversampling_factor must be positive, got "
+                                 + std::to_string(config.oversampling_factor));
+}
+
 PSF ModalityStrategy::generate(const PSFModel& model,
                                const PSFConfig& config,
                                ThreadPool& threadPool,
                                ProgressTracking& progressTracker) const {
+    // Reject nonsense before any box sizing or tabulation runs.
+    validateConfig(config);
+    model.validateConfig(config);
+
     const bool autoSize = config.autoSize || config.sizeX == 0 || config.sizeY == 0 || config.sizeZ == 0;
 
     // Sized geometry of the PSF box. In auto-size mode config.sizeX/sizeZ are
@@ -224,12 +237,11 @@ PSF ConfocalModality::generate(const PSFModel& model,
                                const PSFConfig& config,
                                ThreadPool& threadPool,
                                ProgressTracking& progressTracker) const {
-    // Once-per-generation setup report: the modality's own parameters only.
+    // Once-per-generation setup report: the modality's own parameters only
+    // (validation, including the excitation/emission warnings, has already
+    // run in validateConfig via the base generate()).
     // Model-numerics diagnostics (e.g. NA*rho/ns) belong to the model's init.
     if (const ConfocalModalityConfig* modalityCfg = config.modality<ConfocalModalityConfig>()) {
-        if (modalityCfg->excitationWavelength_nm <= 0.0f)
-            spdlog::warn("Confocal PSF: excitation_wavelength_nm not set (<= 0); falling back to the emission wavelength ({:.1f} nm). The product then degenerates toward the widefield model - set excitation_wavelength_nm for a true confocal PSF",
-                         static_cast<double>(modalityCfg->emissionWavelength_nm));
         spdlog::debug("Confocal PSF: excitation {:.1f} nm, emission {:.1f} nm, pinhole radius {:.2f} um ({})",
                       excitationLambda(config),
                       static_cast<double>(modalityCfg->emissionWavelength_nm),
@@ -237,6 +249,35 @@ PSF ConfocalModality::generate(const PSFModel& model,
                       modalityCfg->pinholeRadius_um > 0.0f ? "finite-pinhole convolution" : "point pinhole");
     }
     return ModalityStrategy::generate(model, config, threadPool, progressTracker);
+}
+
+void ConfocalModality::validateConfig(const PSFConfig& config) const {
+    ModalityStrategy::validateConfig(config);
+
+    const ConfocalModalityConfig* modalityCfg = config.modality<ConfocalModalityConfig>();
+    if (!modalityCfg)
+        throw std::runtime_error("ConfocalModality: the PSF config does not carry a confocal modality config");
+
+    // Without a detection wavelength there is no confocal product at all.
+    if (!(modalityCfg->emissionWavelength_nm > 0.0f))
+        throw std::runtime_error("ConfocalModality: emission_wavelength_nm must be positive, got "
+                                 + std::to_string(modalityCfg->emissionWavelength_nm));
+    // A negative pinhole radius is meaningless; 0 is the defined point-pinhole
+    // limit.
+    if (modalityCfg->pinholeRadius_um < 0.0f)
+        throw std::runtime_error("ConfocalModality: pinhole_radius_um must not be negative, got "
+                                 + std::to_string(modalityCfg->pinholeRadius_um));
+
+    // Degenerate fallback (excitation <= 0 -> emission wavelength, product
+    // degenerates toward widefield) and Stokes-shift violations are defined
+    // behavior: warn, keep generating.
+    if (modalityCfg->excitationWavelength_nm <= 0.0f)
+        spdlog::warn("Confocal PSF: excitation_wavelength_nm not set (<= 0); falling back to the emission wavelength ({:.1f} nm). The product then degenerates toward the widefield model - set excitation_wavelength_nm for a true confocal PSF",
+                     static_cast<double>(modalityCfg->emissionWavelength_nm));
+    else if (modalityCfg->excitationWavelength_nm > modalityCfg->emissionWavelength_nm)
+        spdlog::warn("Confocal PSF: excitation_wavelength_nm ({:.1f}) exceeds emission_wavelength_nm ({:.1f}) - violates the Stokes shift, the confocal product will be wider than physically expected",
+                     static_cast<double>(modalityCfg->excitationWavelength_nm),
+                     static_cast<double>(modalityCfg->emissionWavelength_nm));
 }
 
 double ConfocalModality::excitationLambda(const PSFConfig& cfg) {

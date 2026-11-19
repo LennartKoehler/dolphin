@@ -48,6 +48,51 @@ const GibsonLanniPSFConfig& GibsonLanniModel::glConfig(const PSFConfig& config) 
     return *gl;
 }
 
+void GibsonLanniModel::validateConfig(const PSFConfig& baseConfig) const {
+    const GibsonLanniPSFConfig& config = glConfig(baseConfig);
+
+    // Values that make the numerics impossible: divisions by zero or an
+    // empty/negative integration domain.
+    if (!(config.NA > 0.0f))
+        throw std::runtime_error("GibsonLanniModel: NA must be positive, got " + std::to_string(config.NA));
+    if (!(config.wavelength_nm > 0.0f))
+        throw std::runtime_error("GibsonLanniModel: wavelength_nm must be positive, got " + std::to_string(config.wavelength_nm));
+    if (!(config.pixelSizeLateral_nm > 0.0f))
+        throw std::runtime_error("GibsonLanniModel: pixel_size_lateral_nm must be positive, got " + std::to_string(config.pixelSizeLateral_nm));
+    if (!(config.pixelSizeAxial_nm > 0.0f))
+        throw std::runtime_error("GibsonLanniModel: pixel_size_axial_nm must be positive, got " + std::to_string(config.pixelSizeAxial_nm));
+    if (config.ti_nm < 0.0f || config.ti0_nm < 0.0f)
+        throw std::runtime_error("GibsonLanniModel: working distances must not be negative (ti_nm=" + std::to_string(config.ti_nm)
+                                 + ", ti0_nm=" + std::to_string(config.ti0_nm) + ")");
+    if (config.tg_nm < 0.0f || config.tg0_nm < 0.0f)
+        throw std::runtime_error("GibsonLanniModel: coverslip thicknesses must not be negative (tg_nm=" + std::to_string(config.tg_nm)
+                                 + ", tg0_nm=" + std::to_string(config.tg0_nm) + ")");
+
+    const float rIs[] = {config.ns, config.ni, config.ni0, config.ng, config.ng0};
+    float minRI = rIs[0];
+    for (const float ri : rIs) {
+        if (!(ri > 0.0f))
+            throw std::runtime_error("GibsonLanniModel: refractive indices must be positive, got " + std::to_string(ri));
+        minRI = std::min(minRI, ri);
+        // Below-air RI has no physical medium; the integrand still evaluates
+        // (the sqrt domain clamps), but the PSF is meaningless.
+        if (ri < 1.0f)
+            spdlog::warn("GibsonLanni: refractive index {} is below 1.0 (below air); check the configuration", ri);
+    }
+
+    // NA cannot exceed the numerical aperture the media support. The
+    // integration upper bound silently clamps to it, producing a wrong
+    // (over-confined) PSF instead of an error.
+    if (config.NA > minRI)
+        spdlog::warn("GibsonLanni: NA ({}) exceeds the smallest refractive index ({}); the pupil integration domain will be clamped and the PSF is not physically meaningful",
+                     config.NA, minRI);
+
+    // Silently clamped by nodeCount(): flag the loss of intended strictness.
+    if (config.integration_accuracy < 1 || config.integration_accuracy > 10)
+        spdlog::warn("GibsonLanni: integration_accuracy {} outside [1, 10]; it will be clamped",
+                     config.integration_accuracy);
+}
+
 void GibsonLanniModel::init(const PSFConfig& baseConfig,
                             size_t sliceWidth, size_t sliceHeight,
                             std::optional<double> shortestLambda) const {

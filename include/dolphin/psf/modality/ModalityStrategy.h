@@ -72,6 +72,13 @@ public:
                          ThreadPool& threadPool,
                          ProgressTracking& progressTracker) const;
 
+    /** Validates the config for this modality and throws on values that make
+     *  PSF generation impossible (missing modality config, non-positive
+     *  wavelengths, negative pinhole). Merely suspicious values (Stokes-shift
+     *  violations, degenerate fallbacks) are logged as warnings instead.
+     *  Runs at the beginning of generate(); also usable standalone. */
+    virtual void validateConfig(const PSFConfig& config) const;
+
     /** Strategy implementing a config's microscope modality. */
     static const ModalityStrategy& forConfig(const PSFConfig& config);
 
@@ -131,6 +138,12 @@ public:
      *  an excitation wavelength fall back to the emission wavelength,
      *  degenerating to a product of two identical integrals. */
     static double excitationLambda(const PSFConfig& cfg);
+
+    /** Confocal-specific validation: the config must carry a confocal
+     *  modality config with a positive emission wavelength and a non-negative
+     *  pinhole radius; excitation/emission consistency is warned, not
+     *  enforced (the degenerate fallbacks are defined behavior). */
+    void validateConfig(const PSFConfig& config) const override;
 
     /** One setup report per generation (wavelengths, pinhole), then the
      *  shared assembly pipeline. The log uses only the modality's own

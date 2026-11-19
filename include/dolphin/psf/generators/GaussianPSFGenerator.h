@@ -36,6 +36,10 @@ private:
     PSF generateFixedSizePSF() const;
     PSF generateAutoSizePSF() const;
 
+    /** Throws on configs the Gaussian evaluation cannot handle (non-positive
+     *  sigma or scaling factors). */
+    void validateConfig() const;
+
     std::shared_ptr<GaussianPSFConfig> config;
 };
 

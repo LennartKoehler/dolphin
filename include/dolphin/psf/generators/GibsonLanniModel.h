@@ -103,6 +103,11 @@ public:
 
     std::optional<double> detectionLambda(const PSFConfig& config) const override;
 
+    /** Throws on numerically impossible configs (NA/wavelength/pixel pitch
+     *  <= 0, negative geometry), warns on unphysical-but-computable ones
+     *  (NA above every medium RI, RI below air, clamped accuracy). */
+    void validateConfig(const PSFConfig& config) const override;
+
     /** Pupil-domain integration upper bound (tightest rho limit across the
      *  media in the path). Public: used for the once-per-generation
      *  NA*rho/ns warning. */
