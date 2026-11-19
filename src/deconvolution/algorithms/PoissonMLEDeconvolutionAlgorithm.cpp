@@ -231,7 +231,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
         applySieve(compute, f, sieveOTF,
                    prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
         compute.realClampMin(f, 0.0f, f);
-        if (auto* logger = spdlog::get("deconvolution"))
+        if (auto logger = spdlog::get("deconvolution"))
             logger->debug(
                 "PoissonMLE prefilter: sigmas of initial filt: {:.3f} {:.3f} {:.3f}",
                 prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
