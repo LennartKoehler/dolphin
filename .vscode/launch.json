@@ -5,7 +5,7 @@
             "name": "Debug dolphin CLI",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/debug_build/frontends/cli/dolphin",
+            "program": "${workspaceFolder}/build/frontends/cli/dolphin",
             "args": [
                 "deconvolution",
                 "-c", "${workspaceFolder}/configs/default_config.json"

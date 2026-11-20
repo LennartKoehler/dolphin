@@ -26,7 +26,8 @@ public:
     void configure(const ConvolutionConfig& config);
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
-    void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
+    void deconvolve(const ComplexData& H, RealData& g, RealData& f,
+                    const DeconvolutionRunContext& runContext = {}) override;
     size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
 private:
     bool initialized = false;

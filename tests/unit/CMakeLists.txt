@@ -94,3 +94,9 @@ dolphin_add_test(test_preprocessor
     LIBS dolphin
     INCLUDES ${UNIT_TEST_INCLUDES}
 )
+
+dolphin_add_test(test_background_statistics
+    SOURCES test_background_statistics.cpp
+    LIBS dolphin
+    INCLUDES ${UNIT_TEST_INCLUDES}
+)

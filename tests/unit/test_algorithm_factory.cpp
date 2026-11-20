@@ -56,7 +56,7 @@ TEST_F(AlgorithmFactoryTest, CreateConfigFromJSONSelectsAlgorithm) {
 
     auto* poisson = dynamic_cast<PoissonMLEConfig*>(config.get());
     ASSERT_NE(poisson, nullptr);
-    EXPECT_FALSE(poisson->poissonSieve);
+    EXPECT_FALSE(poisson->sieve);
 }
 
 TEST_F(AlgorithmFactoryTest, CreateConfigForKnownAlgorithmReturnsFinishedConfig) {
@@ -70,7 +70,7 @@ TEST_F(AlgorithmFactoryTest, CreateConfigForKnownAlgorithmReturnsFinishedConfig)
     EXPECT_EQ(finished->iterations, 9);
     auto* poisson = dynamic_cast<PoissonMLEConfig*>(finished.get());
     ASSERT_NE(poisson, nullptr);
-    EXPECT_FLOAT_EQ(poisson->poissonLambda, 0.25f);
+    EXPECT_FLOAT_EQ(poisson->lambda, 0.25f);
 
     // The no-data overload stays empty (CLI binds values later).
     auto empty = factory.createConfigForAlgorithm("PoissonMLE");
@@ -204,7 +204,7 @@ TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
     };
 
     std::vector<AlgoSpec> specs = {
-        {"RichardsonLucy", 1},
+        {"RichardsonLucy", 2},
         {"RichardsonLucyTotalVariation", 5},
         {"InverseFilter", 0},
         {"Convolution", 0},
@@ -265,14 +265,14 @@ TEST_F(AlgorithmFactoryTest, PoissonMLEConfigFromFullJSON) {
     auto* poisson = dynamic_cast<PoissonMLEConfig*>(config.get());
     ASSERT_NE(poisson, nullptr);
     EXPECT_EQ(poisson->iterations, 30);
-    EXPECT_FLOAT_EQ(poisson->poissonLambda, 0.5f);
-    EXPECT_FLOAT_EQ(poisson->poissonBackground, 12.0f);
-    EXPECT_FALSE(poisson->poissonPrefilter);
-    EXPECT_FLOAT_EQ(poisson->poissonPrefilterScale, 0.4f);
-    EXPECT_FALSE(poisson->poissonSieve);
-    EXPECT_TRUE(poisson->poissonPrior);
-    EXPECT_EQ(poisson->poissonSievePasses, 3);
-    EXPECT_FLOAT_EQ(poisson->poissonSieveScale, 0.2f);
+    EXPECT_FLOAT_EQ(poisson->lambda, 0.5f);
+    EXPECT_FLOAT_EQ(poisson->background, 12.0f);
+    EXPECT_FALSE(poisson->prefilter);
+    EXPECT_FLOAT_EQ(poisson->prefilterScale, 0.4f);
+    EXPECT_FALSE(poisson->sieve);
+    EXPECT_TRUE(poisson->prior);
+    EXPECT_EQ(poisson->sievePasses, 3);
+    EXPECT_FLOAT_EQ(poisson->sieveScale, 0.2f);
 
     // The algorithm accepts exactly this config type.
     auto algorithm = DeconvolutionAlgorithmFactory::getInstance().createShared(*config);

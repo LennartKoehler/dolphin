@@ -20,14 +20,14 @@ PoissonMLEConfig::PoissonMLEConfig() {
 
 PoissonMLEConfig::PoissonMLEConfig(const PoissonMLEConfig& other)
     : DeconvolutionConfig(other),
-      poissonLambda(other.poissonLambda),
-      poissonBackground(other.poissonBackground),
-      poissonPrefilter(other.poissonPrefilter),
-      poissonPrefilterScale(other.poissonPrefilterScale),
-      poissonSieve(other.poissonSieve),
-      poissonPrior(other.poissonPrior),
-      poissonSievePasses(other.poissonSievePasses),
-      poissonSieveScale(other.poissonSieveScale) {
+      lambda(other.lambda),
+      background(other.background),
+      prefilter(other.prefilter),
+      prefilterScale(other.prefilterScale),
+      sieve(other.sieve),
+      prior(other.prior),
+      sievePasses(other.sievePasses),
+      sieveScale(other.sieveScale) {
     // DeconvolutionConfig(other) registered only the shared parameters.
     registerAllParameters();
 }
@@ -35,14 +35,14 @@ PoissonMLEConfig::PoissonMLEConfig(const PoissonMLEConfig& other)
 PoissonMLEConfig& PoissonMLEConfig::operator=(const PoissonMLEConfig& other) {
     if (this != &other) {
         assignBase(other); // clears the registered parameters
-        poissonLambda = other.poissonLambda;
-        poissonBackground = other.poissonBackground;
-        poissonPrefilter = other.poissonPrefilter;
-        poissonPrefilterScale = other.poissonPrefilterScale;
-        poissonSieve = other.poissonSieve;
-        poissonPrior = other.poissonPrior;
-        poissonSievePasses = other.poissonSievePasses;
-        poissonSieveScale = other.poissonSieveScale;
+        lambda = other.lambda;
+        background = other.background;
+        prefilter = other.prefilter;
+        prefilterScale = other.prefilterScale;
+        sieve = other.sieve;
+        prior = other.prior;
+        sievePasses = other.sievePasses;
+        sieveScale = other.sieveScale;
         registerAllParameters();
     }
     return *this;
@@ -50,34 +50,34 @@ PoissonMLEConfig& PoissonMLEConfig::operator=(const PoissonMLEConfig& other) {
 
 PoissonMLEConfig::PoissonMLEConfig(PoissonMLEConfig&& other) noexcept
     : DeconvolutionConfig(std::move(other)),
-      poissonLambda(other.poissonLambda),
-      poissonBackground(other.poissonBackground),
-      poissonPrefilter(other.poissonPrefilter),
-      poissonPrefilterScale(other.poissonPrefilterScale),
-      poissonSieve(other.poissonSieve),
-      poissonPrior(other.poissonPrior),
-      poissonSievePasses(other.poissonSievePasses),
-      poissonSieveScale(other.poissonSieveScale) {
+      lambda(other.lambda),
+      background(other.background),
+      prefilter(other.prefilter),
+      prefilterScale(other.prefilterScale),
+      sieve(other.sieve),
+      prior(other.prior),
+      sievePasses(other.sievePasses),
+      sieveScale(other.sieveScale) {
     registerAllParameters();
 }
 
 void PoissonMLEConfig::registerAllParameters() {
     DeconvolutionConfig::registerAllParameters();
 
-    parameters.push_back({ParameterType::Float, &poissonLambda, "Poisson Lambda", true, "poisson_lambda", "--poisson_lambda",
+    parameters.push_back({ParameterType::Float, &lambda, "Poisson Lambda", true, "poisson_lambda", "--poisson_lambda",
         "Shrinkage strength for PoissonMLE prior step (0 = derive from SNR)", false, true, 0.0, 1e4, nullptr});
-    parameters.push_back({ParameterType::Float, &poissonBackground, "Poisson Background", true, "poisson_background", "--poisson_background",
-        "Background level for PoissonMLE (<0 = estimate from data)", false, true, -1.0, 1e8, nullptr});
-    parameters.push_back({ParameterType::Bool, &poissonPrefilter, "Poisson Prefilter", true, "poisson_prefilter", "--poisson_prefilter",
+    parameters.push_back({ParameterType::Float, &background, "Poisson Background", true, "poisson_background", "--poisson_background",
+        "Background level for PoissonMLE (<0 = resolve once for the whole image via background_strategy)", false, true, -1.0, 1e8, nullptr});
+    parameters.push_back({ParameterType::Bool, &prefilter, "Poisson Prefilter", true, "poisson_prefilter", "--poisson_prefilter",
         "Enable prefilter: mild anisotropic Gaussian low-pass of the data used as the initial estimate f0 (auto background = min of f0)", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Float, &poissonPrefilterScale, "Poisson Prefilter Scale", true, "poisson_prefilter_scale", "--poisson_prefilter_scale",
+    parameters.push_back({ParameterType::Float, &prefilterScale, "Poisson Prefilter Scale", true, "poisson_prefilter_scale", "--poisson_prefilter_scale",
         "Prefilter width: per-axis sigma = scale * PSF sigma (0.3 reproduces the reference; 0 disables the blur)", false, true, 0.0, 1.0, nullptr});
-    parameters.push_back({ParameterType::Bool, &poissonSieve, "Poisson Sieve", true, "poisson_sieve", "--poisson_sieve",
+    parameters.push_back({ParameterType::Bool, &sieve, "Poisson Sieve", true, "poisson_sieve", "--poisson_sieve",
         "Enable annealed anisotropic Gaussian smoothing (sieve) in PoissonMLE", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Bool, &poissonPrior, "Poisson Prior", true, "poisson_prior", "--poisson_prior",
+    parameters.push_back({ParameterType::Bool, &prior, "Poisson Prior", true, "poisson_prior", "--poisson_prior",
         "Enable lambda-shrinkage + flux conservation prior step in PoissonMLE", false, false, 0.0, 0.0, nullptr});
-    parameters.push_back({ParameterType::Int, &poissonSievePasses, "Poisson Sieve Passes", true, "poisson_sieve_passes", "--poisson_sieve_passes",
+    parameters.push_back({ParameterType::Int, &sievePasses, "Poisson Sieve Passes", true, "poisson_sieve_passes", "--poisson_sieve_passes",
         "Number of sieve smoothing passes per iteration in PoissonMLE", false, true, 0.0, 64.0, nullptr});
-    parameters.push_back({ParameterType::Float, &poissonSieveScale, "Poisson Sieve Scale", true, "poisson_sieve_scale", "--poisson_sieve_scale",
+    parameters.push_back({ParameterType::Float, &sieveScale, "Poisson Sieve Scale", true, "poisson_sieve_scale", "--poisson_sieve_scale",
         "Sieve peak width as a fraction of the PSF at SNR=1 (effective = scale/SNR); 0.1 default, lower = sharper / more contrast, 0 disables", false, true, 0.0, 100.0, nullptr});
 }

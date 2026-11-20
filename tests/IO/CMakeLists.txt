@@ -31,3 +31,9 @@ dolphin_add_test(tiff_reader_test
     LIBS dolphin
     INCLUDES ${TEST_INCLUDES}
 )
+
+dolphin_add_test(background_estimation_test
+    SOURCES background_estimation_test.cpp
+    LIBS dolphin
+    INCLUDES ${TEST_INCLUDES}
+)

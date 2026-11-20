@@ -37,6 +37,12 @@ public:
     virtual const ImageMetaData& getMetaData() const = 0;
     virtual size_t getRequiredMemory(const CuboidShape& subimageSize) const = 0;
 
+    // Drop all buffered regions and release their memory. Plan-time reads
+    // (e.g. the background estimate) leave partially-consumed buffers in the
+    // cache; callers that read outside the normal task flow must clear them,
+    // otherwise the memory cap is silently reduced for the rest of the run.
+    virtual void clearCache() {}
+
     // MemoryComponent of this reader, for ONE region. Owned by the reader,
     // borrowed by the caller; the footprint applies the thread count.
     virtual MemoryComponent& getMemoryComponent(size_t nReaderThreads) = 0;
@@ -92,10 +98,14 @@ public:
     const ImageMetaData& getMetaData() const { return reader->getMetaData(); }
     PaddingFillType getPaddingFillType() const { return paddingFillStrategy; }
 
-    virtual PaddedImage getSubimage(const BoxCoordWithPadding& box) const{
+    virtual PaddedImage getSubimagePadded(const BoxCoordWithPadding& box) const{
         UnpaddedCube cube = getSubimageForPadding(box);
         ImagePadding::padImage(cube.image, cube.padding, paddingFillStrategy);
         return PaddedImage{std::move(cube.image), box.padding};
+    }
+    virtual Image3D getSubimage(const BoxCoord& box) const{
+        Image3D image = reader->getSubimage(box);
+        return image;
     }
 
     // Reads the sub-cube WITHOUT padding, together with the effective padding.

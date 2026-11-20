@@ -26,7 +26,8 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
     RealData& g_device,
     RealData& f_device,
     PSFPreprocessor& psfPreprocessor,
-    std::function<void(int)> progressFunction){
+    std::function<void(int)> progressFunction,
+    const DeconvolutionRunContext& runContext){
 
     // on workerThread
     std::future<void> resultDone = workerPool->enqueue([
@@ -38,15 +39,21 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         &g_device,
         &f_device,
         &psfPreprocessor,
-        progressFunction
+        progressFunction,
+        runContext
     ]() mutable {
 
         //dont allocate and deallocate the helpers of the algorithm every time, just overwrite buffer every time its used
         // the worker owns the algorithm, and doesnt always need to re initialize
-        thread_local std::unique_ptr<DeconvolutionAlgorithm> workeralgorithm = prototypealgorithm->clone();
-        thread_local bool initialized = [&threadbackend, progressFunction, workShape](){
-            workeralgorithm->setBackend(threadbackend);
-            workeralgorithm->init(workShape);
+        thread_local std::unique_ptr<DeconvolutionAlgorithm> workeralgorithm;
+        thread_local CuboidShape initializedShape;
+        thread_local bool initialized = [&](){
+            if (!workeralgorithm || initializedShape != workShape) {
+                workeralgorithm = prototypealgorithm->clone();
+                workeralgorithm->setBackend(threadbackend);
+                workeralgorithm->init(workShape);
+                initializedShape = workShape;
+            }
             workeralgorithm->setProgressTracker(progressFunction);
             return true;}();
 
@@ -58,7 +65,7 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         }
 
         for (const auto* psf_device : preprocessedPSFs){
-            workeralgorithm->deconvolve(*psf_device, g_device, f_device);
+            workeralgorithm->deconvolve(*psf_device, g_device, f_device, runContext);
             threadbackend.sync();
         }
 

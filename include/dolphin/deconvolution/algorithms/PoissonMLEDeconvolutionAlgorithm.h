@@ -22,7 +22,10 @@ See the LICENSE file provided with the code for the full license.
 //     J(f) = sum [ g ln(g/m) - g + m ],   m = Hf + bg,   f >= bg.
 // Before the loop, an optional prefilter (a single mild anisotropic Gaussian
 // low-pass of the raw data, sigma = prefilterScale * PSF sigma) sets the initial
-// estimate f0; when the background is auto it is then taken as min(f0).
+// estimate f0. The background bg is resolved once for the whole image by the
+// plan (DeconvolutionRunContext, background_strategy = global or whole_image)
+// so that neighbouring cubes agree; deconvolving without it is an error
+// (an explicit poisson_background configures it directly).
 // Each iteration:
 //   DATA STEP  - gradient H^T(1 - g/m), direction d = -f*(1 - ratio), then a step
 //                f <- f + step*d clipped at zero. The base class picks `step` with
@@ -42,7 +45,8 @@ public:
     virtual void configure(const PoissonMLEConfig& config);
     void init(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
-    void deconvolve(const ComplexData& H, RealData& g, RealData& f) override;
+    void deconvolve(const ComplexData& H, RealData& g, RealData& f,
+                    const DeconvolutionRunContext& runContext = {}) override;
     size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
 
 protected:
@@ -71,6 +75,10 @@ protected:
     bool usePrior;
     int sievePasses;
     float sieveScale;
+
+    // Cached PSF width estimate (run-constant for a given padded shape).
+    bool psfSigmasValid = false;
+    real_t psfSigX = 1.0f, psfSigY = 1.0f, psfSigZ = 1.0f;
 
     bool initialized = false;
 

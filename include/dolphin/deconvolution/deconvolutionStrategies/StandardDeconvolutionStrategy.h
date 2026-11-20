@@ -149,6 +149,13 @@ protected:
         const SetupConfig& config,
         IBackendManager& backendManager) const;
 
+    /// Which global background strategy applies to this run, if any: the
+    /// algorithm estimates its background, the config asks for a global level
+    /// (not per-tile) and no explicit level is configured.
+    static std::optional<BackgroundStrategyType> globalBackgroundStrategy(
+        const DeconvolutionAlgorithm& algorithm,
+        const DeconvolutionConfig& config);
+
     /// Apply the resolved caps to the backend trackers so allocations beyond
     /// the budget fail with a clear MemoryException. backendComponent is the
     /// memory component of the compute backend (CPU or device).

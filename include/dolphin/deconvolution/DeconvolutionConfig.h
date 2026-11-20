@@ -35,6 +35,19 @@ enum PaddingStrategyType {
     MAX
 };
 
+// How the flat background level is obtained. The background is a property of
+// the whole image; estimating it per subimage makes neighbouring cubes disagree
+// and leaves visible tile seams.
+enum BackgroundStrategyType {
+    // One background for the whole run, measured once on ONE representative
+    // cube (an interior cube, so no image-border padding skews it) and passed
+    // to every cube (default). Cost: one extra cube read at plan time.
+    BACKGROUND_GLOBAL = 0,
+    // Streams the complete image through the reader before deconvolving.
+    // Most robust (no single-tile bias) but reads the image twice.
+    BACKGROUND_WHOLE_IMAGE = 1,
+};
+
 /**
  * @brief Parameters shared by every deconvolution algorithm.
  *
@@ -56,7 +69,7 @@ public:
     DeconvolutionConfig(DeconvolutionConfig&& other) noexcept;
     DeconvolutionConfig& operator=(DeconvolutionConfig&& other) noexcept;
 
-    std::string getName() const override { return std::string("DeconvolutionConfig") + " " + algorithmName; };
+    std::string getName() const override { return std::string("DeconvolutionConfig") + std::string(" ") + algorithmName; };
 
     // Load a config from JSON: the algorithm is selected by the "algorithm_name"
     // field (default: RichardsonLucy) and the matching config class is created.
@@ -76,6 +89,11 @@ public:
     std::array<size_t, 3> cubeSize{0, 0, 0}; // currently unused
     std::optional<std::array<size_t, 3>> cubePadding = std::nullopt;
     bool sliceAllDimensions = false;
+    // Where the flat background comes from. GLOBAL measures it once on one
+    // representative (interior) cube and passes it to every cube, so all cubes
+    // agree (no seams) without reading the whole image; TILE keeps the legacy
+    // per-subimage estimate.
+    BackgroundStrategyType backgroundStrategyType = BACKGROUND_GLOBAL;
 
 protected:
     // Not constructible directly: use the factory / createFromJSON.

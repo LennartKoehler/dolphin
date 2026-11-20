@@ -55,7 +55,8 @@ bool RLDeconvolutionAlgorithm::isInitialized() const {
     return initialized;
 }
 
-void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
+void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f,
+    const DeconvolutionRunContext& /*runContext*/) {
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     const IComputeBackend& deconvolution = backend->getComputeManager();
@@ -116,5 +117,5 @@ std::unique_ptr<DeconvolutionAlgorithm> RLDeconvolutionAlgorithm::cloneSpecific(
 
 size_t RLDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
     // Allocates 1 additional complex array of input size
-    return dataSize.getVolume() * sizeof(real_t);
+    return dataSize.getVolume() * sizeof(real_t) * 2; //TODO * 2 because it also needs the out of place fft plane
 }
