@@ -126,12 +126,12 @@ void CUDABackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, 
 
     switch (inputThreadConfig.getMode()) {
         case ThreadMode::Auto:
-            inputThreadConfig.nIOThreads = 1;
+            inputThreadConfig.nIOThreads = getMaxNumberThreads() >= 2 ? 2 : 1;
             inputThreadConfig.nWorkerThreads = 1;
             inputThreadConfig.nReaderThreads = getMaxNumberThreads();
             break;
         case ThreadMode::Total:
-            inputThreadConfig.nIOThreads = 1;
+            inputThreadConfig.nIOThreads = inputThreadConfig.nThreads >= 2 ? 2 : 1;
             inputThreadConfig.nWorkerThreads = 1;
             inputThreadConfig.nReaderThreads = inputThreadConfig.nThreads;
             break;
