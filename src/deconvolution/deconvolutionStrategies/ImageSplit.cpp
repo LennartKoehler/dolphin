@@ -189,7 +189,10 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
                     imagePadding,
                     currentMaxSize);
             }
-            catch(DolphinImageSplitException& e){}// this can happen and should not abort the program, rather try something else, since this part was already reached its clear that its possible to get a valid configuration
+            catch(DolphinImageSplitException& e){
+                currentMaxSize = saved;
+                break;
+            }// this can happen and should not abort the program, rather try something else, since this part was already reached its clear that its possible to get a valid configuration
 
             if (newCubes.size() > targetCubeCount) {
                 currentMaxSize = saved; // max size is the previous max size as the most recent size reduction caused the number of cubes to go up (unwanted)
