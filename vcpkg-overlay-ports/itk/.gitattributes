@@ -1,0 +1,2 @@
+# Preserve upstream vcpkg port bytes exactly (CRLF/BOM in patch files).
+* -text

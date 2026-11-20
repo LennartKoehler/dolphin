@@ -1,0 +1,33 @@
+diff --git a/Modules/Filtering/GPUImageFilterBase/wrapping/itkGPUCastImageFilter.wrap b/Modules/Filtering/GPUImageFilterBase/wrapping/itkGPUCastImageFilter.wrap
+index 7c1116884d7e9417e118b7f3325bcbd9d8b6e39c..c70af7d8446fdcb44ec9d18bdd5d42cfc1760e9f 100644
+--- a/Modules/Filtering/GPUImageFilterBase/wrapping/itkGPUCastImageFilter.wrap
++++ b/Modules/Filtering/GPUImageFilterBase/wrapping/itkGPUCastImageFilter.wrap
+@@ -23,7 +23,7 @@ foreach(from ${from_types})
+ endforeach()
+ itk_end_wrap_class()
+ 
+-itk_wrap_class("itk::CastImageFilter" POINTER)
++itk_wrap_class("itk::CastImageFilter" POINTER_WITH_SUPERCLASS)
+ foreach(d ${ITK_WRAP_IMAGE_DIMS})
+   # Add from == to pixel type first for preference
+   foreach(to ${to_types})
+@@ -183,7 +183,7 @@ foreach(d ${ITK_WRAP_IMAGE_DIMS})
+ endforeach()
+ itk_end_wrap_class()
+ 
+-itk_wrap_class("itk::GPUCastImageFilter" POINTER)
++itk_wrap_class("itk::GPUCastImageFilter" POINTER_WITH_SUPERCLASS)
+ foreach(d ${ITK_WRAP_IMAGE_DIMS})
+   # Add from == to pixel type first for preference
+   foreach(to ${to_types})
+diff --git a/Modules/Filtering/GPUSmoothing/wrapping/itkGPUDiscreteGaussianImageFilter.wrap b/Modules/Filtering/GPUSmoothing/wrapping/itkGPUDiscreteGaussianImageFilter.wrap
+index 2477c7876f07bce6c31c4f689d0ea5926f4af0ca..0cfe9c2bd4a5fc0f8d94307ecccb2f6160866339 100644
+--- a/Modules/Filtering/GPUSmoothing/wrapping/itkGPUDiscreteGaussianImageFilter.wrap
++++ b/Modules/Filtering/GPUSmoothing/wrapping/itkGPUDiscreteGaussianImageFilter.wrap
+@@ -1,3 +1,6 @@
++set(types "${WRAP_ITK_SCALAR}")
++itk_wrap_include("itkGPUImage.h")
++
+ itk_wrap_class("itk::DiscreteGaussianImageFilter" POINTER)
+ foreach(d ${ITK_WRAP_IMAGE_DIMS})
+   foreach(t ${types})
