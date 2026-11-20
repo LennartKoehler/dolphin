@@ -81,9 +81,9 @@ TEST_F(ConfigTest, PoissonMLEConfigRoundTrip) {
     auto* poisson1 = dynamic_cast<PoissonMLEConfig*>(config1.get());
     ASSERT_NE(poisson1, nullptr);
     poisson1->iterations = 12;
-    poisson1->poissonSieve = false;
-    poisson1->poissonBackground = 4.5f;
-    poisson1->poissonSievePasses = 5;
+    poisson1->sieve = false;
+    poisson1->background = 4.5f;
+    poisson1->sievePasses = 5;
 
     json j = config1->writeToJSON();
     ASSERT_TRUE(j.contains("poisson_sieve"));
@@ -94,9 +94,9 @@ TEST_F(ConfigTest, PoissonMLEConfigRoundTrip) {
     ASSERT_NE(poisson2, nullptr);
     EXPECT_EQ(config2->algorithmName, "PoissonMLE");
     EXPECT_EQ(poisson2->iterations, 12);
-    EXPECT_FALSE(poisson2->poissonSieve);
-    EXPECT_FLOAT_EQ(poisson2->poissonBackground, 4.5f);
-    EXPECT_EQ(poisson2->poissonSievePasses, 5);
+    EXPECT_FALSE(poisson2->sieve);
+    EXPECT_FLOAT_EQ(poisson2->background, 4.5f);
+    EXPECT_EQ(poisson2->sievePasses, 5);
 }
 
 TEST_F(ConfigTest, AlgorithmSpecificParametersOnlyRegisteredForTheirAlgorithm) {
@@ -122,18 +122,18 @@ TEST_F(ConfigTest, DeconvolutionConfigCopyConstructor) {
     auto original = std::make_shared<PoissonMLEConfig>();
     original->iterations = 42;
     original->paddingStrategyType = PaddingStrategyType::LOW;
-    original->poissonSievePasses = 9;
+    original->sievePasses = 9;
 
     PoissonMLEConfig copy(*original);
-    EXPECT_EQ(copy.algorithmName, "PoissonMLE");
+    EXPECT_EQ(copy.algorithmName, "PoissonMLEAdaptiveStep");
     EXPECT_EQ(copy.iterations, 42);
     EXPECT_EQ(copy.paddingStrategyType, PaddingStrategyType::LOW);
-    EXPECT_EQ(copy.poissonSievePasses, 9);
+    EXPECT_EQ(copy.sievePasses, 9);
 
     copy.iterations = 43;
-    copy.poissonSievePasses = 10;
+    copy.sievePasses = 10;
     EXPECT_EQ(original->iterations, 42);
-    EXPECT_EQ(original->poissonSievePasses, 9);
+    EXPECT_EQ(original->sievePasses, 9);
 
     // The copy's registered parameters point at the copy, not the original.
     json written = copy.writeToJSON();
@@ -152,15 +152,15 @@ TEST_F(ConfigTest, PoissonMLEConfigCopyIsIndependent) {
     auto original = makeDeconvConfig("PoissonMLE");
     auto* poisson = dynamic_cast<PoissonMLEConfig*>(original.get());
     ASSERT_NE(poisson, nullptr);
-    poisson->poissonSievePasses = 9;
+    poisson->sievePasses = 9;
 
     auto copied = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("PoissonMLE");
     *static_cast<PoissonMLEConfig*>(copied.get()) = *poisson;
     auto* copiedPoisson = dynamic_cast<PoissonMLEConfig*>(copied.get());
     ASSERT_NE(copiedPoisson, nullptr);
-    EXPECT_EQ(copiedPoisson->poissonSievePasses, 9);
-    copiedPoisson->poissonSievePasses = 1;
-    EXPECT_EQ(poisson->poissonSievePasses, 9);
+    EXPECT_EQ(copiedPoisson->sievePasses, 9);
+    copiedPoisson->sievePasses = 1;
+    EXPECT_EQ(poisson->sievePasses, 9);
 }
 
 TEST_F(ConfigTest, DeconvolutionConfigCreateFromJSONFile) {
@@ -303,7 +303,7 @@ TEST_F(ConfigTest, PSFConfigMicroscopeModalityFromJSON) {
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
     j["microscope_modality"] = "confocal";
     j["excitation_wavelength_nm"] = 488.0;
-    j["pinhole_radius_nm"] = 280.0;
+    j["pinhole_radius_um"] = 0.28;
     auto config = PSFConfig::createFromJSON(j);
     ASSERT_NE(config, nullptr);
     EXPECT_EQ(config->getModalityType(), PSFConfig::MicroscopeModality::CONFOCAL);
@@ -312,7 +312,7 @@ TEST_F(ConfigTest, PSFConfigMicroscopeModalityFromJSON) {
     const ConfocalModalityConfig* modalityCfg = config->modality<ConfocalModalityConfig>();
     ASSERT_NE(modalityCfg, nullptr);
     EXPECT_FLOAT_EQ(modalityCfg->excitationWavelength_nm, 488.0f);
-    EXPECT_FLOAT_EQ(modalityCfg->pinholeRadius_nm, 280.0f);
+    EXPECT_FLOAT_EQ(modalityCfg->pinholeRadius_um, 0.28f);
 
     j["microscope_modality"] = "widefield";
     EXPECT_EQ(PSFConfig::createFromJSON(j)->getModalityName(), "widefield");

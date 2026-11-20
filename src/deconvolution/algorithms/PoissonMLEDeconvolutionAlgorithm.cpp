@@ -126,26 +126,6 @@ void estimatePsfSigmas(const IComputeBackend& compute,
     sigZ = std::max(0.1f, static_cast<real_t>(sd(mz, mz2)));
 }
 
-// Background = mean of the dimmest decile of the (host-copied) image.
-// TODO this needs to be computed beforehand on the entire image, it shouldnt be a local background for this tile
-real_t estimateBackgroundDimmestTile(const RealData& g, const IBackendMemoryManager& mem) {
-    const IBackendMemoryManager& hostMem = BackendFactory::getInstance().getHostBackendMemoryManager();
-    RealData gcopy = mem.copyDataToDevice(g);
-    RealData ghost = mem.moveDataFromDevice(gcopy, hostMem);
-    const size_t n = ghost.getSize().getVolume();
-    std::vector<real_t> vals;
-    vals.reserve(n);
-    for (size_t i = 0; i < n; ++i) vals.push_back(ghost.access(i));
-    hostMem.freeMemoryOnDevice(ghost);
-    if (vals.empty()) return 0.0f;
-    std::sort(vals.begin(), vals.end());
-    size_t lo = std::max<size_t>(1, n * 10 / 100); // dimmest decile
-    if (lo > n) lo = n;
-    double mean = 0;
-    for (size_t i = 0; i < lo; ++i) mean += vals[i];
-    return static_cast<real_t>(mean / lo);
-}
-
 
 
 } // namespace
@@ -153,20 +133,20 @@ real_t estimateBackgroundDimmestTile(const RealData& g, const IBackendMemoryMana
 void PoissonMLEDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Accept both PoissonMLEConfig and PoissonMLEUnitStepConfig (the latter is
     // derived from the former).
-    configure(asConfig<PoissonMLEConfig>(config, DeconvolutionAlgorithms::kPoissonMLE));
+    configure(asConfig<PoissonMLEConfig>(config, DeconvolutionAlgorithms::kPoissonMLEAdaptiveStep));
 }
 
 void PoissonMLEDeconvolutionAlgorithm::configure(const PoissonMLEConfig& config) {
     iterations = config.iterations;
     signal_to_noise = config.signalToNoise;
-    lambdaOverride = config.poissonLambda;
-    backgroundOverride = config.poissonBackground;
-    usePrefilter = config.poissonPrefilter;
-    prefilterScale = config.poissonPrefilterScale;
-    useSieve = config.poissonSieve;
-    usePrior = config.poissonPrior;
-    sievePasses = config.poissonSievePasses;
-    sieveScale = config.poissonSieveScale;
+    lambdaOverride = config.lambda;
+    backgroundOverride = config.background;
+    usePrefilter = config.prefilter;
+    prefilterScale = config.prefilterScale;
+    useSieve = config.sieve;
+    usePrior = config.prior;
+    sievePasses = config.sievePasses;
+    sieveScale = config.sieveScale;
 }
 
 void PoissonMLEDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
@@ -190,6 +170,7 @@ void PoissonMLEDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     plans.initializePlan(fReal);
     plans.initializePlan(bReal);
 
+    psfSigmasValid = false;
     initialized = true;
 }
 
@@ -197,7 +178,8 @@ bool PoissonMLEDeconvolutionAlgorithm::isInitialized() const {
     return initialized;
 }
 
-void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
+void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f,
+                                                 const DeconvolutionRunContext& runContext) {
     assert(backend && "No backend available for PoissonMLE algorithm");
     assert(initialized && "PoissonMLE algorithm not initialized. Call init() first.");
     if (iterations <= 0) return;
@@ -213,38 +195,47 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     // ---- Initial estimate: the data, optionally prefiltered. ----
     memory.memCopy(g, f);
 
-    // ---- Physical parameters, estimated per brick. ----
-    real_t sigX = 1.0f, sigY = 1.0f, sigZ = 1.0f;
-    estimatePsfSigmas(compute, memory, H, shape, modelC, model, sigX, sigY, sigZ);
+    // ---- Physical parameters: the PSF is the same for every cube; the
+    // padded shape is run-constant, so the estimate is cached after the first
+    // cube. Re-estimating per cube would let float32 OTF noise give slightly
+    // different prefilter/sieve widths and thus visible tile seams.
+    if (!psfSigmasValid) {
+        estimatePsfSigmas(compute, memory, H, shape, modelC, model, psfSigX, psfSigY, psfSigZ);
+        psfSigmasValid = true;
+    }
+    const real_t sigX = psfSigX;
+    const real_t sigY = psfSigY;
+    const real_t sigZ = psfSigZ;
     const real_t psfLat = 0.5f * (sigX + sigY);
     const real_t psfAx = sigZ;
 
     // ---- Prefilter: a single mild anisotropic Gaussian low-pass of the raw data. ----
     // sigma_axis = prefilterScale * PSF sigma_axis (0.3 * PSF width reproduces the
     // reference "sigmas of initial filt"). It gives the MLE a smooth, positive
-    // starting object f0 (instead of raw photon-noise spikes) and, for the auto
-    // background, its minimum (the min of a smoothed field ~= the true flat bg,
-    // where the min of raw data is a single unstable noise dip).
+    // starting object f0 (instead of raw photon-noise spikes).
     // f is already in the real-FFT in-place layout (allocated RealFFTInPlace by the
     // executor), so the in-place FFT low-pass can run on it directly.
     if (usePrefilter && prefilterScale > 0.0f) {
         applySieve(compute, f, sieveOTF,
                    prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
         compute.realClampMin(f, 0.0f, f);
-        spdlog::get("deconvolution")->debug(
-            "PoissonMLE prefilter: sigmas of initial filt: {:.3f} {:.3f} {:.3f}",
-            prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
+        if (auto logger = spdlog::get("deconvolution"))
+            logger->debug(
+                "PoissonMLE prefilter: sigmas of initial filt: {:.3f} {:.3f} {:.3f}",
+                prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
     }
 
-    // Background: an explicit override wins; otherwise the min of the prefiltered
-    // estimate (when prefiltering) or the dimmest-decile mean of the raw data.
+    // Background: an explicit level (config) wins; otherwise the plan-provided
+    // run-wide value (one value for every cube -> no tile seams). Without
+    // either, fail: a per-tile estimate would differ between neighbouring
+    // cubes and leave visible seams.
     real_t bg;
     if (backgroundOverride > -1.0f) {
         bg = backgroundOverride;
-    } else if (usePrefilter) {
-        bg = compute.getMin(f);
+    } else if (runContext.background.has_value()) {
+        bg = *runContext.background;
     } else {
-        bg = estimateBackgroundDimmestTile(g, memory);
+        throw std::runtime_error("Missing background estimation for PoissonMLE deconvolution algorithm");
     }
 
     // SNR -> shrinkage strength lambda. 0 = derive from SNR (lambda = base/snr:
@@ -391,6 +382,7 @@ std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneS
     copy->usePrior = usePrior;
     copy->sievePasses = sievePasses;
     copy->sieveScale = sieveScale;
+    copy->psfSigmasValid = false;
     copy->initialized = false;
     return copy;
 }

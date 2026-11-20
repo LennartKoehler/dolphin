@@ -109,4 +109,10 @@ public:
     /** Wavelength this model detects at by default. std::nullopt for
      *  wavelength-less models. */
     virtual std::optional<double> detectionLambda(const PSFConfig& config) const = 0;
+
+    /** Validates the config for this model's numerics and throws on values
+     *  that make computation impossible (non-positive wavelength or pixel
+     *  pitch, negative geometry). Merely suspicious values are logged as
+     *  warnings. Called once per generation, before autoBox/init. */
+    virtual void validateConfig(const PSFConfig& config) const = 0;
 };

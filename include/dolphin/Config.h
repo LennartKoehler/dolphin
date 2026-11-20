@@ -134,6 +134,13 @@ public:
 
     bool logUnvalidParameters(const json& jsonData) const ;
 
+    /** Warns for every registered parameter whose value lies outside its
+     *  registry range (hasRange/minVal/maxVal) or is not finite. Pure
+     *  reporting: ranges are sanity bounds, enforcing them is up to the
+     *  context that knows the parameter (frontend input, modality/model
+     *  validation). */
+    void logParameterRangeViolations() const;
+
     static json loadJSONFile(const std::string& filePath);
 
 

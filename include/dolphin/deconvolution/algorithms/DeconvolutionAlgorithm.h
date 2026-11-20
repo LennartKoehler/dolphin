@@ -16,9 +16,24 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphinbackend/ComplexData.h"
 #include "dolphinbackend/IBackend.h"
 #include <functional>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <memory>
+
+/**
+ * @brief Values the plan resolves once for the whole run and every cube needs.
+ *
+ * Per-run (not per-subimage) quantities live here instead of being estimated
+ * inside deconvolve() from the tile, where they would differ between
+ * neighbouring cubes and leave visible seams. The plan (strategy) fills it;
+ * algorithms that do not need a field ignore it.
+ */
+struct DeconvolutionRunContext {
+    // Flat background of the whole input image (mean of the dimmest decile).
+    // std::nullopt: not available (per-tile estimate / explicit override).
+    std::optional<float> background;
+};
 
 class DeconvolutionAlgorithm{
     using prFunction = std::function<void(int)>;
@@ -42,7 +57,10 @@ public:
     virtual bool isInitialized() const = 0;
 
     // it is assumed that the input of convolve is already located on the backend device
-    virtual void deconvolve(const ComplexData& H, RealData& g, RealData& f) = 0;
+    // `runContext` carries values resolved once for the whole run (e.g. the
+    // image-wide background) so that per-subimage calls stay consistent.
+    virtual void deconvolve(const ComplexData& H, RealData& g, RealData& f,
+                            const DeconvolutionRunContext& runContext = {}) = 0;
 
     // Peak bytes this algorithm additionally holds for a cube of the given
     // (padded) shape: every scratch array allocated in init() or during

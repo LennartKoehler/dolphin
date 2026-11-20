@@ -96,6 +96,17 @@ void TiffReader::setMemoryLimit(size_t bytes){
     }
 }
 
+void TiffReader::clearCache(){
+    // Fully-consumed regions are erased from bufferedRegions_ by
+    // consumeRegion(); partially-consumed ones (padding overshoot) stay here
+    // and keep their memory reserved. Dropping them releases that memory: the
+    // BufferEntry destructor deallocates from the tracker and notifies
+    // prefetchCv_, so any thread waiting for memory proceeds.
+    std::lock_guard<std::mutex> lock(mutex_);
+    bufferedRegions_.clear();
+    prefetchCv_.notify_all();
+}
+
 
 std::optional<Image3D> TiffReader::readTiffFile(const std::string& filename, int channel) {
     try {
@@ -391,6 +402,16 @@ Image3D TiffReader::getSubimage(const BoxCoord& box) const {
         } else if (auto inflight = tryWaitForInFlightRead(box, lock)) {
             entry = std::move(*inflight);
         } else {
+            // Cached fragments of earlier reads (padding overshoot kept by
+            // consumeRegion) hold memory in the tracker. They are pure cache -
+            // re-read from disk on demand - so when they would block a fresh
+            // read, drop them instead of waiting for memory that is never
+            // freed.
+            if (!isMemoryAvailable(box.dimensions)) {
+                spdlog::get("reader")->debug("Evicting reader cache to fit a fresh read of {}", box.dimensions.print());
+                bufferedRegions_.clear();
+                prefetchCv_.notify_all();
+            }
             entry = readSubimage(box, lock);
         }
     }

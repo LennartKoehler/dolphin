@@ -114,10 +114,10 @@ public:
      *  the widefield model. */
     float excitationWavelength_nm = 488.0f;
 
-    /** Pinhole radius at the sample plane in nm. 0 = point pinhole (the
+    /** Pinhole radius at the sample plane in um. 0 = point pinhole (the
      *  detection PSF is used directly in the confocal product); > 0 = finite
      *  pinhole, averaging the detection PSF over the pinhole disc. */
-    float pinholeRadius_nm = 0.0f;
+    float pinholeRadius_um = 0.0f;
 
 protected:
     void registerAllParameters() override;

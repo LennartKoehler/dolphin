@@ -40,3 +40,9 @@ target_include_directories(main_test PRIVATE ${TEST_INCLUDES})
 if(TARGET cuda_backend)
     set_target_properties(main_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
+
+dolphin_add_test(poisson_mle_e2e_test
+    SOURCES poisson_mle_e2e_test.cpp
+    LIBS dolphin project_options
+    INCLUDES ${TEST_INCLUDES}
+)

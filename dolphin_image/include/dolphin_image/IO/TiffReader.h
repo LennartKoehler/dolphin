@@ -152,6 +152,11 @@ public:
     // backpressure (waits for in-flight reads to finish).
     void setMemoryLimit(size_t bytes);
 
+    // Drops all buffered regions (their BufferEntry destructors release the
+    // memory back to the tracker and wake waiters). Must not be called while
+    // other threads are reading.
+    void clearCache() override;
+
 private:
     static size_t sizeOf(std::type_index type);
 

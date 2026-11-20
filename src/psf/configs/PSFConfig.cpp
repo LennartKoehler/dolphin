@@ -162,11 +162,18 @@ void PSFConfig::registerAllParameters(){
     parameters.clear();
     // Base PSF parameters
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
-    parameters.push_back({ParameterType::Int, &sizeX, "Size X", false, "size_x", "--size_x", "PSF size X (0 = auto)", false, true, 0, 1024, nullptr});
-    parameters.push_back({ParameterType::Int, &sizeY, "Size Y", false, "size_y", "--size_y", "PSF size Y (0 = auto)", false, true, 0, 1024, nullptr});
-    parameters.push_back({ParameterType::Int, &sizeZ, "Size Z", false, "size_z", "--size_z", "PSF size Z (0 = auto)", false, true, 0, 512, nullptr});
+    // Sizes: in auto-size mode sizeX/sizeY/sizeZ describe the image the PSF
+    // is produced for, in fixed mode the PSF box itself. Upper bound keeps a
+    // runaway value from being read as a typo while still allowing large
+    // volumes.
+    parameters.push_back({ParameterType::Int, &sizeX, "Size X", false, "size_x", "--size_x", "PSF size X (0 = auto)", false, true, 0, 8192, nullptr});
+    parameters.push_back({ParameterType::Int, &sizeY, "Size Y", false, "size_y", "--size_y", "PSF size Y (0 = auto)", false, true, 0, 8192, nullptr});
+    parameters.push_back({ParameterType::Int, &sizeZ, "Size Z", false, "size_z", "--size_z", "PSF size Z (0 = auto)", false, true, 0, 8192, nullptr});
     parameters.push_back({ParameterType::String, &ID, "ID", true, "id", "--id", "PSF identifier", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::String, &psfModelName, "Model Name", true, "model_name", "--model_name", "PSF model name", false, false, 0.0, 0.0, nullptr});
+    // Sampling density: below 1 means fewer radial samples than pixels, the
+    // radial profile cannot be resolved; 1..10 covers every realistic
+    // oversampling request.
     parameters.push_back({ParameterType::Float, &oversampling_factor, "Oversampling Factor", true, "oversampling_factor", "--oversampling_factor", "Oversampling factor for PSF computation", false, true, 1.0, 10.0, nullptr});
     parameters.push_back({ParameterType::Float, &cutoffThreshold, "Cutoff Threshold", true, "cutoff_threshold", "--cutoff_threshold", "Relative intensity cutoff for auto-size PSF (0 = derive from padding strategy)", false, true, 0.0, 1.0, nullptr});
     const void* resolutionCriterionMap_p = static_cast<const void*>(&resolutionCriterionMap);

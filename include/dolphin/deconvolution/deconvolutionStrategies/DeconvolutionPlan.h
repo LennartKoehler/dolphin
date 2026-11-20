@@ -117,18 +117,23 @@ struct CubeTaskSharedDescriptor{
                     const MemoryRequirement& estimatedMemoryUsage,
                     const std::vector<std::shared_ptr<PSF>>& psfs,
                     const std::shared_ptr<ReaderHandler> reader,
-                    const std::shared_ptr<WriterHandler> writer)
+                    const std::shared_ptr<WriterHandler> writer,
+                    const DeconvolutionRunContext& runContext = {})
     : prototypeAlgorithm(algorithm),
       estimatedMemoryUsage(estimatedMemoryUsage),
       psfs(psfs),
       reader(reader),
-      writer(writer)
+      writer(writer),
+      runContext(runContext)
     {}
     const std::shared_ptr<DeconvolutionAlgorithm> prototypeAlgorithm;
     const MemoryRequirement estimatedMemoryUsage;
     const std::vector<std::shared_ptr<PSF>> psfs;
     const std::shared_ptr<ReaderHandler> reader;
     const std::shared_ptr<WriterHandler> writer;
+    // Values resolved once for the whole run (e.g. the image-wide background),
+    // so that every cube is deconvolved with the same parameters.
+    const DeconvolutionRunContext runContext;
 };
 
 struct CubeTaskDescriptor {

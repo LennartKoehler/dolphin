@@ -50,7 +50,7 @@ CuboidShape PSFHandler::getPresetPadding(const PSF& psf, PaddingStrategyType pad
         case(MEDIUM):
             return psf.getRegionLargerThreshold(1e-4f * psf.getMax());
         case(LOW):
-            return psf.getRegionLargerThreshold(1e-3f * psf.getMax());
+            return psf.getRegionLargerThreshold(1e-2f * psf.getMax());
         case(MAX):
             return psf.getRegionLargerThreshold(1e-20f); // basically only zeroes are not included in padding
         case(NONE):

@@ -21,6 +21,9 @@ See the LICENSE file provided with the code for the full license.
 #include <string>
 #include <cmath>
 #include "dolphin/deconvolution/Preprocessor.h"
+#include "dolphin/deconvolution/BackgroundEstimation.h"
+#include "dolphin/deconvolution/BackgroundSampleCube.h"
+#include "dolphin/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
 #include "dolphin_image/HelperClasses.h"
@@ -163,6 +166,26 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     // psfHandler.fitPSFsToShape(paddedShape); // the psfpreprocessor does this
     std::vector<std::shared_ptr<PSF>>& psfs = psfHandler.getPSFs(paddedShape);
 
+    // Run-wide background, resolved once so every cube is deconvolved against the
+    // same level (estimating per cube would differ between neighbours and leave
+    // visible tile seams). Only done when the algorithm actually estimates a
+    // background (a PoissonMLE variant) and the config asks for a global one.
+    DeconvolutionRunContext runContext;
+    if (const auto strategy = globalBackgroundStrategy(*algorithm, deconvConfig)) {
+        runContext.background = (*strategy == BACKGROUND_WHOLE_IMAGE)
+            ? estimateImageBackground(*reader, imageSize, workShape.box.dimensions,
+                                      deconvConfig.paddingFillType, nReaderThreads)
+            : estimateBackgroundFromSampleCube(*readerHandler, cubeCoordinatesWithPadding).value_or(0.0f);
+        spdlog::get("deconvolution")->info(
+            "Using background {:.6f} ({}) for all cubes",
+            *runContext.background,
+            *strategy == BACKGROUND_WHOLE_IMAGE ? "whole image" : "sample cube");
+        // The plan-time reads run through the reader cache; their leftover
+        // fragments would permanently shrink the cache against its cap (the
+        // next task read would wait for memory that is never freed).
+        reader->clearCache();
+    }
+
     std::vector<std::unique_ptr<CubeTaskDescriptor>> tasks;
     tasks.reserve(cubeCoordinatesWithPadding.size());
 
@@ -171,7 +194,8 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
             cubeNeed,
             psfs,
             readerHandler,
-            writerHandler);
+            writerHandler,
+            runContext);
 
     for (size_t i = 0; i < cubeCoordinatesWithPadding.size(); ++i) {
 
@@ -199,10 +223,10 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         ->debug("Memory footprint per cube ({}): {}", paddedShape.print(), footprint.breakdown(paddedShape));
 
     spdlog::get("deconvolution")
-        ->debug("Memory budgets: host {:.2f} GiB (reader cache {:.2f} GiB, writer reserve {:.2f} GiB, backend allocations {:.2f} GiB), device {:.2f} GiB per device ({} device(s)); estimated demand per cube: {:.2f} MiB host, {:.2f} MiB device",
+        ->debug("Memory budgets: host {:.2f} GiB (reader cache {:.2f} GiB, writer reserve {:.2f} GiB, backend allocations {:.2f} GiB), device {:.2f} GiB per device ({} device(s)); estimated demand per cube: {:.2f} GiB host, {:.2f} GiB device",
         budget.hostTotal_byte / 1073741824.0, budget.readerCache_byte / 1073741824.0, budget.writerReserve_byte / 1073741824.0, budget.backendHost_byte / 1073741824.0,
         budget.deviceTotal_byte / 1073741824.0, nDevices,
-        cubeNeed.hostBytes / 1048576.0, cubeNeed.deviceBytes / 1048576.0);
+        cubeNeed.hostBytes / 1073741824.0, cubeNeed.deviceBytes / 1073741824.0);
 
     DeconvolutionPlan plan {
         std::move(tasks),
@@ -276,6 +300,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
             paddingScheme.imagePadding,
             imageSize,
             CuboidShape(deconvConfig.cubeSize));
+
     }
     else {
         cubeCoordinatesWithPaddingResult = splitImageHomogeneous(
@@ -287,6 +312,20 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
             minNumberCubes,
             minShape,
             deconvConfig.sliceAllDimensions);
+
+        if (!cubeCoordinatesWithPaddingResult.success && !deconvConfig.sliceAllDimensions){
+            spdlog::get("deconvolution")->warn("Failed to split Image while slicing only Z dimensions, trying with sliceAllDimensions");
+
+            cubeCoordinatesWithPaddingResult = splitImageHomogeneous(
+                paddingScheme.insidePadding,
+                paddingScheme.imagePadding,
+                imageSize,
+                budget,
+                footprint,
+                minNumberCubes,
+                minShape,
+                true);
+        }
     }
 
     if (!cubeCoordinatesWithPaddingResult.success) {
@@ -350,6 +389,17 @@ std::shared_ptr<DeconvolutionAlgorithm> StandardDeconvolutionStrategy::getAlgori
     DeconvolutionAlgorithmFactory& fact = DeconvolutionAlgorithmFactory::getInstance();
     std::shared_ptr<DeconvolutionAlgorithm> algorithm = fact.createShared(config);
     return algorithm;
+}
+
+std::optional<BackgroundStrategyType> StandardDeconvolutionStrategy::globalBackgroundStrategy(
+    const DeconvolutionAlgorithm& algorithm, const DeconvolutionConfig& config) {
+    // Only the PoissonMLE family estimates a background; the others are
+    // background-free and must not pay for the extra read.
+    if (!dynamic_cast<const PoissonMLEDeconvolutionAlgorithm*>(&algorithm)) return std::nullopt;
+    // An explicit level bypasses the estimate entirely.
+    const auto* poissonConfig = dynamic_cast<const PoissonMLEConfig*>(&config);
+    if (poissonConfig && poissonConfig->background >= 0.0f) return std::nullopt;
+    return config.backgroundStrategyType;
 }
 
 

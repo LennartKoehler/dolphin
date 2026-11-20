@@ -33,6 +33,26 @@ bool GaussianPSFGenerator::hasConfig(){
     return config != nullptr;
 }
 
+void GaussianPSFGenerator::validateConfig() const {
+    if (!config)
+        throw std::runtime_error("GaussianPSFGenerator: no config set (call setConfig first)");
+
+    // Sigma enters as a divisor of the pixel distance; a non-positive sigma
+    // divides by zero (or produces an infinite flat field).
+    if (!(config->sigmaX > 0.0f) || !(config->sigmaY > 0.0f) || !(config->sigmaZ > 0.0f))
+        throw std::runtime_error("GaussianPSFGenerator: sigma_x, sigma_y and sigma_z must all be positive, got ("
+                                 + std::to_string(config->sigmaX) + ", " + std::to_string(config->sigmaY) + ", "
+                                 + std::to_string(config->sigmaZ) + ")");
+    // convertSigma() multiplies by the quality factor; convertResolution()
+    // divides by the scaling factors. Non-positive values flip or explode
+    // the conversion.
+    if (!(config->qualityFactor > 0.0f))
+        throw std::runtime_error("GaussianPSFGenerator: quality_factor must be positive, got " + std::to_string(config->qualityFactor));
+    if (!(config->pixelScaling > 0.0f) || !(config->nanometerScale > 0.0f))
+        throw std::runtime_error("GaussianPSFGenerator: pixel_scaling and nanometer_scale must be positive, got ("
+                                 + std::to_string(config->pixelScaling) + ", " + std::to_string(config->nanometerScale) + ")");
+}
+
 
 //
 ImageType::RegionType GaussianPSFGenerator::getNonNegligibleRegion(size_t width, size_t height, size_t layers,
@@ -69,6 +89,7 @@ ImageType::RegionType GaussianPSFGenerator::getNonNegligibleRegion(size_t width,
 }
 
 PSF GaussianPSFGenerator::generatePSF() const {
+    validateConfig();
     if (config->autoSize || config->sizeX == 0 || config->sizeY == 0 || config->sizeZ == 0) {
         return generateAutoSizePSF();
     }

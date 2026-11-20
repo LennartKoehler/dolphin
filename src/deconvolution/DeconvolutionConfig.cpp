@@ -60,6 +60,7 @@ void DeconvolutionConfig::copyBaseFields(const DeconvolutionConfig& other) {
     cubeSize = other.cubeSize;
     cubePadding = other.cubePadding;
     sliceAllDimensions = other.sliceAllDimensions;
+    backgroundStrategyType = other.backgroundStrategyType;
 }
 
 void DeconvolutionConfig::moveBaseFields(DeconvolutionConfig& other) {
@@ -74,6 +75,7 @@ void DeconvolutionConfig::moveBaseFields(DeconvolutionConfig& other) {
     cubeSize = other.cubeSize;
     cubePadding = other.cubePadding;
     sliceAllDimensions = other.sliceAllDimensions;
+    backgroundStrategyType = other.backgroundStrategyType;
 }
 
 void DeconvolutionConfig::assignBase(const DeconvolutionConfig& other) {
@@ -120,6 +122,12 @@ ConfigMap paddingStrategyTypeMap{{
 }};
 
 
+ConfigMap backgroundStrategyTypeMap{{
+    {"global", BACKGROUND_GLOBAL},
+    {"whole_image", BACKGROUND_WHOLE_IMAGE}
+}};
+
+
 void DeconvolutionConfig::registerAllParameters() {
     // Derived constructors call this again after the base constructor registered
     // the shared parameters; start from a clean list so nothing is added twice.
@@ -130,6 +138,7 @@ void DeconvolutionConfig::registerAllParameters() {
 
     const void* paddingFillMap_p = static_cast<const void*>(&paddingFillTypeMap);// oh boy
     const void* paddingStrategyMap_p = static_cast<const void*>(&paddingStrategyTypeMap);// oh boy
+    const void* backgroundStrategyMap_p = static_cast<const void*>(&backgroundStrategyTypeMap);// oh boy
     // Register each parameter as a ConfigParameter struct
     parameters.push_back({ParameterType::StringSelection, &algorithmName, "Algorithm Name", true, "algorithm_name", "--algorithm_name", "Algorithm selection", false, false, 0.0, 0.0, algorithmOptionsVoid});
     parameters.push_back({ParameterType::Int, &iterations, "Iterations", true, "iterations", "--iterations", "Iterations", false, true, 1.0, 10000.0, nullptr});
@@ -144,6 +153,8 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::IntArray3, &cubeSize, "Cube Size", true, "cube_size", "--cube_size", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::IntArray3, &cubePadding, "Cube Padding", true, "cube_padding", "--cube_padding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::Bool, &sliceAllDimensions, "Slice all dimensions", true, "slice_all_dimensions", "--slice_all_dimensions", "Slice all dimensions not only Z dimension", false, false, 0.0, 0.0, nullptr});
+    parameters.push_back({ParameterType::Map, &backgroundStrategyType, "Background Strategy", true, "background_strategy", "--background_strategy",
+        "Background source for algorithms that estimate one (PoissonMLE): global (one interior cube, used for all cubes, default) or whole_image (streams the full image, reads it twice)", false, true, 0.0, 1, backgroundStrategyMap_p});
     // its labeled if the labeled image is given
     // parameters.push_back({ParameterType::String, &deconvolutionType, "Deconvolution Type", true, "deconvolution_type", "--deconvolution_type", "Deconvolution strategy type", false, false, 0.0, 0.0, nullptr});
 }

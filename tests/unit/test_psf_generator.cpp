@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/psf/configs/GibsonLanniPSFConfig.h"
 #include "dolphin/psf/configs/ModalityConfig.h"
 #include "dolphin/psf/generators/GibsonLanniModel.h"
+#include "dolphin/psf/generators/GaussianPSFGenerator.h"
 #include "dolphin/psf/generators/PSFBoxSizing.h"
 #include "dolphin/psf/generators/BasePSFGenerator.h"
 #include "dolphin/psf/generators/SimpsonIntegrator.h"
@@ -796,7 +797,7 @@ TEST_F(PSFGeneratorTest, PSFHandlerDerivesCutoffFromPaddingStrategy) {
 namespace {
 
 // Auto-size confocal-capable config with pitch fine enough to resolve FWHM.
-inline json confocalGlJSON(bool confocal, double pinholeRadius_nm = 280.0) {
+inline json confocalGlJSON(bool confocal, double pinholeRadius_um = 0.28) {
     json j = json::parse(TestUtils::gibsonLanniPSFConfigJSON());
     j["NA"] = 0.7;
     j["immersion_ri_design"] = 1.515;
@@ -813,7 +814,7 @@ inline json confocalGlJSON(bool confocal, double pinholeRadius_nm = 280.0) {
         j["emission_wavelength_nm"] = j["wavelength_nm"];
         j.erase("wavelength_nm");
         j["excitation_wavelength_nm"] = 488.0;
-        j["pinhole_radius_nm"] = pinholeRadius_nm;
+        j["pinhole_radius_um"] = pinholeRadius_um;
     }
     return j;
 }
@@ -935,6 +936,8 @@ class AsymmetricStubModel : public PSFModel {
 public:
     void init(const PSFConfig&, size_t, size_t, std::optional<double>) const override {}
 
+    void validateConfig(const PSFConfig&) const override {}
+
     ModelSlice intensitySlice(const PSFConfig&, std::optional<double>, size_t,
                               size_t maxLateralPixels, size_t forcedCutoff) const override {
         const size_t cutoff = forcedCutoff > 0 ? forcedCutoff : maxLateralPixels;
@@ -1010,6 +1013,95 @@ TEST_F(PSFGeneratorTest, ConfocalModalityRejectsWavelengthLessModel) {
                  std::runtime_error);
 }
 
+// ---------------------------------------------------------------------------
+// validateConfig: modality strategies, models, and the generation entry points
+// ---------------------------------------------------------------------------
+
+TEST_F(PSFGeneratorTest, ModalityValidateConfigAcceptsDefaults) {
+    // Default widefield and confocal configs are valid.
+    GibsonLanniPSFConfig widefield;
+    EXPECT_NO_THROW(WidefieldModality::instance().validateConfig(widefield));
+
+    GibsonLanniPSFConfig confocal;
+    confocal.selectModality(MicroscopeModality::CONFOCAL);
+    EXPECT_NO_THROW(ConfocalModality::instance().validateConfig(confocal));
+}
+
+TEST_F(PSFGeneratorTest, ConfocalValidateConfigRejectsMissingModalityConfig) {
+    // A widefield config carries no confocal modality config; pointing the
+    // confocal strategy at it must fail loudly.
+    GibsonLanniPSFConfig cfg;   // widefield
+    EXPECT_THROW(ConfocalModality::instance().validateConfig(cfg), std::runtime_error);
+}
+
+TEST_F(PSFGeneratorTest, ConfocalValidateConfigRejectsNonsenseParameters) {
+    GibsonLanniPSFConfig cfg;
+    cfg.selectModality(MicroscopeModality::CONFOCAL);
+    auto* modalityCfg = dynamic_cast<ConfocalModalityConfig*>(cfg.modalityConfig.get());
+    ASSERT_NE(modalityCfg, nullptr);
+
+    modalityCfg->emissionWavelength_nm = 0.0f;
+    EXPECT_THROW(ConfocalModality::instance().validateConfig(cfg), std::runtime_error);
+
+    modalityCfg->emissionWavelength_nm = 520.0f;
+    modalityCfg->pinholeRadius_um = -1.0f;
+    EXPECT_THROW(ConfocalModality::instance().validateConfig(cfg), std::runtime_error);
+
+    // Zero pinhole is the defined point-pinhole limit: valid.
+    modalityCfg->pinholeRadius_um = 0.0f;
+    modalityCfg->excitationWavelength_nm = 488.0f;
+    EXPECT_NO_THROW(ConfocalModality::instance().validateConfig(cfg));
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniModelValidateConfig) {
+    GibsonLanniPSFConfig cfg;
+    GibsonLanniModel model;
+
+    EXPECT_NO_THROW(model.validateConfig(cfg));
+
+    cfg.NA = 0.0f;
+    EXPECT_THROW(model.validateConfig(cfg), std::runtime_error);
+
+    cfg.NA = 1.0f;
+    cfg.pixelSizeLateral_nm = 0.0f;
+    EXPECT_THROW(model.validateConfig(cfg), std::runtime_error);
+
+    cfg.pixelSizeLateral_nm = 100.0f;
+    cfg.ti_nm = -1.0f;
+    EXPECT_THROW(model.validateConfig(cfg), std::runtime_error);
+
+    cfg.ti_nm = 150000.0f;
+    cfg.ns = 0.0f;
+    EXPECT_THROW(model.validateConfig(cfg), std::runtime_error);
+}
+
+TEST_F(PSFGeneratorTest, GenerateRunsValidateConfig) {
+    // generate() must reject an invalid config before any computation.
+    GibsonLanniPSFConfig cfg;
+    cfg.selectModality(MicroscopeModality::CONFOCAL);
+    auto* modalityCfg = dynamic_cast<ConfocalModalityConfig*>(cfg.modalityConfig.get());
+    ASSERT_NE(modalityCfg, nullptr);
+    modalityCfg->emissionWavelength_nm = -1.0f;
+
+    GibsonLanniModel model;
+    ThreadPool threadPool(2);
+    ProgressTracking progress;
+    EXPECT_THROW(ConfocalModality::instance().generate(model, cfg, threadPool, progress),
+                 std::runtime_error);
+}
+
+TEST_F(PSFGeneratorTest, GaussianGenerateRejectsNonPositiveSigma) {
+    auto cfg = std::make_shared<GaussianPSFConfig>();
+    cfg->sigmaX = 0.0f;
+    GaussianPSFGenerator generator(cfg);
+    EXPECT_THROW(generator.generatePSF(), std::runtime_error);
+
+    auto cfg2 = std::make_shared<GaussianPSFConfig>();
+    cfg2->qualityFactor = -1.0f;
+    GaussianPSFGenerator generator2(cfg2);
+    EXPECT_THROW(generator2.generatePSF(), std::runtime_error);
+}
+
 TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
     auto& factory = PSFGeneratorFactory::getInstance();
 
@@ -1021,7 +1113,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
     const ConfocalModalityConfig* modalityCfg = gl->modality<ConfocalModalityConfig>();
     ASSERT_NE(modalityCfg, nullptr);
     EXPECT_FLOAT_EQ(modalityCfg->excitationWavelength_nm, 488.0f);
-    EXPECT_FLOAT_EQ(modalityCfg->pinholeRadius_nm, 280.0f);
+    EXPECT_FLOAT_EQ(modalityCfg->pinholeRadius_um, 0.28f);
     EXPECT_FLOAT_EQ(modalityCfg->emissionWavelength_nm, 520.0f);
 
     // Copy semantics carry the modality config (setConfig copies the config).
@@ -1030,7 +1122,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalConfigFromJSON) {
     const ConfocalModalityConfig* copiedModalityCfg = copied.modality<ConfocalModalityConfig>();
     ASSERT_NE(copiedModalityCfg, nullptr);
     EXPECT_FLOAT_EQ(copiedModalityCfg->excitationWavelength_nm, 488.0f);
-    EXPECT_FLOAT_EQ(copiedModalityCfg->pinholeRadius_nm, 280.0f);
+    EXPECT_FLOAT_EQ(copiedModalityCfg->pinholeRadius_um, 0.28f);
     // The copy must own its modality config, not share the pointer.
     EXPECT_NE(copiedModalityCfg, modalityCfg);
 
@@ -1164,7 +1256,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalMetrics) {
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniPinholeZeroIsPointPinhole) {
-    // pinhole_radius_nm == 0 must leave the detection profile untouched, i.e.
+    // pinhole_radius_um == 0 must leave the detection profile untouched, i.e.
     // the point-pinhole product model. This is the reference the finite
     // pinhole convolution is compared against.
     auto& factory = PSFGeneratorFactory::getInstance();
@@ -1190,8 +1282,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniFinitePinholeBroadensDetection) {
     // point-pinhole limit, while staying narrower than the widefield PSF.
     auto& factory = PSFGeneratorFactory::getInstance();
 
-    auto build = [&](double pinhole_nm) {
-        json j = confocalGlJSON(true, pinhole_nm);
+    auto build = [&](double pinhole_um) {
+        json j = confocalGlJSON(true, pinhole_um);
         j["size_x"] = 41;
         j["size_y"] = 41;
         j["size_z"] = 9;
@@ -1201,14 +1293,14 @@ TEST_F(PSFGeneratorTest, GibsonLanniFinitePinholeBroadensDetection) {
     };
 
     PSF point = generateTestPSF(build(0.0));
-    PSF finite = generateTestPSF(build(300.0));
+    PSF finite = generateTestPSF(build(0.3));
 
     ConfocalMetrics pointM = measureMetrics(point, 50.0, 300.0);
     ConfocalMetrics finiteM = measureMetrics(finite, 50.0, 300.0);
 
     std::cout << "[Pinhole] point lateralFWHM=" << pointM.lateralFWHM_nm
               << "nm peak=" << pointM.peak << std::endl;
-    std::cout << "[Pinhole] finite(r=300nm) lateralFWHM=" << finiteM.lateralFWHM_nm
+    std::cout << "[Pinhole] finite(r=0.3um) lateralFWHM=" << finiteM.lateralFWHM_nm
               << "nm peak=" << finiteM.peak << std::endl;
 
     // Finite pinhole: broader than point pinhole, lower peak.

@@ -23,7 +23,7 @@ public:
     PoissonMLEUnitStepConfig();
     PoissonMLEUnitStepConfig(const PoissonMLEUnitStepConfig& other);
     PoissonMLEUnitStepConfig& operator=(const PoissonMLEUnitStepConfig& other);
-    PoissonMLEUnitStepConfig(PoissonMLEUnitStepConfig&& other) noexcept;
+    PoissonMLEUnitStepConfig(PoissonMLEConfig&& other) noexcept;
 
-    static constexpr const char* kAlgorithmName = DeconvolutionAlgorithms::kPoissonMLEUnitStep;
+    static constexpr const char* kAlgorithmName = DeconvolutionAlgorithms::kPoissonMLE;
 };

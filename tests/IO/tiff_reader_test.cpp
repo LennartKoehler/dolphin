@@ -165,7 +165,7 @@ TEST_F(TiffReaderSubimageTest, FullImage_AllPixelsCorrect) {
     auto tr = std::make_unique<TiffReader>(testTiffPath);
     tr->configure(0);
     ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
-    auto result = reader.getSubimage(makeBox(0, 0, 0, w, h, d));
+    auto result = reader.getSubimagePadded(makeBox(0, 0, 0, w, h, d));
     EXPECT_EQ(result.image.getShape(), CuboidShape(w, h, d));
     expectSubimageData(result.image, original, 0, 0, 0);
 }
@@ -174,7 +174,7 @@ TEST_F(TiffReaderSubimageTest, AtOffset_AllPixelsCorrect) {
     auto tr = std::make_unique<TiffReader>(testTiffPath);
     tr->configure(0);
     ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
-    auto result = reader.getSubimage(makeBox(8, 8, 4, 16, 16, 8));
+    auto result = reader.getSubimagePadded(makeBox(8, 8, 4, 16, 16, 8));
     EXPECT_EQ(result.image.getShape(), CuboidShape(16, 16, 8));
     expectSubimageData(result.image, original, 8, 8, 4);
 }
@@ -183,7 +183,7 @@ TEST_F(TiffReaderSubimageTest, SingleVoxel_CorrectPixel) {
     auto tr = std::make_unique<TiffReader>(testTiffPath);
     tr->configure(0);
     ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
-    auto result = reader.getSubimage(makeBox(15, 10, 7, 1, 1, 1));
+    auto result = reader.getSubimagePadded(makeBox(15, 10, 7, 1, 1, 1));
     EXPECT_EQ(result.image.getShape(), CuboidShape(1, 1, 1));
     EXPECT_NEAR(result.image.getPixel(0, 0, 0), original.getPixel(15, 10, 7), 0.001f);
 }
@@ -192,7 +192,7 @@ TEST_F(TiffReaderSubimageTest, AtEdge_AllPixelsCorrect) {
     auto tr = std::make_unique<TiffReader>(testTiffPath);
     tr->configure(0);
     ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
-    auto result = reader.getSubimage(makeBox(28, 28, 14, 4, 4, 2));
+    auto result = reader.getSubimagePadded(makeBox(28, 28, 14, 4, 4, 2));
     EXPECT_EQ(result.image.getShape(), CuboidShape(4, 4, 2));
     expectSubimageData(result.image, original, 28, 28, 14);
 }
@@ -201,7 +201,7 @@ TEST_F(TiffReaderSubimageTest, ResultNotAllZeros) {
     auto tr = std::make_unique<TiffReader>(testTiffPath);
     tr->configure(0);
     ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
-    auto result = reader.getSubimage(makeBox(8, 8, 4, 16, 16, 8));
+    auto result = reader.getSubimagePadded(makeBox(8, 8, 4, 16, 16, 8));
     EXPECT_FALSE(isAllZeros(result.image));
     EXPECT_FALSE(hasUninitializedPixels(result.image));
 }
@@ -228,7 +228,7 @@ TEST_F(TiffReaderPaddingTest, WithPadding_CenterDataCorrect) {
     tr->configure(0);
     ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
     size_t pb = 2, pa = 2;
-    auto result = reader.getSubimage(
+    auto result = reader.getSubimagePadded(
         makeBox(4, 4, 2, 8, 8, 4, pb, pb, pb, pa, pa, pa));
 
     EXPECT_EQ(result.image.getShape(), CuboidShape(8 + 4, 8 + 4, 4 + 4));
@@ -249,7 +249,7 @@ TEST_F(TiffReaderPaddingTest, WithPadding_NoUninitializedPixels) {
     auto tr = std::make_unique<TiffReader>(testTiffPath);
     tr->configure(0);
     ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
-    auto result = reader.getSubimage(
+    auto result = reader.getSubimagePadded(
         makeBox(4, 4, 2, 8, 8, 4, 2, 2, 2, 2, 2, 2));
 
     EXPECT_FALSE(hasUninitializedPixels(result.image));
@@ -259,7 +259,7 @@ TEST_F(TiffReaderPaddingTest, AtImageEdge_WithPadding_NoCrash) {
     auto tr = std::make_unique<TiffReader>(testTiffPath);
     tr->configure(0);
     ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
-    auto result = reader.getSubimage(
+    auto result = reader.getSubimagePadded(
         makeBox(0, 0, 0, 8, 8, 4, 4, 4, 4, 4, 4, 4));
 
     EXPECT_EQ(result.image.getShape(), CuboidShape(16, 16, 12));
@@ -280,7 +280,7 @@ TEST_F(TiffReaderPaddingTest, AtFarEdge_WithPadding_NoCrash) {
     auto tr = std::make_unique<TiffReader>(testTiffPath);
     tr->configure(0);
     ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
-    auto result = reader.getSubimage(
+    auto result = reader.getSubimagePadded(
         makeBox(8, 8, 4, 8, 8, 4, 4, 4, 4, 4, 4, 4));
 
     EXPECT_EQ(result.image.getShape(), CuboidShape(16, 16, 12));
@@ -301,7 +301,7 @@ TEST_F(TiffReaderPaddingTest, ZPaddingAtEdge_CenterCorrect) {
     auto tr = std::make_unique<TiffReader>(testTiffPath);
     tr->configure(0);
     ReaderHandler reader(std::move(tr), PaddingFillType::MIRROR);
-    auto result = reader.getSubimage(
+    auto result = reader.getSubimagePadded(
         makeBox(0, 0, 4, 16, 16, 4, 0, 0, 4, 0, 0, 4));
 
     EXPECT_EQ(result.image.getShape(), CuboidShape(16, 16, 12));
@@ -420,7 +420,7 @@ TEST_F(TiffReaderConcurrencyTest, ConcurrentGetSubimage_AllCorrect) {
 
     std::vector<PaddedImage> results;
     for (const auto& r : reqs) {
-        results.push_back(reader.getSubimage(makeBox(r.ox, r.oy, r.oz, r.dw, r.dh, r.dd)));
+        results.push_back(reader.getSubimagePadded(makeBox(r.ox, r.oy, r.oz, r.dw, r.dh, r.dd)));
     }
 
     for (size_t i = 0; i < reqs.size(); i++) {
@@ -445,7 +445,7 @@ TEST_F(TiffReaderConcurrencyTest, SequentialGetSubimage_AllCorrect) {
     };
 
     for (const auto& r : reqs) {
-        auto result = reader.getSubimage(makeBox(r.ox, r.oy, r.oz, r.dw, r.dh, r.dd));
+        auto result = reader.getSubimagePadded(makeBox(r.ox, r.oy, r.oz, r.dw, r.dh, r.dd));
         EXPECT_EQ(result.image.getShape(), CuboidShape(r.dw, r.dh, r.dd));
         expectSubimageData(result.image, original, r.ox, r.oy, r.oz);
     }

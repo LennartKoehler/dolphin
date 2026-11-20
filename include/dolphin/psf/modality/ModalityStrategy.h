@@ -72,6 +72,13 @@ public:
                          ThreadPool& threadPool,
                          ProgressTracking& progressTracker) const;
 
+    /** Validates the config for this modality and throws on values that make
+     *  PSF generation impossible (missing modality config, non-positive
+     *  wavelengths, negative pinhole). Merely suspicious values (Stokes-shift
+     *  violations, degenerate fallbacks) are logged as warnings instead.
+     *  Runs at the beginning of generate(); also usable standalone. */
+    virtual void validateConfig(const PSFConfig& config) const;
+
     /** Strategy implementing a config's microscope modality. */
     static const ModalityStrategy& forConfig(const PSFConfig& config);
 
@@ -119,7 +126,7 @@ protected:
 /**
  * Confocal image formation: voxel-wise product of the excitation integral
  * (at excitationLambda(config)) and the detection integral (at the emission
- * wavelength). With a finite pinhole (pinholeRadius_nm > 0) the detection
+ * wavelength). With a finite pinhole (pinholeRadius_um > 0) the detection
  * profile is first averaged over the pinhole disc at the sample plane;
  * otherwise it is the point-pinhole (Airy-unit) product.
  */
@@ -131,6 +138,12 @@ public:
      *  an excitation wavelength fall back to the emission wavelength,
      *  degenerating to a product of two identical integrals. */
     static double excitationLambda(const PSFConfig& cfg);
+
+    /** Confocal-specific validation: the config must carry a confocal
+     *  modality config with a positive emission wavelength and a non-negative
+     *  pinhole radius; excitation/emission consistency is warned, not
+     *  enforced (the degenerate fallbacks are defined behavior). */
+    void validateConfig(const PSFConfig& config) const override;
 
     /** One setup report per generation (wavelengths, pinhole), then the
      *  shared assembly pipeline. The log uses only the modality's own
@@ -151,7 +164,7 @@ protected:
                            size_t forcedCutoff) const override;
 
     /** Detection-profile modification hook. The default applies the finite
-     *  pinhole disc average (pinholeRadius_nm > 0, no-op otherwise).
+     *  pinhole disc average (pinholeRadius_um > 0, no-op otherwise).
      *  Modality variants with a different detection geometry (spinning disk
      *  microlenses, crosstalk) extend ConfocalModalityConfig with their own
      *  parameters and override this instead of composeSlice. */
@@ -169,12 +182,12 @@ protected:
 
     /** Replace a radial intensity profile by its finite-pinhole average:
      *  I_pin(r) = (1/(pi R^2)) \int_{disc R} I(|r - s|) d^2s, evaluated in
-     *  polar coordinates. R is the pinhole radius at the sample plane in nm.
+     *  polar coordinates. R is the pinhole radius at the sample plane in um.
      *  Normalised by the pinhole area so the point-pinhole limit (R -> 0)
      *  preserves the profile amplitude. Returns a profile on the same radial
      *  grid as the input. */
     static std::vector<double> convolveRadialWithPinhole(const std::vector<double>& h,
                                                          double samplesPerPixel,
                                                          double pixelSizeLateral_nm,
-                                                         double pinholeRadius_nm);
+                                                         double pinholeRadius_um);
 };

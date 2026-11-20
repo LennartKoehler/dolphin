@@ -34,8 +34,8 @@ inline constexpr const char* kInverseFilter = "InverseFilter";
 inline constexpr const char* kRichardsonLucyTotalVariation = "RichardsonLucyTotalVariation";
 inline constexpr const char* kRegularizedInverseFilter = "RegularizedInverseFilter";
 inline constexpr const char* kRichardsonLucyAdaptiveDamping = "RichardsonLucywithAdaptiveDamping";
+inline constexpr const char* kPoissonMLEAdaptiveStep = "PoissonMLEAdaptiveStep";
 inline constexpr const char* kPoissonMLE = "PoissonMLE";
-inline constexpr const char* kPoissonMLEUnitStep = "PoissonMLEUnitStep";
 
 inline const std::vector<std::string>& names() {
     static const std::vector<std::string> all = {
@@ -45,8 +45,8 @@ inline const std::vector<std::string>& names() {
         kRichardsonLucyTotalVariation,
         kRegularizedInverseFilter,
         kRichardsonLucyAdaptiveDamping,
+        kPoissonMLEAdaptiveStep,
         kPoissonMLE,
-        kPoissonMLEUnitStep,
     };
     return all;
 }

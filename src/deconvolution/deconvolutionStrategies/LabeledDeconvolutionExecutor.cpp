@@ -111,7 +111,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         iobackend.getMemoryManager().memCopy(f_host, g_device);
     }
 
-    PaddedImage labelImage = labelReader->getSubimage(task.paddedBox);
+    PaddedImage labelImage = labelReader->getSubimagePadded(task.paddedBox);
 
     std::vector<Label<Image3D>> tasklabels = getLabelGroups(
         task.sharedDescriptor->psfs,
@@ -146,7 +146,8 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
                 g_label,
                 f_device,
                 *context->psfpreprocessor.get(),
-                tracker);
+                tracker,
+                task.sharedDescriptor->runContext);
 
             resultDone.get(); //wait for result
             iobackend.sync();

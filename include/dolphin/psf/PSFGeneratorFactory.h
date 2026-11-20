@@ -87,6 +87,10 @@ public:
         }
 
         config->printValues();
+        // Generic sanity pass over every registered parameter (base +
+        // modality + model). Warnings only: each generator validates the
+        // values it actually depends on with more context.
+        config->logParameterRangeViolations();
         return config;
     }
 

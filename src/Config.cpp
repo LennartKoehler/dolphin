@@ -12,7 +12,9 @@ See the LICENSE file provided with the code for the full license.
 */
 #include "dolphin/Config.h"
 
+#include <cmath>
 #include <fstream>
+#include <type_traits>
 #include <spdlog/spdlog.h>
 
 
@@ -153,5 +155,20 @@ bool Config::logUnvalidParameters(const json& jsonData) const {
 
     }
     return true;
+}
+
+void Config::logParameterRangeViolations() const {
+    const auto logger = spdlog::get("config");
+    const_cast<Config*>(this)->visitParams([this, &logger]<typename T>(T& value, ConfigParameter& param) {
+        if (!param.hasRange)
+            return;
+        if constexpr (std::is_arithmetic_v<T>) {
+            const double v = static_cast<double>(value);
+            if (!std::isfinite(v) || v < param.minVal || v > param.maxVal) {
+                logger->warn("({}) parameter '{}' = {} outside the expected range [{}, {}]",
+                             this->getName(), param.jsonTag, v, param.minVal, param.maxVal);
+            }
+        }
+    });
 }
 

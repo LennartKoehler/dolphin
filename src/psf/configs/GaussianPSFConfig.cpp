@@ -66,11 +66,17 @@ void GaussianPSFConfig::registerAllParameters(){
 
     // Gaussian-specific parameters
     // struct ConfigParameter: {type, value, name, optional, jsonTag, cliFlag, cliDesc, cliRequired, hasRange, minVal, maxVal, selection}
-    getParameters().push_back({ParameterType::Float, &qualityFactor, "Quality Factor", true, "quality_factor", "--quality_factor", "Quality factor", false, true, 0.1, 10.0, nullptr});
-    getParameters().push_back({ParameterType::Float, &sigmaX, "Sigma X", true, "sigma_x", "--sigma_x", "Sigma X", false, true, 0.1, 100.0, nullptr});
-    getParameters().push_back({ParameterType::Float, &sigmaY, "Sigma Y", true, "sigma_y", "--sigma_y", "Sigma Y", false, true, 0.1, 100.0, nullptr});
-    getParameters().push_back({ParameterType::Float, &sigmaZ, "Sigma Z", true, "sigma_z", "--sigma_z", "Sigma Z", false, true, 0.1, 100.0, nullptr});
-    getParameters().push_back({ParameterType::Float, &nanometerScale, "Nanometer Scale", true, "nanometer_scale", "--nanometer_scale", "Nanometer scale", false, true, 1e-9, 1e-6, nullptr});
-    getParameters().push_back({ParameterType::Float, &pixelScaling, "Pixel Scaling", true, "pixel_scaling", "--pixel_scaling", "Pixel scaling", false, true, 1e-9, 1e-4, nullptr});
+    // Bounds accept everything computable; the generator rejects the actual
+    // nonsense (sigma or factors <= 0) in GaussianPSFGenerator::validateConfig.
+    // Sigma is in pixels: a 10000 px sigma is an enormous blur but still
+    // evaluates; below 0.01 px the PSF is a delta spike.
+    getParameters().push_back({ParameterType::Float, &qualityFactor, "Quality Factor", true, "quality_factor", "--quality_factor", "Quality factor", false, true, 0.01, 100.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &sigmaX, "Sigma X", true, "sigma_x", "--sigma_x", "Sigma X", false, true, 0.01, 10000.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &sigmaY, "Sigma Y", true, "sigma_y", "--sigma_y", "Sigma Y", false, true, 0.01, 10000.0, nullptr});
+    getParameters().push_back({ParameterType::Float, &sigmaZ, "Sigma Z", true, "sigma_z", "--sigma_z", "Sigma Z", false, true, 0.01, 10000.0, nullptr});
+    // Unit conversion factors: only the sign is meaningful, so the range
+    // spans every positive value a unit system could produce.
+    getParameters().push_back({ParameterType::Float, &nanometerScale, "Nanometer Scale", true, "nanometer_scale", "--nanometer_scale", "Nanometer scale", false, true, 1e-15, 1e15, nullptr});
+    getParameters().push_back({ParameterType::Float, &pixelScaling, "Pixel Scaling", true, "pixel_scaling", "--pixel_scaling", "Pixel scaling", false, true, 1e-15, 1e15, nullptr});
 
 }

@@ -35,6 +35,7 @@ std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEUnitStepDeconvolutionAlgorithm
     copy->usePrior = usePrior;
     copy->sievePasses = sievePasses;
     copy->sieveScale = sieveScale;
+    copy->psfSigmasValid = false;
     copy->initialized = false;
     return copy;
 }

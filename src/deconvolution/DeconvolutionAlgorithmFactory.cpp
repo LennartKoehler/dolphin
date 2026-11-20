@@ -172,11 +172,13 @@ void DeconvolutionAlgorithmFactory::registerAlgorithms() {
         []() -> DeconvolutionAlgorithm* { return new RLADDeconvolutionAlgorithm(); },
         []() -> std::shared_ptr<DeconvolutionConfig> { return std::make_shared<RichardsonLucyADConfig>(); });
 
+    // "PoissonMLE" is the RL unit-step variant; "PoissonMLEAdaptiveStep" is the
+    // Newton line-search variant. Class names keep the UnitStep suffix.
     registerAlgorithm(DeconvolutionAlgorithms::kPoissonMLE,
-        []() -> DeconvolutionAlgorithm* { return new PoissonMLEDeconvolutionAlgorithm(); },
-        []() -> std::shared_ptr<DeconvolutionConfig> { return std::make_shared<PoissonMLEConfig>(); });
-
-    registerAlgorithm(DeconvolutionAlgorithms::kPoissonMLEUnitStep,
         []() -> DeconvolutionAlgorithm* { return new PoissonMLEUnitStepDeconvolutionAlgorithm(); },
         []() -> std::shared_ptr<DeconvolutionConfig> { return std::make_shared<PoissonMLEUnitStepConfig>(); });
+
+    registerAlgorithm(DeconvolutionAlgorithms::kPoissonMLEAdaptiveStep,
+        []() -> DeconvolutionAlgorithm* { return new PoissonMLEDeconvolutionAlgorithm(); },
+        []() -> std::shared_ptr<DeconvolutionConfig> { return std::make_shared<PoissonMLEConfig>(); });
 }

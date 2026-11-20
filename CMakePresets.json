@@ -10,10 +10,10 @@
       "name": "dev",
       "displayName": "Developer build (fast iteration)",
       "description": "Single native CUDA arch, no benchmarks, no individual test executables",
-      "binaryDir": "build-dev",
+      "binaryDir": "build",
       "generator": "Unix Makefiles",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_CUDA_ARCHITECTURES": "native",
         "ENABLE_TESTS": "ON",
         "ENABLE_BENCHMARKS": "OFF",

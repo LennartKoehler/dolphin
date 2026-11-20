@@ -11,6 +11,7 @@ The project code is licensed under the MIT license.
 See the LICENSE file provided with the code for the full license.
 */
 
+#include "dolphin/Dolphin.h"
 #include "dolphin_image/HelperClasses.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
@@ -189,7 +190,10 @@ std::vector<BoxCoordWithPadding> reduceSizeWhileKeepingNCubes(
                     imagePadding,
                     currentMaxSize);
             }
-            catch(DolphinImageSplitException& e){}// this can happen and should not abort the program, rather try something else, since this part was already reached its clear that its possible to get a valid configuration
+            catch(DolphinImageSplitException& e){
+                currentMaxSize = saved;
+                break;
+            }// this can happen and should not abort the program, rather try something else, since this part was already reached its clear that its possible to get a valid configuration
 
             if (newCubes.size() > targetCubeCount) {
                 currentMaxSize = saved; // max size is the previous max size as the most recent size reduction caused the number of cubes to go up (unwanted)
@@ -266,8 +270,10 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
                     imagePadding,
                     currentMaxSize);
             }
-            catch(const std::runtime_error& e){
-                return Result<std::vector<BoxCoordWithPadding>>::fail(e.what());
+            catch(const DolphinImageSplitException& e){
+                return Result<std::vector<BoxCoordWithPadding>>::fail(
+                    "ImageSplit: no cube size fits the memory budget. Last candidate (padded) "
+                    + currentMaxSize.print() + " needs: " + footprint.breakdown(currentMaxSize));
             }
 
             if (cubePositions.size() >= minNumberCubes)
@@ -294,21 +300,16 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
         }
     }
     size_t targetCubeCount = cubePositions.size();
-    try{
-        cubePositions = reduceSizeWhileKeepingNCubes(
-            currentMaxSize,
-            imageOriginalShape,
-            cubePadding,
-            imagePadding,
-            minSize,
-            targetCubeCount,
-            sliceAllDimensions,
-            std::move(cubePositions)
-        );
-    }
-    catch(const std::runtime_error& e){
-        return Result<std::vector<BoxCoordWithPadding>>::fail(e.what());
-    }
+    cubePositions = reduceSizeWhileKeepingNCubes(
+        currentMaxSize,
+        imageOriginalShape,
+        cubePadding,
+        imagePadding,
+        minSize,
+        targetCubeCount,
+        sliceAllDimensions,
+        std::move(cubePositions)
+    );
 
     return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(cubePositions));
 }
@@ -326,18 +327,13 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneousFixedSize(
     BoxCoord startCube{
         BoxCoord{CuboidShape(0,0,0), fixedCubeShape}
     };
-    try{
-        addCubeRecursion(
-            cubePositions,
-            startCube.position,
-            startCube,
-            imageOriginalShape,
-            cubePadding,
-            imagePadding,
-            fixedCubeShape);
-        return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(cubePositions));
-    }
-    catch(const std::runtime_error& e){
-        return Result<std::vector<BoxCoordWithPadding>>::fail(e.what());
-    }
+    addCubeRecursion(
+        cubePositions,
+        startCube.position,
+        startCube,
+        imageOriginalShape,
+        cubePadding,
+        imagePadding,
+        fixedCubeShape);
+    return Result<std::vector<BoxCoordWithPadding>>::ok(std::move(cubePositions));
 }
