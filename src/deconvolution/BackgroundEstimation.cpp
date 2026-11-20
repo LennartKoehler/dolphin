@@ -38,8 +38,9 @@ void forEachChunk(ImageReader& reader, const CuboidShape& imageShape,
     const size_t depth = chunkDepth(imageShape.depth, chunkHint, threads);
 
     // A plain z-padding: everything that comes from padding is dropped before
-    // accumulating, so its content does not matter.
-    Padding padding;
+    // accumulating, so its content does not matter. CuboidShape has no member
+    // initializers: always construct with explicit zeros, never `Padding p;`.
+    Padding padding{CuboidShape{0, 0, 0}, CuboidShape{0, 0, 0}};
     padding.before.depth = depth / 2;
     padding.after.depth = depth - depth / 2;
 
