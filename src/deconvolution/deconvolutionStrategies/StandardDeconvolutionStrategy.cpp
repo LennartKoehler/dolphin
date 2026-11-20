@@ -300,6 +300,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
             paddingScheme.imagePadding,
             imageSize,
             CuboidShape(deconvConfig.cubeSize));
+
     }
     else {
         cubeCoordinatesWithPaddingResult = splitImageHomogeneous(
@@ -311,6 +312,20 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
             minNumberCubes,
             minShape,
             deconvConfig.sliceAllDimensions);
+
+        if (!cubeCoordinatesWithPaddingResult.success && !deconvConfig.sliceAllDimensions){
+            spdlog::get("deconvolution")->warn("Failed to split Image while slicing only Z dimensions, trying with sliceAllDimensions");
+
+            cubeCoordinatesWithPaddingResult = splitImageHomogeneous(
+                paddingScheme.insidePadding,
+                paddingScheme.imagePadding,
+                imageSize,
+                budget,
+                footprint,
+                minNumberCubes,
+                minShape,
+                true);
+        }
     }
 
     if (!cubeCoordinatesWithPaddingResult.success) {
