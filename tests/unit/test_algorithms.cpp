@@ -107,7 +107,9 @@ TEST_P(DeconvolutionAlgorithmTest, AlgorithmInitAndDeconvolve) {
     auto g = imageToDevice(inputImg);
     RealData f = backend->getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(dataSize);
 
-    EXPECT_NO_THROW(algo->deconvolve(*H, g, f));
+    DeconvolutionRunContext ctx;
+    ctx.background = 0.0f; // PoissonMLE requires one; the others ignore it
+    EXPECT_NO_THROW(algo->deconvolve(*H, g, f, ctx));
 
     auto result = deviceToImage(f);
     EXPECT_EQ(result.getShape(), dataSize);
@@ -133,7 +135,9 @@ TEST_P(DeconvolutionAlgorithmTest, ImpulsePSFReturnsInput) {
     auto g = imageToDevice(inputImg);
     RealData f = backend->getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(dataSize);
 
-    algo->deconvolve(*H, g, f);
+    DeconvolutionRunContext ctx;
+    ctx.background = 0.0f; // PoissonMLE requires one; the others ignore it
+    algo->deconvolve(*H, g, f, ctx);
     auto result = deviceToImage(f);
 
     EXPECT_TRUE(result.isEqual(inputImg, 0.1f))
@@ -154,7 +158,9 @@ TEST_P(DeconvolutionAlgorithmTest, ZeroInputNoNaN) {
     auto g = imageToDevice(zeroImg);
     RealData f = backend->getMemoryManager().allocateMemoryOnDeviceRealFFTInPlace(dataSize);
 
-    EXPECT_NO_THROW(algo->deconvolve(*H, g, f));
+    DeconvolutionRunContext ctx;
+    ctx.background = 0.0f; // PoissonMLE requires one; the others ignore it
+    EXPECT_NO_THROW(algo->deconvolve(*H, g, f, ctx));
     auto result = deviceToImage(f);
     EXPECT_FALSE(TestUtils::hasNaN(result));
 }
@@ -406,10 +412,10 @@ TEST_F(AlgorithmTestBase, PoissonMLEGaussianPSFRoundTrip) {
     auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
     config.iterations = 30;
     config.signalToNoise = 20.0f;
-    config.poissonBackground = bg;
-    config.poissonSieve = true;
-    config.poissonPrior = true;
-    config.poissonSievePasses = 2;
+    config.background = bg;
+    config.sieve = true;
+    config.prior = true;
+    config.sievePasses = 2;
     auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     ASSERT_NE(algo, nullptr);
     algo->setBackend(*backend);
@@ -501,11 +507,11 @@ TEST_F(AlgorithmTestBase, PoissonMLESieveScaleKnob) {
         auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
         config.iterations = 30;
         config.signalToNoise = 1.0f;
-        config.poissonBackground = bg;
-        config.poissonSieve = true;
-        config.poissonPrior = true;
-        config.poissonSievePasses = 2;
-        config.poissonSieveScale = sieveScale;
+        config.background = bg;
+        config.sieve = true;
+        config.prior = true;
+        config.sievePasses = 2;
+        config.sieveScale = sieveScale;
         auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
         if (!algo) return Image3D(dataSize, 0.0f);
         algo->setBackend(*backend);
@@ -598,18 +604,20 @@ TEST_F(AlgorithmTestBase, PoissonMLEPrefilterAutoBackground) {
         auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
         config.iterations = 30;
         config.signalToNoise = 20.0f;
-        config.poissonBackground = -1.0f; // auto
-        config.poissonPrefilter = prefilter;
-        config.poissonPrefilterScale = 0.3f;
-        config.poissonSieve = true;
-        config.poissonPrior = true;
-        config.poissonSievePasses = 2;
+        config.background = -1.0f; // resolved by the plan; provided below
+        config.prefilter = prefilter;
+        config.prefilterScale = 0.3f;
+        config.sieve = true;
+        config.prior = true;
+        config.sievePasses = 2;
         auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
         if (!algo) throw std::runtime_error("PoissonMLE algorithm not created");
         algo->setBackend(*backend);
         algo->init(dataSize);
         RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
-        algo->deconvolve(*H, g, f);
+        DeconvolutionRunContext ctx;
+        ctx.background = bg; // the measured data background
+        algo->deconvolve(*H, g, f, ctx);
         backend->sync();
         return deviceToImage(f);
     };
@@ -693,19 +701,21 @@ TEST_F(AlgorithmTestBase, PoissonMLERemovesOutputPedestal) {
     auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
     config.iterations = 30;
     config.signalToNoise = 20.0f;
-    config.poissonBackground = -1.0f; // auto
-    config.poissonPrefilter = true;
-    config.poissonPrefilterScale = 0.3f;
-    config.poissonSieve = true;
-    config.poissonPrior = true;
-    config.poissonSievePasses = 2;
+    config.background = -1.0f; // auto
+    config.prefilter = true;
+    config.prefilterScale = 0.3f;
+    config.sieve = true;
+    config.prior = true;
+    config.sievePasses = 2;
     auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     ASSERT_NE(algo, nullptr);
     algo->setBackend(*backend);
     algo->init(dataSize);
 
     RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
-    algo->deconvolve(*H, g, f);
+    DeconvolutionRunContext ctx;
+    ctx.background = bg; // the measured data background
+    algo->deconvolve(*H, g, f, ctx);
     backend->sync();
 
     Image3D result = deviceToImage(f);
@@ -756,12 +766,14 @@ TEST_F(AlgorithmTestBase, PoissonMLENegativePSFNoNaN) {
     auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
     config.iterations = 2;
     config.signalToNoise = 10.0f;
-    config.poissonSieve = false;
-    config.poissonPrior = false;
+    config.sieve = false;
+    config.prior = false;
     auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     algo->setBackend(*backend);
     algo->init(shape);
-    algo->deconvolve(*H, g, f);
+    DeconvolutionRunContext ctx;
+    ctx.background = 0.0f;
+    algo->deconvolve(*H, g, f, ctx);
     backend->sync();
 
     // f is a padded FFT-in-place buffer: read it strided (via access), not flat.
@@ -824,10 +836,10 @@ TEST_F(AlgorithmTestBase, PoissonMLEWidePSFSharpPeaksNoNaN) {
     auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
     config.iterations = 6;
     config.signalToNoise = 10.0f;      // lambda = 0.1
-    config.poissonBackground = bg;
-    config.poissonSieve = true;
-    config.poissonPrior = true;
-    config.poissonSievePasses = 2;
+    config.background = bg;
+    config.sieve = true;
+    config.prior = true;
+    config.sievePasses = 2;
     auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     ASSERT_NE(algo, nullptr);
     algo->setBackend(*backend);
@@ -844,4 +856,78 @@ TEST_F(AlgorithmTestBase, PoissonMLEWidePSFSharpPeaksNoNaN) {
     float mn = 1e30f;
     for (const auto& it : result) mn = std::min(mn, (float)it);
     EXPECT_GE(mn, 0.0f) << "estimate went negative (min=" << mn << ")";
+}
+
+// The plan resolves ONE background for the whole image and passes it through the
+// run context; every cube must be deconvolved against that same level. Identical
+// data cubes therefore must give bit-identical results no matter which cube they
+// represent - a per-tile estimate would differ and leave visible seams.
+TEST_F(AlgorithmTestBase, PoissonMLEGlobalBackgroundIsUsedForEveryCube) {
+    const float bg = 0.03f;
+    Image3D input = TestUtils::createRandomImage(16, 16, 16);
+    for (auto& v : input) v = std::abs(v) * 0.5f + bg;
+
+    auto psfImg = Image3D(dataSize, 0.0f);
+    psfImg.setPixel(7, 8, 8, 1.0f);
+    auto H = preprocessPSF(std::make_shared<PSF>(std::move(psfImg), "impulse_bg"), dataSize);
+    const auto& mem = backend->getMemoryManager();
+
+    auto runWithContext = [&](const DeconvolutionRunContext& ctx) {
+        auto configOwner = makeConfig("PoissonMLE");
+        auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
+        config.iterations = 3;
+        config.signalToNoise = 10.0f;
+        config.background = -1.0f; // auto -> resolved from the context
+        config.backgroundStrategyType = BACKGROUND_GLOBAL;
+        auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
+        algo->setBackend(*backend);
+        algo->init(dataSize);
+
+        RealData g = imageToDevice(input);
+        RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+        algo->deconvolve(*H, g, f, ctx);
+        backend->sync();
+        return deviceToImage(f);
+    };
+
+    DeconvolutionRunContext global;
+    global.background = bg;
+    const Image3D cubeA = runWithContext(global);
+    const Image3D cubeB = runWithContext(global);
+
+    EXPECT_TRUE(cubeA.isEqual(cubeB, 0.0f)) << "same background must give identical cubes";
+    EXPECT_FALSE(TestUtils::hasNaN(cubeA));
+
+    // A different global level must change the result (it is actually used).
+    DeconvolutionRunContext other;
+    other.background = 4.0f * bg;
+    const Image3D cubeOther = runWithContext(other);
+    EXPECT_FALSE(cubeA.isEqual(cubeOther, 1e-4f))
+        << "the run context background was ignored";
+}
+
+// Without an explicit level and without a plan-resolved background the
+// deconvolution must fail loudly instead of guessing a per-tile value (which
+// would differ between cubes and leave seams).
+TEST_F(AlgorithmTestBase, PoissonMLEWithoutBackgroundFails) {
+    Image3D input = TestUtils::createRandomImage(16, 16, 16);
+    for (auto& v : input) v = std::abs(v) * 0.5f + 0.03f;
+
+    auto psfImg = Image3D(dataSize, 0.0f);
+    psfImg.setPixel(7, 8, 8, 1.0f);
+    auto H = preprocessPSF(std::make_shared<PSF>(std::move(psfImg), "impulse_bg"), dataSize);
+    const auto& mem = backend->getMemoryManager();
+
+    auto configOwner = makeConfig("PoissonMLE");
+    auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
+    config.iterations = 3;
+    config.background = -1.0f; // auto, but no context value provided below
+    auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
+    algo->setBackend(*backend);
+    algo->init(dataSize);
+
+    RealData g = imageToDevice(input);
+    RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+    DeconvolutionRunContext empty; // no background
+    EXPECT_THROW(algo->deconvolve(*H, g, f, empty), std::runtime_error);
 }

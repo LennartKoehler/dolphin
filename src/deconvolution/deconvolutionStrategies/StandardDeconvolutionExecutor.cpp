@@ -102,7 +102,8 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
         g_device,
         f_device,
         *context->psfpreprocessor.get(),
-        tracker);
+        tracker,
+        task.sharedDescriptor->runContext);
 
     resultDone.get();
     iobackend.sync();
@@ -159,9 +160,19 @@ void StandardDeconvolutionExecutor::parallelDeconvolution(
     }
     spdlog::get("deconvolution")->debug("All {} task(s) enqueued, waiting for completion", channelPlan.totalTasks);
 
-    // Wait for all remaining tasks to finish
-    for (auto& f : runningTasks)
-        f.get();
+    // Wait for all remaining tasks to finish. A failed task must not skip the
+    // others: they would keep running while their executors/contexts are torn
+    // down (use-after-free). Remember the first error, wait for everything,
+    // then rethrow.
+    std::exception_ptr firstError;
+    for (auto& f : runningTasks) {
+        try {
+            f.get();
+        } catch (...) {
+            if (!firstError) firstError = std::current_exception();
+        }
+    }
+    if (firstError) std::rethrow_exception(firstError);
 
     spdlog::get("deconvolution")->info("Parallel deconvolution finished");
 }

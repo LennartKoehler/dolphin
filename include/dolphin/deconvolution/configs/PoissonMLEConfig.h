@@ -36,28 +36,29 @@ public:
     static constexpr const char* kAlgorithmName = DeconvolutionAlgorithms::kPoissonMLEAdaptiveStep;
 
     // Shrinkage strength lambda for the prior step. 0 => derive from signalToNoise.
-    float poissonLambda = 0.0f;
-    // Background level bg. <0 => estimate from the data (min of the prefiltered
-    // estimate when the prefilter is on, else the mean of the dimmest decile).
-    float poissonBackground = -1.0f;
+    float lambda = 0.0f;
+    // Background level bg. >= 0: explicit level, no estimate. < 0: the plan
+    // resolves it once for the whole image (background_strategy) and passes it
+    // to every cube; deconvolution fails if it is missing.
+    float background = -1.0f;
     // Enable the prefilter: a single mild anisotropic Gaussian low-pass of the raw
     // data g, used as the MLE's initial estimate f0.
-    bool poissonPrefilter = true;
+    bool prefilter = true;
     // Prefilter width scale: per-axis sigma = poissonPrefilterScale * PSF sigma.
     // 0.3 reproduces the reference ("sigma ~= 0.3 * PSF width"); 0 disables the blur.
-    float poissonPrefilterScale = 0.3f;
+    float prefilterScale = 0.3f;
     // Enable the annealed anisotropic Gaussian roughness ("sieve") step.
-    bool poissonSieve = true;
+    bool sieve = true;
     // Enable the lambda-shrinkage + flux-conservation prior step.
-    bool poissonPrior = true;
+    bool prior = false;
     // Number of sieve smoothing passes per iteration.
-    int poissonSievePasses = 2;
+    int sievePasses = 2;
     // Sieve peak width as a fraction of the PSF width (per-axis) at SNR=1, annealed
     // to 0 over the run. It is coupled to SNR like the prior: effective scale =
     // poissonSieveScale / snr, so the sieve is as wide as this fraction at snr=1 and
     // fades to the identity (pure MLE) as snr -> inf. Lower base = sharper / more
     // contrast; 0 disables the sieve.
-    float poissonSieveScale = 0.1f;
+    float sieveScale = 0.1f;
 
 protected:
     void registerAllParameters() override;

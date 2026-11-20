@@ -64,12 +64,14 @@ set(ALL_TEST_SOURCES
     unit/test_image_padding.cpp
     unit/test_image_operations.cpp
     unit/test_preprocessor.cpp
+    unit/test_background_statistics.cpp
     backends/fft_backend_test.cpp
     backends/dolphinbackend/memory_exception_example.cpp
     backends/independent_fft_test.cpp
     integration/cubeShapeTest.cpp
     integration/main_integration_test.cpp
     integration/e2e_deconvolution_test.cpp
+    integration/poisson_mle_e2e_test.cpp
     integration/peak_memory_test.cpp
     image/image_comparison_test.cpp
     deconvolution/feathering_test.cpp
@@ -81,6 +83,7 @@ set(ALL_TEST_SOURCES
     IO/tiff_generation_test.cpp
     IO/mirror_padding_test.cpp
     IO/tiff_reader_test.cpp
+    IO/background_estimation_test.cpp
     ${CMAKE_SOURCE_DIR}/backends/cpu/tests/test_cpu_backend.cpp
 )
 

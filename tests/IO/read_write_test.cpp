@@ -125,7 +125,7 @@ TEST_F(ReadWriteTest, ReadSubimage) {
     box.box.dimensions = CuboidShape(2, 2, 2);
     box.padding.before = CuboidShape(0, 0, 0);
     box.padding.after = CuboidShape(0, 0, 0);
-    PaddedImage readPadded = reader.getSubimage(box);
+    PaddedImage readPadded = reader.getSubimagePadded(box);
     Image3D expectedResult = TestUtils::createGradientImage(2, 2, 2);
 
     EXPECT_EQ(readPadded.image.getShape(), expectedResult.getShape());

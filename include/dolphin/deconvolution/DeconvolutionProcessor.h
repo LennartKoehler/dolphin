@@ -16,6 +16,7 @@ See the LICENSE file provided with the code for the full license.
 #include <vector>
 #include <memory>
 #include "dolphinbackend/ComplexData.h"
+#include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphin/ThreadPool.h"
 
 struct CuboidShape;
@@ -40,7 +41,8 @@ public:
         RealData& g_device,
         RealData& f_device,
         PSFPreprocessor& psfpreprocessor,
-        std::function<void(int)> progressFunction);
+        std::function<void(int)> progressFunction,
+        const DeconvolutionRunContext& runContext = {});
 
 private:
 

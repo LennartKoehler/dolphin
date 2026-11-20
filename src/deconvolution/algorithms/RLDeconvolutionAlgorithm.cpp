@@ -55,7 +55,8 @@ bool RLDeconvolutionAlgorithm::isInitialized() const {
     return initialized;
 }
 
-void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f) {
+void RLDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f,
+    const DeconvolutionRunContext& /*runContext*/) {
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     const IComputeBackend& deconvolution = backend->getComputeManager();
