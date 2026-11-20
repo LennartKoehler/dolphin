@@ -71,7 +71,7 @@ public:
     }
     bool isAvailable(size_t amount){
         LockedAccess memory = LockedAccess(memoryMutex, data);
-        if (memory.data.maxMemorySize > memory.data.totalUsedMemory + amount){
+        if (memory.data.maxMemorySize >= memory.data.totalUsedMemory + amount){
             return true;
         }
         return false;
