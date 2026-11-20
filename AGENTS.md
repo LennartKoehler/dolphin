@@ -72,7 +72,7 @@ per-file test executables are opt-in: `-DDOLPHIN_INDIVIDUAL_TESTS=ON`.
 - TIFF reading auto-detects file vs directory based on extension
 - Results always saved to `../result/` directory relative to executable
 
-### Frontend Architecture  
+### Frontend Architecture
 - Dual frontend system: `CLIFrontend` for CLI, `GUIFrontend` for GUI
 - CLI and GUI are separate executables with separate `main.cpp` files
 - GUI passes `Dolphin` instance directly to constructor (unusual dependency injection)
@@ -124,11 +124,6 @@ per-file test executables are opt-in: `-DDOLPHIN_INDIVIDUAL_TESTS=ON`.
 2. Register in factory constructor
 3. Add CLI option in frontend
 4. Update default configurations
-
-### GUI Development
-- ImGui-based interface with ImPlot3D for 3D visualization
-- Spinning donut animation in `SpinningDonut.cpp` for loading indicator
-- Window hierarchy uses `MainWindow` -> `ConfigWindow` -> `BackendConfigWindow` pattern
 
 ### Code Style
 - Header implementations in separate .cpp files (unusual for C++ projects)
