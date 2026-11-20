@@ -101,9 +101,6 @@ size_t CUDABackendManager::getNumberDevices() const {
     return nDevices;
 }
 
-size_t CUDABackendManager::getMaxNumberThreads() const {
-    return 1;
-}
 
 size_t CUDABackendManager::getAvailableMemoryPerDevice() const {
     size_t minFree = SIZE_MAX;
@@ -126,9 +123,9 @@ void CUDABackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, 
 
     switch (inputThreadConfig.getMode()) {
         case ThreadMode::Auto:
-            inputThreadConfig.nIOThreads = getMaxNumberThreads() >= 2 ? 2 : 1;
+            inputThreadConfig.nIOThreads = 2;
             inputThreadConfig.nWorkerThreads = 1;
-            inputThreadConfig.nReaderThreads = getMaxNumberThreads();
+            inputThreadConfig.nReaderThreads = 2;
             break;
         case ThreadMode::Total:
             inputThreadConfig.nIOThreads = inputThreadConfig.nThreads >= 2 ? 2 : 1;
