@@ -55,14 +55,6 @@ PSF generateTestPSF(std::shared_ptr<PSFConfig> config) {
 PSF generateTestPSF(const json& j) {
     return generateTestPSF(PSFGeneratorFactory::getInstance().createConfig(j));
 }
-} // namespace
-
-class PSFGeneratorTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        Logging::init();
-    }
-};
 
 // Fast GibsonLanni config: coarser pixels, lower accuracy, bounded domain.
 // All assertions are relative to the generated PSF, so this is pure effort
@@ -79,6 +71,38 @@ inline json fastGlJSON() {
     j["oversampling_factor"] = 2;
     return j;
 }
+
+// One shared generation of the fastGlJSON() auto-size PSF. Every autosize
+// test below asserts on ONE deterministic output, so they share it (and its
+// generation) instead of each regenerating the identical 375x375x49 volume.
+// Determinism across generations is covered by
+// GibsonLanniQuadratureMatchesAdaptiveSimpson.
+inline const PSF& sharedAutoSizePSF(bool normalize) {
+    static const PSF normalized = [] {
+        auto config = PSFGeneratorFactory::getInstance().createConfig(fastGlJSON());
+        config->autoSize = true;
+        config->normalizePSF = true;
+        return generateTestPSF(config);
+    }();
+    static const PSF unnormalized = [] {
+        auto config = PSFGeneratorFactory::getInstance().createConfig(fastGlJSON());
+        config->autoSize = true;
+        config->normalizePSF = false;
+        return generateTestPSF(config);
+    }();
+    return normalize ? normalized : unnormalized;
+}
+} // namespace
+
+class PSFGeneratorTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        Logging::init();
+    }
+
+    static const PSF& sharedAutoSizePSF() { return ::sharedAutoSizePSF(true); }
+    static const PSF& sharedAutoSizePSFUnnormalized() { return ::sharedAutoSizePSF(false); }
+};
 
 TEST_F(PSFGeneratorTest, SimpsonAccuracyMapsToK) {
     SimpsonIntegrator integrator;
@@ -253,14 +277,7 @@ TEST_F(PSFGeneratorTest, GaussianPSFCreateFromConfig) {
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniPSFGeneration) {
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = fastGlJSON();
-    auto config = factory.createConfig(j);
-    config->autoSize = true;
-    config->cutoffThreshold = 0.05f;
-    PSF generator = generateTestPSF(config);
-
-    PSF psf = generator;
+    const PSF& psf = sharedAutoSizePSF();
     CuboidShape shape = psf.getShape();
     EXPECT_GT(shape.width, 0u);
     EXPECT_GT(shape.height, 0u);
@@ -273,13 +290,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniPSFGeneration) {
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniPSFCentered) {
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = fastGlJSON();
-    auto config = factory.createConfig(j);
-    config->autoSize = true;
-    config->cutoffThreshold = 0.05f;
-    PSF generator = generateTestPSF(config);
-    PSF psf = generator;
+    const PSF& psf = sharedAutoSizePSF();
 
     CuboidShape shape = psf.getShape();
     float maxVal = psf.getMax();
@@ -342,13 +353,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeExactShape) {
     //   soft cap of 150, so a warning logs; nothing is truncated)
     //   axial   = ceil(max(12000, 2*610.71)/500) = 24
     //   -> box 375 x 375 x 49
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = fastGlJSON();
-    auto config = factory.createConfig(j);
-    config->autoSize = true;
-    PSF generator = generateTestPSF(config);
-
-    PSF psf = generator;
+    const PSF& psf = sharedAutoSizePSF();
     CuboidShape shape = psf.getShape();
 
     EXPECT_EQ(shape.width, 375u);
@@ -360,24 +365,32 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeGrowsWithImageDepth) {
     // A deeper imaged volume defocuses farther -> larger cone spread and
     // longer axial stack. sizeZ 48 -> 96 doubles zMax:
     //   48: zMax=12000 -> 375x375x49;  96: zMax=24000 -> 745x745x97
-    auto& factory = PSFGeneratorFactory::getInstance();
-
-    auto shapeFor = [&](int sizeZ) {
-        json j = fastGlJSON();
-        j["size_z"] = sizeZ;
-        auto config = factory.createConfig(j);
-        config->autoSize = true;
-        PSF generator = generateTestPSF(config);
-        return generator.getShape();
+    // Size growth is a property of the analytic sizing model, so it is
+    // asserted directly on it (a full 745x745x97 generation only to read its
+    // shape cost ~30 s); the end-to-end auto-size path is covered by
+    // GibsonLanniAutoSizeExactShape (48) and the AutoBoxEndToEnd tests.
+    auto boxFor = [](size_t sizeZ) {
+        GibsonLanniPSFConfig cfg;
+        cfg.NA = 1.4f;
+        cfg.ni0 = 1.515f;
+        cfg.ni = 1.515f;
+        cfg.ns = 1.33f;
+        cfg.ng = cfg.ng0 = 1.5f;
+        cfg.wavelength_nm = 450.0f;
+        cfg.pixelSizeLateral_nm = 500.0f;
+        cfg.pixelSizeAxial_nm = 500.0f;
+        cfg.sizeZ = sizeZ;
+        auto res = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, cfg.resolutionCriterion);
+        return PSFBoxSizing::computeBoxHalfExtent(res, cfg);
     };
 
-    CuboidShape shallow = shapeFor(48);
-    CuboidShape deep = shapeFor(96);
+    const auto shallow = boxFor(48);
+    const auto deep = boxFor(96);
 
-    EXPECT_EQ(shallow.width, 375u);
-    EXPECT_EQ(shallow.depth, 49u);
-    EXPECT_EQ(deep.width, 745u);
-    EXPECT_EQ(deep.depth, 97u);
+    EXPECT_EQ(2 * shallow.lateral + 1, 375u);
+    EXPECT_EQ(2 * shallow.axial + 1, 49u);
+    EXPECT_EQ(2 * deep.lateral + 1, 745u);
+    EXPECT_EQ(2 * deep.axial + 1, 97u);
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeIgnoresSizeXY) {
@@ -605,13 +618,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxEndToEndDefaultConfig) {
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniAnalyticBoxIsSymmetric) {
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = fastGlJSON();
-    auto config = factory.createConfig(j);
-    config->autoSize = true;
-    PSF generator = generateTestPSF(config);
-
-    PSF psf = generator;
+    const PSF& psf = sharedAutoSizePSF();
     CuboidShape shape = psf.getShape();
 
     EXPECT_EQ(shape.width, shape.height);
@@ -622,14 +629,9 @@ TEST_F(PSFGeneratorTest, GibsonLanniBoxAllValuesComputed) {
     // Every voxel inside the box must be a real integrated value (no zero
     // placeholder from per-slice disk shrinking). With a unit-flux normalised
     // PSF the far in-box corner is small but strictly positive.
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = fastGlJSON();
-    auto config = factory.createConfig(j);
-    config->autoSize = true;
-    config->normalizePSF = false;
-    PSF generator = generateTestPSF(config);
-
-    PSF psf = generator;
+    // Unnormalised: normalisation preserves the zero/non-zero pattern but the
+    // dedicated unnormalised PSF keeps this test independent of it.
+    const PSF& psf = sharedAutoSizePSFUnnormalized();
     CuboidShape shape = psf.getShape();
 
     // The lateral edge midpoint sits at exactly the box half-width (radius =
@@ -644,12 +646,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniBoxAllValuesComputed) {
 
 
 TEST_F(PSFGeneratorTest, GibsonLanniPeakNearCenter) {
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = fastGlJSON();
-    auto config = factory.createConfig(j);
-    config->autoSize = true;
-    PSF generator = generateTestPSF(config);
-    PSF psf = generator;
+    const PSF& psf = sharedAutoSizePSF();
 
     CuboidShape shape = psf.getShape();
     size_t cx = shape.width / 2;
@@ -666,13 +663,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniPeakNearCenter) {
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniUnitFluxNormalization) {
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = fastGlJSON();
-    auto config = factory.createConfig(j);
-    config->autoSize = true;
-    config->normalizePSF = true;
-    PSF generator = generateTestPSF(config);
-    PSF psf = generator;
+    const PSF& psf = sharedAutoSizePSF();
 
     double sum = 0.0;
     for (auto it = psf.cbegin(); it != psf.cend(); ++it)
@@ -692,12 +683,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniResolutionCriterionFromJSON) {
 TEST_F(PSFGeneratorTest, GibsonLanniCenteredPeak) {
     // The symmetric analytic box anchors the PSF on the reference slice; the
     // on-axis peak must stay within a couple of slices of the center.
-    auto& factory = PSFGeneratorFactory::getInstance();
-    json j = fastGlJSON();
-    auto config = factory.createConfig(j);
-    config->autoSize = true;
-    PSF generator = generateTestPSF(config);
-    PSF psf = generator;
+    const PSF& psf = sharedAutoSizePSF();
 
     CuboidShape shape = psf.getShape();
     size_t cx = shape.width / 2;
