@@ -640,7 +640,7 @@ void progressVisualization(std::atomic<float>& current, float max){
 }
 
 void loggingCallback(spdlog::level::level_enum level, const std::string& message){
-    if (level >= spdlog::level::info){
+    if (level == spdlog::level::info){
         std::cout << "[" << spdlog::level::to_string_view(level).data() << "] " <<  message << "\n";
     }
 }

@@ -174,7 +174,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     if (const auto strategy = globalBackgroundStrategy(*algorithm, deconvConfig)) {
         runContext.background = (*strategy == BACKGROUND_WHOLE_IMAGE)
             ? estimateImageBackground(*reader, imageSize, workShape.box.dimensions,
-                                      deconvConfig.paddingFillType, nReaderThreads)
+                                      nReaderThreads)
             : estimateBackgroundFromSampleCube(*readerHandler, cubeCoordinatesWithPadding[0]);
         spdlog::get("deconvolution")->info(
             "Using background {:.6f} ({}) for all cubes",

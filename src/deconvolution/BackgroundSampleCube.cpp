@@ -52,8 +52,8 @@ float estimateBackgroundFromSampleCube(
 
     const float bg = stats.background();
     spdlog::get("deconvolution")->debug(
-        "Background from sample cube ({}): {:.6f} (dimmest {:.0f}%, range [{:.6f}, {:.6f}])",
+        "Background from sample cube ({}): {:.6f} (mode below the {:.0f}th percentile, range [{:.6f}, {:.6f}])",
         cube.box.print(),
-        bg, BackgroundStatistics::kDarkFraction * 100.0f, stats.min(), stats.max());
+        bg, BackgroundStatistics::kSearchQuantile * 100.0f, stats.min(), stats.max());
     return bg;
 }

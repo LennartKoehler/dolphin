@@ -17,7 +17,7 @@ See the LICENSE file provided with the code for the full license.
 
 class ImageReader;
 
-// Whole-image background (mean of the dimmest decile) for one channel.
+// Whole-image background (low percentile of the data) for one channel.
 //
 // Reads the image in z-chunks through the reader (so it works for images far
 // larger than RAM), applies the same padding as the deconvolution cubes, and
@@ -32,5 +32,4 @@ class ImageReader;
 float estimateImageBackground(ImageReader& reader,
                               const CuboidShape& imageShape,
                               const CuboidShape& chunkHint,
-                              PaddingFillType fill,
                               size_t readerThreads);

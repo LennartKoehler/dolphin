@@ -28,15 +28,6 @@ See the LICENSE file provided with the code for the full license.
 
 namespace {
 
-// Exact reference: mean of the dimmest kDarkFraction of `values`.
-float referenceBackground(std::vector<float> values) {
-    std::sort(values.begin(), values.end());
-    const size_t n = std::max<size_t>(1, static_cast<size_t>(
-        std::ceil(static_cast<double>(values.size()) * BackgroundStatistics::kDarkFraction)));
-    const double sum = std::accumulate(values.begin(), values.begin() + static_cast<long>(n), 0.0);
-    return static_cast<float>(sum / static_cast<double>(n));
-}
-
 // Runs both streaming passes over `image`, exactly as estimateImageBackground
 // does for one chunk.
 float streamBackground(const Image3D& image, const Padding& padding, PaddingFillType fill) {
@@ -45,13 +36,6 @@ float streamBackground(const Image3D& image, const Padding& padding, PaddingFill
     stats.setRange(stats.min(), stats.max());
     forEachCountedVoxel(image, BackgroundStatisticsDetail::HistogramAccumulator{stats});
     return stats.background();
-}
-
-std::vector<float> valuesOf(const Image3D& image) {
-    std::vector<float> values;
-    values.reserve(image.getShape().getVolume());
-    for (const auto& v : image) values.push_back(static_cast<float>(v));
-    return values;
 }
 
 // Flat background with 2% camera noise, plus ~2% bright object voxels.
@@ -86,15 +70,16 @@ TEST(BackgroundStatisticsTest, ConstantImageReturnsConstant) {
     EXPECT_FLOAT_EQ(streamBackground(image, kNoPadding, PaddingFillType::ZERO), bg);
 }
 
-TEST(BackgroundStatisticsTest, MatchesExactDimmestDecile) {
+TEST(BackgroundStatisticsTest, MatchesBackgroundLevel) {
     const float bg = 0.05f;
     Image3D image = backgroundWithObjects(32, 24, 16, bg, 1234);
-    const float expected = referenceBackground(valuesOf(image));
     const float actual = streamBackground(image, kNoPadding, PaddingFillType::ZERO);
 
-    // Log bins (~1% relative resolution) on a narrow, unimodal background.
-    EXPECT_NEAR(actual, expected, 0.02f * bg)
-        << "streaming background " << actual << " vs exact " << expected;
+    // The mode of the dark cluster recovers the noise floor's mean (mu) much
+    // better than any low percentile (mu - 1.28 sigma or darker); remaining
+    // error is bin resolution (~1% relative) and sampling.
+    EXPECT_NEAR(actual, bg, 0.05f * bg)
+        << "streaming background " << actual << " vs true level " << bg;
 }
 
 TEST(BackgroundStatisticsTest, ExplicitChunksMatchWholeImage) {
@@ -121,31 +106,10 @@ TEST(BackgroundStatisticsTest, ExplicitChunksMatchWholeImage) {
     EXPECT_FLOAT_EQ(chunked.background(), whole);
 }
 
-TEST(BackgroundStatisticsTest, GradientPaddingDoesNotBiasEstimate) {
-    // A linear (fading-to-zero) fill pads with values below the background. Those
-    // padded voxels must not be counted, otherwise every image-border chunk would
-    // pull the estimate down.
-    const float bg = 0.2f;
-    Image3D interior = backgroundWithObjects(16, 16, 16, bg, 5);
-    const float expected = referenceBackground(valuesOf(interior));
-    EXPECT_GT(expected, 0.9f * bg);
-
-    Padding padding;
-    padding.before = CuboidShape(4, 4, 4);
-    padding.after = CuboidShape(4, 4, 4);
-    Image3D padded = interior;
-    ImagePadding::padImage(padded, padding, PaddingFillType::LINEAR);
-
-    // Counting the padded chunk with the linear fill must skip the border.
-    const float actual = streamBackground(padded, padding, PaddingFillType::LINEAR);
-    EXPECT_NEAR(actual, expected, 0.02f * bg);
-
-    // Sanity: with a ZERO fill the (true) padding zeros ARE counted.
-    Image3D zeroPadded = interior;
-    ImagePadding::padImage(zeroPadded, padding, PaddingFillType::ZERO);
-    const float withZeros = streamBackground(zeroPadded, padding, PaddingFillType::ZERO);
-    EXPECT_LT(withZeros, 0.5f * bg) << "zero padding should count as background";
-}
+// NOTE: the former GradientPaddingDoesNotBiasEstimate test was removed on this
+// branch: background reads are unpadded now (ReaderHandler::getSubimage), so
+// synthetic padding fill can never enter the estimate. The guarantee lives in
+// the read layer, covered by tests/IO/background_estimation_test.cpp.
 
 TEST(BackgroundStatisticsTest, IgnoresNonFiniteSamples) {
     BackgroundStatistics stats;
@@ -162,6 +126,94 @@ TEST(BackgroundStatisticsTest, IgnoresNonFiniteSamples) {
     EXPECT_GE(stats.background(), 1.0f);
     EXPECT_LE(stats.background(), 2.0f);
 }
+// Regression: a tiny fraction of exact-zero voxels (dead pixels) must not
+// collapse the estimate to 0. With min = 0 the old histogram anchored on
+// kMinQuantile = 1e-12, so the bins spanned [1e-12, 1e-11], every real value
+// clamped into the last bin (representative ~1e-11) and background() returned
+// ~0.0000 - even though 99.99% of the image sat at the real dark level.
+TEST(BackgroundStatisticsTest, FewExactZerosDoNotCollapseEstimate) {
+    const float bg = 0.05f;
+    // 200 x 200 x 20 = 800k voxels; 260 exact zeros (~0.03%), the user's case.
+    Image3D image = backgroundWithObjects(200, 200, 20, bg, 99);
+    const size_t zeros = 260;
+    for (size_t i = 0; i < zeros; ++i) {
+        image.setPixel(i % 200, (i / 200) % 200, i / 40000, 0.0f);
+    }
+
+    const float actual = streamBackground(image, kNoPadding, PaddingFillType::ZERO);
+    EXPECT_GT(actual, 0.9f * bg)
+        << "estimate collapsed to " << actual << " despite the background at " << bg;
+
+    // The mode of the dark cluster stays at the true level; the handful of
+    // zeros lives in its own bin and does not shift it.
+    EXPECT_NEAR(actual, bg, 0.05f * bg)
+        << "streaming background " << actual << " vs true level " << bg;
+}
+
+// The user's real-data case: the background occupies only a small minority of
+// the image (here 3%), the rest is brighter haze. A percentile at ANY level
+// below 97% lands in the foreground (measured: ~120 when the background is 80,
+// even at the 5th percentile). The background is still the darkest dense
+// cluster, so the estimate must find that cluster's mode instead.
+TEST(BackgroundStatisticsTest, MinorityBackgroundStillFoundByMode) {
+    const float bg = 80.0f;
+    // 400 x 400 x 20 = 3.2M voxels; 3% stay at the background (+11% noise),
+    // the remaining 97% are bright haze spread over [150, 600].
+    Image3D image(CuboidShape(400, 400, 20), 0.0f);
+    std::mt19937 gen(42);
+    std::normal_distribution<float> noise(0.0f, bg * 0.11f);
+    std::uniform_real_distribution<float> haze(150.0f, 600.0f);
+    std::uniform_real_distribution<float> coin(0.0f, 1.0f);
+    for (size_t z = 0; z < 20; ++z)
+        for (size_t y = 0; y < 400; ++y)
+            for (size_t x = 0; x < 400; ++x) {
+                image.setPixel(x, y, z,
+                               coin(gen) < 0.03f ? bg + noise(gen) : haze(gen));
+            }
+
+    const float actual = streamBackground(image, kNoPadding, PaddingFillType::ZERO);
+    EXPECT_NEAR(actual, bg, 0.1f * bg)
+        << "background is a 3% minority at " << bg << ", estimate was " << actual;
+}
+
+// Regression: a small cluster of POSITIVE dark values (not zeros) below the
+// background must not collapse the estimate. With the old 1-decade range
+// anchored on the smallest positive value, the whole bin window [lo, 10*lo]
+// sat BELOW the background, so every real background voxel clamped into the
+// last bin (representative ~10*lo) and background() returned far too low.
+// Percentile-over-full-range must be immune to this.
+TEST(BackgroundStatisticsTest, LowPositiveOutliersDoNotCollapseEstimate) {
+    const float bg = 0.05f;
+    // 100 x 100 x 20 = 200k voxels at the background, plus 400 dark-positive
+    // outliers ~2 decades below (a dark region / low-value artifact).
+    Image3D image = backgroundWithObjects(100, 100, 20, bg, 7);
+    const size_t volume = 100 * 100 * 20;
+    const size_t outliers = std::min<size_t>(400, volume / 2);
+    for (size_t i = 0; i < outliers; ++i) {
+        image.setPixel(i % 100, (i / 100) % 100, i / 10000, bg * 0.005f);
+    }
+
+    const float actual = streamBackground(image, kNoPadding, PaddingFillType::ZERO);
+    EXPECT_GT(actual, 0.9f * bg)
+        << "estimate collapsed to " << actual << " despite the background at " << bg;
+    EXPECT_LT(actual, 1.1f * bg)
+        << "estimate inflated to " << actual << " against the background at " << bg;
+}
+
+// The other side of the rule: when zeros genuinely dominate the dark fraction
+// (masked / empty regions), the background IS zero and must stay 0.
+TEST(BackgroundStatisticsTest, MajorityZerosKeepZeroBackground) {    const float bg = 0.05f;
+    Image3D image = backgroundWithObjects(50, 50, 20, bg, 5);
+    // Zero out 60% of the voxels: far more than the 10% dark fraction.
+    const size_t volume = 50 * 50 * 20;
+    for (size_t i = 0; i < volume * 6 / 10; ++i) {
+        image.setPixel(i % 50, (i / 50) % 50, i / 2500, 0.0f);
+    }
+
+    const float actual = streamBackground(image, kNoPadding, PaddingFillType::ZERO);
+    EXPECT_LT(actual, 1e-6f) << "majority-zero image estimated background " << actual;
+}
+
 TEST(BackgroundStrategyConfigTest, LoadsFromJSONAndCopies) {
     auto config = DeconvolutionConfig::createFromJSON(nlohmann::json::parse(R"({
         "algorithm_name": "PoissonMLE",
