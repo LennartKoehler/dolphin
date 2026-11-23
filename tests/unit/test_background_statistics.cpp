@@ -41,9 +41,9 @@ float referenceBackground(std::vector<float> values) {
 // does for one chunk.
 float streamBackground(const Image3D& image, const Padding& padding, PaddingFillType fill) {
     BackgroundStatistics stats;
-    forEachCountedVoxel(image, padding, fill, BackgroundStatisticsDetail::RangeAccumulator{stats});
+    forEachCountedVoxel(image, BackgroundStatisticsDetail::RangeAccumulator{stats});
     stats.setRange(stats.min(), stats.max());
-    forEachCountedVoxel(image, padding, fill, BackgroundStatisticsDetail::HistogramAccumulator{stats});
+    forEachCountedVoxel(image, BackgroundStatisticsDetail::HistogramAccumulator{stats});
     return stats.background();
 }
 
@@ -108,14 +108,14 @@ TEST(BackgroundStatisticsTest, ExplicitChunksMatchWholeImage) {
     for (size_t z = 0; z < 16; z += 4) {
         Image3D chunk = image.getSubimageCopy(BoxCoord{CuboidPosition{0, 0, static_cast<int64_t>(z)},
                                                       CuboidShape{32, 24, 4}});
-        forEachCountedVoxel(chunk, kNoPadding, PaddingFillType::ZERO,
+        forEachCountedVoxel(chunk,
                             BackgroundStatisticsDetail::RangeAccumulator{chunked});
     }
     chunked.setRange(chunked.min(), chunked.max());
     for (size_t z = 0; z < 16; z += 4) {
         Image3D chunk = image.getSubimageCopy(BoxCoord{CuboidPosition{0, 0, static_cast<int64_t>(z)},
                                                       CuboidShape{32, 24, 4}});
-        forEachCountedVoxel(chunk, kNoPadding, PaddingFillType::ZERO,
+        forEachCountedVoxel(chunk,
                             BackgroundStatisticsDetail::HistogramAccumulator{chunked});
     }
     EXPECT_FLOAT_EQ(chunked.background(), whole);

@@ -73,7 +73,7 @@ float estimateImageBackground(ImageReader& reader,
     // Pass 1: value range (and count).
     forEachChunk(reader, imageShape, chunkHint, fill, readerThreads,
                  [&stats, fill](const Image3D& chunk, const Padding& padding) {
-                     forEachCountedVoxel(chunk, padding, fill,
+                     forEachCountedVoxel(chunk,
                                          BackgroundStatisticsDetail::RangeAccumulator{stats});
                  });
     if (stats.count() == 0) return 0.0f;
@@ -83,7 +83,7 @@ float estimateImageBackground(ImageReader& reader,
     // Pass 2: histogram over the counted voxels.
     forEachChunk(reader, imageShape, chunkHint, fill, readerThreads,
                  [&stats, fill](const Image3D& chunk, const Padding& padding) {
-                     forEachCountedVoxel(chunk, padding, fill,
+                     forEachCountedVoxel(chunk,
                                          BackgroundStatisticsDetail::HistogramAccumulator{stats});
                  });
 

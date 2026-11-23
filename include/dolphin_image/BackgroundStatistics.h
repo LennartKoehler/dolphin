@@ -92,19 +92,10 @@ private:
 // (see the counting rule above). This is the canonical definition of "counted
 // voxel"; both BackgroundStatistics passes must be fed through it.
 template <typename Fn>
-void forEachCountedVoxel(const Image3D& image, const Padding& padding, PaddingFillType fill, Fn&& fn) {
+void forEachCountedVoxel(const Image3D& image, Fn&& fn) {
     const CuboidShape shape = image.getShape();
     size_t x0 = 0, y0 = 0, z0 = 0;
     size_t x1 = shape.width, y1 = shape.height, z1 = shape.depth;
-    if (fill != PaddingFillType::ZERO) {
-        // A real fill fades the border towards zero: exclude it.
-        x0 = std::min<size_t>(padding.before.width, shape.width);
-        y0 = std::min<size_t>(padding.before.height, shape.height);
-        z0 = std::min<size_t>(padding.before.depth, shape.depth);
-        x1 = shape.width - std::min<size_t>(padding.after.width, shape.width - x0);
-        y1 = shape.height - std::min<size_t>(padding.after.height, shape.height - y0);
-        z1 = shape.depth - std::min<size_t>(padding.after.depth, shape.depth - z0);
-    }
     for (size_t z = z0; z < z1; ++z) {
         for (size_t y = y0; y < y1; ++y) {
             for (size_t x = x0; x < x1; ++x) {

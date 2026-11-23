@@ -35,6 +35,6 @@ class ReaderHandler;
 //     first cube is used and its padded border is excluded from the estimate.
 // The estimate is taken on the cube as read. Cube padding only re-reads image
 // content (or a fill that is excluded), so it does not change the value.
-std::optional<float> estimateBackgroundFromSampleCube(
+float estimateBackgroundFromSampleCube(
     const ReaderHandler& reader,
-    const std::vector<BoxCoordWithPadding>& cubes);
+    const BoxCoordWithPadding& cubes);
