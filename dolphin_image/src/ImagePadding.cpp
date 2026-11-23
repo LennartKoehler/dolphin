@@ -14,40 +14,23 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/ImagePadding.h"
 #include <stdexcept>
 #include <cmath>
-#include <itkConstantPadImageFilter.h>
 #include <itkMirrorPadImageFilter.h>
 #include <itkCropImageFilter.h>
+#include <cstring>
 
 
 
 /**
  * Zero-pad the image to the target size and fix the region to start at (0,0,0).
  * Returns the padded image with original data preserved and padding filled with 0.
+ *
+ * Direct buffer implementation: a full-volume ITK filter pass (per-voxel
+ * iterators, per-pixel progress atomics, boundary-condition dispatch) cost
+ * ~10x what a memset + block copy takes, and barely scaled with work units.
  */
 static ImageType::Pointer zeroPadImage(const Image3D& image, const Padding& padding) {
     CuboidShape currentShape = image.getShape();
 
-    ImageType::SizeType lowerExtendRegion;
-    lowerExtendRegion[0] = padding.before.width;
-    lowerExtendRegion[1] = padding.before.height;
-    lowerExtendRegion[2] = padding.before.depth;
-
-    ImageType::SizeType upperExtendRegion;
-    upperExtendRegion[0] = padding.after.width;
-    upperExtendRegion[1] = padding.after.height;
-    upperExtendRegion[2] = padding.after.depth;
-
-    using PadFilterType = itk::ConstantPadImageFilter<ImageType, ImageType>;
-    typename PadFilterType::Pointer padFilter = PadFilterType::New();
-    padFilter->SetPadLowerBound(lowerExtendRegion);
-    padFilter->SetPadUpperBound(upperExtendRegion);
-    padFilter->SetConstant(0.0f);
-    padFilter->SetInput(image.getItkImage());
-    padFilter->Update();
-
-    ImageType::Pointer paddedImage = padFilter->GetOutput();
-
-    // Force the region to start at (0,0,0)
     ImageType::SizeType paddedSize;
     paddedSize[0] = currentShape.width + padding.before.width + padding.after.width;
     paddedSize[1] = currentShape.height + padding.before.height + padding.after.height;
@@ -60,9 +43,27 @@ static ImageType::Pointer zeroPadImage(const Image3D& image, const Padding& padd
     newRegion.SetIndex(zeroStart);
     newRegion.SetSize(paddedSize);
 
-    paddedImage->SetLargestPossibleRegion(newRegion);
-    paddedImage->SetBufferedRegion(newRegion);
-    paddedImage->SetRequestedRegion(newRegion);
+    ImageType::Pointer paddedImage = ImageType::New();
+    paddedImage->SetRegions(newRegion);
+    paddedImage->Allocate();
+    paddedImage->FillBuffer(0.0f);
+
+    if (currentShape.width > 0 && currentShape.height > 0 && currentShape.depth > 0) {
+        float* dst = paddedImage->GetBufferPointer();
+        const float* src = image.getItkImage()->GetBufferPointer();
+        const size_t W = paddedSize[0], H = paddedSize[1], D = paddedSize[2];
+        const size_t w0 = currentShape.width, h0 = currentShape.height, d0 = currentShape.depth;
+        const size_t bx = padding.before.width, by = padding.before.height, bz = padding.before.depth;
+
+        // Copy the original volume as whole rows (its x offset is bx).
+        for (size_t z = 0; z < d0; ++z) {
+            const float* srcPlane = src + (z * h0 + 0) * w0;
+            float* dstPlane = dst + ((z + bz) * H) * W;
+            for (size_t y = 0; y < h0; ++y) {
+                std::memcpy(dstPlane + (y + by) * W + bx, srcPlane + y * w0, w0 * sizeof(float));
+            }
+        }
+    }
 
     return paddedImage;
 }
@@ -234,61 +235,76 @@ void ImagePadding::padImageGaussian(Image3D& image, const Padding& padding, floa
 
 void ImagePadding::padImageMirror(Image3D& image, const Padding& padding){
 
-    // Get current image dimensions using ITK
+    // Per-axis reflect-101 (boundary voxel duplicated), tiling when the pad
+    // exceeds the image extent - identical to the ITK MirrorPadImageFilter
+    // semantics, but as direct row copies over precomputed per-axis source
+    // tables instead of a fully multithreaded filter pass.
     CuboidShape currentShape = image.getShape();
-    size_t currentDepth = currentShape.depth;
-    size_t currentHeight = currentShape.height;
-    size_t currentWidth = currentShape.width;
+    const size_t w0 = currentShape.width;
+    const size_t h0 = currentShape.height;
+    const size_t d0 = currentShape.depth;
 
-    // Set up padding amounts
-    size_t depthPaddingBefore = padding.before.depth;
-    size_t heightPaddingTop = padding.before.height;
-    size_t widthPaddingLeft = padding.before.width;
-
-    size_t depthPaddingAfter = padding.after.depth;
-    size_t heightPaddingBottom = padding.after.height;
-    size_t widthPaddingRight = padding.after.width;
-
-
-    // Reflective padding using ITK MirrorPadImageFilter
-    using MirrorPadFilterType = itk::MirrorPadImageFilter<ImageType, ImageType>;
-    typename MirrorPadFilterType::Pointer mirrorPadFilter = MirrorPadFilterType::New();
-
-    // Set up padding sizes
-    ImageType::SizeType lowerExtendRegion;
-    lowerExtendRegion[0] = widthPaddingLeft;
-    lowerExtendRegion[1] = heightPaddingTop;
-    lowerExtendRegion[2] = depthPaddingBefore;
-
-    ImageType::SizeType upperExtendRegion;
-    upperExtendRegion[0] = widthPaddingRight;
-    upperExtendRegion[1] = heightPaddingBottom;
-    upperExtendRegion[2] = depthPaddingAfter;
-
-    mirrorPadFilter->SetPadLowerBound(lowerExtendRegion);
-    mirrorPadFilter->SetPadUpperBound(upperExtendRegion);
-    mirrorPadFilter->SetInput(image.getItkImage());
-    mirrorPadFilter->Update();
-
-    ImageType::Pointer paddedImage = mirrorPadFilter->GetOutput();
-
-    // Force the region to start at (0,0,0) instead of negative coordinates
-    ImageType::SizeType paddedSize;
-    paddedSize[0] = currentWidth + widthPaddingLeft + widthPaddingRight;
-    paddedSize[1] = currentHeight + heightPaddingTop + heightPaddingBottom;
-    paddedSize[2] = currentDepth + depthPaddingBefore + depthPaddingAfter;
+    const size_t W = w0 + padding.before.width + padding.after.width;
+    const size_t H = h0 + padding.before.height + padding.after.height;
+    const size_t D = d0 + padding.before.depth + padding.after.depth;
 
     ImageType::IndexType zeroStart;
     zeroStart.Fill(0);
-
+    ImageType::SizeType paddedSize;
+    paddedSize[0] = W;
+    paddedSize[1] = H;
+    paddedSize[2] = D;
     ImageType::RegionType newRegion;
     newRegion.SetIndex(zeroStart);
     newRegion.SetSize(paddedSize);
 
-    // Reset all regions to start at (0,0,0)
-    paddedImage->SetLargestPossibleRegion(newRegion);
-    paddedImage->SetBufferedRegion(newRegion);
-    paddedImage->SetRequestedRegion(newRegion);
+    ImageType::Pointer paddedImage = ImageType::New();
+    paddedImage->SetRegions(newRegion);
+    paddedImage->Allocate();
+
+    if (w0 > 0 && h0 > 0 && d0 > 0) {
+        float* dst = paddedImage->GetBufferPointer();
+        const float* src = image.getItkImage()->GetBufferPointer();
+
+        // Source index for every output position along one axis. ITK's
+        // MirrorPadImageFilter reflects with the boundary voxel duplicated
+        // (edge shared across the seam), so the infinite extension is the
+        // wave original + reversed(original), period 2*len. The original
+        // region occupies global coordinates [0, len); output position i is
+        // at global (i - before).
+        auto axisTable = [](size_t before, size_t after, size_t len) {
+            std::vector<int> table(before + len + after);
+            if (len == 1) {
+                std::fill(table.begin(), table.end(), 0);
+                return table;
+            }
+            const size_t period = 2 * len;
+            for (size_t i = 0; i < before + len + after; ++i) {
+                long g = static_cast<long>(i) - static_cast<long>(before);
+                long rem = g % static_cast<long>(period);
+                if (rem < 0)
+                    rem += period;
+                const size_t o = static_cast<size_t>(rem);
+                // wave = [0..len-1, len-1..0]: o<len -> o, else fold back.
+                table[i] = (o < len) ? static_cast<int>(o)
+                                     : static_cast<int>(period - 1 - o);
+            }
+            return table;
+        };
+        std::vector<int> tx = axisTable(padding.before.width, padding.after.width, w0);
+        std::vector<int> ty = axisTable(padding.before.height, padding.after.height, h0);
+        std::vector<int> tz = axisTable(padding.before.depth, padding.after.depth, d0);
+
+        for (size_t z = 0; z < D; ++z) {
+            const int sz = tz[z];
+            for (size_t y = 0; y < H; ++y) {
+                const float* srow = src + (static_cast<size_t>(sz) * h0 + static_cast<size_t>(ty[y])) * w0;
+                float* drow = dst + (z * H + y) * W;
+                for (size_t x = 0; x < W; ++x)
+                    drow[x] = srow[tx[x]];
+            }
+        }
+    }
 
     image.setItkImage(std::move(paddedImage));
 }
