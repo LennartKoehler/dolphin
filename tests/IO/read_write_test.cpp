@@ -298,7 +298,7 @@ TEST_F(ReadWriteTest, WriterMemoryComponentTwoTilesPlusWriteBuffers) {
     const CuboidShape writeShape(4, 4, 2);
     const size_t tileBytes = shape.width * shape.height * writeShape.depth * sizeof(float);
     const size_t sliceBytes = shape.width * shape.height * sizeof(float);
-    const MemoryRequirement need = component.footprint(writeShape);
+    const MemoryRequirement need = component.footprint(writeShape, MemoryComponent::UNLIMITED_TASKS);
     EXPECT_EQ(need.hostBytes, 2 * tileBytes + 2 * sliceBytes);
     EXPECT_EQ(need.deviceBytes, 0u);
 }
@@ -312,10 +312,10 @@ TEST_F(ReadWriteTest, WriterMemoryComponentScalesWithWriteDepth) {
 
     // The tile backlog depends on the candidate write depth: deeper writes
     // buffer more, equal-depth candidates report the same demand.
-    const size_t shallow = component.footprint(CuboidShape(4, 4, 2)).hostBytes;
-    const size_t deep = component.footprint(CuboidShape(16, 8, 4)).hostBytes;
+    const size_t shallow = component.footprint(CuboidShape(4, 4, 2), MemoryComponent::UNLIMITED_TASKS).hostBytes;
+    const size_t deep = component.footprint(CuboidShape(16, 8, 4), MemoryComponent::UNLIMITED_TASKS).hostBytes;
     EXPECT_GT(deep, shallow);
-    EXPECT_EQ(component.footprint(CuboidShape(64, 64, 2)).hostBytes, shallow);
+    EXPECT_EQ(component.footprint(CuboidShape(64, 64, 2), MemoryComponent::UNLIMITED_TASKS).hostBytes, shallow);
 }
 
 TEST_F(ReadWriteTest, WriterMemoryComponentTiledWriteBuffer) {
@@ -335,7 +335,7 @@ TEST_F(ReadWriteTest, WriterMemoryComponentTiledWriteBuffer) {
     const CuboidShape writeShape(4, 4, 2);
     const size_t tileBytes = shape.width * shape.height * writeShape.depth * sizeof(float);
     const size_t writeBufferBytes = 4 * 4 * sizeof(float);
-    const MemoryRequirement need = writer.getMemoryComponent().footprint(writeShape);
+    const MemoryRequirement need = writer.getMemoryComponent().footprint(writeShape, MemoryComponent::UNLIMITED_TASKS);
     EXPECT_EQ(need.hostBytes, 2 * tileBytes + 2 * writeBufferBytes);
 }
 

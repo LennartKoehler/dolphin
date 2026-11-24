@@ -37,7 +37,7 @@ public:
     VolumeCopiesComponent(size_t hostCopies, size_t deviceCopies)
         : hostCopies(hostCopies), deviceCopies(deviceCopies) {}
 
-    MemoryRequirement footprint(const CuboidShape& paddedCube) const override {
+    MemoryRequirement footprint(const CuboidShape& paddedCube, size_t) const override {
         const size_t bytes = paddedCube.getVolume() * sizeof(real_t);
         return MemoryRequirement{hostCopies * bytes, deviceCopies * bytes};
     }
@@ -53,7 +53,7 @@ class FixedOverheadComponent : public MemoryComponent {
 public:
     explicit FixedOverheadComponent(size_t hostBytes) : hostBytes(hostBytes) {}
 
-    MemoryRequirement footprint(const CuboidShape&) const override {
+    MemoryRequirement footprint(const CuboidShape&, size_t) const override {
         return MemoryRequirement{hostBytes, 0};
     }
 
@@ -70,7 +70,7 @@ class TileQuantizedComponent : public MemoryComponent {
 public:
     explicit TileQuantizedComponent(size_t bandDepth) : bandDepth(bandDepth) {}
 
-    MemoryRequirement footprint(const CuboidShape& paddedCube) const override {
+    MemoryRequirement footprint(const CuboidShape& paddedCube, size_t) const override {
         const size_t bands = (paddedCube.depth + bandDepth - 1) / bandDepth;
         const size_t bytes = bands * bandDepth * paddedCube.width * paddedCube.height * sizeof(real_t);
         return MemoryRequirement{bytes, 0};
@@ -469,7 +469,7 @@ TEST_F(ImageSplitTest, MultiComponentFootprint_SumsBeforeComparing) {
     ASSERT_TRUE(result.success);
     // the chosen padded cube must satisfy the full footprint
     const CuboidShape padded = result.value[0].getPaddedShape();
-    EXPECT_LE(footprint.total(padded).hostBytes, budget.hostTotal_byte);
+    EXPECT_LE(footprint.total(padded, MemoryComponent::UNLIMITED_TASKS).hostBytes, budget.hostTotal_byte);
     // ... and must not be larger than the single-copy budget allows
     EXPECT_LE(padded.getVolume(), maxCubeElements);
 }

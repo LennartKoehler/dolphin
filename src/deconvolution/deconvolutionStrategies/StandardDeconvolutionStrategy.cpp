@@ -145,9 +145,10 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     // and the backend gets the rest of the host pool and the device pool
     // (enforced with a clear error).
     const CuboidShape paddedShape = workShape.getPaddedShape();
-    MemoryRequirement cubeNeed = footprint.total(paddedShape);
-    budget.readerCache_byte = readerComponent.footprint(paddedShape).hostBytes;
-    budget.writerReserve_byte = writerComponent.footprint(paddedShape).hostBytes;
+    const size_t numTasks = cubeCoordinatesWithPadding.size();
+    MemoryRequirement cubeNeed = footprint.total(paddedShape, MemoryComponent::UNLIMITED_TASKS);
+    budget.readerCache_byte = readerComponent.footprint(paddedShape, numTasks).hostBytes;
+    budget.writerReserve_byte = writerComponent.footprint(paddedShape, numTasks).hostBytes;
     budget.backendHost_byte = budget.hostTotal_byte - budget.readerCache_byte - budget.writerReserve_byte;
 
     // set up reader and writer handlers; the reader's cache cap is applied
@@ -216,7 +217,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         totalTasks, (workShape.getPaddedBox().dimensions).print(), workShape.padding.before.print(), workShape.padding.after.print());
 
     spdlog::get("deconvolution")
-        ->debug("Memory footprint per cube ({}): {}", paddedShape.print(), footprint.breakdown(paddedShape));
+        ->debug("Memory footprint per cube ({}): {}", paddedShape.print(), footprint.breakdown(paddedShape, MemoryComponent::UNLIMITED_TASKS));
 
     spdlog::get("deconvolution")
         ->debug("Memory budgets: host {:.2f} GiB (reader cache {:.2f} GiB, writer reserve {:.2f} GiB, backend allocations {:.2f} GiB), device {:.2f} GiB per device ({} device(s)); estimated demand per cube: {:.2f} GiB host, {:.2f} GiB device",
@@ -275,9 +276,9 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
 
     CuboidShape minShape = paddingScheme.insidePadding.getTotalPadding() + 1;
 
-    if (!budget.fits(footprint.total(minShape))){
+    if (!budget.fits(footprint.total(minShape, MemoryComponent::UNLIMITED_TASKS))){
         throw std::runtime_error("Deconvolution with the largest PSF and padding requires too much memory. The minimum size for one cube would be: "
-            + minShape.print() + " which needs: " + footprint.breakdown(minShape));
+            + minShape.print() + " which needs: " + footprint.breakdown(minShape, MemoryComponent::UNLIMITED_TASKS));
     }
     Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult;
     if (deconvConfig.cubeSize[0] > 0 && deconvConfig.cubeSize[1] > 0 && deconvConfig.cubeSize[2] > 0){
@@ -285,10 +286,10 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
         // budget instead of silently running out of memory later.
         CuboidShape fixedPadded = CuboidShape(deconvConfig.cubeSize)
             + paddingScheme.insidePadding.before + paddingScheme.insidePadding.after;
-        if (!budget.fits(footprint.total(fixedPadded))) {
+        if (!budget.fits(footprint.total(fixedPadded, MemoryComponent::UNLIMITED_TASKS))) {
             throw std::runtime_error(
                 "Configured cubeSize " + fixedPadded.print() + " (with padding) does not fit into the memory limits"
-                " (max_mem_host_gb / max_mem_device_gb). It needs: " + footprint.breakdown(fixedPadded)
+                " (max_mem_host_gb / max_mem_device_gb). It needs: " + footprint.breakdown(fixedPadded, MemoryComponent::UNLIMITED_TASKS)
                 + " Reduce cubeSize or raise the limits.");
         }
         cubeCoordinatesWithPaddingResult = splitImageHomogeneousFixedSize(

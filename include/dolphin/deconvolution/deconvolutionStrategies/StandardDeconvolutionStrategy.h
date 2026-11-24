@@ -45,7 +45,7 @@ static constexpr float AUTO_MEMORY_SAFETY_FACTOR = 0.9f;
  */
 class IOStagingMemoryComponent : public MemoryComponent {
 public:
-    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t) const override {
         const size_t volumeBytes = cubeShape.getVolume() * sizeof(real_t);
         return MemoryRequirement{1 * volumeBytes, 2 * volumeBytes};
     }
@@ -64,7 +64,7 @@ class PaddingPeakMemoryComponent : public MemoryComponent {
 public:
     explicit PaddingPeakMemoryComponent(const Padding& cubePadding) : cubePadding(cubePadding) {}
 
-    MemoryRequirement footprint(const CuboidShape& paddedCube) const override {
+    MemoryRequirement footprint(const CuboidShape& paddedCube, size_t) const override {
         const size_t paddingVolume = cubePadding.getTotalPadding().getVolume();
         const size_t unpaddedVolume = paddedCube.getVolume() > paddingVolume
             ? paddedCube.getVolume() - paddingVolume
@@ -92,7 +92,7 @@ public:
     AlgorithmWorkingSetMemoryComponent(const DeconvolutionAlgorithm& algorithm, bool onDevice)
         : algorithm(algorithm), onDevice(onDevice) {}
 
-    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t) const override {
         const size_t bytes = algorithm.getWorkingSetBytes(cubeShape);
         return onDevice ? MemoryRequirement{0, bytes} : MemoryRequirement{bytes, 0};
     }

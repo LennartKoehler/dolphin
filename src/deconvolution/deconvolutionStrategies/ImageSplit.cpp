@@ -259,7 +259,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
         // TODO actually memory footprint would also need a function for all memorycomponents that need the padded size and all that need the unpadded size
         // e.g. tiffreader will overestimate how much memory it will need as it doesnt actually need the padded size. But this will always
         // ask about the footprint given the padded size (which is accurate for e.g. the algorithms or backend allocations in general
-        if (budget.fits(footprint.total(currentMaxSize))){
+        if (budget.fits(footprint.total(currentMaxSize, MemoryComponent::UNLIMITED_TASKS))){
             try{
                 addCubeRecursion(
                     cubePositions,
@@ -273,7 +273,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
             catch(const DolphinImageSplitException& e){
                 return Result<std::vector<BoxCoordWithPadding>>::fail(
                     "ImageSplit: no cube size fits the memory budget. Last candidate (padded) "
-                    + currentMaxSize.print() + " needs: " + footprint.breakdown(currentMaxSize));
+                    + currentMaxSize.print() + " needs: " + footprint.breakdown(currentMaxSize, MemoryComponent::UNLIMITED_TASKS));
             }
 
             if (cubePositions.size() >= minNumberCubes)
@@ -296,7 +296,7 @@ Result<std::vector<BoxCoordWithPadding>> splitImageHomogeneous(
         {
             return Result<std::vector<BoxCoordWithPadding>>::fail(
                 "ImageSplit: no cube size fits the memory budget. Last candidate (padded) "
-                + currentMaxSize.print() + " needs: " + footprint.breakdown(currentMaxSize));
+                + currentMaxSize.print() + " needs: " + footprint.breakdown(currentMaxSize, MemoryComponent::UNLIMITED_TASKS));
         }
     }
     size_t targetCubeCount = cubePositions.size();

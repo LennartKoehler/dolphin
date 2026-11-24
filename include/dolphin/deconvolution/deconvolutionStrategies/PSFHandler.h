@@ -44,7 +44,7 @@ public:
         nDevices = numDevices;
     }
 
-    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t) const override {
         // Padded complex PSFs: 2 x real_t per element.
         // allthough psfs are stored as complex the memory is the same as storing as real values
         const size_t bytesPerPsf = cubeShape.getVolume() * sizeof(real_t);

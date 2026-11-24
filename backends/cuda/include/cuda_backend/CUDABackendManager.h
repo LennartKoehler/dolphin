@@ -48,7 +48,7 @@ class CUDAFFTWorkspaceComponent : public MemoryComponent {
 public:
     explicit CUDAFFTWorkspaceComponent(CUDABackendManager& manager) : manager(manager) {}
 
-    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t) const override {
         size_t workR2C = 0;
         size_t workC2R = 0;
         if (cufftEstimate3d(cubeShape.depth, cubeShape.height, cubeShape.width, CUFFT_R2C, &workR2C) != CUFFT_SUCCESS

@@ -14,6 +14,7 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include "CuboidShape.h"
+#include <limits>
 #include <string>
 
 /**
@@ -50,12 +51,22 @@ struct MemoryRequirement {
  * shape in the splitter's search loop) and must only use information the
  * owner already has - it is the single source of truth for that owner's
  * memory, so keep it next to the allocation code it describes.
+ *
+ * numTasks is the total number of cubes (tasks) the plan will process. A
+ * system that holds one resource set per concurrent thread must never report
+ * more sets than there are tasks (min(threads, numTasks)): with a single
+ * task, only one instance can ever be in flight. Callers that do not know
+ * the task count pass UNLIMITED_TASKS, which leaves the thread count as the
+ * only cap (the historical behavior).
  */
 class MemoryComponent {
 public:
     virtual ~MemoryComponent() = default;
 
-    virtual MemoryRequirement footprint(const CuboidShape& cubeShape) const = 0;
+    /// Task count unknown / no cap by task count: min(threads, tasks) = threads.
+    static constexpr size_t UNLIMITED_TASKS = std::numeric_limits<size_t>::max();
+
+    virtual MemoryRequirement footprint(const CuboidShape& cubeShape, size_t numTasks) const = 0;
 
     /**
      * @brief Apply this system's runtime cap, so its own tracking enforces

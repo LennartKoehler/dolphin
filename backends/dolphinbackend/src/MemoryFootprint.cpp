@@ -24,10 +24,10 @@ void MemoryFootprint::add(std::unique_ptr<const MemoryComponent> component, size
     entries.push_back(Entry{component.get(), count, std::move(component)});
 }
 
-MemoryRequirement MemoryFootprint::total(const CuboidShape& cubeShape) const {
+MemoryRequirement MemoryFootprint::total(const CuboidShape& cubeShape, size_t numTasks) const {
     MemoryRequirement sum;
     for (const Entry& entry : entries) {
-        MemoryRequirement need = entry.component->footprint(cubeShape);
+        MemoryRequirement need = entry.component->footprint(cubeShape, numTasks);
         need.hostBytes *= entry.count;
         need.deviceBytes *= entry.count;
         sum += need;
@@ -35,12 +35,12 @@ MemoryRequirement MemoryFootprint::total(const CuboidShape& cubeShape) const {
     return sum;
 }
 
-std::string MemoryFootprint::breakdown(const CuboidShape& cubeShape) const {
+std::string MemoryFootprint::breakdown(const CuboidShape& cubeShape, size_t numTasks) const {
     std::ostringstream out;
     out << std::fixed << std::setprecision(2);
     MemoryRequirement sum;
     for (const Entry& entry : entries) {
-        MemoryRequirement need = entry.component->footprint(cubeShape);
+        MemoryRequirement need = entry.component->footprint(cubeShape, numTasks);
         need.hostBytes *= entry.count;
         need.deviceBytes *= entry.count;
         sum += need;

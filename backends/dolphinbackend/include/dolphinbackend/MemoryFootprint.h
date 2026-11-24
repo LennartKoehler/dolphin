@@ -52,11 +52,12 @@ public:
     void add(std::unique_ptr<const MemoryComponent> component, size_t count = 1);
 
     // Summed demand of all components for one candidate cube shape.
-    MemoryRequirement total(const CuboidShape& cubeShape) const;
+    // numTasks is forwarded to every component (see MemoryComponent::footprint).
+    MemoryRequirement total(const CuboidShape& cubeShape, size_t numTasks) const;
 
     // One line per component plus the total - for logs and error messages
     // that say which system binds the budget.
-    std::string breakdown(const CuboidShape& cubeShape) const;
+    std::string breakdown(const CuboidShape& cubeShape, size_t numTasks) const;
 
 private:
     struct Entry {

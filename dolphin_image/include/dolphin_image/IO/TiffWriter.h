@@ -131,7 +131,7 @@ public:
     // at most two tiles buffered (each full width/height x one write depth)
     // plus the transient write path. The write depth upper-bounds the actual
     // per-tile depth (cubeShape is the padded candidate shape).
-    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t) const override {
         return MemoryRequirement{writer.getRequiredMemory(cubeShape), 0};
     }
 

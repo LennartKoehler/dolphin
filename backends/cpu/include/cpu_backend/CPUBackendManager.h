@@ -101,7 +101,7 @@ class CPUFFTWorkspaceComponent : public MemoryComponent {
 public:
     explicit CPUFFTWorkspaceComponent(CPUBackendManager& manager) : manager(manager) {}
 
-    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t) const override {
         // Peak transient of FFTW plan creation (FFTW_MEASURE): one padded
         // real buffer and one half-width complex buffer are allocated
         // together while the planner runs, freed afterwards. Execution

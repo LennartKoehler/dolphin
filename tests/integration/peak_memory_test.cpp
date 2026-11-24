@@ -342,7 +342,7 @@ class FixedMemoryComponent : public MemoryComponent {
 public:
     FixedMemoryComponent(size_t host, size_t device, std::string name)
         : req{host, device}, componentName(std::move(name)) {}
-    MemoryRequirement footprint(const CuboidShape&) const override { return req; }
+    MemoryRequirement footprint(const CuboidShape&, size_t) const override { return req; }
     std::string name() const override { return componentName; }
 private:
     MemoryRequirement req;
@@ -388,8 +388,8 @@ TEST_F(PeakMemoryTest, StrategyFootprintAppliesCountsAndPlacement) {
     const MemoryFootprint onDevice = FootprintTestableStrategy::buildMemoryFootprint(
         reader, writer, backend, psf, *algorithm, scheme, ioThreads, workerThreads, /*onDevice=*/true);
 
-    const MemoryRequirement h = onHost.total(shape);
-    const MemoryRequirement d = onDevice.total(shape);
+    const MemoryRequirement h = onHost.total(shape, MemoryComponent::UNLIMITED_TASKS);
+    const MemoryRequirement d = onDevice.total(shape, MemoryComponent::UNLIMITED_TASKS);
 
     // The grand total is placement-invariant; only the algorithm working set
     // moves between host and device.
@@ -399,7 +399,7 @@ TEST_F(PeakMemoryTest, StrategyFootprintAppliesCountsAndPlacement) {
 
     // The breakdown names every memory-owning system and folds in the
     // per-system instance counts (x2 io staging, x3 algorithm working sets).
-    const std::string breakdown = onHost.breakdown(shape);
+    const std::string breakdown = onHost.breakdown(shape, MemoryComponent::UNLIMITED_TASKS);
     EXPECT_NE(breakdown.find("reader"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("tiffwriter"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("backend"), std::string::npos) << breakdown;

@@ -40,7 +40,7 @@ MemoryBudget makeBudget(size_t host, size_t device, bool deviceIsHost) {
 class FixedComponent : public MemoryComponent {
 public:
     FixedComponent(size_t host, size_t device) : req{host, device} {}
-    MemoryRequirement footprint(const CuboidShape&) const override { return req; }
+    MemoryRequirement footprint(const CuboidShape&, size_t) const override { return req; }
     std::string name() const override { return "fixed"; }
 private:
     MemoryRequirement req;
@@ -113,7 +113,7 @@ TEST_F(MemoryTest, FootprintSumsAllComponents) {
     footprint.add(deviceOnly);
     footprint.add(mixed);
 
-    MemoryRequirement sum = footprint.total(CuboidShape(4, 4, 4));
+    MemoryRequirement sum = footprint.total(CuboidShape(4, 4, 4), MemoryComponent::UNLIMITED_TASKS);
     EXPECT_EQ(sum.hostBytes, 11u);
     EXPECT_EQ(sum.deviceBytes, 22u);
 }
@@ -124,7 +124,7 @@ TEST_F(MemoryTest, FootprintWithBudgetRejectsOversizedShapes) {
     // A component that scales with the shape: small fits, large does not.
     class ScalingComponent : public MemoryComponent {
     public:
-        MemoryRequirement footprint(const CuboidShape& s) const override {
+        MemoryRequirement footprint(const CuboidShape& s, size_t) const override {
             return MemoryRequirement{0, s.getVolume() * sizeof(real_t)};
         }
         std::string name() const override { return "scaling"; }
@@ -133,15 +133,15 @@ TEST_F(MemoryTest, FootprintWithBudgetRejectsOversizedShapes) {
     MemoryFootprint scalingFootprint;
     scalingFootprint.add(scaling);
 
-    EXPECT_TRUE(budget.fits(scalingFootprint.total(CuboidShape(5, 5, 5))));     // 125*4 = 500 bytes
-    EXPECT_FALSE(budget.fits(scalingFootprint.total(CuboidShape(32, 32, 32)))); // 32768*4 bytes
+    EXPECT_TRUE(budget.fits(scalingFootprint.total(CuboidShape(5, 5, 5), MemoryComponent::UNLIMITED_TASKS)));     // 125*4 = 500 bytes
+    EXPECT_FALSE(budget.fits(scalingFootprint.total(CuboidShape(32, 32, 32), MemoryComponent::UNLIMITED_TASKS))); // 32768*4 bytes
 }
 
 TEST_F(MemoryTest, FootprintBreakdownNamesComponentsAndSums) {
     class NamedComponent : public MemoryComponent {
     public:
         NamedComponent(std::string n, MemoryRequirement r) : n(std::move(n)), r(r) {}
-        MemoryRequirement footprint(const CuboidShape&) const override { return r; }
+        MemoryRequirement footprint(const CuboidShape&, size_t) const override { return r; }
         std::string name() const override { return n; }
     private:
         std::string n;
@@ -154,13 +154,13 @@ TEST_F(MemoryTest, FootprintBreakdownNamesComponentsAndSums) {
     footprint.add(alpha, 2); // two concurrent instances
     footprint.add(beta);
 
-    const std::string breakdown = footprint.breakdown(CuboidShape(1, 1, 1));
+    const std::string breakdown = footprint.breakdown(CuboidShape(1, 1, 1), MemoryComponent::UNLIMITED_TASKS);
     EXPECT_NE(breakdown.find("alpha"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("(x2)"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("beta"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("total"), std::string::npos) << breakdown;
 
-    const MemoryRequirement sum = footprint.total(CuboidShape(1, 1, 1));
+    const MemoryRequirement sum = footprint.total(CuboidShape(1, 1, 1), MemoryComponent::UNLIMITED_TASKS);
     EXPECT_EQ(sum.hostBytes, 200u);
     EXPECT_EQ(sum.deviceBytes, 200u);
 }
@@ -169,7 +169,7 @@ TEST_F(MemoryTest, SetMemoryLimitDefaultIsNoOp) {
     // A component without its own tracking accepts any cap without effect.
     class NoTrackingComponent : public MemoryComponent {
     public:
-        MemoryRequirement footprint(const CuboidShape&) const override { return MemoryRequirement{1, 1}; }
+        MemoryRequirement footprint(const CuboidShape&, size_t) const override { return MemoryRequirement{1, 1}; }
         std::string name() const override { return "no tracking"; }
     };
     NoTrackingComponent component;
