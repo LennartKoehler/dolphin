@@ -165,13 +165,28 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Record toolchain versions
+        id: toolchain
+        shell: pwsh
+        run: |
+          $vcpkgRev = git -C $env:VCPKG_ROOT rev-parse --short HEAD 2>$null
+          if (-not $vcpkgRev) { $vcpkgRev = "unknown" }
+          "vcpkg=$vcpkgRev" >> $env:GITHUB_OUTPUT
+          "msvc=$env:VCToolsVersion" >> $env:GITHUB_OUTPUT
+
       - name: Restore vcpkg binary cache
         id: vcpkg-cache-restore
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'vcpkg-overlay-ports/**') }}
           restore-keys: |
+            vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-
             vcpkg-windows-
 
       - name: Create vcpkg binary cache directory
@@ -182,11 +197,6 @@ jobs:
             -Force `
             -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
           Out-Null
-
-      - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
 
       - name: Get CMake
         uses: lukka/get-cmake@v4.3.3
@@ -208,7 +218,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'vcpkg-overlay-ports/**') }}
 
       - name: Build
         run: cmake --build build --config Release -j
@@ -234,13 +244,28 @@ jobs:
           method: local
           cuda: '12.8.1'
 
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Record toolchain versions
+        id: toolchain
+        shell: pwsh
+        run: |
+          $vcpkgRev = git -C $env:VCPKG_ROOT rev-parse --short HEAD 2>$null
+          if (-not $vcpkgRev) { $vcpkgRev = "unknown" }
+          "vcpkg=$vcpkgRev" >> $env:GITHUB_OUTPUT
+          "msvc=$env:VCToolsVersion" >> $env:GITHUB_OUTPUT
+
       - name: Restore vcpkg binary cache
         id: vcpkg-cache-restore
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'vcpkg-overlay-ports/**') }}
           restore-keys: |
+            vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-
             vcpkg-windows-
 
       - name: Create vcpkg binary cache directory
@@ -251,11 +276,6 @@ jobs:
             -Force `
             -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
           Out-Null
-
-      - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
 
       - name: Get CMake
         uses: lukka/get-cmake@v4.3.3
@@ -279,7 +299,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'vcpkg-overlay-ports/**') }}
 
       - name: Build
         run: cmake --build build -j
