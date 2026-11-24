@@ -70,7 +70,7 @@ constexpr double AXIAL_FLOOR_FACTOR   = 2.0;
 constexpr size_t SOFT_MAX_LATERAL_HALF_VOXELS = 150;
 /**
  * Approximate optical resolution (nm) from NA, wavelength and sample RI for the
- * given criterion (see PSFConfig::ResolutionCriterion).
+ * given criterion (see PSFConfig::ResolutionCriterion). Widefield formulas:
  *   RAYLEIGH: lateral 0.61*lambda/NA,  axial 2*lambda*n/NA^2
  *   FWHM:     lateral 0.51*lambda/NA,  axial 0.93*lambda/(n - sqrt(n^2 - NA^2))
  *   SIGMA:    lateral 0.408*lambda/NA, axial Rayleigh axial converted to FWHM
@@ -79,7 +79,14 @@ constexpr size_t SOFT_MAX_LATERAL_HALF_VOXELS = 150;
 /** Approximate optical resolution (nm) from NA, wavelength and sample RI for the
  *  given criterion. lambda_nm is supplied by the caller (the modality's
  *  detection wavelength), not read from the config: in confocal mode the
- *  emission wavelength lives on the modality config. */
+ *  emission wavelength lives on the modality config.
+ *
+ *  Modality-aware: for a confocal config the resolution of the excitation x
+ *  detection product is returned instead - the caller's lambda_nm is combined
+ *  with the modality's excitation wavelength into
+ *  lambda_eff = exc*det/sqrt(exc^2+det^2) (point-pinhole contraction
+ *  lambda/sqrt(2) for equal wavelengths; a finite pinhole widens the true
+ *  resolution toward the widefield value, which this estimate ignores). */
 ApproxResolution approximateResolution(const GibsonLanniPSFConfig& config, double lambda_nm, int criterion);
 
 /**

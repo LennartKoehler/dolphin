@@ -42,7 +42,32 @@ double rayleighToFwhmAxial(double rayleighAxial) {
 
 
 ApproxResolution approximateResolution(const GibsonLanniPSFConfig& config, double lambda_nm, int criterion) {
-    const double lambda = lambda_nm;
+    // Effective wavelength of the image-formation model. Confocal forms the
+    // voxel-wise product of the excitation and detection integrals; combining
+    // their blur widths (Gaussian model) gives
+    //   res_eff = res(exc) * res(det) / sqrt(res(exc)^2 + res(det)^2)
+    // and since every formula below is linear in lambda:
+    //   lambda_eff = exc * det / sqrt(exc^2 + det^2)
+    // (= lambda/sqrt(2) for equal wavelengths, the point-pinhole confocal
+    // contraction; the literature confocal constants 0.4*lambda/NA lateral
+    // and 1.4*n*lambda/NA^2 axial are exactly these contracted widefield
+    // values). The pinhole is ignored: a finite pinhole widens the detection
+    // factor toward the widefield resolution, so the true resolution lies
+    // between this estimate and the widefield one.
+    double lambda = lambda_nm;
+    if (config.getModalityType() == MicroscopeModality::CONFOCAL) {
+        if (const auto* modalityCfg = config.modality<ConfocalModalityConfig>()) {
+            // Degenerate fallback (excitation <= 0): the excitation integral
+            // uses the detection wavelength (see ConfocalModality::composeSlice).
+            const double excitation = modalityCfg->excitationWavelength_nm > 0.0f
+                ? static_cast<double>(modalityCfg->excitationWavelength_nm)
+                : lambda_nm;
+            if (excitation > 0.0 && lambda_nm > 0.0)
+                lambda = (excitation * lambda_nm)
+                       / std::sqrt(excitation * excitation + lambda_nm * lambda_nm);
+        }
+    }
+
     const double NA = static_cast<double>(config.NA);
     const double n = static_cast<double>(config.ns);
 

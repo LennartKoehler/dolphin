@@ -472,6 +472,107 @@ TEST_F(PSFGeneratorTest, GibsonLanniApproximateResolutionAxial) {
     EXPECT_GT(fwhm.lateral_nm, sigma.lateral_nm);
 }
 
+namespace {
+// Optics shared by the confocal-resolution tests (OilConfocal geometry).
+GibsonLanniPSFConfig confocalTestConfig() {
+    GibsonLanniPSFConfig cfg;
+    cfg.NA = 1.4f;
+    cfg.ni = 1.515f;
+    cfg.ni0 = 1.515f;
+    cfg.ns = 1.33f;
+    cfg.ng = 1.5f;
+    cfg.ng0 = 1.5f;
+    cfg.wavelength_nm = 520.0f;
+    cfg.pixelSizeLateral_nm = 100.0f;
+    cfg.pixelSizeAxial_nm = 100.0f;
+    cfg.sizeZ = 16;
+    return cfg;
+}
+
+// Switch a config to a confocal modality with the given wavelengths (nm).
+void makeConfocal(GibsonLanniPSFConfig& cfg, float excitation_nm, float emission_nm) {
+    cfg.selectModality(MicroscopeModality::CONFOCAL);
+    auto modalityCfg = std::dynamic_pointer_cast<ConfocalModalityConfig>(cfg.modalityConfig);
+    modalityCfg->excitationWavelength_nm = excitation_nm;
+    modalityCfg->emissionWavelength_nm = emission_nm;
+    modalityCfg->pinholeRadius_um = 0.0f;
+}
+} // namespace
+
+TEST_F(PSFGeneratorTest, ConfocalResolutionContractsPointPinhole) {
+    // The confocal effective PSF is the product of the excitation and
+    // detection PSFs. For equal wavelengths its FWHM contracts by exactly
+    // 1/sqrt(2) relative to the widefield single-integral resolution (the
+    // literature confocal values 0.4*lambda/NA lateral and 1.4*n*lambda/NA^2
+    // axial are these contracted widefield constants), so the box-sizing
+    // resolution must shrink accordingly.
+    GibsonLanniPSFConfig cfg = confocalTestConfig();
+    const double lambda = 520.0;
+
+    const auto widefield = PSFBoxSizing::approximateResolution(cfg, lambda, cfg.resolutionCriterion);
+    makeConfocal(cfg, 520.0f, 520.0f);
+    const auto confocal = PSFBoxSizing::approximateResolution(cfg, lambda, cfg.resolutionCriterion);
+
+    EXPECT_NEAR(confocal.lateral_nm, widefield.lateral_nm / std::sqrt(2.0), 0.1);
+    EXPECT_NEAR(confocal.axial_nm, widefield.axial_nm / std::sqrt(2.0), 0.1);
+
+    // The contraction holds for every criterion (FWHM: 0.51 -> 0.36 lambda/NA).
+    GibsonLanniPSFConfig widefieldFwhmCfg = confocalTestConfig();
+    const auto widefieldFwhm = PSFBoxSizing::approximateResolution(widefieldFwhmCfg, lambda, PSFConfig::ResolutionCriterion::FWHM);
+    const auto confocalFwhm = PSFBoxSizing::approximateResolution(cfg, lambda, PSFConfig::ResolutionCriterion::FWHM);
+    EXPECT_NEAR(confocalFwhm.lateral_nm, 0.51 * (lambda / std::sqrt(2.0)) / 1.4, 0.2);
+    EXPECT_LT(confocalFwhm.lateral_nm, widefieldFwhm.lateral_nm);
+}
+
+TEST_F(PSFGeneratorTest, ConfocalResolutionCombinesStokesShiftedWavelengths) {
+    // With a Stokes shift the confocal product resolves at the combination of
+    // BOTH integrals' resolutions:
+    //   res_eff = res(exc) * res(em) / sqrt(res(exc)^2 + res(em)^2)
+    //           = c * lambda_eff,  lambda_eff = exc*em / sqrt(exc^2 + em^2)
+    // 488/520 -> lambda_eff = 355.83nm:
+    //   lateral RAYLEIGH = 0.61*355.83/1.4 = 155.04nm
+    //   axial   RAYLEIGH = 2*355.83*1.33/1.4^2 = 482.91nm
+    GibsonLanniPSFConfig cfg = confocalTestConfig();
+    makeConfocal(cfg, 488.0f, 520.0f);
+
+    const auto res = PSFBoxSizing::approximateResolution(cfg, 520.0, cfg.resolutionCriterion);
+    EXPECT_NEAR(res.lateral_nm, 155.04, 0.2);
+    EXPECT_NEAR(res.axial_nm, 482.91, 0.2);
+
+    // Degenerate fallback (excitation <= 0 -> emission wavelength): the
+    // product degenerates to two identical integrals -> the 1/sqrt(2)
+    // contraction of the detection resolution.
+    makeConfocal(cfg, 0.0f, 520.0f);
+    const auto degenerate = PSFBoxSizing::approximateResolution(cfg, 520.0, cfg.resolutionCriterion);
+    GibsonLanniPSFConfig widefieldCfg = confocalTestConfig();
+    const auto widefield = PSFBoxSizing::approximateResolution(widefieldCfg, 520.0, widefieldCfg.resolutionCriterion);
+    EXPECT_NEAR(degenerate.lateral_nm, widefield.lateral_nm / std::sqrt(2.0), 0.1);
+}
+
+TEST_F(PSFGeneratorTest, ConfocalResolutionShrinksAutoSizeBox) {
+    // The smaller confocal resolution must shrink the auto-sized PSF box
+    // (ring term and axial floor; the geometric defocus cone is unchanged).
+    // OilConfocal depth-16 geometry: widefield 141x31 ->
+    //   resLat 226.57 -> 160.19nm, resAx 705.71 -> 499.02nm
+    //   halfLat = 3.5*160.19 + 1.1*7.0179*800 = 6736nm -> 68 (box 137)
+    //   halfAx  = max(800, 2*499.02) = 998nm   -> 10 (box 21)
+    GibsonLanniPSFConfig cfg = confocalTestConfig();
+
+    const auto widefieldRes = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, cfg.resolutionCriterion);
+    const auto widefieldBox = PSFBoxSizing::computeBoxHalfExtent(widefieldRes, cfg);
+    EXPECT_EQ(2 * widefieldBox.lateral + 1, 141u);
+    EXPECT_EQ(2 * widefieldBox.axial + 1, 31u);
+
+    makeConfocal(cfg, 520.0f, 520.0f);
+    const auto confocalRes = PSFBoxSizing::approximateResolution(cfg, 520.0, cfg.resolutionCriterion);
+    const auto confocalBox = PSFBoxSizing::computeBoxHalfExtent(confocalRes, cfg);
+
+    EXPECT_EQ(2 * confocalBox.lateral + 1, 137u);
+    EXPECT_EQ(2 * confocalBox.axial + 1, 21u);
+    EXPECT_LT(confocalBox.lateral, widefieldBox.lateral);
+    EXPECT_LT(confocalBox.axial, widefieldBox.axial);
+}
+
 // Result box sizes for realistic microscope configurations. Values are the
 // exact output of computeBoxHalfExtent for each config (RAYLEIGH criterion
 // unless noted); run this test to see the full size table in the log.
@@ -1129,7 +1230,11 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalNarrowerThanWidefield) {
     auto confocalConfig = factory.createConfig(confocalGlJSON(true));
     PSF confocal = generateTestPSF(confocalConfig);
 
-    EXPECT_EQ(widefield.getShape(), confocal.getShape());
+    // The confocal effective resolution (excitation x detection product) is
+    // smaller than the widefield one, so the autosize box contracts; it must
+    // never exceed the widefield box.
+    EXPECT_LE(confocal.getShape().width, widefield.getShape().width);
+    EXPECT_LE(confocal.getShape().depth, widefield.getShape().depth);
 
     ConfocalMetrics wf = measureMetrics(widefield, 100.0, 100.0);
     ConfocalMetrics cf = measureMetrics(confocal, 100.0, 100.0);
@@ -1177,11 +1282,16 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalFixedSize) {
 TEST_F(PSFGeneratorTest, GibsonLanniConfocalCacheInvalidation) {
     // Profiles are cached per (ti_nm, lambda): two confocal configs that
     // share ti_nm but differ only in the excitation wavelength must produce
-    // different PSFs.
+    // different PSFs. Fixed sizes: with autosize the different excitation
+    // wavelengths would also change the effective-resolution box, which is
+    // not what this test is about.
     auto& factory = PSFGeneratorFactory::getInstance();
     auto buildConfig = [&factory](double excitation_nm) {
         json j = confocalGlJSON(true);
         j["excitation_wavelength_nm"] = excitation_nm;
+        j["size_x"] = 33;
+        j["size_y"] = 33;
+        j["size_z"] = 21;
         return factory.createConfig(j);
     };
 
