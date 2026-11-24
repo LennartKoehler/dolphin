@@ -137,10 +137,19 @@ void TiffRegionWriterTiled::writeSlice(TIFF* tif, const float* sliceData, const 
 // TiffWriter
 // ============================================================================
 
-TiffWriter::TiffWriter(const std::string& filename, const CuboidShape& imageShape)
+TiffWriter::TiffWriter(const std::string& filename, const ImageMetaData& metadata)
     : outputFilename(filename),
-    imageShape(imageShape)
+    imageShape(metadata.getShape()),
+    metaData(metadata)
     {
+    // The pixel format is writer-controlled (output data is always float32,
+    // single channel): only descriptive tags (description, resolutions) are
+    // carried over from the passed metadata.
+    metaData.bitsPerSample = 32;
+    metaData.samplesPerPixel = 1;
+    metaData.sampleFormat = SAMPLEFORMAT_IEEEFP;
+    metaData.photometricInterpretation = 1;
+    metaData.planarConfig = 1;
     TIFFSetWarningHandler(TiffWriter::customTifWarningHandler);
     try {
         this->tif = openTiff(filename.c_str(), imageShape);
@@ -420,7 +429,6 @@ bool TiffWriter::writeToFile_(size_t z, size_t depth, const Image3D& layers) con
         throw TiffWriteException("TIFF file handle is null");
     }
 
-    ImageMetaData metaData = extractMetaData(layers);
     size_t slicePixels = metaData.imageWidth * metaData.imageLength;
     const float* buffer = layers.getItkImage()->GetBufferPointer();
 
@@ -470,6 +478,18 @@ void TiffWriter::setTiffFields(TIFF* tif, const ImageMetaData& metaData,
 
         if (compression.compressionScheme == COMPRESSION_DEFLATE && compression.compressionLevel >= 0) {
             TIFFSetField(tif, TIFFTAG_ZIPQUALITY, compression.compressionLevel);
+        }
+
+        // Descriptive metadata carried over from the source file verbatim.
+        if (!metaData.description.empty()) {
+            TIFFSetField(tif, TIFFTAG_IMAGEDESCRIPTION, metaData.description.c_str());
+        }
+        if (metaData.xResolution > 0 && metaData.yResolution > 0) {
+            TIFFSetField(tif, TIFFTAG_XRESOLUTION, metaData.xResolution);
+            TIFFSetField(tif, TIFFTAG_YRESOLUTION, metaData.yResolution);
+            if (metaData.resolutionUnit != RESUNIT_NONE) {
+                TIFFSetField(tif, TIFFTAG_RESOLUTIONUNIT, metaData.resolutionUnit);
+            }
         }
     } catch (const std::exception& e) {
         throw TiffMetadataException("Failed to set TIFF fields: " + std::string(e.what()));
