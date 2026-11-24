@@ -310,10 +310,15 @@ TEST_F(ReadWriteTest, WriterMemoryComponentScalesWithWriteDepth) {
     TiffWriter writer(path, shape);
     MemoryComponent& component = writer.getMemoryComponent();
 
-    // The tile backlog depends on the candidate write depth: deeper writes
-    // buffer more, equal-depth candidates report the same demand.
+    // A write spanning the full image width/height holds nothing between
+    // calls: whatever such a call buffers is freed right after it, so it
+    // never adds to the peak.
+    EXPECT_EQ(component.footprint(CuboidShape(16, 8, 4), MemoryComponent::UNLIMITED_TASKS).hostBytes, 0u);
+
+    // Otherwise the tile backlog depends on the candidate write depth: deeper
+    // writes buffer more, equal-depth candidates report the same demand.
     const size_t shallow = component.footprint(CuboidShape(4, 4, 2), MemoryComponent::UNLIMITED_TASKS).hostBytes;
-    const size_t deep = component.footprint(CuboidShape(16, 8, 4), MemoryComponent::UNLIMITED_TASKS).hostBytes;
+    const size_t deep = component.footprint(CuboidShape(8, 8, 4), MemoryComponent::UNLIMITED_TASKS).hostBytes;
     EXPECT_GT(deep, shallow);
     EXPECT_EQ(component.footprint(CuboidShape(64, 64, 2), MemoryComponent::UNLIMITED_TASKS).hostBytes, shallow);
 }

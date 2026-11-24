@@ -146,7 +146,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     // (enforced with a clear error).
     const CuboidShape paddedShape = workShape.getPaddedShape();
     const size_t numTasks = cubeCoordinatesWithPadding.size();
-    MemoryRequirement cubeNeed = footprint.total(paddedShape, MemoryComponent::UNLIMITED_TASKS);
+    MemoryRequirement cubeNeed = footprint.total(paddedShape, numTasks);
     budget.readerCache_byte = readerComponent.footprint(paddedShape, numTasks).hostBytes;
     budget.writerReserve_byte = writerComponent.footprint(paddedShape, numTasks).hostBytes;
     budget.backendHost_byte = budget.hostTotal_byte - budget.readerCache_byte - budget.writerReserve_byte;
@@ -217,7 +217,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         totalTasks, (workShape.getPaddedBox().dimensions).print(), workShape.padding.before.print(), workShape.padding.after.print());
 
     spdlog::get("deconvolution")
-        ->debug("Memory footprint per cube ({}): {}", paddedShape.print(), footprint.breakdown(paddedShape, MemoryComponent::UNLIMITED_TASKS));
+        ->debug("Memory footprint per cube ({}): {}", paddedShape.print(), footprint.breakdown(paddedShape, numTasks));
 
     spdlog::get("deconvolution")
         ->debug("Memory budgets: host {:.2f} GiB (reader cache {:.2f} GiB, writer reserve {:.2f} GiB, backend allocations {:.2f} GiB), device {:.2f} GiB per device ({} device(s)); estimated demand per cube: {:.2f} GiB host, {:.2f} GiB device",
@@ -283,20 +283,25 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
     Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult;
     if (deconvConfig.cubeSize[0] > 0 && deconvConfig.cubeSize[1] > 0 && deconvConfig.cubeSize[2] > 0){
         // Fixed cube size requested: still verify it fits into the memory
-        // budget instead of silently running out of memory later.
+        // budget instead of silently running out of memory later. Split first
+        // so the budget check uses the real task count of the fixed split.
         CuboidShape fixedPadded = CuboidShape(deconvConfig.cubeSize)
             + paddingScheme.insidePadding.before + paddingScheme.insidePadding.after;
-        if (!budget.fits(footprint.total(fixedPadded, MemoryComponent::UNLIMITED_TASKS))) {
-            throw std::runtime_error(
-                "Configured cubeSize " + fixedPadded.print() + " (with padding) does not fit into the memory limits"
-                " (max_mem_host_gb / max_mem_device_gb). It needs: " + footprint.breakdown(fixedPadded, MemoryComponent::UNLIMITED_TASKS)
-                + " Reduce cubeSize or raise the limits.");
-        }
         cubeCoordinatesWithPaddingResult = splitImageHomogeneousFixedSize(
             paddingScheme.insidePadding,
             paddingScheme.imagePadding,
             imageSize,
             CuboidShape(deconvConfig.cubeSize));
+        const size_t fixedNumTasks = cubeCoordinatesWithPaddingResult.success
+            ? cubeCoordinatesWithPaddingResult.value.size()
+            : MemoryComponent::UNLIMITED_TASKS;
+        if (!cubeCoordinatesWithPaddingResult.success
+            || !budget.fits(footprint.total(fixedPadded, fixedNumTasks))) {
+            throw std::runtime_error(
+                "Configured cubeSize " + fixedPadded.print() + " (with padding) does not fit into the memory limits"
+                " (max_mem_host_gb / max_mem_device_gb). It needs: " + footprint.breakdown(fixedPadded, fixedNumTasks)
+                + " Reduce cubeSize or raise the limits.");
+        }
 
     }
     else {

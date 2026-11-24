@@ -82,6 +82,22 @@ private:
     size_t bandDepth;
 };
 
+// Records every numTasks the splitter asks with: the budget check for a
+// candidate must use the number of cubes that candidate produces, so a
+// single-cube plan is evaluated with one concurrent instance, not one per
+// thread.
+class TaskCountRecordingComponent : public MemoryComponent {
+public:
+    MemoryRequirement footprint(const CuboidShape& paddedCube, size_t numTasks) const override {
+        askedNumTasks.push_back(numTasks);
+        return MemoryRequirement{paddedCube.getVolume() * sizeof(real_t), 0};
+    }
+
+    std::string name() const override { return "task count recording"; }
+
+    mutable std::vector<size_t> askedNumTasks;
+};
+
 static MemoryBudget volumeBudgetBytes(size_t hostBytes) {
     MemoryBudget budget;
     budget.deviceIsHost = true;
@@ -472,6 +488,32 @@ TEST_F(ImageSplitTest, MultiComponentFootprint_SumsBeforeComparing) {
     EXPECT_LE(footprint.total(padded, MemoryComponent::UNLIMITED_TASKS).hostBytes, budget.hostTotal_byte);
     // ... and must not be larger than the single-copy budget allows
     EXPECT_LE(padded.getVolume(), maxCubeElements);
+}
+
+// The budget check of a candidate must see that candidate's own cube count
+// as numTasks: the first candidate is the whole image (one cube), so a
+// single-cube plan is evaluated with one concurrent instance per system.
+TEST_F(ImageSplitTest, BudgetCheckUsesCandidateCubeCount) {
+    CuboidShape imageSize(64, 64, 64);
+    Padding padding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
+    Padding imagePadding{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
+
+    TaskCountRecordingComponent component;
+    MemoryFootprint footprint;
+    footprint.add(component);
+
+    // The whole image fits a single cube.
+    MemoryBudget budget = volumeBudget(64u * 64u * 64u);
+
+    auto result = splitImageHomogeneous(padding, imagePadding, imageSize, budget, footprint, 1, CuboidShape(1, 1, 1), true);
+    ASSERT_TRUE(result.success);
+    ASSERT_EQ(result.value.size(), 1u);
+
+    ASSERT_FALSE(component.askedNumTasks.empty());
+    // The first candidate IS the whole image: checked with numTasks == 1.
+    EXPECT_EQ(component.askedNumTasks.front(), 1u);
+    // The accepted candidate was checked with its own cube count.
+    EXPECT_EQ(component.askedNumTasks.back(), 1u);
 }
 
 // With separate pools the device budget can bind while the host has slack:
