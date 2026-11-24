@@ -71,83 +71,141 @@ static ImageType::Pointer zeroPadImage(const Image3D& image, const Padding& padd
  * Apply a weighting function to the padded regions of a zero-padded image.
  * weightFn receives t (normalized distance from boundary, 0..1) and returns a weight [0..1].
  * The padded pixel value = boundaryPixelValue * weightFn(t).
+ *
+ * Streams only the padding shell over the raw buffer instead of iterating the
+ * whole padded volume with ITK iterators: a padded voxel's value depends only
+ * on its own coordinates (its clamped source voxel always lies inside the
+ * original region, which is never rewritten), so the shell splits into three
+ * disjoint slab passes and the interior is never touched.
  */
+template <typename WeightFn>
 static void applyPaddingWeight(
     ImageType::Pointer paddedImage,
     const Padding& padding,
     const CuboidShape& originalShape,
-    std::function<float(float t)> weightFn)
+    WeightFn weightFn)
 {
-    const int64_t currentWidth = static_cast<int64_t>(originalShape.width);
-    const int64_t currentHeight = static_cast<int64_t>(originalShape.height);
-    const int64_t currentDepth = static_cast<int64_t>(originalShape.depth);
+    const size_t left = padding.before.width;
+    const size_t top = padding.before.height;
+    const size_t front = padding.before.depth;
+    const size_t right = padding.after.width;
+    const size_t bottom = padding.after.height;
+    const size_t back = padding.after.depth;
 
-    const int64_t widthPaddingLeft = static_cast<int64_t>(padding.before.width);
-    const int64_t heightPaddingTop = static_cast<int64_t>(padding.before.height);
-    const int64_t depthPaddingBefore = static_cast<int64_t>(padding.before.depth);
+    const size_t ow = originalShape.width;
+    const size_t oh = originalShape.height;
+    const size_t od = originalShape.depth;
+    const size_t W = ow + left + right;
+    const size_t H = oh + top + bottom;
+    const size_t D = od + front + back;
 
-    const int64_t widthPaddingRight = static_cast<int64_t>(padding.after.width);
-    const int64_t heightPaddingBottom = static_cast<int64_t>(padding.after.height);
-    const int64_t depthPaddingAfter = static_cast<int64_t>(padding.after.depth);
+    if (W == 0 || H == 0 || D == 0 || ow == 0 || oh == 0 || od == 0)
+        return;
 
-    using IteratorType = itk::ImageRegionIteratorWithIndex<ImageType>;
-    IteratorType it(paddedImage, paddedImage->GetLargestPossibleRegion());
+    float* buf = paddedImage->GetBufferPointer();
+    if (!buf)
+        return;
 
-    for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
-        ImageType::IndexType idx = it.GetIndex();
+    const size_t plane = W * H;
 
-        // Check if this pixel is in the original image region
-        bool inOriginalX = (idx[0] >= widthPaddingLeft) && (idx[0] < widthPaddingLeft + currentWidth);
-        bool inOriginalY = (idx[1] >= heightPaddingTop) && (idx[1] < heightPaddingTop + currentHeight);
-        bool inOriginalZ = (idx[2] >= depthPaddingBefore) && (idx[2] < depthPaddingBefore + currentDepth);
+    // Normalized distance from the original boundary along one axis:
+    // 0 inside the original range, rising to 1 at the padded border
+    // (same definition as the previous per-voxel computation).
+    auto axisT = [](size_t i, size_t before, size_t originLen, size_t after) -> float {
+        if (before > 0 && i < before)
+            return static_cast<float>(before - i) / static_cast<float>(before);
+        if (after > 0 && i >= before + originLen)
+            return static_cast<float>(i - (before + originLen - 1)) / static_cast<float>(after);
+        return 0.0f;
+    };
+    // Nearest original voxel along one axis (the boundary value source).
+    auto axisSrc = [](size_t i, size_t before, size_t originLen) -> size_t {
+        return std::clamp(i, before, before + originLen - 1);
+    };
+    // Overall fade factor: max t across the axes, clamped to [0, 1].
+    auto weightOf = [&](float tx, float ty, float tz) -> float {
+        return weightFn(std::clamp(std::max({tx, ty, tz}), 0.0f, 1.0f));
+    };
 
-        if (inOriginalX && inOriginalY && inOriginalZ) {
-            continue; // Inside the original image - keep the value as is
+    // Pass 1: x padding slabs (before/after), all y and z. The source column
+    // is constant per side. For interior rows (t_y = t_z = 0) the weight
+    // depends only on x, so it is tabulated once; border rows fall back to
+    // the per-voxel computation.
+    std::vector<float> wBefore(left), wAfter(right);
+    for (size_t x = 0; x < left; ++x)
+        wBefore[x] = weightOf(axisT(x, left, ow, right), 0.0f, 0.0f);
+    for (size_t x = left + ow; x < W; ++x)
+        wAfter[x - left - ow] = weightOf(axisT(x, left, ow, right), 0.0f, 0.0f);
+
+    for (size_t z = 0; z < D; ++z) {
+        const float tz = axisT(z, front, od, back);
+        const size_t sz = axisSrc(z, front, od);
+        for (size_t y = 0; y < H; ++y) {
+            const float ty = axisT(y, top, oh, bottom);
+            const size_t sy = axisSrc(y, top, oh);
+            float* row = buf + z * plane + y * W;
+            const float* srcRow = buf + sz * plane + sy * W;
+            const float srcLeft = srcRow[left];
+            const float srcRight = srcRow[left + ow - 1];
+            if (ty == 0.0f && tz == 0.0f) {
+                for (size_t x = 0; x < left; ++x)
+                    row[x] = srcLeft * wBefore[x];
+                for (size_t x = left + ow; x < W; ++x)
+                    row[x] = srcRight * wAfter[x - left - ow];
+            } else {
+                for (size_t x = 0; x < left; ++x)
+                    row[x] = srcLeft * weightOf(axisT(x, left, ow, right), ty, tz);
+                for (size_t x = left + ow; x < W; ++x)
+                    row[x] = srcRight * weightOf(axisT(x, left, ow, right), ty, tz);
+            }
         }
+    }
 
-        // Compute normalized distance t for each axis independently.
-        // t = 0 at the original boundary, t = 1 at the padded border.
-        float t_x = 0.0f;
-        if (idx[0] < widthPaddingLeft && widthPaddingLeft > 0) {
-            t_x = static_cast<float>(widthPaddingLeft - idx[0]) / static_cast<float>(widthPaddingLeft);
-        } else if (idx[0] >= widthPaddingLeft + currentWidth && widthPaddingRight > 0) {
-            t_x = static_cast<float>(idx[0] - (widthPaddingLeft + currentWidth - 1)) / static_cast<float>(widthPaddingRight);
+    // Pass 2: y padding slabs over the original x range (all z). t_x = 0, so
+    // the weight is constant along x: one weight per (y, z), then a scaled
+    // row copy from the source row.
+    for (size_t z = 0; z < D; ++z) {
+        const float tz = axisT(z, front, od, back);
+        const size_t sz = axisSrc(z, front, od);
+        for (size_t y = 0; y < top; ++y) {
+            const float w = weightOf(0.0f, axisT(y, top, oh, bottom), tz);
+            const size_t sy = axisSrc(y, top, oh);
+            float* row = buf + z * plane + y * W + left;
+            const float* srcRow = buf + sz * plane + sy * W + left;
+            for (size_t x = 0; x < ow; ++x)
+                row[x] = srcRow[x] * w;
         }
-
-        float t_y = 0.0f;
-        if (idx[1] < heightPaddingTop && heightPaddingTop > 0) {
-            t_y = static_cast<float>(heightPaddingTop - idx[1]) / static_cast<float>(heightPaddingTop);
-        } else if (idx[1] >= heightPaddingTop + currentHeight && heightPaddingBottom > 0) {
-            t_y = static_cast<float>(idx[1] - (heightPaddingTop + currentHeight - 1)) / static_cast<float>(heightPaddingBottom);
+        for (size_t y = top + oh; y < H; ++y) {
+            const float w = weightOf(0.0f, axisT(y, top, oh, bottom), tz);
+            const size_t sy = axisSrc(y, top, oh);
+            float* row = buf + z * plane + y * W + left;
+            const float* srcRow = buf + sz * plane + sy * W + left;
+            for (size_t x = 0; x < ow; ++x)
+                row[x] = srcRow[x] * w;
         }
+    }
 
-        float t_z = 0.0f;
-        if (idx[2] < depthPaddingBefore && depthPaddingBefore > 0) {
-            t_z = static_cast<float>(depthPaddingBefore - idx[2]) / static_cast<float>(depthPaddingBefore);
-        } else if (idx[2] >= depthPaddingBefore + currentDepth && depthPaddingAfter > 0) {
-            t_z = static_cast<float>(idx[2] - (depthPaddingBefore + currentDepth - 1)) / static_cast<float>(depthPaddingAfter);
+    // Pass 3: z padding slabs over the original x/y range. t_x = t_y = 0, so
+    // the weight is constant per z slice.
+    for (size_t z = 0; z < front; ++z) {
+        const float w = weightOf(0.0f, 0.0f, axisT(z, front, od, back));
+        const float* srcPlanePtr = buf + axisSrc(z, front, od) * plane;
+        for (size_t y = top; y < top + oh; ++y) {
+            float* row = buf + z * plane + y * W + left;
+            const float* srcRow = srcPlanePtr + y * W + left;
+            for (size_t x = 0; x < ow; ++x)
+                row[x] = srcRow[x] * w;
         }
-
-        // The overall fade factor: use the maximum t across all axes that are in padding.
-        // This ensures a smooth fade even in corners where multiple axes are padded.
-        float t = std::max({t_x, t_y, t_z});
-
-        // Clamp t to [0, 1]
-        t = std::clamp(t, 0.0f, 1.0f);
-
-        // Get the value of the nearest boundary pixel in the original image
-        long srcX = std::clamp<long>(idx[0], widthPaddingLeft, widthPaddingLeft + currentWidth - 1);
-        long srcY = std::clamp<long>(idx[1], heightPaddingTop, heightPaddingTop + currentHeight - 1);
-        long srcZ = std::clamp<long>(idx[2], depthPaddingBefore, depthPaddingBefore + currentDepth - 1);
-
-        ImageType::IndexType srcIdx;
-        srcIdx[0] = srcX;
-        srcIdx[1] = srcY;
-        srcIdx[2] = srcZ;
-
-        float boundaryValue = paddedImage->GetPixel(srcIdx);
-        float weight = weightFn(t);
-        it.Set(boundaryValue * weight);
+    }
+    for (size_t z = front + od; z < D; ++z) {
+        const float w = weightOf(0.0f, 0.0f, axisT(z, front, od, back));
+        const float* srcPlanePtr = buf + axisSrc(z, front, od) * plane;
+        for (size_t y = top; y < top + oh; ++y) {
+            float* row = buf + z * plane + y * W + left;
+            const float* srcRow = srcPlanePtr + y * W + left;
+            for (size_t x = 0; x < ow; ++x)
+                row[x] = srcRow[x] * w;
+        }
     }
 }
 

@@ -40,17 +40,30 @@ SliceData fullSliceToSliceData(const FullSlice& full) {
 }
 
 // Scale the PSF so its total integral is 1 (unit flux). No-op if the sum is 0.
+// Walks the raw buffer instead of Image3D iterators: the iterator's operator!=
+// rebuilds a fresh end-iterator per comparison, which cost more than the
+// arithmetic for multi-megavoxel PSFs. Same linear order and double
+// accumulation as before, so the result is unchanged.
 void normalizeUnitFlux(PSF& psf) {
+    if (psf.getItkImage().IsNull())
+        return;
+
+    const size_t n = psf.getItkImage()->GetBufferedRegion().GetNumberOfPixels();
+    if (n == 0)
+        return;
+
+    float* data = psf.getItkImage()->GetBufferPointer();
+
     double sum = 0.0;
-    for (auto it = psf.cbegin(); it != psf.cend(); ++it)
-        sum += *it;
+    for (size_t i = 0; i < n; ++i)
+        sum += data[i];
 
     if (sum <= 0.0)
         return;
 
     const float scale = static_cast<float>(1.0 / sum);
-    for (auto it = psf.begin(); it != psf.end(); ++it)
-        *it *= scale;
+    for (size_t i = 0; i < n; ++i)
+        data[i] *= scale;
 }
 
 } // namespace
