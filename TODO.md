@@ -1,31 +1,8 @@
-think about iamge padding at outside. if imagepadding outside larger than inside. perhaps its wise to pass the total compute size into the recursion. And just say this is the total size, you have to fit the padding in there, and the rest is image. Currently its weird because the cube dim is total - imagepadding, but what if imagepadding < cubepadding, what about the other way around. I think the best would be to pass total size (restricted by memory) and then just say that if cube position at beginning then this much padding etc. so the recursion stays the same
-
 currently with the changes ot the backendconfig, as this already includes the device, the createbackendiwthsharedmemory is not really needed, as that just used the backends config to configure, now i can just manually take that backends config. Feels like two systems doing the same job
-
-crashes if memory in config is not set propery? should not happen
-
-there might still be wrong with how the subimages are stitched back together, there is an artifact when using "parent" padding strategy althugh this should be sufficient padding
-
-error when psf config or other path not found
-
 
 in the backend properly write the move to device and copy to device aswell as move from and copy from, use move semantics and then make the input nullptr
 
-make some of the padding variations user interactive, like if the psf that is read from file is larger than the cube that would be processed (due to memory) then prompt the user to specify if either the psf is cut off or the cube is enlarged.
-
-standarddeconvstrategy, creating psfs needs the threadpool and progresscallback
-
-gibsonlanni psf generator, how much needs to be padded?
-
-seperate image padding and cubepadding? should be same or not?
-
-discuess about how much padding is needed for the different padding types. Given a psf how do i determine how much to pad, how much padding should be between the cubes? full padding or also less?
-
 check that psf ids are unique, for the supplied labelmap and for the used psf objects, and that theyre not overlapping
-
-should the tiffreader hold the image memory
-
-maxmemory management
 
 check everything including padding etc for uneven sizes
 
@@ -41,22 +18,6 @@ the memory transfer between host and device can be improved, as all tasks have s
 cna i somehow make the memory used for the workerdevice in a fixed position and pinned, e.g. for cuda i can always reuse the same location to load data into (or 2 locations if 2 iothreads). Is there a speedup of memory reading writing that this would get?
 
 could make a low memory version for richardsonlucydeconvolution where the f is recomputed in backwardfft so that it doesnt have to be stored
-
-
-
-
-
-
-- check if the deconvolutionalgorithms are correct
-
-questions to ask:
-
-- where should memory handling be?
-
-- psf normalization
-    - should each psf, before using it for deconvolution be scaled to sum to 1?
-    - BIG psfgenerator sets max to 1
-
 
 
 
