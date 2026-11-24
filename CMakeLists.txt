@@ -214,7 +214,7 @@ set(DOLPHIN_SOURCES
     src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.cpp
-    src/deconvolution/algorithms/PoissonMLEUnitStepDeconvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/PoissonMLEAdaptiveStepDeconvolutionAlgorithm.cpp
 )
 
 

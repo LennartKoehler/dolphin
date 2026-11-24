@@ -87,6 +87,100 @@ protected:
         RealData host = backend->getMemoryManager().moveDataFromDevice(data, BackendFactory::getInstance().getHostBackendMemoryManager());
         return Preprocessor::convertRealDataToImage(host);
     }
+
+    // Full PoissonMLE round-trip on blurred data with a Gaussian PSF whose on-disk
+    // scale is NOT unit-sum (the algorithm must normalize it). Exercises the sieve,
+    // the PSF unit-sum normalization, and the wrapped-moment PSF-width estimate.
+    // The ground truth g is blurred with the UNIT-SUM version of the same PSF, so a
+    // correct normalization recovers the true forward model. Returns the correlation
+    // of the result with the ground truth. Runs for both PoissonMLE variants
+    // (unit step + Newton line search).
+    float runGaussianPSFRoundTrip(const std::string& algoName) {
+        const float bg = 0.01f;
+        const float psfScale = 7.3f; // deliberately not unit sum
+        const float sigma = 1.5f;
+        const size_t S = 16, C = 8;
+
+        // Structured ground truth: a few Gaussian "fluorescent objects" on a low floor.
+        // (White-noise truth would be almost entirely destroyed by the PSF blur, leaving
+        // no recoverable correlation to measure.)
+        struct Blob { size_t cx, cy, cz; float amp, rad; };
+        const std::vector<Blob> blobs = {
+            {4, 4, 4, 1.0f, 2.0f}, {11, 5, 9, 0.8f, 2.0f}, {8, 12, 4, 0.6f, 1.5f}, {3, 11, 12, 0.9f, 2.0f},
+        };
+        Image3D truth(CuboidShape(S, S, S), 0.05f);
+        for (size_t z = 0; z < S; ++z)
+            for (size_t y = 0; y < S; ++y)
+                for (size_t x = 0; x < S; ++x) {
+                    float v = 0.05f;
+                    for (const auto& b : blobs) {
+                        double dx = (double)x - b.cx, dy = (double)y - b.cy, dz = (double)z - b.cz;
+                        v += b.amp * std::exp(-0.5 * (dx * dx + dy * dy + dz * dz) / (b.rad * b.rad));
+                    }
+                    truth.setPixel(x, y, z, v);
+                }
+
+        // Build two Gaussian PSF images centered at (C,C,C): the on-disk (mis-scaled)
+        // one the algorithm must normalize, and the unit-sum one used to generate g.
+        Image3D psfImg(dataSize, 0.0f);
+        Image3D unitImg(dataSize, 0.0f);
+        double psfSum = 0.0;
+        std::vector<float> vals(S * S * S);
+        for (size_t z = 0; z < S; ++z)
+            for (size_t y = 0; y < S; ++y)
+                for (size_t x = 0; x < S; ++x) {
+                    double dx = (double)x - C, dy = (double)y - C, dz = (double)z - C;
+                    float v = (float)(psfScale * std::exp(-0.5 * (dx * dx + dy * dy + dz * dz) / (sigma * sigma)));
+                    vals[z * S * S + y * S + x] = v;
+                    psfSum += v;
+                }
+        for (size_t z = 0; z < S; ++z)
+            for (size_t y = 0; y < S; ++y)
+                for (size_t x = 0; x < S; ++x) {
+                    float v = vals[z * S * S + y * S + x];
+                    psfImg.setPixel(x, y, z, v);
+                    unitImg.setPixel(x, y, z, v / (float)psfSum);
+                }
+
+        auto Hmis = preprocessPSF(std::make_shared<PSF>(std::move(psfImg), "gaussian"), dataSize);
+        auto Hun  = preprocessPSF(std::make_shared<PSF>(std::move(unitImg), "gaussian_unit"), dataSize);
+
+        // g = (unit PSF) * truth + bg, using the same device FFT conventions as the algorithm.
+        const auto& mem = backend->getMemoryManager();
+        const auto& compute = backend->getComputeManager();
+        RealData truthDev = imageToDevice(truth);
+        RealData g = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+        RealData work = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+        ComplexView workC = mem.reinterpret(work);
+        mem.memCopy(truthDev, work);
+        compute.forwardFFT(work, workC);
+        compute.complexMultiplication(workC, *Hun, workC);
+        compute.backwardFFT(workC, work);
+        compute.realAffine(work, 1.0f, bg, g);
+        backend->sync();
+
+        auto configOwner = makeConfig(algoName);
+
+        auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
+        config.iterations = 30;
+        config.signalToNoise = 20.0f;
+        config.background = bg;
+        config.sieve = true;
+        config.prior = true;
+        config.sievePasses = 2;
+        auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
+        EXPECT_NE(algo, nullptr);
+        algo->setBackend(*backend);
+        algo->init(dataSize);
+
+        RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+        algo->deconvolve(*Hmis, g, f);   // pass the MIS-SCALED PSF; the algorithm must normalize it
+        backend->sync();
+
+        Image3D result = deviceToImage(f);
+        EXPECT_FALSE(TestUtils::hasNaN(result));
+        return TestUtils::correlation(result, truth);
+    }
 };
 
 class DeconvolutionAlgorithmTest : public AlgorithmTestBase, public ::testing::WithParamInterface<std::string> {
@@ -338,100 +432,23 @@ TEST_F(AlgorithmTestBase, FillGaussianOTFMatchesSpatialGaussian) {
 }
 
 // Regression: full PoissonMLE pass on blurred data with a Gaussian PSF whose
-// on-disk scale is NOT unit-sum (the algorithm must normalize it). This exercises
-// the sieve (which the impulse-PSF parameter tests cannot, since the sieve sigma
-// collapses to ~0 there), the PSF unit-sum normalization, and the wrapped-moment
-// PSF-width estimate. The ground truth g is blurred with the UNIT-SUM version of
-// the same PSF, so a correct normalization recovers the true forward model.
+// on-disk scale is NOT unit-sum (the algorithm must normalize it). See
+// runGaussianPSFRoundTrip for what is exercised.
 TEST_F(AlgorithmTestBase, PoissonMLEGaussianPSFRoundTrip) {
-    const float bg = 0.01f;
-    const float psfScale = 7.3f; // deliberately not unit sum
-    const float sigma = 1.5f;
-    const size_t S = 16, C = 8;
-
-    // Structured ground truth: a few Gaussian "fluorescent objects" on a low floor.
-    // (White-noise truth would be almost entirely destroyed by the PSF blur, leaving
-    // no recoverable correlation to measure.)
-    struct Blob { size_t cx, cy, cz; float amp, rad; };
-    const std::vector<Blob> blobs = {
-        {4, 4, 4, 1.0f, 2.0f}, {11, 5, 9, 0.8f, 2.0f}, {8, 12, 4, 0.6f, 1.5f}, {3, 11, 12, 0.9f, 2.0f},
-    };
-    Image3D truth(CuboidShape(S, S, S), 0.05f);
-    for (size_t z = 0; z < S; ++z)
-        for (size_t y = 0; y < S; ++y)
-            for (size_t x = 0; x < S; ++x) {
-                float v = 0.05f;
-                for (const auto& b : blobs) {
-                    double dx = (double)x - b.cx, dy = (double)y - b.cy, dz = (double)z - b.cz;
-                    v += b.amp * std::exp(-0.5 * (dx * dx + dy * dy + dz * dz) / (b.rad * b.rad));
-                }
-                truth.setPixel(x, y, z, v);
-            }
-
-    // Build two Gaussian PSF images centered at (C,C,C): the on-disk (mis-scaled)
-    // one the algorithm must normalize, and the unit-sum one used to generate g.
-    Image3D psfImg(dataSize, 0.0f);
-    Image3D unitImg(dataSize, 0.0f);
-    double psfSum = 0.0;
-    std::vector<float> vals(S * S * S);
-    for (size_t z = 0; z < S; ++z)
-        for (size_t y = 0; y < S; ++y)
-            for (size_t x = 0; x < S; ++x) {
-                double dx = (double)x - C, dy = (double)y - C, dz = (double)z - C;
-                float v = (float)(psfScale * std::exp(-0.5 * (dx * dx + dy * dy + dz * dz) / (sigma * sigma)));
-                vals[z * S * S + y * S + x] = v;
-                psfSum += v;
-            }
-    for (size_t z = 0; z < S; ++z)
-        for (size_t y = 0; y < S; ++y)
-            for (size_t x = 0; x < S; ++x) {
-                float v = vals[z * S * S + y * S + x];
-                psfImg.setPixel(x, y, z, v);
-                unitImg.setPixel(x, y, z, v / (float)psfSum);
-            }
-
-    auto Hmis = preprocessPSF(std::make_shared<PSF>(std::move(psfImg), "gaussian"), dataSize);
-    auto Hun  = preprocessPSF(std::make_shared<PSF>(std::move(unitImg), "gaussian_unit"), dataSize);
-
-    // g = (unit PSF) * truth + bg, using the same device FFT conventions as the algorithm.
-    const auto& mem = backend->getMemoryManager();
-    const auto& compute = backend->getComputeManager();
-    RealData truthDev = imageToDevice(truth);
-    RealData g = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
-    RealData work = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
-    ComplexView workC = mem.reinterpret(work);
-    mem.memCopy(truthDev, work);
-    compute.forwardFFT(work, workC);
-    compute.complexMultiplication(workC, *Hun, workC);
-    compute.backwardFFT(workC, work);
-    compute.realAffine(work, 1.0f, bg, g);
-    backend->sync();
-
-    auto configOwner = makeConfig("PoissonMLE");
-
-    auto& config = static_cast<PoissonMLEConfig&>(*configOwner);
-    config.iterations = 30;
-    config.signalToNoise = 20.0f;
-    config.background = bg;
-    config.sieve = true;
-    config.prior = true;
-    config.sievePasses = 2;
-    auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
-    ASSERT_NE(algo, nullptr);
-    algo->setBackend(*backend);
-    algo->init(dataSize);
-
-    RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
-    algo->deconvolve(*Hmis, g, f);   // pass the MIS-SCALED PSF; the algorithm must normalize it
-    backend->sync();
-
-    Image3D result = deviceToImage(f);
-    EXPECT_FALSE(TestUtils::hasNaN(result));
-    const float corr = TestUtils::correlation(result, truth);
+    const float corr = runGaussianPSFRoundTrip("PoissonMLE");
     // The buggy integer-frequency sieve flattened the image to its DC (constant),
     // giving ~0 correlation with truth. A correct sieve + normalized PSF recovers
     // the objects: 0.8 sits cleanly between the broken (~0) and fixed (~0.9) cases.
     EXPECT_GT(corr, 0.8f) << "Gaussian-PSF round-trip correlation with ground truth was " << corr;
+}
+
+// Same round-trip for the Newton line-search variant. Guards the adaptive path:
+// it needs the model m alive alongside the direction d for J(alpha), so a
+// buffer-sharing regression (m clobbered by the direction computation) would
+// silently corrupt the line search.
+TEST_F(AlgorithmTestBase, PoissonMLEAdaptiveStepGaussianPSFRoundTrip) {
+    const float corr = runGaussianPSFRoundTrip("PoissonMLEAdaptiveStep");
+    EXPECT_GT(corr, 0.8f) << "Adaptive-step Gaussian-PSF round-trip correlation with ground truth was " << corr;
 }
 
 

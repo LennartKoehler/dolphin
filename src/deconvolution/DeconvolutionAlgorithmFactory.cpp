@@ -32,8 +32,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/algorithms/RegularizedInverseFilterDeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
-#include "dolphin/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.h"
-#include "dolphin/deconvolution/algorithms/PoissonMLEUnitStepDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/PoissonMLEAdaptiveStepDeconvolutionAlgorithm.h"
 
 #include <stdexcept>
 #include <spdlog/spdlog.h>
@@ -172,13 +171,13 @@ void DeconvolutionAlgorithmFactory::registerAlgorithms() {
         []() -> DeconvolutionAlgorithm* { return new RLADDeconvolutionAlgorithm(); },
         []() -> std::shared_ptr<DeconvolutionConfig> { return std::make_shared<RichardsonLucyADConfig>(); });
 
-    // "PoissonMLE" is the RL unit-step variant; "PoissonMLEAdaptiveStep" is the
-    // Newton line-search variant. Class names keep the UnitStep suffix.
+    // "PoissonMLE" is the RL unit-step variant (the algorithm base class);
+    // "PoissonMLEAdaptiveStep" is the Newton line-search variant derived from it.
     registerAlgorithm(DeconvolutionAlgorithms::kPoissonMLE,
-        []() -> DeconvolutionAlgorithm* { return new PoissonMLEUnitStepDeconvolutionAlgorithm(); },
+        []() -> DeconvolutionAlgorithm* { return new PoissonMLEDeconvolutionAlgorithm(); },
         []() -> std::shared_ptr<DeconvolutionConfig> { return std::make_shared<PoissonMLEUnitStepConfig>(); });
 
     registerAlgorithm(DeconvolutionAlgorithms::kPoissonMLEAdaptiveStep,
-        []() -> DeconvolutionAlgorithm* { return new PoissonMLEDeconvolutionAlgorithm(); },
+        []() -> DeconvolutionAlgorithm* { return new PoissonMLEAdaptiveStepDeconvolutionAlgorithm(); },
         []() -> std::shared_ptr<DeconvolutionConfig> { return std::make_shared<PoissonMLEConfig>(); });
 }
