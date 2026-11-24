@@ -241,7 +241,7 @@
             "name": "Debug dolphin remote",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/dockerbuild/build/tests/integration/main_test",
+            "program": "${workspaceFolder}/dockerbuild/dolphin_build/tests/integration/main_test",
             "MIMode": "gdb",
             "miDebuggerServerAddress": "nodeasb02g:1234",
             "useExtendedRemote": true,

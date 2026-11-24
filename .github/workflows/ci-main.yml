@@ -170,7 +170,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ hashFiles('cmake/vcpkg/vcpkg.json', 'cmake/vcpkg/vcpkg-configuration.json') }}
           restore-keys: |
             vcpkg-windows-
 
@@ -208,7 +208,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ hashFiles('cmake/vcpkg/vcpkg.json', 'cmake/vcpkg/vcpkg-configuration.json') }}
 
       - name: Build
         run: cmake --build build --config Release -j
@@ -239,7 +239,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ hashFiles('cmake/vcpkg/vcpkg.json', 'cmake/vcpkg/vcpkg-configuration.json') }}
           restore-keys: |
             vcpkg-windows-
 
@@ -279,7 +279,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ hashFiles('cmake/vcpkg/vcpkg.json', 'cmake/vcpkg/vcpkg-configuration.json') }}
 
       - name: Build
         run: cmake --build build -j
