@@ -111,7 +111,7 @@ public:
     float cutoffThreshold = 0.0f;
 
     /** Optical-resolution criterion used to size the auto-size PSF box.
-     *  Mirrors Huygens' image_approxResol_crit. The box is derived from the
+     *  The box is derived from the
      *  approximate resolution and the voxel pitch, not from a value cutoff. */
     enum ResolutionCriterion : int {
         RAYLEIGH = 0,  // rayleigh
@@ -120,8 +120,7 @@ public:
     };
     int resolutionCriterion = ResolutionCriterion::RAYLEIGH;
 
-    /** Normalise the generated PSF so its total integral is 1 (unit flux),
-     *  matching Huygens's flux normalisation. */
+    /** Normalise the generated PSF so its total integral is 1 (unit flux),**/
     bool normalizePSF = true;
 
 protected:

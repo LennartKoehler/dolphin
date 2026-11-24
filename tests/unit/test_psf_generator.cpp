@@ -1209,11 +1209,10 @@ TEST_F(PSFGeneratorTest, GibsonLanniConfocalCacheInvalidation) {
 TEST_F(PSFGeneratorTest, GibsonLanniConfocalMetrics) {
     // User's confocal setup: NA 0.55 glycerol immersion (1.43) on water sample
     // (1.338), 488 excitation / 520 emission. Sanity ratios are asserted;
-    // absolute values are printed for manual comparison against the Huygens
-    // confocal_psf reference (measured: lateral 386 nm, axial 3067 nm,
+    // absolute values are printed for manual comparisoon
+    // (measured: lateral 386 nm, axial 3067 nm,
     // central-3-slice energy 32%). Note: central3Fraction depends on the
-    // axial pitch (100 nm here) - compare against Huygens only at matched
-    // pitch. Expected product-model values at this pitch: lateral ~338 nm,
+    // axial pitch (100 nm here). Expected product-model values at this pitch: lateral ~338 nm,
     // axial ~2900 nm.
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = confocalGlJSON(true);
