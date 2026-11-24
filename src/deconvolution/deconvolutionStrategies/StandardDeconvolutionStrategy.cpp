@@ -176,8 +176,8 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
             ? estimateImageBackground(*reader, imageSize, workShape.box.dimensions,
                                       nReaderThreads)
             : estimateBackgroundFromSampleCube(*readerHandler, cubeCoordinatesWithPadding[0]);
-        spdlog::get("deconvolution")->info(
-            "Using background {:.6f} ({}) for all cubes",
+        spdlog::get("deconvolution")->warn(
+            "Using background {:.6f} ({}) for all cubes. This background might not be representative for the entire image. Consider using manual background estimation.",
             *runContext.background,
             *strategy == BACKGROUND_WHOLE_IMAGE ? "whole image" : "sample cube");
         reader->clearCache();
