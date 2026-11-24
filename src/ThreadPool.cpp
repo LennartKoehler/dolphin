@@ -44,9 +44,7 @@ ThreadPool::ThreadPool(size_t numThreads, std::function<void()> threadInitFunc)
 
                 std::ostringstream ctx;
                 ctx << std::this_thread::get_id();
-                spdlog::get("default")->trace("tid:{} starting task", ctx.str());
                 task();
-                spdlog::get("default")->trace("tid:{} finished task", ctx.str());
                 queueSpace.notify_one();
 
             }

@@ -201,9 +201,7 @@ set(DOLPHIN_SOURCES
     src/deconvolution/Preprocessor.cpp
     src/deconvolution/Postprocessor.cpp
     src/deconvolution/DeconvolutionProcessor.cpp
-    src/deconvolution/BackgroundStatistics.cpp
     src/deconvolution/BackgroundEstimation.cpp
-    src/deconvolution/BackgroundSampleCube.cpp
 
     src/deconvolution/deconvolutionStrategies/ImageSplit.cpp
     src/deconvolution/deconvolutionStrategies/PSFHandler.cpp
@@ -219,7 +217,7 @@ set(DOLPHIN_SOURCES
     src/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.cpp
-    src/deconvolution/algorithms/PoissonMLEUnitStepDeconvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/PoissonMLEAdaptiveStepDeconvolutionAlgorithm.cpp
 )
 
 

@@ -3,7 +3,7 @@
 A mathematical companion to [`poisson-mle-deconvolution.md`](poisson-mle-deconvolution.md).
 It derives the objective, the gradient, the convex line search, the shrinkage
 prior, and the sieve OTF, and explains the non-obvious choices (unit-sum PSF,
-floor clamping, flux conservation, final floor subtraction).
+floor clamping, flux conservation, the constant-offset degeneracy).
 
 Notation.
 
@@ -108,7 +108,7 @@ $J$ is identical to maximizing the likelihood. $J$ is the sum of a
 pointwise-convex function of $m_i$, and $m_i$ is affine in $f$,
 so **$J$ is convex in $f$**. (It is not strictly convex in general because $H$
 has a null space — uniform offsets in the direction $H$ kills — which is exactly
-the degeneracy removed in §8.)
+the constant-offset degeneracy discussed in §8.)
 
 **Why I-divergence and not least squares.** A Gaussian (shot-noise-negligible)
 model would minimize $\sum_i (g_i-m_i)^2$, penalizing an absolute error equally
@@ -404,38 +404,34 @@ neighbor-dependent** regularizer. Together they suppress both isolated spikes
 
 ## 7. Background estimation
 
-If $b$ is not supplied, it is estimated as the **mean of the dimmest decile**:
-sort all pixel values and average the lowest 10 % (clamped to at least 1 pixel).
-The reasoning: in a sparse-fluorescence image, the bottom of the histogram is
-overwhelmingly background (no real signal sits there), so its mean is a robust
-estimate of $b$ that is insensitive to the bright tail (fluorophores) — unlike a
-global mean, which is dragged up by the signal. The same dimmest-decile statistic
-is reused in §8 to measure the residual floor.
+If $b$ is not supplied, it is estimated once for the whole run as the **mode of
+the dark cluster**: a log-histogram over all voxel values is accumulated, the
+darkest *substantial* cluster below the 5th percentile is located, and the
+count-weighted mean over the cluster's half-maximum window (each bin represented
+by its geometric midpoint) is the estimate. The reasoning: in a
+sparse-fluorescence image the background can be only a small minority of the
+voxels, so every percentile below that fraction lands in the foreground — the
+5th percentile only *bounds* the search. Requiring the cluster's half-maximum
+window to hold at least 1 % of all voxels rejects isolated spikes (repeated
+dead/hot pixel values); when no such cluster exists below the bound (a broad
+unimodal floor), the estimate falls back to the 5th percentile itself.
 
 ---
 
-## 8. Final floor subtraction (the constant-offset degeneracy)
+## 8. The constant-offset degeneracy (no final floor subtraction)
 
 Recall §1.1: $H$ **preserves constants**, $H(\mathbf c)=c\,\mathbf c$. Therefore
 the forward model is blind to a *uniform offset* in $f$: adding a constant $c$ to
 $f$ simply shifts every $(Hf)_i$ by $c$, which is indistinguishable from adding
 $c$ to the background. The MLE splits this ambiguity between the object and the
-background rather than resolving it, so the converged object's background settles
-at a small **flat residual offset** (the dimmest-decile estimate of $b$ is itself
-slightly below the true background mean, so a mismatch leaks into $f$ as a
-constant floor).
+background rather than resolving it, so the converged object may retain a small
+**flat residual offset** above zero.
 
-Because this leftover is **uniform**, it can be removed exactly: measure the
-result's background again as the mean of its dimmest decile, and subtract it
-globally,
-
-$$
-f \;\leftarrow\; \max\bigl(0,\; f - \text{floor}\bigr),
-$$
-
-leaving the object on a **clean zero background** without touching its shape
-(a uniform subtraction commutes with the object's structure). This is the
-final output.
+Earlier versions removed this leftover by measuring the result's background and
+subtracting it globally ($f \leftarrow \max(0,\, f - \text{floor})$). That step
+is **no longer performed**: the background level is carried by $b$ in the
+forward model $m = Hf + b$, the object is constrained $f \ge 0$ at every
+iteration, and the output is the converged object as-is.
 
 ---
 
@@ -459,7 +455,7 @@ scales *both* regularizers directly. The limits:
   problem.
 
 The other knobs are local overrides: `poissonBackground` fixes $b$ instead of the
-dimmest-decile estimate; `poissonLambda` fixes $\lambda$ instead of $1/\mathrm{SNR}$;
+mode-of-dark-cluster estimate; `poissonLambda` fixes $\lambda$ instead of $1/\mathrm{SNR}$;
 `poissonSieve`/`poissonSievePasses` toggle/deepen the spatial smoother; and
 `poissonSieveScale` sets its peak width as a fraction of the PSF (lower = sharper,
 `0` = off).
@@ -486,4 +482,3 @@ dimmest-decile estimate; `poissonLambda` fixes $\lambda$ instead of $1/\mathrm{S
 | $\phi_\lambda(u)=(\sqrt{2\lambda u+1}-1)/\lambda$ | concave, sub-linear shrinkage map (flux-preserving after rescale) |
 | $\mathrm{OTF}(\mathbf k)=\exp[-2\pi^2(\sigma_x^2 f_x^2+\sigma_y^2 f_y^2+\sigma_z^2 f_z^2)]$ | sieve Gaussian low-pass |
 | $\sigma(k)=\texttt{poissonSieveScale}\,\mathrm{psf}\,(1-k/k_{\text{last}})$ | annealed sieve width (→ 0 at the end) |
-| $\text{floor}$ | dimmest-decile mean of the result; subtracted at the end |

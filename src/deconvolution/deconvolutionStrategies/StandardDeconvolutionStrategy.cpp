@@ -22,7 +22,6 @@ See the LICENSE file provided with the code for the full license.
 #include <cmath>
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/deconvolution/BackgroundEstimation.h"
-#include "dolphin/deconvolution/BackgroundSampleCube.h"
 #include "dolphin/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"
@@ -174,15 +173,12 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     if (const auto strategy = globalBackgroundStrategy(*algorithm, deconvConfig)) {
         runContext.background = (*strategy == BACKGROUND_WHOLE_IMAGE)
             ? estimateImageBackground(*reader, imageSize, workShape.box.dimensions,
-                                      deconvConfig.paddingFillType, nReaderThreads)
-            : estimateBackgroundFromSampleCube(*readerHandler, cubeCoordinatesWithPadding).value_or(0.0f);
+                                      nReaderThreads)
+            : estimateBackgroundFromSampleCube(*readerHandler, cubeCoordinatesWithPadding[0]);
         spdlog::get("deconvolution")->info(
             "Using background {:.6f} ({}) for all cubes",
             *runContext.background,
             *strategy == BACKGROUND_WHOLE_IMAGE ? "whole image" : "sample cube");
-        // The plan-time reads run through the reader cache; their leftover
-        // fragments would permanently shrink the cache against its cap (the
-        // next task read would wait for memory that is never freed).
         reader->clearCache();
     }
 

@@ -21,43 +21,9 @@ See the LICENSE file provided with the code for the full license.
 
 namespace {
 
-const real_t kAlphaLow = 0.005f;
-const real_t kAlphaHigh = 25.0f;
 // Shrinkage base: lambda = kLambdaBase / snr (0 = derive from SNR). Higher SNR
 // -> smaller lambda -> weaker prior (closer to the pure MLE).
 const real_t kLambdaBase = 1.0f;
-
-// Safeguarded Newton (bisection fallback) for the 1-D minimizer of the Poisson
-// line search J(alpha) = sum g ln(g/(m+alpha*hd)) - g + (m+alpha*hd), which is
-// strictly convex in alpha. The result is further guarded against Newton overshoot
-// by preferring, over {newton alpha, the RL unit step (alpha=1)}, whichever gives
-// the smaller J: the RL step is the provably-safe descent, while the exact Newton
-// optimum is faster when it beats it.
-real_t newtonLineSearch(const IComputeBackend& compute,
-                        const RealData& g, const RealData& m, const RealData& hd) {
-    real_t a = kAlphaLow;
-    real_t J = 0, dJ = 0, d2J = 0;
-    compute.poissonLineSearchEval(g, m, hd, a, &J, &dJ, &d2J);
-    a = (d2J > 1e-9) ? std::clamp(a - dJ / d2J, kAlphaLow, kAlphaHigh) : a;
-
-    for (int it = 0; it < 30; ++it) {
-        compute.poissonLineSearchEval(g, m, hd, a, &J, &dJ, &d2J);
-        real_t aNext = (d2J > 1e-9) ? (a - dJ / d2J) : 0.5 * (kAlphaLow + kAlphaHigh);
-        if (!(aNext > kAlphaLow && aNext < kAlphaHigh)) aNext = 0.5 * (kAlphaLow + kAlphaHigh);
-        if (std::fabs(aNext - a) < 1e-5 * (1.0 + std::fabs(a))) {
-            a = aNext;
-            break;
-        }
-        a = aNext;
-    }
-    a = std::clamp(a, kAlphaLow, kAlphaHigh);
-
-    // Guard: never do worse than the RL unit step.
-    real_t Jnew = 0, Jrl = 0, t = 0;
-    compute.poissonLineSearchEval(g, m, hd, a, &Jnew, &t, &t);
-    compute.poissonLineSearchEval(g, m, hd, 1.0f, &Jrl, &t, &t);
-    return (Jnew <= Jrl) ? a : 1.0f;
-}
 
 // Annealed anisotropic Gaussian smoothing in the frequency domain (the "sieve").
 // Operates in-place on `f` (which has the in-place-FFT layout): r2c, multiply by the
@@ -133,7 +99,7 @@ void estimatePsfSigmas(const IComputeBackend& compute,
 void PoissonMLEDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Accept both PoissonMLEConfig and PoissonMLEUnitStepConfig (the latter is
     // derived from the former).
-    configure(asConfig<PoissonMLEConfig>(config, DeconvolutionAlgorithms::kPoissonMLEAdaptiveStep));
+    configure(asConfig<PoissonMLEConfig>(config, DeconvolutionAlgorithms::kPoissonMLE));
 }
 
 void PoissonMLEDeconvolutionAlgorithm::configure(const PoissonMLEConfig& config) {
@@ -153,15 +119,12 @@ void PoissonMLEDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for PoissonMLE algorithm initialization");
     const IBackendMemoryManager& memory = backend->getMemoryManager();
 
-    // Real in-place-layout scratch buffers; each also exposes a half-complex view
-    // (same memory) used as the FFT work / result buffer.
-    model = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize);     // m = Hf + bg
-    modelC = memory.reinterpret(model);
-    direction = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize); // search direction d
-    directionC = memory.reinterpret(direction);
-    hd = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize);        // H*d for the line search
-    hdC = memory.reinterpret(hd);
-    sieveOTF = memory.allocateMemoryOnDeviceComplex(dataSize);         // half-complex Gaussian low-pass
+    // One real in-place-layout scratch buffer (m -> d per iteration); its
+    // half-complex view (same memory) is the FFT work / result buffer. The
+    // model m and the search direction d are never needed simultaneously in
+    // the unit-step path, so they share this buffer.
+    scratch = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+    scratchC = memory.reinterpret(scratch);
 
     // Pre-register the real r2c/c2r plans (in-place); others are created lazily.
     FFTPlanDescription fReal{PlanDirection::FORWARD, PlanType::REAL, dataSize, true};
@@ -200,7 +163,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     // cube. Re-estimating per cube would let float32 OTF noise give slightly
     // different prefilter/sieve widths and thus visible tile seams.
     if (!psfSigmasValid) {
-        estimatePsfSigmas(compute, memory, H, shape, modelC, model, psfSigX, psfSigY, psfSigZ);
+        estimatePsfSigmas(compute, memory, H, shape, scratchC, scratch, psfSigX, psfSigY, psfSigZ);
         psfSigmasValid = true;
     }
     const real_t sigX = psfSigX;
@@ -216,7 +179,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     // f is already in the real-FFT in-place layout (allocated RealFFTInPlace by the
     // executor), so the in-place FFT low-pass can run on it directly.
     if (usePrefilter && prefilterScale > 0.0f) {
-        applySieve(compute, f, sieveOTF,
+        applySieve(compute, f, scratchC,
                    prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
         compute.realClampMin(f, 0.0f, f);
         if (auto logger = spdlog::get("deconvolution"))
@@ -253,41 +216,11 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
 
     const int maxIter = iterations;
     const real_t kLast = std::max(1.0f, 0.8f * static_cast<real_t>(maxIter));
-    pwr = 1.0f; // reset step damping for this deconvolution
+    resetDataStepState(); // reset variant-specific data-step state (e.g. damping)
 
     for (int k = 0; k < maxIter; ++k) {
-        // ---- DATA STEP: Poisson likelihood, gradient + exact Newton line search. ----
-        // (r2c/c2r are always run in-place on a buffer's real/complex pair, exactly as
-        //  in RichardsonLucy, because the out-of-place real r2c plan assumes the padded
-        //  in-place layout. So each FFT source is first copied into its work buffer.)
-        // m = Hf + bg  (spatial result in `model`)
-        memory.memCopy(f, model);                     // model <- f
-        compute.forwardFFT(model, modelC);            // in-place r2c -> modelC = FFT(f)
-        compute.complexMultiplication(modelC, H, modelC);
-        compute.backwardFFT(modelC, model);           // in-place c2r -> model = Hf
-        compute.realAffine(model, 1.0f, bg, model);   // model = Hf + bg = m
-        // Physical floor of the model. With f >= 0 and the (non-negative, unit-sum)
-        // PSF, m = Hf + bg >= bg exactly. But the sieve's float32 ringing can push f
-        // slightly negative (and a measured PSF can have small negative lobes), dragging
-        // m to <= 0 at isolated voxels. Left alone, the ratio g/m below is floored at the
-        // tiny epsilon (1e-9) and amplifies g by ~1e9, running the iteration away to
-        // inf/NaN. Clamp m to its physical lower bound bg so g/m stays <= g_max/bg and
-        // the step remains bounded.
-        compute.realClampMin(model, bg, model);
-
-        // ratio R = H^T(g / m)  (spatial result in `direction`)
-        compute.division(g, model, direction, 1e-9f); // direction = g/m
-        compute.forwardFFT(direction, directionC);    // in-place r2c -> directionC
-        compute.complexMultiplicationWithConjugate(directionC, H, directionC);
-        compute.backwardFFT(directionC, direction);   // in-place c2r -> direction = R
-
-        // search direction d = -f * (1 - R)  (in `direction`)
-        compute.realAffine(direction, -1.0f, 1.0f, direction); // 1 - R
-        compute.multiplication(f, direction, direction);       // f*(1-R)
-        compute.realAffine(direction, -1.0f, 0.0f, direction); // -f*(1-R) = d
-
-        // ---- DATA STEP: choose the step and move f (variant-specific). ----
-        applyDataStep(compute, H, g, model, direction, f);
+        // ---- DATA STEP: Poisson likelihood gradient + variant-specific step. ----
+        applyDataStep(compute, H, g, bg, f);
 
         // ---- PRIOR STEP: lambda-shrinkage with flux conservation. ----
         if (usePrior && lambda > 1e-6f) {
@@ -317,7 +250,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
             const real_t sl = sieveSnrScale * psfLat * t;
             const real_t sa = sieveSnrScale * psfAx * t;
             for (int p = 0; p < sievePasses; ++p) {
-                applySieve(compute, f, sieveOTF, sl, sl, sa);
+                applySieve(compute, f, scratchC, sl, sl, sa);
             }
         }
 
@@ -326,47 +259,54 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
         if (progressFunction) progressFunction(maxIter);
     }
 
-    // ---- FINAL: remove the residual flat pedestal. ----
-    // m = Hf + bg cannot distinguish a uniform offset in f from bg itself (H
-    // preserves constants), so the MLE absorbs (flat background of g) - bg into
-    // f as a uniform floor. This vanishes only when bg equals the data's true
-    // flat background g_bg; the prefilter's min (or any dimmest-decile estimate)
-    // sits below g_bg, leaving a pedestal (g_bg - bg) on the output. Subtract the
-    // flat level (measured as the mode of the estimate, where the mostly-
-    // background image settles) so the object is reported on a zero background;
-    // the subtraction is uniform, so it does not change the object contrast.
-    // const real_t pedestal = estimateFlatPedestal(f, memory);
-    // if (pedestal > 0.0f) {
-    //     spdlog::get("deconvolution")->debug("PoissonMLE final: removing output pedestal {:.6f}", pedestal);
-    //     compute.realAffine(f, 1.0f, -pedestal, f); // f -= pedestal
-    //     compute.realClampMin(f, 0.0f, f);
-    // }
+}
+
+void PoissonMLEDeconvolutionAlgorithm::computeForwardModel(
+    const IComputeBackend& compute, const ComplexData& H, const RealData& f,
+    real_t bg, RealData& m) {
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
+    // m = Hf + bg  (r2c/c2r are always run in-place on a buffer's real/complex pair,
+    // exactly as in RichardsonLucy, because the out-of-place real r2c plan assumes
+    // the padded in-place layout. So the FFT source is first copied into the buffer.)
+    memory.memCopy(f, m);                         // m <- f
+    ComplexView mC = m.reinterpret();             // non-owning complex view of m
+    compute.forwardFFT(m, mC);                    // in-place r2c -> mC = FFT(f)
+    compute.complexMultiplication(mC, H, mC);
+    compute.backwardFFT(mC, m);                   // in-place c2r -> m = Hf
+    compute.realAffine(m, 1.0f, bg, m);           // m = Hf + bg
+    compute.realClampMin(m, bg, m);               // physical floor (see header)
+}
+
+void PoissonMLEDeconvolutionAlgorithm::computeSearchDirection(
+    const IComputeBackend& compute, const ComplexData& H, const RealData& g,
+    const RealData& f, RealData& m, RealData& d) {
+    // ratio R = H^T(g / m)  (clobbers m when d is the same buffer)
+    compute.division(g, m, d, 1e-9f);             // d = g/m
+    ComplexView dC = d.reinterpret();             // non-owning complex view of d
+    compute.forwardFFT(d, dC);                    // in-place r2c -> dC
+    compute.complexMultiplicationWithConjugate(dC, H, dC);
+    compute.backwardFFT(dC, d);                   // in-place c2r -> d = R
+
+    // search direction d = -f * (1 - R)
+    compute.realAffine(d, -1.0f, 1.0f, d);        // 1 - R
+    compute.multiplication(f, d, d);              // f*(1-R)
+    compute.realAffine(d, -1.0f, 0.0f, d);        // -f*(1-R) = d
 }
 
 void PoissonMLEDeconvolutionAlgorithm::applyDataStep(
     const IComputeBackend& compute, const ComplexData& H, const RealData& g,
-    const RealData& model, RealData& direction, RealData& f) {
-    const IBackendMemoryManager& memory = backend->getMemoryManager();
-    // hd = H*d  (spatial result in `hd`)
-    memory.memCopy(direction, hd);               // hd <- d
-    compute.forwardFFT(hd, hdC);                 // in-place r2c -> hdC = FFT(d)
-    compute.complexMultiplication(hdC, H, hdC);
-    compute.backwardFFT(hdC, hd);                // in-place c2r -> hd = H*d
+    real_t bg, RealData& f) {
+    // m = Hf + bg, then d = -f*(1 - H^T(g/m)), both in the shared `scratch`:
+    // the unit step never needs m past the g/m ratio, so m is allowed to be
+    // clobbered by the direction computation.
+    computeForwardModel(compute, H, f, bg, scratch);
+    computeSearchDirection(compute, H, g, f, scratch, scratch);
 
-    // current objective and optimal step
-    real_t Jcur = 0, dJ = 0, d2J = 0;
-    compute.poissonLineSearchEval(g, model, hd, 0.0f, &Jcur, &dJ, &d2J);
-    const real_t alpha = newtonLineSearch(compute, g, model, hd);
-    real_t Jnew = 0;
-    compute.poissonLineSearchEval(g, model, hd, alpha, &Jnew, &dJ, &d2J);
-
-    // ---- GUARD: if the likelihood worsened, damp the update power. ----
-    if (Jnew > Jcur && pwr > 0.25f) {
-        pwr *= 0.5f;
-    }
-
-    // ---- Additive update f <- f + alpha*pwr*d, clipped at zero. ----
-    compute.realLinearCombination(f, 1.0f, direction, alpha * pwr, f);
+    // Plain RL unit step: f <- f + d, clipped at zero. No hd = H*d forward model
+    // and no line search, so this iteration is much cheaper than the adaptive
+    // subclass's. This is the multiplicative RL update written additively, and it
+    // provably does not increase the Poisson (I-divergence) objective.
+    compute.realLinearCombination(f, 1.0f, scratch, 1.0f, f);
     compute.realClampMin(f, 0.0f, f);
 }
 
@@ -388,7 +328,7 @@ std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneS
 }
 
 size_t PoissonMLEDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Allocates 4 additional arrays of input size
-    // (model, direction, hd as real in-place-FFT buffers + sieveOTF half-complex)
-    return 4 * dataSize.getVolume() * sizeof(real_t);
+    // Allocates 1 additional array of input size
+    // (scratch as real in-place-FFT buffer)
+    return dataSize.getVolume() * sizeof(real_t);
 }

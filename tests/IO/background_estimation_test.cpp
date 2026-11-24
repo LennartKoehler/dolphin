@@ -13,8 +13,8 @@ See the LICENSE file provided with the code for the full license.
 
 // The whole-image background is streamed from the real reader during plan
 // creation. This test runs that path end to end on a TIFF: the estimate must be
-// identical no matter how the image is chunked, and must match the exact
-// dimmest decile of the image.
+// identical no matter how the image is chunked, and must recover the known
+// background level of the image.
 
 #include <gtest/gtest.h>
 
@@ -39,16 +39,6 @@ std::string writeTestImage(const std::string& path, const Image3D& image) {
     std::filesystem::create_directories(std::filesystem::path(path).parent_path());
     EXPECT_TRUE(TiffWriter::writeToFile(path, image, WriterCompressionConfig{}, WriterConfig{}));
     return path;
-}
-
-float referenceDimmestDecile(const Image3D& image) {
-    std::vector<float> values;
-    values.reserve(image.getShape().getVolume());
-    for (const auto& v : image) values.push_back(static_cast<float>(v));
-    std::sort(values.begin(), values.end());
-    const size_t n = std::max<size_t>(1, static_cast<size_t>(
-        std::ceil(static_cast<double>(values.size()) * BackgroundStatistics::kDarkFraction)));
-    return static_cast<float>(std::accumulate(values.begin(), values.begin() + static_cast<long>(n), 0.0) / n);
 }
 
 } // namespace
@@ -82,7 +72,7 @@ protected:
     std::string dir;
 };
 
-TEST_F(BackgroundEstimationTest, MatchesExactDimmestDecileOfTheImage) {
+TEST_F(BackgroundEstimationTest, MatchesBackgroundLevelOfTheImage) {
     const Image3D image = makeImage();
     const std::string path = writeTestImage(dir + "/image.tif", image);
 
@@ -91,13 +81,14 @@ TEST_F(BackgroundEstimationTest, MatchesExactDimmestDecileOfTheImage) {
     reader.setMemoryLimit(SIZE_MAX);
 
     const CuboidShape imageShape = reader.getMetaData().getShape();
-    // The padding fill is an interior fill; borders are dropped while streaming.
     const float estimated = estimateImageBackground(
-        reader, imageShape, CuboidShape{32, 32, 8}, PaddingFillType::LINEAR, /*threads=*/2);
+        reader, imageShape, CuboidShape{32, 32, 8}, /*threads=*/2);
 
-    const float expected = referenceDimmestDecile(image);
-    EXPECT_NEAR(estimated, expected, 0.02f * 0.05f)
-        << "streamed background " << estimated << " vs exact " << expected;
+    // The mode of the dark cluster recovers the known background level (0.05);
+    // ~98% of the voxels sit there, so the cluster is unambiguous.
+    const float expected = 0.05f;
+    EXPECT_NEAR(estimated, expected, 0.05f * expected)
+        << "streamed background " << estimated << " vs true level " << expected;
 }
 
 TEST_F(BackgroundEstimationTest, IndependentOfChunkSize) {
@@ -112,9 +103,9 @@ TEST_F(BackgroundEstimationTest, IndependentOfChunkSize) {
     // The chunk height is derived from the cube hint: a large hint gives few,
     // tall chunks, a small one many flat chunks. Both must agree exactly.
     const float tall = estimateImageBackground(
-        reader, imageShape, CuboidShape{48, 40, 24}, PaddingFillType::MIRROR, 1);
+        reader, imageShape, CuboidShape{48, 40, 24}, 1);
     const float flat = estimateImageBackground(
-        reader, imageShape, CuboidShape{48, 40, 1}, PaddingFillType::MIRROR, 4);
+        reader, imageShape, CuboidShape{48, 40, 1}, 4);
 
     EXPECT_FLOAT_EQ(tall, flat) << "chunking must not change the whole-image estimate";
 }
