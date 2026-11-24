@@ -343,7 +343,7 @@ std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneS
 }
 
 size_t PoissonMLEDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Allocates 2 additional arrays of input size
+    // Allocates 1 additional array of input size
     // (scratch as real in-place-FFT buffer)
     return dataSize.getVolume() * sizeof(real_t);
 }

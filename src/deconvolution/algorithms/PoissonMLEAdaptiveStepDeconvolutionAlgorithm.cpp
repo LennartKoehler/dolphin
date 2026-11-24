@@ -61,8 +61,8 @@ void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::configure(const Deconvolution
 }
 
 void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
-    // Base class: shared scratch + sieveOTF buffers + the in-place real FFT
-    // plans, which the model/direction/hd FFTs below reuse.
+    // Base class: shared scratch buffer + the in-place real FFT plans, which
+    // the model/hd FFTs below reuse.
     PoissonMLEDeconvolutionAlgorithm::init(dataSize);
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
@@ -125,7 +125,7 @@ std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEAdaptiveStepDeconvolutionAlgor
 }
 
 size_t PoissonMLEAdaptiveStepDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Base: scratch, sieveOTF. This class adds model + hd.
+    // Base: scratch. This class adds model + hd.
     return PoissonMLEDeconvolutionAlgorithm::getWorkingSetBytes(dataSize)
          + 2 * dataSize.getVolume() * sizeof(real_t);
 }
