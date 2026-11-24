@@ -17,6 +17,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin_image/Image3D.h"
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include <cstddef>
+#include <utility>
 
 typedef std::string PSFID;
 
@@ -25,7 +26,7 @@ class PSF : public Image3D{
 public:
 
     PSF() = default;
-    PSF(Image3D&& other, const std::string& id) : Image3D(other), ID(id){}
+    PSF(Image3D&& other, const std::string& id) : Image3D(std::move(other)), ID(id){}
 
     void readFromTiffFile(const std::string& path);
     void writeToTiffFile(const std::string& path);
