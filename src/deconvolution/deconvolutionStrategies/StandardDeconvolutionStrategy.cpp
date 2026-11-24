@@ -22,7 +22,6 @@ See the LICENSE file provided with the code for the full license.
 #include <cmath>
 #include "dolphin/deconvolution/Preprocessor.h"
 #include "dolphin/deconvolution/BackgroundEstimation.h"
-#include "dolphin/deconvolution/BackgroundSampleCube.h"
 #include "dolphin/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/DeconvolutionPlan.h"

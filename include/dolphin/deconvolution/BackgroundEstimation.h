@@ -13,23 +13,40 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
+#include <cstddef>
+
 #include "dolphin_image/BackgroundStatistics.h"
+#include "dolphin_image/Types/BoxCoord.h"
 
 class ImageReader;
+class ReaderHandler;
 
-// Whole-image background (low percentile of the data) for one channel.
+// Run-wide background level (camera offset + constant stray light) for one
+// channel, resolved once so every cube of a run is deconvolved against the
+// same level (estimating per cube would differ between neighbours and leave
+// visible tile seams). Two strategies, selected by background_strategy:
 //
-// Reads the image in z-chunks through the reader (so it works for images far
-// larger than RAM), applies the same padding as the deconvolution cubes, and
-// deliberately drops the padded border when accumulating (see
-// forEachCountedVoxel): at the plan stage there is no information yet about
-// which borders are inside the image and which are outside, and the padding
-// fill fades towards zero, which would bias the estimate.
+// - whole_image: streams the ENTIRE image through the reader in z-chunks (the
+//   image is never held in RAM) and accumulates one histogram over all voxels.
+//   Accurate, but reads the image twice, once per statistics pass.
 //
-// chunkHint is the (unpadded) cube shape of the run; the chunk height is scaled
-// down so a chunk stays within it. The reader must be configured and its memory
-// cap applied by the caller.
+// - global: measures ONE cube of the image. Cheap (a single cube read); the
+//   cube is assumed representative of the image's background. The caller
+//   picks the cube (currently the first of the run).
+//
+// Both estimate the mode of the dark cluster below a small percentile bound
+// (see BackgroundStatistics) over UNPADDED reads: background reads are
+// unpadded, so synthetic padding fill cannot bias them.
+//
+// The reader must be configured and its memory cap applied by the caller.
+// chunkHint is the (unpadded) cube shape of the run; the z-chunk height is
+// scaled down so a chunk stays within it.
 float estimateImageBackground(ImageReader& reader,
                               const CuboidShape& imageShape,
                               const CuboidShape& chunkHint,
                               size_t readerThreads);
+
+// Background level measured on one cube of the image, as read by the handler.
+// Throws std::runtime_error when the cube contains no countable voxels.
+float estimateBackgroundFromSampleCube(const ReaderHandler& reader,
+                                       const BoxCoordWithPadding& cube);

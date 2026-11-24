@@ -3,6 +3,7 @@
 # ------------------------------------------------------------
 
 set(DOLPHIN_IMAGE_SOURCES
+    src/BackgroundStatistics.cpp
     src/Image3D.cpp
     src/ImageMetaData.cpp
     src/ImagePadding.cpp

@@ -14,6 +14,8 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <cstddef>
+#include <optional>
+#include <utility>
 
 #include "dolphin_image/Image3D.h"
 #include "dolphin_image/Types/BoxCoord.h"
@@ -81,6 +83,20 @@ public:
     float max() const { return max_; }
 
 private:
+    // Result of the quantile walk: the bin holding the rank and the fraction
+    // of it at which the rank falls (uniform-in-log assumption).
+    struct QuantileRank {
+        size_t bound;
+        double frac;
+    };
+
+    QuantileRank quantileRank(double target) const;
+    double binValueAt(double index) const;
+    std::optional<size_t> darkClusterPeak(size_t bound, double total) const;
+    std::pair<size_t, size_t> halfMaxWindow(size_t peak) const;
+    double windowMean(size_t lo, size_t hi) const;
+    double prominence(size_t peak, size_t bound) const;
+
     double binLower(size_t i) const;
     double binUpper(size_t i) const;
     size_t binOf(double v) const;
@@ -106,35 +122,41 @@ private:
     double bins_[kNumBins] = {};
 };
 
-// Calls fn(value) for every voxel of `image` that comes from the image itself
-// (see the counting rule above). This is the canonical definition of "counted
-// voxel"; both BackgroundStatistics passes must be fed through it.
+// Calls fn(value) for every voxel of `image`. Both BackgroundStatistics passes
+// must see the same voxels, so this is the canonical iteration to feed them
+// with. Data that must not enter the estimate (e.g. synthetic padding fill) is
+// kept out by the read layer, not here.
 template <typename Fn>
 void forEachCountedVoxel(const Image3D& image, Fn&& fn) {
     const CuboidShape shape = image.getShape();
-    size_t x0 = 0, y0 = 0, z0 = 0;
-    size_t x1 = shape.width, y1 = shape.height, z1 = shape.depth;
-    for (size_t z = z0; z < z1; ++z) {
-        for (size_t y = y0; y < y1; ++y) {
-            for (size_t x = x0; x < x1; ++x) {
+    for (size_t z = 0; z < shape.depth; ++z) {
+        for (size_t y = 0; y < shape.height; ++y) {
+            for (size_t x = 0; x < shape.width; ++x) {
                 fn(image.getPixel(x, y, z));
             }
         }
     }
 }
 
-namespace BackgroundStatisticsDetail {
-
-// Pass 1 callback for forEachCountedVoxel.
-struct RangeAccumulator {
-    BackgroundStatistics& stats;
-    void operator()(float v) const { stats.addForRange(v); }
-};
-
-// Pass 2 callback for forEachCountedVoxel.
-struct HistogramAccumulator {
-    BackgroundStatistics& stats;
-    void operator()(float v) const { stats.addForHistogram(v); }
-};
-
-} // namespace BackgroundStatisticsDetail
+// Runs the complete two-pass estimate over a data source: `forEachChunk` calls
+// fn(chunk) once per chunk of image data, and is invoked once per pass, so the
+// source must be re-readable (e.g. re-reading the image from disk in chunks).
+// Returns the finished statistics; call background() on the result.
+template <typename ForEachChunk>
+BackgroundStatistics computeBackgroundStatistics(ForEachChunk&& forEachChunk) {
+    BackgroundStatistics stats;
+    // Pass 1: value range (and count).
+    forEachChunk([&stats](const Image3D& chunk) {
+        forEachCountedVoxel(chunk,
+                            [&stats](float v) { stats.addForRange(v); });
+    });
+    // An empty source stays empty; no second pass can add anything.
+    if (stats.count() == 0) return stats;
+    stats.setRange(stats.min(), stats.max());
+    // Pass 2: histogram over the same voxels.
+    forEachChunk([&stats](const Image3D& chunk) {
+        forEachCountedVoxel(chunk,
+                            [&stats](float v) { stats.addForHistogram(v); });
+    });
+    return stats;
+}

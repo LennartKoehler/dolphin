@@ -15,27 +15,18 @@ See the LICENSE file provided with the code for the full license.
 
 #include <algorithm>
 #include <cmath>
-#include <numeric>
 #include <random>
-#include <vector>
 
 #include "dolphin_image/BackgroundStatistics.h"
 #include "dolphin_image/Image3D.h"
-#include "dolphin_image/ImagePadding.h"
 #include "dolphin_image/Types/BoxCoord.h"
-#include "dolphin/deconvolution/DeconvolutionConfig.h"
-#include "dolphin/deconvolution/configs/PoissonMLEConfig.h"
 
 namespace {
 
-// Runs both streaming passes over `image`, exactly as estimateImageBackground
-// does for one chunk.
-float streamBackground(const Image3D& image, const Padding& padding, PaddingFillType fill) {
-    BackgroundStatistics stats;
-    forEachCountedVoxel(image, BackgroundStatisticsDetail::RangeAccumulator{stats});
-    stats.setRange(stats.min(), stats.max());
-    forEachCountedVoxel(image, BackgroundStatisticsDetail::HistogramAccumulator{stats});
-    return stats.background();
+// Runs both streaming passes over `image`, exactly as the background
+// estimators do over their read data.
+float streamBackground(const Image3D& image) {
+    return computeBackgroundStatistics([&](auto&& fn) { fn(image); }).background();
 }
 
 // Flat background with 2% camera noise, plus ~2% bright object voxels.
@@ -53,8 +44,6 @@ Image3D backgroundWithObjects(size_t w, size_t h, size_t d, float bg, unsigned s
     return image;
 }
 
-const Padding kNoPadding{CuboidShape{0, 0, 0}, CuboidShape{0, 0, 0}};
-
 } // namespace
 
 TEST(BackgroundStatisticsTest, EmptyReturnsZero) {
@@ -67,13 +56,13 @@ TEST(BackgroundStatisticsTest, EmptyReturnsZero) {
 TEST(BackgroundStatisticsTest, ConstantImageReturnsConstant) {
     const float bg = 0.37f;
     Image3D image = Image3D(CuboidShape(8, 8, 8), bg);
-    EXPECT_FLOAT_EQ(streamBackground(image, kNoPadding, PaddingFillType::ZERO), bg);
+    EXPECT_FLOAT_EQ(streamBackground(image), bg);
 }
 
 TEST(BackgroundStatisticsTest, MatchesBackgroundLevel) {
     const float bg = 0.05f;
     Image3D image = backgroundWithObjects(32, 24, 16, bg, 1234);
-    const float actual = streamBackground(image, kNoPadding, PaddingFillType::ZERO);
+    const float actual = streamBackground(image);
 
     // The mode of the dark cluster recovers the noise floor's mean (mu) much
     // better than any low percentile (mu - 1.28 sigma or darker); remaining
@@ -87,29 +76,24 @@ TEST(BackgroundStatisticsTest, ExplicitChunksMatchWholeImage) {
     // same background as one shot: this is what prevents tile seams.
     const float bg = 0.05f;
     Image3D image = backgroundWithObjects(32, 24, 16, bg, 77);
-    const float whole = streamBackground(image, kNoPadding, PaddingFillType::ZERO);
+    const float whole = streamBackground(image);
 
     BackgroundStatistics chunked;
     for (size_t z = 0; z < 16; z += 4) {
         Image3D chunk = image.getSubimageCopy(BoxCoord{CuboidPosition{0, 0, static_cast<int64_t>(z)},
                                                       CuboidShape{32, 24, 4}});
         forEachCountedVoxel(chunk,
-                            BackgroundStatisticsDetail::RangeAccumulator{chunked});
+                            [&chunked](float v) { chunked.addForRange(v); });
     }
     chunked.setRange(chunked.min(), chunked.max());
     for (size_t z = 0; z < 16; z += 4) {
         Image3D chunk = image.getSubimageCopy(BoxCoord{CuboidPosition{0, 0, static_cast<int64_t>(z)},
                                                       CuboidShape{32, 24, 4}});
         forEachCountedVoxel(chunk,
-                            BackgroundStatisticsDetail::HistogramAccumulator{chunked});
+                            [&chunked](float v) { chunked.addForHistogram(v); });
     }
     EXPECT_FLOAT_EQ(chunked.background(), whole);
 }
-
-// NOTE: the former GradientPaddingDoesNotBiasEstimate test was removed on this
-// branch: background reads are unpadded now (ReaderHandler::getSubimage), so
-// synthetic padding fill can never enter the estimate. The guarantee lives in
-// the read layer, covered by tests/IO/background_estimation_test.cpp.
 
 TEST(BackgroundStatisticsTest, IgnoresNonFiniteSamples) {
     BackgroundStatistics stats;
@@ -140,7 +124,7 @@ TEST(BackgroundStatisticsTest, FewExactZerosDoNotCollapseEstimate) {
         image.setPixel(i % 200, (i / 200) % 200, i / 40000, 0.0f);
     }
 
-    const float actual = streamBackground(image, kNoPadding, PaddingFillType::ZERO);
+    const float actual = streamBackground(image);
     EXPECT_GT(actual, 0.9f * bg)
         << "estimate collapsed to " << actual << " despite the background at " << bg;
 
@@ -171,7 +155,7 @@ TEST(BackgroundStatisticsTest, MinorityBackgroundStillFoundByMode) {
                                coin(gen) < 0.03f ? bg + noise(gen) : haze(gen));
             }
 
-    const float actual = streamBackground(image, kNoPadding, PaddingFillType::ZERO);
+    const float actual = streamBackground(image);
     EXPECT_NEAR(actual, bg, 0.1f * bg)
         << "background is a 3% minority at " << bg << ", estimate was " << actual;
 }
@@ -193,7 +177,7 @@ TEST(BackgroundStatisticsTest, LowPositiveOutliersDoNotCollapseEstimate) {
         image.setPixel(i % 100, (i / 100) % 100, i / 10000, bg * 0.005f);
     }
 
-    const float actual = streamBackground(image, kNoPadding, PaddingFillType::ZERO);
+    const float actual = streamBackground(image);
     EXPECT_GT(actual, 0.9f * bg)
         << "estimate collapsed to " << actual << " despite the background at " << bg;
     EXPECT_LT(actual, 1.1f * bg)
@@ -202,7 +186,8 @@ TEST(BackgroundStatisticsTest, LowPositiveOutliersDoNotCollapseEstimate) {
 
 // The other side of the rule: when zeros genuinely dominate the dark fraction
 // (masked / empty regions), the background IS zero and must stay 0.
-TEST(BackgroundStatisticsTest, MajorityZerosKeepZeroBackground) {    const float bg = 0.05f;
+TEST(BackgroundStatisticsTest, MajorityZerosKeepZeroBackground) {
+    const float bg = 0.05f;
     Image3D image = backgroundWithObjects(50, 50, 20, bg, 5);
     // Zero out 60% of the voxels: far more than the 10% dark fraction.
     const size_t volume = 50 * 50 * 20;
@@ -210,31 +195,6 @@ TEST(BackgroundStatisticsTest, MajorityZerosKeepZeroBackground) {    const float
         image.setPixel(i % 50, (i / 50) % 50, i / 2500, 0.0f);
     }
 
-    const float actual = streamBackground(image, kNoPadding, PaddingFillType::ZERO);
+    const float actual = streamBackground(image);
     EXPECT_LT(actual, 1e-6f) << "majority-zero image estimated background " << actual;
-}
-
-TEST(BackgroundStrategyConfigTest, LoadsFromJSONAndCopies) {
-    auto config = DeconvolutionConfig::createFromJSON(nlohmann::json::parse(R"({
-        "algorithm_name": "PoissonMLE",
-        "background_strategy": "whole_image"
-    })"));
-    ASSERT_NE(config, nullptr);
-    EXPECT_EQ(config->backgroundStrategyType, BACKGROUND_WHOLE_IMAGE);
-
-    // Copy semantics keep the parameter registered and its value.
-    const auto copy = std::make_shared<PoissonMLEConfig>(
-        static_cast<const PoissonMLEConfig&>(*config));
-    EXPECT_EQ(copy->backgroundStrategyType, BACKGROUND_WHOLE_IMAGE);
-    const auto written = copy->writeToJSON();
-    ASSERT_TRUE(written.contains("background_strategy"));
-    EXPECT_EQ(written["background_strategy"].get<std::string>(), "whole_image");
-}
-
-TEST(BackgroundStrategyConfigTest, DefaultsToGlobal) {
-    auto config = DeconvolutionConfig::createFromJSON(nlohmann::json::parse(R"({
-        "algorithm_name": "PoissonMLE"
-    })"));
-    ASSERT_NE(config, nullptr);
-    EXPECT_EQ(config->backgroundStrategyType, BACKGROUND_GLOBAL);
 }

@@ -15,6 +15,8 @@ See the LICENSE file provided with the code for the full license.
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
+#include <utility>
 
 void BackgroundStatistics::addForRange(float v) {
     if (!std::isfinite(v)) return;
@@ -96,73 +98,88 @@ float BackgroundStatistics::background() const {
     // The zero bin alone reaches the rank: the background IS zero.
     if (static_cast<double>(zeroBinCount_) >= target) return 0.0f;
 
+    const QuantileRank rank = quantileRank(target);
+    const float percentile = static_cast<float>(
+        binValueAt(static_cast<double>(rank.bound) + rank.frac));
+
+    // No substantial dark cluster below the bound (e.g. the bound falls inside
+    // a broad unimodal floor): fall back to the percentile itself.
+    const std::optional<size_t> peak = darkClusterPeak(rank.bound, total);
+    if (!peak) return percentile;
+
+    const auto [lo, hi] = halfMaxWindow(*peak);
+    return static_cast<float>(windowMean(lo, hi));
+}
+
+BackgroundStatistics::QuantileRank
+BackgroundStatistics::quantileRank(double target) const {
     double acc = static_cast<double>(zeroBinCount_);
-    size_t bound = kNumBins - 1;
-    double frac = 1.0;
     for (size_t i = 0; i < kNumBins; ++i) {
         const double c = bins_[i];
         if (c > 0.0 && acc + c >= target) {
-            bound = i;
-            frac = (target - acc) / c;
-            break;
+            return {i, (target - acc) / c};
         }
         acc += c;
     }
-    // Percentile value inside the bound bin (uniform-in-log assumption).
-    const auto binValue = [this](double index) {
-        const double t = index / static_cast<double>(kNumBins);
-        return std::exp(std::log(binLo_) + t * (std::log(binHi_) - std::log(binLo_)));
-    };
-    const float percentile = static_cast<float>(
-        binValue(static_cast<double>(bound) + frac));
+    // Unreachable for a target within the histogram; kept as a safe default.
+    return {kNumBins - 1, 1.0};
+}
 
+double BackgroundStatistics::binValueAt(double index) const {
+    const double t = index / static_cast<double>(kNumBins);
+    return std::exp(std::log(binLo_) + t * (std::log(binHi_) - std::log(binLo_)));
+}
+
+std::pair<size_t, size_t>
+BackgroundStatistics::halfMaxWindow(size_t peak) const {
     // Half-maximum window around a peak bin: the contiguous run of bins whose
     // count stays at or above half the peak's count. Not capped at the bound:
     // when the bound cuts through the cluster, the window must still span it.
-    const auto fwhmRange = [this](size_t peak) {
-        const double half = 0.5 * bins_[peak];
-        size_t lo = peak;
-        while (lo > 0 && bins_[lo - 1] >= half) --lo;
-        size_t hi = peak;
-        while (hi + 1 < kNumBins && bins_[hi + 1] >= half) ++hi;
-        return std::pair<size_t, size_t>{lo, hi};
-    };
+    const double half = 0.5 * bins_[peak];
+    size_t lo = peak;
+    while (lo > 0 && bins_[lo - 1] >= half) --lo;
+    size_t hi = peak;
+    while (hi + 1 < kNumBins && bins_[hi + 1] >= half) ++hi;
+    return {lo, hi};
+}
 
+double BackgroundStatistics::windowMean(size_t lo, size_t hi) const {
     // Count-weighted mean over a window, each bin represented by the geometric
     // midpoint of its (log-spaced) edges.
-    const auto fwhmMean = [this](size_t lo, size_t hi) {
-        double sum = 0.0;
-        double mass = 0.0;
-        for (size_t i = lo; i <= hi; ++i) {
-            sum += bins_[i] * std::sqrt(binLower(i) * binUpper(i));
-            mass += bins_[i];
-        }
-        return mass > 0.0 ? sum / mass : 0.0;
-    };
+    double sum = 0.0;
+    double mass = 0.0;
+    for (size_t i = lo; i <= hi; ++i) {
+        sum += bins_[i] * std::sqrt(binLower(i) * binUpper(i));
+        mass += bins_[i];
+    }
+    return mass > 0.0 ? sum / mass : 0.0;
+}
 
+double BackgroundStatistics::prominence(size_t peak, size_t bound) const {
     // Prominence of a peak within [0, bound]: its count minus the highest
     // "col" (the minimum along the terrain) towards higher ground on either
     // side. A real isolated cluster rises far above its surroundings; noise
     // wiggles on a rising flank or a plateau barely stand out.
-    const auto prominence = [this, bound](size_t peak) {
-        const auto col = [&](int dir) {
-            double best = bins_[peak];
-            for (int i = static_cast<int>(peak) + dir;
-                 i >= 0 && i <= static_cast<int>(bound); i += dir) {
-                const double c = bins_[static_cast<size_t>(i)];
-                if (c >= bins_[peak]) break;
-                best = std::min(best, c);
-            }
-            return best;
-        };
-        return bins_[peak] - std::max(col(-1), col(+1));
+    const auto col = [&](int dir) {
+        double best = bins_[peak];
+        for (int i = static_cast<int>(peak) + dir;
+             i >= 0 && i <= static_cast<int>(bound); i += dir) {
+            const double c = bins_[static_cast<size_t>(i)];
+            if (c >= bins_[peak]) break;
+            best = std::min(best, c);
+        }
+        return best;
     };
+    return bins_[peak] - std::max(col(-1), col(+1));
+}
 
+std::optional<size_t>
+BackgroundStatistics::darkClusterPeak(size_t bound, double total) const {
     // Among the interior local maxima below the bound, keep the most prominent
     // one whose half-maximum window is a substantial cluster. This skips noise
     // wiggles and isolated repeated values (dead/hot pixels) without any
     // absolute threshold; ties keep the darkest candidate.
-    size_t chosen = kNumBins;
+    std::optional<size_t> chosen;
     double bestProminence = 0.0;
     for (size_t i = 0; i <= bound; ++i) {
         const double c = bins_[i];
@@ -170,20 +187,15 @@ float BackgroundStatistics::background() const {
         const double left = i > 0 ? bins_[i - 1] : 0.0;
         const double right = i + 1 < kNumBins ? bins_[i + 1] : 0.0;
         if (c < left || c < right || (c == left && c == right)) continue;
-        const auto [lo, hi] = fwhmRange(i);
+        const auto [lo, hi] = halfMaxWindow(i);
         double mass = 0.0;
         for (size_t j = lo; j <= hi; ++j) mass += bins_[j];
         if (mass < static_cast<double>(kMinClusterFraction) * total) continue;
-        const double p = prominence(i);
+        const double p = prominence(i, bound);
         if (p > bestProminence) {
             bestProminence = p;
             chosen = i;
         }
     }
-    // No substantial dark cluster below the bound (e.g. the bound falls inside
-    // a broad unimodal floor): fall back to the percentile itself.
-    if (chosen == kNumBins) return percentile;
-
-    const auto [lo, hi] = fwhmRange(chosen);
-    return static_cast<float>(fwhmMean(lo, hi));
+    return chosen;
 }
