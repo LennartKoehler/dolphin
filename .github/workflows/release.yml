@@ -401,9 +401,12 @@ jobs:
         id: toolchain
         shell: pwsh
         run: |
-          $vcpkgRev = git -C $env:VCPKG_ROOT rev-parse --short HEAD 2>$null
-          if (-not $vcpkgRev) { $vcpkgRev = "unknown" }
-          "vcpkg=$vcpkgRev" >> $env:GITHUB_OUTPUT
+          $versionLine = (& "$env:VCPKG_ROOT\vcpkg.exe" version | Select-Object -First 1)
+          $vcpkgVer = "unknown"
+          if ($versionLine -match '[0-9]{4}-[0-9]{2}-[0-9]{2}-([0-9a-f]{7,40})') {
+            $vcpkgVer = $Matches[1]
+          }
+          "vcpkg=$vcpkgVer" >> $env:GITHUB_OUTPUT
           "msvc=$env:VCToolsVersion" >> $env:GITHUB_OUTPUT
 
       - name: Restore vcpkg binary cache
@@ -571,9 +574,12 @@ jobs:
         id: toolchain
         shell: pwsh
         run: |
-          $vcpkgRev = git -C $env:VCPKG_ROOT rev-parse --short HEAD 2>$null
-          if (-not $vcpkgRev) { $vcpkgRev = "unknown" }
-          "vcpkg=$vcpkgRev" >> $env:GITHUB_OUTPUT
+          $versionLine = (& "$env:VCPKG_ROOT\vcpkg.exe" version | Select-Object -First 1)
+          $vcpkgVer = "unknown"
+          if ($versionLine -match '[0-9]{4}-[0-9]{2}-[0-9]{2}-([0-9a-f]{7,40})') {
+            $vcpkgVer = $Matches[1]
+          }
+          "vcpkg=$vcpkgVer" >> $env:GITHUB_OUTPUT
           "msvc=$env:VCToolsVersion" >> $env:GITHUB_OUTPUT
 
       - name: Restore vcpkg binary cache
