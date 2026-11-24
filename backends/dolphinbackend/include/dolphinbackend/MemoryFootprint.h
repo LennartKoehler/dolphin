@@ -32,8 +32,11 @@ See the LICENSE file provided with the code for the full license.
  * algorithm working set) so the footprint can be built and returned by value
  * without dangling.
  *
- * Each component reports the memory of ONE instance; the strategy applies the
- * scheduling (how many instances run concurrently) as a count at add-time.
+ * Each component receives the plan's task count with every query and reports
+ * its own demand for one candidate cube shape; per-thread systems cap their
+ * instances at min(threads, numTasks) internally (see
+ * MemoryComponent::footprint). add(..., count) can still hold a component
+ * several times simultaneously.
  */
 class MemoryFootprint {
 public:

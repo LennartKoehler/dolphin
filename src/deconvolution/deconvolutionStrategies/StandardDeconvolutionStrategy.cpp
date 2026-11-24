@@ -244,19 +244,19 @@ MemoryFootprint StandardDeconvolutionStrategy::buildMemoryFootprint(
     size_t workerThreads,
     bool algorithmOnDevice) {
     // The strategy-owned terms have no owner class: the footprint creates and
-    // keeps them alive so the result can be returned by value. Each component
-    // reports ONE instance; the count is the number of concurrent instances
-    // of that system (the scheduling lives here).
+    // keeps them alive so the result can be returned by value. Each per-thread
+    // term folds its concurrency in itself (one set per io/worker thread) and
+    // caps it at the plan's task count when asked via
+    // MemoryComponent::footprint(shape, numTasks).
     MemoryFootprint footprint;
     footprint.add(readerComponent);
     footprint.add(writerComponent);
-    footprint.add(std::make_unique<const IOStagingMemoryComponent>(), ioThreads);
-    footprint.add(std::make_unique<const AlgorithmWorkingSetMemoryComponent>(algorithm, algorithmOnDevice), workerThreads);
+    footprint.add(std::make_unique<const IOStagingMemoryComponent>(ioThreads));
+    footprint.add(std::make_unique<const AlgorithmWorkingSetMemoryComponent>(algorithm, algorithmOnDevice, workerThreads));
     footprint.add(backendComponent);
     footprint.add(psfComponent);
-    // Padding runs per io thread: each concurrently filling thread holds its
-    // unpadded source cube next to the staging buffer it fills.
-    footprint.add(std::make_unique<const PaddingPeakMemoryComponent>(paddingScheme.insidePadding), ioThreads);
+    // Padding accompanies each io staging buffer while a cube is padded.
+    footprint.add(std::make_unique<const PaddingPeakMemoryComponent>(paddingScheme.insidePadding, ioThreads));
     return footprint;
 }
 

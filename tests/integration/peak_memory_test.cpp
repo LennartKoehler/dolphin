@@ -397,8 +397,9 @@ TEST_F(PeakMemoryTest, StrategyFootprintAppliesCountsAndPlacement) {
     EXPECT_EQ(h.hostBytes, d.hostBytes + algoBytes);
     EXPECT_EQ(d.deviceBytes, h.deviceBytes + algoBytes);
 
-    // The breakdown names every memory-owning system and folds in the
-    // per-system instance counts (x2 io staging, x3 algorithm working sets).
+    // The breakdown names every memory-owning system; the per-thread
+    // concurrency is folded into the reported bytes by the components
+    // themselves (io staging x2, algorithm working sets x3 for this run).
     const std::string breakdown = onHost.breakdown(shape, MemoryComponent::UNLIMITED_TASKS);
     EXPECT_NE(breakdown.find("reader"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("tiffwriter"), std::string::npos) << breakdown;
@@ -407,8 +408,6 @@ TEST_F(PeakMemoryTest, StrategyFootprintAppliesCountsAndPlacement) {
     EXPECT_NE(breakdown.find("io staging"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("algorithm working set"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("padding"), std::string::npos) << breakdown;
-    EXPECT_NE(breakdown.find("(x2)"), std::string::npos) << breakdown;
-    EXPECT_NE(breakdown.find("(x3)"), std::string::npos) << breakdown;
 
     GTEST_LOG_(INFO) << "strategy footprint for " << shape.print()
                      << " (io=" << ioThreads << ", workers=" << workerThreads << "):\n  "

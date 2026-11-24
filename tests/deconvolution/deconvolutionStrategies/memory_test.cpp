@@ -175,3 +175,49 @@ TEST_F(MemoryTest, SetMemoryLimitDefaultIsNoOp) {
     NoTrackingComponent component;
     EXPECT_NO_THROW(component.setMemoryLimit(MemoryRequirement{10, 10}));
 }
+
+// --- Task-aware components: min(threads, numTasks) instances -------------------
+// A system holding one resource set per thread can never have more sets in
+// flight than there are tasks (cubes) in the plan.
+
+TEST_F(MemoryTest, IOStagingCapsInstancesAtTaskCount) {
+    const CuboidShape shape(4, 4, 4);
+    const size_t volumeBytes = shape.getVolume() * sizeof(real_t);
+
+    IOStagingMemoryComponent staging(/*ioThreads=*/4);
+
+    // One task: exactly one staging set, regardless of the io thread count.
+    const MemoryRequirement one = staging.footprint(shape, 1);
+    EXPECT_EQ(one.hostBytes, volumeBytes);
+    EXPECT_EQ(one.deviceBytes, 2 * volumeBytes);
+
+    // Fewer tasks than io threads: one set per task.
+    const MemoryRequirement two = staging.footprint(shape, 2);
+    EXPECT_EQ(two.hostBytes, 2 * volumeBytes);
+    EXPECT_EQ(two.deviceBytes, 4 * volumeBytes);
+
+    // More tasks than io threads: capped at the thread count.
+    const MemoryRequirement many = staging.footprint(shape, 8);
+    EXPECT_EQ(many.hostBytes, 4 * volumeBytes);
+    EXPECT_EQ(many.deviceBytes, 8 * volumeBytes);
+}
+
+TEST_F(MemoryTest, AlgorithmWorkingSetCapsInstancesAtTaskCount) {
+    const CuboidShape shape(4, 4, 4);
+    auto config = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("RichardsonLucy");
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm = DeconvolutionAlgorithmFactory::getInstance().createShared(*config);
+    ASSERT_NE(algorithm, nullptr);
+
+    AlgorithmWorkingSetMemoryComponent onHost(*algorithm, /*onDevice=*/false, /*workerThreads=*/3);
+    const size_t workingSetBytes = algorithm->getWorkingSetBytes(shape);
+
+    // One task: exactly one working set, on the host (onDevice=false).
+    const MemoryRequirement one = onHost.footprint(shape, 1);
+    EXPECT_EQ(one.hostBytes, workingSetBytes);
+    EXPECT_EQ(one.deviceBytes, 0u);
+
+    // Capped at the worker thread count, never above.
+    const MemoryRequirement many = onHost.footprint(shape, 10);
+    EXPECT_EQ(many.hostBytes, 3 * workingSetBytes);
+    EXPECT_EQ(many.deviceBytes, 0u);
+}

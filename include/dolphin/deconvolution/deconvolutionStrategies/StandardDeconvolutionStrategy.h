@@ -24,6 +24,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionProcessor.h"
 #include "dolphinbackend/IBackendManager.h"
 #include "dolphinbackend/MemoryFootprint.h"
+#include <algorithm>
 #include <functional>
 #include <utility>
 
@@ -41,16 +42,23 @@ static constexpr float AUTO_MEMORY_SAFETY_FACTOR = 0.9f;
  * reused for every cube): the padded input conversion buffer and the output
  * conversion buffer on the host (2 cube volumes of real_t), plus the input
  * and output device buffers (in-place real layout, ~2 cube volumes of real_t
- * on the device). The footprint applies the number of io threads.
+ * on the device). Reports min(ioThreads, numTasks) staging sets: with fewer
+ * tasks than io threads, only one set can ever be in flight per task.
  */
 class IOStagingMemoryComponent : public MemoryComponent {
 public:
-    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t) const override {
+    explicit IOStagingMemoryComponent(size_t ioThreads) : ioThreads(ioThreads) {}
+
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t numTasks) const override {
+        const size_t instances = std::min(ioThreads, numTasks);
         const size_t volumeBytes = cubeShape.getVolume() * sizeof(real_t);
-        return MemoryRequirement{1 * volumeBytes, 2 * volumeBytes};
+        return MemoryRequirement{instances * volumeBytes, instances * 2 * volumeBytes};
     }
 
     std::string name() const override { return "io staging"; }
+
+private:
+    size_t ioThreads;
 };
 
 /**
@@ -58,25 +66,29 @@ public:
  *
  * While a cube is padded straight into the io staging input buffer, the
  * unpadded source cube is held alongside it (the padded target IS the staging
- * buffer, accounted by the io staging component).
+ * buffer, accounted by the io staging component). Runs per io thread, so it
+ * is capped at min(ioThreads, numTasks) like the staging buffers it
+ * accompanies.
  */
 class PaddingPeakMemoryComponent : public MemoryComponent {
 public:
-    explicit PaddingPeakMemoryComponent(const Padding& cubePadding) : cubePadding(cubePadding) {}
+    PaddingPeakMemoryComponent(const Padding& cubePadding, size_t ioThreads)
+        : cubePadding(cubePadding), ioThreads(ioThreads) {}
 
-    MemoryRequirement footprint(const CuboidShape& paddedCube, size_t) const override {
+    MemoryRequirement footprint(const CuboidShape& paddedCube, size_t numTasks) const override {
         const size_t paddingVolume = cubePadding.getTotalPadding().getVolume();
         const size_t unpaddedVolume = paddedCube.getVolume() > paddingVolume
             ? paddedCube.getVolume() - paddingVolume
             : paddedCube.getVolume();
         const size_t bytes = unpaddedVolume * sizeof(real_t);
-        return MemoryRequirement{bytes, 0};
+        return MemoryRequirement{std::min(ioThreads, numTasks) * bytes, 0};
     }
 
     std::string name() const override { return "padding"; }
 
 private:
     Padding cubePadding;
+    size_t ioThreads;
 };
 
 /**
@@ -85,16 +97,18 @@ private:
  * The algorithm only reports how many bytes its scratch arrays need
  * (DeconvolutionAlgorithm::getWorkingSetBytes); the strategy owns the
  * placement decision: the bytes live on the compute device, or in host RAM
- * when the backend is the CPU (device == host).
+ * when the backend is the CPU (device == host). One working set per worker
+ * thread, capped at min(workerThreads, numTasks).
  */
 class AlgorithmWorkingSetMemoryComponent : public MemoryComponent {
 public:
-    AlgorithmWorkingSetMemoryComponent(const DeconvolutionAlgorithm& algorithm, bool onDevice)
-        : algorithm(algorithm), onDevice(onDevice) {}
+    AlgorithmWorkingSetMemoryComponent(const DeconvolutionAlgorithm& algorithm, bool onDevice, size_t workerThreads)
+        : algorithm(algorithm), onDevice(onDevice), workerThreads(workerThreads) {}
 
-    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t) const override {
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t numTasks) const override {
         const size_t bytes = algorithm.getWorkingSetBytes(cubeShape);
-        return onDevice ? MemoryRequirement{0, bytes} : MemoryRequirement{bytes, 0};
+        const size_t instances = std::min(workerThreads, numTasks);
+        return onDevice ? MemoryRequirement{0, instances * bytes} : MemoryRequirement{instances * bytes, 0};
     }
 
     std::string name() const override { return "algorithm working set"; }
@@ -102,6 +116,7 @@ public:
 private:
     const DeconvolutionAlgorithm& algorithm;
     bool onDevice;
+    size_t workerThreads;
 };
 
 class StandardDeconvolutionStrategy : public IDeconvolutionStrategy {
@@ -128,9 +143,11 @@ protected:
     /// How much memory the application thinks one run needs: composes the
     /// footprint of every memory-owning system for the scheduling of this
     /// run. The externally-owned components (reader, writer, backend FFT,
-    /// psf cache) are borrowed; the strategy-owned terms (io staging per io
-    /// thread, algorithm working set per worker thread with its placement,
-    /// padding peak) are created and kept alive by the returned footprint.
+    /// psf cache) are borrowed; the strategy-owned terms (io staging one set
+    /// per io thread, algorithm working set one per worker thread with its
+    /// placement, padding peak) are created and kept alive by the returned
+    /// footprint. Each per-thread term caps its instances at the plan's task
+    /// count via MemoryComponent::footprint.
     /// Used by createPlan and by tests to inspect the modeled demand.
     static MemoryFootprint buildMemoryFootprint(
         const MemoryComponent& readerComponent,
