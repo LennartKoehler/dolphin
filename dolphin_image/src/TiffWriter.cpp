@@ -137,6 +137,22 @@ void TiffRegionWriterTiled::writeSlice(TIFF* tif, const float* sliceData, const 
 // TiffWriter
 // ============================================================================
 
+// Rewrites the "channels=<n>" line of a description string in place, matching
+// how TiffReader parses it (first line containing "channels="). Leaves the
+// description unchanged when the key is absent.
+static void rewriteDescriptionChannels(std::string& description, int channels) {
+    const std::string key = "channels=";
+    const size_t keyPos = description.find(key);
+    if (keyPos == std::string::npos) {
+        return;
+    }
+    const size_t valueStart = keyPos + key.size();
+    const size_t lineEnd = description.find('\n', valueStart);
+    const size_t valueLength = (lineEnd == std::string::npos ? description.size() : lineEnd) - valueStart;
+    description.replace(valueStart, valueLength, std::to_string(channels));
+}
+
+
 TiffWriter::TiffWriter(const std::string& filename, const ImageMetaData& metadata)
     : outputFilename(filename),
     imageShape(metadata.getShape()),
@@ -150,6 +166,10 @@ TiffWriter::TiffWriter(const std::string& filename, const ImageMetaData& metadat
     metaData.sampleFormat = SAMPLEFORMAT_IEEEFP;
     metaData.photometricInterpretation = 1;
     metaData.planarConfig = 1;
+    // The description's channel count is pixel-format information too: the
+    // output has one directory per z-slice, so it must say channels=1 or the
+    // reader misreads its own output (z -> directory mapping).
+    rewriteDescriptionChannels(metaData.description, 1);
     TIFFSetWarningHandler(TiffWriter::customTifWarningHandler);
     try {
         this->tif = openTiff(filename.c_str(), imageShape);

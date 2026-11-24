@@ -53,7 +53,7 @@ struct ImageMetaData {
     uint16_t planarConfig = 0;
     size_t totalImages = SIZE_MAX;
     int dataType = 0; //calculated
-    float xResolution, yResolution = 0.0f;
+    float xResolution = 0.0f, yResolution = 0.0f;
     float maxSampleValue = 0;
     float minSampleValue = 0;
     int sampleFormat = 0;
