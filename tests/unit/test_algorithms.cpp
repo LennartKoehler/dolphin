@@ -544,10 +544,10 @@ TEST_F(AlgorithmTestBase, PoissonMLESieveScaleKnob) {
 
 
 // Regression: the prefilter init step. With an AUTO background (poissonBackground = -1)
-// and prefilter ON, the initial estimate f0 is a mild anisotropic Gaussian low-pass of
-// the data and the background is min(f0); with prefilter OFF it falls back to the raw
-// data and the dimmest-decile mean. Both must reconstruct the objects and stay finite,
-// and the prefilter must not degrade the result.
+// the plan-provided run-wide value (DeconvolutionRunContext::background) supplies b;
+// the prefilter only shapes the initial estimate f0 (a mild anisotropic Gaussian
+// low-pass of the data). Both prefilter settings must reconstruct the objects and
+// stay finite, and the prefilter must not degrade the result.
 TEST_F(AlgorithmTestBase, PoissonMLEPrefilterAutoBackground) {
     const float bg = 0.01f;
     const float sigma = 1.5f;

@@ -93,8 +93,11 @@ model $m = Hf + b$ physically correct:
 2. **Initialize the object to the data.** $f$ starts as a copy of $g$, with any
    negative pixels set to zero. (Negative counts are unphysical.)
 3. **Estimate the background level $b$.** If the user did not supply it, it is
-   taken as the mean of the **dimmest decile** of pixels — the bottom 10 % of the
-   intensity histogram, which are overwhelmingly background.
+   resolved once for the whole run (see `background_strategy`) as the **mode of
+   the dark cluster**: a log-histogram of all voxel values locates the darkest
+   substantial cluster below the 5th percentile, and the count-weighted mean over
+   its half-maximum window is the estimate (falling back to the 5th percentile
+   itself when no such cluster exists).
 4. **Estimate the PSF size.** The PSF is inverse-Fourier-transformed to recover
    the spatial point-spread, and its standard deviations are computed along each
    axis (the width and depth of the blur). These widths later set how much
@@ -178,15 +181,16 @@ object does not oscillate from voxel to voxel.
   times per iteration (`poissonSievePasses`), a cheap way to deepen the
   low-pass without changing its frequency content.
 
-### Step 4 — After all iterations: remove the residual floor
+### Step 4 — After all iterations: no residual-floor subtraction
 
 The forward model $m = Hf + b$ cannot fully separate a **flat** offset added to
 the object from the background $b$ (blurring a constant leaves the same
-constant, so the two are degenerate). As a result, the MLE settles the object's
-own background at a small constant offset above zero rather than exactly at zero.
-Because this leftover is uniform, the final step simply measures it (again, the
-mean of the dimmest decile of the result) and **subtracts it**, then clamps at
-zero. The output object is thus left sitting on a clean zero background.
+constant, so the two are degenerate). The MLE splits this ambiguity between the
+object and the background instead of resolving it, so the converged object may
+retain a small uniform residual floor. Earlier versions measured this floor and
+subtracted it; that post-processing step is no longer performed — the background
+level is carried by $b$ in the forward model, the object is kept at $f \ge 0$,
+and the output is the converged object as-is.
 
 ## The loop at a glance
 
@@ -199,15 +203,15 @@ Each of the `iterations` runs:
 3. **Sieve** — anisotropic Gaussian low-pass, annealed down to zero across the
    run.
 
-After the loop, a uniform residual floor is subtracted so the object rests on a
-zero background.
+After the loop, the object is the final output: no residual-floor subtraction is
+applied (see Step 4).
 
 ## Parameter → physics
 
 | Parameter | Default | What it controls, physically |
 |-----------|---------|------------------------------|
 | `signal_to_noise` | 10 | The effective signal-to-noise ratio / sharpness dial. High → trust the data, little regularization, closer to the pure MLE. Low → stronger shrinkage + smoothing. |
-| `poissonBackground` | −1 (auto) | The flat background level $b$ in the forward model. If unset (−1), it is estimated from the dimmest decile of the data. |
+| `poissonBackground` | −1 (auto) | The flat background level $b$ in the forward model. If unset (−1), it is resolved once for the whole run as the mode of the dark cluster below the 5th percentile (see `background_strategy`). |
 | `poissonLambda` | 0 (auto) | The shrinkage strength $\lambda$ of the prior. If unset (0), it is derived as $1/\mathrm{SNR}$. |
 | `poissonSieve` | true | Whether the annealed anisotropic Gaussian smoothing (roughness regularizer) is applied. |
 | `poissonSievePasses` | 2 | How many smoothing passes per iteration (deeper low-pass, same bandwidth). |

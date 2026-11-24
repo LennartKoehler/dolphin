@@ -69,7 +69,7 @@ void PoissonMLEConfig::registerAllParameters() {
     parameters.push_back({ParameterType::Float, &background, "Poisson Background", true, "poisson_background", "--poisson_background",
         "Background level for PoissonMLE (<0 = resolve once for the whole image via background_strategy)", false, true, -1.0, 1e8, nullptr});
     parameters.push_back({ParameterType::Bool, &prefilter, "Poisson Prefilter", true, "poisson_prefilter", "--poisson_prefilter",
-        "Enable prefilter: mild anisotropic Gaussian low-pass of the data used as the initial estimate f0 (auto background = min of f0)", false, false, 0.0, 0.0, nullptr});
+        "Enable prefilter: mild anisotropic Gaussian low-pass of the data used as the initial estimate f0", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Float, &prefilterScale, "Poisson Prefilter Scale", true, "poisson_prefilter_scale", "--poisson_prefilter_scale",
         "Prefilter width: per-axis sigma = scale * PSF sigma (0.3 reproduces the reference; 0 disables the blur)", false, true, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Bool, &sieve, "Poisson Sieve", true, "poisson_sieve", "--poisson_sieve",
