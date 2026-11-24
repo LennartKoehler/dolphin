@@ -38,7 +38,7 @@ See the LICENSE file provided with the code for the full license.
 
 namespace {
 
-// Background + noise with a few objects, so the dimmest decile is well defined.
+// Background + noise with a few objects, so the low percentile is well defined.
 Image3D makeInput(size_t w, size_t h, size_t d) {
     Image3D image = TestUtils::createRandomImage(w, h, d);
     for (auto& v : image) v = std::abs(v) * 0.5f + 0.02f;

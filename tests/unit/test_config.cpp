@@ -469,3 +469,30 @@ TEST_F(ConfigTest, ConfigWriteToJSONRoundTrip) {
     EXPECT_EQ(config2->iterations, 3);
     EXPECT_FLOAT_EQ(config2->minDenominator, 1e-3f);
 }
+
+// background_strategy selects how the run-wide background is resolved for
+// algorithms that estimate one (PoissonMLE).
+TEST_F(ConfigTest, BackgroundStrategyLoadsFromJSONAndCopies) {
+    auto config = DeconvolutionConfig::createFromJSON(json::parse(R"({
+        "algorithm_name": "PoissonMLE",
+        "background_strategy": "whole_image"
+    })"));
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->backgroundStrategyType, BACKGROUND_WHOLE_IMAGE);
+
+    // Copy semantics keep the parameter registered and its value.
+    const auto copy = std::make_shared<PoissonMLEConfig>(
+        static_cast<const PoissonMLEConfig&>(*config));
+    EXPECT_EQ(copy->backgroundStrategyType, BACKGROUND_WHOLE_IMAGE);
+    const auto written = copy->writeToJSON();
+    ASSERT_TRUE(written.contains("background_strategy"));
+    EXPECT_EQ(written["background_strategy"].get<std::string>(), "whole_image");
+}
+
+TEST_F(ConfigTest, BackgroundStrategyDefaultsToGlobal) {
+    auto config = DeconvolutionConfig::createFromJSON(json::parse(R"({
+        "algorithm_name": "PoissonMLE"
+    })"));
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(config->backgroundStrategyType, BACKGROUND_GLOBAL);
+}

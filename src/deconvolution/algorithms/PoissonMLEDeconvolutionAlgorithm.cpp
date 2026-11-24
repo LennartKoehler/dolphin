@@ -259,21 +259,6 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
         if (progressFunction) progressFunction(maxIter);
     }
 
-    // ---- FINAL: remove the residual flat pedestal. ----
-    // m = Hf + bg cannot distinguish a uniform offset in f from bg itself (H
-    // preserves constants), so the MLE absorbs (flat background of g) - bg into
-    // f as a uniform floor. This vanishes only when bg equals the data's true
-    // flat background g_bg; the prefilter's min (or any dimmest-decile estimate)
-    // sits below g_bg, leaving a pedestal (g_bg - bg) on the output. Subtract the
-    // flat level (measured as the mode of the estimate, where the mostly-
-    // background image settles) so the object is reported on a zero background;
-    // the subtraction is uniform, so it does not change the object contrast.
-    // const real_t pedestal = estimateFlatPedestal(f, memory);
-    // if (pedestal > 0.0f) {
-    //     spdlog::get("deconvolution")->debug("PoissonMLE final: removing output pedestal {:.6f}", pedestal);
-    //     compute.realAffine(f, 1.0f, -pedestal, f); // f -= pedestal
-    //     compute.realClampMin(f, 0.0f, f);
-    // }
 }
 
 void PoissonMLEDeconvolutionAlgorithm::computeForwardModel(

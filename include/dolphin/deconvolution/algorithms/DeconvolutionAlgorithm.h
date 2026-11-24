@@ -30,7 +30,7 @@ See the LICENSE file provided with the code for the full license.
  * algorithms that do not need a field ignore it.
  */
 struct DeconvolutionRunContext {
-    // Flat background of the whole input image (mean of the dimmest decile).
+    // Flat background of the whole input image (low percentile of the data).
     // std::nullopt: not available (per-tile estimate / explicit override).
     std::optional<float> background;
 };

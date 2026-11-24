@@ -14,7 +14,6 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include <array>
-#include <optional>
 #include <string>
 #include "dolphin_image/HelperClasses.h"
 #include "dolphin/Config.h"
@@ -70,6 +69,9 @@ public:
     DeconvolutionConfig& operator=(DeconvolutionConfig&& other) noexcept;
 
     std::string getName() const override { return std::string("DeconvolutionConfig") + std::string(" ") + algorithmName; };
+    bool isCubePaddingManualSet() const {
+        return cubePadding[0] > 0 && cubePadding[1] > 0 && cubePadding[2] > 0;
+    }
 
     // Load a config from JSON: the algorithm is selected by the "algorithm_name"
     // field (default: RichardsonLucy) and the matching config class is created.
@@ -87,7 +89,7 @@ public:
     float paddingRelativeMax = 0.0f; // > 0: fraction of PSF max to pad to; 0 = use preset
     int featheringRadius = 0;
     std::array<size_t, 3> cubeSize{0, 0, 0}; // currently unused
-    std::optional<std::array<size_t, 3>> cubePadding = std::nullopt;
+    std::array<size_t, 3> cubePadding{0,0,0};
     bool sliceAllDimensions = false;
     // Where the flat background comes from. GLOBAL measures it once on one
     // representative (interior) cube and passes it to every cube, so all cubes
