@@ -169,7 +169,10 @@ protected:
         config.prior = true;
         config.sievePasses = 2;
         auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
-        EXPECT_NE(algo, nullptr);
+        if (!algo) {
+            ADD_FAILURE() << "Factory returned no algorithm for " << algoName;
+            return 0.0f;
+        }
         algo->setBackend(*backend);
         algo->init(dataSize);
 
