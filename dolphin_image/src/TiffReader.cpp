@@ -586,6 +586,7 @@ void TiffReader::customTifWarningHandler(const char* module, const char* fmt, va
 size_t TiffReader::getRequiredMemory(const CuboidShape& subimageSize) const{
     assert(regionReader);
     BoxCoord region = regionReader->computeReadSource(metaData, BoxCoord{CuboidShape{0,0,0},subimageSize});
+    if (region.dimensions == subimageSize) return 0; // never actually stored throughtout multiple runs (deleted right after reading)
     return region.dimensions.getVolume() * sizeOf(dataType_);
 }
 

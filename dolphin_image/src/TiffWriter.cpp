@@ -197,6 +197,7 @@ size_t TiffWriter::getRequiredMemory(const CuboidShape& shapeToWrite) const {
     // shapeToWrite.depth (the padded candidate cube shape) upper-bounds the
     // actual per-tile depth (the written box depth).
     assert(imageShape.width != 0 && imageShape.height !=0);
+    if (shapeToWrite.width == imageShape.width && shapeToWrite.height == imageShape.height) return 0; // never actually stored throughtout multiple runs (deleted right after reading)
     return shapeToWrite.depth * imageShape.width * imageShape.height * sizeof(float) * 2 + 2 * writeBufferBytes();
 }
 
