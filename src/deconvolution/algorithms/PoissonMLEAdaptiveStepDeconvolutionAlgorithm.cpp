@@ -104,7 +104,7 @@ void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::deconvolve(const ComplexData&
     core_.ensurePsfSigmas(compute, memory, H, shape, core_.scratchC, core_.scratch);
 
     // ---- Prefilter: a single mild anisotropic Gaussian low-pass of the raw data. ----
-    core_.applyPrefilter(compute, f, core_.scratchC, core_.psfSigX, core_.psfSigY, core_.psfSigZ);
+    core_.applyPrefilter(compute, f, core_.psfSigX, core_.psfSigY, core_.psfSigZ);
 
     const real_t bg = core_.resolveBackground(runContext);
     const real_t lambda = core_.currentLambda();
@@ -125,7 +125,7 @@ void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::deconvolve(const ComplexData&
         dataStep(compute, H, g, bg, f);
 
         // ---- PRIOR + SIEVE: regularization, then the physical clamp. ----
-        core_.applyRegularization(compute, f, core_.scratchC, k, kLast, lambda);
+        core_.applyRegularization(compute, f, k, kLast, lambda);
 
         backend->sync();
         if (progressFunction) progressFunction(maxIter);

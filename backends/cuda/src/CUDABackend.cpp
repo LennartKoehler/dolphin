@@ -1288,6 +1288,20 @@ void CUDAComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t
     run("fillGaussianOTF", CUBE_MLE::fillGaussianOTF(Nx, out.getRealSize().width, out.getSize().height, out.getSize().depth, strideGradX,  rawData(out), twoPiSq, ax, ay, az, config.stream));
 }
 
+void CUDAComputeBackend::complexMultiplyGaussianOTF(ComplexData& inout, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
+    ensureDevice();
+    size_t Nx = inout.getSize().width;
+    size_t stride = Nx + inout.getPadding();
+
+    // Same Gaussian OTF as fillGaussianOTF (cycles per sample), evaluated
+    // inline in the kernel: inout *= OTF in one pass, no OTF buffer.
+    const real_t twoPiSq = (real_t)M_PI * (real_t)M_PI * 2.0f;
+    const real_t ax = twoPiSq * sigmaX * sigmaX;
+    const real_t ay = twoPiSq * sigmaY * sigmaY;
+    const real_t az = twoPiSq * sigmaZ * sigmaZ;
+    run("complexMultiplyGaussianOTF", CUBE_MLE::complexMultiplyGaussianOTF(Nx, inout.getRealSize().width, inout.getSize().height, inout.getSize().depth, stride, rawData(inout), ax, ay, az, config.stream));
+}
+
 void CUDAComputeBackend::normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const {
     ensureDevice();
     BACKEND_CHECK(rawData(psf) != nullptr, "Input psf pointer is null", "CUDA", "normalizePsfUnitSum - input psf", buildCudaContext(config));

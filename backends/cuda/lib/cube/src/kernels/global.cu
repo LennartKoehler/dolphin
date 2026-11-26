@@ -1040,3 +1040,27 @@ void fillGaussianOTFGlobal(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t
     out[z * stride * Ny + y * stride + x][0] = std::exp(-ax * kx * kx) * gy;
     out[z * stride * Ny + y * stride + x][1] = 0.0f;
 }
+
+__global__
+void complexMultiplyGaussianOTFGlobal(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t stride, complex_t* inout, const real_t ax, const real_t ay, const real_t az) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (!detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        return; // guard against the block grid overshooting a non-multiple dimension
+    }
+
+    // Same frequency bins as fillGaussianOTF (cycles per sample; kx normalized
+    // by the REAL width, ky/kz wrapped), evaluated inline so no OTF buffer is
+    // needed. The OTF is real-valued, so both components scale by the same
+    // factor (the unfused path multiplies by a zero-imaginary OTF).
+    const real_t kz = (z <= Nz / 2 ? real_t(z) : -real_t(Nz - z)) / real_t(Nz);
+    real_t gz = expf(-az * kz * kz);
+    const real_t ky = (y <= Ny / 2 ? real_t(y) : -real_t(Ny - y)) / real_t(Ny);
+    real_t gy = expf(-ay * ky * ky) * gz;
+    const real_t kx = (real_t)x / (real_t)realW;
+    real_t otf = std::exp(-ax * kx * kx) * gy;
+    const size_t idx = z * stride * Ny + y * stride + x;
+    inout[idx][0] *= otf;
+    inout[idx][1] *= otf;
+}

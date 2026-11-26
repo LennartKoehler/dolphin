@@ -1381,6 +1381,41 @@ TEST_F(CUDAComputeBackendTest, ComplexScalarMultiplication) {
     }
 }
 
+TEST_F(CUDAComputeBackendTest, ComplexMultiplyGaussianOTFParity) {
+    // The fused analytic OTF multiply must match the unfused path
+    // (fillGaussianOTF + complexMultiplication) elementwise.
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    ComplexData fused = memMgr.allocateMemoryOnDeviceComplex(shape);   // half-complex (r2c)
+    ComplexData unfused = memMgr.allocateMemoryOnDeviceComplex(shape);
+    ComplexData otf = memMgr.allocateMemoryOnDeviceComplex(shape);
+
+    const size_t vol = fused.getSize().getVolume();
+    std::vector<ComplexHost> hostIn(vol);
+    for (size_t i = 0; i < vol; ++i) {
+        hostIn[i][0] = std::sin(static_cast<real_t>(i)) * 3.0f;
+        hostIn[i][1] = std::cos(static_cast<real_t>(i)) * 2.0f;
+    }
+    writeComplexToDevice(fused, hostIn);
+    writeComplexToDevice(unfused, hostIn);
+
+    const real_t sx = 1.3f, sy = 0.8f, sz = 2.1f;
+    deconv.complexMultiplyGaussianOTF(fused, sx, sy, sz);
+    deconv.fillGaussianOTF(otf, sx, sy, sz);
+    deconv.complexMultiplication(unfused, otf, unfused);
+    backend->sync();
+
+    auto rf = readbackComplex(fused);
+    auto ru = readbackComplex(unfused);
+    ASSERT_EQ(rf.size(), ru.size());
+    for (size_t i = 0; i < rf.size(); ++i) {
+        EXPECT_NEAR(rf[i][0], ru[i][0], 1e-4f) << "real part mismatch at " << i;
+        EXPECT_NEAR(rf[i][1], ru[i][1], 1e-4f) << "imag part mismatch at " << i;
+    }
+}
+
 TEST_F(CUDAComputeBackendTest, ComplexMultiplicationWithConjugate) {
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();

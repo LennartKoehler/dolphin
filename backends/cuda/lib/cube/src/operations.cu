@@ -433,4 +433,12 @@ namespace CUBE_MLE {
         dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
         return launchSync([=] {fillGaussianOTFGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, realW, Ny, Nz, stride, out, twoPiSq, ax, ay, az);}, stream);
     }
+
+    cudaError_t complexMultiplyGaussianOTF(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t stride, complex_t* inout, const real_t ax, const real_t ay, const real_t az, cudaStream_t stream){
+        if (!inout) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] {complexMultiplyGaussianOTFGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, realW, Ny, Nz, stride, inout, ax, ay, az);}, stream);
+    }
 }

@@ -131,15 +131,14 @@ struct PoissonMLECore {
     real_t currentLambda() const;
 
     // Optional mild anisotropic Gaussian low-pass of the raw data (the MLE's
-    // initial estimate), plus the debug log of the effective sigmas. workOTF
-    // serves as the half-complex Gaussian-OTF buffer.
+    // initial estimate), plus the debug log of the effective sigmas.
     void applyPrefilter(const IComputeBackend& compute, RealData& f,
-                        ComplexData& workOTF, real_t sigX, real_t sigY, real_t sigZ) const;
+                        real_t sigX, real_t sigY, real_t sigZ) const;
 
     // Everything after the data step in one iteration: lambda-shrinkage prior
     // with flux conservation, the annealed sieve, and the physical clamp.
     void applyRegularization(const IComputeBackend& compute, RealData& f,
-                             ComplexData& workOTF, int k, int kLast, real_t lambda);
+                             int k, int kLast, real_t lambda);
 
     // Estimates (once, cached) the PSF's sigma widths using `work`/`workOTF` as
     // scratch. Run-constant for a given padded shape: re-estimating per cube

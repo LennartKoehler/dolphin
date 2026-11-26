@@ -1097,6 +1097,35 @@ void CPUComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t 
     }
 }
 
+void CPUComputeBackend::complexMultiplyGaussianOTF(ComplexData& inout, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
+    BACKEND_CHECK(rawData(inout) != nullptr, "Result pointer is null", "CPU", "complexMultiplyGaussianOTF - result", buildCpuContext());
+
+    const size_t W = inout.getRealSize().width, H = inout.getRealSize().height, D = inout.getRealSize().depth;
+    auto si = getStrideInfo(inout);
+    complex_t* ptr = rawData(inout);
+    // Same Gaussian OTF as fillGaussianOTF (cycles per sample), evaluated
+    // inline: inout *= OTF in one pass, no OTF buffer.
+    const real_t twoPiSq = (real_t)M_PI * (real_t)M_PI * 2.0f;
+    const real_t ax = twoPiSq * sigmaX * sigmaX;
+    const real_t ay = twoPiSq * sigmaY * sigmaY;
+    const real_t az = twoPiSq * sigmaZ * sigmaZ;
+
+    for (size_t z = 0; z < D; ++z) {
+        const real_t kz = (z <= D / 2 ? real_t(z) : -real_t(D - z)) / real_t(D);
+        real_t gz = std::exp(-az * kz * kz);
+        for (size_t y = 0; y < H; ++y) {
+            const real_t ky = (y <= H / 2 ? real_t(y) : -real_t(H - y)) / real_t(H);
+            real_t gy = std::exp(-ay * ky * ky) * gz;
+            for (size_t x = 0; x < si.width; ++x) {
+                real_t kx = (real_t)x / (real_t)W;
+                real_t otf = std::exp(-ax * kx * kx) * gy;
+                ptr[z * si.sliceStride + y * si.stride + x][0] *= otf;
+                ptr[z * si.sliceStride + y * si.stride + x][1] *= otf;
+            }
+        }
+    }
+}
+
 void CPUComputeBackend::normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const {
     BACKEND_CHECK(rawData(psf) != nullptr, "Input psf pointer is null", "CPU", "normalizePsfUnitSum - input psf", buildCpuContext());
 

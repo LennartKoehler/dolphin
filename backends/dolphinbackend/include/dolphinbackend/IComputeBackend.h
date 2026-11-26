@@ -325,6 +325,15 @@ public:
         COMPUTE_NOT_IMPLEMENTED(fillGaussianOTF);
     }
 
+    // In-place multiply of a half-complex (r2c) buffer by the analytically
+    // evaluated Gaussian OTF of fillGaussianOTF (same frequency bins, same
+    // formula): the fused form of fillGaussianOTF + complexMultiplication, so
+    // no OTF buffer is needed and the spectrum is scaled in one pass. The OTF
+    // is real-valued, so both components are scaled by the same factor.
+    virtual void complexMultiplyGaussianOTF(ComplexData& inout, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
+        COMPUTE_NOT_IMPLEMENTED(complexMultiplyGaussianOTF);
+    }
+
     // Scale a half-complex OTF buffer in place so its DC bin (element [0]'s real part,
     // = the sum of the spatial PSF) equals 1. The I-divergence (PoissonMLE) forward model
     // m = Hf + bg is only physically correct for a unit-sum PSF (RichardsonLucy is

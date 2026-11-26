@@ -76,7 +76,7 @@ void PoissonMLEStreamedDeconvolutionAlgorithm::deconvolve(const ComplexData& H, 
     core_.ensurePsfSigmas(compute, memory, H, shape, workView, work);
 
     // ---- Prefilter: a single mild anisotropic Gaussian low-pass of the raw data. ----
-    core_.applyPrefilter(compute, f, workView, core_.psfSigX, core_.psfSigY, core_.psfSigZ);
+    core_.applyPrefilter(compute, f, core_.psfSigX, core_.psfSigY, core_.psfSigZ);
 
     const real_t bg = core_.resolveBackground(runContext);
     const real_t lambda = core_.currentLambda();
@@ -93,10 +93,10 @@ void PoissonMLEStreamedDeconvolutionAlgorithm::deconvolve(const ComplexData& H, 
         // f = max(f*R, 0). Destroys work (= g's device buffer). ----
         backend->poissonDataStepStreamed(H, gHost, f, work, ratioSlab, bg);
 
-        // ---- PRIOR + SIEVE: regularization, then the physical clamp. The work
-        // buffer's complex view doubles as the sieve's Gaussian-OTF buffer (the
-        // work volume is dead between data steps). ----
-        core_.applyRegularization(compute, f, workView, k, kLast, lambda);
+        // ---- PRIOR + SIEVE: regularization, then the physical clamp. The
+        // sieve multiplies by the analytically evaluated Gaussian OTF (no OTF
+        // buffer needed). ----
+        core_.applyRegularization(compute, f, k, kLast, lambda);
 
         backend->sync();
         if (progressFunction) progressFunction(maxIter);

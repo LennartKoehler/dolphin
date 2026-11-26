@@ -27,17 +27,17 @@ namespace {
 const real_t kLambdaBase = 1.0f;
 
 // Annealed anisotropic Gaussian smoothing in the frequency domain (the "sieve").
-// Operates in-place on `f` (which has the in-place-FFT layout): r2c, multiply by the
-// (half-complex) Gaussian OTF, c2r. `f` is both the source and the output.
-void applySieve(const IComputeBackend& compute, RealData& f, ComplexData& sieveOTF,
+// Operates in-place on `f` (which has the in-place-FFT layout): r2c, multiply by
+// the analytically evaluated Gaussian OTF (fused kernel, no OTF buffer), c2r.
+// `f` is both the source and the output.
+void applySieve(const IComputeBackend& compute, RealData& f,
                 real_t sigmaX, real_t sigmaY, real_t sigmaZ) {
     if (sigmaX < 0.05f && sigmaY < 0.05f && sigmaZ < 0.05f) {
         return; // smoothing width ~ 0, sieve is the identity
     }
     ComplexView fv = f.reinterpret();       // non-owning complex view of f
-    compute.fillGaussianOTF(sieveOTF, sigmaX, sigmaY, sigmaZ);
     compute.forwardFFT(f, fv);              // in-place r2c -> f (frequency domain)
-    compute.complexMultiplication(fv, sieveOTF, fv);
+    compute.complexMultiplyGaussianOTF(fv, sigmaX, sigmaY, sigmaZ);
     compute.backwardFFT(fv, f);             // in-place c2r -> f (smoothed, spatial)
 }
 
@@ -149,16 +149,15 @@ real_t PoissonMLECore::currentLambda() const {
 }
 
 void PoissonMLECore::applyPrefilter(const IComputeBackend& compute, RealData& f,
-                                    ComplexData& workOTF, real_t sigX, real_t sigY, real_t sigZ) const {
+                                    real_t sigX, real_t sigY, real_t sigZ) const {
     // sigma_axis = prefilterScale * PSF sigma_axis (0.3 * PSF width reproduces the
     // reference "sigmas of initial filt"). It gives the MLE a smooth, positive
     // starting object f0 (instead of raw photon-noise spikes).
     // f is already in the real-FFT in-place layout (allocated RealFFTInPlace by the
-    // executor), so the in-place FFT low-pass can run on it directly. workOTF
-    // serves as the half-complex Gaussian-OTF buffer.
+    // executor), so the in-place FFT low-pass can run on it directly.
     if (!usePrefilter || prefilterScale <= 0.0f) return;
 
-    applySieve(compute, f, workOTF,
+    applySieve(compute, f,
                prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
     compute.realClampMin(f, 0.0f, f);
     if (auto logger = spdlog::get("deconvolution"))
@@ -179,7 +178,7 @@ void PoissonMLECore::ensurePsfSigmas(const IComputeBackend& compute,
 }
 
 void PoissonMLECore::applyRegularization(const IComputeBackend& compute, RealData& f,
-                                         ComplexData& workOTF, int k, int kLast, real_t lambda) {
+                                         int k, int kLast, real_t lambda) {
     // ---- PRIOR STEP: lambda-shrinkage with flux conservation. ----
     if (usePrior && lambda > 1e-6f) {
         real_t fOld = 0.0f;
@@ -208,7 +207,7 @@ void PoissonMLECore::applyRegularization(const IComputeBackend& compute, RealDat
         const real_t sl = sieveSnrScale * psfSigLat * t;
         const real_t sa = sieveSnrScale * psfSigAx * t;
         for (int p = 0; p < sievePasses; ++p) {
-            applySieve(compute, f, workOTF, sl, sl, sa);
+            applySieve(compute, f, sl, sl, sa);
         }
     }
 
