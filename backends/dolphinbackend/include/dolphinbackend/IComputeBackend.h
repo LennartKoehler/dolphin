@@ -249,6 +249,27 @@ public:
         COMPUTE_NOT_IMPLEMENTED(poissonUpdate);
     }
 
+    // Fused clamp variants: the same math as realAffine / realSqrtAffine /
+    // realLinearCombination with the lower clamp the algorithm applies right
+    // after each of them folded into the same pass. One kernel (and one
+    // read/write of the buffer) instead of two.
+    //
+    // result[i] = max(a[i] * scalar + add, lo)
+    virtual void realAffineClampMin(const RealData& a, real_t scalar, real_t add, real_t lo, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realAffineClampMin);
+    }
+
+    // result[i] = max( ( sqrt(a[i]*scale + add) - 1 ) / lambda, lo )
+    // (the PoissonMLE shrinkage map with its physical clamp in one pass)
+    virtual void realSqrtAffineClampMin(const RealData& a, real_t scale, real_t add, real_t lambda, real_t lo, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realSqrtAffineClampMin);
+    }
+
+    // result[i] = max(sa*a[i] + sb*b[i], lo)
+    virtual void realLinearCombinationClampMin(const RealData& a, real_t sa, const RealData& b, real_t sb, real_t lo, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realLinearCombinationClampMin);
+    }
+
     // One z-slice of the streamed Poisson data step (see
     // IBackend::poissonDataStepStreamed): for the slice at `zSlice` of `work`
     // (full padded volume), work[i] = gSlab[i] / max(work[i], epsilon) — the

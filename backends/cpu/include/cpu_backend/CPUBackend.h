@@ -250,6 +250,10 @@ public:
     void realFillConstant(RealData& a, real_t value) const override;
     void realSqrtAffine(const RealData& a, real_t scale, real_t add, real_t lambda, RealData& result) const override;
     void realClampMin(const RealData& a, real_t lo, RealData& result) const override;
+
+    void realAffineClampMin(const RealData& a, real_t scalar, real_t add, real_t lo, RealData& result) const override;
+    void realSqrtAffineClampMin(const RealData& a, real_t scale, real_t add, real_t lambda, real_t lo, RealData& result) const override;
+    void realLinearCombinationClampMin(const RealData& a, real_t sa, const RealData& b, real_t sb, real_t lo, RealData& result) const override;
     void poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const override;    void realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const override;
     real_t getMin(const RealData& a) const override;
     real_t getMax(const RealData& a) const override;

@@ -1137,6 +1137,47 @@ void CUDAComputeBackend::poissonUpdate(const RealData& ratio, RealData& f, real_
     run("poissonUpdate", CUBE_MLE::poissonUpdate(Nx, ratio.getSize().height, ratio.getSize().depth, strideR, strideF, rawData(ratio), rawData(f), lo, config.stream));
 }
 
+void CUDAComputeBackend::realAffineClampMin(const RealData& a, real_t scalar, real_t add, real_t lo, RealData& result) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realAffineClampMin - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realAffineClampMin - result", buildCudaContext(config));
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realAffineClampMin", "CUDA", "realAffineClampMin", buildCudaContext(config));
+
+    size_t Nx = a.getSize().width;
+    size_t strideA = Nx + a.getPadding();
+    size_t strideC = result.getSize().width + result.getPadding();
+
+    run("realAffineClampMin", CUBE_MLE::realAffineClampMin(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, rawData(a), scalar, add, lo, rawData(result), config.stream));
+}
+
+void CUDAComputeBackend::realSqrtAffineClampMin(const RealData& a, real_t scale, real_t add, real_t lambda, real_t lo, RealData& result) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realSqrtAffineClampMin - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realSqrtAffineClampMin - result", buildCudaContext(config));
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realSqrtAffineClampMin", "CUDA", "realSqrtAffineClampMin", buildCudaContext(config));
+
+    size_t Nx = a.getSize().width;
+    size_t strideA = Nx + a.getPadding();
+    size_t strideC = result.getSize().width + result.getPadding();
+
+    run("realSqrtAffineClampMin", CUBE_MLE::realSqrtAffineClampMin(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, rawData(a), scale, add, lambda, lo, rawData(result), config.stream));
+}
+
+void CUDAComputeBackend::realLinearCombinationClampMin(const RealData& a, real_t sa, const RealData& b, real_t sb, real_t lo, RealData& result) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realLinearCombinationClampMin - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CUDA", "realLinearCombinationClampMin - input b", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realLinearCombinationClampMin - result", buildCudaContext(config));
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realLinearCombinationClampMin", "CUDA", "realLinearCombinationClampMin", buildCudaContext(config));
+
+    size_t Nx = a.getSize().width;
+    size_t strideA = Nx + a.getPadding();
+    size_t strideB = b.getSize().width + b.getPadding();
+    size_t strideC = result.getSize().width + result.getPadding();
+
+    run("realLinearCombinationClampMin", CUBE_MLE::realLinearCombinationClampMin(Nx, a.getSize().height, a.getSize().depth, strideA, strideB, strideC, rawData(a), sa, rawData(b), sb, lo, rawData(result), config.stream));
+}
+
 void CUDAComputeBackend::divideRatioSlab(RealData& work, size_t zSlice, const RealData& gSlab, real_t epsilon) const {
     ensureDevice();
     BACKEND_CHECK(rawData(work) != nullptr, "Work pointer is null", "CUDA", "divideRatioSlab - work", buildCudaContext(config));
@@ -1163,8 +1204,7 @@ void CUDABackend::poissonDataStepStreamed(const ComplexData& H, const RealData& 
     compute.forwardFFT(work, workC);
     compute.complexMultiplication(workC, H, workC);
     compute.backwardFFT(workC, work);
-    compute.realAffine(work, 1.0f, bg, work);
-    compute.realClampMin(work, bg, work);
+    compute.realAffineClampMin(work, 1.0f, bg, bg, work);
 
     // B: work = g/m, streamed slab-wise from the host copy of g. Same guarded
     // division as computeRatio's division(g, m, d, 1e-9f).

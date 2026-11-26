@@ -378,6 +378,30 @@ namespace CUBE_MLE {
         return launchSync([=] { poissonUpdateGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideR, strideF, ratio, f, lo); }, stream);
     }
 
+    cudaError_t realAffineClampMin(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scalar, real_t add, real_t lo, real_t* C, cudaStream_t stream){
+        if (!A || !C) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realAffineClampMinGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideC, A, scalar, add, lo, C); }, stream);
+    }
+
+    cudaError_t realSqrtAffineClampMin(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scale, real_t add, real_t lambda, real_t lo, real_t* C, cudaStream_t stream){
+        if (!A || !C) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realSqrtAffineClampMinGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideC, A, scale, add, lambda, lo, C); }, stream);
+    }
+
+    cudaError_t realLinearCombinationClampMin(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t sa, real_t* B, real_t sb, real_t lo, real_t* C, cudaStream_t stream){
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realLinearCombinationClampMinGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideB, strideC, A, sa, B, sb, lo, C); }, stream);
+    }
+
     cudaError_t poissonDivideSlab(size_t Nx, size_t Ny, size_t strideWork, size_t strideSlab, real_t* workSlab, real_t* gSlab, real_t epsilon, cudaStream_t stream){
         if (!workSlab || !gSlab) {
             return cudaErrorInvalidValue;

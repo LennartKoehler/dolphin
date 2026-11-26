@@ -159,9 +159,8 @@ void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::dataStep(const IComputeBacken
         pwr *= 0.5f;
     }
 
-    // ---- Additive update f <- f + alpha*pwr*d, clipped at zero. ----
-    compute.realLinearCombination(f, 1.0f, core_.scratch, alpha * pwr, f);
-    compute.realClampMin(f, 0.0f, f);
+    // ---- Additive update f <- max(f + alpha*pwr*d, 0) in one fused pass. ----
+    compute.realLinearCombinationClampMin(f, 1.0f, core_.scratch, alpha * pwr, 0.0f, f);
 }
 
 size_t PoissonMLEAdaptiveStepDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {

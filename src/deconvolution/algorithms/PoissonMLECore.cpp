@@ -184,8 +184,8 @@ void PoissonMLECore::applyRegularization(const IComputeBackend& compute, RealDat
     if (usePrior && lambda > 1e-6f) {
         real_t fOld = 0.0f;
         compute.realSum(f, &fOld);
-        compute.realSqrtAffine(f, 2.0f * lambda, 1.0f, lambda, f); // (sqrt(2*lambda*f + 1) - 1)/lambda
-        compute.realClampMin(f, 0.0f, f);
+        // (sqrt(2*lambda*f + 1) - 1)/lambda, clamped at 0 in the same pass.
+        compute.realSqrtAffineClampMin(f, 2.0f * lambda, 1.0f, lambda, 0.0f, f);
         real_t fNew = 0.0f;
         compute.realSum(f, &fNew);
         if (fOld > 1e-12f && fNew > 1e-12f) {
@@ -226,8 +226,7 @@ void PoissonMLECore::computeForwardModel(
     compute.forwardFFT(f, mC);                    // out-of-place r2c -> mC = FFT(f)
     compute.complexMultiplication(mC, H, mC);
     compute.backwardFFT(mC, m);                   // in-place c2r -> m = Hf
-    compute.realAffine(m, 1.0f, bg, m);           // m = Hf + bg
-    compute.realClampMin(m, bg, m);               // physical floor (see header)
+    compute.realAffineClampMin(m, 1.0f, bg, bg, m); // m = max(Hf + bg, bg): model + physical floor in one pass
 }
 
 void PoissonMLECore::computeRatio(const IComputeBackend& compute, const ComplexData& H,

@@ -902,6 +902,47 @@ void realClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t 
 }
 
 __global__
+void realAffineClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scalar, real_t add, real_t lo, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        C[idxC] = fmaxf(A[idxA] * scalar + add, lo);
+    }
+}
+
+__global__
+void realSqrtAffineClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scale, real_t add, real_t lambda, real_t lo, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        const real_t eps = 1e-12f;
+        real_t arg = A[idxA] * scale + add;
+        if (arg < 0.0f) arg = 0.0f;
+        real_t denom = fabsf(lambda) < eps ? eps : lambda;
+        C[idxC] = fmaxf((sqrtf(arg) - 1.0f) / denom, lo);
+    }
+}
+
+__global__
+void realLinearCombinationClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t sa, real_t* B, real_t sb, real_t lo, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxB = detail::indexStrided(x, y, z, strideB, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        C[idxC] = fmaxf(A[idxA] * sa + B[idxB] * sb, lo);
+    }
+}
+
+__global__
 void poissonUpdateGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideR, size_t strideF, real_t* ratio, real_t* f, real_t lo) {
     size_t x = detail::tx();
     size_t y = detail::ty();

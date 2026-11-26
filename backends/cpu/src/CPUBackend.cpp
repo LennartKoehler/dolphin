@@ -891,6 +891,40 @@ void CPUComputeBackend::realClampMin(const RealData& a, real_t lo, RealData& res
     });
 }
 
+void CPUComputeBackend::realAffineClampMin(const RealData& a, real_t scalar, real_t add, real_t lo, RealData& result) const {
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realAffineClampMin - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realAffineClampMin - result", buildCpuContext());
+
+    stridedIteration(a, result, [scalar, add, lo](auto* rowA, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) rowR[x] = std::max(rowA[x] * scalar + add, lo);
+    });
+}
+
+void CPUComputeBackend::realSqrtAffineClampMin(const RealData& a, real_t scale, real_t add, real_t lambda, real_t lo, RealData& result) const {
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realSqrtAffineClampMin - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realSqrtAffineClampMin - result", buildCpuContext());
+
+    const real_t eps = 1e-12f;
+    stridedIteration(a, result, [scale, add, lambda, lo, eps](auto* rowA, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) {
+            real_t arg = rowA[x] * scale + add;
+            if (arg < 0.0f) arg = 0.0f;
+            real_t denom = std::fabs(lambda) < eps ? eps : lambda;
+            rowR[x] = std::max((std::sqrt(arg) - 1.0f) / denom, lo);
+        }
+    });
+}
+
+void CPUComputeBackend::realLinearCombinationClampMin(const RealData& a, real_t sa, const RealData& b, real_t sb, real_t lo, RealData& result) const {
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realLinearCombinationClampMin - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "realLinearCombinationClampMin - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realLinearCombinationClampMin - result", buildCpuContext());
+
+    stridedIteration(a, b, result, [sa, sb, lo](auto* rowA, auto* rowB, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) rowR[x] = std::max(rowA[x] * sa + rowB[x] * sb, lo);
+    });
+}
+
 void CPUComputeBackend::poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const {
     BACKEND_CHECK(rawData(ratio) != nullptr, "Ratio pointer is null", "CPU", "poissonUpdate - ratio", buildCpuContext());
     BACKEND_CHECK(rawData(f) != nullptr, "Iterate pointer is null", "CPU", "poissonUpdate - f", buildCpuContext());
@@ -919,8 +953,7 @@ void CPUBackend::poissonDataStepStreamed(const ComplexData& H, const RealData& g
     computeBackend.forwardFFT(work, workC);
     computeBackend.complexMultiplication(workC, H, workC);
     computeBackend.backwardFFT(workC, work);
-    computeBackend.realAffine(work, 1.0f, bg, work);
-    computeBackend.realClampMin(work, bg, work);
+    computeBackend.realAffineClampMin(work, 1.0f, bg, bg, work);
 
     computeBackend.division(gHost, work, work, 1e-9f);
     computeBackend.forwardFFT(work, workC);
