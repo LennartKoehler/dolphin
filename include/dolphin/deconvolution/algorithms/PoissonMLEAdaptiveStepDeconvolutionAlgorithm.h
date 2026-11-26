@@ -46,7 +46,7 @@ public:
 private:
     // One line-search data step. The model m (in its own buffer) must stay
     // alive for J(alpha); the shared work buffer carries the direction d.
-    void dataStep(const IComputeBackend& compute, const IBackendMemoryManager& memory,
+    void dataStep(const IComputeBackend& compute,
                   const ComplexData& H, const RealData& g, real_t bg, RealData& f);
 
     PoissonMLECore core_;

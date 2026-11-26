@@ -122,7 +122,7 @@ void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::deconvolve(const ComplexData&
 
     for (int k = 0; k < maxIter; ++k) {
         // ---- DATA STEP: exact Newton line search on the Poisson objective. ----
-        dataStep(compute, memory, H, g, bg, f);
+        dataStep(compute, H, g, bg, f);
 
         // ---- PRIOR + SIEVE: regularization, then the physical clamp. ----
         core_.applyRegularization(compute, f, core_.scratchC, k, kLast, lambda);
@@ -133,18 +133,17 @@ void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::deconvolve(const ComplexData&
 }
 
 void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::dataStep(const IComputeBackend& compute,
-                                                            const IBackendMemoryManager& memory,
                                                             const ComplexData& H, const RealData& g,
                                                             real_t bg, RealData& f) {
     // m = Hf + bg in its OWN buffer: the line search still needs it after the
     // direction computation, which reuses core_.scratch for d.
-    core_.computeForwardModel(compute, memory, H, f, bg, model);
+    core_.computeForwardModel(compute, H, f, bg, model);
     core_.computeSearchDirection(compute, H, g, f, model, core_.scratch);
 
-    const IBackendMemoryManager& mem = backend->getMemoryManager();
-    // hd = H*d  (spatial result in `hd`)
-    mem.memCopy(core_.scratch, hd);              // hd <- d
-    compute.forwardFFT(hd, hdC);                 // in-place r2c -> hdC = FFT(d)
+    // hd = H*d  (spatial result in `hd`). The r2c runs OUT-OF-PLACE from the
+    // padded direction buffer directly into hd's complex view — no full-volume
+    // copy of d into hd per iteration.
+    compute.forwardFFT(core_.scratch, hdC);      // out-of-place r2c -> hdC = FFT(d)
     compute.complexMultiplication(hdC, H, hdC);
     compute.backwardFFT(hdC, hd);                // in-place c2r -> hd = H*d
 

@@ -109,10 +109,17 @@ void PoissonMLECore::configure(const PoissonMLEConfig& config) {
 }
 
 void PoissonMLECore::initPlans(IComputeBackend& plans, const CuboidShape& dataSize) const {
+    // In-place plans for the ratio FFT and the sieve (both run in-place on a
+    // buffer's real/complex pair), plus the out-of-place forward plan the
+    // forward model uses to FFT the iterate directly into the work buffer
+    // (same pattern as RichardsonLucy: out-of-place r2c from a padded
+    // in-place-layout source).
     FFTPlanDescription fReal{PlanDirection::FORWARD, PlanType::REAL, dataSize, true};
     FFTPlanDescription bReal{PlanDirection::BACKWARD, PlanType::REAL, dataSize, true};
+    FFTPlanDescription fRealOOP{PlanDirection::FORWARD, PlanType::REAL, dataSize, false};
     plans.initializePlan(fReal);
     plans.initializePlan(bReal);
+    plans.initializePlan(fRealOOP);
 }
 
 void PoissonMLECore::allocateWork(const IBackendMemoryManager& memory, const CuboidShape& dataSize) {
@@ -209,14 +216,14 @@ void PoissonMLECore::applyRegularization(const IComputeBackend& compute, RealDat
 }
 
 void PoissonMLECore::computeForwardModel(
-    const IComputeBackend& compute, const IBackendMemoryManager& memory, const ComplexData& H,
-    const RealData& f, real_t bg, RealData& m) const {
-    // m = Hf + bg  (r2c/c2r are always run in-place on a buffer's real/complex pair,
-    // exactly as in RichardsonLucy, because the out-of-place real r2c plan assumes
-    // the padded in-place layout. So the FFT source is first copied into the buffer.)
-    memory.memCopy(f, m);                         // m <- f
+    const IComputeBackend& compute, const ComplexData& H, const RealData& f,
+    real_t bg, RealData& m) const {
+    // m = Hf + bg. The r2c runs OUT-OF-PLACE from the padded in-place-layout
+    // iterate f directly into m's complex view (the plan is prewarmed with the
+    // padded source layout, exactly as in RichardsonLucy) — no full-volume
+    // copy of f into m per iteration.
     ComplexView mC = m.reinterpret();             // non-owning complex view of m
-    compute.forwardFFT(m, mC);                    // in-place r2c -> mC = FFT(f)
+    compute.forwardFFT(f, mC);                    // out-of-place r2c -> mC = FFT(f)
     compute.complexMultiplication(mC, H, mC);
     compute.backwardFFT(mC, m);                   // in-place c2r -> m = Hf
     compute.realAffine(m, 1.0f, bg, m);           // m = Hf + bg

@@ -74,7 +74,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
 
     for (int k = 0; k < maxIter; ++k) {
         // ---- DATA STEP: Poisson likelihood gradient, RL unit step. ----
-        dataStep(compute, memory, H, g, bg, f);
+        dataStep(compute, H, g, bg, f);
 
         // ---- PRIOR + SIEVE: regularization, then the physical clamp. ----
         core_.applyRegularization(compute, f, core_.scratchC, k, kLast, lambda);
@@ -85,13 +85,12 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
 }
 
 void PoissonMLEDeconvolutionAlgorithm::dataStep(const IComputeBackend& compute,
-                                                const IBackendMemoryManager& memory,
                                                 const ComplexData& H, const RealData& g,
                                                 real_t bg, RealData& f) {
     // m = Hf + bg, then the ratio R = H^T(g/m), both in the shared work buffer:
     // the unit step never needs m past the ratio, so m is allowed to be
     // clobbered by the ratio computation.
-    core_.computeForwardModel(compute, memory, H, f, bg, core_.scratch);
+    core_.computeForwardModel(compute, H, f, bg, core_.scratch);
     core_.computeRatio(compute, H, g, core_.scratch, core_.scratch);
 
     // Plain RL unit step: f <- max(f * R, 0) in one fused pass. This is the

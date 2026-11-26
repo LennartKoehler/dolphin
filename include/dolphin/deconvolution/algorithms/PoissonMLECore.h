@@ -156,8 +156,8 @@ struct PoissonMLECore {
     // to <= 0 at isolated voxels. Left alone, the g/m ratio is floored at the
     // tiny epsilon (1e-9) and amplifies g by ~1e9, running the iteration away
     // to inf/NaN.
-    void computeForwardModel(const IComputeBackend& compute, const IBackendMemoryManager& memory,
-                             const ComplexData& H, const RealData& f, real_t bg, RealData& m) const;
+    void computeForwardModel(const IComputeBackend& compute, const ComplexData& H,
+                             const RealData& f, real_t bg, RealData& m) const;
 
     // The shared core of both data steps: the ratio R = H^T(g/m), written into
     // `ratio` (m is clobbered when they alias).

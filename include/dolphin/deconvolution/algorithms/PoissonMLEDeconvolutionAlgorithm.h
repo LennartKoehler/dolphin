@@ -46,7 +46,7 @@ protected:
 private:
     // One data step: m = Hf + bg, R = H^T(g/m) (both in the shared work
     // buffer), then the fused update f = max(f*R, 0).
-    void dataStep(const IComputeBackend& compute, const IBackendMemoryManager& memory,
+    void dataStep(const IComputeBackend& compute,
                   const ComplexData& H, const RealData& g, real_t bg, RealData& f);
 
     bool initialized = false;
