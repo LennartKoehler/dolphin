@@ -108,18 +108,21 @@ void PoissonMLECore::configure(const PoissonMLEConfig& config) {
     sieveScale = config.sieveScale;
 }
 
+std::vector<FFTPlanDescription> PoissonMLECore::planDescriptions(const CuboidShape& dataSize) const {
+    return {
+        // In-place r2c for the ratio FFT and the sieve, in-place c2r for both,
+        // plus the out-of-place forward r2c the forward model uses to FFT the
+        // iterate directly into the work buffer (the RichardsonLucy pattern).
+        FFTPlanDescription{PlanDirection::FORWARD, PlanType::REAL, dataSize, true},
+        FFTPlanDescription{PlanDirection::BACKWARD, PlanType::REAL, dataSize, true},
+        FFTPlanDescription{PlanDirection::FORWARD, PlanType::REAL, dataSize, false},
+    };
+}
+
 void PoissonMLECore::initPlans(IComputeBackend& plans, const CuboidShape& dataSize) const {
-    // In-place plans for the ratio FFT and the sieve (both run in-place on a
-    // buffer's real/complex pair), plus the out-of-place forward plan the
-    // forward model uses to FFT the iterate directly into the work buffer
-    // (same pattern as RichardsonLucy: out-of-place r2c from a padded
-    // in-place-layout source).
-    FFTPlanDescription fReal{PlanDirection::FORWARD, PlanType::REAL, dataSize, true};
-    FFTPlanDescription bReal{PlanDirection::BACKWARD, PlanType::REAL, dataSize, true};
-    FFTPlanDescription fRealOOP{PlanDirection::FORWARD, PlanType::REAL, dataSize, false};
-    plans.initializePlan(fReal);
-    plans.initializePlan(bReal);
-    plans.initializePlan(fRealOOP);
+    for (const FFTPlanDescription& description : planDescriptions(dataSize)) {
+        plans.initializePlan(description);
+    }
 }
 
 void PoissonMLECore::allocateWork(const IBackendMemoryManager& memory, const CuboidShape& dataSize) {

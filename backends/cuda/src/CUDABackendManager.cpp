@@ -162,6 +162,17 @@ MemoryComponent& CUDABackendManager::getMemoryComponent() {
     return fftComponent;
 }
 
+size_t CUDABackendManager::getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions) const {
+    // The compute backend owns the plan math (it creates the plans and grows
+    // their shared work area); the estimate needs no backend instance and no
+    // CUDA context, so the manager funnels it for pre-plan memory modeling.
+    size_t bytes = 0;
+    for (const FFTPlanDescription& description : descriptions) {
+        bytes = std::max(bytes, CUDAComputeBackend::estimatePlanWorkBytes(description));
+    }
+    return bytes;
+}
+
 IBackend& CUDABackendManager::createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config){
     CUDABackend& backend_ = dynamic_cast<CUDABackend&>(backend);
     return createNewBackend(backend_.config);

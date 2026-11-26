@@ -86,4 +86,26 @@ public:
     // component is owned by the manager.
     virtual MemoryComponent& getMemoryComponent() = 0;
 
+    // --- FFT plan memory, per plan set (mirrors the
+    // getAvailableMemoryPerDevice pattern: the deconvolution strategy must
+    // model memory BEFORE any backend exists, so the query lives on the
+    // manager and is answered with the compute backend's plan math) ---
+    //
+    // The algorithms declare the FFTPlanDescriptions they will use (see
+    // DeconvolutionAlgorithm::getFFTPlanDescriptions) and hand the whole set
+    // here; the answer is composed into the algorithm's memory component and
+    // never added to the footprint directly.
+
+    // Memory the given plan set will occupy on this backend's plane, with
+    // this backend's sharing policy applied inside: CUDA creates one shared
+    // work area per backend instance and answers with the MAX over the set;
+    // a backend whose plans each own their memory would answer with the SUM.
+    // Estimated WITHOUT creating any plan (pure host-side arithmetic).
+    // Thread semantics are deliberately NOT modeled here: the caller folds
+    // the per-worker-thread concurrency in (one backend instance per worker
+    // thread), which is the same rule the algorithm's scratch follows.
+    virtual size_t getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions) const {
+        NOT_IMPLEMENTED(getFFTPlanMemoryBytes);
+    }
+
 };

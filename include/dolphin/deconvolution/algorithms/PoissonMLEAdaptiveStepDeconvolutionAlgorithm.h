@@ -42,6 +42,9 @@ public:
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;
     size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
+    std::vector<FFTPlanDescription> getFFTPlanDescriptions(const CuboidShape& dataSize) const override {
+        return core_.planDescriptions(dataSize);
+    }
 
 private:
     // One line-search data step. The model m (in its own buffer) must stay

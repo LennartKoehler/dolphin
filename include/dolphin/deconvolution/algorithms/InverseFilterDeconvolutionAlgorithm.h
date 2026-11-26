@@ -29,6 +29,13 @@ public:
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;
     size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
+    // One forward/backward real pair, both out-of-place (own complex buffer).
+    std::vector<FFTPlanDescription> getFFTPlanDescriptions(const CuboidShape& dataSize) const override {
+        return {
+            {PlanDirection::FORWARD, PlanType::REAL, dataSize, false},
+            {PlanDirection::BACKWARD, PlanType::REAL, dataSize, false},
+        };
+    }
 private:
     bool initialized = false;
 

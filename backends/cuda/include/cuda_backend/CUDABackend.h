@@ -281,8 +281,12 @@ public:
 
    void hasNAN(const ComplexData& data) const override;
 
-
-
+    // Work-area bytes cuFFT will need for ONE plan of this description,
+    // estimated WITHOUT creating a plan or touching a CUDA context (pure
+    // host-side arithmetic; same embed math as the createPlan* methods, with
+    // the canonical buffer layout initializePlan assumes). Used by the
+    // manager to answer FFT memory queries before any backend exists.
+    static size_t estimatePlanWorkBytes(const FFTPlanDescription& description);
 
 private:
 

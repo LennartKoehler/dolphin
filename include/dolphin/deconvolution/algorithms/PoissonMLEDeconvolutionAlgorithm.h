@@ -39,6 +39,9 @@ public:
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;
     size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
+    std::vector<FFTPlanDescription> getFFTPlanDescriptions(const CuboidShape& dataSize) const override {
+        return core_.planDescriptions(dataSize);
+    }
 
 protected:
     PoissonMLECore core_;

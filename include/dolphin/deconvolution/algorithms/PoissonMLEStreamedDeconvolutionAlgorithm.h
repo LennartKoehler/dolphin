@@ -46,6 +46,12 @@ public:
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;
     size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
+    std::vector<FFTPlanDescription> getFFTPlanDescriptions(const CuboidShape& dataSize) const override {
+        // The streamed data step runs on the backend with the same in-place
+        // plan pair the core declares (plus the out-of-place forward plan the
+        // regular stages use), so the core's set is complete.
+        return core_.planDescriptions(dataSize);
+    }
 
 private:
     // One z-slice of the padded in-place layout: staging buffer for the

@@ -101,6 +101,12 @@ public:
     void setMemoryLimit(size_t maxMemoryPerDevice_byte) override;
 
     MemoryComponent& getMemoryComponent() override;
+
+    // Max over the plan set's cuFFT estimates: this backend gives every plan
+    // of one instance the same shared work area (grown to the largest), so
+    // the set costs the largest single plan, not the sum. The estimate is
+    // pure host-side arithmetic from the compute backend's plan math.
+    size_t getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions) const override;
 protected:
 
     std::vector<CUDADevice> devices;

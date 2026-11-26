@@ -13,13 +13,16 @@ See the LICENSE file provided with the code for the full license.
 
 #include <gtest/gtest.h>
 #include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
+#include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/MemoryComponent.h"
 #include "dolphinbackend/MemoryFootprint.h"
 #include "dolphinbackend/CuboidShape.h"
 #include "dolphin/Logging.h"
 #include <algorithm>
+#include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace {
 // Convenience accessor for the protected static helpers.
@@ -202,22 +205,92 @@ TEST_F(MemoryTest, IOStagingCapsInstancesAtTaskCount) {
     EXPECT_EQ(many.deviceBytes, 8 * volumeBytes);
 }
 
-TEST_F(MemoryTest, AlgorithmWorkingSetCapsInstancesAtTaskCount) {
+// A backend manager whose only modeled part is the FFT plan answer: the
+// algorithm's memory component must funnel the plan set through it.
+class FakeBackendManager : public IBackendManager {
+public:
+    explicit FakeBackendManager(size_t fftBytes) : fftBytes(fftBytes) {}
+
+    void init(LogCallback) override {}
+    IBackend& createBackendForCurrentThread(const BackendConfig&) override { throw std::runtime_error("not used"); }
+    IBackend& createBackendSharedMemoryForCurrentThread(IBackend&, const BackendConfig&) override { throw std::runtime_error("not used"); }
+    size_t getNumberDevices() const override { return 1; }
+    void setThreadDistribution(ThreadConfig&, BackendConfig&, BackendConfig&) override {}
+    MemoryComponent& getMemoryComponent() override { return component; }
+
+    // Answers for the whole set; records what the algorithm asked for.
+    size_t getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions) const override {
+        queriedDescriptions = descriptions;
+        return fftBytes;
+    }
+
+    // Nothing to report at the manager level for these tests.
+    class EmptyComponent : public MemoryComponent {
+    public:
+        MemoryRequirement footprint(const CuboidShape&, size_t) const override { return {0, 0}; }
+        std::string name() const override { return "fake backend"; }
+    } component;
+
+    mutable std::vector<FFTPlanDescription> queriedDescriptions;
+    size_t fftBytes;
+};
+
+TEST_F(MemoryTest, AlgorithmComponentFunnelsPlanMemoryThroughBackendManager) {
     const CuboidShape shape(4, 4, 4);
     auto config = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("RichardsonLucy");
     std::shared_ptr<DeconvolutionAlgorithm> algorithm = DeconvolutionAlgorithmFactory::getInstance().createShared(*config);
     ASSERT_NE(algorithm, nullptr);
 
-    AlgorithmWorkingSetMemoryComponent onHost(*algorithm, /*onDevice=*/false, /*workerThreads=*/3);
+    const size_t fftBytes = 777;
+    FakeBackendManager backend(fftBytes);
     const size_t workingSetBytes = algorithm->getWorkingSetBytes(shape);
 
-    // One task: exactly one working set, on the host (onDevice=false).
-    const MemoryRequirement one = onHost.footprint(shape, 1);
-    EXPECT_EQ(one.hostBytes, workingSetBytes);
+    // Host plane, three worker threads.
+    auto onHost = algorithm->getMemoryComponent(backend, /*onDevice=*/false, /*workerThreads=*/3);
+
+    // One task: one scratch set plus the backend's answer for the plan set.
+    const MemoryRequirement one = onHost->footprint(shape, 1);
+    EXPECT_EQ(one.hostBytes, workingSetBytes + fftBytes);
     EXPECT_EQ(one.deviceBytes, 0u);
 
-    // Capped at the worker thread count, never above.
-    const MemoryRequirement many = onHost.footprint(shape, 10);
-    EXPECT_EQ(many.hostBytes, 3 * workingSetBytes);
+    // Both terms carry the same concurrency: capped at the worker thread count.
+    const MemoryRequirement many = onHost->footprint(shape, 10);
+    EXPECT_EQ(many.hostBytes, 3 * (workingSetBytes + fftBytes));
     EXPECT_EQ(many.deviceBytes, 0u);
+
+    // The algorithm declared its plan set (RL: out-of-place forward r2c,
+    // in-place backward c2r, and the second-pass r2c in-place on the c
+    // buffer), which is exactly what the backend was asked for.
+    const std::vector<FFTPlanDescription> declared = algorithm->getFFTPlanDescriptions(shape);
+    EXPECT_EQ(declared.size(), 3u);
+    ASSERT_EQ(backend.queriedDescriptions.size(), declared.size());
+    for (size_t i = 0; i < declared.size(); ++i)
+        EXPECT_TRUE(backend.queriedDescriptions[i] == declared[i]) << "plan description mismatch at " << i;
+}
+
+TEST_F(MemoryTest, AlgorithmComponentUsesRealCpuBackendPlanAnswer) {
+    // The real CPU manager answers the plan query; with no FFT plan memory
+    // and no scratch, an empty-plan algorithm must report exactly zero.
+    const CuboidShape shape(32, 16, 8);
+    class NoPlansAlgorithm : public DeconvolutionAlgorithm {
+    public:
+        void configure(const DeconvolutionConfig&) override {}
+        void init(const CuboidShape&) override { initialized = true; }
+        bool isInitialized() const override { return initialized; }
+        void deconvolve(const ComplexData&, RealData&, RealData&, const DeconvolutionRunContext&) override {}
+        size_t getWorkingSetBytes(const CuboidShape&) const override { return 0; }
+    private:
+        std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override { return std::make_unique<NoPlansAlgorithm>(*this); }
+        bool initialized = false;
+    };
+
+    NoPlansAlgorithm algorithm;
+    IBackendManager& cpu = BackendFactory::getBackendManagerStatic(HOST_BACKEND);
+    EXPECT_EQ(cpu.getFFTPlanMemoryBytes({}), 0u);
+
+    auto component = algorithm.getMemoryComponent(cpu, /*onDevice=*/false, /*workerThreads=*/2);
+    const MemoryRequirement req = component->footprint(shape, 2);
+    EXPECT_EQ(req.hostBytes, 0u);
+    EXPECT_EQ(req.deviceBytes, 0u);
+    EXPECT_NE(component->name().find("fft plans"), std::string::npos);
 }

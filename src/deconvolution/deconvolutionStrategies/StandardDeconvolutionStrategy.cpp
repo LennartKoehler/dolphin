@@ -97,7 +97,10 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     MemoryComponent& readerComponent = reader->getMemoryComponent(nReaderThreads);
     MemoryComponent& writerComponent = writer->getMemoryComponent();
     // Each manager reports and caps the plane it allocates on (CPU: host,
-    // CUDA: device) via its own memory component.
+    // CUDA: device) via its own memory component. It is NOT added to the
+    // footprint: the algorithm's memory component queries the plan memory
+    // for its own plan set (see DeconvolutionAlgorithm::getMemoryComponent).
+    // This component stays only as the limit facade (applyBackendMemoryLimits).
     MemoryComponent& backendComponent = backendManager.getMemoryComponent();
     MemoryComponent& psfComponent = psfHandler.getMemoryComponent(nPSFs, nDevices);
 
@@ -106,7 +109,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     MemoryFootprint footprint = buildMemoryFootprint(
         readerComponent,
         writerComponent,
-        backendComponent,
+        backendManager,
         psfComponent,
         *algorithm,
         paddingScheme,
@@ -236,7 +239,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 MemoryFootprint StandardDeconvolutionStrategy::buildMemoryFootprint(
     const MemoryComponent& readerComponent,
     const MemoryComponent& writerComponent,
-    const MemoryComponent& backendComponent,
+    const IBackendManager& backendManager,
     const MemoryComponent& psfComponent,
     const DeconvolutionAlgorithm& algorithm,
     const PaddingScheme& paddingScheme,
@@ -252,8 +255,10 @@ MemoryFootprint StandardDeconvolutionStrategy::buildMemoryFootprint(
     footprint.add(readerComponent);
     footprint.add(writerComponent);
     footprint.add(std::make_unique<const IOStagingMemoryComponent>(ioThreads));
-    footprint.add(std::make_unique<const AlgorithmWorkingSetMemoryComponent>(algorithm, algorithmOnDevice, workerThreads));
-    footprint.add(backendComponent);
+    // The algorithm's memory component: scratch working set + FFT plan memory
+    // (the plan set is queried from the backend manager, whose sharing policy
+    // applies inside — the backend's FFT memory is never counted twice).
+    footprint.add(algorithm.getMemoryComponent(backendManager, algorithmOnDevice, workerThreads));
     footprint.add(psfComponent);
     // Padding accompanies each io staging buffer while a cube is padded.
     footprint.add(std::make_unique<const PaddingPeakMemoryComponent>(paddingScheme.insidePadding, ioThreads));

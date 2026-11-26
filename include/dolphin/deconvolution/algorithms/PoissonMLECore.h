@@ -15,6 +15,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/configs/PoissonMLEConfig.h"
 #include "dolphinbackend/ComplexData.h"
+#include "dolphinbackend/IComputeBackend.h"
 
 struct DeconvolutionRunContext;
 struct CuboidShape;
@@ -111,10 +112,16 @@ struct PoissonMLECore {
     // clone is re-initialized and re-allocated by the caller).
     void resetForClone() { psfSigmasValid = false; }
 
-    // Prewarms the in-place real r2c/c2r plans both FFT stages of every variant
-    // use. Kept in init (not preAllocate) because plan creation transiently
-    // needs a work area, which the caller wants out of the way of the image
-    // buffers.
+    // The FFT plan descriptions every variant uses — the single source of
+    // truth shared by initPlans() and the variants'
+    // DeconvolutionAlgorithm::getFFTPlanDescriptions (memory modeling).
+    std::vector<FFTPlanDescription> planDescriptions(const CuboidShape& dataSize) const;
+
+    // Prewarms the plans of planDescriptions(): the in-place real r2c/c2r
+    // pair both FFT stages of every variant use, plus the out-of-place
+    // forward r2c the forward model uses. Kept in init (not preAllocate)
+    // because plan creation transiently needs a work area, which the caller
+    // wants out of the way of the image buffers.
     void initPlans(IComputeBackend& plans, const CuboidShape& dataSize) const;
 
     // Allocates the classic work buffer. The streamed variant does NOT call

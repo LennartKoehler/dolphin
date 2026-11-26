@@ -30,6 +30,16 @@ public:
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;
     size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
+    // Same plan set as RichardsonLucy: out-of-place forward r2c, in-place
+    // backward c2r, and the second-pass r2c in-place on the c buffer
+    // (c_complex reinterprets c).
+    std::vector<FFTPlanDescription> getFFTPlanDescriptions(const CuboidShape& dataSize) const override {
+        return {
+            {PlanDirection::FORWARD, PlanType::REAL, dataSize, false},
+            {PlanDirection::BACKWARD, PlanType::REAL, dataSize, true},
+            {PlanDirection::FORWARD, PlanType::REAL, dataSize, true},
+        };
+    }
 protected:
     // Configuration (set in configure()); cloned in cloneSpecific().
     int iterations = 10;

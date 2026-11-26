@@ -150,6 +150,12 @@ public:
 
     MemoryComponent& getMemoryComponent() override;
 
+    // Max over the plan set's FFTW planning transients: the shared FFTWManager
+    // plans lock-serialized with a plan cache shared by all worker backends,
+    // so the transients never overlap and the set costs the largest single
+    // planning peak, not the sum.
+    size_t getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions) const override;
+
 protected:
 
     CPUBackendConfig configToConfig(const BackendConfig& config) const;

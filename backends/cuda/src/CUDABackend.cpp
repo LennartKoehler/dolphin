@@ -468,6 +468,46 @@ void CUDAComputeBackend::createPlanComplex(cufftHandle& plan, const CUDAFFTPlanD
     workBytesOut = tempSize;
 }
 
+size_t CUDAComputeBackend::estimatePlanWorkBytes(const FFTPlanDescription& description) {
+    const long long int Nx = static_cast<long long int>(description.shape.width);
+    const long long int Ny = static_cast<long long int>(description.shape.height);
+    const long long int Nz = static_cast<long long int>(description.shape.depth);
+
+    // Conservative fallback matching the manager's old heuristic (2 cube
+    // volumes) if cuFFT refuses to estimate.
+    const size_t fallback = 2 * description.shape.getVolume() * sizeof(real_t);
+
+    if (description.type == PlanType::COMPLEX) {
+        size_t work = 0;
+        return cufftEstimate3d(Nz, Ny, Nx, CUFFT_C2C, &work) == CUFFT_SUCCESS ? work : fallback;
+    }
+
+    // REAL plans: canonical padded in-place layout — the same assumption
+    // initializePlan makes and the layout all working buffers use, so the
+    // estimate matches the plan the backend will actually create.
+    const int complexWidth = static_cast<int>(Nx / 2 + 1);
+    const int realStride = 2 * complexWidth;
+    int n[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(Nx)};
+    size_t work = 0;
+    cufftResult result;
+    if (description.direction == PlanDirection::FORWARD) {
+        // r2c: padded real input, half-width complex output.
+        int inembed[3] = {n[0], n[1], realStride};
+        int onembed[3] = {n[0], n[1], complexWidth};
+        result = cufftEstimateMany(3, n, inembed, 1, n[0] * n[1] * realStride,
+                                   onembed, 1, n[0] * n[1] * complexWidth,
+                                   CUFFT_R2C, 1, &work);
+    } else {
+        // c2r: half-width complex input, padded real output.
+        int inembed[3] = {n[0], n[1], complexWidth};
+        int onembed[3] = {n[0], n[1], realStride};
+        result = cufftEstimateMany(3, n, inembed, 1, n[0] * n[1] * complexWidth,
+                                   onembed, 1, n[0] * n[1] * realStride,
+                                   CUFFT_C2R, 1, &work);
+    }
+    return result == CUFFT_SUCCESS ? work : fallback;
+}
+
 
 cufftHandle CUDAComputeBackend::initializePlan_(const CUDAFFTPlanDescription& description){
     ensureDevice();

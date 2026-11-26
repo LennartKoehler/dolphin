@@ -34,6 +34,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphin/deconvolution/DeconvolutionAlgorithmFactory.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
+#include "dolphin/backend/BackendFactory.h"
 #include "dolphin/deconvolution/deconvolutionStrategies/PSFHandler.h"
 #include "dolphin/Logging.h"
 #include "dolphin/ThreadPool.h"
@@ -367,8 +368,13 @@ TEST_F(PeakMemoryTest, StrategyFootprintAppliesCountsAndPlacement) {
     // Fixed, known demands for the externally-owned components.
     FixedMemoryComponent reader(1000, 0, "reader");
     FixedMemoryComponent writer(4000, 0, "tiffwriter");
-    FixedMemoryComponent backend(0, 2000, "backend");
     FixedMemoryComponent psf(0, 3000, "psf cache");
+
+    // The backend layer's FFT answer, deterministic: the real CPU manager
+    // estimates the FFTW planning transient for the algorithm's plan set. The
+    // strategy funnels it through the algorithm's memory component; there is
+    // no separate backend term in the footprint anymore.
+    IBackendManager& backendManager = BackendFactory::getBackendManagerStatic(HOST_BACKEND);
 
     const Padding inside{CuboidShape(4, 4, 4), CuboidShape(4, 4, 4)};
     const Padding outside{CuboidShape(0, 0, 0), CuboidShape(0, 0, 0)};
@@ -376,17 +382,21 @@ TEST_F(PeakMemoryTest, StrategyFootprintAppliesCountsAndPlacement) {
 
     auto algorithm = makeRichardsLucy();
     ASSERT_NE(algorithm, nullptr);
+    const size_t fftBytes = backendManager.getFFTPlanMemoryBytes(algorithm->getFFTPlanDescriptions(shape));
+    ASSERT_GT(fftBytes, 0u);
 
     const size_t ioThreads = 2;
     const size_t workerThreads = 3;
-    // RL holds 1 extra complex array of cube size (sizeof(complex_t)==2*real_t).
+    // RL holds 1 extra complex array of cube size (sizeof(complex_t)==2*real_t)
+    // plus the backend's plan-set answer, folded into the same per-thread
+    // concurrency as the scratch (one backend instance per worker thread).
     const size_t rlWorkingSet = vol * 2 * sizeof(real_t); // RL: 1 complex (2 real_t) array
-    const size_t algoBytes = rlWorkingSet * workerThreads;
+    const size_t algoBytes = (rlWorkingSet + fftBytes) * workerThreads;
 
     const MemoryFootprint onHost = FootprintTestableStrategy::buildMemoryFootprint(
-        reader, writer, backend, psf, *algorithm, scheme, ioThreads, workerThreads, /*onDevice=*/false);
+        reader, writer, backendManager, psf, *algorithm, scheme, ioThreads, workerThreads, /*onDevice=*/false);
     const MemoryFootprint onDevice = FootprintTestableStrategy::buildMemoryFootprint(
-        reader, writer, backend, psf, *algorithm, scheme, ioThreads, workerThreads, /*onDevice=*/true);
+        reader, writer, backendManager, psf, *algorithm, scheme, ioThreads, workerThreads, /*onDevice=*/true);
 
     // Enough tasks to keep every thread busy, so the components cap by their
     // thread counts (min(threads, numTasks)) and the assertions below verify
@@ -403,15 +413,17 @@ TEST_F(PeakMemoryTest, StrategyFootprintAppliesCountsAndPlacement) {
 
     // The breakdown names every memory-owning system; the per-thread
     // concurrency is folded into the reported bytes by the components
-    // themselves (io staging x2, algorithm working sets x3 for this run).
+    // themselves (io staging x2, algorithm x3 for this run). The backend's
+    // FFT memory appears only inside the algorithm component (no separate
+    // "backend" term anymore).
     const std::string breakdown = onHost.breakdown(shape, numTasks);
     EXPECT_NE(breakdown.find("reader"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("tiffwriter"), std::string::npos) << breakdown;
-    EXPECT_NE(breakdown.find("backend"), std::string::npos) << breakdown;
+    EXPECT_NE(breakdown.find("algorithm working set + fft plans"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("psf cache"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("io staging"), std::string::npos) << breakdown;
-    EXPECT_NE(breakdown.find("algorithm working set"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("padding"), std::string::npos) << breakdown;
+    EXPECT_EQ(breakdown.find("backend"), std::string::npos) << breakdown;
 
     GTEST_LOG_(INFO) << "strategy footprint for " << shape.print()
                      << " (io=" << ioThreads << ", workers=" << workerThreads << "):\n  "
