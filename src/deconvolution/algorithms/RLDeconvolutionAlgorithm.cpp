@@ -43,12 +43,18 @@ void RLDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
 
     backend->mutableComputeManager().initializePlan(forwardPlan);
     backend->mutableComputeManager().initializePlan(backwardInPlace);
-    //
-    //
-    // Allocate memory for intermediate arrays
-    c_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
 
     initialized = true;
+}
+
+void RLDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) {
+    assert(backend && "No backend available for Richardson-Lucy algorithm allocation");
+    assert(initialized && "Richardson-Lucy algorithm not initialized. Call init() first.");
+
+    // Allocate memory for intermediate arrays. Kept out of init() so that the
+    // FFT plan work area above never overlaps this buffer (the caller calls
+    // init() before allocating its own image buffers).
+    c_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
 }
 
 bool RLDeconvolutionAlgorithm::isInitialized() const {

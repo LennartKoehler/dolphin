@@ -25,6 +25,7 @@ public:
     void configure(const DeconvolutionConfig& config) override;
     void configure(const RichardsonLucyADConfig& config);
     void init(const CuboidShape& dataSize) override;
+    void preAllocate(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;

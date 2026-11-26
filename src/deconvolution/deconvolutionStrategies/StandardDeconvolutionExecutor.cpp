@@ -59,6 +59,15 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
+    // Create the worker algorithm (FFT plans in init(), scratch in preAllocate())
+    // BEFORE the io buffers below. Plan creation needs a transient backend work
+    // area; doing it first keeps that transient from overlapping g_device/f_device,
+    // which lowers the peak footprint.
+    context->processor.initWorker(
+        workerbackend,
+        task.sharedDescriptor->prototypeAlgorithm,
+        workShape);
+
     // Per-io-thread scratch buffers: allocated on first use, reused for every
     // following cube of the same (run-constant) padded shape, and freed when
     // the thread exits. This removes the per-cube allocation/free churn and

@@ -48,6 +48,7 @@ public:
     void configure(const DeconvolutionConfig& config) override;
     virtual void configure(const PoissonMLEConfig& config);
     virtual void init(const CuboidShape& dataSize) override;
+    virtual void preAllocate(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;

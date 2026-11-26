@@ -32,7 +32,14 @@ void RLTVDeconvolutionAlgorithm::configure(const RichardsonLucyTVConfig& config)
 
 
 void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
-    assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm initialization");\
+    assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm initialization");
+
+    initialized = true;
+}
+
+void RLTVDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) {
+    assert(backend && "No backend available for Richardson-Lucy with TV regularization algorithm allocation");
+    assert(initialized && "Richardson-Lucy with TV regularization algorithm not initialized. Call init() first.");
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     // Allocate memory for intermediate arrays (iteration-persistent only)
@@ -43,8 +50,6 @@ void RLTVDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     gx = memory.allocateMemoryOnDeviceReal(dataSize);
     gy = memory.allocateMemoryOnDeviceReal(dataSize);
     gz = memory.allocateMemoryOnDeviceReal(dataSize);
-
-    initialized = true;
 }
 
 bool RLTVDeconvolutionAlgorithm::isInitialized() const {

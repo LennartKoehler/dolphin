@@ -113,7 +113,7 @@ TEST_F(MemoryTest, FootprintSumsAllComponents) {
     footprint.add(deviceOnly);
     footprint.add(mixed);
 
-    MemoryRequirement sum = footprint.total(CuboidShape(4, 4, 4), MemoryComponent::UNLIMITED_TASKS);
+    MemoryRequirement sum = footprint.total(CuboidShape(4, 4, 4), 1);
     EXPECT_EQ(sum.hostBytes, 11u);
     EXPECT_EQ(sum.deviceBytes, 22u);
 }
@@ -133,8 +133,8 @@ TEST_F(MemoryTest, FootprintWithBudgetRejectsOversizedShapes) {
     MemoryFootprint scalingFootprint;
     scalingFootprint.add(scaling);
 
-    EXPECT_TRUE(budget.fits(scalingFootprint.total(CuboidShape(5, 5, 5), MemoryComponent::UNLIMITED_TASKS)));     // 125*4 = 500 bytes
-    EXPECT_FALSE(budget.fits(scalingFootprint.total(CuboidShape(32, 32, 32), MemoryComponent::UNLIMITED_TASKS))); // 32768*4 bytes
+    EXPECT_TRUE(budget.fits(scalingFootprint.total(CuboidShape(5, 5, 5), 1)));     // 125*4 = 500 bytes
+    EXPECT_FALSE(budget.fits(scalingFootprint.total(CuboidShape(32, 32, 32), 1))); // 32768*4 bytes
 }
 
 TEST_F(MemoryTest, FootprintBreakdownNamesComponentsAndSums) {
@@ -154,13 +154,13 @@ TEST_F(MemoryTest, FootprintBreakdownNamesComponentsAndSums) {
     footprint.add(alpha, 2); // two concurrent instances
     footprint.add(beta);
 
-    const std::string breakdown = footprint.breakdown(CuboidShape(1, 1, 1), MemoryComponent::UNLIMITED_TASKS);
+    const std::string breakdown = footprint.breakdown(CuboidShape(1, 1, 1), 1);
     EXPECT_NE(breakdown.find("alpha"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("(x2)"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("beta"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("total"), std::string::npos) << breakdown;
 
-    const MemoryRequirement sum = footprint.total(CuboidShape(1, 1, 1), MemoryComponent::UNLIMITED_TASKS);
+    const MemoryRequirement sum = footprint.total(CuboidShape(1, 1, 1), 1);
     EXPECT_EQ(sum.hostBytes, 200u);
     EXPECT_EQ(sum.deviceBytes, 200u);
 }

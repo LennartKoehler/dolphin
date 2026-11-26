@@ -61,9 +61,13 @@ void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::configure(const Deconvolution
 }
 
 void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
-    // Base class: shared scratch buffer + the in-place real FFT plans, which
-    // the model/hd FFTs below reuse.
+    // Base class: the in-place real FFT plans, which the model/hd FFTs below reuse.
     PoissonMLEDeconvolutionAlgorithm::init(dataSize);
+}
+
+void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) {
+    // Base class: shared scratch buffer (+ the views aliasing it).
+    PoissonMLEDeconvolutionAlgorithm::preAllocate(dataSize);
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     model = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize); // m, kept alive for J(alpha)

@@ -117,16 +117,10 @@ void PoissonMLEDeconvolutionAlgorithm::configure(const PoissonMLEConfig& config)
 
 void PoissonMLEDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for PoissonMLE algorithm initialization");
-    const IBackendMemoryManager& memory = backend->getMemoryManager();
-
-    // One real in-place-layout scratch buffer (m -> d per iteration); its
-    // half-complex view (same memory) is the FFT work / result buffer. The
-    // model m and the search direction d are never needed simultaneously in
-    // the unit-step path, so they share this buffer.
-    scratch = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
-    scratchC = memory.reinterpret(scratch);
 
     // Pre-register the real r2c/c2r plans (in-place); others are created lazily.
+    // Kept in init() (not preAllocate) because plan creation transiently needs a
+    // work area, which the caller wants out of the way of the image buffers.
     FFTPlanDescription fReal{PlanDirection::FORWARD, PlanType::REAL, dataSize, true};
     FFTPlanDescription bReal{PlanDirection::BACKWARD, PlanType::REAL, dataSize, true};
     auto& plans = backend->mutableComputeManager();
@@ -135,6 +129,19 @@ void PoissonMLEDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
 
     psfSigmasValid = false;
     initialized = true;
+}
+
+void PoissonMLEDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) {
+    assert(backend && "No backend available for PoissonMLE algorithm allocation");
+    assert(initialized && "PoissonMLE algorithm not initialized. Call init() first.");
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
+
+    // One real in-place-layout scratch buffer (m -> d per iteration); its
+    // half-complex view (same memory) is the FFT work / result buffer. The
+    // model m and the search direction d are never needed simultaneously in
+    // the unit-step path, so they share this buffer.
+    scratch = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+    scratchC = memory.reinterpret(scratch);
 }
 
 bool PoissonMLEDeconvolutionAlgorithm::isInitialized() const {

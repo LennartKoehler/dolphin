@@ -17,12 +17,50 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/Preprocessor.h"
 
 
+DeconvolutionAlgorithm& DeconvolutionProcessor::ensureWorker(
+    IBackend& backend,
+    const std::shared_ptr<DeconvolutionAlgorithm>& prototype,
+    const CuboidShape& workShape){
+
+    // Resolve the per-backend entry. The map lock is held for the lookup/insert
+    // only; the returned reference stays valid afterwards because unordered_map
+    // is node-based (rehash relinks nodes, it does not move values).
+    WorkerState& state = [&]() -> WorkerState& {
+        std::lock_guard<std::mutex> lock(statesMutex);
+        return states[&backend];
+    }();
+
+    // Serialize only against THIS backend: one init per backend, but different
+    // backends (devices) may initialize concurrently.
+    std::lock_guard<std::mutex> entryLock(state.mutex);
+
+    if (!state.algorithm || state.shape != workShape) {
+        // init(): FFT plans (transient work area, caller wants this before its
+        // own image buffers exist), then preAllocate(): persistent scratch.
+        state.algorithm = prototype->clone();
+        state.algorithm->setBackend(backend);
+        state.algorithm->init(workShape);
+        state.algorithm->preAllocate(workShape);
+        state.shape = workShape;
+    }
+    return *state.algorithm;
+}
+
+void DeconvolutionProcessor::initWorker(
+    IBackend& backend,
+    const std::shared_ptr<DeconvolutionAlgorithm>& prototype,
+    const CuboidShape& workShape){
+    // synchronous on purpose: guarantees the plan-creation transient is done
+    // before the caller allocates its buffers, and that any later
+    // deconvolveSingleCube() on any pool thread finds a ready algorithm.
+    ensureWorker(backend, prototype, workShape);
+}
 
 std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
-    IBackend& threadbackend,
-    std::shared_ptr<DeconvolutionAlgorithm> prototypealgorithm,
+    IBackend& backend,
+    const std::shared_ptr<DeconvolutionAlgorithm>& prototype,
     const CuboidShape& workShape,
-    const std::vector<std::shared_ptr<PSF>>& psfs_host, // dont pass psfs as ComplexData, because the workerbackend might be needed to preprocess psfs
+    const std::vector<std::shared_ptr<PSF>>& psfs_host,
     RealData& g_device,
     RealData& f_device,
     PSFPreprocessor& psfPreprocessor,
@@ -32,10 +70,10 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
     // on workerThread
     std::future<void> resultDone = workerPool->enqueue([
         this,
-        &threadbackend,
-        prototypealgorithm,
-        &psfs_host,
+        &backend,
+        prototype,
         &workShape,
+        &psfs_host,
         &g_device,
         &f_device,
         &psfPreprocessor,
@@ -43,30 +81,26 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         runContext
     ]() mutable {
 
-        //dont allocate and deallocate the helpers of the algorithm every time, just overwrite buffer every time its used
-        // the worker owns the algorithm, and doesnt always need to re initialize
-        thread_local std::unique_ptr<DeconvolutionAlgorithm> workeralgorithm;
-        thread_local CuboidShape initializedShape;
-        thread_local bool initialized = [&](){
-            if (!workeralgorithm || initializedShape != workShape) {
-                workeralgorithm = prototypealgorithm->clone();
-                workeralgorithm->setBackend(threadbackend);
-                workeralgorithm->init(workShape);
-                initializedShape = workShape;
-            }
-            workeralgorithm->setProgressTracker(progressFunction);
-            return true;}();
+        // Hit path: initWorker() already ran on the io thread for this backend +
+        // shape, so this only looks the algorithm up. (If a caller skipped
+        // initWorker, this still initializes - just with the transient inside
+        // the task again.)
+        DeconvolutionAlgorithm& workeralgorithm =
+            ensureWorker(backend, prototype, workShape);
+        // The tracker is per call (it differs e.g. between label groups), so
+        // it is refreshed here, not only at creation in ensureWorker().
+        workeralgorithm.setProgressTracker(progressFunction);
 
         std::vector<const ComplexData*> preprocessedPSFs;
 
         for (auto& psf : psfs_host){
-            preprocessedPSFs.push_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, threadbackend));
-            threadbackend.sync();
+            preprocessedPSFs.push_back(psfPreprocessor.getPreprocessedPSF(workShape, psf, backend));
+            backend.sync();
         }
 
         for (const auto* psf_device : preprocessedPSFs){
-            workeralgorithm->deconvolve(*psf_device, g_device, f_device, runContext);
-            threadbackend.sync();
+            workeralgorithm.deconvolve(*psf_device, g_device, f_device, runContext);
+            backend.sync();
         }
 
 

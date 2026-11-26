@@ -37,6 +37,7 @@ public:
 
     void configure(const DeconvolutionConfig& config) override;
     void init(const CuboidShape& dataSize) override;
+    void preAllocate(const CuboidShape& dataSize) override;
     size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
 
 protected:

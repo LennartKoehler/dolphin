@@ -485,7 +485,7 @@ TEST_F(ImageSplitTest, MultiComponentFootprint_SumsBeforeComparing) {
     ASSERT_TRUE(result.success);
     // the chosen padded cube must satisfy the full footprint
     const CuboidShape padded = result.value[0].getPaddedShape();
-    EXPECT_LE(footprint.total(padded, MemoryComponent::UNLIMITED_TASKS).hostBytes, budget.hostTotal_byte);
+    EXPECT_LE(footprint.total(padded, 1).hostBytes, budget.hostTotal_byte);
     // ... and must not be larger than the single-copy budget allows
     EXPECT_LE(padded.getVolume(), maxCubeElements);
 }

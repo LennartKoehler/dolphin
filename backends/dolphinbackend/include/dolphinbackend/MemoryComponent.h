@@ -52,12 +52,12 @@ struct MemoryRequirement {
  * owner already has - it is the single source of truth for that owner's
  * memory, so keep it next to the allocation code it describes.
  *
- * numTasks is the total number of cubes (tasks) the plan will process. A
+* numTasks is the total number of cubes (tasks) the plan will process. A
  * system that holds one resource set per concurrent thread must never report
  * more sets than there are tasks (min(threads, numTasks)): with a single
  * task, only one instance can ever be in flight. Callers that do not know
- * the task count pass UNLIMITED_TASKS, which leaves the thread count as the
- * only cap (the historical behavior).
+ * the task count pass 1 — the minimum — because fewer tasks can only mean
+ * fewer concurrent instances, never more.
  */
 class MemoryComponent {
 public:

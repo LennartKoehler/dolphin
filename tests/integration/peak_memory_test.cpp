@@ -388,8 +388,12 @@ TEST_F(PeakMemoryTest, StrategyFootprintAppliesCountsAndPlacement) {
     const MemoryFootprint onDevice = FootprintTestableStrategy::buildMemoryFootprint(
         reader, writer, backend, psf, *algorithm, scheme, ioThreads, workerThreads, /*onDevice=*/true);
 
-    const MemoryRequirement h = onHost.total(shape, MemoryComponent::UNLIMITED_TASKS);
-    const MemoryRequirement d = onDevice.total(shape, MemoryComponent::UNLIMITED_TASKS);
+    // Enough tasks to keep every thread busy, so the components cap by their
+    // thread counts (min(threads, numTasks)) and the assertions below verify
+    // the per-thread multipliers (io x2, algorithm x3).
+    const size_t numTasks = workerThreads;
+    const MemoryRequirement h = onHost.total(shape, numTasks);
+    const MemoryRequirement d = onDevice.total(shape, numTasks);
 
     // The grand total is placement-invariant; only the algorithm working set
     // moves between host and device.
@@ -400,7 +404,7 @@ TEST_F(PeakMemoryTest, StrategyFootprintAppliesCountsAndPlacement) {
     // The breakdown names every memory-owning system; the per-thread
     // concurrency is folded into the reported bytes by the components
     // themselves (io staging x2, algorithm working sets x3 for this run).
-    const std::string breakdown = onHost.breakdown(shape, MemoryComponent::UNLIMITED_TASKS);
+    const std::string breakdown = onHost.breakdown(shape, numTasks);
     EXPECT_NE(breakdown.find("reader"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("tiffwriter"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("backend"), std::string::npos) << breakdown;

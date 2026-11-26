@@ -74,6 +74,14 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
+    // Create the worker algorithm (FFT plans in init(), scratch in preAllocate())
+    // BEFORE the io buffers below, so the plan-creation transient never overlaps
+    // them (lower peak footprint).
+    context->processor.initWorker(
+        workerbackend,
+        task.sharedDescriptor->prototypeAlgorithm,
+        workShape);
+
     // Per-io-thread scratch buffers: allocated on first use, reused for every
     // following cube of the same (run-constant) padded shape, and freed when
     // the thread exits.

@@ -26,11 +26,16 @@ void RLADDeconvolutionAlgorithm::configure(const RichardsonLucyADConfig& config)
 void RLADDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Richardson-Lucy with Adaptive Damping algorithm initialization");\
 
+    initialized = true;
+}
+
+void RLADDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) {
+    assert(backend && "No backend available for Richardson-Lucy with Adaptive Damping algorithm allocation");\
+    assert(initialized && "Richardson-Lucy with Adaptive Damping algorithm not initialized. Call init() first.");\
+
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     c = std::move(memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize));
     c_complex = c.reinterpret();
-
-    initialized = true;
 }
 
 bool RLADDeconvolutionAlgorithm::isInitialized() const {

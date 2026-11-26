@@ -52,8 +52,23 @@ public:
     virtual void configure(const DeconvolutionConfig& config) = 0;
 
 
-    // Initialize algorithm-specific data allocations
+    // Initialize algorithm-specific data allocations.
+    //
+    // Two-phase on purpose, so the caller can choose WHEN the two kinds of
+    // backend state are created:
+    //
+    //  init()        creates the FFT plans the algorithm will use. On a device
+    //                backend this transiently needs a plan work area, so calling
+    //                init() before the io buffers are allocated keeps that
+    //                transient from overlapping the image buffers (lower peak).
+    //                Must be called AFTER setBackend().
+    //  preAllocate() allocates the algorithm's persistent scratch arrays and any
+    //                views that alias them. Call after init().
+    //
+    // Deconvolve() requires BOTH to have run. The default preAllocate() is a
+    // no-op for algorithms whose init() allocates nothing.
     virtual void init(const CuboidShape& dataSize) = 0;
+    virtual void preAllocate(const CuboidShape& dataSize) {}
     virtual bool isInitialized() const = 0;
 
     // it is assumed that the input of convolve is already located on the backend device

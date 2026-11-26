@@ -175,6 +175,7 @@ protected:
         }
         algo->setBackend(*backend);
         algo->init(dataSize);
+        algo->preAllocate(dataSize);
 
         RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
         algo->deconvolve(*Hmis, g, f);   // pass the MIS-SCALED PSF; the algorithm must normalize it
@@ -195,6 +196,7 @@ TEST_P(DeconvolutionAlgorithmTest, AlgorithmInitAndDeconvolve) {
 
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
     EXPECT_TRUE(algo->isInitialized());
 
     auto psf = createImpulsePSF(dataSize);
@@ -224,6 +226,7 @@ TEST_P(DeconvolutionAlgorithmTest, ImpulsePSFReturnsInput) {
 
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     auto psf = createImpulsePSF(dataSize);
     auto H = preprocessPSF(psf, dataSize);
@@ -247,6 +250,7 @@ TEST_P(DeconvolutionAlgorithmTest, ZeroInputNoNaN) {
 
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     auto psf = createImpulsePSF(dataSize);
     auto H = preprocessPSF(psf, dataSize);
@@ -284,6 +288,7 @@ TEST_F(AlgorithmTestBase, RLZeroIterationsReturnsInput) {
 
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     auto psf = createImpulsePSF(dataSize);
     auto H = preprocessPSF(psf, dataSize);
@@ -301,6 +306,7 @@ TEST_F(AlgorithmTestBase, ConvolutionIsForwardModel) {
     auto algo = createAlgorithm("Convolution");
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     auto psf = createImpulsePSF(dataSize);
     auto H = preprocessPSF(psf, dataSize);
@@ -370,6 +376,7 @@ TEST_F(AlgorithmTestBase, AlgorithmSetProgressTracker) {
     algo->setProgressTracker([&progressCount](int) { progressCount++; });
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     auto psf = createImpulsePSF(dataSize);
     auto H = preprocessPSF(psf, dataSize);
@@ -536,6 +543,7 @@ TEST_F(AlgorithmTestBase, PoissonMLESieveScaleKnob) {
         if (!algo) return Image3D(dataSize, 0.0f);
         algo->setBackend(*backend);
         algo->init(dataSize);
+        algo->preAllocate(dataSize);
         RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
         algo->deconvolve(*Hmis, g, f);
         backend->sync();
@@ -634,6 +642,7 @@ TEST_F(AlgorithmTestBase, PoissonMLEPrefilterAutoBackground) {
         if (!algo) throw std::runtime_error("PoissonMLE algorithm not created");
         algo->setBackend(*backend);
         algo->init(dataSize);
+        algo->preAllocate(dataSize);
         RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
         DeconvolutionRunContext ctx;
         ctx.background = bg; // the measured data background
@@ -731,6 +740,7 @@ TEST_F(AlgorithmTestBase, PoissonMLERemovesOutputPedestal) {
     ASSERT_NE(algo, nullptr);
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
     DeconvolutionRunContext ctx;
@@ -791,6 +801,7 @@ TEST_F(AlgorithmTestBase, PoissonMLENegativePSFNoNaN) {
     auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     algo->setBackend(*backend);
     algo->init(shape);
+    algo->preAllocate(shape);
     DeconvolutionRunContext ctx;
     ctx.background = 0.0f;
     algo->deconvolve(*H, g, f, ctx);
@@ -864,6 +875,7 @@ TEST_F(AlgorithmTestBase, PoissonMLEWidePSFSharpPeaksNoNaN) {
     ASSERT_NE(algo, nullptr);
     algo->setBackend(*backend);
     algo->init(shape);
+    algo->preAllocate(shape);
 
     RealData g = imageToDevice(gImg);
     RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(shape);
@@ -902,6 +914,7 @@ TEST_F(AlgorithmTestBase, PoissonMLEGlobalBackgroundIsUsedForEveryCube) {
         auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
         algo->setBackend(*backend);
         algo->init(dataSize);
+        algo->preAllocate(dataSize);
 
         RealData g = imageToDevice(input);
         RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
@@ -945,6 +958,7 @@ TEST_F(AlgorithmTestBase, PoissonMLEWithoutBackgroundFails) {
     auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     RealData g = imageToDevice(input);
     RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
