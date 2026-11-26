@@ -234,6 +234,21 @@ public:
         COMPUTE_NOT_IMPLEMENTED(realClampMin);
     }
 
+    // The PoissonMLE data-step update in one pass: f[i] = max(f[i] * ratio[i], lo).
+    //
+    // This is the fused form of the multiplicative update f <- f * R (with R the
+    // H^T(g/m) ratio), which is algebraically identical to f <- f + d for the
+    // direction d = -f*(1-R). Fusing it replaces the 5 elementwise passes the
+    // algorithm used to emit (1-R, f*(1-R), negate, f+d, clamp) with one pass
+    // that reads f and ratio once and writes f once.
+    //
+    // Guarded: ratio is floored at 0 (the RL/Poisson ratio is non-negative) and
+    // non-finite ratio values leave f unchanged, so a bad ratio cannot turn the
+    // iterate into NaN/Inf. f aliases result (in-place update).
+    virtual void poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const {
+        COMPUTE_NOT_IMPLEMENTED(poissonUpdate);
+    }
+
     // Statistics over all valid elements: min/max/mean and number of non-finite values
     // (NaN + Inf). min/max/mean are computed over finite elements only.
     virtual void realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const {

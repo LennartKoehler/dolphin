@@ -902,6 +902,22 @@ void realClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t 
 }
 
 __global__
+void poissonUpdateGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideR, size_t strideF, real_t* ratio, real_t* f, real_t lo) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxR = detail::indexStrided(x, y, z, strideR, Ny);
+        size_t idxF = detail::indexStrided(x, y, z, strideF, Ny);
+        const real_t r = ratio[idxR];
+        // A non-finite ratio (NaN/Inf from a degenerate model) leaves f
+        // unchanged: the next iteration's guard is not poisoned.
+        const real_t updated = isfinite(r) ? fmaxf(f[idxF] * r, lo) : f[idxF];
+        f[idxF] = updated;
+    }
+}
+
+__global__
 void poissonLineSearchEvalGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideG, size_t strideM, size_t strideHd, real_t* g, real_t* m, real_t* hd, real_t alpha, double* result) {
     size_t x = detail::tx();
     size_t y = detail::ty();

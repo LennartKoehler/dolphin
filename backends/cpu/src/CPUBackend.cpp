@@ -891,6 +891,21 @@ void CPUComputeBackend::realClampMin(const RealData& a, real_t lo, RealData& res
     });
 }
 
+void CPUComputeBackend::poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const {
+    BACKEND_CHECK(rawData(ratio) != nullptr, "Ratio pointer is null", "CPU", "poissonUpdate - ratio", buildCpuContext());
+    BACKEND_CHECK(rawData(f) != nullptr, "Iterate pointer is null", "CPU", "poissonUpdate - f", buildCpuContext());
+
+    // f[i] = max(f[i] * ratio[i], lo), leaving f unchanged where ratio is
+    // non-finite so a degenerate model cannot poison the iterate.
+    stridedIteration(ratio, f, [lo](auto* rowR, auto* rowF, size_t w) {
+        for (size_t x = 0; x < w; ++x) {
+            const real_t r = rowR[x];
+            if (!std::isfinite(r)) continue;
+            rowF[x] = std::max(rowF[x] * r, lo);
+        }
+    });
+}
+
 void CPUComputeBackend::realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const {
     BACKEND_CHECK(rawData(a) != nullptr, "Input data pointer is null", "CPU", "realStats - input data", buildCpuContext());
 

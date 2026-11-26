@@ -370,6 +370,14 @@ namespace CUBE_MLE {
         return launchSync([=] { realClampMinGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideC, A, lo, C); }, stream);
     }
 
+    cudaError_t poissonUpdate(size_t Nx, size_t Ny, size_t Nz, size_t strideR, size_t strideF, real_t* ratio, real_t* f, real_t lo, cudaStream_t stream){
+        if (!ratio || !f) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { poissonUpdateGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideR, strideF, ratio, f, lo); }, stream);
+    }
+
     cudaError_t poissonLineSearchEval(size_t Nx, size_t Ny, size_t Nz, size_t strideG, size_t strideM, size_t strideHd, real_t* g, real_t* m, real_t* hd, real_t alpha, double* result, cudaStream_t stream){
         if (!g || !m || !hd || !result) {
             return cudaErrorInvalidValue;

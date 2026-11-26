@@ -252,6 +252,7 @@ public:
     void realAffine(const RealData& a, real_t scalar, real_t add, RealData& result) const override;
     void realSqrtAffine(const RealData& a, real_t scale, real_t add, real_t lambda, RealData& result) const override;
     void realClampMin(const RealData& a, real_t lo, RealData& result) const override;
+    void poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const override;
     void poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
                                real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const override;
     void fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const override;

@@ -89,6 +89,13 @@ protected:
                                 const RealData& g, const RealData& f,
                                 RealData& m, RealData& d);
 
+    // The shared core of computeSearchDirection: the ratio R = H^T(g/m), written
+    // into `ratio` (m is clobbered when they alias). Separated so the unit-step
+    // path can consume R directly via poissonUpdate() without materialising the
+    // direction d; the line-search path keeps using computeSearchDirection.
+    void computeRatio(const IComputeBackend& compute, const ComplexData& H,
+                      const RealData& g, const RealData& m, RealData& ratio);
+
     // Shared data-step scratch: one real in-place-FFT buffer (m -> d per iteration)
     // plus its complex view (same memory, FFT work buffer). Subclasses may reuse it.
     RealData scratch;

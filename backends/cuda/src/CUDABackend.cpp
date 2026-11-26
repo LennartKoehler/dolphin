@@ -1050,6 +1050,19 @@ void CUDAComputeBackend::realClampMin(const RealData& a, real_t lo, RealData& re
     run("realClampMin", CUBE_MLE::realClampMin(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, rawData(a), lo, rawData(result), config.stream));
 }
 
+void CUDAComputeBackend::poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(ratio) != nullptr, "Ratio pointer is null", "CUDA", "poissonUpdate - ratio", buildCudaContext(config));
+    BACKEND_CHECK(rawData(f) != nullptr, "Iterate pointer is null", "CUDA", "poissonUpdate - f", buildCudaContext(config));
+    BACKEND_CHECK(ratio.getSize().getVolume() == f.getSize().getVolume(), "Size mismatch in poissonUpdate", "CUDA", "poissonUpdate", buildCudaContext(config));
+
+    size_t Nx = ratio.getSize().width;
+    size_t strideR = Nx + ratio.getPadding();
+    size_t strideF = f.getSize().width + f.getPadding();
+
+    run("poissonUpdate", CUBE_MLE::poissonUpdate(Nx, ratio.getSize().height, ratio.getSize().depth, strideR, strideF, rawData(ratio), rawData(f), lo, config.stream));
+}
+
 void CUDAComputeBackend::poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
                                                real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const {
     ensureDevice();

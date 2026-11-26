@@ -284,15 +284,21 @@ void PoissonMLEDeconvolutionAlgorithm::computeForwardModel(
     compute.realClampMin(m, bg, m);               // physical floor (see header)
 }
 
+void PoissonMLEDeconvolutionAlgorithm::computeRatio(
+    const IComputeBackend& compute, const ComplexData& H, const RealData& g,
+    const RealData& m, RealData& ratio) {
+    // ratio R = H^T(g / m)  (clobbers m when ratio is the same buffer)
+    compute.division(g, m, ratio, 1e-9f);             // ratio = g/m
+    ComplexView ratioC = ratio.reinterpret();         // non-owning complex view of ratio
+    compute.forwardFFT(ratio, ratioC);                // in-place r2c -> ratioC
+    compute.complexMultiplicationWithConjugate(ratioC, H, ratioC);
+    compute.backwardFFT(ratioC, ratio);               // in-place c2r -> ratio = R
+}
+
 void PoissonMLEDeconvolutionAlgorithm::computeSearchDirection(
     const IComputeBackend& compute, const ComplexData& H, const RealData& g,
     const RealData& f, RealData& m, RealData& d) {
-    // ratio R = H^T(g / m)  (clobbers m when d is the same buffer)
-    compute.division(g, m, d, 1e-9f);             // d = g/m
-    ComplexView dC = d.reinterpret();             // non-owning complex view of d
-    compute.forwardFFT(d, dC);                    // in-place r2c -> dC
-    compute.complexMultiplicationWithConjugate(dC, H, dC);
-    compute.backwardFFT(dC, d);                   // in-place c2r -> d = R
+    computeRatio(compute, H, g, m, d);
 
     // search direction d = -f * (1 - R)
     compute.realAffine(d, -1.0f, 1.0f, d);        // 1 - R
@@ -303,18 +309,18 @@ void PoissonMLEDeconvolutionAlgorithm::computeSearchDirection(
 void PoissonMLEDeconvolutionAlgorithm::applyDataStep(
     const IComputeBackend& compute, const ComplexData& H, const RealData& g,
     real_t bg, RealData& f) {
-    // m = Hf + bg, then d = -f*(1 - H^T(g/m)), both in the shared `scratch`:
-    // the unit step never needs m past the g/m ratio, so m is allowed to be
-    // clobbered by the direction computation.
+    // m = Hf + bg, then the ratio R = H^T(g/m), both in the shared `scratch`:
+    // the unit step never needs m past the ratio, so m is allowed to be
+    // clobbered by the ratio computation.
     computeForwardModel(compute, H, f, bg, scratch);
-    computeSearchDirection(compute, H, g, f, scratch, scratch);
+    computeRatio(compute, H, g, scratch, scratch);
 
-    // Plain RL unit step: f <- f + d, clipped at zero. No hd = H*d forward model
-    // and no line search, so this iteration is much cheaper than the adaptive
-    // subclass's. This is the multiplicative RL update written additively, and it
-    // provably does not increase the Poisson (I-divergence) objective.
-    compute.realLinearCombination(f, 1.0f, scratch, 1.0f, f);
-    compute.realClampMin(f, 0.0f, f);
+    // Plain RL unit step: f <- max(f * R, 0) in one fused pass. This is the
+    // multiplicative RL update written directly (f + d = f*R for
+    // d = -f*(1-R)), which is also numerically cleaner than the
+    // 1-(1-R) round trip and provably does not increase the Poisson
+    // (I-divergence) objective.
+    compute.poissonUpdate(scratch, f, 0.0f);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneSpecific() const {
