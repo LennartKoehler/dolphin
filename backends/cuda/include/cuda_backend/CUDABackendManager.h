@@ -119,9 +119,7 @@ protected:
 
     CUDAFFTWorkspaceComponent fftComponent;
 
-    CUDABackendConfig configToConfig(const BackendConfig& config);
     CUDABackend& createNewBackend(CUDABackendConfig config);
-    cudaStream_t createStream() const ;
 
     virtual std::unique_ptr<CUDAComputeBackend> createComputeBackend(CUDABackendConfig config);
     virtual std::unique_ptr<CUDABackendMemoryManager> createMemoryManager(CUDABackendConfig config);

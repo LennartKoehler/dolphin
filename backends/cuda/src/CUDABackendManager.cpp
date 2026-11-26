@@ -140,7 +140,10 @@ void CUDABackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, 
 }
 
 IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig& config) {
-    CUDABackendConfig cudaconfig = configToConfig(config);
+    // CUDABackendConfig cudaconfig = configToConfig(config);
+    int idx = config.deviceId >= 0 ? config.deviceId : usedDeviceCounter.fetch_add(1) % nDevices;
+    CUDADevice device = devices[idx];
+    CUDABackendConfig cudaconfig{device, cudaStreamLegacy};
     CUDABackend& backend = createNewBackend(cudaconfig);
     return backend;
 }
@@ -149,16 +152,6 @@ IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig&
 MemoryComponent& CUDABackendManager::getMemoryComponent() {
     return fftComponent;
 }
-
-CUDABackendConfig CUDABackendManager::configToConfig(const BackendConfig& config) {
-
-    int idx = config.deviceId >= 0 ? config.deviceId : usedDeviceCounter.fetch_add(1) % nDevices;
-    CUDADevice device = devices[idx];
-
-    CUDABackendConfig cudaconfig{device, createStream()};
-    return cudaconfig;
-}
-
 
 IBackend& CUDABackendManager::createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config){
     CUDABackend& backend_ = dynamic_cast<CUDABackend&>(backend);
@@ -210,15 +203,5 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
         throw;
     }
 }
-
-
-cudaStream_t CUDABackendManager::createStream() const {
-    cudaStream_t stream;
-    cudaError_t err = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-    CUDA_CHECK(err, "createStream - cudaStreamCreateWithFlags", buildCudaContext({CUDADevice{0, nullptr}, cudaStreamLegacy}));
-    return stream;
-}
-
-
 
 
