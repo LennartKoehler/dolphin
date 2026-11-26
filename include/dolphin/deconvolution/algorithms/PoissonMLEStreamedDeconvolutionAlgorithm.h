@@ -13,29 +13,36 @@ See the LICENSE file provided with the code for the full license.
 
 #pragma once
 
-#include "dolphin/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/PoissonMLECore.h"
+#include <memory>
 
-// PoissonMLE with an out-of-core data step for VRAM-bound runs.
+// PoissonMLE (RL unit step) with an out-of-core data step for VRAM-bound runs.
 //
-// Identical math and parameters to PoissonMLE (RL unit step); only WHERE the
-// buffers live differs. The observed image g is captured on the HOST once per
-// cube, the caller's device g buffer is reused as the data-step work buffer,
-// and g is streamed back one z-slice per FFT stage. That removes the
-// algorithm's own full-size work volume from the device: the peak is
-// iterate + work + PSF (+ the shared cuFFT work area) instead of 4 volumes.
+// Identical math and parameters to PoissonMLE; only WHERE the buffers live
+// differs. The observed image g is captured on the HOST once per cube, the
+// caller's device g buffer is reused as the data-step work buffer, and g is
+// streamed back one z-slice per FFT stage. That removes the algorithm's own
+// full-size work volume from the device: the peak is iterate + work + PSF
+// (+ the shared cuFFT work area) instead of 4 volumes.
 //
 // Cost: one full-volume D2H download per cube plus one full-volume H2D upload
 // PER ITERATION (slab-wise). On PCIe that is roughly one transform's worth of
 // transfer time per iteration, so prefer the plain PoissonMLE whenever the
 // cube fits in VRAM. On the CPU backend the streaming is free (host == device
 // memory) and this variant behaves identically to PoissonMLE.
-class PoissonMLEStreamedDeconvolutionAlgorithm : public PoissonMLEDeconvolutionAlgorithm {
+//
+// Sibling of PoissonMLE / PoissonMLEAdaptiveStep; shares the math through
+// PoissonMLECore, not inheritance.
+class PoissonMLEStreamedDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
 public:
     PoissonMLEStreamedDeconvolutionAlgorithm() = default;
     ~PoissonMLEStreamedDeconvolutionAlgorithm() = default;
 
     void configure(const DeconvolutionConfig& config) override;
+    void init(const CuboidShape& dataSize) override;
     void preAllocate(const CuboidShape& dataSize) override;
+    bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;
     size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
@@ -44,6 +51,12 @@ private:
     // One z-slice of the padded in-place layout: staging buffer for the
     // slab-wise upload of g. The full work volume is the caller's g buffer.
     RealData ratioSlab;
+
+    // Shared math + config of the PoissonMLE family (composition, not
+    // inheritance). No classic work buffer is allocated here.
+    PoissonMLECore core_;
+
+    bool initialized = false;
 
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };

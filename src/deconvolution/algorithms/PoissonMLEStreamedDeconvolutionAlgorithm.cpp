@@ -14,31 +14,40 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/algorithms/PoissonMLEStreamedDeconvolutionAlgorithm.h"
 #include "dolphin/backend/BackendFactory.h"
 #include <cassert>
-#include <cmath>
 #include <algorithm>
+#include <stdexcept>
 
 void PoissonMLEStreamedDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
-    PoissonMLEDeconvolutionAlgorithm::configure(config);
+    core_.configure(asConfig<PoissonMLEConfig>(config, DeconvolutionAlgorithms::kPoissonMLEStreamed));
+}
+
+void PoissonMLEStreamedDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
+    assert(backend && "No backend available for PoissonMLE (streamed) algorithm initialization");
+    core_.initPlans(backend->mutableComputeManager(), dataSize);
+    initialized = true;
 }
 
 void PoissonMLEStreamedDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) {
     assert(backend && "No backend available for PoissonMLE (streamed) algorithm allocation");
     assert(initialized && "PoissonMLE (streamed) algorithm not initialized. Call init() first.");
-    const IBackendMemoryManager& memory = backend->getMemoryManager();
 
-    // Deliberately NO full work buffer (unlike the classic base): the data step
-    // runs out-of-core with the caller's g buffer as work. Only the staging
-    // slice is kept, plus the sieve's Gaussian-OTF buffer (one z-slice here,
-    // enough for the half-complex OTF of the same shape).
+    // Deliberately NO full work buffer (unlike the classic variant): the data
+    // step runs out-of-core with the caller's g buffer as work. Only the
+    // staging slice is kept.
+    const IBackendMemoryManager& memory = backend->getMemoryManager();
     const size_t realStride = 2 * (dataSize.width / 2 + 1);
-    ratioSlab = memory.allocateMemoryOnDeviceRealFFTInPlace(CuboidShape(realStride, dataSize.height, 1));
+    ratioSlab = memory.allocateMemoryOnDeviceReal(CuboidShape(realStride, dataSize.height, 1));
+}
+
+bool PoissonMLEStreamedDeconvolutionAlgorithm::isInitialized() const {
+    return initialized;
 }
 
 void PoissonMLEStreamedDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f,
                                                           const DeconvolutionRunContext& runContext) {
     assert(backend && "No backend available for PoissonMLE (streamed) algorithm");
     assert(initialized && "PoissonMLE (streamed) algorithm not initialized. Call init() first.");
-    if (iterations <= 0) return;
+    if (core_.iterations <= 0) return;
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     const IComputeBackend& compute = backend->getComputeManager();
@@ -64,31 +73,30 @@ void PoissonMLEStreamedDeconvolutionAlgorithm::deconvolve(const ComplexData& H, 
 
     // ---- Physical parameters: cached PSF sigma widths (run-constant). ----
     ComplexView workView = work.reinterpret();
-    ensurePsfSigmas(compute, memory, H, shape, workView, work);
+    core_.ensurePsfSigmas(compute, memory, H, shape, workView, work);
 
     // ---- Prefilter: a single mild anisotropic Gaussian low-pass of the raw data. ----
-    applyPrefilter(compute, f, workView, psfSigX, psfSigY, psfSigZ);
+    core_.applyPrefilter(compute, f, workView, core_.psfSigX, core_.psfSigY, core_.psfSigZ);
 
-    const real_t bg = resolveBackground(runContext);
-    const real_t lambda = currentLambda();
+    const real_t bg = core_.resolveBackground(runContext);
+    const real_t lambda = core_.currentLambda();
 
     // f is the object ABOVE the background (m = Hf + bg), so the physical
     // constraint is f >= 0 and the background of f converges to 0.
     compute.realClampMin(f, 0.0f, f);
 
-    const int maxIter = iterations;
+    const int maxIter = core_.iterations;
     const real_t kLast = std::max(1.0f, 0.8f * static_cast<real_t>(maxIter));
-    resetDataStepState();
 
     for (int k = 0; k < maxIter; ++k) {
         // ---- DATA STEP: fused, out-of-core. work = R = H^T(g/(Hf+bg)), then
         // f = max(f*R, 0). Destroys work (= g's device buffer). ----
         backend->poissonDataStepStreamed(H, gHost, f, work, ratioSlab, bg);
 
-        // ---- PRIOR + SIEVE: identical to the classic path; the work buffer's
-        // complex view doubles as the sieve's Gaussian-OTF buffer (the work
-        // volume is dead between data steps). ----
-        applyRegularization(compute, f, workView, k, kLast, lambda);
+        // ---- PRIOR + SIEVE: regularization, then the physical clamp. The work
+        // buffer's complex view doubles as the sieve's Gaussian-OTF buffer (the
+        // work volume is dead between data steps). ----
+        core_.applyRegularization(compute, f, workView, k, kLast, lambda);
 
         backend->sync();
         if (progressFunction) progressFunction(maxIter);
@@ -104,17 +112,8 @@ size_t PoissonMLEStreamedDeconvolutionAlgorithm::getWorkingSetBytes(const Cuboid
 
 std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEStreamedDeconvolutionAlgorithm::cloneSpecific() const {
     auto copy = std::make_unique<PoissonMLEStreamedDeconvolutionAlgorithm>();
-    copy->iterations = iterations;
-    copy->signal_to_noise = signal_to_noise;
-    copy->lambdaOverride = lambdaOverride;
-    copy->backgroundOverride = backgroundOverride;
-    copy->usePrefilter = usePrefilter;
-    copy->prefilterScale = prefilterScale;
-    copy->useSieve = useSieve;
-    copy->usePrior = usePrior;
-    copy->sievePasses = sievePasses;
-    copy->sieveScale = sieveScale;
-    copy->psfSigmasValid = false;
+    copy->core_ = core_;
+    copy->core_.resetForClone();
     copy->initialized = false;
     return copy;
 }

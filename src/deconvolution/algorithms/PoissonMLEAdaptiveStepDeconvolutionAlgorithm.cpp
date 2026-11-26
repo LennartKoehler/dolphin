@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/algorithms/PoissonMLEAdaptiveStepDeconvolutionAlgorithm.h"
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 namespace {
@@ -57,17 +58,21 @@ real_t newtonLineSearch(const IComputeBackend& compute,
 void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::configure(const DeconvolutionConfig& config) {
     // Accept both PoissonMLEConfig and PoissonMLEUnitStepConfig (the latter is
     // derived from the former).
-    configure(asConfig<PoissonMLEConfig>(config, DeconvolutionAlgorithms::kPoissonMLEAdaptiveStep));
+    core_.configure(asConfig<PoissonMLEConfig>(config, DeconvolutionAlgorithms::kPoissonMLEAdaptiveStep));
 }
 
 void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
-    // Base class: the in-place real FFT plans, which the model/hd FFTs below reuse.
-    PoissonMLEDeconvolutionAlgorithm::init(dataSize);
+    assert(backend && "No backend available for PoissonMLE (adaptive) algorithm initialization");
+    // The in-place real FFT plans, which the model/hd FFTs below reuse.
+    core_.initPlans(backend->mutableComputeManager(), dataSize);
+    initialized = true;
 }
 
 void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) {
-    // Base class: the shared scratch buffer (+ the views aliasing it).
-    PoissonMLEDeconvolutionAlgorithm::preAllocate(dataSize);
+    assert(backend && "No backend available for PoissonMLE (adaptive) algorithm allocation");
+    assert(initialized && "PoissonMLE (adaptive) algorithm not initialized. Call init() first.");
+    // The shared work buffer (carries the direction d; also the sieve OTF buffer).
+    core_.allocateWork(backend->getMemoryManager(), dataSize);
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     model = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize); // m, kept alive for J(alpha)
@@ -75,21 +80,70 @@ void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::preAllocate(const CuboidShape
     hdC = memory.reinterpret(hd);
 }
 
-void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::resetDataStepState() {
-    pwr = 1.0f;
+bool PoissonMLEAdaptiveStepDeconvolutionAlgorithm::isInitialized() const {
+    return initialized;
 }
 
-void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::applyDataStep(
-    const IComputeBackend& compute, const ComplexData& H, const RealData& g,
-    real_t bg, RealData& f) {
-    // m = Hf + bg in this class's own buffer: the line search still needs it after
-    // the direction computation, which reuses the base's `scratch` for d.
-    computeForwardModel(compute, H, f, bg, model);
-    computeSearchDirection(compute, H, g, f, model, scratch); // model stays intact
+void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData& g, RealData& f,
+                                                              const DeconvolutionRunContext& runContext) {
+    assert(backend && "No backend available for PoissonMLE (adaptive) algorithm");
+    assert(initialized && "PoissonMLE (adaptive) algorithm not initialized. Call init() first.");
+    if (core_.iterations <= 0) return;
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
+    const IComputeBackend& compute = backend->getComputeManager();
+    const CuboidShape shape = f.getSize();
+
+    assert(memory.isOnDevice(f) && "f is not on device");
+    assert(memory.isOnDevice(g) && "g is not on device");
+
+    // ---- Initial estimate: the data, optionally prefiltered. ----
+    memory.memCopy(g, f);
+
+    // ---- Physical parameters: cached PSF sigma widths (run-constant). ----
+    core_.ensurePsfSigmas(compute, memory, H, shape, core_.scratchC, core_.scratch);
+
+    // ---- Prefilter: a single mild anisotropic Gaussian low-pass of the raw data. ----
+    core_.applyPrefilter(compute, f, core_.scratchC, core_.psfSigX, core_.psfSigY, core_.psfSigZ);
+
+    const real_t bg = core_.resolveBackground(runContext);
+    const real_t lambda = core_.currentLambda();
+
+    // f is the object ABOVE the background (m = Hf + bg), so the physical
+    // constraint is f >= 0 and the background of f converges to 0 (where the
+    // model m -> bg matches the observed background g -> bg). Clamping at bg
+    // instead would pin the background of f at bg and make the model predict
+    // 2*bg there — the background can never be fit.
+    compute.realClampMin(f, 0.0f, f);
+
+    const int maxIter = core_.iterations;
+    const real_t kLast = std::max(1.0f, 0.8f * static_cast<real_t>(maxIter));
+    pwr = 1.0f; // reset per-deconvolution step-damping state
+
+    for (int k = 0; k < maxIter; ++k) {
+        // ---- DATA STEP: exact Newton line search on the Poisson objective. ----
+        dataStep(compute, memory, H, g, bg, f);
+
+        // ---- PRIOR + SIEVE: regularization, then the physical clamp. ----
+        core_.applyRegularization(compute, f, core_.scratchC, k, kLast, lambda);
+
+        backend->sync();
+        if (progressFunction) progressFunction(maxIter);
+    }
+}
+
+void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::dataStep(const IComputeBackend& compute,
+                                                            const IBackendMemoryManager& memory,
+                                                            const ComplexData& H, const RealData& g,
+                                                            real_t bg, RealData& f) {
+    // m = Hf + bg in its OWN buffer: the line search still needs it after the
+    // direction computation, which reuses core_.scratch for d.
+    core_.computeForwardModel(compute, memory, H, f, bg, model);
+    core_.computeSearchDirection(compute, H, g, f, model, core_.scratch);
+
+    const IBackendMemoryManager& mem = backend->getMemoryManager();
     // hd = H*d  (spatial result in `hd`)
-    memory.memCopy(scratch, hd);                 // hd <- d
+    mem.memCopy(core_.scratch, hd);              // hd <- d
     compute.forwardFFT(hd, hdC);                 // in-place r2c -> hdC = FFT(d)
     compute.complexMultiplication(hdC, H, hdC);
     compute.backwardFFT(hdC, hd);                // in-place c2r -> hd = H*d
@@ -107,29 +161,20 @@ void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::applyDataStep(
     }
 
     // ---- Additive update f <- f + alpha*pwr*d, clipped at zero. ----
-    compute.realLinearCombination(f, 1.0f, scratch, alpha * pwr, f);
+    compute.realLinearCombination(f, 1.0f, core_.scratch, alpha * pwr, f);
     compute.realClampMin(f, 0.0f, f);
+}
+
+size_t PoissonMLEAdaptiveStepDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
+    // Classic work buffer (direction + sieve OTF) + model (alive for J(alpha))
+    // + hd (H*d for the line search): three real in-place-FFT buffers.
+    return 3 * dataSize.getVolume() * sizeof(real_t);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEAdaptiveStepDeconvolutionAlgorithm::cloneSpecific() const {
     auto copy = std::make_unique<PoissonMLEAdaptiveStepDeconvolutionAlgorithm>();
-    copy->iterations = iterations;
-    copy->signal_to_noise = signal_to_noise;
-    copy->lambdaOverride = lambdaOverride;
-    copy->backgroundOverride = backgroundOverride;
-    copy->usePrefilter = usePrefilter;
-    copy->prefilterScale = prefilterScale;
-    copy->useSieve = useSieve;
-    copy->usePrior = usePrior;
-    copy->sievePasses = sievePasses;
-    copy->sieveScale = sieveScale;
-    copy->psfSigmasValid = false;
+    copy->core_ = core_;
+    copy->core_.resetForClone();
     copy->initialized = false;
     return copy;
-}
-
-size_t PoissonMLEAdaptiveStepDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Base: scratch. This class adds model + hd.
-    return PoissonMLEDeconvolutionAlgorithm::getWorkingSetBytes(dataSize)
-         + 2 * dataSize.getVolume() * sizeof(real_t);
 }
