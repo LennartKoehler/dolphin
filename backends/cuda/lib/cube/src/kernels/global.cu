@@ -943,6 +943,19 @@ void realLinearCombinationClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t
 }
 
 __global__
+void realAffineProductGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t scalar, real_t add, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxB = detail::indexStrided(x, y, z, strideB, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        C[idxC] = A[idxA] * (B[idxB] * scalar + add);
+    }
+}
+
+__global__
 void poissonUpdateGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideR, size_t strideF, real_t* ratio, real_t* f, real_t lo) {
     size_t x = detail::tx();
     size_t y = detail::ty();

@@ -1178,6 +1178,21 @@ void CUDAComputeBackend::realLinearCombinationClampMin(const RealData& a, real_t
     run("realLinearCombinationClampMin", CUBE_MLE::realLinearCombinationClampMin(Nx, a.getSize().height, a.getSize().depth, strideA, strideB, strideC, rawData(a), sa, rawData(b), sb, lo, rawData(result), config.stream));
 }
 
+void CUDAComputeBackend::realAffineProduct(const RealData& a, const RealData& b, real_t scalar, real_t add, RealData& result) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realAffineProduct - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CUDA", "realAffineProduct - input b", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realAffineProduct - result", buildCudaContext(config));
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realAffineProduct", "CUDA", "realAffineProduct", buildCudaContext(config));
+
+    size_t Nx = a.getSize().width;
+    size_t strideA = Nx + a.getPadding();
+    size_t strideB = b.getSize().width + b.getPadding();
+    size_t strideC = result.getSize().width + result.getPadding();
+
+    run("realAffineProduct", CUBE_MLE::realAffineProduct(Nx, a.getSize().height, a.getSize().depth, strideA, strideB, strideC, rawData(a), rawData(b), scalar, add, rawData(result), config.stream));
+}
+
 void CUDAComputeBackend::divideRatioSlab(RealData& work, size_t zSlice, const RealData& gSlab, real_t epsilon) const {
     ensureDevice();
     BACKEND_CHECK(rawData(work) != nullptr, "Work pointer is null", "CUDA", "divideRatioSlab - work", buildCudaContext(config));

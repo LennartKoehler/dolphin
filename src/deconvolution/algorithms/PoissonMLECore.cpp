@@ -244,8 +244,7 @@ void PoissonMLECore::computeSearchDirection(const IComputeBackend& compute, cons
                                             RealData& m, RealData& d) const {
     computeRatio(compute, H, g, m, d);
 
-    // search direction d = -f * (1 - R) = f * (R - 1)
-    compute.realAffine(d, -1.0f, 1.0f, d);        // 1 - R
-    compute.multiplication(f, d, d);              // f*(1-R)
-    compute.realAffine(d, -1.0f, 0.0f, d);        // -f*(1-R) = d
+    // search direction d = -f * (1 - R) = f * (R - 1), in one fused pass
+    // (d aliases the ratio buffer: read before write within the pass).
+    compute.realAffineProduct(f, d, 1.0f, -1.0f, d);
 }

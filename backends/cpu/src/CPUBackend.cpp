@@ -925,6 +925,16 @@ void CPUComputeBackend::realLinearCombinationClampMin(const RealData& a, real_t 
     });
 }
 
+void CPUComputeBackend::realAffineProduct(const RealData& a, const RealData& b, real_t scalar, real_t add, RealData& result) const {
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realAffineProduct - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "realAffineProduct - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realAffineProduct - result", buildCpuContext());
+
+    stridedIteration(a, b, result, [scalar, add](auto* rowA, auto* rowB, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) rowR[x] = rowA[x] * (rowB[x] * scalar + add);
+    });
+}
+
 void CPUComputeBackend::poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const {
     BACKEND_CHECK(rawData(ratio) != nullptr, "Ratio pointer is null", "CPU", "poissonUpdate - ratio", buildCpuContext());
     BACKEND_CHECK(rawData(f) != nullptr, "Iterate pointer is null", "CPU", "poissonUpdate - f", buildCpuContext());

@@ -270,6 +270,14 @@ public:
         COMPUTE_NOT_IMPLEMENTED(realLinearCombinationClampMin);
     }
 
+    // result[i] = a[i] * (scalar * b[i] + add)   (an affine-transformed operand
+    // multiplied by another buffer, in one pass). This is the fused form of
+    // realAffine(b, scalar, add) + multiplication(a, ...) + sign flips, e.g. the
+    // PoissonMLE search direction d = f * (R - 1). b may alias result.
+    virtual void realAffineProduct(const RealData& a, const RealData& b, real_t scalar, real_t add, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realAffineProduct);
+    }
+
     // One z-slice of the streamed Poisson data step (see
     // IBackend::poissonDataStepStreamed): for the slice at `zSlice` of `work`
     // (full padded volume), work[i] = gSlab[i] / max(work[i], epsilon) — the

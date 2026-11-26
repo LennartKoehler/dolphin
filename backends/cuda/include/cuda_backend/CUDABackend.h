@@ -271,6 +271,7 @@ public:
     void realAffineClampMin(const RealData& a, real_t scalar, real_t add, real_t lo, RealData& result) const override;
     void realSqrtAffineClampMin(const RealData& a, real_t scale, real_t add, real_t lambda, real_t lo, RealData& result) const override;
     void realLinearCombinationClampMin(const RealData& a, real_t sa, const RealData& b, real_t sb, real_t lo, RealData& result) const override;
+    void realAffineProduct(const RealData& a, const RealData& b, real_t scalar, real_t add, RealData& result) const override;
     void divideRatioSlab(RealData& work, size_t zSlice, const RealData& gSlab, real_t epsilon) const override;
     void poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
                                real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const override;

@@ -1229,6 +1229,31 @@ TEST_F(CUDAComputeBackendTest, RealSqrtAffineClampMin) {
     }
 }
 
+TEST_F(CUDAComputeBackendTest, RealAffineProduct) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData b = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume()), hostB(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        hostA[i] = static_cast<real_t>(i + 1) * 0.25f;
+        hostB[i] = static_cast<real_t>(i + 1) * 0.5f;
+    }
+    writeRealToDevice(a, hostA);
+    writeRealToDevice(b, hostB);
+
+    const real_t scalar = 1.0f, add = -1.0f;
+    deconv.realAffineProduct(a, b, scalar, add, result);
+    backend->sync();
+
+    auto rb = readbackReal(result);
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        EXPECT_FLOAT_EQ(rb[i], hostA[i] * (hostB[i] * scalar + add)) << "realAffineProduct mismatch at " << i;
+}
+
 TEST_F(CUDAComputeBackendTest, PoissonLineSearchEval) {
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();

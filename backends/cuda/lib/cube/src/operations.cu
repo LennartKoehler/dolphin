@@ -402,6 +402,14 @@ namespace CUBE_MLE {
         return launchSync([=] { realLinearCombinationClampMinGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideB, strideC, A, sa, B, sb, lo, C); }, stream);
     }
 
+    cudaError_t realAffineProduct(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t scalar, real_t add, real_t* C, cudaStream_t stream){
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realAffineProductGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideB, strideC, A, B, scalar, add, C); }, stream);
+    }
+
     cudaError_t poissonDivideSlab(size_t Nx, size_t Ny, size_t strideWork, size_t strideSlab, real_t* workSlab, real_t* gSlab, real_t epsilon, cudaStream_t stream){
         if (!workSlab || !gSlab) {
             return cudaErrorInvalidValue;
