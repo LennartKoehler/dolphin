@@ -33,6 +33,8 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/algorithms/RLTVDeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/RLADDeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/PoissonMLEAdaptiveStepDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/algorithms/PoissonMLEStreamedDeconvolutionAlgorithm.h"
+#include "dolphin/deconvolution/configs/PoissonMLEStreamedConfig.h"
 
 #include <stdexcept>
 #include <spdlog/spdlog.h>
@@ -172,7 +174,9 @@ void DeconvolutionAlgorithmFactory::registerAlgorithms() {
         []() -> std::shared_ptr<DeconvolutionConfig> { return std::make_shared<RichardsonLucyADConfig>(); });
 
     // "PoissonMLE" is the RL unit-step variant (the algorithm base class);
-    // "PoissonMLEAdaptiveStep" is the Newton line-search variant derived from it.
+    // "PoissonMLEAdaptiveStep" is the Newton line-search variant derived from it;
+    // "PoissonMLEStreamed" is the unit-step variant with an out-of-core data
+    // step (lower VRAM peak, extra PCIe traffic per iteration) — same config.
     registerAlgorithm(DeconvolutionAlgorithms::kPoissonMLE,
         []() -> DeconvolutionAlgorithm* { return new PoissonMLEDeconvolutionAlgorithm(); },
         []() -> std::shared_ptr<DeconvolutionConfig> { return std::make_shared<PoissonMLEUnitStepConfig>(); });
@@ -180,4 +184,8 @@ void DeconvolutionAlgorithmFactory::registerAlgorithms() {
     registerAlgorithm(DeconvolutionAlgorithms::kPoissonMLEAdaptiveStep,
         []() -> DeconvolutionAlgorithm* { return new PoissonMLEAdaptiveStepDeconvolutionAlgorithm(); },
         []() -> std::shared_ptr<DeconvolutionConfig> { return std::make_shared<PoissonMLEConfig>(); });
+
+    registerAlgorithm(DeconvolutionAlgorithms::kPoissonMLEStreamed,
+        []() -> DeconvolutionAlgorithm* { return new PoissonMLEStreamedDeconvolutionAlgorithm(); },
+        []() -> std::shared_ptr<DeconvolutionConfig> { return std::make_shared<PoissonMLEStreamedConfig>(); });
 }

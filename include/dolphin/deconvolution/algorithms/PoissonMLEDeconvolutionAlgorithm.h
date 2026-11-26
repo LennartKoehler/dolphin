@@ -70,11 +70,32 @@ protected:
     // loop. Subclasses with damping state (line-search variant) override it.
     virtual void resetDataStepState() {}
 
-    // Whether the base deconvolve() loop may replace applyDataStep() with the
-    // fused, g-streamed data step (IBackend::poissonDataStepStreamed), which
-    // needs no algorithm-owned work volume. The line-search variant overrides
-    // this to false: it needs m and the direction d alive simultaneously.
-    virtual bool useStreamedDataStep() const { return true; }
+    // Background for the model m = Hf + bg: an explicit config level wins,
+    // otherwise the plan-provided run-wide value (one value for every cube so
+    // neighbouring cubes agree -> no tile seams). Throws when neither exists:
+    // a per-tile estimate would differ between neighbouring cubes.
+    real_t resolveBackground(const DeconvolutionRunContext& runContext) const;
+
+    // Shrinkage strength lambda: explicit override wins, else base/SNR.
+    real_t currentLambda() const;
+
+    // Optional mild anisotropic Gaussian low-pass of the raw data (the MLE's
+    // initial estimate), plus the debug log of the effective sigmas.
+    void applyPrefilter(const IComputeBackend& compute, RealData& f,
+                        ComplexData& workOTF, real_t sigX, real_t sigY, real_t sigZ) const;
+
+    // Everything after the data step in one iteration: lambda-shrinkage prior
+    // with flux conservation, the annealed sieve, and the physical clamp.
+    void applyRegularization(const IComputeBackend& compute, RealData& f,
+                             ComplexData& workOTF, int k, int kLast, real_t lambda);
+
+    // Estimates (once, cached) the PSF's sigma widths using `work`/`workOTF` as
+    // scratch. Run-constant for a given padded shape: re-estimating per cube
+    // would let float32 OTF noise give slightly different prefilter/sieve
+    // widths and thus visible tile seams.
+    void ensurePsfSigmas(const IComputeBackend& compute, const IBackendMemoryManager& memory,
+                         const ComplexData& H, const CuboidShape& shape,
+                         ComplexData& workOTF, RealData& work);
 
     // m = clamp_min(Hf + bg, bg), written into `m` (in-place FFTs follow
     // RichardsonLucy: out-of-place real->complex, then in-place complex->real into
@@ -103,16 +124,10 @@ protected:
                       const RealData& g, const RealData& m, RealData& ratio);
 
     // Shared data-step scratch: one real in-place-FFT buffer (m -> d per iteration)
-    // plus its complex view (same memory, FFT work buffer). Subclasses may reuse it.
-    // Only used by the classic (non-streamed) data step — the line-search variant
-    // and backends without poissonDataStepStreamed. Allocated by the subclass's
-    // preAllocate (adaptive) or lazily in deconvolve (classic fallback).
+    // plus its complex view (same memory, FFT work buffer). Also serves as the
+    // sieve's Gaussian-OTF buffer. Allocated by preAllocate.
     RealData scratch;
     ComplexView scratchC;
-
-    // One z-slice of the padded in-place layout: staging buffer for the streamed
-    // data step's slab-wise upload of g. Tiny (a 1/depth fraction of a volume).
-    RealData ratioSlab;
 
     // Configuration mirrored from PoissonMLEConfig (protected so subclasses can
     // copy them in their own cloneSpecific()).
@@ -130,6 +145,8 @@ protected:
     // Cached PSF width estimate (run-constant for a given padded shape).
     bool psfSigmasValid = false;
     real_t psfSigX = 1.0f, psfSigY = 1.0f, psfSigZ = 1.0f;
+    // Derived sieve widths: lateral = mean of X/Y sigma, axial = Z sigma.
+    real_t psfSigLat = 1.0f, psfSigAx = 1.0f;
 
     bool initialized = false;
 

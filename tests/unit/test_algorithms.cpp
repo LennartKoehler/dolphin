@@ -275,7 +275,8 @@ INSTANTIATE_TEST_SUITE_P(
         "InverseFilter",
         "Convolution",
         "RichardsonLucywithAdaptiveDamping",
-        "PoissonMLE"
+        "PoissonMLE",
+        "PoissonMLEStreamed"
     )
 );
 

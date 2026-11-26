@@ -41,7 +41,6 @@ public:
     size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
 
 protected:
-    bool useStreamedDataStep() const override { return false; }
     void applyDataStep(const IComputeBackend& compute, const ComplexData& H,
                        const RealData& g, real_t bg, RealData& f) override;
     void resetDataStepState() override;

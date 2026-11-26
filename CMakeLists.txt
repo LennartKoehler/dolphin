@@ -193,6 +193,7 @@ set(DOLPHIN_SOURCES
     src/deconvolution/configs/RichardsonLucyADConfig.cpp
     src/deconvolution/configs/PoissonMLEConfig.cpp
     src/deconvolution/configs/PoissonMLEUnitStepConfig.cpp
+    src/deconvolution/configs/PoissonMLEStreamedConfig.cpp
     src/deconvolution/Preprocessor.cpp
     src/deconvolution/Postprocessor.cpp
     src/deconvolution/DeconvolutionProcessor.cpp
@@ -213,6 +214,7 @@ set(DOLPHIN_SOURCES
     src/deconvolution/algorithms/RLADDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.cpp
     src/deconvolution/algorithms/PoissonMLEAdaptiveStepDeconvolutionAlgorithm.cpp
+    src/deconvolution/algorithms/PoissonMLEStreamedDeconvolutionAlgorithm.cpp
 )
 
 

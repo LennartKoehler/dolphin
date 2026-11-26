@@ -36,6 +36,7 @@ inline constexpr const char* kRegularizedInverseFilter = "RegularizedInverseFilt
 inline constexpr const char* kRichardsonLucyAdaptiveDamping = "RichardsonLucywithAdaptiveDamping";
 inline constexpr const char* kPoissonMLEAdaptiveStep = "PoissonMLEAdaptiveStep";
 inline constexpr const char* kPoissonMLE = "PoissonMLE";
+inline constexpr const char* kPoissonMLEStreamed = "PoissonMLEStreamed";
 
 inline const std::vector<std::string>& names() {
     static const std::vector<std::string> all = {
@@ -47,6 +48,7 @@ inline const std::vector<std::string>& names() {
         kRichardsonLucyAdaptiveDamping,
         kPoissonMLEAdaptiveStep,
         kPoissonMLE,
+        kPoissonMLEStreamed,
     };
     return all;
 }

@@ -136,12 +136,13 @@ void PoissonMLEDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) 
     assert(initialized && "PoissonMLE algorithm not initialized. Call init() first.");
     const IBackendMemoryManager& memory = backend->getMemoryManager();
 
-    // One z-slice of the padded in-place layout: staging buffer for the streamed
-    // data step's slab-wise upload of g. The full work buffer is caller-provided
-    // on backends with the streamed step (the caller's g buffer), and lazily
-    // allocated here for the classic fallback.
-    const size_t realStride = 2 * (dataSize.width / 2 + 1);
-    ratioSlab = memory.allocateMemoryOnDeviceReal(CuboidShape(realStride, dataSize.height, 1));
+    // One real in-place-layout scratch buffer (m -> d per iteration); its
+    // half-complex view (same memory) is the FFT work / result buffer. The
+    // model m and the search direction d are never needed simultaneously in
+    // the unit-step path, so they share this buffer. Also serves as the
+    // sieve's Gaussian-OTF buffer.
+    scratch = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+    scratchC = memory.reinterpret(scratch);
 }
 
 bool PoissonMLEDeconvolutionAlgorithm::isInitialized() const {
@@ -161,77 +162,28 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     assert(memory.isOnDevice(f) && "f is not on device");
     assert(memory.isOnDevice(g) && "g is not on device");
 
-    // Data-step mode: the fused, g-streamed step lets the caller's g buffer
-    // serve as the work buffer (the step destroys it; callers re-upload g per
-    // cube), which removes the algorithm's own work volume from the device.
-    // Otherwise fall back to the classic member-scratch path.
-    const bool streamed = backend->supportsStreamedPoissonDataStep() && useStreamedDataStep();
-    RealData gHost;
-    if (streamed) {
-        // Capture the observed image on the host once per cube: the streamed
-        // step uploads it slab-wise per iteration.
-        const IBackendMemoryManager& hostMem = BackendFactory::getInstance().getHostBackendMemoryManager();
-        gHost = memory.isHostBackend() ? memory.createCopy(g)
-                                       : memory.moveDataFromDevice(g, hostMem);
-    } else if (!scratch.isValid()) {
-        // Classic fallback without the streamed step: allocate the work buffer.
-        scratch = memory.allocateMemoryOnDeviceRealFFTInPlace(shape);
-        scratchC = memory.reinterpret(scratch);
-    }
-    RealData& work = streamed ? g : scratch;
+    RealData& work = scratch;
 
     // ---- Initial estimate: the data, optionally prefiltered. ----
     memory.memCopy(g, f);
 
-    // ---- Physical parameters: the PSF is the same for every cube; the
-    // padded shape is run-constant, so the estimate is cached after the first
-    // cube. Re-estimating per cube would let float32 OTF noise give slightly
-    // different prefilter/sieve widths and thus visible tile seams.
+    // ---- Physical parameters: cached PSF sigma widths (run-constant). ----
     ComplexView workView = work.reinterpret();
-    if (!psfSigmasValid) {
-        estimatePsfSigmas(compute, memory, H, shape, workView, work, psfSigX, psfSigY, psfSigZ);
-        psfSigmasValid = true;
-    }
+    ensurePsfSigmas(compute, memory, H, shape, workView, work);
     const real_t sigX = psfSigX;
     const real_t sigY = psfSigY;
     const real_t sigZ = psfSigZ;
-    const real_t psfLat = 0.5f * (sigX + sigY);
-    const real_t psfAx = sigZ;
 
     // ---- Prefilter: a single mild anisotropic Gaussian low-pass of the raw data. ----
-    // sigma_axis = prefilterScale * PSF sigma_axis (0.3 * PSF width reproduces the
-    // reference "sigmas of initial filt"). It gives the MLE a smooth, positive
-    // starting object f0 (instead of raw photon-noise spikes).
-    // f is already in the real-FFT in-place layout (allocated RealFFTInPlace by the
-    // executor), so the in-place FFT low-pass can run on it directly.
-    if (usePrefilter && prefilterScale > 0.0f) {
-        applySieve(compute, f, workView,
-                   prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
-        compute.realClampMin(f, 0.0f, f);
-        if (auto logger = spdlog::get("deconvolution"))
-            logger->debug(
-                "PoissonMLE prefilter: sigmas of initial filt: {:.3f} {:.3f} {:.3f}",
-                prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
-    }
+    applyPrefilter(compute, f, workView, sigX, sigY, sigZ);
 
     // Background: an explicit level (config) wins; otherwise the plan-provided
     // run-wide value (one value for every cube -> no tile seams). Without
     // either, fail: a per-tile estimate would differ between neighbouring
     // cubes and leave visible seams.
-    real_t bg;
-    if (backgroundOverride > -1.0f) {
-        bg = backgroundOverride;
-    } else if (runContext.background.has_value()) {
-        bg = *runContext.background;
-    } else {
-        throw std::runtime_error("Missing background estimation for PoissonMLE deconvolution algorithm");
-    }
+    const real_t bg = resolveBackground(runContext);
 
-    // SNR -> shrinkage strength lambda. 0 = derive from SNR (lambda = base/snr:
-    // higher SNR -> weaker prior, closer to the pure MLE).
-    const real_t lambda = (lambdaOverride > 0.0f)
-                        ? lambdaOverride
-                        : kLambdaBase / std::max(1e-6f, signal_to_noise);
+    const real_t lambda = currentLambda();
 
     // f is the object ABOVE the background (m = Hf + bg), so the physical
     // constraint is f >= 0 and the background of f converges to 0 (where the
@@ -246,51 +198,100 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
 
     for (int k = 0; k < maxIter; ++k) {
         // ---- DATA STEP: Poisson likelihood gradient + variant-specific step. ----
-        if (streamed) {
-            // Fused, g-streamed data step: work = R = H^T(g/(Hf+bg)), then
-            // f = max(f*R, 0). Destroys work (= g's device buffer).
-            backend->poissonDataStepStreamed(H, gHost, f, work, ratioSlab, bg);
-        } else {
-            applyDataStep(compute, H, g, bg, f);
-        }
+        applyDataStep(compute, H, g, bg, f);
 
-        // ---- PRIOR STEP: lambda-shrinkage with flux conservation. ----
-        if (usePrior && lambda > 1e-6f) {
-            real_t fOld = 0.0f;
-            compute.realSum(f, &fOld);
-            compute.realSqrtAffine(f, 2.0f * lambda, 1.0f, lambda, f); // (sqrt(2*lambda*f + 1) - 1)/lambda
-            compute.realClampMin(f, 0.0f, f);
-            real_t fNew = 0.0f;
-            compute.realSum(f, &fNew);
-            if (fOld > 1e-12f && fNew > 1e-12f) {
-                compute.realLinearCombination(f, fOld / fNew, f, 0.0f, f); // conserve total flux
-            }
-        }
+        // ---- PRIOR + SIEVE: regularization, then the physical clamp. ----
+        applyRegularization(compute, f, workView, k, kLast, lambda);
 
-        // ---- SIEVE: annealed anisotropic Gaussian smoothing. ----
-        // The smoothing width carries two independent dials: the SNR (how much
-        // regularizing the data warrants) and the annealing schedule (rough early,
-        // fine late). The prior strength is lambda = base/snr; the sieve mirrors
-        // this so signal_to_noise stays the master dial for BOTH regularizers:
-        // effective scale = poissonSieveScale / snr, i.e. the sieve is as wide as
-        // poissonSieveScale at SNR=1 and fades toward the identity as SNR -> inf
-        // (the pure-MLE limit), while at low SNR it blurs strongly to suppress the
-        // noise the MLE would otherwise amplify.
-        const real_t sieveSnrScale = sieveScale / std::max(1e-6f, signal_to_noise);
-        if (useSieve && sieveSnrScale > 1e-6f) {
-            const real_t t = std::max(0.0f, 1.0f - static_cast<real_t>(k) / kLast);
-            const real_t sl = sieveSnrScale * psfLat * t;
-            const real_t sa = sieveSnrScale * psfAx * t;
-            for (int p = 0; p < sievePasses; ++p) {
-                applySieve(compute, f, workView, sl, sl, sa);
-            }
-        }
-
-        compute.realClampMin(f, 0.0f, f);
         backend->sync();
         if (progressFunction) progressFunction(maxIter);
     }
 
+}
+
+real_t PoissonMLEDeconvolutionAlgorithm::resolveBackground(const DeconvolutionRunContext& runContext) const {
+    if (backgroundOverride > -1.0f) {
+        return backgroundOverride;
+    }
+    if (runContext.background.has_value()) {
+        return *runContext.background;
+    }
+    throw std::runtime_error("Missing background estimation for PoissonMLE deconvolution algorithm");
+}
+
+real_t PoissonMLEDeconvolutionAlgorithm::currentLambda() const {
+    // SNR -> shrinkage strength lambda. 0 = derive from SNR (lambda = base/snr:
+    // higher SNR -> weaker prior, closer to the pure MLE).
+    return (lambdaOverride > 0.0f)
+         ? lambdaOverride
+         : kLambdaBase / std::max(1e-6f, signal_to_noise);
+}
+
+void PoissonMLEDeconvolutionAlgorithm::applyPrefilter(const IComputeBackend& compute, RealData& f,
+                                                      ComplexData& workOTF, real_t sigX, real_t sigY, real_t sigZ) const {
+    // sigma_axis = prefilterScale * PSF sigma_axis (0.3 * PSF width reproduces the
+    // reference "sigmas of initial filt"). It gives the MLE a smooth, positive
+    // starting object f0 (instead of raw photon-noise spikes).
+    // f is already in the real-FFT in-place layout (allocated RealFFTInPlace by the
+    // executor), so the in-place FFT low-pass can run on it directly. workOTF
+    // serves as the half-complex Gaussian-OTF buffer.
+    if (!usePrefilter || prefilterScale <= 0.0f) return;
+
+    applySieve(compute, f, workOTF,
+               prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
+    compute.realClampMin(f, 0.0f, f);
+    if (auto logger = spdlog::get("deconvolution"))
+        logger->debug(
+            "PoissonMLE prefilter: sigmas of initial filt: {:.3f} {:.3f} {:.3f}",
+            prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
+}
+
+void PoissonMLEDeconvolutionAlgorithm::ensurePsfSigmas(const IComputeBackend& compute,
+                                                       const IBackendMemoryManager& memory,
+                                                       const ComplexData& H, const CuboidShape& shape,
+                                                       ComplexData& workOTF, RealData& work) {
+    if (psfSigmasValid) return;
+    estimatePsfSigmas(compute, memory, H, shape, workOTF, work, psfSigX, psfSigY, psfSigZ);
+    psfSigLat = 0.5f * (psfSigX + psfSigY);
+    psfSigAx = psfSigZ;
+    psfSigmasValid = true;
+}
+
+void PoissonMLEDeconvolutionAlgorithm::applyRegularization(const IComputeBackend& compute, RealData& f,
+                                                           ComplexData& workOTF, int k, int kLast, real_t lambda) {
+    // ---- PRIOR STEP: lambda-shrinkage with flux conservation. ----
+    if (usePrior && lambda > 1e-6f) {
+        real_t fOld = 0.0f;
+        compute.realSum(f, &fOld);
+        compute.realSqrtAffine(f, 2.0f * lambda, 1.0f, lambda, f); // (sqrt(2*lambda*f + 1) - 1)/lambda
+        compute.realClampMin(f, 0.0f, f);
+        real_t fNew = 0.0f;
+        compute.realSum(f, &fNew);
+        if (fOld > 1e-12f && fNew > 1e-12f) {
+            compute.realLinearCombination(f, fOld / fNew, f, 0.0f, f); // conserve total flux
+        }
+    }
+
+    // ---- SIEVE: annealed anisotropic Gaussian smoothing. ----
+    // The smoothing width carries two independent dials: the SNR (how much
+    // regularizing the data warrants) and the annealing schedule (rough early,
+    // fine late). The prior strength is lambda = base/snr; the sieve mirrors
+    // this so signal_to_noise stays the master dial for BOTH regularizers:
+    // effective scale = poissonSieveScale / snr, i.e. the sieve is as wide as
+    // poissonSieveScale at SNR=1 and fades toward the identity as SNR -> inf
+    // (the pure-MLE limit), while at low SNR it blurs strongly to suppress the
+    // noise the MLE would otherwise amplify.
+    const real_t sieveSnrScale = sieveScale / std::max(1e-6f, signal_to_noise);
+    if (useSieve && sieveSnrScale > 1e-6f) {
+        const real_t t = std::max(0.0f, 1.0f - static_cast<real_t>(k) / kLast);
+        const real_t sl = sieveSnrScale * psfSigLat * t;
+        const real_t sa = sieveSnrScale * psfSigAx * t;
+        for (int p = 0; p < sievePasses; ++p) {
+            applySieve(compute, f, workOTF, sl, sl, sa);
+        }
+    }
+
+    compute.realClampMin(f, 0.0f, f);
 }
 
 void PoissonMLEDeconvolutionAlgorithm::computeForwardModel(
@@ -366,14 +367,7 @@ std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneS
 }
 
 size_t PoissonMLEDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Streamed data step (default on both backends): the only device scratch is
-    // one z-slice of the padded in-place layout for streaming g; the observed
-    // image lives in host RAM during the iteration loop. One volume less than
-    // the classic path, which held the full m/ratio work buffer.
-    if (backend && backend->supportsStreamedPoissonDataStep() && useStreamedDataStep()) {
-        const size_t realStride = 2 * (dataSize.width / 2 + 1);
-        return dataSize.height * realStride * sizeof(real_t);
-    }
-    // Classic path: one real in-place-FFT scratch buffer.
+    // One real in-place-FFT scratch buffer (m -> ratio per iteration, plus the
+    // sieve's OTF buffer).
     return dataSize.getVolume() * sizeof(real_t);
 }
