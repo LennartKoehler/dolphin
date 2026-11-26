@@ -63,9 +63,6 @@ class MemoryComponent {
 public:
     virtual ~MemoryComponent() = default;
 
-    /// Task count unknown / no cap by task count: min(threads, tasks) = threads.
-    static constexpr size_t UNLIMITED_TASKS = std::numeric_limits<size_t>::max();
-
     virtual MemoryRequirement footprint(const CuboidShape& cubeShape, size_t numTasks) const = 0;
 
     /**

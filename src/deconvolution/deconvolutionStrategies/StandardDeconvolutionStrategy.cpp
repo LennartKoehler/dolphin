@@ -276,9 +276,9 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
 
     CuboidShape minShape = paddingScheme.insidePadding.getTotalPadding() + 1;
 
-    if (!budget.fits(footprint.total(minShape, MemoryComponent::UNLIMITED_TASKS))){
+    if (!budget.fits(footprint.total(minShape, 1))){
         throw std::runtime_error("Deconvolution with the largest PSF and padding requires too much memory. The minimum size for one cube would be: "
-            + minShape.print() + " which needs: " + footprint.breakdown(minShape, MemoryComponent::UNLIMITED_TASKS));
+            + minShape.print() + " which needs: " + footprint.breakdown(minShape, 1));
     }
     Result<std::vector<BoxCoordWithPadding>> cubeCoordinatesWithPaddingResult;
     if (deconvConfig.cubeSize[0] > 0 && deconvConfig.cubeSize[1] > 0 && deconvConfig.cubeSize[2] > 0){
@@ -294,7 +294,7 @@ std::vector<BoxCoordWithPadding> StandardDeconvolutionStrategy::getCubes(
             CuboidShape(deconvConfig.cubeSize));
         const size_t fixedNumTasks = cubeCoordinatesWithPaddingResult.success
             ? cubeCoordinatesWithPaddingResult.value.size()
-            : MemoryComponent::UNLIMITED_TASKS;
+            : 1;
         if (!cubeCoordinatesWithPaddingResult.success
             || !budget.fits(footprint.total(fixedPadded, fixedNumTasks))) {
             throw std::runtime_error(
