@@ -392,13 +392,31 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Record toolchain versions
+        id: toolchain
+        shell: pwsh
+        run: |
+          $versionLine = (& "$env:VCPKG_ROOT\vcpkg.exe" version | Select-Object -First 1)
+          $vcpkgVer = "unknown"
+          if ($versionLine -match '[0-9]{4}-[0-9]{2}-[0-9]{2}-([0-9a-f]{7,40})') {
+            $vcpkgVer = $Matches[1]
+          }
+          "vcpkg=$vcpkgVer" >> $env:GITHUB_OUTPUT
+          "msvc=$env:VCToolsVersion" >> $env:GITHUB_OUTPUT
+
       - name: Restore vcpkg binary cache
         id: vcpkg-cache-restore
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'vcpkg-overlay-ports/**') }}
           restore-keys: |
+            vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-
             vcpkg-windows-
 
       - name: Create vcpkg binary cache directory
@@ -409,11 +427,6 @@ jobs:
             -Force `
             -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
           Out-Null
-
-      - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
 
       - name: Get CMake
         uses: lukka/get-cmake@v4.3.3
@@ -439,7 +452,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'vcpkg-overlay-ports/**') }}
 
       - name: Build
         run: cmake --build build -j
@@ -552,13 +565,31 @@ jobs:
           method: local
           cuda: '12.8.1'
 
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Record toolchain versions
+        id: toolchain
+        shell: pwsh
+        run: |
+          $versionLine = (& "$env:VCPKG_ROOT\vcpkg.exe" version | Select-Object -First 1)
+          $vcpkgVer = "unknown"
+          if ($versionLine -match '[0-9]{4}-[0-9]{2}-[0-9]{2}-([0-9a-f]{7,40})') {
+            $vcpkgVer = $Matches[1]
+          }
+          "vcpkg=$vcpkgVer" >> $env:GITHUB_OUTPUT
+          "msvc=$env:VCToolsVersion" >> $env:GITHUB_OUTPUT
+
       - name: Restore vcpkg binary cache
         id: vcpkg-cache-restore
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'vcpkg-overlay-ports/**') }}
           restore-keys: |
+            vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-
             vcpkg-windows-
 
       - name: Create vcpkg binary cache directory
@@ -569,11 +600,6 @@ jobs:
             -Force `
             -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" |
           Out-Null
-
-      - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
 
       - name: Get CMake
         uses: lukka/get-cmake@v4.3.3
@@ -599,7 +625,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-windows-${{ steps.toolchain.outputs.vcpkg }}-${{ steps.toolchain.outputs.msvc }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'vcpkg-overlay-ports/**') }}
 
       - name: Build
         run: cmake --build build -j
