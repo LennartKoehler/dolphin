@@ -70,6 +70,12 @@ protected:
     // loop. Subclasses with damping state (line-search variant) override it.
     virtual void resetDataStepState() {}
 
+    // Whether the base deconvolve() loop may replace applyDataStep() with the
+    // fused, g-streamed data step (IBackend::poissonDataStepStreamed), which
+    // needs no algorithm-owned work volume. The line-search variant overrides
+    // this to false: it needs m and the direction d alive simultaneously.
+    virtual bool useStreamedDataStep() const { return true; }
+
     // m = clamp_min(Hf + bg, bg), written into `m` (in-place FFTs follow
     // RichardsonLucy: out-of-place real->complex, then in-place complex->real into
     // the same buffer's real view, so a real result is never clobbered by an FFT).
@@ -98,8 +104,15 @@ protected:
 
     // Shared data-step scratch: one real in-place-FFT buffer (m -> d per iteration)
     // plus its complex view (same memory, FFT work buffer). Subclasses may reuse it.
+    // Only used by the classic (non-streamed) data step — the line-search variant
+    // and backends without poissonDataStepStreamed. Allocated by the subclass's
+    // preAllocate (adaptive) or lazily in deconvolve (classic fallback).
     RealData scratch;
     ComplexView scratchC;
+
+    // One z-slice of the padded in-place layout: staging buffer for the streamed
+    // data step's slab-wise upload of g. Tiny (a 1/depth fraction of a volume).
+    RealData ratioSlab;
 
     // Configuration mirrored from PoissonMLEConfig (protected so subclasses can
     // copy them in their own cloneSpecific()).

@@ -250,8 +250,7 @@ public:
     void realFillConstant(RealData& a, real_t value) const override;
     void realSqrtAffine(const RealData& a, real_t scale, real_t add, real_t lambda, RealData& result) const override;
     void realClampMin(const RealData& a, real_t lo, RealData& result) const override;
-    void poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const override;
-    void realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const override;
+    void poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const override;    void realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const override;
     real_t getMin(const RealData& a) const override;
     real_t getMax(const RealData& a) const override;
     void poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
@@ -363,6 +362,13 @@ public:
     std::string getDeviceString() const noexcept override {
         return "cpu";
     }
+
+    // Host backend: nothing is ever streamed (host == device memory), but the
+    // fused step is supported so algorithms can use one code path.
+    bool supportsStreamedPoissonDataStep() const override { return true; }
+    void poissonDataStepStreamed(const ComplexData& H, const RealData& gHost,
+                                 RealData& f, RealData& work, RealData& slabScratch,
+                                 real_t bg) const override;
 
     // Ownership query methods
     bool ownsComputeBackend() const noexcept override {

@@ -217,6 +217,18 @@ void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const
     CUDA_CHECK(err, "memCopy - cudaStreamSynchronize", buildCudaContext(config));
 }
 
+void CUDABackendMemoryManager::copyHostZSlice(const ManagedData<real_t>& hostVol, size_t zSlice, RealData& slabDev) const {
+    ensureDevice();
+    const size_t rowStride = hostVol.getSize().width + hostVol.getPadding();
+    const size_t slabReals = hostVol.getSize().height * rowStride;
+    const real_t* src = rawData(hostVol) + zSlice * slabReals;
+
+    cudaError_t err = cudaMemcpyAsync(rawData(slabDev), src, slabReals * sizeof(real_t), cudaMemcpyHostToDevice, config.stream);
+    CUDA_CHECK(err, "copyHostZSlice - cudaMemcpyAsync", buildCudaContext(config));
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "copyHostZSlice - cudaStreamSynchronize", buildCudaContext(config));
+}
+
 void CUDABackendMemoryManager::zeroFill(void* dest, size_t size, const CuboidShape& shape) const {
     ensureDevice();
     logWithContext(fmt::format("zeroFill: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
@@ -1061,6 +1073,51 @@ void CUDAComputeBackend::poissonUpdate(const RealData& ratio, RealData& f, real_
     size_t strideF = f.getSize().width + f.getPadding();
 
     run("poissonUpdate", CUBE_MLE::poissonUpdate(Nx, ratio.getSize().height, ratio.getSize().depth, strideR, strideF, rawData(ratio), rawData(f), lo, config.stream));
+}
+
+void CUDAComputeBackend::divideRatioSlab(RealData& work, size_t zSlice, const RealData& gSlab, real_t epsilon) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(work) != nullptr, "Work pointer is null", "CUDA", "divideRatioSlab - work", buildCudaContext(config));
+    BACKEND_CHECK(rawData(gSlab) != nullptr, "Slab pointer is null", "CUDA", "divideRatioSlab - slab", buildCudaContext(config));
+
+    const size_t Nx = work.getSize().width;
+    const size_t strideWork = Nx + work.getPadding();
+    const size_t strideSlab = gSlab.getSize().width + gSlab.getPadding();
+    // Base pointer of the requested z-slice within the full padded volume.
+    real_t* workSlab = rawData(work) + zSlice * work.getSize().height * strideWork;
+
+    run("poissonDivideSlab", CUBE_MLE::poissonDivideSlab(Nx, work.getSize().height, strideWork, strideSlab, workSlab, rawData(gSlab), epsilon, config.stream));
+}
+
+void CUDABackend::poissonDataStepStreamed(const ComplexData& H, const RealData& gHost,
+                                          RealData& f, RealData& work, RealData& slabScratch,
+                                          real_t bg) const {
+    IBackendMemoryManager& memory = memoryBackend;
+    IComputeBackend& compute = computeBackend;
+
+    // A: work = m = Hf + bg (out-of-place: the iterate f is preserved)
+    memory.memCopy(f, work);
+    ComplexView workC = work.reinterpret();
+    compute.forwardFFT(work, workC);
+    compute.complexMultiplication(workC, H, workC);
+    compute.backwardFFT(workC, work);
+    compute.realAffine(work, 1.0f, bg, work);
+    compute.realClampMin(work, bg, work);
+
+    // B: work = g/m, streamed slab-wise from the host copy of g. Same guarded
+    // division as computeRatio's division(g, m, d, 1e-9f).
+    for (size_t z = 0; z < work.getSize().depth; ++z) {
+        memory.copyHostZSlice(gHost, z, slabScratch);
+        compute.divideRatioSlab(work, z, slabScratch, 1e-9f);
+    }
+
+    // C: work = R = H^T(g/m)
+    compute.forwardFFT(work, workC);
+    compute.complexMultiplicationWithConjugate(workC, H, workC);
+    compute.backwardFFT(workC, work);
+
+    // D: f = max(f*R, 0)
+    compute.poissonUpdate(work, f, 0.0f);
 }
 
 void CUDAComputeBackend::poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,

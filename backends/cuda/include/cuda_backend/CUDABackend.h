@@ -162,6 +162,7 @@ public:
     void memCopy(void* src, void* dest, size_t size, const CuboidShape& shape) const override;
     void zeroFill(void* dest, size_t size, const CuboidShape& shape) const override;
     void freeMemoryOnDevice(void* ptr, size_t size) const override;
+    void copyHostZSlice(const ManagedData<real_t>& hostVol, size_t zSlice, RealData& slabDev) const override;
 
 private:
 
@@ -253,6 +254,7 @@ public:
     void realSqrtAffine(const RealData& a, real_t scale, real_t add, real_t lambda, RealData& result) const override;
     void realClampMin(const RealData& a, real_t lo, RealData& result) const override;
     void poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const override;
+    void divideRatioSlab(RealData& work, size_t zSlice, const RealData& gSlab, real_t epsilon) const override;
     void poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
                                real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const override;
     void fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const override;
@@ -378,6 +380,11 @@ public:
     void sync() override{
         memoryBackend.sync();
     }
+
+    bool supportsStreamedPoissonDataStep() const override { return true; }
+    void poissonDataStepStreamed(const ComplexData& H, const RealData& gHost,
+                                 RealData& f, RealData& work, RealData& slabScratch,
+                                 real_t bg) const override;
 
     const CUDABackendConfig& getConfig() const{
         return config;

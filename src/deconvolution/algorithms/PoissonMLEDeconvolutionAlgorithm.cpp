@@ -136,12 +136,12 @@ void PoissonMLEDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) 
     assert(initialized && "PoissonMLE algorithm not initialized. Call init() first.");
     const IBackendMemoryManager& memory = backend->getMemoryManager();
 
-    // One real in-place-layout scratch buffer (m -> d per iteration); its
-    // half-complex view (same memory) is the FFT work / result buffer. The
-    // model m and the search direction d are never needed simultaneously in
-    // the unit-step path, so they share this buffer.
-    scratch = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
-    scratchC = memory.reinterpret(scratch);
+    // One z-slice of the padded in-place layout: staging buffer for the streamed
+    // data step's slab-wise upload of g. The full work buffer is caller-provided
+    // on backends with the streamed step (the caller's g buffer), and lazily
+    // allocated here for the classic fallback.
+    const size_t realStride = 2 * (dataSize.width / 2 + 1);
+    ratioSlab = memory.allocateMemoryOnDeviceReal(CuboidShape(realStride, dataSize.height, 1));
 }
 
 bool PoissonMLEDeconvolutionAlgorithm::isInitialized() const {
@@ -161,6 +161,24 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     assert(memory.isOnDevice(f) && "f is not on device");
     assert(memory.isOnDevice(g) && "g is not on device");
 
+    // Data-step mode: the fused, g-streamed step lets the caller's g buffer
+    // serve as the work buffer (the step destroys it; callers re-upload g per
+    // cube), which removes the algorithm's own work volume from the device.
+    // Otherwise fall back to the classic member-scratch path.
+    const bool streamed = backend->supportsStreamedPoissonDataStep() && useStreamedDataStep();
+    RealData gHost;
+    if (streamed) {
+        // Capture the observed image on the host once per cube: the streamed
+        // step uploads it slab-wise per iteration.
+        const IBackendMemoryManager& hostMem = BackendFactory::getInstance().getHostBackendMemoryManager();
+        gHost = memory.isHostBackend() ? memory.createCopy(g)
+                                       : memory.moveDataFromDevice(g, hostMem);
+    } else if (!scratch.isValid()) {
+        // Classic fallback without the streamed step: allocate the work buffer.
+        scratch = memory.allocateMemoryOnDeviceRealFFTInPlace(shape);
+        scratchC = memory.reinterpret(scratch);
+    }
+    RealData& work = streamed ? g : scratch;
 
     // ---- Initial estimate: the data, optionally prefiltered. ----
     memory.memCopy(g, f);
@@ -169,8 +187,9 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     // padded shape is run-constant, so the estimate is cached after the first
     // cube. Re-estimating per cube would let float32 OTF noise give slightly
     // different prefilter/sieve widths and thus visible tile seams.
+    ComplexView workView = work.reinterpret();
     if (!psfSigmasValid) {
-        estimatePsfSigmas(compute, memory, H, shape, scratchC, scratch, psfSigX, psfSigY, psfSigZ);
+        estimatePsfSigmas(compute, memory, H, shape, workView, work, psfSigX, psfSigY, psfSigZ);
         psfSigmasValid = true;
     }
     const real_t sigX = psfSigX;
@@ -186,7 +205,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     // f is already in the real-FFT in-place layout (allocated RealFFTInPlace by the
     // executor), so the in-place FFT low-pass can run on it directly.
     if (usePrefilter && prefilterScale > 0.0f) {
-        applySieve(compute, f, scratchC,
+        applySieve(compute, f, workView,
                    prefilterScale * sigX, prefilterScale * sigY, prefilterScale * sigZ);
         compute.realClampMin(f, 0.0f, f);
         if (auto logger = spdlog::get("deconvolution"))
@@ -227,7 +246,13 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
 
     for (int k = 0; k < maxIter; ++k) {
         // ---- DATA STEP: Poisson likelihood gradient + variant-specific step. ----
-        applyDataStep(compute, H, g, bg, f);
+        if (streamed) {
+            // Fused, g-streamed data step: work = R = H^T(g/(Hf+bg)), then
+            // f = max(f*R, 0). Destroys work (= g's device buffer).
+            backend->poissonDataStepStreamed(H, gHost, f, work, ratioSlab, bg);
+        } else {
+            applyDataStep(compute, H, g, bg, f);
+        }
 
         // ---- PRIOR STEP: lambda-shrinkage with flux conservation. ----
         if (usePrior && lambda > 1e-6f) {
@@ -257,7 +282,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
             const real_t sl = sieveSnrScale * psfLat * t;
             const real_t sa = sieveSnrScale * psfAx * t;
             for (int p = 0; p < sievePasses; ++p) {
-                applySieve(compute, f, scratchC, sl, sl, sa);
+                applySieve(compute, f, workView, sl, sl, sa);
             }
         }
 
@@ -341,7 +366,14 @@ std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneS
 }
 
 size_t PoissonMLEDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Allocates 1 additional array of input size
-    // (scratch as real in-place-FFT buffer)
+    // Streamed data step (default on both backends): the only device scratch is
+    // one z-slice of the padded in-place layout for streaming g; the observed
+    // image lives in host RAM during the iteration loop. One volume less than
+    // the classic path, which held the full m/ratio work buffer.
+    if (backend && backend->supportsStreamedPoissonDataStep() && useStreamedDataStep()) {
+        const size_t realStride = 2 * (dataSize.width / 2 + 1);
+        return dataSize.height * realStride * sizeof(real_t);
+    }
+    // Classic path: one real in-place-FFT scratch buffer.
     return dataSize.getVolume() * sizeof(real_t);
 }

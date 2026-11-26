@@ -77,5 +77,6 @@ __global__ void realLinearCombinationGlobal(size_t Nx, size_t Ny, size_t Nz, siz
 __global__ void realSqrtAffineGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scale, real_t add, real_t lambda, real_t* C);
 __global__ void realClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t lo, real_t* C);
 __global__ void poissonUpdateGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideR, size_t strideF, real_t* ratio, real_t* f, real_t lo);
+__global__ void poissonDivideSlabGlobal(size_t Nx, size_t Ny, size_t strideWork, size_t strideSlab, real_t* workSlab, real_t* gSlab, real_t epsilon);
 __global__ void poissonLineSearchEvalGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideG, size_t strideM, size_t strideHd, real_t* g, real_t* m, real_t* hd, real_t alpha, double* result);
 __global__ void fillGaussianOTFGlobal(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t stride, complex_t* out, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az);

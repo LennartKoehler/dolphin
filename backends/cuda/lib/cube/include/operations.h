@@ -81,6 +81,7 @@ namespace CUBE_MLE {
     cudaError_t realSqrtAffine(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scale, real_t add, real_t lambda, real_t* C, cudaStream_t stream = 0);
     cudaError_t realClampMin(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t lo, real_t* C, cudaStream_t stream = 0);
     cudaError_t poissonUpdate(size_t Nx, size_t Ny, size_t Nz, size_t strideR, size_t strideF, real_t* ratio, real_t* f, real_t lo, cudaStream_t stream = 0);
+    cudaError_t poissonDivideSlab(size_t Nx, size_t Ny, size_t strideWork, size_t strideSlab, real_t* workSlab, real_t* gSlab, real_t epsilon, cudaStream_t stream = 0);
     cudaError_t poissonLineSearchEval(size_t Nx, size_t Ny, size_t Nz, size_t strideG, size_t strideM, size_t strideHd, real_t* g, real_t* m, real_t* hd, real_t alpha, double* result, cudaStream_t stream = 0);
     cudaError_t fillGaussianOTF(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t stride, complex_t* out, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az, cudaStream_t stream = 0);
 }

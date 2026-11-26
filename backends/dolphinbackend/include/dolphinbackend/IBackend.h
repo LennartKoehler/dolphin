@@ -120,4 +120,34 @@ public:
 
     virtual void sync() = 0;
 
+    // ========================================================================
+    // Optional fused primitives (default: unsupported).
+    // ========================================================================
+
+    // True if poissonDataStepStreamed() is implemented by this backend.
+    virtual bool supportsStreamedPoissonDataStep() const { return false; }
+
+    /**
+     * One PoissonMLE data step with the observed image STREAMED from the host:
+     *   work = m  = Hf + bg                       (f preserved, out-of-place)
+     *   work = R  = H^T(g/m)                      (g read slab-wise from gHost)
+     *   f    = max(f * R, 0)                      (fused update, in-place)
+     *
+     * g is never resident as a whole volume: it is uploaded one z-slice at a
+     * time into `slabScratch` and divided into `work` immediately, so `work`
+     * (which holds m, then the ratio, then R) is the only derived buffer. This
+     * lets the caller pass its now-redundant device input buffer as `work`,
+     * keeping the device peak at iterate + work + PSF instead of 4 volumes.
+     *
+     * `gHost` must be a HOST-backed padded real volume (in-place FFT layout,
+     * same shape as f/work) that stays valid for the duration of the call.
+     * `slabScratch` must be device memory of one z-slice
+     * (height * (width + padding) reals). `work` is destroyed by the call.
+     */
+    virtual void poissonDataStepStreamed(const ComplexData& H, const RealData& gHost,
+                                         RealData& f, RealData& work, RealData& slabScratch,
+                                         real_t bg) const {
+        NOT_IMPLEMENTED(poissonDataStepStreamed);
+    }
+
 };

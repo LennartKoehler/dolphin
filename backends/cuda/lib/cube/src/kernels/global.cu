@@ -918,6 +918,23 @@ void poissonUpdateGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideR, size_t
 }
 
 __global__
+void poissonDivideSlabGlobal(size_t Nx, size_t Ny, size_t strideWork, size_t strideSlab, real_t* workSlab, real_t* gSlab, real_t epsilon) {
+    // One z-slice of work (already offset by the caller) divided elementwise by
+    // the uploaded g slice: work = g / max(work, eps) — the same guarded
+    // division as elementwiseMatDiv, restricted to the slice so the observed
+    // image can be streamed instead of residing on the device.
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, 1)) {
+        size_t idxWork = y * strideWork + x;
+        size_t idxSlab = y * strideSlab + x;
+        const real_t denom = workSlab[idxWork] < epsilon ? epsilon : workSlab[idxWork];
+        workSlab[idxWork] = gSlab[idxSlab] / denom;
+    }
+}
+
+__global__
 void poissonLineSearchEvalGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideG, size_t strideM, size_t strideHd, real_t* g, real_t* m, real_t* hd, real_t alpha, double* result) {
     size_t x = detail::tx();
     size_t y = detail::ty();

@@ -906,6 +906,30 @@ void CPUComputeBackend::poissonUpdate(const RealData& ratio, RealData& f, real_t
     });
 }
 
+void CPUBackend::poissonDataStepStreamed(const ComplexData& H, const RealData& gHost,
+                                         RealData& f, RealData& work, RealData& slabScratch,
+                                         real_t bg) const {
+    (void)slabScratch; // no streaming on the host backend: g is read whole
+    const IBackendMemoryManager& memory = memoryManager; // base interface: exposes the template memCopy
+
+    // Same fused sequence as the CUDA streamed step, but with a whole-volume
+    // guarded division (host == device memory, nothing to stream).
+    memory.memCopy(f, work);
+    ComplexView workC = work.reinterpret();
+    computeBackend.forwardFFT(work, workC);
+    computeBackend.complexMultiplication(workC, H, workC);
+    computeBackend.backwardFFT(workC, work);
+    computeBackend.realAffine(work, 1.0f, bg, work);
+    computeBackend.realClampMin(work, bg, work);
+
+    computeBackend.division(gHost, work, work, 1e-9f);
+    computeBackend.forwardFFT(work, workC);
+    computeBackend.complexMultiplicationWithConjugate(workC, H, workC);
+    computeBackend.backwardFFT(workC, work);
+
+    computeBackend.poissonUpdate(work, f, 0.0f);
+}
+
 void CPUComputeBackend::realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const {
     BACKEND_CHECK(rawData(a) != nullptr, "Input data pointer is null", "CPU", "realStats - input data", buildCpuContext());
 

@@ -249,6 +249,16 @@ public:
         COMPUTE_NOT_IMPLEMENTED(poissonUpdate);
     }
 
+    // One z-slice of the streamed Poisson data step (see
+    // IBackend::poissonDataStepStreamed): for the slice at `zSlice` of `work`
+    // (full padded volume), work[i] = gSlab[i] / max(work[i], epsilon) — the
+    // same guarded division as division(), applied slab-wise so the observed
+    // image never has to be resident as a whole volume. `gSlab` holds exactly
+    // one z-slice (height * rowStride reals) on the device.
+    virtual void divideRatioSlab(RealData& work, size_t zSlice, const RealData& gSlab, real_t epsilon) const {
+        COMPUTE_NOT_IMPLEMENTED(divideRatioSlab);
+    }
+
     // Statistics over all valid elements: min/max/mean and number of non-finite values
     // (NaN + Inf). min/max/mean are computed over finite elements only.
     virtual void realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const {

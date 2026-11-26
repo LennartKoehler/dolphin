@@ -308,6 +308,14 @@ public:
         memCopy(srcdata.getData(), destdata.getData(), byteSize, srcdata.getSize());
     }
 
+    // Upload one z-slice of a HOST-backed padded real volume into `slabDev`
+    // (device buffer of height * rowStride reals). Used by the streamed Poisson
+    // data step so the observed image never has to be device-resident as a
+    // whole volume. Synchronizes like memCopy.
+    virtual void copyHostZSlice(const ManagedData<real_t>& hostVol, size_t zSlice, RealData& slabDev) const {
+        NOT_IMPLEMENTED(copyHostZSlice);
+    }
+
     /**
      * Zero a raw buffer (byte-level fill with 0)
      * @param dest Pointer to the data

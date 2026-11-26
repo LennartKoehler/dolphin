@@ -66,10 +66,16 @@ void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::init(const CuboidShape& dataS
 }
 
 void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) {
-    // Base class: shared scratch buffer (+ the views aliasing it).
+    // Base class: the streamed-step staging slab (unused here, but tiny).
     PoissonMLEDeconvolutionAlgorithm::preAllocate(dataSize);
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
+    // Classic-path work buffer: the line search needs m and the direction d
+    // alive simultaneously, so this variant never uses the streamed step and
+    // owns the full work volume plus its complex view.
+    scratch = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
+    scratchC = memory.reinterpret(scratch);
+
     model = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize); // m, kept alive for J(alpha)
     hd = memory.allocateMemoryOnDeviceRealFFTInPlace(dataSize);    // H*d for the line search
     hdC = memory.reinterpret(hd);
