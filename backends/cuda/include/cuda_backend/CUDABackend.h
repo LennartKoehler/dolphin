@@ -19,6 +19,7 @@ See the LICENSE file provided with the code for the full license.
 #include <cufft.h>
 #include <CUBE.h>
 #include <cuda_runtime.h>
+#include <functional>
 #include <sstream>
 #include <span>
 
@@ -197,6 +198,19 @@ public:
         return (std::string("cuda") + std::to_string(config.device.id));
     }
 
+    // Inject the device allocator used for the SHARED cuFFT work area, so the
+    // buffer is allocated (and accounted) through this backend's memory manager
+    // instead of cuFFT's invisible internal allocation. Called once by the
+    // manager right after both components exist. Without injection the work
+    // area falls back to untracked cudaMalloc.
+    void setDeviceAllocator(std::function<void*(size_t)> allocDevice,
+                            std::function<void(void*, size_t)> freeDevice);
+
+    // Frees the shared work area. Must be called while the memory manager it
+    // was allocated from is still alive (the manager's destructor does this
+    // explicitly before its own members are torn down).
+    void releaseSharedWorkArea();
+
 
     void initializePlan(const FFTPlanDescription& description) override;
     void sync() override { ensureDevice(); cudaStreamSynchronize(config.stream);}
@@ -275,15 +289,33 @@ private:
 
     cufftHandle initializePlan_(const CUDAFFTPlanDescription& description);
 
-    void createPlanComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description) const;
-    void createPlanRealToComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description) const;
-    void createPlanComplexToReal(cufftHandle& plan, const CUDAFFTPlanDescription& description) const ;
+    // cuFFT plan creation fills workBytesOut with the work area the plan
+    // REQUIRES (cuFFT's output parameter), so the caller can provide one
+    // shared buffer instead of letting cuFFT allocate one per plan.
+    void createPlanComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description, size_t& workBytesOut) const;
+    void createPlanRealToComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description, size_t& workBytesOut) const;
+    void createPlanComplexToReal(cufftHandle& plan, const CUDAFFTPlanDescription& description, size_t& workBytesOut) const;
 
     void destroyPlans();
+
+    // Grows the shared work area to at least requiredBytes and (re-)attaches it
+    // to every existing plan. Single-threaded per backend, like getPlan().
+    void ensureSharedWorkArea(size_t requiredBytes);
+    void* allocateWorkArea(size_t bytes);
+    void freeWorkArea(void* ptr, size_t bytes);
 
     cufftHandle getPlan(const CUDAFFTPlanDescription& description);
     void addPlan(const CUDAFFTPlanDescription& description, cufftHandle handle);
     std::vector<cuFFTPlan> cuFFTPlans;
+
+    // One work area shared by ALL plans of this backend (they execute
+    // sequentially on this backend's single stream, so sharing is safe). With
+    // cufftSetAutoAllocation(0) cuFFT allocates nothing per plan; this replaces
+    // what used to be one hidden ~volume-sized buffer PER PLAN.
+    void* sharedWorkArea_ = nullptr;
+    size_t sharedWorkBytes_ = 0;
+    std::function<void*(size_t)> allocDevice_;
+    std::function<void(void*, size_t)> freeDevice_;
 
     CUDABackendConfig config;
 

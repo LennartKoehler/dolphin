@@ -97,6 +97,15 @@ CUDABackendManager::CUDABackendManager() : fftComponent(*this){
 
 };
 
+// Shared cuFFT work areas are allocated through the memory managers, so they
+// must be freed while those are still alive: member destruction order would
+// tear `memoryManagers` down before `computeBackends`.
+CUDABackendManager::~CUDABackendManager() {
+    for (auto& compute : computeBackends) {
+        compute->releaseSharedWorkArea();
+    }
+};
+
 size_t CUDABackendManager::getNumberDevices() const {
     return nDevices;
 }
@@ -190,6 +199,14 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
     try {
         auto compute = createComputeBackend(config);
         auto mem = createMemoryManager(config);
+        // cuFFT plan work areas are allocated (and accounted) through this
+        // backend's memory manager instead of cuFFT's internal allocations.
+        // Capture through the base interface: the raw alloc/free overrides are
+        // private in CUDABackendMemoryManager, dispatch stays virtual.
+        IBackendMemoryManager* memBase = mem.get();
+        compute->setDeviceAllocator(
+            [memBase](size_t bytes) { return memBase->allocateMemoryOnDevice(bytes); },
+            [memBase](void* ptr, size_t bytes) { memBase->freeMemoryOnDevice(ptr, bytes); });
         std::unique_ptr<CUDABackend> backend = std::unique_ptr<CUDABackend>(new CUDABackend(config, std::move(compute), std::move(mem)));
         if (!backend) {
             throw dolphin::backend::BackendException(

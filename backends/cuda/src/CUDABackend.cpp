@@ -340,7 +340,7 @@ void CUDAComputeBackend::addPlan(const CUDAFFTPlanDescription& description, cuff
     cuFFTPlans.push_back(std::move(plan));
 }
 
-void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description) const {
+void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description, size_t& workBytesOut) const {
     int rank = 3;
     long long int Nx = static_cast<long long int>(description.shape.width);
     long long int Ny = static_cast<long long int>(description.shape.height);
@@ -367,7 +367,7 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const CUDAFF
 
     long long int idist = Nz * Ny * realStride;
     long long int odist = Nz * Ny * complexWidth;
-    size_t worksize = static_cast<size_t>(idist) * sizeof(real_t);
+    size_t worksize = 0; // out: cuFFT reports the work area the plan requires
 
     try {
 
@@ -384,6 +384,7 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const CUDAFF
             &worksize
         ), "createPlan - R2C plan setup, might be out of memory", buildCudaContext(config));
 
+        workBytesOut = worksize;
 
         std::string msg = fmt::format(
             "Successfully created cuFFT r2c plan ({}) for shape: {}x{}x{}",
@@ -400,7 +401,7 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const CUDAFF
     }
 }
 
-void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const CUDAFFTPlanDescription& description) const {
+void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const CUDAFFTPlanDescription& description, size_t& workBytesOut) const {
     int rank = 3;
     long long int Nx = static_cast<long long int>(description.shape.width);
     long long int Ny = static_cast<long long int>(description.shape.height);
@@ -427,7 +428,7 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const CUDAFF
 
     long long int idist = Nz * Ny * complexWidth;
     long long int odist = Nz * Ny * realStride;
-    size_t worksize = static_cast<size_t>(odist) * sizeof(real_t);
+    size_t worksize = 0; // out: cuFFT reports the work area the plan requires
 
     try {
 
@@ -444,6 +445,7 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const CUDAFF
             &worksize
         ), "createPlan - C2R plan setup, might be out of memory", buildCudaContext(config));
 
+        workBytesOut = worksize;
 
         std::string msg = fmt::format(
             "Successfully created cuFFT c2r plan ({}) for shape: {}x{}x{}",
@@ -460,9 +462,10 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const CUDAFF
     }
 }
 
-void CUDAComputeBackend::createPlanComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description) const {
-    size_t tempSize = sizeof(complex_t) * description.shape.getVolume();
+void CUDAComputeBackend::createPlanComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description, size_t& workBytesOut) const {
+    size_t tempSize = 0;
     CUFFT_RUNTIME_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2C, &tempSize), "getPlan - C2C plan setup", buildCudaContext(config));
+    workBytesOut = tempSize;
 }
 
 
@@ -482,12 +485,22 @@ cufftHandle CUDAComputeBackend::initializePlan_(const CUDAFFTPlanDescription& de
     try {
         CUFFT_CHECK(cufftCreate(&newPlan), "getPlan - plan creation", buildCudaContext(config));
 
-        if (description.type == PlanType::COMPLEX) createPlanComplex(newPlan, description);
-        else if (description.type == PlanType::REAL && description.direction == PlanDirection::FORWARD) createPlanRealToComplex(newPlan, description);
-        else if (description.type == PlanType::REAL && description.direction == PlanDirection::BACKWARD) createPlanComplexToReal(newPlan, description);
+        // cuFFT must not allocate its own (per-plan, tracking-invisible) work
+        // area; this backend provides one shared buffer for all its plans.
+        CUFFT_CHECK(cufftSetAutoAllocation(newPlan, 0), "getPlan - disable auto allocation", buildCudaContext(config));
+
+        size_t workBytes = 0;
+        if (description.type == PlanType::COMPLEX) createPlanComplex(newPlan, description, workBytes);
+        else if (description.type == PlanType::REAL && description.direction == PlanDirection::FORWARD) createPlanRealToComplex(newPlan, description, workBytes);
+        else if (description.type == PlanType::REAL && description.direction == PlanDirection::BACKWARD) createPlanComplexToReal(newPlan, description, workBytes);
         assert(newPlan != 0 && "cufft plan not created");
 
         CUFFT_CHECK(cufftSetStream(newPlan, config.stream), "getPlan - stream setup", buildCudaContext(config));
+
+        // Provide the shared work area (grown if this plan needs more than the
+        // current buffer holds), then attach it before the first execution.
+        ensureSharedWorkArea(workBytes);
+        CUFFT_CHECK(cufftSetWorkArea(newPlan, sharedWorkArea_), "getPlan - shared work area setup", buildCudaContext(config));
 
         // Synchronize to ensure plan is ready
         cudaError_t err = cudaStreamSynchronize(config.stream);
@@ -514,6 +527,55 @@ void CUDAComputeBackend::destroyPlans(){
         }
     }
     cuFFTPlans.clear();
+}
+
+void CUDAComputeBackend::setDeviceAllocator(std::function<void*(size_t)> allocDevice,
+                                            std::function<void(void*, size_t)> freeDevice) {
+    allocDevice_ = std::move(allocDevice);
+    freeDevice_ = std::move(freeDevice);
+}
+
+void* CUDAComputeBackend::allocateWorkArea(size_t bytes) {
+    if (allocDevice_) return allocDevice_(bytes); // tracked: via the memory manager
+    void* ptr = nullptr;
+    cudaError_t err = cudaMalloc(&ptr, bytes);    // fallback: untracked
+    CUDA_MEMORY_ALLOC_CHECK(err, bytes, "sharedWorkArea - cudaMalloc", buildCudaContext(config));
+    return ptr;
+}
+
+void CUDAComputeBackend::freeWorkArea(void* ptr, size_t bytes) {
+    if (ptr == nullptr) return;
+    if (freeDevice_) {
+        freeDevice_(ptr, bytes);
+        return;
+    }
+    cudaFree(ptr);
+}
+
+void CUDAComputeBackend::ensureSharedWorkArea(size_t requiredBytes) {
+    if (requiredBytes <= sharedWorkBytes_) return;
+
+    // Grow: the previous buffer becomes invalid, so every existing plan must be
+    // re-attached to the new one. Safe because plan creation and execution on
+    // one backend never overlap (the io thread initializes, the worker executes,
+    // and the io thread waits for the result in between).
+    freeWorkArea(sharedWorkArea_, sharedWorkBytes_);
+    sharedWorkArea_ = nullptr;
+    sharedWorkBytes_ = 0;
+
+    sharedWorkArea_ = allocateWorkArea(requiredBytes);
+    sharedWorkBytes_ = requiredBytes;
+    logWithContext(fmt::format("Shared cuFFT work area: {:.2f} MB", requiredBytes / 1e6), LogLevel::LOG_DEBUG);
+
+    for (auto& plan : cuFFTPlans) {
+        CUFFT_CHECK(cufftSetWorkArea(plan.plan, sharedWorkArea_), "ensureSharedWorkArea - re-attach", buildCudaContext(config));
+    }
+}
+
+void CUDAComputeBackend::releaseSharedWorkArea() {
+    freeWorkArea(sharedWorkArea_, sharedWorkBytes_);
+    sharedWorkArea_ = nullptr;
+    sharedWorkBytes_ = 0;
 }
 
 

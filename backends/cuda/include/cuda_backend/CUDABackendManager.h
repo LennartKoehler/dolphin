@@ -78,7 +78,7 @@ class CUDABackendManager : public IBackendManager{
 public:
 
     explicit CUDABackendManager();
-    ~CUDABackendManager() override = default;
+    ~CUDABackendManager() override;
     void init(LogCallback fn) override;
 
     IBackend& createBackendForCurrentThread(const BackendConfig& config) override;
