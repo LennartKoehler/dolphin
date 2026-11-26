@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.18)
+
+# vcpkg manifest, configuration, and overlay ports live in cmake/vcpkg/.
+# Must be set before project() so the vcpkg toolchain (Windows CI) picks it up.
+set(VCPKG_MANIFEST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vcpkg")
+
 project(dolphin VERSION 1.0.0)
 cmake_policy(SET CMP0074 NEW)
 

@@ -441,7 +441,7 @@ jobs:
             -DBUILD_CLI=ON `
             -DCMAKE_CXX_COMPILER=cl `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
+            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\cmake\vcpkg\vcpkg-overlay-ports" `
             -DBUILD_CUDA=OFF `
             -DENABLE_TESTS=OFF `
             -DENABLE_BENCHMARKS=OFF `
@@ -614,7 +614,7 @@ jobs:
             -DBUILD_CLI=ON `
             -DCMAKE_CXX_COMPILER=cl `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\vcpkg-overlay-ports" `
+            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}\cmake\vcpkg\vcpkg-overlay-ports" `
             -DBUILD_CUDA=ON `
             -DENABLE_TESTS=OFF `
             -DENABLE_BENCHMARKS=OFF `
