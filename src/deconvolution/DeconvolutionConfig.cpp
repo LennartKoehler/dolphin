@@ -150,8 +150,8 @@ void DeconvolutionConfig::registerAllParameters() {
     parameters.push_back({ParameterType::Float, &paddingRelativeMax, "Padding Relative Max", true, "padding_relative_max", "--padding_relative_max",
         "Pad until PSF is below this fraction of its max value (0-1). > 0 overrides padding_strategy", false, false, 0.0, 1.0, nullptr});
     parameters.push_back({ParameterType::Int, &featheringRadius, "Feathering Radius", true, "feathering_radius", "--feathering_radius", "Enable featheringRadius", false, false, 0.0, 100000.0, nullptr});
-    parameters.push_back({ParameterType::IntArray3, &cubeSize, "Cube Size", true, "cube_size", "--cube_size", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
-    parameters.push_back({ParameterType::IntArray3, &cubePadding, "Cube Padding", true, "cube_padding", "--cube_padding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
+    parameters.push_back({ParameterType::SizeTArray3, &cubeSize, "Cube Size", true, "cube_size", "--cube_size", "Size of the cube used (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
+    parameters.push_back({ParameterType::SizeTArray3, &cubePadding, "Cube Padding", true, "cube_padding", "--cube_padding", "Padding for each cube (x,y,z)", false, false, 0.0, 0.0, nullptr, 3});
     parameters.push_back({ParameterType::Bool, &sliceAllDimensions, "Slice all dimensions", true, "slice_all_dimensions", "--slice_all_dimensions", "Slice all dimensions not only Z dimension", false, false, 0.0, 0.0, nullptr});
     parameters.push_back({ParameterType::Map, &backgroundStrategyType, "Background Strategy", true, "background_strategy", "--background_strategy",
         "Background source for algorithms that estimate one (PoissonMLE): global (one interior cube, used for all cubes, default) or whole_image (streams the full image, reads it twice)", false, true, 0.0, 1, backgroundStrategyMap_p});
