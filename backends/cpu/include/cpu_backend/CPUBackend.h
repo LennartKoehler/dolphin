@@ -260,6 +260,7 @@ public:
     real_t getMax(const RealData& a) const override;
     void poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
                                real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const override;
+    void realWrappedMoments(const RealData& a, double* result) const override;
     void fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const override;
     void complexMultiplyGaussianOTF(ComplexData& inout, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const override;
     void normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const override;

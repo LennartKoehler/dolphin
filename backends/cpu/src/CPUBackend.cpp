@@ -840,6 +840,40 @@ void CPUComputeBackend::realSum(const RealData& a, real_t* result) const {
     *result = sum;
 }
 
+// Wrapped-coordinate mass moments of the positive mass (PoissonMLE PSF width
+// estimate): double accumulation over the logical volume, skipping v <= 0.
+// result = {total, mx, my, mz, mx2, my2, mz2} (7 host doubles).
+void CPUComputeBackend::realWrappedMoments(const RealData& a, double* result) const {
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realWrappedMoments - input a", buildCpuContext());
+    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "realWrappedMoments - result", buildCpuContext());
+
+    // Plain triple loop (not stridedIteration): the wrapped coordinate needs
+    // the y/z indices, which the row callbacks do not expose.
+    const CuboidShape s = a.getSize();
+    const size_t W = s.width, Hh = s.height, D = s.depth;
+    const size_t stride = W + a.getPadding();
+    const real_t* p = rawData(a);
+
+    double total = 0.0, mx = 0.0, my = 0.0, mz = 0.0;
+    double mx2 = 0.0, my2 = 0.0, mz2 = 0.0;
+    for (size_t z = 0; z < D; ++z)
+        for (size_t y = 0; y < Hh; ++y) {
+            const real_t* row = p + z * stride * Hh + y * stride;
+            for (size_t x = 0; x < W; ++x) {
+                real_t v = row[x];
+                if (v > 0.0f) {
+                    double wx = (x > W / 2) ? (double)x - (double)W : (double)x;
+                    double wy = (y > Hh / 2) ? (double)y - (double)Hh : (double)y;
+                    double wz = (z > D / 2) ? (double)z - (double)D : (double)z;
+                    total += v; mx += v * wx; my += v * wy; mz += v * wz;
+                    mx2 += v * wx * wx; my2 += v * wy * wy; mz2 += v * wz * wz;
+                }
+            }
+        }
+    result[0] = total; result[1] = mx; result[2] = my; result[3] = mz;
+    result[4] = mx2; result[5] = my2; result[6] = mz2;
+}
+
 void CPUComputeBackend::realLinearCombination(const RealData& a, real_t sa, const RealData& b, real_t sb, RealData& result) const {
     BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realLinearCombination - input a", buildCpuContext());
     BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "realLinearCombination - input b", buildCpuContext());

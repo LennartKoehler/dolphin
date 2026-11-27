@@ -426,6 +426,14 @@ namespace CUBE_MLE {
         return launchSync([=] { poissonLineSearchEvalGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideG, strideM, strideHd, g, m, hd, alpha, result); }, stream);
     }
 
+    cudaError_t realWrappedMoments(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, double* result, cudaStream_t stream){
+        if (!a || !result) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realWrappedMomentsGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, stride, a, result); }, stream);
+    }
+
     cudaError_t fillGaussianOTF(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t stride, complex_t* out, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az, cudaStream_t stream){
         if (!out) {
             return cudaErrorInvalidValue;

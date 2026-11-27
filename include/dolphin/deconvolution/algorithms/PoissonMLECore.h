@@ -151,9 +151,10 @@ struct PoissonMLECore {
     // Estimates (once, cached) the PSF's sigma widths using `work`/`workOTF` as
     // scratch. Run-constant for a given padded shape: re-estimating per cube
     // would let float32 OTF noise give slightly different prefilter/sieve
-    // widths and thus visible tile seams.
+    // widths and thus visible tile seams. The width reduction runs entirely on
+    // the backend (realWrappedMoments) — only the 7 scalar moments are read back.
     void ensurePsfSigmas(const IComputeBackend& compute, const IBackendMemoryManager& memory,
-                         const ComplexData& H, const CuboidShape& shape,
+                         const ComplexData& H,
                          ComplexData& workOTF, RealData& work);
 
     // m = clamp_min(Hf + bg, bg), written into `m`. The clamp is the model's

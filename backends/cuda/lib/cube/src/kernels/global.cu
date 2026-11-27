@@ -1016,6 +1016,35 @@ void poissonLineSearchEvalGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideG
     }
 }
 
+// Wrapped-coordinate mass moments of the positive mass (PoissonMLE PSF width
+// estimate for the prefilter/sieve). result is a device double[7]:
+// {total, mx, my, mz, mx2, my2, mz2}, accumulated with double atomics to
+// match the CPU reference's double accumulation.
+__global__
+void realWrappedMomentsGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, double* result) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        real_t v = a[detail::indexStrided(x, y, z, stride, Ny)];
+        if (v > 0.0f) {
+            // The OTF comes from an octant-shifted PSF, so the recovered spatial
+            // PSF is corner-peaked with mass wrapping across all edges: moments
+            // are taken about wrapped coordinates (peak at the origin).
+            double wx = (x > Nx / 2) ? (double)x - (double)Nx : (double)x;
+            double wy = (y > Ny / 2) ? (double)y - (double)Ny : (double)y;
+            double wz = (z > Nz / 2) ? (double)z - (double)Nz : (double)z;
+            atomicAdd(result + 0, (double)v);
+            atomicAdd(result + 1, (double)v * wx);
+            atomicAdd(result + 2, (double)v * wy);
+            atomicAdd(result + 3, (double)v * wz);
+            atomicAdd(result + 4, (double)v * wx * wx);
+            atomicAdd(result + 5, (double)v * wy * wy);
+            atomicAdd(result + 6, (double)v * wz * wz);
+        }
+    }
+}
+
 __global__
 void fillGaussianOTFGlobal(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t stride, complex_t* out, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az) {
     size_t x = detail::tx();

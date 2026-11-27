@@ -45,7 +45,6 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
 
     const IBackendMemoryManager& memory = backend->getMemoryManager();
     const IComputeBackend& compute = backend->getComputeManager();
-    const CuboidShape shape = f.getSize();
 
     assert(memory.isOnDevice(f) && "f is not on device");
     assert(memory.isOnDevice(g) && "g is not on device");
@@ -54,7 +53,7 @@ void PoissonMLEDeconvolutionAlgorithm::deconvolve(const ComplexData& H, RealData
     memory.memCopy(g, f);
 
     // ---- Physical parameters: cached PSF sigma widths (run-constant). ----
-    core_.ensurePsfSigmas(compute, memory, H, shape, core_.scratchC, core_.scratch);
+    core_.ensurePsfSigmas(compute, memory, H, core_.scratchC, core_.scratch);
 
     // ---- Prefilter: a single mild anisotropic Gaussian low-pass of the raw data. ----
     core_.applyPrefilter(compute, f, core_.psfSigX, core_.psfSigY, core_.psfSigZ);

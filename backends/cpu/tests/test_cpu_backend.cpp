@@ -1003,6 +1003,53 @@ TEST_F(CPUComputeBackendTest, RealScalarMultiplication) {
     }
 }
 
+// ============================================================================
+// realWrappedMoments — wrapped-coordinate mass moments (PoissonMLE PSF width)
+// ============================================================================
+
+TEST_F(CPUComputeBackendTest, RealWrappedMomentsPointMasses) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    // In-place FFT layout (padded rows) — the production buffer shape.
+    RealData data = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+    data.zeroFill();
+    // Point masses whose wrapped coordinates differ from the raw indices:
+    // (x=1,y=6,z=0) -> (1,-2,0) and (x=7,y=2,z=3) -> (-1,2,-1). A negative
+    // and a zero voxel must be skipped (only v > 0 contributes).
+    data.access(0 * 8 * 8 + 6 * 8 + 1) = 2.0f;
+    data.access(3 * 8 * 8 + 2 * 8 + 7) = 0.5f;
+    data.access(1 * 8 * 8 + 1 * 8 + 4) = -1.0f;
+
+    double m[7] = {};
+    deconv.realWrappedMoments(data, m);
+
+    EXPECT_NEAR(m[0], 2.5, 1e-5);                       // total
+    EXPECT_NEAR(m[1], 2.0 * 1.0 + 0.5 * -1.0, 1e-5);    // mx
+    EXPECT_NEAR(m[2], 2.0 * -2.0 + 0.5 * 2.0, 1e-5);    // my
+    EXPECT_NEAR(m[3], 2.0 * 0.0 + 0.5 * -1.0, 1e-5);    // mz
+    EXPECT_NEAR(m[4], 2.0 * 1.0 + 0.5 * 1.0, 1e-5);     // mx2
+    EXPECT_NEAR(m[5], 2.0 * 4.0 + 0.5 * 4.0, 1e-5);     // my2
+    EXPECT_NEAR(m[6], 2.0 * 0.0 + 0.5 * 1.0, 1e-5);     // mz2
+}
+
+TEST_F(CPUComputeBackendTest, RealWrappedMomentsNoPositiveMass) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData data = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+    data.zeroFill();
+    data.access(5) = -3.0f; // only non-positive mass
+
+    double m[7] = {1, 1, 1, 1, 1, 1, 1};
+    deconv.realWrappedMoments(data, m);
+    for (int i = 0; i < 7; ++i) {
+        EXPECT_NEAR(m[i], 0.0, 1e-7) << "moment " << i << " should be 0";
+    }
+}
+
 TEST_F(CPUComputeBackendTest, OctantFourierShiftDoubleIsIdentity) {
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();

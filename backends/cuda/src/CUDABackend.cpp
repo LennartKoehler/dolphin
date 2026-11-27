@@ -1052,6 +1052,37 @@ void CUDAComputeBackend::realSum(const RealData& a, real_t* result) const {
     *result = static_cast<real_t>(hostVal);
 }
 
+// Wrapped-coordinate mass moments of the positive mass (PoissonMLE PSF width
+// estimate): one device-side reduction pass; only the 7 scalar results cross
+// to the host — the volume itself never leaves the backend.
+void CUDAComputeBackend::realWrappedMoments(const RealData& a, double* result) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realWrappedMoments - input a", buildCudaContext(config));
+    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CUDA", "realWrappedMoments - result", buildCudaContext(config));
+
+    size_t Nx = a.getSize().width;
+    size_t stride = Nx + a.getPadding();
+
+    double* d_result;
+    cudaError_t err = cudaMallocAsync(&d_result, 7 * sizeof(double), config.stream);
+    CUDA_CHECK(err, "realWrappedMoments - cudaMallocAsync", buildCudaContext(config));
+
+    err = cudaMemsetAsync(d_result, 0, 7 * sizeof(double), config.stream);
+    CUDA_CHECK(err, "realWrappedMoments - cudaMemsetAsync", buildCudaContext(config));
+
+    run("realWrappedMoments", CUBE_MLE::realWrappedMoments(Nx, a.getSize().height, a.getSize().depth, stride, rawData(a), d_result, config.stream));
+
+    double hostVals[7] = {};
+    err = cudaMemcpyAsync(hostVals, d_result, 7 * sizeof(double), cudaMemcpyDeviceToHost, config.stream);
+    cudaFreeAsync(d_result, config.stream);
+    CUDA_CHECK(err, "realWrappedMoments - cudaMemcpyAsync", buildCudaContext(config));
+
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "realWrappedMoments - cudaStreamSynchronize", buildCudaContext(config));
+
+    for (int i = 0; i < 7; ++i) result[i] = hostVals[i];
+}
+
 real_t CUDAComputeBackend::getMin(const RealData& a) const {
     ensureDevice();
     BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "getMin - input a", buildCudaContext(config));

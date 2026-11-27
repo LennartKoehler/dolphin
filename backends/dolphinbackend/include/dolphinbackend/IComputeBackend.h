@@ -317,6 +317,22 @@ public:
         COMPUTE_NOT_IMPLEMENTED(poissonLineSearchEval);
     }
 
+    // One-pass reduction of the wrapped-coordinate mass moments of a real
+    // volume — the PoissonMLE PSF width estimate. For every element with
+    // value v > 0, wrap the logical coordinates about the origin (the spatial
+    // PSF recovered from an octant-shifted OTF is corner-peaked with mass
+    // wrapping across the edges, so moments about raw indices would bias the
+    // variance low): wx = x - W for x > W/2, else x (same for y/z), then
+    // accumulate in double:
+    //   result[0] = total           = sum v
+    //   result[1..3] = mx,my,mz     = sum v*w
+    //   result[4..6] = mx2,my2,mz2  = sum v*w^2
+    // `result` must point to 7 host doubles. Only these scalars cross the
+    // device boundary — the volume itself never leaves the backend.
+    virtual void realWrappedMoments(const RealData& a, double* result) const {
+        COMPUTE_NOT_IMPLEMENTED(realWrappedMoments);
+    }
+
     // Fill a half-complex (r2c, W/2+1) buffer with the frequency-domain OTF of a
     // separable anisotropic 3D Gaussian whose spatial std-devs are sigmaX/Y/Z (in
     // voxels):  OTF(k) = exp(-2*pi^2 * (sx^2 fx^2 + sy^2 fy^2 + sz^2 fz^2)), real-valued,

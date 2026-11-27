@@ -999,6 +999,35 @@ TEST_F(CUDAComputeBackendTest, RealSum) {
     EXPECT_NEAR(result, expected, 0.05f) << "realSum should match host double sum";
 }
 
+TEST_F(CUDAComputeBackendTest, RealWrappedMoments) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    // In-place FFT layout (padded rows) — the production buffer shape.
+    RealData a = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+    std::vector<real_t> hostA(shape.getVolume(), 0.0f);
+    // Point masses whose wrapped coordinates differ from the raw indices:
+    // (x=1,y=6,z=0) -> (1,-2,0) and (x=7,y=2,z=3) -> (-1,2,-1). A negative
+    // voxel must be skipped (only v > 0 contributes).
+    hostA[0 * 8 * 8 + 6 * 8 + 1] = 2.0f;
+    hostA[3 * 8 * 8 + 2 * 8 + 7] = 0.5f;
+    hostA[1 * 8 * 8 + 1 * 8 + 4] = -1.0f;
+    writeRealToDevice(a, hostA);
+
+    double m[7] = {};
+    deconv.realWrappedMoments(a, m);
+    backend->sync();
+
+    EXPECT_NEAR(m[0], 2.5, 1e-5);                       // total
+    EXPECT_NEAR(m[1], 2.0 * 1.0 + 0.5 * -1.0, 1e-5);    // mx
+    EXPECT_NEAR(m[2], 2.0 * -2.0 + 0.5 * 2.0, 1e-5);    // my
+    EXPECT_NEAR(m[3], 2.0 * 0.0 + 0.5 * -1.0, 1e-5);    // mz
+    EXPECT_NEAR(m[4], 2.0 * 1.0 + 0.5 * 1.0, 1e-5);     // mx2
+    EXPECT_NEAR(m[5], 2.0 * 4.0 + 0.5 * 4.0, 1e-5);     // my2
+    EXPECT_NEAR(m[6], 2.0 * 0.0 + 0.5 * 1.0, 1e-5);     // mz2
+}
+
 TEST_F(CUDAComputeBackendTest, RealMin) {
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();

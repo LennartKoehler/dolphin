@@ -13,7 +13,6 @@ See the LICENSE file provided with the code for the full license.
 
 #include "dolphin/deconvolution/algorithms/PoissonMLECore.h"
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h" // DeconvolutionRunContext
-#include "dolphin/backend/BackendFactory.h"
 #include <cassert>
 #include <cmath>
 #include <algorithm>
@@ -43,54 +42,35 @@ void applySieve(const IComputeBackend& compute, RealData& f,
 
 // Estimate the PSF's lateral/axial width (voxels) from the OTF by recovering the
 // centered spatial PSF (in-place c2r into the `work`/`workReal` buffer) and taking
-// the standard deviation of its positive mass.
+// the standard deviation of its positive mass. The moment reduction runs entirely
+// on the backend (realWrappedMoments): only the 7 scalar moments cross to the
+// host — no volume copy, no device temp buffer.
 void estimatePsfSigmas(const IComputeBackend& compute,
                        const IBackendMemoryManager& mem,
-                       const ComplexData& H, const CuboidShape& shape,
+                       const ComplexData& H,
                        ComplexData& work, RealData& workReal,
                        real_t& sigX, real_t& sigY, real_t& sigZ) {
     // work = H (copy), then in-place c2r -> spatial PSF in workReal.
     mem.memCopy(H, work);
     compute.backwardFFT(work, workReal);
 
-    const size_t W = shape.width, Hh = shape.height, D = shape.depth;
-
-    // Copy the recovered (device) PSF to the host before the moment loop — the
-    // host pointer must never be dereferenced while it still points at device
-    // memory (CUDA). Same copy-to-host idiom as estimateBackground; the host
-    // copy preserves the padded in-place layout, which access() maps back to
-    // logical indices (per-row padding is added by convertIndex).
-    const IBackendMemoryManager& hostMem = BackendFactory::getInstance().getHostBackendMemoryManager();
-    RealData psfCopy = mem.copyDataToDevice(workReal);
-    RealData psfGhost = mem.moveDataFromDevice(psfCopy, hostMem);
-
-    double total = 0, mx = 0, my = 0, mz = 0, mx2 = 0, my2 = 0, mz2 = 0;
-    for (size_t z = 0; z < D; ++z)
-        for (size_t y = 0; y < Hh; ++y)
-            for (size_t x = 0; x < W; ++x) {
-                real_t v = psfGhost.access(z * W * Hh + y * W + x);
-                if (v > 0.0f) {
-                    // The OTF comes from an octant-shifted PSF, so the recovered spatial
-                    // PSF is corner-peaked with mass wrapping across all edges. Moments
-                    // must be taken about wrapped coordinates (peak at the origin), not
-                    // raw indices, otherwise the variance is biased low.
-                    double vx = (x > W / 2) ? (double)x - (double)W : (double)x;
-                    double vy = (y > Hh / 2) ? (double)y - (double)Hh : (double)y;
-                    double vz = (z > D / 2) ? (double)z - (double)D : (double)z;
-                    total += v; mx += v * vx; my += v * vy; mz += v * vz;
-                    mx2 += v * vx * vx; my2 += v * vy * vy; mz2 += v * vz * vz;
-                }
-            }
-    hostMem.freeMemoryOnDevice(psfGhost);
+    // One device-side pass: wrapped-coordinate moments of the PSF's positive
+    // mass. The OTF comes from an octant-shifted PSF, so the recovered spatial
+    // PSF is corner-peaked with mass wrapping across all edges — moments about
+    // raw indices would bias the variance low, hence the wrapped coordinates
+    // inside the kernel.
+    double m[7];
+    compute.realWrappedMoments(workReal, m);
+    const double total = m[0];
 
     auto sd = [total](double m1, double m2) {
         if (total <= 0.0) return 0.0;
         double var = m2 / total - (m1 / total) * (m1 / total);
         return var > 0.0 ? std::sqrt(var) : 0.0;
     };
-    sigX = std::max(0.1f, static_cast<real_t>(sd(mx, mx2)));
-    sigY = std::max(0.1f, static_cast<real_t>(sd(my, my2)));
-    sigZ = std::max(0.1f, static_cast<real_t>(sd(mz, mz2)));
+    sigX = std::max(0.1f, static_cast<real_t>(sd(m[1], m[4])));
+    sigY = std::max(0.1f, static_cast<real_t>(sd(m[2], m[5])));
+    sigZ = std::max(0.1f, static_cast<real_t>(sd(m[3], m[6])));
 }
 
 } // namespace
@@ -171,10 +151,10 @@ void PoissonMLECore::applyPrefilter(const IComputeBackend& compute, RealData& f,
 
 void PoissonMLECore::ensurePsfSigmas(const IComputeBackend& compute,
                                      const IBackendMemoryManager& memory,
-                                     const ComplexData& H, const CuboidShape& shape,
+                                     const ComplexData& H,
                                      ComplexData& workOTF, RealData& work) {
     if (psfSigmasValid) return;
-    estimatePsfSigmas(compute, memory, H, shape, workOTF, work, psfSigX, psfSigY, psfSigZ);
+    estimatePsfSigmas(compute, memory, H, workOTF, work, psfSigX, psfSigY, psfSigZ);
     psfSigLat = 0.5f * (psfSigX + psfSigY);
     psfSigAx = psfSigZ;
     psfSigmasValid = true;
