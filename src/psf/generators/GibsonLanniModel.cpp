@@ -140,7 +140,8 @@ ModelBox GibsonLanniModel::autoBox(const PSFConfig& baseConfig,
 
     const PSFBoxSizing::ApproxResolution resolution =
         PSFBoxSizing::approximateResolution(config, *detectionLambda, config.resolutionCriterion);
-    PSFBoxSizing::warnIfUndersampled(resolution, pixelLat, pixelAx);
+    PSFBoxSizing::logSampling(config, *detectionLambda, config.resolutionCriterion,
+                              resolution, pixelLat, pixelAx);
 
     const PSFBoxSizing::BoxHalfExtent boxHalf =
         PSFBoxSizing::computeBoxHalfExtent(resolution, config);
@@ -149,7 +150,7 @@ ModelBox GibsonLanniModel::autoBox(const PSFConfig& baseConfig,
     box.lateralHalf = boxHalf.lateral;
     box.width = 2 * box.lateralHalf + 1;
     box.height = box.width;
-    const long axialHalf = static_cast<long>(boxHalf.axial);
+    const long axialHalf = static_cast<long>(boxHalf.depth);
     box.depth = static_cast<size_t>(2 * axialHalf + 1);
     box.firstOffset = -axialHalf;
     return box;
