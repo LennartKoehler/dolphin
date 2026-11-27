@@ -217,6 +217,18 @@ void CUDABackendMemoryManager::memCopy(void* src, void* dest, size_t size, const
     CUDA_CHECK(err, "memCopy - cudaStreamSynchronize", buildCudaContext(config));
 }
 
+void CUDABackendMemoryManager::copyHostZSlice(const ManagedData<real_t>& hostVol, size_t zSlice, RealData& slabDev) const {
+    ensureDevice();
+    const size_t rowStride = hostVol.getSize().width + hostVol.getPadding();
+    const size_t slabReals = hostVol.getSize().height * rowStride;
+    const real_t* src = rawData(hostVol) + zSlice * slabReals;
+
+    cudaError_t err = cudaMemcpyAsync(rawData(slabDev), src, slabReals * sizeof(real_t), cudaMemcpyHostToDevice, config.stream);
+    CUDA_CHECK(err, "copyHostZSlice - cudaMemcpyAsync", buildCudaContext(config));
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "copyHostZSlice - cudaStreamSynchronize", buildCudaContext(config));
+}
+
 void CUDABackendMemoryManager::zeroFill(void* dest, size_t size, const CuboidShape& shape) const {
     ensureDevice();
     logWithContext(fmt::format("zeroFill: {:.2f} MB, shape: {}", size / 1e6, shape.print()), LogLevel::LOG_DEBUG);
@@ -328,7 +340,7 @@ void CUDAComputeBackend::addPlan(const CUDAFFTPlanDescription& description, cuff
     cuFFTPlans.push_back(std::move(plan));
 }
 
-void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description) const {
+void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description, size_t& workBytesOut) const {
     int rank = 3;
     long long int Nx = static_cast<long long int>(description.shape.width);
     long long int Ny = static_cast<long long int>(description.shape.height);
@@ -355,7 +367,7 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const CUDAFF
 
     long long int idist = Nz * Ny * realStride;
     long long int odist = Nz * Ny * complexWidth;
-    size_t worksize = static_cast<size_t>(idist) * sizeof(real_t);
+    size_t worksize = 0; // out: cuFFT reports the work area the plan requires
 
     try {
 
@@ -372,6 +384,7 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const CUDAFF
             &worksize
         ), "createPlan - R2C plan setup, might be out of memory", buildCudaContext(config));
 
+        workBytesOut = worksize;
 
         std::string msg = fmt::format(
             "Successfully created cuFFT r2c plan ({}) for shape: {}x{}x{}",
@@ -388,7 +401,7 @@ void CUDAComputeBackend::createPlanRealToComplex(cufftHandle& plan, const CUDAFF
     }
 }
 
-void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const CUDAFFTPlanDescription& description) const {
+void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const CUDAFFTPlanDescription& description, size_t& workBytesOut) const {
     int rank = 3;
     long long int Nx = static_cast<long long int>(description.shape.width);
     long long int Ny = static_cast<long long int>(description.shape.height);
@@ -415,7 +428,7 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const CUDAFF
 
     long long int idist = Nz * Ny * complexWidth;
     long long int odist = Nz * Ny * realStride;
-    size_t worksize = static_cast<size_t>(odist) * sizeof(real_t);
+    size_t worksize = 0; // out: cuFFT reports the work area the plan requires
 
     try {
 
@@ -432,6 +445,7 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const CUDAFF
             &worksize
         ), "createPlan - C2R plan setup, might be out of memory", buildCudaContext(config));
 
+        workBytesOut = worksize;
 
         std::string msg = fmt::format(
             "Successfully created cuFFT c2r plan ({}) for shape: {}x{}x{}",
@@ -448,9 +462,50 @@ void CUDAComputeBackend::createPlanComplexToReal(cufftHandle& plan, const CUDAFF
     }
 }
 
-void CUDAComputeBackend::createPlanComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description) const {
-    size_t tempSize = sizeof(complex_t) * description.shape.getVolume();
+void CUDAComputeBackend::createPlanComplex(cufftHandle& plan, const CUDAFFTPlanDescription& description, size_t& workBytesOut) const {
+    size_t tempSize = 0;
     CUFFT_RUNTIME_CHECK(cufftMakePlan3d(plan, description.shape.depth, description.shape.height, description.shape.width, CUFFT_C2C, &tempSize), "getPlan - C2C plan setup", buildCudaContext(config));
+    workBytesOut = tempSize;
+}
+
+size_t CUDAComputeBackend::estimatePlanWorkBytes(const FFTPlanDescription& description) {
+    const long long int Nx = static_cast<long long int>(description.shape.width);
+    const long long int Ny = static_cast<long long int>(description.shape.height);
+    const long long int Nz = static_cast<long long int>(description.shape.depth);
+
+    // Conservative fallback matching the manager's old heuristic (2 cube
+    // volumes) if cuFFT refuses to estimate.
+    const size_t fallback = 2 * description.shape.getVolume() * sizeof(real_t);
+
+    if (description.type == PlanType::COMPLEX) {
+        size_t work = 0;
+        return cufftEstimate3d(Nz, Ny, Nx, CUFFT_C2C, &work) == CUFFT_SUCCESS ? work : fallback;
+    }
+
+    // REAL plans: canonical padded in-place layout — the same assumption
+    // initializePlan makes and the layout all working buffers use, so the
+    // estimate matches the plan the backend will actually create.
+    const int complexWidth = static_cast<int>(Nx / 2 + 1);
+    const int realStride = 2 * complexWidth;
+    int n[3] = {static_cast<int>(Nz), static_cast<int>(Ny), static_cast<int>(Nx)};
+    size_t work = 0;
+    cufftResult result;
+    if (description.direction == PlanDirection::FORWARD) {
+        // r2c: padded real input, half-width complex output.
+        int inembed[3] = {n[0], n[1], realStride};
+        int onembed[3] = {n[0], n[1], complexWidth};
+        result = cufftEstimateMany(3, n, inembed, 1, n[0] * n[1] * realStride,
+                                   onembed, 1, n[0] * n[1] * complexWidth,
+                                   CUFFT_R2C, 1, &work);
+    } else {
+        // c2r: half-width complex input, padded real output.
+        int inembed[3] = {n[0], n[1], complexWidth};
+        int onembed[3] = {n[0], n[1], realStride};
+        result = cufftEstimateMany(3, n, inembed, 1, n[0] * n[1] * complexWidth,
+                                   onembed, 1, n[0] * n[1] * realStride,
+                                   CUFFT_C2R, 1, &work);
+    }
+    return result == CUFFT_SUCCESS ? work : fallback;
 }
 
 
@@ -470,12 +525,22 @@ cufftHandle CUDAComputeBackend::initializePlan_(const CUDAFFTPlanDescription& de
     try {
         CUFFT_CHECK(cufftCreate(&newPlan), "getPlan - plan creation", buildCudaContext(config));
 
-        if (description.type == PlanType::COMPLEX) createPlanComplex(newPlan, description);
-        else if (description.type == PlanType::REAL && description.direction == PlanDirection::FORWARD) createPlanRealToComplex(newPlan, description);
-        else if (description.type == PlanType::REAL && description.direction == PlanDirection::BACKWARD) createPlanComplexToReal(newPlan, description);
+        // cuFFT must not allocate its own (per-plan, tracking-invisible) work
+        // area; this backend provides one shared buffer for all its plans.
+        CUFFT_CHECK(cufftSetAutoAllocation(newPlan, 0), "getPlan - disable auto allocation", buildCudaContext(config));
+
+        size_t workBytes = 0;
+        if (description.type == PlanType::COMPLEX) createPlanComplex(newPlan, description, workBytes);
+        else if (description.type == PlanType::REAL && description.direction == PlanDirection::FORWARD) createPlanRealToComplex(newPlan, description, workBytes);
+        else if (description.type == PlanType::REAL && description.direction == PlanDirection::BACKWARD) createPlanComplexToReal(newPlan, description, workBytes);
         assert(newPlan != 0 && "cufft plan not created");
 
         CUFFT_CHECK(cufftSetStream(newPlan, config.stream), "getPlan - stream setup", buildCudaContext(config));
+
+        // Provide the shared work area (grown if this plan needs more than the
+        // current buffer holds), then attach it before the first execution.
+        ensureSharedWorkArea(workBytes);
+        CUFFT_CHECK(cufftSetWorkArea(newPlan, sharedWorkArea_), "getPlan - shared work area setup", buildCudaContext(config));
 
         // Synchronize to ensure plan is ready
         cudaError_t err = cudaStreamSynchronize(config.stream);
@@ -502,6 +567,55 @@ void CUDAComputeBackend::destroyPlans(){
         }
     }
     cuFFTPlans.clear();
+}
+
+void CUDAComputeBackend::setDeviceAllocator(std::function<void*(size_t)> allocDevice,
+                                            std::function<void(void*, size_t)> freeDevice) {
+    allocDevice_ = std::move(allocDevice);
+    freeDevice_ = std::move(freeDevice);
+}
+
+void* CUDAComputeBackend::allocateWorkArea(size_t bytes) {
+    if (allocDevice_) return allocDevice_(bytes); // tracked: via the memory manager
+    void* ptr = nullptr;
+    cudaError_t err = cudaMalloc(&ptr, bytes);    // fallback: untracked
+    CUDA_MEMORY_ALLOC_CHECK(err, bytes, "sharedWorkArea - cudaMalloc", buildCudaContext(config));
+    return ptr;
+}
+
+void CUDAComputeBackend::freeWorkArea(void* ptr, size_t bytes) {
+    if (ptr == nullptr) return;
+    if (freeDevice_) {
+        freeDevice_(ptr, bytes);
+        return;
+    }
+    cudaFree(ptr);
+}
+
+void CUDAComputeBackend::ensureSharedWorkArea(size_t requiredBytes) {
+    if (requiredBytes <= sharedWorkBytes_) return;
+
+    // Grow: the previous buffer becomes invalid, so every existing plan must be
+    // re-attached to the new one. Safe because plan creation and execution on
+    // one backend never overlap (the io thread initializes, the worker executes,
+    // and the io thread waits for the result in between).
+    freeWorkArea(sharedWorkArea_, sharedWorkBytes_);
+    sharedWorkArea_ = nullptr;
+    sharedWorkBytes_ = 0;
+
+    sharedWorkArea_ = allocateWorkArea(requiredBytes);
+    sharedWorkBytes_ = requiredBytes;
+    logWithContext(fmt::format("Shared cuFFT work area: {:.2f} MB", requiredBytes / 1e6), LogLevel::LOG_DEBUG);
+
+    for (auto& plan : cuFFTPlans) {
+        CUFFT_CHECK(cufftSetWorkArea(plan.plan, sharedWorkArea_), "ensureSharedWorkArea - re-attach", buildCudaContext(config));
+    }
+}
+
+void CUDAComputeBackend::releaseSharedWorkArea() {
+    freeWorkArea(sharedWorkArea_, sharedWorkBytes_);
+    sharedWorkArea_ = nullptr;
+    sharedWorkBytes_ = 0;
 }
 
 
@@ -938,6 +1052,37 @@ void CUDAComputeBackend::realSum(const RealData& a, real_t* result) const {
     *result = static_cast<real_t>(hostVal);
 }
 
+// Wrapped-coordinate mass moments of the positive mass (PoissonMLE PSF width
+// estimate): one device-side reduction pass; only the 7 scalar results cross
+// to the host — the volume itself never leaves the backend.
+void CUDAComputeBackend::realWrappedMoments(const RealData& a, double* result) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realWrappedMoments - input a", buildCudaContext(config));
+    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CUDA", "realWrappedMoments - result", buildCudaContext(config));
+
+    size_t Nx = a.getSize().width;
+    size_t stride = Nx + a.getPadding();
+
+    double* d_result;
+    cudaError_t err = cudaMallocAsync(&d_result, 7 * sizeof(double), config.stream);
+    CUDA_CHECK(err, "realWrappedMoments - cudaMallocAsync", buildCudaContext(config));
+
+    err = cudaMemsetAsync(d_result, 0, 7 * sizeof(double), config.stream);
+    CUDA_CHECK(err, "realWrappedMoments - cudaMemsetAsync", buildCudaContext(config));
+
+    run("realWrappedMoments", CUBE_MLE::realWrappedMoments(Nx, a.getSize().height, a.getSize().depth, stride, rawData(a), d_result, config.stream));
+
+    double hostVals[7] = {};
+    err = cudaMemcpyAsync(hostVals, d_result, 7 * sizeof(double), cudaMemcpyDeviceToHost, config.stream);
+    cudaFreeAsync(d_result, config.stream);
+    CUDA_CHECK(err, "realWrappedMoments - cudaMemcpyAsync", buildCudaContext(config));
+
+    err = cudaStreamSynchronize(config.stream);
+    CUDA_CHECK(err, "realWrappedMoments - cudaStreamSynchronize", buildCudaContext(config));
+
+    for (int i = 0; i < 7; ++i) result[i] = hostVals[i];
+}
+
 real_t CUDAComputeBackend::getMin(const RealData& a) const {
     ensureDevice();
     BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "getMin - input a", buildCudaContext(config));
@@ -1050,6 +1195,119 @@ void CUDAComputeBackend::realClampMin(const RealData& a, real_t lo, RealData& re
     run("realClampMin", CUBE_MLE::realClampMin(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, rawData(a), lo, rawData(result), config.stream));
 }
 
+void CUDAComputeBackend::poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(ratio) != nullptr, "Ratio pointer is null", "CUDA", "poissonUpdate - ratio", buildCudaContext(config));
+    BACKEND_CHECK(rawData(f) != nullptr, "Iterate pointer is null", "CUDA", "poissonUpdate - f", buildCudaContext(config));
+    BACKEND_CHECK(ratio.getSize().getVolume() == f.getSize().getVolume(), "Size mismatch in poissonUpdate", "CUDA", "poissonUpdate", buildCudaContext(config));
+
+    size_t Nx = ratio.getSize().width;
+    size_t strideR = Nx + ratio.getPadding();
+    size_t strideF = f.getSize().width + f.getPadding();
+
+    run("poissonUpdate", CUBE_MLE::poissonUpdate(Nx, ratio.getSize().height, ratio.getSize().depth, strideR, strideF, rawData(ratio), rawData(f), lo, config.stream));
+}
+
+void CUDAComputeBackend::realAffineClampMin(const RealData& a, real_t scalar, real_t add, real_t lo, RealData& result) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realAffineClampMin - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realAffineClampMin - result", buildCudaContext(config));
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realAffineClampMin", "CUDA", "realAffineClampMin", buildCudaContext(config));
+
+    size_t Nx = a.getSize().width;
+    size_t strideA = Nx + a.getPadding();
+    size_t strideC = result.getSize().width + result.getPadding();
+
+    run("realAffineClampMin", CUBE_MLE::realAffineClampMin(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, rawData(a), scalar, add, lo, rawData(result), config.stream));
+}
+
+void CUDAComputeBackend::realSqrtAffineClampMin(const RealData& a, real_t scale, real_t add, real_t lambda, real_t lo, RealData& result) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realSqrtAffineClampMin - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realSqrtAffineClampMin - result", buildCudaContext(config));
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realSqrtAffineClampMin", "CUDA", "realSqrtAffineClampMin", buildCudaContext(config));
+
+    size_t Nx = a.getSize().width;
+    size_t strideA = Nx + a.getPadding();
+    size_t strideC = result.getSize().width + result.getPadding();
+
+    run("realSqrtAffineClampMin", CUBE_MLE::realSqrtAffineClampMin(Nx, a.getSize().height, a.getSize().depth, strideA, strideC, rawData(a), scale, add, lambda, lo, rawData(result), config.stream));
+}
+
+void CUDAComputeBackend::realLinearCombinationClampMin(const RealData& a, real_t sa, const RealData& b, real_t sb, real_t lo, RealData& result) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realLinearCombinationClampMin - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CUDA", "realLinearCombinationClampMin - input b", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realLinearCombinationClampMin - result", buildCudaContext(config));
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realLinearCombinationClampMin", "CUDA", "realLinearCombinationClampMin", buildCudaContext(config));
+
+    size_t Nx = a.getSize().width;
+    size_t strideA = Nx + a.getPadding();
+    size_t strideB = b.getSize().width + b.getPadding();
+    size_t strideC = result.getSize().width + result.getPadding();
+
+    run("realLinearCombinationClampMin", CUBE_MLE::realLinearCombinationClampMin(Nx, a.getSize().height, a.getSize().depth, strideA, strideB, strideC, rawData(a), sa, rawData(b), sb, lo, rawData(result), config.stream));
+}
+
+void CUDAComputeBackend::realAffineProduct(const RealData& a, const RealData& b, real_t scalar, real_t add, RealData& result) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CUDA", "realAffineProduct - input a", buildCudaContext(config));
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CUDA", "realAffineProduct - input b", buildCudaContext(config));
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CUDA", "realAffineProduct - result", buildCudaContext(config));
+    BACKEND_CHECK(a.getSize().getVolume() == result.getSize().getVolume(), "Size mismatch in realAffineProduct", "CUDA", "realAffineProduct", buildCudaContext(config));
+
+    size_t Nx = a.getSize().width;
+    size_t strideA = Nx + a.getPadding();
+    size_t strideB = b.getSize().width + b.getPadding();
+    size_t strideC = result.getSize().width + result.getPadding();
+
+    run("realAffineProduct", CUBE_MLE::realAffineProduct(Nx, a.getSize().height, a.getSize().depth, strideA, strideB, strideC, rawData(a), rawData(b), scalar, add, rawData(result), config.stream));
+}
+
+void CUDAComputeBackend::divideRatioSlab(RealData& work, size_t zSlice, const RealData& gSlab, real_t epsilon) const {
+    ensureDevice();
+    BACKEND_CHECK(rawData(work) != nullptr, "Work pointer is null", "CUDA", "divideRatioSlab - work", buildCudaContext(config));
+    BACKEND_CHECK(rawData(gSlab) != nullptr, "Slab pointer is null", "CUDA", "divideRatioSlab - slab", buildCudaContext(config));
+
+    const size_t Nx = work.getSize().width;
+    const size_t strideWork = Nx + work.getPadding();
+    const size_t strideSlab = gSlab.getSize().width + gSlab.getPadding();
+    // Base pointer of the requested z-slice within the full padded volume.
+    real_t* workSlab = rawData(work) + zSlice * work.getSize().height * strideWork;
+
+    run("poissonDivideSlab", CUBE_MLE::poissonDivideSlab(Nx, work.getSize().height, strideWork, strideSlab, workSlab, rawData(gSlab), epsilon, config.stream));
+}
+
+void CUDABackend::poissonDataStepStreamed(const ComplexData& H, const RealData& gHost,
+                                          RealData& f, RealData& work, RealData& slabScratch,
+                                          real_t bg) const {
+    IBackendMemoryManager& memory = memoryBackend;
+    IComputeBackend& compute = computeBackend;
+
+    // A: work = m = Hf + bg (out-of-place: the iterate f is preserved)
+    memory.memCopy(f, work);
+    ComplexView workC = work.reinterpret();
+    compute.forwardFFT(work, workC);
+    compute.complexMultiplication(workC, H, workC);
+    compute.backwardFFT(workC, work);
+    compute.realAffineClampMin(work, 1.0f, bg, bg, work);
+
+    // B: work = g/m, streamed slab-wise from the host copy of g. Same guarded
+    // division as computeRatio's division(g, m, d, 1e-9f).
+    for (size_t z = 0; z < work.getSize().depth; ++z) {
+        memory.copyHostZSlice(gHost, z, slabScratch);
+        compute.divideRatioSlab(work, z, slabScratch, 1e-9f);
+    }
+
+    // C: work = R = H^T(g/m)
+    compute.forwardFFT(work, workC);
+    compute.complexMultiplicationWithConjugate(workC, H, workC);
+    compute.backwardFFT(workC, work);
+
+    // D: f = max(f*R, 0)
+    compute.poissonUpdate(work, f, 0.0f);
+}
+
 void CUDAComputeBackend::poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
                                                real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const {
     ensureDevice();
@@ -1099,6 +1357,20 @@ void CUDAComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t
     const real_t ay = twoPiSq * sigmaY * sigmaY;
     const real_t az = twoPiSq * sigmaZ * sigmaZ;
     run("fillGaussianOTF", CUBE_MLE::fillGaussianOTF(Nx, out.getRealSize().width, out.getSize().height, out.getSize().depth, strideGradX,  rawData(out), twoPiSq, ax, ay, az, config.stream));
+}
+
+void CUDAComputeBackend::complexMultiplyGaussianOTF(ComplexData& inout, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
+    ensureDevice();
+    size_t Nx = inout.getSize().width;
+    size_t stride = Nx + inout.getPadding();
+
+    // Same Gaussian OTF as fillGaussianOTF (cycles per sample), evaluated
+    // inline in the kernel: inout *= OTF in one pass, no OTF buffer.
+    const real_t twoPiSq = (real_t)M_PI * (real_t)M_PI * 2.0f;
+    const real_t ax = twoPiSq * sigmaX * sigmaX;
+    const real_t ay = twoPiSq * sigmaY * sigmaY;
+    const real_t az = twoPiSq * sigmaZ * sigmaZ;
+    run("complexMultiplyGaussianOTF", CUBE_MLE::complexMultiplyGaussianOTF(Nx, inout.getRealSize().width, inout.getSize().height, inout.getSize().depth, stride, rawData(inout), ax, ay, az, config.stream));
 }
 
 void CUDAComputeBackend::normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const {

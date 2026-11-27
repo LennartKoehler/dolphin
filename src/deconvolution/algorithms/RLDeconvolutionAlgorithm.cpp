@@ -43,12 +43,18 @@ void RLDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
 
     backend->mutableComputeManager().initializePlan(forwardPlan);
     backend->mutableComputeManager().initializePlan(backwardInPlace);
-    //
-    //
-    // Allocate memory for intermediate arrays
-    c_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
 
     initialized = true;
+}
+
+void RLDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) {
+    assert(backend && "No backend available for Richardson-Lucy algorithm allocation");
+    assert(initialized && "Richardson-Lucy algorithm not initialized. Call init() first.");
+
+    // Allocate memory for intermediate arrays. Kept out of init() so that the
+    // FFT plan work area above never overlaps this buffer (the caller calls
+    // init() before allocating its own image buffers).
+    c_complex = backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize);
 }
 
 bool RLDeconvolutionAlgorithm::isInitialized() const {
@@ -115,7 +121,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLDeconvolutionAlgorithm::cloneSpecific(
     return copy;
 }
 
-size_t RLDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Allocates 1 additional complex array of input size
-    return dataSize.getVolume() * sizeof(real_t) * 2; //TODO * 2 because it also needs the out of place fft plane
+std::unique_ptr<const MemoryComponent> RLDeconvolutionAlgorithm::getMemoryComponent(
+    const IBackendManager& backendManager, size_t workerThreads) const {
+    return std::make_unique<RLAlgorithmMemoryComponent>(backendManager, workerThreads);
 }

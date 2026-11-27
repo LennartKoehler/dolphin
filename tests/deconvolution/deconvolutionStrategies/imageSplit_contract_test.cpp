@@ -29,7 +29,7 @@ See the LICENSE file provided with the code for the full license.
 namespace {
 class VolumeCopiesComponent : public MemoryComponent {
 public:
-    MemoryRequirement footprint(const CuboidShape& paddedCube) const override {
+    MemoryRequirement footprint(const CuboidShape& paddedCube, size_t) const override {
         return MemoryRequirement{paddedCube.getVolume() * sizeof(real_t), 0};
     }
     std::string name() const override { return "volume copies"; }

@@ -250,12 +250,19 @@ public:
     void realFillConstant(RealData& a, real_t value) const override;
     void realSqrtAffine(const RealData& a, real_t scale, real_t add, real_t lambda, RealData& result) const override;
     void realClampMin(const RealData& a, real_t lo, RealData& result) const override;
-    void realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const override;
+
+    void realAffineClampMin(const RealData& a, real_t scalar, real_t add, real_t lo, RealData& result) const override;
+    void realSqrtAffineClampMin(const RealData& a, real_t scale, real_t add, real_t lambda, real_t lo, RealData& result) const override;
+    void realLinearCombinationClampMin(const RealData& a, real_t sa, const RealData& b, real_t sb, real_t lo, RealData& result) const override;
+    void realAffineProduct(const RealData& a, const RealData& b, real_t scalar, real_t add, RealData& result) const override;
+    void poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const override;    void realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const override;
     real_t getMin(const RealData& a) const override;
     real_t getMax(const RealData& a) const override;
     void poissonLineSearchEval(const RealData& g, const RealData& m, const RealData& hd,
                                real_t alpha, real_t* J, real_t* dJ, real_t* d2J) const override;
+    void realWrappedMoments(const RealData& a, double* result) const override;
     void fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const override;
+    void complexMultiplyGaussianOTF(ComplexData& inout, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const override;
     void normalizePsfUnitSum(ComplexData& psf, real_t epsilon) const override;
 
 private:
@@ -362,6 +369,13 @@ public:
     std::string getDeviceString() const noexcept override {
         return "cpu";
     }
+
+    // Host backend: nothing is ever streamed (host == device memory), but the
+    // fused step is supported so algorithms can use one code path.
+    bool supportsStreamedPoissonDataStep() const override { return true; }
+    void poissonDataStepStreamed(const ComplexData& H, const RealData& gHost,
+                                 RealData& f, RealData& work, RealData& slabScratch,
+                                 real_t bg) const override;
 
     // Ownership query methods
     bool ownsComputeBackend() const noexcept override {

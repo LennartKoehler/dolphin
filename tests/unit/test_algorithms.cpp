@@ -175,6 +175,7 @@ protected:
         }
         algo->setBackend(*backend);
         algo->init(dataSize);
+        algo->preAllocate(dataSize);
 
         RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
         algo->deconvolve(*Hmis, g, f);   // pass the MIS-SCALED PSF; the algorithm must normalize it
@@ -195,6 +196,7 @@ TEST_P(DeconvolutionAlgorithmTest, AlgorithmInitAndDeconvolve) {
 
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
     EXPECT_TRUE(algo->isInitialized());
 
     auto psf = createImpulsePSF(dataSize);
@@ -224,6 +226,7 @@ TEST_P(DeconvolutionAlgorithmTest, ImpulsePSFReturnsInput) {
 
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     auto psf = createImpulsePSF(dataSize);
     auto H = preprocessPSF(psf, dataSize);
@@ -247,6 +250,7 @@ TEST_P(DeconvolutionAlgorithmTest, ZeroInputNoNaN) {
 
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     auto psf = createImpulsePSF(dataSize);
     auto H = preprocessPSF(psf, dataSize);
@@ -271,7 +275,8 @@ INSTANTIATE_TEST_SUITE_P(
         "InverseFilter",
         "Convolution",
         "RichardsonLucywithAdaptiveDamping",
-        "PoissonMLE"
+        "PoissonMLE",
+        "PoissonMLEStreamed"
     )
 );
 
@@ -284,6 +289,7 @@ TEST_F(AlgorithmTestBase, RLZeroIterationsReturnsInput) {
 
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     auto psf = createImpulsePSF(dataSize);
     auto H = preprocessPSF(psf, dataSize);
@@ -301,6 +307,7 @@ TEST_F(AlgorithmTestBase, ConvolutionIsForwardModel) {
     auto algo = createAlgorithm("Convolution");
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     auto psf = createImpulsePSF(dataSize);
     auto H = preprocessPSF(psf, dataSize);
@@ -370,6 +377,7 @@ TEST_F(AlgorithmTestBase, AlgorithmSetProgressTracker) {
     algo->setProgressTracker([&progressCount](int) { progressCount++; });
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     auto psf = createImpulsePSF(dataSize);
     auto H = preprocessPSF(psf, dataSize);
@@ -390,7 +398,13 @@ TEST_F(AlgorithmTestBase, AlgorithmClonePreservesConfig) {
     auto clone = algo->clone();
     ASSERT_NE(clone, nullptr);
     const CuboidShape testShape(4, 4, 4);
-    EXPECT_EQ(clone->getWorkingSetBytes(testShape), algo->getWorkingSetBytes(testShape));
+    IBackendManager& cpu = BackendFactory::getBackendManagerStatic(HOST_BACKEND);
+    const MemoryRequirement cloneBytes =
+        clone->getMemoryComponent(cpu, 2)->footprint(testShape, 5);
+    const MemoryRequirement algoBytes =
+        algo->getMemoryComponent(cpu, 2)->footprint(testShape, 5);
+    EXPECT_EQ(cloneBytes.hostBytes, algoBytes.hostBytes);
+    EXPECT_EQ(cloneBytes.deviceBytes, algoBytes.deviceBytes);
 }
 
 // Regression: fillGaussianOTF must place the OTF of a separable anisotropic
@@ -536,6 +550,7 @@ TEST_F(AlgorithmTestBase, PoissonMLESieveScaleKnob) {
         if (!algo) return Image3D(dataSize, 0.0f);
         algo->setBackend(*backend);
         algo->init(dataSize);
+        algo->preAllocate(dataSize);
         RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
         algo->deconvolve(*Hmis, g, f);
         backend->sync();
@@ -634,6 +649,7 @@ TEST_F(AlgorithmTestBase, PoissonMLEPrefilterAutoBackground) {
         if (!algo) throw std::runtime_error("PoissonMLE algorithm not created");
         algo->setBackend(*backend);
         algo->init(dataSize);
+        algo->preAllocate(dataSize);
         RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
         DeconvolutionRunContext ctx;
         ctx.background = bg; // the measured data background
@@ -731,6 +747,7 @@ TEST_F(AlgorithmTestBase, PoissonMLERemovesOutputPedestal) {
     ASSERT_NE(algo, nullptr);
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
     DeconvolutionRunContext ctx;
@@ -791,6 +808,7 @@ TEST_F(AlgorithmTestBase, PoissonMLENegativePSFNoNaN) {
     auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     algo->setBackend(*backend);
     algo->init(shape);
+    algo->preAllocate(shape);
     DeconvolutionRunContext ctx;
     ctx.background = 0.0f;
     algo->deconvolve(*H, g, f, ctx);
@@ -864,6 +882,7 @@ TEST_F(AlgorithmTestBase, PoissonMLEWidePSFSharpPeaksNoNaN) {
     ASSERT_NE(algo, nullptr);
     algo->setBackend(*backend);
     algo->init(shape);
+    algo->preAllocate(shape);
 
     RealData g = imageToDevice(gImg);
     RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(shape);
@@ -902,6 +921,7 @@ TEST_F(AlgorithmTestBase, PoissonMLEGlobalBackgroundIsUsedForEveryCube) {
         auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
         algo->setBackend(*backend);
         algo->init(dataSize);
+        algo->preAllocate(dataSize);
 
         RealData g = imageToDevice(input);
         RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);
@@ -945,6 +965,7 @@ TEST_F(AlgorithmTestBase, PoissonMLEWithoutBackgroundFails) {
     auto algo = DeconvolutionAlgorithmFactory::getInstance().createShared(*configOwner);
     algo->setBackend(*backend);
     algo->init(dataSize);
+    algo->preAllocate(dataSize);
 
     RealData g = imageToDevice(input);
     RealData f = mem.allocateMemoryOnDeviceRealFFTInPlace(dataSize);

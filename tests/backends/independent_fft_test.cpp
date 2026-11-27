@@ -42,8 +42,8 @@ TEST_F(IndependentFFTTest, TwoBackendsIndependentFFTRoundTrip) {
     BackendConfig config;
     config.nThreads = 1;
 
-    IBackend& backend1 = mgr->createBackendForCurrentThread(config);
-    IBackend& backend2 = mgr->createBackendForCurrentThread(config);
+    IBackend& backend1 = mgr->createBackend(config);
+    IBackend& backend2 = mgr->createBackend(config);
 
     IComputeBackend& compute1 = backend1.mutableComputeManager();
     IComputeBackend& compute2 = backend2.mutableComputeManager();

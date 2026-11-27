@@ -56,7 +56,7 @@ protected:
     IBackend* backend = nullptr;
 
     void SetUp() override {
-        backend = &getManager().createBackendForCurrentThread(config);
+        backend = &getManager().createBackend(config);
     }
 };
 
@@ -75,7 +75,7 @@ TEST_F(CPUBackendManagerTest, ManagerInit) {
 }
 
 TEST_F(CPUBackendManagerTest, GetBackendReturnsValidBackend) {
-    IBackend& b = getManager().createBackendForCurrentThread(config);
+    IBackend& b = getManager().createBackend(config);
     EXPECT_EQ(b.getDeviceString(), "cpu");
     EXPECT_TRUE(b.hasMemoryManager());
     EXPECT_TRUE(b.ownsComputeBackend());
@@ -97,8 +97,8 @@ TEST_F(CPUBackendManagerTest, MultipleBackendsAreDistinct) {
     BackendConfig config1{1, "backend1"};
     BackendConfig config2{1, "backend2"};
 
-    IBackend& b1 = getManager().createBackendForCurrentThread(config1);
-    IBackend& b2 = getManager().createBackendForCurrentThread(config2);
+    IBackend& b1 = getManager().createBackend(config1);
+    IBackend& b2 = getManager().createBackend(config2);
 
     EXPECT_NE(&b1, &b2);
     EXPECT_EQ(b1.getDeviceString(), "cpu");
@@ -117,14 +117,14 @@ TEST_F(CPUBackendManagerTest, MultipleBackendsAreDistinct) {
 //     EXPECT_EQ(cloned.getDeviceString(), "cpu");
 // }
 
-TEST_F(CPUBackendManagerTest, CloneSharedMemoryReturnsSeparateBackend) {
-    IBackend& original = getManager().createBackendForCurrentThread(config);
-    IBackend& shared = getManager().createBackendSharedMemoryForCurrentThread(original, config);
-    EXPECT_NE(&original, &shared);
-    EXPECT_EQ(shared.getDeviceString(), "cpu");
-    EXPECT_TRUE(shared.hasMemoryManager());
-    EXPECT_TRUE(shared.ownsComputeBackend());
-    EXPECT_TRUE(shared.ownsMemoryManager());
+TEST_F(CPUBackendManagerTest, CreateBackendForCurrentThreadReturnsSeparateBackend) {
+    IBackend& original = getManager().createBackend(config);
+    IBackend& created = getManager().createBackend(config);
+    EXPECT_NE(&original, &created);
+    EXPECT_EQ(created.getDeviceString(), "cpu");
+    EXPECT_TRUE(created.hasMemoryManager());
+    EXPECT_TRUE(created.ownsComputeBackend());
+    EXPECT_TRUE(created.ownsMemoryManager());
 }
 
 TEST_F(CPUBackendManagerTest, SetThreadDistribution) {
@@ -138,8 +138,8 @@ TEST_F(CPUBackendManagerTest, DifferentThreadConfigsProduceSameResults) {
     BackendConfig config1{1, "single_thread"};
     BackendConfig config2{4, "multi_thread"};
 
-    IBackend& b1 = getManager().createBackendForCurrentThread(config1);
-    IBackend& b2 = getManager().createBackendForCurrentThread(config2);
+    IBackend& b1 = getManager().createBackend(config1);
+    IBackend& b2 = getManager().createBackend(config2);
 
     IComputeBackend& d1 = b1.mutableComputeManager();
     IComputeBackend& d2 = b2.mutableComputeManager();
@@ -273,8 +273,8 @@ TEST_F(CPUMemoryManagerTest, MemoryTrackingIncreasesOnAlloc) {
 
 TEST_F(CPUMemoryManagerTest, SharedMemoryTrackingAcrossBackends) {
     BackendConfig cfg{1, "tracking_test"};
-    IBackend& b1 = getManager().createBackendForCurrentThread(config);
-    IBackend& b2 = getManager().createBackendForCurrentThread(cfg);
+    IBackend& b1 = getManager().createBackend(config);
+    IBackend& b2 = getManager().createBackend(cfg);
     IBackendMemoryManager& m1 = b1.mutableMemoryManager();
     IBackendMemoryManager& m2 = b2.mutableMemoryManager();
 
@@ -1003,6 +1003,53 @@ TEST_F(CPUComputeBackendTest, RealScalarMultiplication) {
     }
 }
 
+// ============================================================================
+// realWrappedMoments — wrapped-coordinate mass moments (PoissonMLE PSF width)
+// ============================================================================
+
+TEST_F(CPUComputeBackendTest, RealWrappedMomentsPointMasses) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    // In-place FFT layout (padded rows) — the production buffer shape.
+    RealData data = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+    data.zeroFill();
+    // Point masses whose wrapped coordinates differ from the raw indices:
+    // (x=1,y=6,z=0) -> (1,-2,0) and (x=7,y=2,z=3) -> (-1,2,-1). A negative
+    // and a zero voxel must be skipped (only v > 0 contributes).
+    data.access(0 * 8 * 8 + 6 * 8 + 1) = 2.0f;
+    data.access(3 * 8 * 8 + 2 * 8 + 7) = 0.5f;
+    data.access(1 * 8 * 8 + 1 * 8 + 4) = -1.0f;
+
+    double m[7] = {};
+    deconv.realWrappedMoments(data, m);
+
+    EXPECT_NEAR(m[0], 2.5, 1e-5);                       // total
+    EXPECT_NEAR(m[1], 2.0 * 1.0 + 0.5 * -1.0, 1e-5);    // mx
+    EXPECT_NEAR(m[2], 2.0 * -2.0 + 0.5 * 2.0, 1e-5);    // my
+    EXPECT_NEAR(m[3], 2.0 * 0.0 + 0.5 * -1.0, 1e-5);    // mz
+    EXPECT_NEAR(m[4], 2.0 * 1.0 + 0.5 * 1.0, 1e-5);     // mx2
+    EXPECT_NEAR(m[5], 2.0 * 4.0 + 0.5 * 4.0, 1e-5);     // my2
+    EXPECT_NEAR(m[6], 2.0 * 0.0 + 0.5 * 1.0, 1e-5);     // mz2
+}
+
+TEST_F(CPUComputeBackendTest, RealWrappedMomentsNoPositiveMass) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData data = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+    data.zeroFill();
+    data.access(5) = -3.0f; // only non-positive mass
+
+    double m[7] = {1, 1, 1, 1, 1, 1, 1};
+    deconv.realWrappedMoments(data, m);
+    for (int i = 0; i < 7; ++i) {
+        EXPECT_NEAR(m[i], 0.0, 1e-7) << "moment " << i << " should be 0";
+    }
+}
+
 TEST_F(CPUComputeBackendTest, OctantFourierShiftDoubleIsIdentity) {
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
@@ -1450,7 +1497,7 @@ TEST_F(CPUConcurrencyTest, ConcurrentFFTSameBackend) {
 
 TEST_F(CPUConcurrencyTest, ConcurrentDifferentBackends) {
     BackendConfig cfg{1, "concurrent_test"};
-    IBackend& backend2 = getManager().createBackendForCurrentThread(cfg);
+    IBackend& backend2 = getManager().createBackend(cfg);
 
     IComputeBackend& d1 = backend->mutableComputeManager();
     IComputeBackend& d2 = backend2.mutableComputeManager();

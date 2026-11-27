@@ -26,6 +26,13 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::configure(const Regularized
 void RegularizedInverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dataSize) {
     assert(backend && "No backend available for Regularized Inverse Filter algorithm initialization");\
 
+    initialized = true;
+}
+
+void RegularizedInverseFilterDeconvolutionAlgorithm::preAllocate(const CuboidShape& dataSize) {
+    assert(backend && "No backend available for Regularized Inverse Filter algorithm allocation");\
+    assert(initialized && "Regularized Inverse Filter algorithm not initialized. Call init() first.");\
+
     // Allocate memory for intermediate arrays (all in frequency domain)
     H2 = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
     L = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
@@ -33,8 +40,6 @@ void RegularizedInverseFilterDeconvolutionAlgorithm::init(const CuboidShape& dat
     FA = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
     FP = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
     f_complex = std::move(backend->getMemoryManager().allocateMemoryOnDeviceComplex(dataSize));
-
-    initialized = true;
 }
 
 bool RegularizedInverseFilterDeconvolutionAlgorithm::isInitialized() const {
@@ -91,7 +96,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RegularizedInverseFilterDeconvolutionAlg
     return copy;
 }
 
-size_t RegularizedInverseFilterDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Allocates 5 additional complex arrays of input size (H2, L, L2, FA, FP, f_complex - but FP can be reused)
-    return 5 * dataSize.getVolume() * sizeof(real_t);
+std::unique_ptr<const MemoryComponent> RegularizedInverseFilterDeconvolutionAlgorithm::getMemoryComponent(
+    const IBackendManager& backendManager, size_t workerThreads) const {
+    return std::make_unique<RegularizedInverseFilterAlgorithmMemoryComponent>(backendManager, workerThreads);
 }

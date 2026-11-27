@@ -107,7 +107,7 @@ ctest --preset dev -E "[Cc][Uu][Dd][Aa]"    # GPU-less runs (CI uses this)
 ```
 
 - One combined binary `dolphin_all_tests` compiles every source in `ALL_TEST_SOURCES`
-  (`tests/CMakeLists.txt`), plus backend and CLI tests conditionally. ~629 ctest cases.
+  (`tests/CMakeLists.txt`), plus backend and CLI tests conditionally. ~691 ctest cases.
 - **Adding a test file takes two edits**: append the `.cpp` to `ALL_TEST_SOURCES` in
   `tests/CMakeLists.txt`, *and* add a `dolphin_add_test(...)` call in the matching subdirectory
   `CMakeLists.txt` (only used with `DOLPHIN_INDIVIDUAL_TESTS=ON`).
@@ -182,8 +182,9 @@ Both `Dolphin` methods are **synchronous**; there is no async API.
   **Do not reach around this** — pass device data to the backend, not into loops.
 - Buffers are allocated for FFT-in-place layouts: `getDataBytes() != volume * sizeof(T)` because
   rows are padded. Never assume dense contiguous data.
-- Every memory-owning subsystem (reader cache, writer reserve, io staging, algorithm working set,
-  PSF cache, FFT workspace, padding peak) implements a `MemoryComponent` and reports into the
+- Every memory-owning subsystem (reader cache, writer reserve, io staging, the algorithms' own
+  memory components — scratch plus FFT plan memory queried from the backend manager per plan set
+  —, PSF cache, padding peak) implements a `MemoryComponent` and reports into the
   `MemoryFootprint`; the plan budgets against `MemoryBudget`. Exceeding caps throws
   `dolphin::backend::MemoryException`.
 
@@ -249,12 +250,14 @@ Name constants: `include/dolphin/deconvolution/AlgorithmNames.h` (`namespace Dec
 | `RichardsonLucyTotalVariation` | `RLTVDeconvolutionAlgorithm` | `RichardsonLucyTVConfig` |
 | `RegularizedInverseFilter` | `RegularizedInverseFilterDeconvolutionAlgorithm` | `RegularizedInverseFilterConfig` |
 | `RichardsonLucywithAdaptiveDamping` | `RLADDeconvolutionAlgorithm` | `RichardsonLucyADConfig` |
-| `PoissonMLE` | `PoissonMLEUnitStepDeconvolutionAlgorithm` | `PoissonMLEUnitStepConfig` |
-| `PoissonMLEAdaptiveStep` | `PoissonMLEDeconvolutionAlgorithm` | `PoissonMLEConfig` |
+| `PoissonMLE` | `PoissonMLEDeconvolutionAlgorithm` | `PoissonMLEConfig` |
+| `PoissonMLEAdaptiveStep` | `PoissonMLEAdaptiveStepDeconvolutionAlgorithm` | `PoissonMLEConfig` |
+| `PoissonMLEStreamed` | `PoissonMLEStreamedDeconvolutionAlgorithm` | `PoissonMLEStreamedConfig` |
 
-**Naming trap:** `"PoissonMLE"` runs the **UnitStep** class; the class carrying the plain
-`PoissonMLE` name is registered as `"PoissonMLEAdaptiveStep"` (Newton line search). This is
-deliberate — see the comment in `DeconvolutionAlgorithmFactory::registerAlgorithms()` and
+The PoissonMLE family shares its math through the `PoissonMLECore` struct
+(composition, not inheritance): `PoissonMLE` runs the plain RL unit step,
+`PoissonMLEAdaptiveStep` a Newton line search, `PoissonMLEStreamed` the RL unit
+step with an out-of-core (g streamed from host) data step. See
 `docs/poisson-mle-deconvolution*.md`.
 
 ### Algorithm contract
@@ -266,7 +269,8 @@ deliberate — see the comment in `DeconvolutionAlgorithmFactory::registerAlgori
 - `init(const CuboidShape&)` — allocate scratch for one cube shape.
 - `deconvolve(const ComplexData& H, RealData& g, RealData& f, const DeconvolutionRunContext&)` —
   H/g/f are **already on the backend device**. All arithmetic goes through `IComputeBackend`.
-- `getWorkingSetBytes(shape)` — feeds the memory footprint; keep it honest.
+- `getMemoryComponent(backendManager, workerThreads)` — the algorithm's own
+  `MemoryComponent` (scratch + FFT plan memory, device plane); keep it honest.
 - `cloneSpecific()` — per-thread clone.
 
 `DeconvolutionRunContext` carries run-wide values resolved once (e.g. background) so cubes agree.
@@ -278,7 +282,7 @@ deliberate — see the comment in `DeconvolutionAlgorithmFactory::registerAlgori
    `static constexpr const char* kAlgorithmName`, ctor/copy/move calling
    `assignBase(...)`/`registerAllParameters()`.
 3. Add the algorithm class in `include/dolphin/deconvolution/algorithms/` + `src/.../algorithms/`
-   implementing `configure`, `init`, `deconvolve`, `getWorkingSetBytes`, `cloneSpecific`.
+   implementing `configure`, `init`, `deconvolve`, `getMemoryComponent`, `cloneSpecific`.
 4. Register both creators in `DeconvolutionAlgorithmFactory::registerAlgorithms()`.
 5. Add both `.cpp` files to `DOLPHIN_SOURCES` in the root `CMakeLists.txt` (no globbing).
 6. Add tests (`tests/unit/test_algorithm_factory.cpp`, `tests/unit/test_algorithms.cpp`) and a

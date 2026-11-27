@@ -58,6 +58,7 @@ std::unique_ptr<DeconvolutionAlgorithm> ConvolutionAlgorithm::cloneSpecific() co
     return copy;
 }
 
-size_t ConvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    return 0; // No additional memory allocation needed
+std::unique_ptr<const MemoryComponent> ConvolutionAlgorithm::getMemoryComponent(
+    const IBackendManager& backendManager, size_t workerThreads) const {
+    return std::make_unique<ConvolutionAlgorithmMemoryComponent>(backendManager, workerThreads);
 }

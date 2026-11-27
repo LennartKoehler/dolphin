@@ -18,6 +18,7 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/configs/PoissonMLEUnitStepConfig.h"
 #include "dolphin/deconvolution/algorithms/PoissonMLEDeconvolutionAlgorithm.h"
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
+#include "dolphin/backend/BackendFactory.h"
 #include "dolphin/Logging.h"
 
 class AlgorithmFactoryTest : public ::testing::Test {
@@ -200,7 +201,7 @@ TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
 
     struct AlgoSpec {
         std::string name;
-        size_t expectedComplexArrays; // additional complex arrays of cube size
+        size_t expectedComplexArrays; // additional real volumes of cube size
     };
 
     std::vector<AlgoSpec> specs = {
@@ -211,13 +212,22 @@ TEST_F(AlgorithmFactoryTest, AlgorithmConfigureAndMemoryMultiplier) {
         {"RichardsonLucywithAdaptiveDamping", 1},
     };
 
+    // The CPU manager's plan answer is 0 (FFTW planning holds no persistent
+    // memory), so the composed component isolates the scratch multiplier
+    // exactly: expectedComplexArrays real volumes per instance.
+    IBackendManager& cpu = BackendFactory::getBackendManagerStatic(HOST_BACKEND);
+    const CuboidShape testShape(4, 4, 4);
+    ASSERT_EQ(cpu.getFFTPlanMemoryBytes(
+        {FFTPlanDescription(PlanDirection::FORWARD, PlanType::REAL, testShape, false)}, 2), 0u);
+
     for (const auto& spec : specs) {
         auto config = makeConfig(spec.name);
         auto algo = factory.createShared(*config);
         ASSERT_NE(algo, nullptr) << "Failed for algorithm: " << spec.name;
-        const CuboidShape testShape(4, 4, 4);
-        EXPECT_EQ(algo->getWorkingSetBytes(testShape),
-                  spec.expectedComplexArrays * testShape.getVolume() * sizeof(real_t))
+        auto component = algo->getMemoryComponent(cpu, /*workerThreads=*/1);
+        ASSERT_NE(component, nullptr) << "Failed for algorithm: " << spec.name;
+        const size_t expected = spec.expectedComplexArrays * testShape.getVolume() * sizeof(real_t);
+        EXPECT_EQ(component->footprint(testShape, 1).deviceBytes, expected)
             << "Wrong working set size for: " << spec.name;
     }
 }
@@ -231,7 +241,13 @@ TEST_F(AlgorithmFactoryTest, AlgorithmClone) {
     auto clone = algo->clone();
     ASSERT_NE(clone, nullptr);
     const CuboidShape testShape(4, 4, 4);
-    EXPECT_EQ(clone->getWorkingSetBytes(testShape), algo->getWorkingSetBytes(testShape));
+    IBackendManager& cpu = BackendFactory::getBackendManagerStatic(HOST_BACKEND);
+    const MemoryRequirement cloneBytes =
+        clone->getMemoryComponent(cpu, 2)->footprint(testShape, 5);
+    const MemoryRequirement algoBytes =
+        algo->getMemoryComponent(cpu, 2)->footprint(testShape, 5);
+    EXPECT_EQ(cloneBytes.hostBytes, algoBytes.hostBytes);
+    EXPECT_EQ(cloneBytes.deviceBytes, algoBytes.deviceBytes);
 }
 
 TEST_F(AlgorithmFactoryTest, AlgorithmIsNotInitializedByDefault) {

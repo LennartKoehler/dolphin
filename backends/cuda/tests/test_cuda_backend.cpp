@@ -112,7 +112,7 @@ protected:
     IBackend* backend = nullptr;
 
     void SetUp() override {
-        backend = &getManager().createBackendForCurrentThread(config);
+        backend = &getManager().createBackend(config);
         ASSERT_NE(backend, nullptr);
     }
 
@@ -285,7 +285,7 @@ TEST_F(CUDABackendManagerTest, ManagerInit) {
 }
 
 TEST_F(CUDABackendManagerTest, GetBackendReturnsValidBackend) {
-    IBackend& b = getManager().createBackendForCurrentThread(config);
+    IBackend& b = getManager().createBackend(config);
     EXPECT_NE(b.getDeviceString().find("cuda"), std::string::npos);
     EXPECT_TRUE(b.hasMemoryManager());
     EXPECT_TRUE(b.ownsComputeBackend());
@@ -307,8 +307,8 @@ TEST_F(CUDABackendManagerTest, MultipleBackendsAreDistinct) {
     BackendConfig config1{1, "backend1"};
     BackendConfig config2{1, "backend2"};
 
-    IBackend& b1 = getManager().createBackendForCurrentThread(config1);
-    IBackend& b2 = getManager().createBackendForCurrentThread(config2);
+    IBackend& b1 = getManager().createBackend(config1);
+    IBackend& b2 = getManager().createBackend(config2);
 
     EXPECT_NE(&b1, &b2);
     EXPECT_NE(b1.getMemoryManagerPtr(), b2.getMemoryManagerPtr());
@@ -325,13 +325,13 @@ TEST_F(CUDABackendManagerTest, MultipleBackendsAreDistinct) {
 //     EXPECT_NE(cloned.getDeviceString().find("cuda"), std::string::npos);
 // }
 
-TEST_F(CUDABackendManagerTest, CloneSharedMemoryReturnsSeparateBackend) {
-    IBackend& original = getManager().createBackendForCurrentThread(config);
-    IBackend& shared = getManager().createBackendSharedMemoryForCurrentThread(original, config);
-    EXPECT_NE(&original, &shared);
-    EXPECT_TRUE(shared.hasMemoryManager());
-    EXPECT_TRUE(shared.ownsComputeBackend());
-    EXPECT_TRUE(shared.ownsMemoryManager());
+TEST_F(CUDABackendManagerTest, CreateBackendForCurrentThreadReturnsSeparateBackend) {
+    IBackend& original = getManager().createBackend(config);
+    IBackend& created = getManager().createBackend(config);
+    EXPECT_NE(&original, &created);
+    EXPECT_TRUE(created.hasMemoryManager());
+    EXPECT_TRUE(created.ownsComputeBackend());
+    EXPECT_TRUE(created.ownsMemoryManager());
 }
 
 TEST_F(CUDABackendManagerTest, SetThreadDistribution) {
@@ -999,6 +999,35 @@ TEST_F(CUDAComputeBackendTest, RealSum) {
     EXPECT_NEAR(result, expected, 0.05f) << "realSum should match host double sum";
 }
 
+TEST_F(CUDAComputeBackendTest, RealWrappedMoments) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    // In-place FFT layout (padded rows) — the production buffer shape.
+    RealData a = memMgr.allocateMemoryOnDeviceRealFFTInPlace(shape);
+    std::vector<real_t> hostA(shape.getVolume(), 0.0f);
+    // Point masses whose wrapped coordinates differ from the raw indices:
+    // (x=1,y=6,z=0) -> (1,-2,0) and (x=7,y=2,z=3) -> (-1,2,-1). A negative
+    // voxel must be skipped (only v > 0 contributes).
+    hostA[0 * 8 * 8 + 6 * 8 + 1] = 2.0f;
+    hostA[3 * 8 * 8 + 2 * 8 + 7] = 0.5f;
+    hostA[1 * 8 * 8 + 1 * 8 + 4] = -1.0f;
+    writeRealToDevice(a, hostA);
+
+    double m[7] = {};
+    deconv.realWrappedMoments(a, m);
+    backend->sync();
+
+    EXPECT_NEAR(m[0], 2.5, 1e-5);                       // total
+    EXPECT_NEAR(m[1], 2.0 * 1.0 + 0.5 * -1.0, 1e-5);    // mx
+    EXPECT_NEAR(m[2], 2.0 * -2.0 + 0.5 * 2.0, 1e-5);    // my
+    EXPECT_NEAR(m[3], 2.0 * 0.0 + 0.5 * -1.0, 1e-5);    // mz
+    EXPECT_NEAR(m[4], 2.0 * 1.0 + 0.5 * 1.0, 1e-5);     // mx2
+    EXPECT_NEAR(m[5], 2.0 * 4.0 + 0.5 * 4.0, 1e-5);     // my2
+    EXPECT_NEAR(m[6], 2.0 * 0.0 + 0.5 * 1.0, 1e-5);     // mz2
+}
+
 TEST_F(CUDAComputeBackendTest, RealMin) {
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
@@ -1159,6 +1188,101 @@ TEST_F(CUDAComputeBackendTest, RealSqrtAffine) {
     }
 }
 
+TEST_F(CUDAComputeBackendTest, RealAffineClampMin) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) hostA[i] = static_cast<real_t>(i) * 0.5f;
+    writeRealToDevice(a, hostA);
+
+    const real_t s = 2.0f, add = -1.0f, lo = 1.5f;
+    deconv.realAffineClampMin(a, s, add, lo, result);
+    backend->sync();
+
+    auto rb = readbackReal(result);
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        EXPECT_FLOAT_EQ(rb[i], std::max(hostA[i] * s + add, lo)) << "realAffineClampMin mismatch at " << i;
+}
+
+TEST_F(CUDAComputeBackendTest, RealLinearCombinationClampMin) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData b = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume()), hostB(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        hostA[i] = static_cast<real_t>(i + 1);
+        hostB[i] = static_cast<real_t>(i + 2);
+    }
+    writeRealToDevice(a, hostA);
+    writeRealToDevice(b, hostB);
+
+    const real_t sa = 1.5f, sb = -0.5f, lo = 2.0f;
+    deconv.realLinearCombinationClampMin(a, sa, b, sb, lo, result);
+    backend->sync();
+
+    auto rb = readbackReal(result);
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        EXPECT_FLOAT_EQ(rb[i], std::max(hostA[i] * sa + hostB[i] * sb, lo)) << "realLinearCombinationClampMin mismatch at " << i;
+}
+
+TEST_F(CUDAComputeBackendTest, RealSqrtAffineClampMin) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) hostA[i] = static_cast<real_t>(i) * 0.5f; // includes 0
+    writeRealToDevice(a, hostA);
+
+    const real_t scale = 2.0f, add = 1.0f, lambda = 0.1f, lo = 0.5f;
+    deconv.realSqrtAffineClampMin(a, scale, add, lambda, lo, result);
+    backend->sync();
+
+    auto rb = readbackReal(result);
+    const double eps = 1e-12;
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        double arg = hostA[i] * scale + add;
+        if (arg < 0.0) arg = 0.0;
+        double denom = std::fabs(lambda) < eps ? eps : lambda;
+        EXPECT_NEAR(rb[i], std::max((std::sqrt(arg) - 1.0) / denom, (double)lo), 1e-3f) << "realSqrtAffineClampMin mismatch at " << i;
+    }
+}
+
+TEST_F(CUDAComputeBackendTest, RealAffineProduct) {
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    RealData a = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData b = memMgr.allocateMemoryOnDeviceReal(shape);
+    RealData result = memMgr.allocateMemoryOnDeviceReal(shape);
+    std::vector<real_t> hostA(shape.getVolume()), hostB(shape.getVolume());
+    for (size_t i = 0; i < shape.getVolume(); ++i) {
+        hostA[i] = static_cast<real_t>(i + 1) * 0.25f;
+        hostB[i] = static_cast<real_t>(i + 1) * 0.5f;
+    }
+    writeRealToDevice(a, hostA);
+    writeRealToDevice(b, hostB);
+
+    const real_t scalar = 1.0f, add = -1.0f;
+    deconv.realAffineProduct(a, b, scalar, add, result);
+    backend->sync();
+
+    auto rb = readbackReal(result);
+    for (size_t i = 0; i < shape.getVolume(); ++i)
+        EXPECT_FLOAT_EQ(rb[i], hostA[i] * (hostB[i] * scalar + add)) << "realAffineProduct mismatch at " << i;
+}
+
 TEST_F(CUDAComputeBackendTest, PoissonLineSearchEval) {
     IComputeBackend& deconv = backend->mutableComputeManager();
     IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
@@ -1283,6 +1407,41 @@ TEST_F(CUDAComputeBackendTest, ComplexScalarMultiplication) {
         real_t ra = hostA[i][0], ia = hostA[i][1];
         EXPECT_NEAR(hostRt[i][0], ra*scalar[0] - ia*scalar[1], 1e-2f);
         EXPECT_NEAR(hostRt[i][1], ra*scalar[1] + ia*scalar[0], 1e-2f);
+    }
+}
+
+TEST_F(CUDAComputeBackendTest, ComplexMultiplyGaussianOTFParity) {
+    // The fused analytic OTF multiply must match the unfused path
+    // (fillGaussianOTF + complexMultiplication) elementwise.
+    IComputeBackend& deconv = backend->mutableComputeManager();
+    IBackendMemoryManager& memMgr = backend->mutableMemoryManager();
+    CuboidShape shape(8, 8, 4);
+
+    ComplexData fused = memMgr.allocateMemoryOnDeviceComplex(shape);   // half-complex (r2c)
+    ComplexData unfused = memMgr.allocateMemoryOnDeviceComplex(shape);
+    ComplexData otf = memMgr.allocateMemoryOnDeviceComplex(shape);
+
+    const size_t vol = fused.getSize().getVolume();
+    std::vector<ComplexHost> hostIn(vol);
+    for (size_t i = 0; i < vol; ++i) {
+        hostIn[i][0] = std::sin(static_cast<real_t>(i)) * 3.0f;
+        hostIn[i][1] = std::cos(static_cast<real_t>(i)) * 2.0f;
+    }
+    writeComplexToDevice(fused, hostIn);
+    writeComplexToDevice(unfused, hostIn);
+
+    const real_t sx = 1.3f, sy = 0.8f, sz = 2.1f;
+    deconv.complexMultiplyGaussianOTF(fused, sx, sy, sz);
+    deconv.fillGaussianOTF(otf, sx, sy, sz);
+    deconv.complexMultiplication(unfused, otf, unfused);
+    backend->sync();
+
+    auto rf = readbackComplex(fused);
+    auto ru = readbackComplex(unfused);
+    ASSERT_EQ(rf.size(), ru.size());
+    for (size_t i = 0; i < rf.size(); ++i) {
+        EXPECT_NEAR(rf[i][0], ru[i][0], 1e-4f) << "real part mismatch at " << i;
+        EXPECT_NEAR(rf[i][1], ru[i][1], 1e-4f) << "imag part mismatch at " << i;
     }
 }
 

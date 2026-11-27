@@ -902,6 +902,93 @@ void realClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t 
 }
 
 __global__
+void realAffineClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scalar, real_t add, real_t lo, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        C[idxC] = fmaxf(A[idxA] * scalar + add, lo);
+    }
+}
+
+__global__
+void realSqrtAffineClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scale, real_t add, real_t lambda, real_t lo, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        const real_t eps = 1e-12f;
+        real_t arg = A[idxA] * scale + add;
+        if (arg < 0.0f) arg = 0.0f;
+        real_t denom = fabsf(lambda) < eps ? eps : lambda;
+        C[idxC] = fmaxf((sqrtf(arg) - 1.0f) / denom, lo);
+    }
+}
+
+__global__
+void realLinearCombinationClampMinGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t sa, real_t* B, real_t sb, real_t lo, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxB = detail::indexStrided(x, y, z, strideB, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        C[idxC] = fmaxf(A[idxA] * sa + B[idxB] * sb, lo);
+    }
+}
+
+__global__
+void realAffineProductGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t scalar, real_t add, real_t* C) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxA = detail::indexStrided(x, y, z, strideA, Ny);
+        size_t idxB = detail::indexStrided(x, y, z, strideB, Ny);
+        size_t idxC = detail::indexStrided(x, y, z, strideC, Ny);
+        C[idxC] = A[idxA] * (B[idxB] * scalar + add);
+    }
+}
+
+__global__
+void poissonUpdateGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideR, size_t strideF, real_t* ratio, real_t* f, real_t lo) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        size_t idxR = detail::indexStrided(x, y, z, strideR, Ny);
+        size_t idxF = detail::indexStrided(x, y, z, strideF, Ny);
+        const real_t r = ratio[idxR];
+        // A non-finite ratio (NaN/Inf from a degenerate model) leaves f
+        // unchanged: the next iteration's guard is not poisoned.
+        const real_t updated = isfinite(r) ? fmaxf(f[idxF] * r, lo) : f[idxF];
+        f[idxF] = updated;
+    }
+}
+
+__global__
+void poissonDivideSlabGlobal(size_t Nx, size_t Ny, size_t strideWork, size_t strideSlab, real_t* workSlab, real_t* gSlab, real_t epsilon) {
+    // One z-slice of work (already offset by the caller) divided elementwise by
+    // the uploaded g slice: work = g / max(work, eps) — the same guarded
+    // division as elementwiseMatDiv, restricted to the slice so the observed
+    // image can be streamed instead of residing on the device.
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, 1)) {
+        size_t idxWork = y * strideWork + x;
+        size_t idxSlab = y * strideSlab + x;
+        const real_t denom = workSlab[idxWork] < epsilon ? epsilon : workSlab[idxWork];
+        workSlab[idxWork] = gSlab[idxSlab] / denom;
+    }
+}
+
+__global__
 void poissonLineSearchEvalGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideG, size_t strideM, size_t strideHd, real_t* g, real_t* m, real_t* hd, real_t alpha, double* result) {
     size_t x = detail::tx();
     size_t y = detail::ty();
@@ -929,6 +1016,35 @@ void poissonLineSearchEvalGlobal(size_t Nx, size_t Ny, size_t Nz, size_t strideG
     }
 }
 
+// Wrapped-coordinate mass moments of the positive mass (PoissonMLE PSF width
+// estimate for the prefilter/sieve). result is a device double[7]:
+// {total, mx, my, mz, mx2, my2, mz2}, accumulated with double atomics to
+// match the CPU reference's double accumulation.
+__global__
+void realWrappedMomentsGlobal(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, double* result) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        real_t v = a[detail::indexStrided(x, y, z, stride, Ny)];
+        if (v > 0.0f) {
+            // The OTF comes from an octant-shifted PSF, so the recovered spatial
+            // PSF is corner-peaked with mass wrapping across all edges: moments
+            // are taken about wrapped coordinates (peak at the origin).
+            double wx = (x > Nx / 2) ? (double)x - (double)Nx : (double)x;
+            double wy = (y > Ny / 2) ? (double)y - (double)Ny : (double)y;
+            double wz = (z > Nz / 2) ? (double)z - (double)Nz : (double)z;
+            atomicAdd(result + 0, (double)v);
+            atomicAdd(result + 1, (double)v * wx);
+            atomicAdd(result + 2, (double)v * wy);
+            atomicAdd(result + 3, (double)v * wz);
+            atomicAdd(result + 4, (double)v * wx * wx);
+            atomicAdd(result + 5, (double)v * wy * wy);
+            atomicAdd(result + 6, (double)v * wz * wz);
+        }
+    }
+}
+
 __global__
 void fillGaussianOTFGlobal(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t stride, complex_t* out, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az) {
     size_t x = detail::tx();
@@ -952,4 +1068,28 @@ void fillGaussianOTFGlobal(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t
     const real_t kx = (real_t)x / (real_t)realW;
     out[z * stride * Ny + y * stride + x][0] = std::exp(-ax * kx * kx) * gy;
     out[z * stride * Ny + y * stride + x][1] = 0.0f;
+}
+
+__global__
+void complexMultiplyGaussianOTFGlobal(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t stride, complex_t* inout, const real_t ax, const real_t ay, const real_t az) {
+    size_t x = detail::tx();
+    size_t y = detail::ty();
+    size_t z = detail::tz();
+    if (!detail::inBounds(x, y, z, Nx, Ny, Nz)) {
+        return; // guard against the block grid overshooting a non-multiple dimension
+    }
+
+    // Same frequency bins as fillGaussianOTF (cycles per sample; kx normalized
+    // by the REAL width, ky/kz wrapped), evaluated inline so no OTF buffer is
+    // needed. The OTF is real-valued, so both components scale by the same
+    // factor (the unfused path multiplies by a zero-imaginary OTF).
+    const real_t kz = (z <= Nz / 2 ? real_t(z) : -real_t(Nz - z)) / real_t(Nz);
+    real_t gz = expf(-az * kz * kz);
+    const real_t ky = (y <= Ny / 2 ? real_t(y) : -real_t(Ny - y)) / real_t(Ny);
+    real_t gy = expf(-ay * ky * ky) * gz;
+    const real_t kx = (real_t)x / (real_t)realW;
+    real_t otf = std::exp(-ax * kx * kx) * gy;
+    const size_t idx = z * stride * Ny + y * stride + x;
+    inout[idx][0] *= otf;
+    inout[idx][1] *= otf;
 }

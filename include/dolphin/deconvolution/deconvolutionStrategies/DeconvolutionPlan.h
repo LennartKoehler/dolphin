@@ -88,7 +88,16 @@ struct TaskContext{
             processor(),
           ioPool(nIOThreads)
     {
-        processor.init(nWorkerThreads);
+        // Each worker pool thread owns its own backend, created ON that thread
+        // (threadlocal semantics where they belong) and registered with the
+        // processor. The context's workerconfig carries the deviceId, so the
+        // backend lands on this context's device — the same memory domain all
+        // io backends of this context share. Creating one worker backend per
+        // io thread instead would duplicate plans, work areas and scratch for
+        // backends that can never run concurrently.
+        processor.init(nWorkerThreads, [this, &manager, workerconfig]() {
+            processor.registerWorkerBackend(manager.createBackend(workerconfig));
+        });
     }
     ~TaskContext(){
         psfpreprocessor->cleanup();

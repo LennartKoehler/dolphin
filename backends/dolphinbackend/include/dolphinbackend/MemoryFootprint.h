@@ -32,8 +32,11 @@ See the LICENSE file provided with the code for the full license.
  * algorithm working set) so the footprint can be built and returned by value
  * without dangling.
  *
- * Each component reports the memory of ONE instance; the strategy applies the
- * scheduling (how many instances run concurrently) as a count at add-time.
+ * Each component receives the plan's task count with every query and reports
+ * its own demand for one candidate cube shape; per-thread systems cap their
+ * instances at min(threads, numTasks) internally (see
+ * MemoryComponent::footprint). add(..., count) can still hold a component
+ * several times simultaneously.
  */
 class MemoryFootprint {
 public:
@@ -52,11 +55,12 @@ public:
     void add(std::unique_ptr<const MemoryComponent> component, size_t count = 1);
 
     // Summed demand of all components for one candidate cube shape.
-    MemoryRequirement total(const CuboidShape& cubeShape) const;
+    // numTasks is forwarded to every component (see MemoryComponent::footprint).
+    MemoryRequirement total(const CuboidShape& cubeShape, size_t numTasks) const;
 
     // One line per component plus the total - for logs and error messages
     // that say which system binds the budget.
-    std::string breakdown(const CuboidShape& cubeShape) const;
+    std::string breakdown(const CuboidShape& cubeShape, size_t numTasks) const;
 
 private:
     struct Entry {

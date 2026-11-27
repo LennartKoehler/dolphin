@@ -43,7 +43,7 @@ std::unique_ptr<CPUBackendMemoryManager> CPUBackendManager::createMemoryManager(
     return std::make_unique<CPUBackendMemoryManager>(config, memory);
 }
 
-IBackend& CPUBackendManager::createBackendForCurrentThread(const BackendConfig& config) {
+IBackend& CPUBackendManager::createBackend(const BackendConfig& config) {
     CPUBackendConfig cpuconfig = configToConfig(config);
     auto compute = createComputeBackend(cpuconfig);
     auto mem = createMemoryManager(cpuconfig);
@@ -60,10 +60,6 @@ CPUBackendConfig CPUBackendManager::configToConfig(const BackendConfig& config) 
 }
 
 // multiple seperate cpu devices e.g. NUMA not supported
-IBackend& CPUBackendManager::createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config){
-    return createBackendForCurrentThread(config);
-}
-
 size_t CPUBackendManager::getNumberDevices() const {
     return 1;
 }
@@ -83,8 +79,16 @@ void CPUBackendManager::setMemoryLimit(size_t maxMemoryPerDevice_byte) {
     memory.setMaxMemory(maxMemoryPerDevice_byte);
 }
 
-MemoryComponent& CPUBackendManager::getMemoryComponent() {
-    return fftComponent;
+
+size_t CPUBackendManager::getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions, const size_t workerThreads) const {
+    // FFTW planning (FFTW_MEASURE) transiently allocates buffers, but holds
+    // no PERSISTENT memory: the plan cache stores plan handles, execution
+    // transforms in the caller-provided buffers. The transient occurs during
+    // plan creation, kept out of the way of the image allocations, so the
+    // persistent footprint counts 0 regardless of the plan set or threads.
+    (void)descriptions;
+    (void)workerThreads;
+    return 0;
 }
 
 void CPUBackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) {

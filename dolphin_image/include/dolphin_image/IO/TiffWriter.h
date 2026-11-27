@@ -72,7 +72,9 @@ public:
     // width/height and one write depth, plus the transient write path (one
     // slice/tile buffer and libtiff's internal encode buffer). The write
     // depth upper-bounds the actual per-tile depth (footprint() is asked
-    // with the padded candidate cube shape).
+    // with the padded candidate cube shape). A write spanning the full
+    // image width/height holds nothing across calls (its buffers are freed
+    // right after each call) and reports 0.
     size_t getRequiredMemory(const CuboidShape& shapeToWrite) const;
 
     MemoryComponent& getMemoryComponent() override;
@@ -131,7 +133,7 @@ public:
     // at most two tiles buffered (each full width/height x one write depth)
     // plus the transient write path. The write depth upper-bounds the actual
     // per-tile depth (cubeShape is the padded candidate shape).
-    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t) const override {
         return MemoryRequirement{writer.getRequiredMemory(cubeShape), 0};
     }
 

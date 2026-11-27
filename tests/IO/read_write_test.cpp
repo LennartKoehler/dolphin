@@ -298,7 +298,7 @@ TEST_F(ReadWriteTest, WriterMemoryComponentTwoTilesPlusWriteBuffers) {
     const CuboidShape writeShape(4, 4, 2);
     const size_t tileBytes = shape.width * shape.height * writeShape.depth * sizeof(float);
     const size_t sliceBytes = shape.width * shape.height * sizeof(float);
-    const MemoryRequirement need = component.footprint(writeShape);
+    const MemoryRequirement need = component.footprint(writeShape, 1);
     EXPECT_EQ(need.hostBytes, 2 * tileBytes + 2 * sliceBytes);
     EXPECT_EQ(need.deviceBytes, 0u);
 }
@@ -310,12 +310,17 @@ TEST_F(ReadWriteTest, WriterMemoryComponentScalesWithWriteDepth) {
     TiffWriter writer(path, shape);
     MemoryComponent& component = writer.getMemoryComponent();
 
-    // The tile backlog depends on the candidate write depth: deeper writes
-    // buffer more, equal-depth candidates report the same demand.
-    const size_t shallow = component.footprint(CuboidShape(4, 4, 2)).hostBytes;
-    const size_t deep = component.footprint(CuboidShape(16, 8, 4)).hostBytes;
+    // A write spanning the full image width/height holds nothing between
+    // calls: whatever such a call buffers is freed right after it, so it
+    // never adds to the peak.
+    EXPECT_EQ(component.footprint(CuboidShape(16, 8, 4), 1).hostBytes, 0u);
+
+    // Otherwise the tile backlog depends on the candidate write depth: deeper
+    // writes buffer more, equal-depth candidates report the same demand.
+    const size_t shallow = component.footprint(CuboidShape(4, 4, 2), 1).hostBytes;
+    const size_t deep = component.footprint(CuboidShape(8, 8, 4), 1).hostBytes;
     EXPECT_GT(deep, shallow);
-    EXPECT_EQ(component.footprint(CuboidShape(64, 64, 2)).hostBytes, shallow);
+    EXPECT_EQ(component.footprint(CuboidShape(64, 64, 2), 1).hostBytes, shallow);
 }
 
 TEST_F(ReadWriteTest, WriterMemoryComponentTiledWriteBuffer) {
@@ -335,7 +340,7 @@ TEST_F(ReadWriteTest, WriterMemoryComponentTiledWriteBuffer) {
     const CuboidShape writeShape(4, 4, 2);
     const size_t tileBytes = shape.width * shape.height * writeShape.depth * sizeof(float);
     const size_t writeBufferBytes = 4 * 4 * sizeof(float);
-    const MemoryRequirement need = writer.getMemoryComponent().footprint(writeShape);
+    const MemoryRequirement need = writer.getMemoryComponent().footprint(writeShape, 1);
     EXPECT_EQ(need.hostBytes, 2 * tileBytes + 2 * writeBufferBytes);
 }
 

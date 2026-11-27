@@ -840,6 +840,40 @@ void CPUComputeBackend::realSum(const RealData& a, real_t* result) const {
     *result = sum;
 }
 
+// Wrapped-coordinate mass moments of the positive mass (PoissonMLE PSF width
+// estimate): double accumulation over the logical volume, skipping v <= 0.
+// result = {total, mx, my, mz, mx2, my2, mz2} (7 host doubles).
+void CPUComputeBackend::realWrappedMoments(const RealData& a, double* result) const {
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realWrappedMoments - input a", buildCpuContext());
+    BACKEND_CHECK(result != nullptr, "Result pointer is null", "CPU", "realWrappedMoments - result", buildCpuContext());
+
+    // Plain triple loop (not stridedIteration): the wrapped coordinate needs
+    // the y/z indices, which the row callbacks do not expose.
+    const CuboidShape s = a.getSize();
+    const size_t W = s.width, Hh = s.height, D = s.depth;
+    const size_t stride = W + a.getPadding();
+    const real_t* p = rawData(a);
+
+    double total = 0.0, mx = 0.0, my = 0.0, mz = 0.0;
+    double mx2 = 0.0, my2 = 0.0, mz2 = 0.0;
+    for (size_t z = 0; z < D; ++z)
+        for (size_t y = 0; y < Hh; ++y) {
+            const real_t* row = p + z * stride * Hh + y * stride;
+            for (size_t x = 0; x < W; ++x) {
+                real_t v = row[x];
+                if (v > 0.0f) {
+                    double wx = (x > W / 2) ? (double)x - (double)W : (double)x;
+                    double wy = (y > Hh / 2) ? (double)y - (double)Hh : (double)y;
+                    double wz = (z > D / 2) ? (double)z - (double)D : (double)z;
+                    total += v; mx += v * wx; my += v * wy; mz += v * wz;
+                    mx2 += v * wx * wx; my2 += v * wy * wy; mz2 += v * wz * wz;
+                }
+            }
+        }
+    result[0] = total; result[1] = mx; result[2] = my; result[3] = mz;
+    result[4] = mx2; result[5] = my2; result[6] = mz2;
+}
+
 void CPUComputeBackend::realLinearCombination(const RealData& a, real_t sa, const RealData& b, real_t sb, RealData& result) const {
     BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realLinearCombination - input a", buildCpuContext());
     BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "realLinearCombination - input b", buildCpuContext());
@@ -889,6 +923,88 @@ void CPUComputeBackend::realClampMin(const RealData& a, real_t lo, RealData& res
     stridedIteration(a, result, [lo](auto* rowA, auto* rowR, size_t w) {
         for (size_t x = 0; x < w; ++x) rowR[x] = rowA[x] < lo ? lo : rowA[x];
     });
+}
+
+void CPUComputeBackend::realAffineClampMin(const RealData& a, real_t scalar, real_t add, real_t lo, RealData& result) const {
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realAffineClampMin - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realAffineClampMin - result", buildCpuContext());
+
+    stridedIteration(a, result, [scalar, add, lo](auto* rowA, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) rowR[x] = std::max(rowA[x] * scalar + add, lo);
+    });
+}
+
+void CPUComputeBackend::realSqrtAffineClampMin(const RealData& a, real_t scale, real_t add, real_t lambda, real_t lo, RealData& result) const {
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realSqrtAffineClampMin - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realSqrtAffineClampMin - result", buildCpuContext());
+
+    const real_t eps = 1e-12f;
+    stridedIteration(a, result, [scale, add, lambda, lo, eps](auto* rowA, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) {
+            real_t arg = rowA[x] * scale + add;
+            if (arg < 0.0f) arg = 0.0f;
+            real_t denom = std::fabs(lambda) < eps ? eps : lambda;
+            rowR[x] = std::max((std::sqrt(arg) - 1.0f) / denom, lo);
+        }
+    });
+}
+
+void CPUComputeBackend::realLinearCombinationClampMin(const RealData& a, real_t sa, const RealData& b, real_t sb, real_t lo, RealData& result) const {
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realLinearCombinationClampMin - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "realLinearCombinationClampMin - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realLinearCombinationClampMin - result", buildCpuContext());
+
+    stridedIteration(a, b, result, [sa, sb, lo](auto* rowA, auto* rowB, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) rowR[x] = std::max(rowA[x] * sa + rowB[x] * sb, lo);
+    });
+}
+
+void CPUComputeBackend::realAffineProduct(const RealData& a, const RealData& b, real_t scalar, real_t add, RealData& result) const {
+    BACKEND_CHECK(rawData(a) != nullptr, "Input a pointer is null", "CPU", "realAffineProduct - input a", buildCpuContext());
+    BACKEND_CHECK(rawData(b) != nullptr, "Input b pointer is null", "CPU", "realAffineProduct - input b", buildCpuContext());
+    BACKEND_CHECK(rawData(result) != nullptr, "Result pointer is null", "CPU", "realAffineProduct - result", buildCpuContext());
+
+    stridedIteration(a, b, result, [scalar, add](auto* rowA, auto* rowB, auto* rowR, size_t w) {
+        for (size_t x = 0; x < w; ++x) rowR[x] = rowA[x] * (rowB[x] * scalar + add);
+    });
+}
+
+void CPUComputeBackend::poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const {
+    BACKEND_CHECK(rawData(ratio) != nullptr, "Ratio pointer is null", "CPU", "poissonUpdate - ratio", buildCpuContext());
+    BACKEND_CHECK(rawData(f) != nullptr, "Iterate pointer is null", "CPU", "poissonUpdate - f", buildCpuContext());
+
+    // f[i] = max(f[i] * ratio[i], lo), leaving f unchanged where ratio is
+    // non-finite so a degenerate model cannot poison the iterate.
+    stridedIteration(ratio, f, [lo](auto* rowR, auto* rowF, size_t w) {
+        for (size_t x = 0; x < w; ++x) {
+            const real_t r = rowR[x];
+            if (!std::isfinite(r)) continue;
+            rowF[x] = std::max(rowF[x] * r, lo);
+        }
+    });
+}
+
+void CPUBackend::poissonDataStepStreamed(const ComplexData& H, const RealData& gHost,
+                                         RealData& f, RealData& work, RealData& slabScratch,
+                                         real_t bg) const {
+    (void)slabScratch; // no streaming on the host backend: g is read whole
+    const IBackendMemoryManager& memory = memoryManager; // base interface: exposes the template memCopy
+
+    // Same fused sequence as the CUDA streamed step, but with a whole-volume
+    // guarded division (host == device memory, nothing to stream).
+    memory.memCopy(f, work);
+    ComplexView workC = work.reinterpret();
+    computeBackend.forwardFFT(work, workC);
+    computeBackend.complexMultiplication(workC, H, workC);
+    computeBackend.backwardFFT(workC, work);
+    computeBackend.realAffineClampMin(work, 1.0f, bg, bg, work);
+
+    computeBackend.division(gHost, work, work, 1e-9f);
+    computeBackend.forwardFFT(work, workC);
+    computeBackend.complexMultiplicationWithConjugate(workC, H, workC);
+    computeBackend.backwardFFT(workC, work);
+
+    computeBackend.poissonUpdate(work, f, 0.0f);
 }
 
 void CPUComputeBackend::realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const {
@@ -1010,6 +1126,35 @@ void CPUComputeBackend::fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t 
                 real_t kx = (real_t)x / (real_t)W;
                 ptr[z * si.sliceStride + y * si.stride + x][0] = std::exp(-ax * kx * kx) * gy;
                 ptr[z * si.sliceStride + y * si.stride + x][1] = 0.0f;
+            }
+        }
+    }
+}
+
+void CPUComputeBackend::complexMultiplyGaussianOTF(ComplexData& inout, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
+    BACKEND_CHECK(rawData(inout) != nullptr, "Result pointer is null", "CPU", "complexMultiplyGaussianOTF - result", buildCpuContext());
+
+    const size_t W = inout.getRealSize().width, H = inout.getRealSize().height, D = inout.getRealSize().depth;
+    auto si = getStrideInfo(inout);
+    complex_t* ptr = rawData(inout);
+    // Same Gaussian OTF as fillGaussianOTF (cycles per sample), evaluated
+    // inline: inout *= OTF in one pass, no OTF buffer.
+    const real_t twoPiSq = (real_t)M_PI * (real_t)M_PI * 2.0f;
+    const real_t ax = twoPiSq * sigmaX * sigmaX;
+    const real_t ay = twoPiSq * sigmaY * sigmaY;
+    const real_t az = twoPiSq * sigmaZ * sigmaZ;
+
+    for (size_t z = 0; z < D; ++z) {
+        const real_t kz = (z <= D / 2 ? real_t(z) : -real_t(D - z)) / real_t(D);
+        real_t gz = std::exp(-az * kz * kz);
+        for (size_t y = 0; y < H; ++y) {
+            const real_t ky = (y <= H / 2 ? real_t(y) : -real_t(H - y)) / real_t(H);
+            real_t gy = std::exp(-ay * ky * ky) * gz;
+            for (size_t x = 0; x < si.width; ++x) {
+                real_t kx = (real_t)x / (real_t)W;
+                real_t otf = std::exp(-ax * kx * kx) * gy;
+                ptr[z * si.sliceStride + y * si.stride + x][0] *= otf;
+                ptr[z * si.sliceStride + y * si.stride + x][1] *= otf;
             }
         }
     }

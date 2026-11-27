@@ -132,7 +132,7 @@ private:
     template <typename T>
     T& getBackend(IBackendManager& manager, const BackendConfig& config) {
         if constexpr (std::is_same_v<T, IBackend>) {
-            return manager.createBackendForCurrentThread(config);
+            return manager.createBackend(config);
         } else {
             static_assert(always_false<T>, "Unsupported interface type");
         }

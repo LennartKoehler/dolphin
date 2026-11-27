@@ -91,10 +91,13 @@ extern "C" IBackendManager* createBackendManager() {
 }
 
 
-
-
-CUDABackendManager::CUDABackendManager() : fftComponent(*this){
-
+// Shared cuFFT work areas are allocated through the memory managers, so they
+// must be freed while those are still alive: member destruction order would
+// tear `memoryManagers` down before `computeBackends`.
+CUDABackendManager::~CUDABackendManager() {
+    for (auto& compute : computeBackends) {
+        compute->releaseSharedWorkArea();
+    }
 };
 
 size_t CUDABackendManager::getNumberDevices() const {
@@ -139,30 +142,27 @@ void CUDABackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, 
     }
 }
 
-IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig& config) {
-    CUDABackendConfig cudaconfig = configToConfig(config);
+IBackend& CUDABackendManager::createBackend(const BackendConfig& config) {
+    // CUDABackendConfig cudaconfig = configToConfig(config);
+    int idx = config.deviceId >= 0 ? config.deviceId : usedDeviceCounter.fetch_add(1) % nDevices;
+    CUDADevice device = devices[idx];
+    CUDABackendConfig cudaconfig{device, cudaStreamLegacy};
     CUDABackend& backend = createNewBackend(cudaconfig);
     return backend;
 }
 
 
-MemoryComponent& CUDABackendManager::getMemoryComponent() {
-    return fftComponent;
-}
-
-CUDABackendConfig CUDABackendManager::configToConfig(const BackendConfig& config) {
-
-    int idx = config.deviceId >= 0 ? config.deviceId : usedDeviceCounter.fetch_add(1) % nDevices;
-    CUDADevice device = devices[idx];
-
-    CUDABackendConfig cudaconfig{device, createStream()};
-    return cudaconfig;
-}
-
-
-IBackend& CUDABackendManager::createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config){
-    CUDABackend& backend_ = dynamic_cast<CUDABackend&>(backend);
-    return createNewBackend(backend_.config);
+size_t CUDABackendManager::getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions, const size_t workerThreads) const {
+    // The compute backend owns the plan math (it creates the plans and grows
+    // their shared work area); the estimate needs no backend instance and no
+    // CUDA context, so the manager funnels it for pre-plan memory modeling.
+    // One shared work area per backend instance, so the set costs the largest
+    // plan per instance, times the number of worker backends.
+    size_t bytes = 0;
+    for (const FFTPlanDescription& description : descriptions) {
+        bytes = std::max(bytes, CUDAComputeBackend::estimatePlanWorkBytes(description));
+    }
+    return bytes * workerThreads;
 }
 
 // TODO make stream management more native, different streams in one cuda backend should not be permitted, one origin of truth
@@ -197,6 +197,14 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
     try {
         auto compute = createComputeBackend(config);
         auto mem = createMemoryManager(config);
+        // cuFFT plan work areas are allocated (and accounted) through this
+        // backend's memory manager instead of cuFFT's internal allocations.
+        // Capture through the base interface: the raw alloc/free overrides are
+        // private in CUDABackendMemoryManager, dispatch stays virtual.
+        IBackendMemoryManager* memBase = mem.get();
+        compute->setDeviceAllocator(
+            [memBase](size_t bytes) { return memBase->allocateMemoryOnDevice(bytes); },
+            [memBase](void* ptr, size_t bytes) { memBase->freeMemoryOnDevice(ptr, bytes); });
         std::unique_ptr<CUDABackend> backend = std::unique_ptr<CUDABackend>(new CUDABackend(config, std::move(compute), std::move(mem)));
         if (!backend) {
             throw dolphin::backend::BackendException(
@@ -210,15 +218,5 @@ CUDABackend& CUDABackendManager::createNewBackend(CUDABackendConfig config) {
         throw;
     }
 }
-
-
-cudaStream_t CUDABackendManager::createStream() const {
-    cudaStream_t stream;
-    cudaError_t err = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-    CUDA_CHECK(err, "createStream - cudaStreamCreateWithFlags", buildCudaContext({CUDADevice{0, nullptr}, cudaStreamLegacy}));
-    return stream;
-}
-
-
 
 

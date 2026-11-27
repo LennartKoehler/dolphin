@@ -212,9 +212,11 @@ public:
     // stage a different region that must be held simultaneously.
     void setNumReaderThreads(size_t count) { numReaderThreads = count; }
 
-    MemoryRequirement footprint(const CuboidShape& cubeShape) const override {
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t) const override {
         // One region is read at a time; all reader threads split z-slices of
-        // that single shared buffer, so the demand is one region's worth.
+        // that single shared buffer, so the demand is one region's worth. A
+        // region that needs no expansion beyond the requested cube (e.g. no
+        // mirror padding) is never held beyond its read call and reports 0.
         return MemoryRequirement{reader.getRequiredMemory(cubeShape), 0};
     }
 

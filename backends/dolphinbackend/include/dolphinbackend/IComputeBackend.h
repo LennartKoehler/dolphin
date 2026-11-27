@@ -234,6 +234,60 @@ public:
         COMPUTE_NOT_IMPLEMENTED(realClampMin);
     }
 
+    // The PoissonMLE data-step update in one pass: f[i] = max(f[i] * ratio[i], lo).
+    //
+    // This is the fused form of the multiplicative update f <- f * R (with R the
+    // H^T(g/m) ratio), which is algebraically identical to f <- f + d for the
+    // direction d = -f*(1-R). Fusing it replaces the 5 elementwise passes the
+    // algorithm used to emit (1-R, f*(1-R), negate, f+d, clamp) with one pass
+    // that reads f and ratio once and writes f once.
+    //
+    // Guarded: ratio is floored at 0 (the RL/Poisson ratio is non-negative) and
+    // non-finite ratio values leave f unchanged, so a bad ratio cannot turn the
+    // iterate into NaN/Inf. f aliases result (in-place update).
+    virtual void poissonUpdate(const RealData& ratio, RealData& f, real_t lo) const {
+        COMPUTE_NOT_IMPLEMENTED(poissonUpdate);
+    }
+
+    // Fused clamp variants: the same math as realAffine / realSqrtAffine /
+    // realLinearCombination with the lower clamp the algorithm applies right
+    // after each of them folded into the same pass. One kernel (and one
+    // read/write of the buffer) instead of two.
+    //
+    // result[i] = max(a[i] * scalar + add, lo)
+    virtual void realAffineClampMin(const RealData& a, real_t scalar, real_t add, real_t lo, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realAffineClampMin);
+    }
+
+    // result[i] = max( ( sqrt(a[i]*scale + add) - 1 ) / lambda, lo )
+    // (the PoissonMLE shrinkage map with its physical clamp in one pass)
+    virtual void realSqrtAffineClampMin(const RealData& a, real_t scale, real_t add, real_t lambda, real_t lo, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realSqrtAffineClampMin);
+    }
+
+    // result[i] = max(sa*a[i] + sb*b[i], lo)
+    virtual void realLinearCombinationClampMin(const RealData& a, real_t sa, const RealData& b, real_t sb, real_t lo, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realLinearCombinationClampMin);
+    }
+
+    // result[i] = a[i] * (scalar * b[i] + add)   (an affine-transformed operand
+    // multiplied by another buffer, in one pass). This is the fused form of
+    // realAffine(b, scalar, add) + multiplication(a, ...) + sign flips, e.g. the
+    // PoissonMLE search direction d = f * (R - 1). b may alias result.
+    virtual void realAffineProduct(const RealData& a, const RealData& b, real_t scalar, real_t add, RealData& result) const {
+        COMPUTE_NOT_IMPLEMENTED(realAffineProduct);
+    }
+
+    // One z-slice of the streamed Poisson data step (see
+    // IBackend::poissonDataStepStreamed): for the slice at `zSlice` of `work`
+    // (full padded volume), work[i] = gSlab[i] / max(work[i], epsilon) — the
+    // same guarded division as division(), applied slab-wise so the observed
+    // image never has to be resident as a whole volume. `gSlab` holds exactly
+    // one z-slice (height * rowStride reals) on the device.
+    virtual void divideRatioSlab(RealData& work, size_t zSlice, const RealData& gSlab, real_t epsilon) const {
+        COMPUTE_NOT_IMPLEMENTED(divideRatioSlab);
+    }
+
     // Statistics over all valid elements: min/max/mean and number of non-finite values
     // (NaN + Inf). min/max/mean are computed over finite elements only.
     virtual void realStats(const RealData& a, real_t* minOut, real_t* maxOut, real_t* meanOut, size_t* nonFiniteOut) const {
@@ -263,12 +317,37 @@ public:
         COMPUTE_NOT_IMPLEMENTED(poissonLineSearchEval);
     }
 
+    // One-pass reduction of the wrapped-coordinate mass moments of a real
+    // volume — the PoissonMLE PSF width estimate. For every element with
+    // value v > 0, wrap the logical coordinates about the origin (the spatial
+    // PSF recovered from an octant-shifted OTF is corner-peaked with mass
+    // wrapping across the edges, so moments about raw indices would bias the
+    // variance low): wx = x - W for x > W/2, else x (same for y/z), then
+    // accumulate in double:
+    //   result[0] = total           = sum v
+    //   result[1..3] = mx,my,mz     = sum v*w
+    //   result[4..6] = mx2,my2,mz2  = sum v*w^2
+    // `result` must point to 7 host doubles. Only these scalars cross the
+    // device boundary — the volume itself never leaves the backend.
+    virtual void realWrappedMoments(const RealData& a, double* result) const {
+        COMPUTE_NOT_IMPLEMENTED(realWrappedMoments);
+    }
+
     // Fill a half-complex (r2c, W/2+1) buffer with the frequency-domain OTF of a
     // separable anisotropic 3D Gaussian whose spatial std-devs are sigmaX/Y/Z (in
     // voxels):  OTF(k) = exp(-2*pi^2 * (sx^2 fx^2 + sy^2 fy^2 + sz^2 fz^2)), real-valued,
     // with fx/fy/fz in cycles per sample (bin index / N, wrapped). DC at origin.
     virtual void fillGaussianOTF(ComplexData& out, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
         COMPUTE_NOT_IMPLEMENTED(fillGaussianOTF);
+    }
+
+    // In-place multiply of a half-complex (r2c) buffer by the analytically
+    // evaluated Gaussian OTF of fillGaussianOTF (same frequency bins, same
+    // formula): the fused form of fillGaussianOTF + complexMultiplication, so
+    // no OTF buffer is needed and the spectrum is scaled in one pass. The OTF
+    // is real-valued, so both components are scaled by the same factor.
+    virtual void complexMultiplyGaussianOTF(ComplexData& inout, real_t sigmaX, real_t sigmaY, real_t sigmaZ) const {
+        COMPUTE_NOT_IMPLEMENTED(complexMultiplyGaussianOTF);
     }
 
     // Scale a half-complex OTF buffer in place so its DC bin (element [0]'s real part,

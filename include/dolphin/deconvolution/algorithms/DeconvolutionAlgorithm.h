@@ -15,11 +15,15 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/DeconvolutionConfig.h"
 #include "dolphinbackend/ComplexData.h"
 #include "dolphinbackend/IBackend.h"
+#include "dolphinbackend/IBackendManager.h"
+#include "dolphinbackend/MemoryComponent.h"
+#include <algorithm>
 #include <functional>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <memory>
+#include <vector>
 
 /**
  * @brief Values the plan resolves once for the whole run and every cube needs.
@@ -52,8 +56,23 @@ public:
     virtual void configure(const DeconvolutionConfig& config) = 0;
 
 
-    // Initialize algorithm-specific data allocations
+    // Initialize algorithm-specific data allocations.
+    //
+    // Two-phase on purpose, so the caller can choose WHEN the two kinds of
+    // backend state are created:
+    //
+    //  init()        creates the FFT plans the algorithm will use. On a device
+    //                backend this transiently needs a plan work area, so calling
+    //                init() before the io buffers are allocated keeps that
+    //                transient from overlapping the image buffers (lower peak).
+    //                Must be called AFTER setBackend().
+    //  preAllocate() allocates the algorithm's persistent scratch arrays and any
+    //                views that alias them. Call after init().
+    //
+    // Deconvolve() requires BOTH to have run. The default preAllocate() is a
+    // no-op for algorithms whose init() allocates nothing.
     virtual void init(const CuboidShape& dataSize) = 0;
+    virtual void preAllocate(const CuboidShape& dataSize) {}
     virtual bool isInitialized() const = 0;
 
     // it is assumed that the input of convolve is already located on the backend device
@@ -62,12 +81,21 @@ public:
     virtual void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                             const DeconvolutionRunContext& runContext = {}) = 0;
 
-    // Peak bytes this algorithm additionally holds for a cube of the given
-    // (padded) shape: every scratch array allocated in init() or during
-    // deconvolve(), beyond the input/output buffers passed in. Purely the
-    // SIZE; where those bytes live (host or device) is decided by the
-    // strategy, see AlgorithmWorkingSetMemoryComponent.
-    virtual size_t getWorkingSetBytes(const CuboidShape& dataSize) const = 0;
+
+    // The algorithm's memory demand for one run as a MemoryComponent. Each
+    // algorithm composes its own component individually: it knows the scratch
+    // arrays it allocates and the FFT plans it will create, and folds in the
+    // FFT work-area memory by querying the backend manager for its plan set
+    // (IBackendManager::getFFTPlanMemoryBytes — the backend's sharing policy
+    // applies inside, e.g. CUDA's shared work area counts the largest plan,
+    // not the sum). The component reports one instance set per worker thread
+    // (capped at numTasks), always on the DEVICE plane — MemoryBudget::fits
+    // folds the device bytes into the host pool when the backend is the CPU
+    // (device == host), so no placement flag is needed. The strategy adds
+    // THIS component to the run's footprint; the backend's FFT memory is
+    // never added separately.
+    virtual std::unique_ptr<const MemoryComponent> getMemoryComponent(
+        const IBackendManager& backendManager, size_t workerThreads) const = 0;
 
     void setBackend(IBackend& backend){this->backend = &backend;}
 
@@ -106,3 +134,4 @@ protected:
 
 
 };
+

@@ -370,6 +370,54 @@ namespace CUBE_MLE {
         return launchSync([=] { realClampMinGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideC, A, lo, C); }, stream);
     }
 
+    cudaError_t poissonUpdate(size_t Nx, size_t Ny, size_t Nz, size_t strideR, size_t strideF, real_t* ratio, real_t* f, real_t lo, cudaStream_t stream){
+        if (!ratio || !f) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { poissonUpdateGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideR, strideF, ratio, f, lo); }, stream);
+    }
+
+    cudaError_t realAffineClampMin(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scalar, real_t add, real_t lo, real_t* C, cudaStream_t stream){
+        if (!A || !C) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realAffineClampMinGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideC, A, scalar, add, lo, C); }, stream);
+    }
+
+    cudaError_t realSqrtAffineClampMin(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideC, real_t* A, real_t scale, real_t add, real_t lambda, real_t lo, real_t* C, cudaStream_t stream){
+        if (!A || !C) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realSqrtAffineClampMinGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideC, A, scale, add, lambda, lo, C); }, stream);
+    }
+
+    cudaError_t realLinearCombinationClampMin(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t sa, real_t* B, real_t sb, real_t lo, real_t* C, cudaStream_t stream){
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realLinearCombinationClampMinGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideB, strideC, A, sa, B, sb, lo, C); }, stream);
+    }
+
+    cudaError_t realAffineProduct(size_t Nx, size_t Ny, size_t Nz, size_t strideA, size_t strideB, size_t strideC, real_t* A, real_t* B, real_t scalar, real_t add, real_t* C, cudaStream_t stream){
+        if (!A || !B || !C) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realAffineProductGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideA, strideB, strideC, A, B, scalar, add, C); }, stream);
+    }
+
+    cudaError_t poissonDivideSlab(size_t Nx, size_t Ny, size_t strideWork, size_t strideSlab, real_t* workSlab, real_t* gSlab, real_t epsilon, cudaStream_t stream){
+        if (!workSlab || !gSlab) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, 1);
+        return launchSync([=] { poissonDivideSlabGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, strideWork, strideSlab, workSlab, gSlab, epsilon); }, stream);
+    }
+
     cudaError_t poissonLineSearchEval(size_t Nx, size_t Ny, size_t Nz, size_t strideG, size_t strideM, size_t strideHd, real_t* g, real_t* m, real_t* hd, real_t alpha, double* result, cudaStream_t stream){
         if (!g || !m || !hd || !result) {
             return cudaErrorInvalidValue;
@@ -378,11 +426,27 @@ namespace CUBE_MLE {
         return launchSync([=] { poissonLineSearchEvalGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, strideG, strideM, strideHd, g, m, hd, alpha, result); }, stream);
     }
 
+    cudaError_t realWrappedMoments(size_t Nx, size_t Ny, size_t Nz, size_t stride, real_t* a, double* result, cudaStream_t stream){
+        if (!a || !result) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] { realWrappedMomentsGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, Ny, Nz, stride, a, result); }, stream);
+    }
+
     cudaError_t fillGaussianOTF(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t stride, complex_t* out, const real_t twoPiSq, const real_t ax, const real_t ay, const real_t az, cudaStream_t stream){
         if (!out) {
             return cudaErrorInvalidValue;
         }
         dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
         return launchSync([=] {fillGaussianOTFGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, realW, Ny, Nz, stride, out, twoPiSq, ax, ay, az);}, stream);
+    }
+
+    cudaError_t complexMultiplyGaussianOTF(size_t Nx, size_t realW, size_t Ny, size_t Nz, size_t stride, complex_t* inout, const real_t ax, const real_t ay, const real_t az, cudaStream_t stream){
+        if (!inout) {
+            return cudaErrorInvalidValue;
+        }
+        dim3 blocks = computeBlocksPerGrid(Nx, Ny, Nz);
+        return launchSync([=] {complexMultiplyGaussianOTFGlobal<<<blocks, GLOBAL_THREADS_PER_BLOCK, 0, stream>>>(Nx, realW, Ny, Nz, stride, inout, ax, ay, az);}, stream);
     }
 }

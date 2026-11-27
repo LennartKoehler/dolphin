@@ -14,105 +14,82 @@ See the LICENSE file provided with the code for the full license.
 #pragma once
 
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
-#include "dolphin/deconvolution/configs/PoissonMLEConfig.h"
+#include "dolphin/deconvolution/algorithms/PoissonMLECore.h"
 #include <memory>
 
-// Poisson / I-divergence (photon-counting) likelihood deconvolution: an alternating
-// data/prior scheme on the objective
-//     J(f) = sum [ g ln(g/m) - g + m ],   m = Hf + bg,   f >= bg.
-// Before the loop, an optional prefilter (a single mild anisotropic Gaussian
-// low-pass of the raw data, sigma = prefilterScale * PSF sigma) sets the initial
-// estimate f0. The background bg is resolved once for the whole image by the
-// plan (DeconvolutionRunContext, background_strategy = global or whole_image)
-// so that neighbouring cubes agree; deconvolving without it is an error
-// (an explicit poisson_background configures it directly).
-// Each iteration:
-//   DATA STEP  - gradient H^T(1 - g/m), direction d = -f*(1 - ratio), then a step
-//                f <- f + step*d clipped at zero. The default (this class) takes
-//                the plain Richardson-Lucy unit step (step = 1), skipping the
-//                hd = H*d FFT + line search entirely;
-//                PoissonMLEAdaptiveStepDeconvolutionAlgorithm overrides the data
-//                step with an exact Newton line search (guarded against the RL
-//                unit step) at the cost of one extra FFT + ~30 J(alpha) evaluations
-//                per iteration.
-//   GUARD      - if J increased, damp the update (power) and redo the iteration
-//                (adaptive-step variant only).
-//   PRIOR STEP - lambda-shrinkage f <- (sqrt(2*lambda*f + 1) - 1)/lambda + flux renormalize.
-//   SIEVE      - annealed anisotropic Gaussian smoothing (roughness regularizer).
-// Stopping is by iteration count (no quality-factor criterion).
+// Poisson / I-divergence (photon-counting) likelihood deconvolution with the
+// plain Richardson-Lucy unit step, classic in-core data step:
+//   DATA STEP       m = Hf + bg, ratio R = H^T(g/m), f <- max(f*R, 0)
+//                   (one shared work buffer carries m and R; they are never
+//                   needed simultaneously in the unit-step path)
+//   PRIOR + SIEVE   see PoissonMLECore
+//
+// Sibling variants: PoissonMLEStreamed (out-of-core data step, lower VRAM
+// peak, extra PCIe traffic) and PoissonMLEAdaptiveStep (exact Newton line
+// search). They share the math through PoissonMLECore, not inheritance.
 class PoissonMLEDeconvolutionAlgorithm : public DeconvolutionAlgorithm {
 public:
     PoissonMLEDeconvolutionAlgorithm() = default;
     ~PoissonMLEDeconvolutionAlgorithm() = default;
 
     void configure(const DeconvolutionConfig& config) override;
-    virtual void configure(const PoissonMLEConfig& config);
-    virtual void init(const CuboidShape& dataSize) override;
+    void init(const CuboidShape& dataSize) override;
+    void preAllocate(const CuboidShape& dataSize) override;
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;
-    virtual size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
+    std::unique_ptr<const MemoryComponent> getMemoryComponent(
+        const IBackendManager& backendManager, size_t workerThreads) const override;
 
 protected:
-    // Apply one data step: compute the model m = Hf + bg, the search direction
-    // d = -f*(1 - H^T(g/m)), and move f. The default (this class) takes the plain
-    // RL unit step f <- f + d, clipped at zero, reusing the shared `scratch` for
-    // m and d (they are never needed simultaneously here). Subclasses can override
-    // to use a different step rule (e.g. the exact Newton line search of
-    // PoissonMLEAdaptiveStepDeconvolutionAlgorithm, which keeps m in its own buffer
-    // and adds one extra hd = H*d FFT + J(alpha) evaluations per iteration).
-    virtual void applyDataStep(const IComputeBackend& compute,
-                               const ComplexData& H, const RealData& g,
-                               real_t bg, RealData& f);
+    PoissonMLECore core_;
 
-    // Per-deconvolution data-step state reset, called once before the iteration
-    // loop. Subclasses with damping state (line-search variant) override it.
-    virtual void resetDataStepState() {}
-
-    // m = clamp_min(Hf + bg, bg), written into `m` (in-place FFTs follow
-    // RichardsonLucy: out-of-place real->complex, then in-place complex->real into
-    // the same buffer's real view, so a real result is never clobbered by an FFT).
-    // The clamp is the model's physical floor: with f >= 0 and the (non-negative,
-    // unit-sum) PSF, m = Hf + bg >= bg exactly. But the sieve's float32 ringing can
-    // push f slightly negative (and a measured PSF can have small negative lobes),
-    // dragging m to <= 0 at isolated voxels. Left alone, the ratio g/m below is
-    // floored at the tiny epsilon (1e-9) and amplifies g by ~1e9, running the
-    // iteration away to inf/NaN.
-    void computeForwardModel(const IComputeBackend& compute, const ComplexData& H,
-                             const RealData& f, real_t bg, RealData& m);
-
-    // d = -f*(1 - H^T(g/m)) written into `d`. When `m` and `d` are the same buffer
-    // (unit-step path), m is clobbered by the g/m ratio — pass a separate buffer
-    // for m to keep it alive (line-search path needs it for J(alpha)).
-    void computeSearchDirection(const IComputeBackend& compute, const ComplexData& H,
-                                const RealData& g, const RealData& f,
-                                RealData& m, RealData& d);
-
-    // Shared data-step scratch: one real in-place-FFT buffer (m -> d per iteration)
-    // plus its complex view (same memory, FFT work buffer). Subclasses may reuse it.
-    RealData scratch;
-    ComplexView scratchC;
-
-    // Configuration mirrored from PoissonMLEConfig (protected so subclasses can
-    // copy them in their own cloneSpecific()).
-    int iterations = 10;
-    float signal_to_noise = 10.0f;
-    float lambdaOverride;
-    float backgroundOverride;
-    bool usePrefilter;
-    float prefilterScale;
-    bool useSieve;
-    bool usePrior;
-    int sievePasses;
-    float sieveScale;
-
-    // Cached PSF width estimate (run-constant for a given padded shape).
-    bool psfSigmasValid = false;
-    real_t psfSigX = 1.0f, psfSigY = 1.0f, psfSigZ = 1.0f;
+private:
+    // One data step: m = Hf + bg, R = H^T(g/m) (both in the shared work
+    // buffer), then the fused update f = max(f*R, 0).
+    void dataStep(const IComputeBackend& compute,
+                  const ComplexData& H, const RealData& g, real_t bg, RealData& f);
 
     bool initialized = false;
 
-private:
-
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
 };
+
+
+
+/**
+ * @brief MemoryComponent of the classic PoissonMLE: one real in-place-FFT
+ * scratch buffer (m -> ratio per iteration, plus the sieve's OTF buffer) per
+ * worker thread, plus the FFT work-area memory of the variant's plan set.
+ *
+ * One working set per worker thread, capped at min(workerThreads, numTasks)
+ * like every per-thread system, always reported on the DEVICE plane —
+ * MemoryBudget::fits folds the device bytes into the host pool when the
+ * backend is the CPU (device == host), so no placement flag is needed.
+ * The FFT plan memory comes from ONE backend-manager query for the whole
+ * plan set (the backend's sharing policy applies inside, e.g. CUDA's shared
+ * work area counts the largest plan instead of the sum) and is folded into
+ * the same per-thread concurrency — one backend instance per worker thread
+ * holds the plans' work areas.
+ */
+class PoissonMLEAlgorithmMemoryComponent : public MemoryComponent {
+public:
+    PoissonMLEAlgorithmMemoryComponent(const IBackendManager& backendManager,
+                                       size_t workerThreads)
+        : backendManager(backendManager), workerThreads(workerThreads) {}
+
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t numTasks) const override {
+        const size_t instances = std::min(workerThreads, numTasks);
+        const size_t scratchBytes = cubeShape.getVolume() * sizeof(real_t);
+        const size_t planBytes = backendManager.getFFTPlanMemoryBytes(
+            PoissonMLECore::planDescriptions(cubeShape), workerThreads);
+        return MemoryRequirement{0, instances * scratchBytes + planBytes};
+    }
+
+    std::string name() const override { return "algorithm working set + fft plans"; }
+
+private:
+    const IBackendManager& backendManager;
+    size_t workerThreads;
+};
+
