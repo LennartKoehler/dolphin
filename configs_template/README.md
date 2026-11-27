@@ -1,151 +1,22 @@
 # Configuration Parameters
 
-## Required Parameters
-- `-i, --image <path>`
-- `-p, --psf <path>`
-- `-a, --algorithm <algorithm>`
+The JSON config format is documented in the top-level [README](../README.md#json-configuration).
+The files in this directory are working examples:
 
-## Input and Output
+| File | Purpose |
+|---|---|
+| `default_config.json` | Standard deconvolution with a Gaussian PSF |
+| `default_psf_config_gaussian.json` | Gaussian PSF config only |
+| `default_psf_gibsonlanni.json` | Gibson-Lanni PSF config only |
+| `gibson_lanni_config.json` | Deconvolution with a Gibson-Lanni widefield PSF |
+| `gibson_lanni_confocal_config.json` | Confocal Gibson-Lanni PSF (finite pinhole) example |
+| `labeled_image_config.json` | Labeled-image deconvolution (`labeled_image` + `label_psf_map`) |
 
-- `-i, --image <path>`  
-  **Description**: Path to the input image file.  
-  **Required**: Yes.
+Run a combined config with:
 
-- `-p, --psf <path>`  
-  **Description**: Path to the input PSF file or use `'synthetic'` to generate a synthetic PSF.  
-  **Required**: Yes.
+```bash
+./dolphin deconvolution -c default_config.json
+```
 
-- `--savepsf`  
-  **Description**: Save the PSF used in the process.  
-  **Default**: 'false'.  
-  **Required**: No.
-
-- `--info`  
-  **Description**: Print information about the input image.  
-  **Default**: 'false'.  
-  **Required**: No.
-
-- `--showExampleLayers`  
-  **Description**: Display example layers of the image and PSF.  
-  **Default**: 'false'.  
-  **Required**: No.
-
-## Algorithm Selection
-
-- `-a, --algorithm <algorithm>`  
-  **Description**: Select the algorithm to be used. Options are:
-    - `'rl'`: Richardson-Lucy Deconvolution.
-    - `'rltv'`: Richardson-Lucy Total Variation.
-    - `'rif'`: Regularized Inverse Filter.
-    - `'inverse'`: Inverse filtering.  
-      **Required**: Yes.
-
-## Synthetic PSF Parameters
-
-- `--psfmodel <model>`  
-  **Description**: Select the PSF model to be used. Options are:
-    - `'gauss'`: Gaussian PSF.
-    - `'bornwolf'`: Born-Wolf PSF (coming soon).
-  
-  **Default**: 'gauss'.  
-  **Required**: No.
-
-- `--sigmax <value>`  
-  **Description**: Sigma value in the X direction for the synthetic PSF.  
-  **Default**: 5.  
-  **Required**: No.
-
-- `--sigmay <value>`  
-  **Description**: Sigma value in the Y direction for the synthetic PSF.  
-  **Default**: 5.  
-  **Required**: No.
-
-- `--sigmaz <value>`  
-  **Description**: Sigma value in the Z direction for the synthetic PSF.  
-  **Default**: 5.  
-  **Required**: No.
-
-- `--psfx <value>`  
-  **Description**: Width in px of the synthetic PSF.  
-  **Default**: 20.  
-  **Required**: No.
-
-- `--psfy <value>`  
-  **Description**: Height in px of the synthetic PSF.  
-  **Default**: 20.  
-  **Required**: No.
-
-- `--psfz <value>`  
-  **Description**: Depth in px of the synthetic PSF.  
-  **Default**: 30.  
-  **Required**: No.
-
-## Deconvolution and Regularization
-
-- `--iterations <value>`  
-  **Description**: Number of iterations for the Richardson-Lucy deconvolution algorithm.  
-  **Default**: 10.  
-  **Required**: No.
-
-- `--signal_to_noise <value>`  
-  **Description**: Signal to noise ratio used for regularization (RLTV / Regularized Inverse Filter).  
-  **Default**: 1e-2.  
-  **Required**: No.
-
-- `--min_denominator <value>`  
-  **Description**: Lower bound on the division denominator, guards against division by zero in complex division.  
-  **Default**: 1e-6.  
-  **Required**: No.
-
-## Image Processing and Grid Parameters
-
-- `--borderType <type>`  
-  **Description**: Specifies the border type for image extension. Options are:
-    - `0`: Constant border. (constant 0)
-    - `1`: Replicate border. (constant last value)
-    - `2`: Reflect border. (mirrored image)
-      **Default**: 2.  
-      **Required**: No.
-
-- `--psfSafetyBorder <value>`  
-  **Description**: Padding around the PSF to prevent edge effects.  
-  **Default**: 10.  
-  **Required**: No.
-
-- `--cubeSize <value>`  
-  **Description**: Edge length in px of the grid cubes used for processing.  
-    - `0`: Automatic fiiting to PSF size.
-    
-  **Default**: 0.  
-        **Required**: No.
-
-- `--grid`  
-  **Description**: Process the image in sub-images (grid mode).  
-  **Default**: 'false'.  
-  **Required**: No.
-
-- `--secondpsflayers <list>`  
-  **Description**: A list of sub-image/cube layers for the second PSF, which can be specified for processing.  
-  **Default**: `[]` (empty list)  
-  **Required**: No.
-
-- `--secondpsfcubes <list>`  
-  **Description**: A list of cubes for the second PSF, which can be specified for processing.  
-  **Default**: `[]` (empty list)  
-  **Required**: No.
-
-- `--separate`  
-  **Description**: Save image layers separately after processing.  
-  **Default**: 'false'.  
-  **Required**: No.
-
-## Configuration and Timing
-
-- `-c, --config <path>`  
-  **Description**: Path to the JSON configuration file. This parameter is required if no command-line arguments are provided.  
-  **Required**: Yes, if no other CLI arguments are provided.
-
-- `--time`  
-  **Description**: Display the total processing time for the operation.
-  **Default**: 'false'.  
-  **Required**: No.
+All parameters are also exposed as CLI flags; run `./dolphin deconvolution --help` for the
+authoritative, auto-generated list.

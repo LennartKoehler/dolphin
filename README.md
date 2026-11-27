@@ -19,6 +19,8 @@ Deconvolution with Optimized Local PSFs for High-speed Image recoNstruction (DOL
     - Richardson-Lucy (RL)
     - Richardson-Lucy with Total Variation (RLTV)
     - Richardson-Lucy with Adaptive Damping (RLAD)
+    - Poisson MLE, unit step size
+    - Poisson MLE with adaptive (Newton line-search) step size
     - Regularized Inverse Filter (RIF)
     - Inverse Filter
     - Convolution
@@ -62,17 +64,17 @@ make
 
 ### CLI Executable
 
-The CLI frontend is **off by default**. Enable it explicitly:
+The CLI frontend is built by default (`BUILD_CLI=ON`). To skip it:
 
 ```bash
 mkdir ./build
 cd ./build
 
-cmake .. -DBUILD_CLI=ON
+cmake .. -DBUILD_CLI=OFF
 make
 ```
 
-This produces the `./dolphin` executable.
+This produces the `./dolphin` executable at `build/frontends/cli/dolphin`.
 
 ### Tests
 
@@ -85,12 +87,15 @@ ctest --output-on-failure
 
 ### Build Options
 
+See `CMakePresets.json` for ready-made configurations (`dev`, `dev-ninja-ccache`, `release`,
+`cpu-only`), e.g. `cmake --preset dev && cmake --build --preset dev`.
+
 | Option | Default | Description |
 |---|---|---|
 | `BUILD_CUDA` | `ON` | Build CUDA GPU backend (requires CUDA Toolkit 12.8+) |
-| `BUILD_CLI` | `OFF` | Build the CLI frontend executable (`dolphin`) |
+| `BUILD_CLI` | `ON` | Build the CLI frontend executable (`dolphin`) |
 | `ENABLE_TESTS` | `ON` | Build GoogleTest suite and register with ctest |
-| `ENABLE_BENCHMARKS` | `ON` | Build benchmark executables |
+| `ENABLE_BENCHMARKS` | `OFF` | Build benchmark executables |
 | `BUILD_DOLPHIN_LIBRARY` | `ON` | Build the main dolphin static library |
 
 The CUBE library (for GPU support) is built automatically via `add_subdirectory` when `BUILD_CUDA=ON`.
@@ -126,7 +131,7 @@ All configuration parameters are also exposed as CLI flags. The most commonly us
 ```
 -i, --image_path <path>       Input image path (TIF file or directory)
 -o, --output <path>           Output path
-    --backend <cpu|gpu>       Compute backend
+    --backend <cpu|cuda>      Compute backend
     --n_worker_threads <n>    Number of worker threads
     --n_io_threads <n>        Number of I/O threads
     --n_devices <n>           Number of GPU devices
@@ -150,7 +155,11 @@ All configuration parameters are also exposed as CLI flags. The most commonly us
 ```
 
 Algorithm names must match exactly: `RichardsonLucy`, `RichardsonLucyTotalVariation`,
-`RichardsonLucywithAdaptiveDamping`, `RegularizedInverseFilter`, `InverseFilter`, `Convolution`.
+`RichardsonLucywithAdaptiveDamping`, `PoissonMLE`, `PoissonMLEAdaptiveStep`,
+`RegularizedInverseFilter`, `InverseFilter`, `Convolution`.
+
+`PoissonMLE` is the unit-step variant; `PoissonMLEAdaptiveStep` uses a Newton line search.
+See `docs/poisson-mle-deconvolution.md` for details.
 
 ### Example
 
@@ -221,10 +230,11 @@ A combined JSON config file contains three top-level sections: `setup_config`, `
 |---|---|---|---|---|
 | `image_path` | string | yes | — | Input image path (TIF file or directory of slices) |
 | `output` | string | yes | — | Output image path |
-| `backend` | string | no | `cpu` | Compute backend (`cpu` or `gpu`) |
+| `backend` | string | no | `cpu` | Compute backend (`cpu` or `cuda`) |
 | `n_threads` | int | no | `1` | Number of threads |
 | `n_worker_threads` | int | no | `1` | Number of worker threads |
 | `n_io_threads` | int | no | `1` | Number of I/O threads |
+| `n_reader_threads` | int | no | `1` | Number of TIFF reader threads |
 | `n_devices` | int | no | `1` | Number of GPU devices |
 | `max_mem_host_gb` | float | no | `-1` | Upper bound for host memory in GB. `-1` or `0` = auto (~90% of currently available memory). Allocations beyond the cap fail with a clear error |
 | `max_mem_device_gb` | float | no | `-1` | Upper bound for device (GPU) memory in GB per device. `-1` or `0` = auto (~90% of currently available VRAM). Drives the subcube sizing |
@@ -249,7 +259,10 @@ A combined JSON config file contains three top-level sections: `setup_config`, `
 | `padding_strategy` | string | no | `medium` | Preset PSF padding threshold: `none`, `low`, `medium`, `max` |
 | `padding_relative_max` | float | no | `0` | Pad until PSF is below this fraction of its max value (0–1); `> 0` overrides `padding_strategy` |
 | `feathering_radius` | int | no | `0` | Feathering radius for subimage boundaries |
-| `cube_padding` | int[3] | no | `[-1,-1,-1]` | Manual per-axis (x, y, z) padding; all `>= 0` overrides the other options |
+| `cube_padding` | int[3] | no | unset | Manual per-axis (x, y, z) padding; all `>= 0` overrides the other options |
+| `cube_size` | int[3] | no | `[0,0,0]` | Force fixed processing cube size (x, y, z); all `0` = automatic |
+| `slice_all_dimensions` | bool | no | `false` | Subdivide all dimensions, not only Z |
+| `background_strategy` | string | no | `global` | Background source for algorithms that estimate one (Poisson MLE): `global` (one interior cube, used for all cubes) or `whole_image` (streams the full image, reads it twice) |
 
 #### `psf_configs`
 
