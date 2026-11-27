@@ -332,7 +332,7 @@ TEST_F(TiffWriterSubimageTest, FullWrite_ReadBackCorrect) {
 
     CuboidShape shape = original.getShape();
     {
-        TiffWriter writer(path, shape);
+        TiffWriter writer(path, TiffWriter::extractMetaData(original));
         ASSERT_TRUE(writer.setSubimage(original, makeBox(0, 0, 0, shape.width, shape.height, shape.depth).box));
     }
 
@@ -347,7 +347,7 @@ TEST_F(TiffWriterSubimageTest, MultiChunk_WriteReadBackCorrect) {
     std::string path = testDir + "/writer_multichunk.tif";
 
     {
-        TiffWriter writer(path, CuboidShape(w, h, d));
+        TiffWriter writer(path, TiffWriter::extractMetaData(original));
         size_t chunkDepth = 2;
         for (size_t z = 0; z < d; z += chunkDepth) {
             size_t thisDepth = std::min(chunkDepth, d - z);
@@ -372,7 +372,7 @@ TEST_F(TiffWriterSubimageTest, FullWrite_ResultNotAllZeros) {
 
     CuboidShape shape = original.getShape();
     {
-        TiffWriter writer(path, shape);
+        TiffWriter writer(path, TiffWriter::extractMetaData(original));
         ASSERT_TRUE(writer.setSubimage(original, makeBox(0, 0, 0, shape.width, shape.height, shape.depth).box));
     }
 

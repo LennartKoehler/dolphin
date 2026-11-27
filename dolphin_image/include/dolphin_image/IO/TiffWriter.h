@@ -48,7 +48,11 @@ private:
 
 class TiffWriter : public ImageWriter {
 public:
-    explicit TiffWriter(const std::string& filename, const CuboidShape& imageShape);
+    explicit TiffWriter(const std::string& filename, const ImageMetaData& metadata);
+
+    // Synthesizes writer metadata for images without a source file
+    // (float32, single channel).
+    static ImageMetaData extractMetaData(const Image3D& image);
 
     void configure(WriterCompressionConfig compressionConfig, WriterConfig writerConfig = {}) override;
     ~TiffWriter();
@@ -84,6 +88,7 @@ private:
     std::string outputFilename;
     TIFF* tif;
     CuboidShape imageShape;
+    ImageMetaData metaData;
     WriterCompressionConfig compressionConfig;
     WriterConfig writerConfig_;
     mutable size_t writtenToDepth = 0;
@@ -105,7 +110,6 @@ private:
 
     static TIFF* openTiff(const char* filename, const CuboidShape& size);
 
-    static ImageMetaData extractMetaData(const Image3D& image);
     static void customTifWarningHandler(const char* module, const char* fmt, va_list ap);
     static void setTiffFields(TIFF* tif, const ImageMetaData& metaData,
                               const WriterCompressionConfig& compression,

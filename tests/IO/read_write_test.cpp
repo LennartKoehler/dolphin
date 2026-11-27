@@ -51,6 +51,15 @@ public:
 
 inline ::testing::Environment* env = ::testing::AddGlobalTestEnvironment(new FileTestEnvironment());
 
+// Metadata carrying only the shape; the writer normalizes the pixel format.
+static ImageMetaData metaFromShape(const CuboidShape& shape) {
+    ImageMetaData meta;
+    meta.imageWidth = shape.width;
+    meta.imageLength = shape.height;
+    meta.slices = shape.depth;
+    return meta;
+}
+
 TEST_F(ReadWriteTest, WriteAndReadRoundTrip) {
     Image3D original = TestUtils::createRandomImage(16, 16, 8);
 
@@ -173,7 +182,7 @@ TEST_F(ReadWriteTest, SetSubimageDepthSplit) {
     size_t chunkDepth = 2;
 
     {
-        TiffWriter writer(path, fullShape);
+        TiffWriter writer(path, TiffWriter::extractMetaData(original));
         for (size_t z = 0; z < fullShape.depth; z += chunkDepth) {
             BoxCoord subBox{CuboidPosition(0, 0, static_cast<int64_t>(z)),
                             CuboidShape(fullShape.width, fullShape.height, chunkDepth)};
@@ -200,7 +209,7 @@ TEST_F(ReadWriteTest, SetSubimageWithLZWCompression) {
     {
         WriterCompressionConfig config;
         config.compressionScheme = COMPRESSION_LZW;
-        TiffWriter writer(path, fullShape);
+        TiffWriter writer(path, TiffWriter::extractMetaData(original));
         writer.configure(config);  // WriterConfig defaults to strips
         for (size_t z = 0; z < fullShape.depth; z += chunkDepth) {
             BoxCoord subBox{CuboidPosition(0, 0, static_cast<int64_t>(z)),
@@ -226,7 +235,7 @@ TEST_F(ReadWriteTest, SetSubimageSpatialSplit) {
     size_t blockW = 8, blockH = 8, blockD = 4;
 
     {
-        TiffWriter writer(path, fullShape);
+        TiffWriter writer(path, TiffWriter::extractMetaData(original));
         for (size_t zOff = 0; zOff < fullShape.depth; zOff += blockD) {
             for (size_t yOff = 0; yOff < fullShape.height; yOff += blockH) {
                 for (size_t xOff = 0; xOff < fullShape.width; xOff += blockW) {
@@ -256,7 +265,7 @@ TEST_F(ReadWriteTest, SetSubimageWithPadding) {
     Padding pad{CuboidShape(2, 2, 2), CuboidShape(2, 2, 2)};
 
     {
-        auto tiffWriter = std::make_shared<TiffWriter>(path, fullShape);
+        auto tiffWriter = std::make_shared<TiffWriter>(path, TiffWriter::extractMetaData(original));
         WriterHandler writerHandler(tiffWriter);
         for (size_t z = 0; z < fullShape.depth; z += chunkDepth) {
             BoxCoord subBox{CuboidPosition(0, 0, static_cast<int64_t>(z)),
@@ -281,13 +290,152 @@ TEST_F(ReadWriteTest, SetSubimageWithPadding) {
     EXPECT_TRUE(readOpt->isEqual(original, 0.001f));
 }
 
+// --- Source metadata carry-over ------------------------------------------------
+// The writer receives the reader's metadata and must write the descriptive
+// tags back verbatim (ImageDescription, X/YResolution, ResolutionUnit), while
+// the pixel format stays writer-controlled (float32).
+
+// Creates a minimal single-directory float32 TIFF carrying an ImageDescription
+// and resolution tags, the way an external microscopy tool would.
+static void writeMetadataSourceTiff(const std::string& path,
+                                    const std::string& description = "channels=1\nslices=3",
+                                    bool withResolutions = true) {
+    TIFF* tif = TIFFOpen(path.c_str(), "w");
+    ASSERT_NE(tif, nullptr);
+    const uint32_t width = 4, length = 4;
+    TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
+    TIFFSetField(tif, TIFFTAG_IMAGELENGTH, length);
+    TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
+    TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 32);
+    TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
+    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+    TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+    TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, length);
+    TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+    if (!description.empty()) {
+        TIFFSetField(tif, TIFFTAG_IMAGEDESCRIPTION, description.c_str());
+    }
+    if (withResolutions) {
+        TIFFSetField(tif, TIFFTAG_XRESOLUTION, 300.0f);
+        TIFFSetField(tif, TIFFTAG_YRESOLUTION, 200.0f);
+        TIFFSetField(tif, TIFFTAG_RESOLUTIONUNIT, RESUNIT_CENTIMETER);
+    }
+    std::vector<float> strip(width * length, 0.5f);
+    ASSERT_EQ(TIFFWriteEncodedStrip(tif, 0, strip.data(), strip.size() * sizeof(float)), strip.size() * sizeof(float));
+    ASSERT_TRUE(TIFFWriteDirectory(tif));
+    TIFFClose(tif);
+}
+
+TEST_F(ReadWriteTest, WriterCarriesOverSourceMetadata) {
+    std::string srcPath = testDir + "/meta_source.tif";
+    writeMetadataSourceTiff(srcPath);
+
+    auto srcMetaOpt = TiffReader::readMetadata(srcPath);
+    ASSERT_TRUE(srcMetaOpt.has_value());
+    ImageMetaData srcMeta = *srcMetaOpt;
+    EXPECT_EQ(srcMeta.description, "channels=1\nslices=3");
+    EXPECT_EQ(srcMeta.linChannels, 1);
+    EXPECT_EQ(srcMeta.slices, 3u);
+    EXPECT_FLOAT_EQ(srcMeta.xResolution, 300.0f);
+    EXPECT_FLOAT_EQ(srcMeta.yResolution, 200.0f);
+    EXPECT_EQ(srcMeta.resolutionUnit, RESUNIT_CENTIMETER);
+
+    std::string outPath = testDir + "/meta_output.tif";
+    Image3D image = TestUtils::createGradientImage(4, 4, 3);
+    {
+        TiffWriter writer(outPath, srcMeta);
+        BoxCoord full{CuboidPosition(0, 0, 0), CuboidShape(4, 4, 3)};
+        ASSERT_TRUE(writer.setSubimage(image, full));
+    }
+
+    auto outMetaOpt = TiffReader::readMetadata(outPath);
+    ASSERT_TRUE(outMetaOpt.has_value());
+    const ImageMetaData& outMeta = *outMetaOpt;
+    EXPECT_EQ(outMeta.description, srcMeta.description);
+    EXPECT_EQ(outMeta.linChannels, srcMeta.linChannels);
+    EXPECT_EQ(outMeta.slices, srcMeta.slices);
+    EXPECT_FLOAT_EQ(outMeta.xResolution, srcMeta.xResolution);
+    EXPECT_FLOAT_EQ(outMeta.yResolution, srcMeta.yResolution);
+    EXPECT_EQ(outMeta.resolutionUnit, srcMeta.resolutionUnit);
+
+    // Pixel data path unchanged: float32, correct shape and values.
+    EXPECT_EQ(outMeta.bitsPerSample, 32);
+    EXPECT_EQ(outMeta.sampleFormat, SAMPLEFORMAT_IEEEFP);
+    auto readOpt = TiffReader::readTiffFile(outPath, 0);
+    ASSERT_TRUE(readOpt.has_value());
+    EXPECT_EQ(readOpt->getShape(), image.getShape());
+    EXPECT_TRUE(readOpt->isEqual(image, 0.001f));
+}
+
+// A multi-channel source description must not be carried verbatim: the
+// output is single channel (one directory per z-slice), so the carried
+// description must say channels=1 or the reader misreads its own output.
+TEST_F(ReadWriteTest, WriterRewritesMultiChannelDescriptionToSingleChannel) {
+    std::string srcPath = testDir + "/meta_multichan_source.tif";
+    writeMetadataSourceTiff(srcPath, "channels=3\nslices=10", true);
+
+    auto srcMetaOpt = TiffReader::readMetadata(srcPath);
+    ASSERT_TRUE(srcMetaOpt.has_value());
+    ASSERT_EQ(srcMetaOpt->linChannels, 3);
+    ASSERT_EQ(srcMetaOpt->slices, 10u);
+
+    std::string outPath = testDir + "/meta_multichan_output.tif";
+    Image3D image = TestUtils::createGradientImage(4, 4, 10);
+    {
+        TiffWriter writer(outPath, *srcMetaOpt);
+        BoxCoord full{CuboidPosition(0, 0, 0), CuboidShape(4, 4, 10)};
+        ASSERT_TRUE(writer.setSubimage(image, full));
+    }
+
+    auto outMetaOpt = TiffReader::readMetadata(outPath);
+    ASSERT_TRUE(outMetaOpt.has_value());
+    EXPECT_EQ(outMetaOpt->linChannels, 1);
+    EXPECT_EQ(outMetaOpt->slices, 10u);
+    EXPECT_EQ(outMetaOpt->description, "channels=1\nslices=10");
+
+    // The written stack must be readable back slice by slice.
+    auto readOpt = TiffReader::readTiffFile(outPath, 0);
+    ASSERT_TRUE(readOpt.has_value());
+    EXPECT_EQ(readOpt->getShape(), image.getShape());
+    EXPECT_TRUE(readOpt->isEqual(image, 0.001f));
+}
+
+// A source without description or resolution tags produces an output without
+// them: the writer must not invent metadata (regression guard for the
+// carry-over guards and the extractMetaData write path).
+TEST_F(ReadWriteTest, WriterWithoutSourceTagsWritesNone) {
+    std::string srcPath = testDir + "/meta_plain_source.tif";
+    writeMetadataSourceTiff(srcPath, "", false);
+
+    auto srcMetaOpt = TiffReader::readMetadata(srcPath);
+    ASSERT_TRUE(srcMetaOpt.has_value());
+    EXPECT_TRUE(srcMetaOpt->description.empty());
+    EXPECT_EQ(srcMetaOpt->xResolution, 0.0f);
+    EXPECT_EQ(srcMetaOpt->resolutionUnit, RESUNIT_NONE);
+
+    std::string outPath = testDir + "/meta_plain_output.tif";
+    Image3D image = TestUtils::createGradientImage(4, 4, 1);
+    {
+        TiffWriter writer(outPath, TiffWriter::extractMetaData(image));
+        BoxCoord full{CuboidPosition(0, 0, 0), CuboidShape(4, 4, 1)};
+        ASSERT_TRUE(writer.setSubimage(image, full));
+    }
+
+    auto outMetaOpt = TiffReader::readMetadata(outPath);
+    ASSERT_TRUE(outMetaOpt.has_value());
+    EXPECT_TRUE(outMetaOpt->description.empty());
+    EXPECT_EQ(outMetaOpt->xResolution, 0.0f);
+    EXPECT_EQ(outMetaOpt->yResolution, 0.0f);
+    EXPECT_EQ(outMetaOpt->linChannels, 1);
+}
+
 // --- TiffWriterMemoryComponent: reports the writer's PEAK held at once --------
 
 TEST_F(ReadWriteTest, WriterMemoryComponentTwoTilesPlusWriteBuffers) {
     const CuboidShape shape(16, 8, 4);
     std::string path = testDir + "/rw_mem_component.tif";
 
-    TiffWriter writer(path, shape);
+    TiffWriter writer(path, metaFromShape(shape));
     MemoryComponent& component = writer.getMemoryComponent();
     EXPECT_EQ(component.name(), "tiffwriter");
 
@@ -307,7 +455,7 @@ TEST_F(ReadWriteTest, WriterMemoryComponentScalesWithWriteDepth) {
     const CuboidShape shape(16, 8, 4);
     std::string path = testDir + "/rw_mem_component_shape.tif";
 
-    TiffWriter writer(path, shape);
+    TiffWriter writer(path, metaFromShape(shape));
     MemoryComponent& component = writer.getMemoryComponent();
 
     // The tile backlog depends on the candidate write depth: deeper writes
@@ -322,7 +470,7 @@ TEST_F(ReadWriteTest, WriterMemoryComponentTiledWriteBuffer) {
     const CuboidShape shape(16, 8, 4);
     std::string path = testDir + "/rw_mem_component_tiled.tif";
 
-    TiffWriter writer(path, shape);
+    TiffWriter writer(path, metaFromShape(shape));
     WriterCompressionConfig compression;
     WriterConfig config;
     config.tileWidth = 4;
@@ -341,7 +489,7 @@ TEST_F(ReadWriteTest, WriterMemoryComponentTiledWriteBuffer) {
 
 TEST_F(ReadWriteTest, WriterMemoryComponentIsStableInstance) {
     std::string path = testDir + "/rw_mem_component_instance.tif";
-    TiffWriter writer(path, CuboidShape(8, 8, 4));
+    TiffWriter writer(path, metaFromShape(CuboidShape(8, 8, 4)));
 
     MemoryComponent& first = writer.getMemoryComponent();
     MemoryComponent& second = writer.getMemoryComponent();
@@ -369,7 +517,7 @@ TEST_F(ReadWriteTest, SetSubimageRealFullWidthRoundTrip) {
     std::string path = testDir + "/rw_setsubimage_real.tif";
 
     {
-        WriterHandler handler(std::make_shared<TiffWriter>(path, fullShape));
+        WriterHandler handler(std::make_shared<TiffWriter>(path, TiffWriter::extractMetaData(original)));
         for (size_t z = 0; z < fullShape.depth; z += chunkDepth) {
             BoxCoord subBox{CuboidPosition(0, 0, static_cast<int64_t>(z)),
                             CuboidShape(fullShape.width, fullShape.height, chunkDepth)};
@@ -399,7 +547,7 @@ TEST_F(ReadWriteTest, SetSubimageRealSpatialCubeRoundTrip) {
     std::string path = testDir + "/rw_setsubimage_real_spatial.tif";
 
     {
-        WriterHandler handler(std::make_shared<TiffWriter>(path, fullShape));
+        WriterHandler handler(std::make_shared<TiffWriter>(path, TiffWriter::extractMetaData(original)));
         for (size_t zOff = 0; zOff < fullShape.depth; zOff += blockD) {
             for (size_t yOff = 0; yOff < fullShape.height; yOff += blockH) {
                 for (size_t xOff = 0; xOff < fullShape.width; xOff += blockW) {
