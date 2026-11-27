@@ -349,22 +349,25 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeExactShape) {
     // Final model, fastGlJSON (NA=1.4, ni=1.515, ns=1.33, lambda=450, pitch
     // 500/500, sizeZ=48 -> zMax = 24*500 = 12000nm):
     //   tilt = max(tan(asin(1.4/1.515)), tan(asin(clamp(1.4/1.33, 0.99)))) = 7.0179
-    //   halfLat = 3.5*196.07 + 1.1*7.0179*12000 = 93322nm -> ceil(187) (above the
+    //   resLat = 0.61*450/1.4 = 196.07nm, resAx = 450/(1.33*(1-cos(asin(0.99)))) = 393.91nm
+    //   (the widefield envelopes; the point-pinhole contraction is applied by
+    //   approximateResolution() itself, see ConfocalFinitePinholeKeepsWidefieldBound)
+    //   halfLat = 4.94975*196.07 + 1.1*7.0179*12000 = 93607nm -> ceil(188) (above the
     //   soft cap of 150, so a warning logs; nothing is truncated)
-    //   axial   = ceil(max(12000, 2*610.71)/500) = 24
-    //   -> box 375 x 375 x 49
+    //   axial   = ceil(max(12000, 2*393.91)/500) = 24 (the 787.8nm floor loses to zMax)
+    //   -> box 377 x 377 x 49
     const PSF& psf = sharedAutoSizePSF();
     CuboidShape shape = psf.getShape();
 
-    EXPECT_EQ(shape.width, 375u);
-    EXPECT_EQ(shape.height, 375u);
+    EXPECT_EQ(shape.width, 377u);
+    EXPECT_EQ(shape.height, 377u);
     EXPECT_EQ(shape.depth, 49u);
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeGrowsWithImageDepth) {
     // A deeper imaged volume defocuses farther -> larger cone spread and
     // longer axial stack. sizeZ 48 -> 96 doubles zMax:
-    //   48: zMax=12000 -> 375x375x49;  96: zMax=24000 -> 745x745x97
+    //   48: zMax=12000 -> 377x377x49;  96: zMax=24000 -> 747x747x97
     // Size growth is a property of the analytic sizing model, so it is
     // asserted directly on it (a full 745x745x97 generation only to read its
     // shape cost ~30 s); the end-to-end auto-size path is covered by
@@ -387,10 +390,10 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeGrowsWithImageDepth) {
     const auto shallow = boxFor(48);
     const auto deep = boxFor(96);
 
-    EXPECT_EQ(2 * shallow.lateral + 1, 375u);
-    EXPECT_EQ(2 * shallow.axial + 1, 49u);
-    EXPECT_EQ(2 * deep.lateral + 1, 745u);
-    EXPECT_EQ(2 * deep.axial + 1, 97u);
+    EXPECT_EQ(2 * shallow.lateral + 1, 377u);
+    EXPECT_EQ(2 * shallow.depth + 1, 49u);
+    EXPECT_EQ(2 * deep.lateral + 1, 747u);
+    EXPECT_EQ(2 * deep.depth + 1, 97u);
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeIgnoresSizeXY) {
@@ -411,7 +414,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoSizeIgnoresSizeXY) {
     PSF small = generate(16);
     PSF large = generate(600);
 
-    EXPECT_EQ(small.getShape(), CuboidShape(375, 375, 49));
+    EXPECT_EQ(small.getShape(), CuboidShape(377, 377, 49));
     EXPECT_EQ(large.getShape(), small.getShape());
     EXPECT_TRUE(large.isEqual(small, 1e-4f));
 }
@@ -421,10 +424,10 @@ TEST_F(PSFGeneratorTest, GibsonLanniBoxHalfExtentModel) {
     // NA=1.3, ni=ns=1.33, lambda=520, pitch 100/100, sizeZ=64 (zMax=3200nm).
     // The cone uses the absolute tilt, so it grows even when RI is matched:
     //   resLat = 244nm, tilt = tan(asin(1.3/1.33)) = 4.6281
-    //     halfLat = 3.5*244 + 1.1*4.6281*3200 = 17144nm -> lat = 172
+    //     halfLat = 4.94975*244 + 1.1*4.6281*3200 = 17499nm -> lat = 175
     //     (above the soft cap of 150 -> warning logs, nothing truncated)
-    //   resAx = 818.5nm
-    //     halfAx = 3200 + 8*818.5 = 9747.7nm -> ax = 98
+    //   resAx = 520/(1.33*(1-cos(asin(min(1.3/1.33,0.99))))) = 544.28nm
+    //     halfAx = max(3200, 2*544.28) = 3200nm -> ax = 32
     GibsonLanniPSFConfig cfg;
     cfg.NA = 1.3f;
     cfg.ni = 1.33f;
@@ -437,8 +440,22 @@ TEST_F(PSFGeneratorTest, GibsonLanniBoxHalfExtentModel) {
 
     auto res = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, cfg.resolutionCriterion);
     auto box = PSFBoxSizing::computeBoxHalfExtent(res, cfg);
-    EXPECT_EQ(box.lateral, 172u);
-    EXPECT_EQ(box.axial, 32u);
+    EXPECT_EQ(box.lateral, 175u);
+    EXPECT_EQ(box.depth, 32u);
+
+    // The confocal product is narrower than the widefield one. The delivered
+    // resolution already carries the point-pinhole contraction, so the
+    // resulting box never grows.
+    cfg.selectModality(MicroscopeModality::CONFOCAL);
+    auto modalityCfg = std::dynamic_pointer_cast<ConfocalModalityConfig>(cfg.modalityConfig);
+    modalityCfg->excitationWavelength_nm = 520.0f;
+    modalityCfg->emissionWavelength_nm = 520.0f;
+    modalityCfg->pinholeRadius_um = 0.0f;
+    auto confocalRes = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, cfg.resolutionCriterion);
+    auto confocalBox = PSFBoxSizing::computeBoxHalfExtent(confocalRes, cfg);
+    EXPECT_LT(confocalRes.axial_nm, res.axial_nm);
+    EXPECT_LE(confocalBox.lateral, box.lateral);
+    EXPECT_LE(confocalBox.depth, box.depth);
 
     // TIR regime (NA >= ns): asin clamp keeps everything finite and positive.
     GibsonLanniPSFConfig tir = cfg;
@@ -448,14 +465,18 @@ TEST_F(PSFGeneratorTest, GibsonLanniBoxHalfExtentModel) {
     auto resTir = PSFBoxSizing::approximateResolution(tir, tir.wavelength_nm, tir.resolutionCriterion);
     auto boxTir = PSFBoxSizing::computeBoxHalfExtent(resTir, tir);
     EXPECT_GT(boxTir.lateral, 0u);
-    EXPECT_GT(boxTir.axial, 0u);
+    EXPECT_GT(boxTir.depth, 0u);
     EXPECT_LT(boxTir.lateral, 10000u);
-    EXPECT_LT(boxTir.axial, 10000u);
+    EXPECT_LT(boxTir.depth, 10000u);
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniApproximateResolutionAxial) {
-    // Axial resolution ordering is monotonic at the resolution level:
-    // RAYLEIGH (610.7) > SIGMA (431.8) > FWHM (314.7) for NA=1.4, ns=1.33.
+    // Axial widths in the 1-cos structure, lambda/(ns*(1-cos(alpha))) with
+    // n*sin(alpha) = NA clamped at 0.99. For NA=1.4, ns=1.33 the clamp is
+    // active: sin(alpha)=0.99, 1-cos=0.8589, ns*(1-cos)=1.1423:
+    //   RAYLEIGH = 450/1.1423 = 393.91nm
+    //   FWHM     = sqrt2*450/1.1423 = 557.08nm   (classical 0.93 form if NA<ns)
+    //   SIGMA    = RAYLEIGH/sqrt2 = 278.54nm
     GibsonLanniPSFConfig cfg;
     cfg.NA = 1.4f;
     cfg.ns = 1.33f;
@@ -465,11 +486,41 @@ TEST_F(PSFGeneratorTest, GibsonLanniApproximateResolutionAxial) {
     auto fwhm = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, PSFConfig::ResolutionCriterion::FWHM);
     auto sigma = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, PSFConfig::ResolutionCriterion::SIGMA);
 
-    EXPECT_NEAR(rayleigh.axial_nm, 610.71, 0.1);
-    EXPECT_NEAR(sigma.axial_nm, 431.84, 0.1);
-    EXPECT_NEAR(fwhm.axial_nm, 314.66, 0.1);
+    EXPECT_NEAR(rayleigh.axial_nm, 393.91, 0.1);
+    EXPECT_NEAR(sigma.axial_nm, 278.54, 0.1);
+    EXPECT_NEAR(fwhm.axial_nm, 557.08, 0.1);
+    EXPECT_GT(fwhm.axial_nm, rayleigh.axial_nm);
+    EXPECT_GT(rayleigh.axial_nm, sigma.axial_nm);
     EXPECT_GT(rayleigh.lateral_nm, fwhm.lateral_nm);
     EXPECT_GT(fwhm.lateral_nm, sigma.lateral_nm);
+}
+
+TEST_F(PSFGeneratorTest, GibsonLanniAxialWidthMatchesSampleIndexForm) {
+    // The axial term is the 1-cos(alpha) form with the marginal ray in the
+    // sample, n*sin(alpha) = NA:
+    //   RAYLEIGH: lambda / (ns*(1-cos(alpha)))
+    //   FWHM:     sqrt2*lambda / (ns*(1-cos(alpha)))
+    // and for NA << ns both reduce to the familiar n*lambda/NA^2 order.
+    GibsonLanniPSFConfig cfg;
+    cfg.NA = 1.2f;
+    cfg.ns = 1.33f;
+    cfg.wavelength_nm = 520.0f;
+
+    const double lambda = 520.0, NA = 1.2, ns = 1.33;
+    const double alpha = std::asin(NA / ns);
+    const double rayleigh = PSFBoxSizing::axialNWidth_nm(lambda, NA, ns);
+    const double fwhm = PSFBoxSizing::axialFwhm_nm(lambda, NA, ns);
+
+    EXPECT_NEAR(rayleigh, lambda / (ns * (1.0 - std::cos(alpha))), 1e-9);
+    EXPECT_NEAR(fwhm, std::sqrt(2.0) * lambda / (ns * (1.0 - std::cos(alpha))), 1e-9);
+    // The 1-cos form is genuinely more accurate than the small-NA closed form
+    // n*lambda/NA^2: at NA/ns ~ 0.9 it is 1.43x larger, not a rounding difference.
+    EXPECT_GT(rayleigh, ns * lambda / (NA * NA) * 1.4);
+
+    // Above the sample index (oil into water) the clamp keeps the term finite
+    // and positive instead of sqrt of a negative number.
+    EXPECT_GT(PSFBoxSizing::axialNWidth_nm(lambda, 1.4, ns), 0.0);
+    EXPECT_GT(PSFBoxSizing::axialFwhm_nm(lambda, 1.4, ns), 0.0);
 }
 
 namespace {
@@ -499,27 +550,76 @@ void makeConfocal(GibsonLanniPSFConfig& cfg, float excitation_nm, float emission
 }
 } // namespace
 
+TEST_F(PSFGeneratorTest, SamplingLimitsAreOtfcutoffHalves) {
+    // The sampling limits are derived from the incoherent OTF bandwidths
+    // (lateral 2*NA/lambda, axial n*(1-cos(alpha))/lambda per integral; the
+    // confocal product adds the excitation and detection bandwidths). The
+    // Abbe (finest period) is 1/cutoff, the Nyquist pitch is half of it.
+    GibsonLanniPSFConfig cfg;
+    cfg.NA = 1.4f;
+    cfg.ns = 1.33f;
+    cfg.wavelength_nm = 520.0f;
+
+    const double NA = 1.4, ns = 1.33, lambda = 520.0;
+    const double s = std::clamp(NA / ns, 0.0, 0.99);  // the implementation's clamp
+    const double omc = 1.0 - std::sqrt(1.0 - s * s);
+
+    // Widefield: one factor on each axis.
+    const auto wf = PSFBoxSizing::samplingLimits(cfg, lambda);
+    EXPECT_NEAR(wf.abbeLateral_nm, lambda / (2.0 * NA), 0.01);
+    EXPECT_NEAR(wf.nyquistLateral_nm, lambda / (4.0 * NA), 0.01);
+    EXPECT_NEAR(wf.abbeAxial_nm, lambda / (ns * omc), 0.5);
+    EXPECT_NEAR(wf.nyquistAxial_nm, lambda / (2.0 * ns * omc), 0.5);
+    // Nyquist is exactly half the Abbe finest period.
+    EXPECT_DOUBLE_EQ(wf.nyquistLateral_nm, 0.5 * wf.abbeLateral_nm);
+    EXPECT_DOUBLE_EQ(wf.nyquistAxial_nm, 0.5 * wf.abbeAxial_nm);
+
+    // Confocal point pinhole: the bandwidths add. 488/520 ->
+    //   lateral Nyquist = 1 / (4*NA*(1/488 + 1/520)) = 44.955nm
+    //   axial   Nyquist = 1 / (2*n*(1-cos)*(1/488 + 1/520)) = 110.18nm
+    // (both exactly the Delta_x / Delta_z of the confocal sampling-limit
+    // equations) and the Abbe is exactly double the Nyquist on each axis -
+    // halved vs the widefield Abbe for equal wavelengths, the OTF form of
+    // "confocal doubles the resolution".
+    GibsonLanniPSFConfig cf = cfg;
+    makeConfocal(cf, 488.0f, 520.0f);
+
+    const auto c = PSFBoxSizing::samplingLimits(cf, lambda);
+    const double sumInv = 1.0 / 488.0 + 1.0 / 520.0;
+    EXPECT_NEAR(c.nyquistLateral_nm, 1.0 / (4.0 * NA * sumInv), 0.01);
+    EXPECT_NEAR(c.nyquistAxial_nm, 1.0 / (2.0 * ns * omc * sumInv), 0.5);
+    EXPECT_DOUBLE_EQ(c.abbeLateral_nm, 2.0 * c.nyquistLateral_nm);
+    EXPECT_DOUBLE_EQ(c.abbeAxial_nm, 2.0 * c.nyquistAxial_nm);
+
+    // Equal-wavelength confocal: Abbe exactly half the widefield Abbe.
+    makeConfocal(cf, 520.0f, 520.0f);
+    const auto eq = PSFBoxSizing::samplingLimits(cf, lambda);
+    EXPECT_NEAR(eq.abbeLateral_nm, wf.abbeLateral_nm / 2.0, 0.01);
+    EXPECT_NEAR(eq.abbeAxial_nm, wf.abbeAxial_nm / 2.0, 0.5);
+}
+
 TEST_F(PSFGeneratorTest, ConfocalResolutionContractsPointPinhole) {
     // The confocal effective PSF is the product of the excitation and
-    // detection PSFs. For equal wavelengths its FWHM contracts by exactly
+    // detection PSFs. For equal wavelengths its width contracts by exactly
     // 1/sqrt(2) relative to the widefield single-integral resolution (the
     // literature confocal values 0.4*lambda/NA lateral and 1.4*n*lambda/NA^2
     // axial are these contracted widefield constants), so the box-sizing
     // resolution must shrink accordingly.
+    //
+    // The contraction is a pure wavelength-ratio effect, so applying it to the
+    // widefield return must reproduce the contracted width exactly.
     GibsonLanniPSFConfig cfg = confocalTestConfig();
     const double lambda = 520.0;
 
     const auto widefield = PSFBoxSizing::approximateResolution(cfg, lambda, cfg.resolutionCriterion);
-    makeConfocal(cfg, 520.0f, 520.0f);
-    const auto confocal = PSFBoxSizing::approximateResolution(cfg, lambda, cfg.resolutionCriterion);
+    const auto contracted = PSFBoxSizing::confocalResolution(widefield, 1.0 / std::sqrt(2.0));
 
-    EXPECT_NEAR(confocal.lateral_nm, widefield.lateral_nm / std::sqrt(2.0), 0.1);
-    EXPECT_NEAR(confocal.axial_nm, widefield.axial_nm / std::sqrt(2.0), 0.1);
+    EXPECT_NEAR(contracted.lateral_nm, widefield.lateral_nm / std::sqrt(2.0), 0.1);
+    EXPECT_NEAR(contracted.axial_nm, widefield.axial_nm / std::sqrt(2.0), 0.1);
 
     // The contraction holds for every criterion (FWHM: 0.51 -> 0.36 lambda/NA).
-    GibsonLanniPSFConfig widefieldFwhmCfg = confocalTestConfig();
-    const auto widefieldFwhm = PSFBoxSizing::approximateResolution(widefieldFwhmCfg, lambda, PSFConfig::ResolutionCriterion::FWHM);
-    const auto confocalFwhm = PSFBoxSizing::approximateResolution(cfg, lambda, PSFConfig::ResolutionCriterion::FWHM);
+    const auto widefieldFwhm = PSFBoxSizing::approximateResolution(cfg, lambda, PSFConfig::ResolutionCriterion::FWHM);
+    const auto confocalFwhm = PSFBoxSizing::confocalResolution(widefieldFwhm, 1.0 / std::sqrt(2.0));
     EXPECT_NEAR(confocalFwhm.lateral_nm, 0.51 * (lambda / std::sqrt(2.0)) / 1.4, 0.2);
     EXPECT_LT(confocalFwhm.lateral_nm, widefieldFwhm.lateral_nm);
 }
@@ -528,16 +628,16 @@ TEST_F(PSFGeneratorTest, ConfocalResolutionCombinesStokesShiftedWavelengths) {
     // With a Stokes shift the confocal product resolves at the combination of
     // BOTH integrals' resolutions:
     //   res_eff = res(exc) * res(em) / sqrt(res(exc)^2 + res(em)^2)
-    //           = c * lambda_eff,  lambda_eff = exc*em / sqrt(exc^2 + em^2)
-    // 488/520 -> lambda_eff = 355.83nm:
+    //           = 0.61*lambda_eff/NA  with  lambda_eff = exc*em/sqrt(exc^2+em^2)
+    // 488/520 -> lambda_eff = 355.83nm, point pinhole (radius 0):
     //   lateral RAYLEIGH = 0.61*355.83/1.4 = 155.04nm
-    //   axial   RAYLEIGH = 2*355.83*1.33/1.4^2 = 482.91nm
+    //   axial   RAYLEIGH = 355.83/(1.33*(1-cos(asin(1.4/1.33 clamp)))) = 311.49nm
     GibsonLanniPSFConfig cfg = confocalTestConfig();
     makeConfocal(cfg, 488.0f, 520.0f);
 
     const auto res = PSFBoxSizing::approximateResolution(cfg, 520.0, cfg.resolutionCriterion);
     EXPECT_NEAR(res.lateral_nm, 155.04, 0.2);
-    EXPECT_NEAR(res.axial_nm, 482.91, 0.2);
+    EXPECT_NEAR(res.axial_nm, 311.49, 0.2);
 
     // Degenerate fallback (excitation <= 0 -> emission wavelength): the
     // product degenerates to two identical integrals -> the 1/sqrt(2)
@@ -549,28 +649,65 @@ TEST_F(PSFGeneratorTest, ConfocalResolutionCombinesStokesShiftedWavelengths) {
     EXPECT_NEAR(degenerate.lateral_nm, widefield.lateral_nm / std::sqrt(2.0), 0.1);
 }
 
+TEST_F(PSFGeneratorTest, ConfocalFinitePinholeKeepsWidefieldBound) {
+    // The delivered resolution is the CONFOCAL width for a closed (point)
+    // pinhole, and the WIDEFIELD envelope for a finite one: a finite pinhole
+    // re-admits the detection blur, so the box must keep bounding the wider
+    // defocused off-axis support. Hence:
+    //   res(point pinhole) < res(finite pinhole) == res(widefield)
+    // and the finite box is at least as large as the point-pinhole box.
+    GibsonLanniPSFConfig point = confocalTestConfig();
+    makeConfocal(point, 520.0f, 520.0f);
+
+    GibsonLanniPSFConfig finite = confocalTestConfig();
+    makeConfocal(finite, 520.0f, 520.0f);
+    std::dynamic_pointer_cast<ConfocalModalityConfig>(finite.modalityConfig)->pinholeRadius_um = 0.3f;
+
+    GibsonLanniPSFConfig widefield = confocalTestConfig();
+
+    const auto pointRes = PSFBoxSizing::approximateResolution(point, 520.0, point.resolutionCriterion);
+    const auto finiteRes = PSFBoxSizing::approximateResolution(finite, 520.0, finite.resolutionCriterion);
+    const auto wideRes = PSFBoxSizing::approximateResolution(widefield, 520.0, widefield.resolutionCriterion);
+
+    // Point pinhole contracts toward widefield by exactly 1/sqrt2.
+    EXPECT_NEAR(pointRes.lateral_nm, wideRes.lateral_nm / std::sqrt(2.0), 0.1);
+    EXPECT_NEAR(pointRes.axial_nm, wideRes.axial_nm / std::sqrt(2.0), 0.1);
+    // Finite pinhole keeps the widefield envelope (no contraction).
+    EXPECT_NEAR(finiteRes.lateral_nm, wideRes.lateral_nm, 1e-9);
+    EXPECT_NEAR(finiteRes.axial_nm, wideRes.axial_nm, 1e-9);
+
+    const auto pointBox = PSFBoxSizing::computeBoxHalfExtent(pointRes, point);
+    const auto finiteBox = PSFBoxSizing::computeBoxHalfExtent(finiteRes, finite);
+    // The finite-pinhole box bounds the point-pinhole box (and both bound the
+    // defocused support).
+    EXPECT_GE(finiteBox.lateral, pointBox.lateral);
+    EXPECT_GE(finiteBox.depth, pointBox.depth);
+    EXPECT_GT(finiteBox.depth - pointBox.depth, 0u);
+}
+
 TEST_F(PSFGeneratorTest, ConfocalResolutionShrinksAutoSizeBox) {
-    // The smaller confocal resolution must shrink the auto-sized PSF box
-    // (ring term and axial floor; the geometric defocus cone is unchanged).
-    // OilConfocal depth-16 geometry: widefield 141x31 ->
-    //   resLat 226.57 -> 160.19nm, resAx 705.71 -> 499.02nm
-    //   halfLat = 3.5*160.19 + 1.1*7.0179*800 = 6736nm -> 68 (box 137)
-    //   halfAx  = max(800, 2*499.02) = 998nm   -> 10 (box 21)
+    // The delivered resolution is already contracted for a point pinhole, so
+    // the auto-sized box shrinks accordingly (ring term and axial floor; the
+    // geometric defocus cone dominates laterally and is unchanged).
+    // OilConfocal depth-16 geometry: widefield 147x21 -> confocal 141x17
+    //   resLat 226.57 -> 160.21nm (x 1/sqrt2), resAx 455.19 -> 321.87nm
+    //   halfLat = 4.94975*160.21 + 1.1*7.0179*800 = 6969nm -> 70 (box 141)
+    //   halfAx  = max(800, 2*321.87) = 800nm    -> 8 (box 17)
     GibsonLanniPSFConfig cfg = confocalTestConfig();
 
     const auto widefieldRes = PSFBoxSizing::approximateResolution(cfg, cfg.wavelength_nm, cfg.resolutionCriterion);
     const auto widefieldBox = PSFBoxSizing::computeBoxHalfExtent(widefieldRes, cfg);
-    EXPECT_EQ(2 * widefieldBox.lateral + 1, 141u);
-    EXPECT_EQ(2 * widefieldBox.axial + 1, 31u);
+    EXPECT_EQ(2 * widefieldBox.lateral + 1, 147u);
+    EXPECT_EQ(2 * widefieldBox.depth + 1, 21u);
 
-    makeConfocal(cfg, 520.0f, 520.0f);
+    makeConfocal(cfg, 520.0f, 520.0f);  // point pinhole
     const auto confocalRes = PSFBoxSizing::approximateResolution(cfg, 520.0, cfg.resolutionCriterion);
     const auto confocalBox = PSFBoxSizing::computeBoxHalfExtent(confocalRes, cfg);
 
-    EXPECT_EQ(2 * confocalBox.lateral + 1, 137u);
-    EXPECT_EQ(2 * confocalBox.axial + 1, 21u);
-    EXPECT_LT(confocalBox.lateral, widefieldBox.lateral);
-    EXPECT_LT(confocalBox.axial, widefieldBox.axial);
+    EXPECT_EQ(2 * confocalBox.lateral + 1, 141u);
+    EXPECT_EQ(2 * confocalBox.depth + 1, 17u);
+    EXPECT_LE(confocalBox.lateral, widefieldBox.lateral);
+    EXPECT_LT(confocalBox.depth, widefieldBox.depth);
 }
 
 // Result box sizes for realistic microscope configurations. Values are the
@@ -580,9 +717,16 @@ TEST_F(PSFGeneratorTest, ConfocalResolutionShrinksAutoSizeBox) {
 // Formula (PSFBoxSizing):
 //   tilt     = max(tan(asin(clamp(NA/ni))), tan(asin(clamp(NA/ns)))) (clamp 0.99)
 //   zMax     = max(sizeZ/2, sizeZ-1-sizeZ/2) * dz
-//   halfLat  = 3.5*resLat + 1.1*tilt*zMax            (>= 3.5*resLat)
-//   halfAx   = max(zMax, 2*resAx)                    (voxel-ceil)
-//   box      = (2*ceil(halfLat/pxLat)+1) x (2*ceil(halfAx/pxAx)+1)
+//   resLat   = 0.61*lambda/NA (0.51 / 0.408 by criterion)  - widefield only
+    //   resAx    = lambda/(ns*(1-cos(alpha))), n*sin(alpha) = NA  - widefield only
+    //   halfLat  = 4.9497*resLat + 1.1*tilt*zMax          (>= 4.9497*resLat)
+    //   halfAx   = max(zMax, 2*resAx)                     (voxel-ceil)
+    //   box      = (2*ceil(halfLat/pxLat)+1) x (2*ceil(halfAx/pxAx)+1)
+    // 4.9497 = RING_FACTOR * sqrt2: the ring count doubles in quadrature along
+    // the diagonal, which is the direction that decides the square box side.
+    // The axial width is the 1-cos(alpha) form with the marginal ray in the
+    // sample (sin(alpha) = NA/ns, clamped at 0.99), NOT the classic
+    // 2*n*lambda/NA^2 depth-of-focus.
 // Nothing is truncated; configs whose envelope exceeds the soft cap
 // (SOFT_MAX_LATERAL_HALF_VOXELS) log a warning.
 TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxSizeCatalog) {
@@ -597,16 +741,16 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxSizeCatalog) {
 
     //          name                     NA    ni      ns     lam  pxLat pxAx depth criterion     W    D
     const std::vector<AutoBoxCase> cases = {
-        {"WidefieldDry_NA055",        0.55f, 1.0f,   1.338f, 520, 100, 500, 100, C::RAYLEIGH, 405, 101},
-        {"DefaultGibsonLanniConfig",  0.55f, 1.43f,  1.338f, 520, 100, 500, 100, C::RAYLEIGH, 291, 101},
-        {"OilConfocal_NA14",          1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::RAYLEIGH, 511, 65},
-        {"MatchedRI_coneStillGrows",  1.30f, 1.33f,  1.33f,  520, 100, 100,  64, C::RAYLEIGH, 345, 65},
-        {"TIRclamp_NAaboveNs",        1.40f, 1.515f, 1.33f,  450, 100, 100,  64, C::RAYLEIGH, 509, 65},
-        {"OilConfocal_FWHM",          1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::FWHM,     509, 65},
-        {"OilConfocal_Sigma",         1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::SIGMA,    507, 65},
-        {"OilConfocal_coarsePitch",   1.40f, 1.515f, 1.33f,  520, 200, 200,  64, C::RAYLEIGH, 503, 65},
-        {"OilConfocal_depth128",      1.40f, 1.515f, 1.33f,  520, 100, 100, 128, C::RAYLEIGH, 1005, 129},
-        {"OilConfocal_depth16",       1.40f, 1.515f, 1.33f,  520, 100, 100,  16, C::RAYLEIGH, 141, 31},
+        {"WidefieldDry_NA055",        0.55f, 1.0f,   1.338f, 520, 100, 500, 100, C::RAYLEIGH, 421, 101},
+        {"DefaultGibsonLanniConfig",  0.55f, 1.43f,  1.338f, 520, 100, 500, 100, C::RAYLEIGH, 307, 101},
+        {"OilConfocal_NA14",          1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::RAYLEIGH, 519, 65},
+        {"MatchedRI_coneStillGrows",  1.30f, 1.33f,  1.33f,  520, 100, 100,  64, C::RAYLEIGH, 351, 65},
+        {"TIRclamp_NAaboveNs",        1.40f, 1.515f, 1.33f,  450, 100, 100,  64, C::RAYLEIGH, 515, 65},
+        {"OilConfocal_FWHM",          1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::FWHM,     515, 65},
+        {"OilConfocal_Sigma",         1.40f, 1.515f, 1.33f,  520, 100, 100,  64, C::SIGMA,    511, 65},
+        {"OilConfocal_coarsePitch",   1.40f, 1.515f, 1.33f,  520, 200, 200,  64, C::RAYLEIGH, 507, 65},
+        {"OilConfocal_depth128",      1.40f, 1.515f, 1.33f,  520, 100, 100, 128, C::RAYLEIGH, 1013, 129},
+        {"OilConfocal_depth16",       1.40f, 1.515f, 1.33f,  520, 100, 100,  16, C::RAYLEIGH, 147, 21},
     };
 
     for (const auto& c : cases) {
@@ -634,23 +778,23 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxSizeCatalog) {
                   << " depth=" << c.sizeZ
                   << "  ->  box " << (2 * box.lateral + 1)
                   << " x " << (2 * box.lateral + 1)
-                  << " x " << (2 * box.axial + 1) << " voxels"
+                  << " x " << (2 * box.depth + 1) << " voxels"
                   << "  (resLat=" << res.lateral_nm << "nm resAx=" << res.axial_nm
                   << "nm zMax=" << (c.sizeZ / 2 * static_cast<size_t>(c.pxAx_nm)) << "nm)"
                   << std::endl;
 
         EXPECT_EQ(2 * box.lateral + 1, c.expectW);
-        EXPECT_EQ(2 * box.axial + 1, c.expectD);
+        EXPECT_EQ(2 * box.depth + 1, c.expectD);
     }
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxEndToEndOilConfocal) {
     // Full generation must match the analytic catalog row "OilConfocal_NA14":
     // NA=1.4, ni=1.515, ns=1.33, lambda=520, pitch 100/100, depth 64 ->
-    // zMax=3200nm, tilt=7.0179, halfLat=3.5*226.57+1.1*7.0179*3200=25496nm
-    // -> ceil(255) (above the soft cap of 150 -> warning logs, nothing
-    // truncated); axial=ceil(max(3200,2*705.71)/100)=32
-    // -> box 511 x 511 x 65.
+    // zMax=3200nm, tilt=7.0179, halfLat=4.9497*226.57+1.1*7.0179*3200=25825nm
+    // -> ceil(259) (above the soft cap of 150 -> warning logs, nothing
+    // truncated); axial=ceil(max(3200,2*455.19)/100)=32
+    // -> box 519 x 519 x 65.
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = fastGlJSON();
     j["size_x"] = 64;
@@ -664,7 +808,7 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxEndToEndOilConfocal) {
     PSF generator = generateTestPSF(config);
 
     PSF psf = generator;
-    EXPECT_EQ(psf.getShape(), CuboidShape(511, 511, 65));
+    EXPECT_EQ(psf.getShape(), CuboidShape(519, 519, 65));
 }
 
 TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxEndToEndDefaultConfig) {
@@ -672,12 +816,12 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxEndToEndDefaultConfig) {
     // NA=0.55, ni=1.43, ns=1.338, lambda=520, pitch 100/500nm, image
     // 720x672x100. sizeX/sizeY must not matter; sizeZ=100 drives the defocus.
     //   resLat = 0.61*520/0.55   = 576.73nm
-    //   resAx  = 2*520*1.338/0.3025 = 4600.07nm
+    //   resAx  = lambda/(ns*(1-cos(alpha))), n*sin(alpha) = NA = 4396.76nm
     //   zMax   = 50 * 500nm      = 25000nm (mid-stack focus)
     //   tilt   = max(tan(asin(0.55/1.43)), tan(asin(0.55/1.338))) = 0.45092
-    //   halfLat = 3.5*576.73 + 1.1*0.45092*25000 = 14419nm -> lat = 145 (< cap)
+    //   halfLat = 4.9497*576.73 + 1.1*0.45092*25000 = 15255nm -> lat = 153 (< cap)
     //   axial   = ceil(max(25000, 2*4600.07)/500) = 50
-    //   -> box 291 x 291 x 101
+    //   -> box 307 x 307 x 101
     auto& factory = PSFGeneratorFactory::getInstance();
     json j = json::parse(R"({
         "model_name": "GibsonLanni",
@@ -708,8 +852,8 @@ TEST_F(PSFGeneratorTest, GibsonLanniAutoBoxEndToEndDefaultConfig) {
     PSF psf = generator;
     CuboidShape shape = psf.getShape();
 
-    EXPECT_EQ(shape.width, 291u);
-    EXPECT_EQ(shape.height, 291u);
+    EXPECT_EQ(shape.width, 307u);
+    EXPECT_EQ(shape.height, 307u);
     EXPECT_EQ(shape.depth, 101u);
 
     for (auto it = psf.cbegin(); it != psf.cend(); ++it) {
