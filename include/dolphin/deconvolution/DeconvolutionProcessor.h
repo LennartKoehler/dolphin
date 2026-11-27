@@ -32,35 +32,47 @@ public:
     DeconvolutionProcessor() = default;
 
     void init(size_t numberThreads, std::function<void()> threadInitFunc = [](){}){
+        expectedWorkerBackends = numberThreads == 0 ? 1 : numberThreads;
         workerPool = std::make_unique<ThreadPool>(numberThreads, threadInitFunc);
     }
 
     /**
-     * @brief Create (or reuse) the worker algorithm for `backend` and run its
-     *        init()/preAllocate() phases. SYNCHRONOUS ON THE CALLING THREAD.
+     * @brief Register the calling worker pool thread's own backend.
      *
-     * Call this from the io thread BEFORE allocating the io image buffers. The
-     * FFT plans are created during init(), and plan creation needs a transient
-     * backend-side work area; running it here keeps that transient from
-     * overlapping the image buffers, which lowers the peak footprint.
+     * Called from the pool's threadInitFunc, so it runs ON the worker thread:
+     * each worker thread owns one backend for its whole life (created with the
+     * context's worker config, whose deviceId pins the context's device). All
+     * io backends of a context share that memory domain anyway, so a backend
+     * per io thread would only duplicate plans, work areas and scratch.
+     */
+    void registerWorkerBackend(IBackend& backend);
+
+    /// The calling worker thread's own registered backend. Worker threads only.
+    IBackend& workerBackend();
+
+    /**
+     * @brief Initialize the worker algorithm on EVERY worker backend.
+     *        SYNCHRONOUS ON THE CALLING (IO) THREAD.
      *
-     * The state is cached per backend (not per thread): it doesn't matter which
-     * pool thread executes the following deconvolveSingleCube(), and a backend
-     * seen again with the same work shape reuses its algorithm without re-init.
+     * Call this from the io thread BEFORE allocating the io image buffers.
+     * First waits until all worker pool threads have registered their backends
+     * (they do so first thing at pool start, so this returns immediately in
+     * practice), then runs init()/preAllocate() per backend: the FFT plans are
+     * created during init(), and plan creation needs a transient backend-side
+     * work area; doing all of it here keeps every transient from overlapping
+     * any image buffer, which lowers the peak footprint.
      *
-     * @param backend     the backend the algorithm runs on (pass the WORKER
-     *                    backend, not the io backend: on CPU the two differ in
-     *                    their per-op threading, and FFT plans are keyed by it).
+     * Idempotent per backend+shape: repeated calls (other io threads, later
+     * cubes) skip backends already initialized for the shape.
+     *
      * @param prototype   algorithm to clone; only used on first use / shape change.
-     * @param workShape   padded working shape the algorithm is sized for.
+     * @param workShape   padded working shape the algorithms are sized for.
      */
     void initWorker(
-        IBackend& backend,
         const std::shared_ptr<DeconvolutionAlgorithm>& prototype,
         const CuboidShape& workShape);
 
     std::future<void> deconvolveSingleCube(
-        IBackend& backend,
         const std::shared_ptr<DeconvolutionAlgorithm>& prototype,
         const CuboidShape& workShape,
         const std::vector<std::shared_ptr<PSF>>& psfs_host,
@@ -71,19 +83,17 @@ public:
         const DeconvolutionRunContext& runContext = {});
 
 private:
-    // One algorithm instance per backend, sized for one work shape.
+    // One algorithm instance per worker backend, sized for one work shape.
     //
     // Lives in a node-based map (unordered_map), so a WorkerState's address is
     // stable across rehash and its mutex may be held while the map changes.
     // WorkerState is intentionally non-copyable/non-movable by the mutex member
     // (unordered_map never moves values, only relinks nodes).
     //
-    // The entry mutex serializes init/re-init of that backend only. Using the
-    // returned algorithm for deconvolve() happens WITHOUT the entry lock; that
-    // is safe because deconvolve() calls for one backend are serialized by the
-    // worker pool (nWorkerThreads == 1 per TaskContext) and re-init cannot run
-    // concurrently with a deconvolve of the same shape (initWorker runs first,
-    // synchronously, on the io thread).
+    // Each worker pool thread exclusively uses its own registered backend, so
+    // one algorithm instance is never shared across threads and deconvolve()
+    // needs no per-entry lock during execution. The entry mutex only
+    // serializes init/re-init of that backend.
     struct WorkerState {
         std::mutex mutex;                  // guards THIS entry's init/re-init
         std::unique_ptr<DeconvolutionAlgorithm> algorithm;
@@ -105,6 +115,17 @@ private:
         const CuboidShape& workShape);
 
     std::unique_ptr<ThreadPool> workerPool;
+
+    // Worker backend registration: each pool thread registers exactly one
+    // backend from its threadInitFunc. initWorker() waits for the full count
+    // so the per-backend plan transients are guaranteed to precede the io
+    // buffers. Backends are manager-owned (stable references); worker threads
+    // never unregister (the deconvolution flow never shrinks the pool).
+    std::mutex registrationMutex;
+    std::condition_variable registrationCv;
+    size_t expectedWorkerBackends = 0;
+    size_t registeredWorkerBackends = 0;
+    std::vector<IBackend*> workerBackends;
 
     std::mutex statesMutex;                             // guards `states` only
     std::unordered_map<IBackend*, WorkerState> states;

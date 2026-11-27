@@ -15,6 +15,32 @@ See the LICENSE file provided with the code for the full license.
 #include "dolphin/deconvolution/algorithms/DeconvolutionAlgorithm.h"
 #include "dolphin/ThreadPool.h"
 #include "dolphin/deconvolution/Preprocessor.h"
+#include <stdexcept>
+
+// The calling worker pool thread's own backend (set by registerWorkerBackend
+// from the pool's threadInitFunc). A thread belongs to exactly one context's
+// pool and never migrates, so one slot per thread is enough.
+static thread_local IBackend* t_workerBackend = nullptr;
+
+
+void DeconvolutionProcessor::registerWorkerBackend(IBackend& backend) {
+    t_workerBackend = &backend;
+    {
+        std::lock_guard<std::mutex> lock(registrationMutex);
+        workerBackends.push_back(&backend);
+        ++registeredWorkerBackends;
+    }
+    registrationCv.notify_all();
+}
+
+IBackend& DeconvolutionProcessor::workerBackend() {
+    if (!t_workerBackend) {
+        throw std::runtime_error(
+            "DeconvolutionProcessor: no worker backend registered on this thread "
+            "(workerBackend() is only valid on the processor's worker pool threads)");
+    }
+    return *t_workerBackend;
+}
 
 
 DeconvolutionAlgorithm& DeconvolutionProcessor::ensureWorker(
@@ -47,17 +73,27 @@ DeconvolutionAlgorithm& DeconvolutionProcessor::ensureWorker(
 }
 
 void DeconvolutionProcessor::initWorker(
-    IBackend& backend,
     const std::shared_ptr<DeconvolutionAlgorithm>& prototype,
     const CuboidShape& workShape){
-    // synchronous on purpose: guarantees the plan-creation transient is done
+    // Wait until every worker pool thread has registered its backend. The pool
+    // threads start eagerly and register as their very first action, so this
+    // returns immediately in practice — but the guarantee is what keeps every
+    // plan-creation transient ahead of the io buffers.
+    std::unique_lock<std::mutex> lock(registrationMutex);
+    registrationCv.wait(lock, [this] { return registeredWorkerBackends >= expectedWorkerBackends; });
+    const std::vector<IBackend*> snapshot = workerBackends;
+    lock.unlock();
+
+    // Synchronous on purpose: guarantees the plan-creation transients are done
     // before the caller allocates its buffers, and that any later
     // deconvolveSingleCube() on any pool thread finds a ready algorithm.
-    ensureWorker(backend, prototype, workShape);
+    // Idempotent per backend+shape (double-checked inside ensureWorker).
+    for (IBackend* backend : snapshot) {
+        ensureWorker(*backend, prototype, workShape);
+    }
 }
 
 std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
-    IBackend& backend,
     const std::shared_ptr<DeconvolutionAlgorithm>& prototype,
     const CuboidShape& workShape,
     const std::vector<std::shared_ptr<PSF>>& psfs_host,
@@ -70,7 +106,6 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
     // on workerThread
     std::future<void> resultDone = workerPool->enqueue([
         this,
-        &backend,
         prototype,
         &workShape,
         &psfs_host,
@@ -81,10 +116,11 @@ std::future<void> DeconvolutionProcessor::deconvolveSingleCube(
         runContext
     ]() mutable {
 
-        // Hit path: initWorker() already ran on the io thread for this backend +
-        // shape, so this only looks the algorithm up. (If a caller skipped
-        // initWorker, this still initializes - just with the transient inside
-        // the task again.)
+        // This thread's own backend (registered in threadInitFunc). Hit path:
+        // initWorker() already ran on an io thread for this backend + shape,
+        // so this only looks the algorithm up. (If a caller skipped initWorker,
+        // this still initializes - just with the transient inside the task.)
+        IBackend& backend = workerBackend();
         DeconvolutionAlgorithm& workeralgorithm =
             ensureWorker(backend, prototype, workShape);
         // The tracker is per call (it differs e.g. between label groups), so

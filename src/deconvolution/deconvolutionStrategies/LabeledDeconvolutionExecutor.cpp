@@ -62,8 +62,10 @@ TODO still slow
 void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     std::shared_ptr<TaskContext> context = task.context;
+    // The io thread's own backend for the device copies. The worker backends
+    // are owned by the context's worker pool threads (see TaskContext) — one
+    // per worker, all on this context's device/memory domain.
     thread_local IBackend& iobackend = context->manager.createBackendForCurrentThread(context->ioconfig);
-    thread_local IBackend& workerbackend = context->manager.createBackendSharedMemoryForCurrentThread(iobackend, context->workerconfig);
 
 
     std::shared_ptr<ReaderHandler> reader = task.sharedDescriptor->reader;
@@ -74,11 +76,11 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
-    // Create the worker algorithm (FFT plans in init(), scratch in preAllocate())
-    // BEFORE the io buffers below, so the plan-creation transient never overlaps
-    // them (lower peak footprint).
+    // Initialize the worker algorithms on ALL of the context's worker backends
+    // (FFT plans in init(), scratch in preAllocate()) BEFORE the io buffers
+    // below, so the plan-creation transient never overlaps them (lower peak
+    // footprint).
     context->processor.initWorker(
-        workerbackend,
         task.sharedDescriptor->prototypeAlgorithm,
         workShape);
 
@@ -130,7 +132,9 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     std::shared_ptr<PSF> gaussianKernel = createGaussianKernel(featheringRadius);
 
     // make the memory and preprocessing of this kernel which is used for the masks be maanged by the psfpreprocessor
-    const ComplexData* preprocessedGaussianKernel = context->psfpreprocessor->getPreprocessedPSF(workShape, gaussianKernel, workerbackend);
+    // (the PSF cache is keyed by device, so the io backend's entry is the same
+    // one the worker backends hit later)
+    const ComplexData* preprocessedGaussianKernel = context->psfpreprocessor->getPreprocessedPSF(workShape, gaussianKernel, iobackend);
     std::vector<Label<RealData>> preprocessedTaskLabels = makeMasksWeighted(tasklabels, labelImage.image, *preprocessedGaussianKernel, iobackend);
 
     for (const Label<RealData>& labelgroup : preprocessedTaskLabels){
@@ -147,7 +151,6 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
             iobackend.getMemoryManager().memCopy(g_device, g_label);
 
             std::future<void> resultDone = context->processor.deconvolveSingleCube(
-                workerbackend,
                 task.sharedDescriptor->prototypeAlgorithm,
                 workShape,
                 psfs,

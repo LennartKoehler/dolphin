@@ -48,23 +48,26 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
 
     std::shared_ptr<TaskContext> context = task.context;
 
-    // create both backends here so that they both use the same backenddevice
-    // then pass the workerbackend to the workerthread to use. If it were created threadlocal on the workerthread
-    // a mismatch could happen where the workerthreads backend is on a different device than the iobackend
+    // The io thread's own backend for the device copies. The WORKER backends
+    // are owned by the context's worker pool threads (created and registered
+    // in the pool's threadInitFunc, see TaskContext) — one per worker instead
+    // of one per io thread: all backends of this context share the same
+    // device/memory domain (workerconfig carries the deviceId), so extra
+    // per-io-thread worker backends would only duplicate FFT plans, work
+    // areas and scratch that can never run concurrently.
     thread_local IBackend& iobackend = context->manager.createBackendForCurrentThread(context->ioconfig);
-    thread_local IBackend& workerbackend = context->manager.createBackendSharedMemoryForCurrentThread(iobackend, context->workerconfig);
 
     std::shared_ptr<ReaderHandler> reader = task.sharedDescriptor->reader;
     std::shared_ptr<WriterHandler> writer = task.sharedDescriptor->writer;
 
     CuboidShape workShape = task.paddedBox.box.dimensions + task.paddedBox.padding.before + task.paddedBox.padding.after;
 
-    // Create the worker algorithm (FFT plans in init(), scratch in preAllocate())
-    // BEFORE the io buffers below. Plan creation needs a transient backend work
-    // area; doing it first keeps that transient from overlapping g_device/f_device,
-    // which lowers the peak footprint.
+    // Initialize the worker algorithms on ALL of the context's worker backends
+    // (FFT plans in init(), scratch in preAllocate()) BEFORE the io buffers
+    // below. Plan creation needs a transient backend work area; doing it first
+    // keeps that transient from overlapping g_device/f_device, which lowers
+    // the peak footprint.
     context->processor.initWorker(
-        workerbackend,
         task.sharedDescriptor->prototypeAlgorithm,
         workShape);
 
@@ -104,7 +107,6 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     };
 
     std::future<void> resultDone = context->processor.deconvolveSingleCube(
-        workerbackend,
         task.sharedDescriptor->prototypeAlgorithm,
         workShape,
         task.sharedDescriptor->psfs,
