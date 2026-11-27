@@ -29,16 +29,8 @@ public:
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;
-    size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
-    // The prewarmed pair plus the second-pass r2c, which runs in-place on the
-    // c buffer (c_real reinterprets c_complex) and is created lazily at runtime.
-    std::vector<FFTPlanDescription> getFFTPlanDescriptions(const CuboidShape& dataSize) const override {
-        return {
-            {PlanDirection::FORWARD, PlanType::REAL, dataSize, false},
-            {PlanDirection::BACKWARD, PlanType::REAL, dataSize, true},
-            {PlanDirection::FORWARD, PlanType::REAL, dataSize, true},
-        };
-    }
+    std::unique_ptr<const MemoryComponent> getMemoryComponent(
+        const IBackendManager& backendManager, size_t workerThreads) const override;
 private:
     // Configuration (set in configure()); cloned in cloneSpecific().
     int iterations = 10;
@@ -47,4 +39,38 @@ private:
     // Algorithm-specific data members for intermediate calculations
     ComplexData c_complex;
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
+};
+
+/**
+ * @brief MemoryComponent of RichardsonLucy: one complex working buffer
+ * (2 real_t per element) per worker thread, plus the FFT work-area memory of
+ * the plan set (out-of-place forward r2c, in-place backward c2r, and the
+ * second-pass r2c which runs in-place on the c buffer). One working set per
+ * worker thread, capped at min(workerThreads, numTasks), placed on the plane
+ * the strategy chooses; the backend's sharing policy applies inside the plan
+ * query (CUDA: one shared work area per backend instance, largest plan wins).
+ */
+class RLAlgorithmMemoryComponent : public MemoryComponent {
+public:
+    RLAlgorithmMemoryComponent(const IBackendManager& backendManager,
+                               size_t workerThreads)
+        : backendManager(backendManager), workerThreads(workerThreads) {}
+
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t numTasks) const override {
+        const size_t instances = std::min(workerThreads, numTasks);
+        const size_t scratchBytes = 2 * cubeShape.getVolume() * sizeof(real_t);
+        const std::vector<FFTPlanDescription> plans = {
+            {PlanDirection::FORWARD, PlanType::REAL, cubeShape, false},
+            {PlanDirection::BACKWARD, PlanType::REAL, cubeShape, true},
+            {PlanDirection::FORWARD, PlanType::REAL, cubeShape, true},
+        };
+        return MemoryRequirement{0,
+            instances * scratchBytes + backendManager.getFFTPlanMemoryBytes(plans, workerThreads)};
+    }
+
+    std::string name() const override { return "algorithm working set + fft plans"; }
+
+private:
+    const IBackendManager& backendManager;
+    size_t workerThreads;
 };

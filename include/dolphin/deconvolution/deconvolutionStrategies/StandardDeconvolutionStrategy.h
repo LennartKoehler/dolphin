@@ -130,8 +130,7 @@ protected:
         const DeconvolutionAlgorithm& algorithm,
         const PaddingScheme& paddingScheme,
         size_t ioThreads,
-        size_t workerThreads,
-        bool algorithmOnDevice);
+        size_t workerThreads);
 
     /// Query available memory from the managers and clamp the user limits
     /// (see resolveMemoryLimit). Constructs no backends.
@@ -147,9 +146,9 @@ protected:
         const DeconvolutionConfig& config);
 
     /// Apply the resolved caps to the backend trackers so allocations beyond
-    /// the budget fail with a clear MemoryException. backendComponent is the
-    /// memory component of the compute backend (CPU or device).
-    void applyBackendMemoryLimits(MemoryComponent& backendComponent, const MemoryBudget& budget) const;
+    /// the budget fail with a clear MemoryException. Goes through the
+    /// managers' setMemoryLimit (per-device/pool allocation cap).
+    void applyBackendMemoryLimits(IBackendManager& backendManager, const MemoryBudget& budget) const;
 
     std::shared_ptr<DeconvolutionAlgorithm> getAlgorithm(const DeconvolutionConfig& config);
 

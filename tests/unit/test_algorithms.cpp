@@ -398,7 +398,13 @@ TEST_F(AlgorithmTestBase, AlgorithmClonePreservesConfig) {
     auto clone = algo->clone();
     ASSERT_NE(clone, nullptr);
     const CuboidShape testShape(4, 4, 4);
-    EXPECT_EQ(clone->getWorkingSetBytes(testShape), algo->getWorkingSetBytes(testShape));
+    IBackendManager& cpu = BackendFactory::getBackendManagerStatic(HOST_BACKEND);
+    const MemoryRequirement cloneBytes =
+        clone->getMemoryComponent(cpu, 2)->footprint(testShape, 5);
+    const MemoryRequirement algoBytes =
+        algo->getMemoryComponent(cpu, 2)->footprint(testShape, 5);
+    EXPECT_EQ(cloneBytes.hostBytes, algoBytes.hostBytes);
+    EXPECT_EQ(cloneBytes.deviceBytes, algoBytes.deviceBytes);
 }
 
 // Regression: fillGaussianOTF must place the OTF of a separable anisotropic

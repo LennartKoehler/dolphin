@@ -16,8 +16,6 @@ See the LICENSE file provided with the code for the full license.
 #include "IComputeBackend.h"
 #include "IBackend.h"
 #include "ThreadConfig.h"
-#include "MemoryComponent.h"
-#include <memory>
 
 
 
@@ -78,33 +76,23 @@ public:
         NOT_IMPLEMENTED(setMemoryLimit);
     }
 
-    // MemoryComponent describing this backend's FFT memory. Each manager
-    // implements its own component so it reports and caps the plane it
-    // actually allocates on: the CPU manager reports/limits host memory
-    // (FFTW planning transients live in host RAM), the CUDA manager
-    // reports/limits device memory (cuFFT work areas live in VRAM). The
-    // component is owned by the manager.
-    virtual MemoryComponent& getMemoryComponent() = 0;
-
     // --- FFT plan memory, per plan set (mirrors the
     // getAvailableMemoryPerDevice pattern: the deconvolution strategy must
     // model memory BEFORE any backend exists, so the query lives on the
     // manager and is answered with the compute backend's plan math) ---
     //
-    // The algorithms declare the FFTPlanDescriptions they will use (see
-    // DeconvolutionAlgorithm::getFFTPlanDescriptions) and hand the whole set
-    // here; the answer is composed into the algorithm's memory component and
-    // never added to the footprint directly.
+    // The algorithms' memory components hand over the FFTPlanDescriptions
+    // their algorithm will use (e.g. PoissonMLECore::planDescriptions) plus
+    // the run's worker thread count; the answer is composed into the
+    // algorithm's memory component and never added to the footprint directly.
 
     // Memory the given plan set will occupy on this backend's plane, with
-    // this backend's sharing policy applied inside: CUDA creates one shared
-    // work area per backend instance and answers with the MAX over the set;
-    // a backend whose plans each own their memory would answer with the SUM.
-    // Estimated WITHOUT creating any plan (pure host-side arithmetic).
-    // Thread semantics are deliberately NOT modeled here: the caller folds
-    // the per-worker-thread concurrency in (one backend instance per worker
-    // thread), which is the same rule the algorithm's scratch follows.
-    virtual size_t getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions) const {
+    // this backend's sharing AND thread policy applied inside: CUDA creates
+    // one shared work area per backend instance (max over the set, times the
+    // worker backends); the CPU's FFTW planning holds no persistent memory,
+    // so it answers 0. Estimated WITHOUT creating any plan (pure host-side
+    // arithmetic).
+    virtual size_t getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions, const size_t workerThreads) const {
         NOT_IMPLEMENTED(getFFTPlanMemoryBytes);
     }
 

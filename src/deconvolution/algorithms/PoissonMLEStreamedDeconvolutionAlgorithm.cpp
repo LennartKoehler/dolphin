@@ -103,11 +103,9 @@ void PoissonMLEStreamedDeconvolutionAlgorithm::deconvolve(const ComplexData& H, 
     }
 }
 
-size_t PoissonMLEStreamedDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Only the staging slice: the observed image lives in host RAM, the work
-    // volume is the caller's g buffer.
-    const size_t realStride = 2 * (dataSize.width / 2 + 1);
-    return dataSize.height * realStride * sizeof(real_t);
+std::unique_ptr<const MemoryComponent> PoissonMLEStreamedDeconvolutionAlgorithm::getMemoryComponent(
+    const IBackendManager& backendManager, size_t workerThreads) const {
+    return std::make_unique<PoissonMLEStreamedAlgorithmMemoryComponent>(backendManager, workerThreads);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEStreamedDeconvolutionAlgorithm::cloneSpecific() const {

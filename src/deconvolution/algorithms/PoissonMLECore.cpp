@@ -108,7 +108,7 @@ void PoissonMLECore::configure(const PoissonMLEConfig& config) {
     sieveScale = config.sieveScale;
 }
 
-std::vector<FFTPlanDescription> PoissonMLECore::planDescriptions(const CuboidShape& dataSize) const {
+std::vector<FFTPlanDescription> PoissonMLECore::planDescriptions(const CuboidShape& dataSize) {
     return {
         // In-place r2c for the ratio FFT and the sieve, in-place c2r for both,
         // plus the out-of-place forward r2c the forward model uses to FFT the

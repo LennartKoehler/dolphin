@@ -113,9 +113,10 @@ struct PoissonMLECore {
     void resetForClone() { psfSigmasValid = false; }
 
     // The FFT plan descriptions every variant uses — the single source of
-    // truth shared by initPlans() and the variants'
-    // DeconvolutionAlgorithm::getFFTPlanDescriptions (memory modeling).
-    std::vector<FFTPlanDescription> planDescriptions(const CuboidShape& dataSize) const;
+    // truth shared by initPlans() and the variants' memory components (which
+    // query the backend manager with this set). Static: the plan set depends
+    // only on the data shape.
+    static std::vector<FFTPlanDescription> planDescriptions(const CuboidShape& dataSize);
 
     // Prewarms the plans of planDescriptions(): the in-place real r2c/c2r
     // pair both FFT stages of every variant use, plus the out-of-place

@@ -96,12 +96,9 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
 
     MemoryComponent& readerComponent = reader->getMemoryComponent(nReaderThreads);
     MemoryComponent& writerComponent = writer->getMemoryComponent();
-    // Each manager reports and caps the plane it allocates on (CPU: host,
-    // CUDA: device) via its own memory component. It is NOT added to the
-    // footprint: the algorithm's memory component queries the plan memory
-    // for its own plan set (see DeconvolutionAlgorithm::getMemoryComponent).
-    // This component stays only as the limit facade (applyBackendMemoryLimits).
-    MemoryComponent& backendComponent = backendManager.getMemoryComponent();
+    // The backend's FFT memory is NOT added to the footprint: the algorithm's
+    // memory component queries the plan memory for its own plan set (see
+    // DeconvolutionAlgorithm::getMemoryComponent).
     MemoryComponent& psfComponent = psfHandler.getMemoryComponent(nPSFs, nDevices);
 
     // Memory footprint: every memory-owning system reports its own demand for
@@ -114,8 +111,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
         *algorithm,
         paddingScheme,
         ioThreads,
-        workerThreads,
-        !budget.deviceIsHost);
+        workerThreads);
 
     std::vector<BoxCoordWithPadding> cubeCoordinatesWithPadding = getCubes(
         budget,
@@ -164,7 +160,7 @@ Result<DeconvolutionPlan> StandardDeconvolutionStrategy::createPlan(
     std::shared_ptr<ReaderHandler> readerHandler = std::make_shared<ReaderHandler>(reader, deconvConfig.paddingFillType);
     std::shared_ptr<WriterHandler> writerHandler = std::make_shared<WriterHandler>(writer);
 
-    applyBackendMemoryLimits(backendComponent, budget);
+    applyBackendMemoryLimits(backendManager, budget);
 
     // psfHandler.fitPSFsToShape(paddedShape); // the psfpreprocessor does this
     std::vector<std::shared_ptr<PSF>>& psfs = psfHandler.getPSFs(paddedShape);
@@ -244,8 +240,7 @@ MemoryFootprint StandardDeconvolutionStrategy::buildMemoryFootprint(
     const DeconvolutionAlgorithm& algorithm,
     const PaddingScheme& paddingScheme,
     size_t ioThreads,
-    size_t workerThreads,
-    bool algorithmOnDevice) {
+    size_t workerThreads) {
     // The strategy-owned terms have no owner class: the footprint creates and
     // keeps them alive so the result can be returned by value. Each per-thread
     // term folds its concurrency in itself (one set per io/worker thread) and
@@ -258,7 +253,9 @@ MemoryFootprint StandardDeconvolutionStrategy::buildMemoryFootprint(
     // The algorithm's memory component: scratch working set + FFT plan memory
     // (the plan set is queried from the backend manager, whose sharing policy
     // applies inside — the backend's FFT memory is never counted twice).
-    footprint.add(algorithm.getMemoryComponent(backendManager, algorithmOnDevice, workerThreads));
+    // Components report the device plane; MemoryBudget::fits folds it into
+    // the host pool when the backend is the CPU (device == host).
+    footprint.add(algorithm.getMemoryComponent(backendManager, workerThreads));
     footprint.add(psfComponent);
     // Padding accompanies each io staging buffer while a cube is padded.
     footprint.add(std::make_unique<const PaddingPeakMemoryComponent>(paddingScheme.insidePadding, ioThreads));
@@ -446,23 +443,20 @@ MemoryBudget StandardDeconvolutionStrategy::resolveMemoryBudget(
 }
 
 void StandardDeconvolutionStrategy::applyBackendMemoryLimits(
-    MemoryComponent& backendComponent,
+    IBackendManager& backendManager,
     const MemoryBudget& budget
 ) const {
-    // Both caps are applied through the managers' memory components (facades),
-    // so the strategy does not touch the managers' memory APIs directly.
+    // Both caps go through the managers' setMemoryLimit (per-device/pool
+    // allocation cap); no memory component facade is involved anymore.
     if (budget.deviceIsHost) {
         // CPU: one shared tracker covers io staging and all "device"
         // allocations (host and compute backends share it).
-        backendComponent.setMemoryLimit(MemoryRequirement{budget.backendHost_byte, 0});
+        backendManager.setMemoryLimit(budget.backendHost_byte);
     } else {
         // Host-side staging runs through the host backend manager; the compute
         // backend (already resolved by the caller) gets the device cap. The
-        // Host-side staging runs through the host backend manager; the compute
-        // backend (already resolved by the caller) gets the device cap. The
         // host manager is always the CPU manager, which caps the host plane.
-        BackendFactory::getBackendManagerStatic(HOST_BACKEND).getMemoryComponent()
-            .setMemoryLimit(MemoryRequirement{budget.backendHost_byte, 0});
-        backendComponent.setMemoryLimit(MemoryRequirement{0, budget.deviceTotal_byte});
+        BackendFactory::getBackendManagerStatic(HOST_BACKEND).setMemoryLimit(budget.backendHost_byte);
+        backendManager.setMemoryLimit(budget.deviceTotal_byte);
     }
 }

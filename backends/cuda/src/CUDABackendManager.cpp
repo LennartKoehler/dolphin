@@ -91,12 +91,6 @@ extern "C" IBackendManager* createBackendManager() {
 }
 
 
-
-
-CUDABackendManager::CUDABackendManager() : fftComponent(*this){
-
-};
-
 // Shared cuFFT work areas are allocated through the memory managers, so they
 // must be freed while those are still alive: member destruction order would
 // tear `memoryManagers` down before `computeBackends`.
@@ -158,19 +152,17 @@ IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig&
 }
 
 
-MemoryComponent& CUDABackendManager::getMemoryComponent() {
-    return fftComponent;
-}
-
-size_t CUDABackendManager::getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions) const {
+size_t CUDABackendManager::getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions, const size_t workerThreads) const {
     // The compute backend owns the plan math (it creates the plans and grows
     // their shared work area); the estimate needs no backend instance and no
     // CUDA context, so the manager funnels it for pre-plan memory modeling.
+    // One shared work area per backend instance, so the set costs the largest
+    // plan per instance, times the number of worker backends.
     size_t bytes = 0;
     for (const FFTPlanDescription& description : descriptions) {
         bytes = std::max(bytes, CUDAComputeBackend::estimatePlanWorkBytes(description));
     }
-    return bytes;
+    return bytes * workerThreads;
 }
 
 IBackend& CUDABackendManager::createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config){

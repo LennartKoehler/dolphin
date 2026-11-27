@@ -13,6 +13,7 @@ See the LICENSE file provided with the code for the full license.
 
 #include <gtest/gtest.h>
 #include "dolphin/deconvolution/deconvolutionStrategies/StandardDeconvolutionStrategy.h"
+#include "dolphin/deconvolution/algorithms/PoissonMLECore.h"
 #include "dolphin/backend/BackendFactory.h"
 #include "dolphinbackend/MemoryComponent.h"
 #include "dolphinbackend/MemoryFootprint.h"
@@ -216,20 +217,15 @@ public:
     IBackend& createBackendSharedMemoryForCurrentThread(IBackend&, const BackendConfig&) override { throw std::runtime_error("not used"); }
     size_t getNumberDevices() const override { return 1; }
     void setThreadDistribution(ThreadConfig&, BackendConfig&, BackendConfig&) override {}
-    MemoryComponent& getMemoryComponent() override { return component; }
 
-    // Answers for the whole set; records what the algorithm asked for.
-    size_t getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions) const override {
+    // Answers for the whole set; records what the algorithm asked for. The
+    // thread count is part of the query (the backend folds its per-instance
+    // semantics in); this fake ignores it and answers a fixed value.
+    size_t getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions, const size_t workerThreads) const override {
+        (void)workerThreads;
         queriedDescriptions = descriptions;
         return fftBytes;
     }
-
-    // Nothing to report at the manager level for these tests.
-    class EmptyComponent : public MemoryComponent {
-    public:
-        MemoryRequirement footprint(const CuboidShape&, size_t) const override { return {0, 0}; }
-        std::string name() const override { return "fake backend"; }
-    } component;
 
     mutable std::vector<FFTPlanDescription> queriedDescriptions;
     size_t fftBytes;
@@ -243,54 +239,61 @@ TEST_F(MemoryTest, AlgorithmComponentFunnelsPlanMemoryThroughBackendManager) {
 
     const size_t fftBytes = 777;
     FakeBackendManager backend(fftBytes);
-    const size_t workingSetBytes = algorithm->getWorkingSetBytes(shape);
+    // RL's own component knowledge: one complex working buffer (2 real_t per
+    // element) per instance.
+    const size_t workingSetBytes = 2 * shape.getVolume() * sizeof(real_t);
 
     // Host plane, three worker threads.
-    auto onHost = algorithm->getMemoryComponent(backend, /*onDevice=*/false, /*workerThreads=*/3);
+    auto onHost = algorithm->getMemoryComponent(backend, /*workerThreads=*/3);
 
     // One task: one scratch set plus the backend's answer for the plan set.
+    // Components always report the device plane; MemoryBudget::fits folds it
+    // into the host pool on a CPU backend (device == host).
     const MemoryRequirement one = onHost->footprint(shape, 1);
-    EXPECT_EQ(one.hostBytes, workingSetBytes + fftBytes);
-    EXPECT_EQ(one.deviceBytes, 0u);
+    EXPECT_EQ(one.deviceBytes, workingSetBytes + fftBytes);
+    EXPECT_EQ(one.hostBytes, 0u);
 
-    // Both terms carry the same concurrency: capped at the worker thread count.
+    // The scratch carries the per-thread concurrency (3 instances); the plan
+    // answer does NOT: the backend folds its own thread semantics in (this
+    // fake answers a flat value; CUDA multiplies by its worker count inside).
     const MemoryRequirement many = onHost->footprint(shape, 10);
-    EXPECT_EQ(many.hostBytes, 3 * (workingSetBytes + fftBytes));
-    EXPECT_EQ(many.deviceBytes, 0u);
+    EXPECT_EQ(many.deviceBytes, 3 * workingSetBytes + fftBytes);
+    EXPECT_EQ(many.hostBytes, 0u);
 
-    // The algorithm declared its plan set (RL: out-of-place forward r2c,
-    // in-place backward c2r, and the second-pass r2c in-place on the c
-    // buffer), which is exactly what the backend was asked for.
-    const std::vector<FFTPlanDescription> declared = algorithm->getFFTPlanDescriptions(shape);
-    EXPECT_EQ(declared.size(), 3u);
-    ASSERT_EQ(backend.queriedDescriptions.size(), declared.size());
-    for (size_t i = 0; i < declared.size(); ++i)
-        EXPECT_TRUE(backend.queriedDescriptions[i] == declared[i]) << "plan description mismatch at " << i;
+    // The component asked the backend for RL's plan set (out-of-place forward
+    // r2c, in-place backward c2r, and the second-pass r2c in-place on the c
+    // buffer) — and for nothing else.
+    const std::vector<FFTPlanDescription> expectedPlans = {
+        {PlanDirection::FORWARD, PlanType::REAL, shape, false},
+        {PlanDirection::BACKWARD, PlanType::REAL, shape, true},
+        {PlanDirection::FORWARD, PlanType::REAL, shape, true},
+    };
+    ASSERT_EQ(backend.queriedDescriptions.size(), expectedPlans.size());
+    for (size_t i = 0; i < expectedPlans.size(); ++i)
+        EXPECT_TRUE(backend.queriedDescriptions[i] == expectedPlans[i]) << "plan description mismatch at " << i;
 }
 
 TEST_F(MemoryTest, AlgorithmComponentUsesRealCpuBackendPlanAnswer) {
-    // The real CPU manager answers the plan query; with no FFT plan memory
-    // and no scratch, an empty-plan algorithm must report exactly zero.
+    // The real CPU manager answers the plan query with 0: FFTW planning holds
+    // no persistent memory (the transient is freed after planning). The
+    // composed component of the classic PoissonMLE is therefore exactly its
+    // scratch: one real in-place-FFT buffer per instance.
     const CuboidShape shape(32, 16, 8);
-    class NoPlansAlgorithm : public DeconvolutionAlgorithm {
-    public:
-        void configure(const DeconvolutionConfig&) override {}
-        void init(const CuboidShape&) override { initialized = true; }
-        bool isInitialized() const override { return initialized; }
-        void deconvolve(const ComplexData&, RealData&, RealData&, const DeconvolutionRunContext&) override {}
-        size_t getWorkingSetBytes(const CuboidShape&) const override { return 0; }
-    private:
-        std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override { return std::make_unique<NoPlansAlgorithm>(*this); }
-        bool initialized = false;
-    };
+    auto config = DeconvolutionAlgorithmFactory::getInstance().createConfigForAlgorithm("PoissonMLE");
+    std::shared_ptr<DeconvolutionAlgorithm> algorithm = DeconvolutionAlgorithmFactory::getInstance().createShared(*config);
+    ASSERT_NE(algorithm, nullptr);
 
-    NoPlansAlgorithm algorithm;
     IBackendManager& cpu = BackendFactory::getBackendManagerStatic(HOST_BACKEND);
-    EXPECT_EQ(cpu.getFFTPlanMemoryBytes({}), 0u);
+    EXPECT_EQ(cpu.getFFTPlanMemoryBytes(PoissonMLECore::planDescriptions(shape), 4), 0u);
 
-    auto component = algorithm.getMemoryComponent(cpu, /*onDevice=*/false, /*workerThreads=*/2);
-    const MemoryRequirement req = component->footprint(shape, 2);
-    EXPECT_EQ(req.hostBytes, 0u);
-    EXPECT_EQ(req.deviceBytes, 0u);
+    auto component = algorithm->getMemoryComponent(cpu, /*workerThreads=*/2);
+    const MemoryRequirement one = component->footprint(shape, 1);
+    EXPECT_EQ(one.deviceBytes, shape.getVolume() * sizeof(real_t));
+    EXPECT_EQ(one.hostBytes, 0u);
     EXPECT_NE(component->name().find("fft plans"), std::string::npos);
+
+    // The scratch carries the per-thread concurrency: two instances with two
+    // tasks, capped at the task count with fewer tasks.
+    EXPECT_EQ(component->footprint(shape, 2).deviceBytes, 2 * shape.getVolume() * sizeof(real_t));
+    EXPECT_EQ(component->footprint(shape, 1).deviceBytes, shape.getVolume() * sizeof(real_t));
 }

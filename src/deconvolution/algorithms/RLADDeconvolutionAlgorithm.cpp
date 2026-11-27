@@ -108,7 +108,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLADDeconvolutionAlgorithm::cloneSpecifi
     return copy;
 }
 
-size_t RLADDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Allocates 1 additional complex array of input size
-    return dataSize.getVolume() * sizeof(real_t);
+std::unique_ptr<const MemoryComponent> RLADDeconvolutionAlgorithm::getMemoryComponent(
+    const IBackendManager& backendManager, size_t workerThreads) const {
+    return std::make_unique<RLADAlgorithmMemoryComponent>(backendManager, workerThreads);
 }

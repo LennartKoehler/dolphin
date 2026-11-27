@@ -163,10 +163,9 @@ void PoissonMLEAdaptiveStepDeconvolutionAlgorithm::dataStep(const IComputeBacken
     compute.realLinearCombinationClampMin(f, 1.0f, core_.scratch, alpha * pwr, 0.0f, f);
 }
 
-size_t PoissonMLEAdaptiveStepDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Classic work buffer (direction + sieve OTF) + model (alive for J(alpha))
-    // + hd (H*d for the line search): three real in-place-FFT buffers.
-    return 3 * dataSize.getVolume() * sizeof(real_t);
+std::unique_ptr<const MemoryComponent> PoissonMLEAdaptiveStepDeconvolutionAlgorithm::getMemoryComponent(
+    const IBackendManager& backendManager, size_t workerThreads) const {
+    return std::make_unique<PoissonMLEAdaptiveStepAlgorithmMemoryComponent>(backendManager, workerThreads);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEAdaptiveStepDeconvolutionAlgorithm::cloneSpecific() const {

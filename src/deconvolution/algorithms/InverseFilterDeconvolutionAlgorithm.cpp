@@ -67,6 +67,7 @@ std::unique_ptr<DeconvolutionAlgorithm> InverseFilterDeconvolutionAlgorithm::clo
     return copy;
 }
 
-size_t InverseFilterDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    return 0; // No additional memory allocation needed
+std::unique_ptr<const MemoryComponent> InverseFilterDeconvolutionAlgorithm::getMemoryComponent(
+    const IBackendManager& backendManager, size_t workerThreads) const {
+    return std::make_unique<InverseFilterAlgorithmMemoryComponent>(backendManager, workerThreads);
 }

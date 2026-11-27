@@ -41,10 +41,8 @@ public:
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;
-    size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
-    std::vector<FFTPlanDescription> getFFTPlanDescriptions(const CuboidShape& dataSize) const override {
-        return core_.planDescriptions(dataSize);
-    }
+    std::unique_ptr<const MemoryComponent> getMemoryComponent(
+        const IBackendManager& backendManager, size_t workerThreads) const override;
 
 private:
     // One line-search data step. The model m (in its own buffer) must stay
@@ -69,4 +67,32 @@ private:
     bool initialized = false;
 
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
+};
+
+/**
+ * @brief MemoryComponent of the adaptive-step PoissonMLE: THREE real
+ * in-place-FFT buffers per worker thread (the shared work buffer carrying the
+ * direction d, the model m kept alive for J(alpha), and hd = H*d for the line
+ * search), plus the FFT work-area memory of the variant's plan set. Same
+ * concurrency and plane rules as PoissonMLEAlgorithmMemoryComponent.
+ */
+class PoissonMLEAdaptiveStepAlgorithmMemoryComponent : public MemoryComponent {
+public:
+    PoissonMLEAdaptiveStepAlgorithmMemoryComponent(const IBackendManager& backendManager,
+                                                   size_t workerThreads)
+        : backendManager(backendManager), workerThreads(workerThreads) {}
+
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t numTasks) const override {
+        const size_t instances = std::min(workerThreads, numTasks);
+        const size_t scratchBytes = 3 * cubeShape.getVolume() * sizeof(real_t);
+        const size_t planBytes = backendManager.getFFTPlanMemoryBytes(
+            PoissonMLECore::planDescriptions(cubeShape), workerThreads);
+        return MemoryRequirement{0, instances * scratchBytes + planBytes};
+    }
+
+    std::string name() const override { return "algorithm working set + fft plans"; }
+
+private:
+    const IBackendManager& backendManager;
+    size_t workerThreads;
 };

@@ -101,10 +101,9 @@ void PoissonMLEDeconvolutionAlgorithm::dataStep(const IComputeBackend& compute,
     compute.poissonUpdate(core_.scratch, f, 0.0f);
 }
 
-size_t PoissonMLEDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // One real in-place-FFT scratch buffer (m -> ratio per iteration, plus the
-    // sieve's OTF buffer).
-    return dataSize.getVolume() * sizeof(real_t);
+std::unique_ptr<const MemoryComponent> PoissonMLEDeconvolutionAlgorithm::getMemoryComponent(
+    const IBackendManager& backendManager, size_t workerThreads) const {
+    return std::make_unique<PoissonMLEAlgorithmMemoryComponent>(backendManager, workerThreads);
 }
 
 std::unique_ptr<DeconvolutionAlgorithm> PoissonMLEDeconvolutionAlgorithm::cloneSpecific() const {

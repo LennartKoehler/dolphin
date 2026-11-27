@@ -14,7 +14,6 @@ See the LICENSE file provided with the code for the full license.
 
 #include "CPUBackend.h"
 #include "dolphinbackend/IBackendManager.h"
-#include "dolphinbackend/MemoryComponent.h"
 #include <fftw3.h>
 #include <atomic>
 #include <mutex>
@@ -87,48 +86,10 @@ private:
 
 class CPUBackendManager;
 
-/**
- * @brief MemoryComponent for the CPU manager's FFT planning memory.
- *
- * FFTW plan creation (FFTW_MEASURE) transiently allocates one padded real
- * buffer plus one half-width complex buffer per planned transform, freed
- * afterwards; execution transforms in the caller-provided buffers. Plans and
- * planning are centralized in the manager's shared FFTWManager
- * (lock-serialized, plan cache shared by all worker backends), so the peak
- * occurs once system-wide. Reports and caps the HOST plane only.
- */
-class CPUFFTWorkspaceComponent : public MemoryComponent {
-public:
-    explicit CPUFFTWorkspaceComponent(CPUBackendManager& manager) : manager(manager) {}
-
-    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t) const override {
-        // Peak transient of FFTW plan creation (FFTW_MEASURE): one padded
-        // real buffer and one half-width complex buffer are allocated
-        // together while the planner runs, freed afterwards. Execution
-        // transforms in the caller-provided buffers. Plans and planning are
-        // centralized in the manager's shared FFTWManager (lock-serialized,
-        // plan cache shared by all worker backends), so the peak occurs once
-        // system-wide.
-        const size_t rows = cubeShape.height * cubeShape.depth;
-        const size_t complexWidth = cubeShape.width / 2 + 1;
-        return MemoryRequirement{rows * complexWidth * (2 * sizeof(real_t) + sizeof(complex_t)), 0};
-    }
-
-    // Facade for the manager's shared host-RAM cap.
-    void setMemoryLimit(const MemoryRequirement& limit) override;
-
-    std::string name() const override { return "fft workspace"; }
-
-private:
-    CPUBackendManager& manager;
-};
-
-
 //manage all cpu backends, currently should be used as a singleton
 class CPUBackendManager : public IBackendManager{
 public:
 
-    CPUBackendManager() : fftComponent(*this) {}
     ~CPUBackendManager() override = default;
     void init(LogCallback fn) override;
 
@@ -148,13 +109,11 @@ public:
     size_t getAvailableMemoryPerDevice() const override;
     void setMemoryLimit(size_t maxMemoryPerDevice_byte) override;
 
-    MemoryComponent& getMemoryComponent() override;
-
     // Max over the plan set's FFTW planning transients: the shared FFTWManager
     // plans lock-serialized with a plan cache shared by all worker backends,
     // so the transients never overlap and the set costs the largest single
     // planning peak, not the sum.
-    size_t getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions) const override;
+    size_t getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions, const size_t workerThreads) const override;
 
 protected:
 
@@ -170,12 +129,6 @@ protected:
     MemoryTracking memory;
     std::unique_ptr<FFTWManager> fftwManager;
 
-    CPUFFTWorkspaceComponent fftComponent;
-
     std::mutex mutex_;
 };
 
-// Defined after CPUBackendManager (it calls into it).
-inline void CPUFFTWorkspaceComponent::setMemoryLimit(const MemoryRequirement& limit) {
-    manager.setMemoryLimit(limit.hostBytes);
-}

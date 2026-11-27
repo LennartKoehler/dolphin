@@ -335,7 +335,7 @@ INSTANTIATE_TEST_SUITE_P(
 // that composition: the counts are folded in, the placement flips the
 // algorithm working set between host and device, and the breakdown names each
 // system. Reader / backend / psf are deterministic fakes; the algorithm is a
-// real Richardson-Lucy so getWorkingSetBytes is the genuine 1 complex array.
+// real Richardson-Lucy so the RL component's scratch is the genuine 1 complex array.
 // ---------------------------------------------------------------------------
 namespace {
 
@@ -382,41 +382,41 @@ TEST_F(PeakMemoryTest, StrategyFootprintAppliesCountsAndPlacement) {
 
     auto algorithm = makeRichardsLucy();
     ASSERT_NE(algorithm, nullptr);
-    const size_t fftBytes = backendManager.getFFTPlanMemoryBytes(algorithm->getFFTPlanDescriptions(shape));
-    ASSERT_GT(fftBytes, 0u);
 
     const size_t ioThreads = 2;
     const size_t workerThreads = 3;
     // RL holds 1 extra complex array of cube size (sizeof(complex_t)==2*real_t)
-    // plus the backend's plan-set answer, folded into the same per-thread
-    // concurrency as the scratch (one backend instance per worker thread).
+    // per worker thread. The FFT plan term is 0 here: the CPU manager's FFTW
+    // planning holds no persistent memory (a CUDA manager would fold its
+    // per-instance work areas into the answer inside the component's query).
     const size_t rlWorkingSet = vol * 2 * sizeof(real_t); // RL: 1 complex (2 real_t) array
-    const size_t algoBytes = (rlWorkingSet + fftBytes) * workerThreads;
+    const size_t algoBytes = rlWorkingSet * workerThreads;
 
-    const MemoryFootprint onHost = FootprintTestableStrategy::buildMemoryFootprint(
-        reader, writer, backendManager, psf, *algorithm, scheme, ioThreads, workerThreads, /*onDevice=*/false);
-    const MemoryFootprint onDevice = FootprintTestableStrategy::buildMemoryFootprint(
-        reader, writer, backendManager, psf, *algorithm, scheme, ioThreads, workerThreads, /*onDevice=*/true);
+    const MemoryFootprint footprint = FootprintTestableStrategy::buildMemoryFootprint(
+        reader, writer, backendManager, psf, *algorithm, scheme, ioThreads, workerThreads);
 
     // Enough tasks to keep every thread busy, so the components cap by their
     // thread counts (min(threads, numTasks)) and the assertions below verify
     // the per-thread multipliers (io x2, algorithm x3).
     const size_t numTasks = workerThreads;
-    const MemoryRequirement h = onHost.total(shape, numTasks);
-    const MemoryRequirement d = onDevice.total(shape, numTasks);
+    const MemoryRequirement total = footprint.total(shape, numTasks);
 
-    // The grand total is placement-invariant; only the algorithm working set
-    // moves between host and device.
-    EXPECT_EQ(h.hostBytes + h.deviceBytes, d.hostBytes + d.deviceBytes);
-    EXPECT_EQ(h.hostBytes, d.hostBytes + algoBytes);
-    EXPECT_EQ(d.deviceBytes, h.deviceBytes + algoBytes);
+    // The algorithm's component always reports the DEVICE plane (the budget
+    // folds it into the host pool when the backend is the CPU, device == host).
+    // With the fixed fakes above, the device plane is exactly: algorithm
+    // (scratch + fft, x3 workers), psf cache (3000), and the io staging device
+    // buffers (2 staging sets x 2 cube volumes). Reader, writer, io staging
+    // host buffers and padding only report on the host plane.
+    const size_t ioStagingDeviceBytes = 2 * 2 * vol * sizeof(real_t);
+    EXPECT_EQ(total.deviceBytes, algoBytes + 3000 + ioStagingDeviceBytes);
+    EXPECT_GT(total.hostBytes, 0u);
 
     // The breakdown names every memory-owning system; the per-thread
     // concurrency is folded into the reported bytes by the components
     // themselves (io staging x2, algorithm x3 for this run). The backend's
     // FFT memory appears only inside the algorithm component (no separate
     // "backend" term anymore).
-    const std::string breakdown = onHost.breakdown(shape, numTasks);
+    const std::string breakdown = footprint.breakdown(shape, numTasks);
     EXPECT_NE(breakdown.find("reader"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("tiffwriter"), std::string::npos) << breakdown;
     EXPECT_NE(breakdown.find("algorithm working set + fft plans"), std::string::npos) << breakdown;

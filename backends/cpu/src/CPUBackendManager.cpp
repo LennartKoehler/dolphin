@@ -83,24 +83,16 @@ void CPUBackendManager::setMemoryLimit(size_t maxMemoryPerDevice_byte) {
     memory.setMaxMemory(maxMemoryPerDevice_byte);
 }
 
-MemoryComponent& CPUBackendManager::getMemoryComponent() {
-    return fftComponent;
-}
 
-size_t CPUBackendManager::getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions) const {
-    // Peak transient of one FFTW plan creation (FFTW_MEASURE) per plan, in
-    // host RAM: REAL transforms plan with one padded real buffer plus one
-    // half-width complex buffer; COMPLEX transforms with two full complex
-    // buffers. Combined by max (the serialized planner never overlaps them).
-    size_t bytes = 0;
-    for (const FFTPlanDescription& description : descriptions) {
-        const size_t rows = description.shape.height * description.shape.depth;
-        const size_t planBytes = description.type == PlanType::COMPLEX
-            ? 2 * description.shape.getVolume() * sizeof(complex_t)
-            : rows * (description.shape.width / 2 + 1) * (2 * sizeof(real_t) + sizeof(complex_t));
-        bytes = std::max(bytes, planBytes);
-    }
-    return bytes;
+size_t CPUBackendManager::getFFTPlanMemoryBytes(const std::vector<FFTPlanDescription>& descriptions, const size_t workerThreads) const {
+    // FFTW planning (FFTW_MEASURE) transiently allocates buffers, but holds
+    // no PERSISTENT memory: the plan cache stores plan handles, execution
+    // transforms in the caller-provided buffers. The transient occurs during
+    // plan creation, kept out of the way of the image allocations, so the
+    // persistent footprint counts 0 regardless of the plan set or threads.
+    (void)descriptions;
+    (void)workerThreads;
+    return 0;
 }
 
 void CPUBackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) {

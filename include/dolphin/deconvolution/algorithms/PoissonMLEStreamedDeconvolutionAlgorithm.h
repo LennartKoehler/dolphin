@@ -45,13 +45,8 @@ public:
     bool isInitialized() const override;
     void deconvolve(const ComplexData& H, RealData& g, RealData& f,
                     const DeconvolutionRunContext& runContext = {}) override;
-    size_t getWorkingSetBytes(const CuboidShape& dataSize) const override;
-    std::vector<FFTPlanDescription> getFFTPlanDescriptions(const CuboidShape& dataSize) const override {
-        // The streamed data step runs on the backend with the same in-place
-        // plan pair the core declares (plus the out-of-place forward plan the
-        // regular stages use), so the core's set is complete.
-        return core_.planDescriptions(dataSize);
-    }
+    std::unique_ptr<const MemoryComponent> getMemoryComponent(
+        const IBackendManager& backendManager, size_t workerThreads) const override;
 
 private:
     // One z-slice of the padded in-place layout: staging buffer for the
@@ -65,4 +60,34 @@ private:
     bool initialized = false;
 
     std::unique_ptr<DeconvolutionAlgorithm> cloneSpecific() const override;
+};
+
+/**
+ * @brief MemoryComponent of the streamed PoissonMLE: only ONE z-slice of the
+ * padded in-place layout per worker thread (the staging buffer for the
+ * slab-wise upload of g) — the observed image lives in host RAM and the work
+ * volume is the caller's g buffer — plus the FFT work-area memory of the
+ * variant's plan set. Same concurrency and plane rules as
+ * PoissonMLEAlgorithmMemoryComponent.
+ */
+class PoissonMLEStreamedAlgorithmMemoryComponent : public MemoryComponent {
+public:
+    PoissonMLEStreamedAlgorithmMemoryComponent(const IBackendManager& backendManager,
+                                               size_t workerThreads)
+        : backendManager(backendManager), workerThreads(workerThreads) {}
+
+    MemoryRequirement footprint(const CuboidShape& cubeShape, size_t numTasks) const override {
+        const size_t instances = std::min(workerThreads, numTasks);
+        const size_t realStride = 2 * (cubeShape.width / 2 + 1);
+        const size_t scratchBytes = cubeShape.height * realStride * sizeof(real_t);
+        const size_t planBytes = backendManager.getFFTPlanMemoryBytes(
+            PoissonMLECore::planDescriptions(cubeShape), workerThreads);
+        return MemoryRequirement{0, instances * scratchBytes + planBytes};
+    }
+
+    std::string name() const override { return "algorithm working set + fft plans"; }
+
+private:
+    const IBackendManager& backendManager;
+    size_t workerThreads;
 };

@@ -121,7 +121,7 @@ std::unique_ptr<DeconvolutionAlgorithm> RLDeconvolutionAlgorithm::cloneSpecific(
     return copy;
 }
 
-size_t RLDeconvolutionAlgorithm::getWorkingSetBytes(const CuboidShape& dataSize) const {
-    // Allocates 1 additional complex array of input size
-    return dataSize.getVolume() * sizeof(real_t) * 2; //TODO * 2 because it also needs the out of place fft plane
+std::unique_ptr<const MemoryComponent> RLDeconvolutionAlgorithm::getMemoryComponent(
+    const IBackendManager& backendManager, size_t workerThreads) const {
+    return std::make_unique<RLAlgorithmMemoryComponent>(backendManager, workerThreads);
 }
