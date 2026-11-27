@@ -202,6 +202,6 @@ TEST_F(BackendFactoryTest, BackendManagerCreatesBackendForCurrentThread) {
     auto& manager = factory.getBackendManager("cpu");
     BackendConfig config{1, "cpu"};
     auto& backend = factory.getBackend<IBackend>(config);
-    auto& created = manager.createBackendForCurrentThread(config);
+    auto& created = manager.createBackend(config);
     EXPECT_EQ(created.getDeviceString(), "cpu");
 }

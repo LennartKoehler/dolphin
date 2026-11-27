@@ -55,7 +55,7 @@ void StandardDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     // device/memory domain (workerconfig carries the deviceId), so extra
     // per-io-thread worker backends would only duplicate FFT plans, work
     // areas and scratch that can never run concurrently.
-    thread_local IBackend& iobackend = context->manager.createBackendForCurrentThread(context->ioconfig);
+    thread_local IBackend& iobackend = context->manager.createBackend(context->ioconfig);
 
     std::shared_ptr<ReaderHandler> reader = task.sharedDescriptor->reader;
     std::shared_ptr<WriterHandler> writer = task.sharedDescriptor->writer;

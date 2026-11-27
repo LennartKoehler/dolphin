@@ -112,7 +112,7 @@ protected:
     IBackend* backend = nullptr;
 
     void SetUp() override {
-        backend = &getManager().createBackendForCurrentThread(config);
+        backend = &getManager().createBackend(config);
         ASSERT_NE(backend, nullptr);
     }
 
@@ -285,7 +285,7 @@ TEST_F(CUDABackendManagerTest, ManagerInit) {
 }
 
 TEST_F(CUDABackendManagerTest, GetBackendReturnsValidBackend) {
-    IBackend& b = getManager().createBackendForCurrentThread(config);
+    IBackend& b = getManager().createBackend(config);
     EXPECT_NE(b.getDeviceString().find("cuda"), std::string::npos);
     EXPECT_TRUE(b.hasMemoryManager());
     EXPECT_TRUE(b.ownsComputeBackend());
@@ -307,8 +307,8 @@ TEST_F(CUDABackendManagerTest, MultipleBackendsAreDistinct) {
     BackendConfig config1{1, "backend1"};
     BackendConfig config2{1, "backend2"};
 
-    IBackend& b1 = getManager().createBackendForCurrentThread(config1);
-    IBackend& b2 = getManager().createBackendForCurrentThread(config2);
+    IBackend& b1 = getManager().createBackend(config1);
+    IBackend& b2 = getManager().createBackend(config2);
 
     EXPECT_NE(&b1, &b2);
     EXPECT_NE(b1.getMemoryManagerPtr(), b2.getMemoryManagerPtr());
@@ -326,8 +326,8 @@ TEST_F(CUDABackendManagerTest, MultipleBackendsAreDistinct) {
 // }
 
 TEST_F(CUDABackendManagerTest, CreateBackendForCurrentThreadReturnsSeparateBackend) {
-    IBackend& original = getManager().createBackendForCurrentThread(config);
-    IBackend& created = getManager().createBackendForCurrentThread(config);
+    IBackend& original = getManager().createBackend(config);
+    IBackend& created = getManager().createBackend(config);
     EXPECT_NE(&original, &created);
     EXPECT_TRUE(created.hasMemoryManager());
     EXPECT_TRUE(created.ownsComputeBackend());

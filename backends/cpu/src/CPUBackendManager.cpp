@@ -43,7 +43,7 @@ std::unique_ptr<CPUBackendMemoryManager> CPUBackendManager::createMemoryManager(
     return std::make_unique<CPUBackendMemoryManager>(config, memory);
 }
 
-IBackend& CPUBackendManager::createBackendForCurrentThread(const BackendConfig& config) {
+IBackend& CPUBackendManager::createBackend(const BackendConfig& config) {
     CPUBackendConfig cpuconfig = configToConfig(config);
     auto compute = createComputeBackend(cpuconfig);
     auto mem = createMemoryManager(cpuconfig);

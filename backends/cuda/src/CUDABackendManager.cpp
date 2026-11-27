@@ -142,7 +142,7 @@ void CUDABackendManager::setThreadDistribution(ThreadConfig& inputThreadConfig, 
     }
 }
 
-IBackend& CUDABackendManager::createBackendForCurrentThread(const BackendConfig& config) {
+IBackend& CUDABackendManager::createBackend(const BackendConfig& config) {
     // CUDABackendConfig cudaconfig = configToConfig(config);
     int idx = config.deviceId >= 0 ? config.deviceId : usedDeviceCounter.fetch_add(1) % nDevices;
     CUDADevice device = devices[idx];

@@ -65,7 +65,7 @@ void LabeledDeconvolutionExecutor::runTask(const CubeTaskDescriptor& task){
     // The io thread's own backend for the device copies. The worker backends
     // are owned by the context's worker pool threads (see TaskContext) — one
     // per worker, all on this context's device/memory domain.
-    thread_local IBackend& iobackend = context->manager.createBackendForCurrentThread(context->ioconfig);
+    thread_local IBackend& iobackend = context->manager.createBackend(context->ioconfig);
 
 
     std::shared_ptr<ReaderHandler> reader = task.sharedDescriptor->reader;

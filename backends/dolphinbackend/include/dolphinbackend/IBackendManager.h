@@ -28,7 +28,7 @@ public:
 
     virtual void init(LogCallback fn) = 0;
 
-    virtual IBackend& createBackendForCurrentThread(const BackendConfig& config) = 0;
+    virtual IBackend& createBackend(const BackendConfig& config) = 0;
 
     virtual size_t getNumberDevices() const = 0;
 

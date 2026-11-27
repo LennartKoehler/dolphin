@@ -44,7 +44,7 @@ public:
     ~CUDABackendManager() override;
     void init(LogCallback fn) override;
 
-    IBackend& createBackendForCurrentThread(const BackendConfig& config) override;
+    IBackend& createBackend(const BackendConfig& config) override;
 
     void setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) override;
 

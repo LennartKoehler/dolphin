@@ -96,7 +96,7 @@ struct TaskContext{
         // io thread instead would duplicate plans, work areas and scratch for
         // backends that can never run concurrently.
         processor.init(nWorkerThreads, [this, &manager, workerconfig]() {
-            processor.registerWorkerBackend(manager.createBackendForCurrentThread(workerconfig));
+            processor.registerWorkerBackend(manager.createBackend(workerconfig));
         });
     }
     ~TaskContext(){
