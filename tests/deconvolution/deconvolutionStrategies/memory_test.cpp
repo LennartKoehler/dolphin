@@ -214,7 +214,6 @@ public:
 
     void init(LogCallback) override {}
     IBackend& createBackendForCurrentThread(const BackendConfig&) override { throw std::runtime_error("not used"); }
-    IBackend& createBackendSharedMemoryForCurrentThread(IBackend&, const BackendConfig&) override { throw std::runtime_error("not used"); }
     size_t getNumberDevices() const override { return 1; }
     void setThreadDistribution(ThreadConfig&, BackendConfig&, BackendConfig&) override {}
 

@@ -30,8 +30,6 @@ public:
 
     virtual IBackend& createBackendForCurrentThread(const BackendConfig& config) = 0;
 
-    virtual IBackend& createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config) = 0;
-
     virtual size_t getNumberDevices() const = 0;
 
     // Upper bound on useful hardware threads for this backend. Used to resolve

@@ -117,14 +117,14 @@ TEST_F(CPUBackendManagerTest, MultipleBackendsAreDistinct) {
 //     EXPECT_EQ(cloned.getDeviceString(), "cpu");
 // }
 
-TEST_F(CPUBackendManagerTest, CloneSharedMemoryReturnsSeparateBackend) {
+TEST_F(CPUBackendManagerTest, CreateBackendForCurrentThreadReturnsSeparateBackend) {
     IBackend& original = getManager().createBackendForCurrentThread(config);
-    IBackend& shared = getManager().createBackendSharedMemoryForCurrentThread(original, config);
-    EXPECT_NE(&original, &shared);
-    EXPECT_EQ(shared.getDeviceString(), "cpu");
-    EXPECT_TRUE(shared.hasMemoryManager());
-    EXPECT_TRUE(shared.ownsComputeBackend());
-    EXPECT_TRUE(shared.ownsMemoryManager());
+    IBackend& created = getManager().createBackendForCurrentThread(config);
+    EXPECT_NE(&original, &created);
+    EXPECT_EQ(created.getDeviceString(), "cpu");
+    EXPECT_TRUE(created.hasMemoryManager());
+    EXPECT_TRUE(created.ownsComputeBackend());
+    EXPECT_TRUE(created.ownsMemoryManager());
 }
 
 TEST_F(CPUBackendManagerTest, SetThreadDistribution) {

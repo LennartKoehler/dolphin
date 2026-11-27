@@ -325,13 +325,13 @@ TEST_F(CUDABackendManagerTest, MultipleBackendsAreDistinct) {
 //     EXPECT_NE(cloned.getDeviceString().find("cuda"), std::string::npos);
 // }
 
-TEST_F(CUDABackendManagerTest, CloneSharedMemoryReturnsSeparateBackend) {
+TEST_F(CUDABackendManagerTest, CreateBackendForCurrentThreadReturnsSeparateBackend) {
     IBackend& original = getManager().createBackendForCurrentThread(config);
-    IBackend& shared = getManager().createBackendSharedMemoryForCurrentThread(original, config);
-    EXPECT_NE(&original, &shared);
-    EXPECT_TRUE(shared.hasMemoryManager());
-    EXPECT_TRUE(shared.ownsComputeBackend());
-    EXPECT_TRUE(shared.ownsMemoryManager());
+    IBackend& created = getManager().createBackendForCurrentThread(config);
+    EXPECT_NE(&original, &created);
+    EXPECT_TRUE(created.hasMemoryManager());
+    EXPECT_TRUE(created.ownsComputeBackend());
+    EXPECT_TRUE(created.ownsMemoryManager());
 }
 
 TEST_F(CUDABackendManagerTest, SetThreadDistribution) {

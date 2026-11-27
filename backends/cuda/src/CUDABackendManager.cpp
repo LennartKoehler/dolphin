@@ -165,11 +165,6 @@ size_t CUDABackendManager::getFFTPlanMemoryBytes(const std::vector<FFTPlanDescri
     return bytes * workerThreads;
 }
 
-IBackend& CUDABackendManager::createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config){
-    CUDABackend& backend_ = dynamic_cast<CUDABackend&>(backend);
-    return createNewBackend(backend_.config);
-}
-
 // TODO make stream management more native, different streams in one cuda backend should not be permitted, one origin of truth
 std::unique_ptr<CUDAComputeBackend> CUDABackendManager::createComputeBackend(CUDABackendConfig config) {
     return std::make_unique<CUDAComputeBackend>(config);

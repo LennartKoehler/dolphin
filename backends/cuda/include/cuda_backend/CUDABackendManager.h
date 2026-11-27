@@ -46,11 +46,6 @@ public:
 
     IBackend& createBackendForCurrentThread(const BackendConfig& config) override;
 
-
-    // IBackend& clone(IBackend& backend, const BackendConfig& config) override ;
-    IBackend& createBackendSharedMemoryForCurrentThread(IBackend& backend, const BackendConfig& config) override;
-
-
     void setThreadDistribution(ThreadConfig& inputThreadConfig, BackendConfig& ioconfig, BackendConfig& workerConfig) override;
 
     size_t getNumberDevices() const override;

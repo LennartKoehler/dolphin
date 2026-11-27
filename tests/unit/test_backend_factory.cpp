@@ -197,11 +197,11 @@ TEST_F(BackendFactoryTest, MultipleThreadsBackend) {
     EXPECT_EQ(backend.getDeviceString(), "cpu");
 }
 
-TEST_F(BackendFactoryTest, BackendManagerClone) {
+TEST_F(BackendFactoryTest, BackendManagerCreatesBackendForCurrentThread) {
     auto& factory = BackendFactory::getInstance();
     auto& manager = factory.getBackendManager("cpu");
     BackendConfig config{1, "cpu"};
     auto& backend = factory.getBackend<IBackend>(config);
-    auto& cloned = manager.createBackendSharedMemoryForCurrentThread(backend, config);
-    EXPECT_EQ(cloned.getDeviceString(), "cpu");
+    auto& created = manager.createBackendForCurrentThread(config);
+    EXPECT_EQ(created.getDeviceString(), "cpu");
 }
